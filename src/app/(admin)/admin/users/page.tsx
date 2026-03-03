@@ -38,7 +38,6 @@ export default function AdminUsersPage() {
   const limit = 20;
 
   useEffect(() => {
-    setIsLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (role) params.set('role', role);
     if (wholesaleStatus) params.set('wholesaleStatus', wholesaleStatus);

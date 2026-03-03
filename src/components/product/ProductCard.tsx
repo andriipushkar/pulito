@@ -32,14 +32,13 @@ function setLocalWishlist(ids: number[]) {
 
 interface ProductCardProps {
   product: ProductListItem;
-  noteText?: string;
 }
 
-export default function ProductCard({ product, noteText }: ProductCardProps) {
+export default function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const { user } = useAuth();
   const [showQuickView, setShowQuickView] = useState(false);
-  const [isWished, setIsWished] = useState(false);
+  const [isWished, setIsWished] = useState(() => getLocalWishlist().includes(product.id));
   const [imageLoaded, setImageLoaded] = useState(false);
   const inStock = product.quantity > 0;
   const mainImage = product.images[0]?.pathMedium || product.imagePath;
@@ -48,19 +47,18 @@ export default function ProductCard({ product, noteText }: ProductCardProps) {
   useEffect(() => {
     if (user) {
       apiClient
-        .get<{ wishlisted: boolean }>(`/api/v1/me/wishlists/default/items/${product.id}/check`)
+        .get<{ wishlisted: boolean }>(`/api/v1/me/wishlists/default/items/${product.id}`)
         .then((res) => {
           if (res.success && res.data) setIsWished(res.data.wishlisted);
         })
         .catch(() => {});
-    } else {
-      setIsWished(getLocalWishlist().includes(product.id));
     }
   }, [user, product.id]);
 
   const handleToggleWishlist = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       const newState = !isWished;
       setIsWished(newState);
 
@@ -105,11 +103,12 @@ export default function ProductCard({ product, noteText }: ProductCardProps) {
   };
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-[var(--radius)] bg-[var(--color-bg)] shadow-[var(--shadow)] transition-all duration-200 hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5">
-      <Link href={`/product/${product.slug}`} className="relative aspect-square overflow-hidden bg-white">
+    <div className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-transparent bg-[var(--color-bg)] shadow-[var(--shadow)] transition-all duration-300 hover:shadow-[var(--shadow-xl)] hover:border-[var(--color-primary-light)]/30 hover:-translate-y-1 sm:rounded-2xl">
+      <Link href={`/product/${product.slug}`} className="relative aspect-square overflow-hidden bg-[var(--color-bg-secondary)]">
         {mainImage ? (
           <>
             {blurImage && !imageLoaded && (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={blurImage}
                 alt=""
@@ -117,6 +116,7 @@ export default function ProductCard({ product, noteText }: ProductCardProps) {
                 className="absolute inset-0 h-full w-full scale-110 object-contain blur-lg"
               />
             )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={mainImage}
               alt={product.name}
@@ -126,22 +126,25 @@ export default function ProductCard({ product, noteText }: ProductCardProps) {
             />
           </>
         ) : (
-          <div className={`flex h-full flex-col items-center justify-center ${
-            product.category?.name
-              ? 'bg-gradient-to-br from-[var(--color-primary-50)] via-[var(--color-primary-100)] to-[var(--color-primary-50)]'
-              : 'bg-gradient-to-br from-gray-100 via-gray-200 to-gray-100'
-          }`}>
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/80 text-2xl font-bold text-[var(--color-primary)]">
-              {product.name.charAt(0).toUpperCase()}
-            </div>
-            <svg className="mt-2 h-6 w-6 text-[var(--color-primary)] opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+            <svg className="h-10 w-10 text-gray-300 sm:h-16 sm:w-16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="22" y="4" width="20" height="6" rx="2" fill="currentColor" opacity="0.5" />
+              <rect x="26" y="1" width="4" height="5" rx="1" fill="currentColor" opacity="0.4" />
+              <rect x="34" y="1" width="4" height="5" rx="1" fill="currentColor" opacity="0.4" />
+              <path d="M20 10h24v6a4 4 0 01-4 4H24a4 4 0 01-4-4v-6z" fill="currentColor" opacity="0.5" />
+              <rect x="24" y="20" width="16" height="36" rx="4" fill="currentColor" opacity="0.6" />
+              <rect x="28" y="24" width="8" height="12" rx="2" fill="currentColor" opacity="0.3" />
+              <circle cx="14" cy="6" r="1.5" fill="currentColor" opacity="0.3" />
+              <circle cx="11" cy="10" r="1" fill="currentColor" opacity="0.2" />
+              <circle cx="50" cy="8" r="1.5" fill="currentColor" opacity="0.3" />
+              <circle cx="53" cy="12" r="1" fill="currentColor" opacity="0.2" />
             </svg>
+            <span className="mt-2 text-[10px] font-semibold tracking-widest text-gray-300 select-none">CleanShop</span>
           </div>
         )}
 
         {product.badges.length > 0 && (
-          <div className="absolute left-2 top-2 flex flex-col gap-1">
+          <div className="absolute left-1 top-1 flex flex-col gap-0.5 sm:left-2 sm:top-2 sm:gap-1">
             {product.badges.slice(0, 2).map((badge) => (
               <Badge key={badge.id} color={badge.customColor || undefined}>
                 {badge.customText || badge.badgeType}
@@ -150,32 +153,32 @@ export default function ProductCard({ product, noteText }: ProductCardProps) {
           </div>
         )}
 
-        <div className="absolute right-2 top-2 flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute right-1 top-1 flex flex-col gap-1 translate-x-10 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 max-sm:translate-x-0 max-sm:opacity-100 sm:right-2 sm:top-2">
           <button
-            className={`rounded-full bg-white p-1.5 shadow-sm transition-colors ${isWished ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]'}`}
+            className={`rounded-full bg-white/90 p-1 shadow-[var(--shadow)] backdrop-blur-sm transition-colors sm:p-1.5 ${isWished ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]'}`}
             aria-label={isWished ? 'Видалити з обраного' : 'Додати в обране'}
             onClick={handleToggleWishlist}
           >
-            {isWished ? <HeartFilled size={18} /> : <Heart size={18} />}
+            {isWished ? <HeartFilled size={16} /> : <Heart size={16} />}
           </button>
           <button
-            className="rounded-full bg-white p-1.5 text-[var(--color-text-secondary)] shadow-sm hover:text-[var(--color-primary)]"
+            className="hidden rounded-full bg-white/90 p-1.5 text-[var(--color-text-secondary)] shadow-[var(--shadow)] backdrop-blur-sm hover:text-[var(--color-primary)] sm:block"
             aria-label="Швидкий перегляд"
-            onClick={(e) => { e.preventDefault(); setShowQuickView(true); }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowQuickView(true); }}
           >
-            <Search size={18} />
+            <Search size={16} />
           </button>
         </div>
       </Link>
 
-      <div className="flex flex-1 flex-col border-t border-[var(--color-border)] p-3">
+      <div className="flex min-w-0 flex-1 flex-col p-2 sm:p-3">
         {product.category && (
-          <span className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">
+          <span className="mb-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-secondary)] sm:text-[11px]">
             {product.category.name}
           </span>
         )}
 
-        <Link href={`/product/${product.slug}`} className="mb-1 line-clamp-2 text-sm font-medium leading-snug text-[var(--color-text)] hover:text-[var(--color-primary)]">
+        <Link href={`/product/${product.slug}`} className="mb-1 line-clamp-2 text-xs font-medium leading-snug text-[var(--color-text)] hover:text-[var(--color-primary)] sm:text-sm">
           {product.name}
         </Link>
 
@@ -185,8 +188,6 @@ export default function ProductCard({ product, noteText }: ProductCardProps) {
           </p>
         )}
 
-        <p className="mb-2 text-[11px] text-[var(--color-text-secondary)]">Код: {product.code}</p>
-
         <div className="mt-auto">
           <PriceDisplay
             priceRetail={product.priceRetail}
@@ -194,28 +195,22 @@ export default function ProductCard({ product, noteText }: ProductCardProps) {
             size="sm"
           />
 
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <span className={`text-xs font-medium ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}>
+          <div className="mt-2 flex items-center justify-between gap-1 sm:gap-2">
+            <span className={`shrink-0 text-[10px] font-medium sm:text-xs ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}>
               {inStock ? 'В наявності' : 'Немає'}
             </span>
             <button
               onClick={handleAddToCart}
               disabled={!inStock}
-              className="flex items-center gap-1.5 rounded-[var(--radius)] bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-primary)] px-2.5 py-1.5 text-xs font-medium text-white shadow-[var(--shadow-brand)] transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-[var(--shadow-brand-lg)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none sm:gap-1.5 sm:px-3.5"
               aria-label="В кошик"
             >
               <Cart size={14} />
-              <span>В кошик</span>
+              <span className="hidden sm:inline">В кошик</span>
             </button>
           </div>
         </div>
       </div>
-
-      {noteText && (
-        <div className="absolute bottom-2 right-2 z-10 max-w-[140px] rotate-1 rounded bg-yellow-200 px-2 py-1.5 text-xs leading-tight text-yellow-900 shadow-sm" title={noteText}>
-          <span className="line-clamp-2">{noteText}</span>
-        </div>
-      )}
 
       {showQuickView && (
         <QuickView productId={product.id} onClose={() => setShowQuickView(false)} />

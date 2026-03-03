@@ -24,7 +24,6 @@ export default function CohortAnalysis({ months = 6 }: { months?: number }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient
       .get<CohortRow[]>(`/api/v1/admin/analytics/cohorts?months=${months}`)
       .then((res) => {

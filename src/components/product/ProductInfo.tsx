@@ -64,6 +64,7 @@ export default function ProductInfo({ product }: ProductInfoProps) {
         <div className="flex flex-wrap items-center gap-3">
           <QuantitySelector value={quantity} onChange={setQuantity} max={product.quantity} />
           <button
+            data-add-to-cart
             onClick={handleAddToCart}
             className="inline-flex items-center gap-2 rounded-[var(--radius)] bg-[var(--color-primary)] px-8 py-3 text-base font-semibold text-white shadow-md transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-lg"
           >

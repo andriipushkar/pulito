@@ -1,6 +1,5 @@
 import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
-import { redis } from '@/lib/redis';
 
 export class AccountError extends Error {
   constructor(

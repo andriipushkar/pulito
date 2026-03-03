@@ -90,7 +90,7 @@ test.describe('Notifications', () => {
 
       // Check for the unread count badge (span with bg-primary)
       const badge = heading.locator('span');
-      const hasBadge = await badge.isVisible({ timeout: 2000 }).catch(() => false);
+      const _hasBadge = await badge.isVisible({ timeout: 2000 }).catch(() => false);
 
       // Badge is optional (only shows when unreadCount > 0)
       await expect(page.locator('body')).toBeVisible();
@@ -101,7 +101,7 @@ test.describe('Notifications', () => {
       await page.waitForLoadState('networkidle');
 
       const markAllButton = page.locator('button', { hasText: /Позначити всі як прочитані/i });
-      const hasButton = await markAllButton.isVisible({ timeout: 3000 }).catch(() => false);
+      const _hasButton = await markAllButton.isVisible({ timeout: 3000 }).catch(() => false);
 
       // Button only appears when there are unread notifications
       await expect(page.locator('body')).toBeVisible();

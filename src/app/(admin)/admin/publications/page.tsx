@@ -66,6 +66,24 @@ const PUBLICATION_TEMPLATES: PublicationTemplate[] = [
   },
 ];
 
+function ChannelCheckboxes({ channels, onChange }: { channels: string[]; onChange: (ch: string) => void }) {
+  return (
+    <div className="mt-1 flex gap-3">
+      {['telegram', 'viber', 'site'].map((ch) => (
+        <label key={ch} className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={channels.includes(ch)}
+            onChange={() => onChange(ch)}
+            className="accent-[var(--color-primary)]"
+          />
+          {ch === 'telegram' ? 'Telegram' : ch === 'viber' ? 'Viber' : 'Сайт'}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminPublicationsPage() {
   const [publications, setPublications] = useState<Publication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -98,15 +116,20 @@ export default function AdminPublicationsPage() {
     });
   };
 
-  useEffect(() => {
-    loadPublications();
-  }, []);
-
   const loadPublications = async () => {
     const res = await apiClient.get<Publication[]>('/api/v1/admin/publications');
     if (res.success && res.data) setPublications(res.data);
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    const load = async () => {
+      const res = await apiClient.get<Publication[]>('/api/v1/admin/publications');
+      if (res.success && res.data) setPublications(res.data);
+      setIsLoading(false);
+    };
+    load();
+  }, []);
 
   const handleCreate = async () => {
     setIsSubmitting(true);
@@ -194,22 +217,6 @@ export default function AdminPublicationsPage() {
 
   const prevMonth = () => setCalendarMonth(new Date(calendarYear, calendarMonthIdx - 1, 1));
   const nextMonth = () => setCalendarMonth(new Date(calendarYear, calendarMonthIdx + 1, 1));
-
-  const ChannelCheckboxes = ({ channels, onChange }: { channels: string[]; onChange: (ch: string) => void }) => (
-    <div className="mt-1 flex gap-3">
-      {['telegram', 'viber', 'site'].map((ch) => (
-        <label key={ch} className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={channels.includes(ch)}
-            onChange={() => onChange(ch)}
-            className="accent-[var(--color-primary)]"
-          />
-          {ch === 'telegram' ? 'Telegram' : ch === 'viber' ? 'Viber' : 'Сайт'}
-        </label>
-      ))}
-    </div>
-  );
 
   return (
     <div>

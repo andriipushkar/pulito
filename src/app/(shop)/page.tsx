@@ -1,4 +1,5 @@
 import Container from '@/components/ui/Container';
+import AnimateOnScroll from '@/components/ui/AnimateOnScroll';
 import BannerSlider from '@/components/home/BannerSlider';
 import USPBlock from '@/components/home/USPBlock';
 import CategoryGrid from '@/components/home/CategoryGrid';
@@ -72,7 +73,7 @@ export default async function HomePage() {
     brands: <BrandLogos />,
     seo_text: (
       <section className="py-8">
-        <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 shadow-[var(--shadow)]">
+        <div className="rounded-2xl bg-gradient-to-br from-[var(--color-primary-50)] to-white p-8 shadow-[var(--shadow)]">
           <h2 className="mb-4 text-xl font-bold text-[var(--color-text)]">Інтернет-магазин побутової хімії Clean Shop</h2>
           <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
             Ласкаво просимо до Clean Shop — вашого надійного постачальника побутової хімії в Україні.
@@ -86,16 +87,22 @@ export default async function HomePage() {
   };
 
   return (
-    <Container className="py-6">
+    <Container className="py-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
-      {enabledBlocks.map((block) => {
+      <div className="space-y-12">
+      {enabledBlocks.map((block, index) => {
         const component = blockComponents[block.key];
         if (!component) return null;
-        return <div key={block.key}>{component}</div>;
+        return (
+          <AnimateOnScroll key={block.key} delay={index * 100}>
+            {component}
+          </AnimateOnScroll>
+        );
       })}
+      </div>
     </Container>
   );
 }

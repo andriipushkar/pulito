@@ -6,7 +6,7 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { prisma } from '@/lib/prisma';
 
 export const POST = withRole('admin', 'manager')(
-  async (request: NextRequest, { user, params }) => {
+  async (request: NextRequest, { params }) => {
     try {
       const { id } = await params!;
       const orderId = Number(id);

@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const contactFormSchema = z.object({
   name: z.string().min(2, 'Мінімум 2 символи'),
   email: z.string().email('Невірний формат email'),
-  phone: z.string().optional(),
+  phone: z.string().regex(/^\+380\d{9}$/, 'Невірний формат телефону').optional().or(z.literal('')),
   subject: z.string().max(200).optional(),
   message: z.string().min(10, 'Мінімум 10 символів').max(2000),
   website: z.string().max(0, 'Spam detected').optional(),
@@ -11,7 +11,7 @@ export const contactFormSchema = z.object({
 
 export const callbackRequestSchema = z.object({
   name: z.string().min(2, 'Мінімум 2 символи'),
-  phone: z.string().min(10, 'Введіть коректний номер телефону'),
+  phone: z.string().regex(/^\+380\d{9}$/, 'Введіть коректний номер телефону'),
   message: z.string().max(500).optional().default('Запит на зворотний дзвінок'),
   website: z.string().max(0, 'Spam detected').optional(),
 });

@@ -11,6 +11,7 @@ import RecentlyViewedTracker from '@/components/product/RecentlyViewedTracker';
 import RecentlyViewedSection from '@/components/product/RecentlyViewedSection';
 import PriceHistoryChart from '@/components/product/PriceHistoryChart';
 import BoughtTogetherSection from '@/components/product/BoughtTogetherSection';
+import FloatingBuyBar from '@/components/product/FloatingBuyBar';
 import { getProductBySlug, getProducts } from '@/services/product';
 import { prisma } from '@/lib/prisma';
 
@@ -97,6 +98,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
       )}
 
       <RecentlyViewedSection />
+
+      <FloatingBuyBar
+        productId={product.id}
+        name={product.name}
+        slug={product.slug}
+        code={product.code}
+        priceRetail={Number(product.priceRetail)}
+        priceWholesale={product.priceWholesale ? Number(product.priceWholesale) : null}
+        imagePath={product.images[0]?.pathMedium || product.imagePath}
+        quantity={product.quantity}
+      />
     </Container>
   );
 }

@@ -28,7 +28,6 @@ export default function ChannelAnalytics({ days }: { days: number }) {
   const [view, setView] = useState<'source' | 'utm_source' | 'utm_medium' | 'utm_campaign' | 'conversion'>('source');
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient.get<ChannelData>(`/api/v1/admin/analytics/channels?days=${days}`)
       .then((res) => { if (res.success && res.data) setData(res.data); })
       .finally(() => setIsLoading(false));

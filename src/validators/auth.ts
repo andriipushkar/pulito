@@ -10,7 +10,7 @@ export const registerSchema = z.object({
     .string()
     .min(2, "Ім'я має бути мінімум 2 символи")
     .max(100, "Ім'я має бути максимум 100 символів"),
-  phone: z.string().optional(),
+  phone: z.string().regex(/^\+380\d{9}$/, 'Невірний формат телефону').optional().or(z.literal('')),
   referralCode: z.string().optional(),
   companyName: z.string().max(200, 'Назва компанії має бути максимум 200 символів').optional(),
   edrpou: z

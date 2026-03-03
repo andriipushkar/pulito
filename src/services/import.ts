@@ -296,7 +296,7 @@ export function parsePreview(buffer: Buffer): {
   format: ImportFormat;
 } {
   const { rawRows } = parseWorkbook(buffer);
-  const { columnMapping, mappedKeys } = buildColumnMapping(rawRows);
+  const { mappedKeys } = buildColumnMapping(rawRows);
 
   const hasCode = mappedKeys.includes('code');
   const hasName = mappedKeys.includes('name');

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
-import { successResponse, paginatedResponse, errorResponse } from '@/utils/api-response';
+import { paginatedResponse, errorResponse } from '@/utils/api-response';
 
 export const GET = withRole('admin', 'manager')(
   async (request: NextRequest) => {

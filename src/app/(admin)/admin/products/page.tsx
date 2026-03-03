@@ -35,7 +35,6 @@ export default function AdminProductsPage() {
   const limit = 20;
 
   useEffect(() => {
-    setIsLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     const s = searchParams.get('search');
     if (s) params.set('search', s);
@@ -100,6 +99,7 @@ export default function AdminProductsPage() {
                       <div className="flex items-center gap-3">
                         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
                           {p.imagePath ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={p.imagePath} alt="" className="h-full w-full object-contain" />
                           ) : (
                             <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">—</div>

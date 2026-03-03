@@ -41,7 +41,6 @@ export default function ABCAnalysis({ days = 30 }: { days?: number }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient
       .get<ABCData>(`/api/v1/admin/analytics/abc?days=${days}`)
       .then((res) => {

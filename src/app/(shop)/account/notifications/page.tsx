@@ -27,16 +27,15 @@ export default function NotificationsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadNotifications();
+    const load = async () => {
+      const res = await apiClient.get<NotificationsResponse>('/api/v1/me/notifications');
+      if (res.success && res.data) {
+        setData(res.data);
+      }
+      setIsLoading(false);
+    };
+    load();
   }, []);
-
-  const loadNotifications = async () => {
-    const res = await apiClient.get<NotificationsResponse>('/api/v1/me/notifications');
-    if (res.success && res.data) {
-      setData(res.data);
-    }
-    setIsLoading(false);
-  };
 
   const markAsRead = async (id: number) => {
     await apiClient.put(`/api/v1/me/notifications/${id}/read`);

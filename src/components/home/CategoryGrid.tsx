@@ -5,17 +5,17 @@ interface CategoryGridProps {
   categories: CategoryListItem[];
 }
 
-const categoryColors = [
-  { bg: 'bg-green-100', text: 'text-green-600' },
-  { bg: 'bg-sky-100', text: 'text-sky-600' },
-  { bg: 'bg-orange-100', text: 'text-orange-600' },
-  { bg: 'bg-pink-100', text: 'text-pink-600' },
-  { bg: 'bg-purple-100', text: 'text-purple-600' },
-  { bg: 'bg-teal-100', text: 'text-teal-600' },
+const categoryBgs = [
+  'bg-gradient-to-br from-blue-50 to-blue-100',
+  'bg-gradient-to-br from-sky-50 to-sky-100',
+  'bg-gradient-to-br from-blue-50 to-indigo-100',
+  'bg-gradient-to-br from-cyan-50 to-blue-100',
+  'bg-gradient-to-br from-blue-50 to-sky-100',
+  'bg-gradient-to-br from-indigo-50 to-blue-100',
 ];
 
 function CategoryIcon({ index }: { index: number }) {
-  const cls = "h-9 w-9";
+  const cls = "h-14 w-14";
   switch (index % 6) {
     case 0: // spray
       return (
@@ -76,7 +76,10 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
   return (
     <section className="py-8">
       <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-2xl font-extrabold text-[var(--color-text)]">Категорії</h2>
+        <h2 className="relative text-2xl font-extrabold text-[var(--color-text)]">
+          Категорії
+          <span className="absolute -bottom-1 left-0 h-0.5 w-12 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)]" />
+        </h2>
         <Link
           href="/catalog"
           className="text-sm font-medium text-[var(--color-primary)] transition-colors hover:text-[var(--color-primary-dark)]"
@@ -86,15 +89,16 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {displayCategories.map((cat, idx) => {
-          const color = categoryColors[idx % categoryColors.length];
+          const bg = categoryBgs[idx % categoryBgs.length];
           return (
             <Link
               key={cat.id}
               href={`/catalog?category=${cat.slug}`}
-              className="group flex flex-col items-center gap-3 rounded-lg bg-[var(--color-bg)] p-4 shadow-[var(--shadow)] transition-all hover:-translate-y-1 hover:shadow-[var(--shadow-md)]"
+              className="group flex flex-col items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4 transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--color-primary-light)] hover:shadow-[var(--shadow-brand-lg)]"
             >
-              <div className={`flex h-20 w-20 items-center justify-center overflow-hidden rounded-full ${color.bg} ${color.text} transition-transform duration-300 group-hover:scale-110`}>
+              <div className={`flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] transition-transform duration-300 group-hover:scale-110`}>
                 {cat.coverImage ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={cat.coverImage}
                     alt={cat.name}
@@ -106,7 +110,9 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
               </div>
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-[var(--color-text)]">{cat.name}</h3>
-                <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{cat._count.products} товарів</p>
+                <span className="mt-1 inline-block rounded-full bg-[var(--color-primary-50)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-primary)]">
+                  {cat._count.products} товарів
+                </span>
               </div>
             </Link>
           );

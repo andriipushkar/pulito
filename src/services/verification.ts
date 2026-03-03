@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
-import { env } from '@/config/env';
 import { sendVerificationEmail, sendPasswordResetEmail } from './email';
 import { AuthError } from './auth-errors';
 

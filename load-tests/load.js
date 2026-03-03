@@ -24,7 +24,7 @@ export const options = {
 };
 
 // Simulate a typical browsing session
-export default function () {
+export default function loadTest() {
   // 1. Visit homepage
   http.get(`${BASE_URL}/`);
   sleep(Math.random() * 2 + 1);

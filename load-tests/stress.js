@@ -22,7 +22,7 @@ export const options = {
   },
 };
 
-export default function () {
+export default function stressTest() {
   const responses = http.batch([
     ['GET', `${BASE_URL}/api/v1/health`],
     ['GET', `${BASE_URL}/api/v1/products?page=1&limit=12`],

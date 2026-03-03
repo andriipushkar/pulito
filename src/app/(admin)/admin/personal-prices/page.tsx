@@ -52,7 +52,6 @@ export default function PersonalPricesPage() {
   const [message, setMessage] = useState('');
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
     const res = await apiClient.get<PersonalPrice[]>(`/api/v1/admin/personal-prices?page=${page}&limit=20`);
     if (res.success && res.data) {
       setItems(res.data);
@@ -61,7 +60,15 @@ export default function PersonalPricesPage() {
     setIsLoading(false);
   }, [page]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    apiClient.get<PersonalPrice[]>(`/api/v1/admin/personal-prices?page=${page}&limit=20`).then((res) => {
+      if (res.success && res.data) {
+        setItems(res.data);
+        setTotal((res as unknown as { pagination: { total: number } }).pagination?.total || 0);
+      }
+      setIsLoading(false);
+    });
+  }, [page]);
 
   const handleSubmit = async () => {
     setMessage('');

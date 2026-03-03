@@ -64,6 +64,7 @@ export default function BoughtTogetherSection({ productId }: BoughtTogetherSecti
             >
               <Link href={`/product/${p.slug}`} className="block aspect-square bg-[var(--color-bg-secondary)]">
                 {image ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={image} alt={p.name} className="h-full w-full object-contain p-2" loading="lazy" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)] opacity-30">

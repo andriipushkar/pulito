@@ -12,6 +12,11 @@ function getEffectiveHost(request: NextRequest): string | null {
 }
 
 function checkCsrf(request: NextRequest): NextResponse | null {
+  // Skip CSRF checks entirely in development (Dev Tunnels, etc.)
+  if (process.env.NODE_ENV === 'development') {
+    return null;
+  }
+
   const { pathname } = request.nextUrl;
 
   // Only check mutating API requests

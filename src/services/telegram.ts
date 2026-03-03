@@ -426,7 +426,6 @@ async function handleFeedbackSubmit(chatId: number, message: string, firstName: 
 async function handleSettings(chatId: number) {
   const user = await findLinkedUser(chatId);
   if (!user) {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
     await sendMessage(chatId, '⚠️ Для налаштувань потрібно прив\'язати акаунт.', {
       reply_markup: {
         inline_keyboard: [

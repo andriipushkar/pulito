@@ -25,7 +25,6 @@ export default function OrdersPage() {
   const limit = 10;
 
   useEffect(() => {
-    setIsLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (status) params.set('status', status);
 

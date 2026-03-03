@@ -31,7 +31,6 @@ export default function AdminReferralsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: '20' });
     if (statusFilter) params.set('status', statusFilter);
 
@@ -43,7 +42,18 @@ export default function AdminReferralsPage() {
     setIsLoading(false);
   }, [page, statusFilter]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const params = new URLSearchParams({ page: String(page), limit: '20' });
+    if (statusFilter) params.set('status', statusFilter);
+
+    apiClient.get<Referral[]>(`/api/v1/admin/referrals?${params}`).then((res) => {
+      if (res.success && res.data) {
+        setItems(res.data);
+        setTotal((res as unknown as { pagination: { total: number } }).pagination?.total || 0);
+      }
+      setIsLoading(false);
+    });
+  }, [page, statusFilter]);
 
   const handleGrantBonus = async (id: number) => {
     const value = prompt('Сума бонусу:');

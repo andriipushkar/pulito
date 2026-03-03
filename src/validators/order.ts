@@ -11,7 +11,7 @@ export const updateCartItemSchema = z.object({
 
 export const checkoutSchema = z.object({
   contactName: z.string().min(2, 'Мінімум 2 символи'),
-  contactPhone: z.string().min(10, 'Введіть коректний номер телефону'),
+  contactPhone: z.string().regex(/^\+380\d{9}$/, 'Введіть коректний номер телефону'),
   contactEmail: z.string().email('Невірний формат email'),
   companyName: z.string().optional(),
   edrpou: z.string().length(8, 'ЄДРПОУ має містити 8 цифр').optional(),

@@ -36,7 +36,6 @@ export default function CustomerLTV({ days }: { days: number }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient.get<LTVData>(`/api/v1/admin/analytics/ltv?days=${days}`)
       .then((res) => { if (res.success && res.data) setData(res.data); })
       .finally(() => setIsLoading(false));

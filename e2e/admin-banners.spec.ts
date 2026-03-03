@@ -130,11 +130,11 @@ test.describe('Admin Banners Management', () => {
     await page.waitForLoadState('networkidle');
 
     // Find delete button (Trash icon)
-    const deleteButton = page.locator('button').filter({ has: page.locator('[class*="text-[var(--color-danger)]"]') }).first();
-    const trashButton = page.locator('button[class*="danger"], button.text-\\[var\\(--color-danger\\)\\]').first();
+    const _deleteButton = page.locator('button').filter({ has: page.locator('[class*="text-[var(--color-danger)]"]') }).first();
+    const _trashButton = page.locator('button[class*="danger"], button.text-\\[var\\(--color-danger\\)\\]').first();
 
     // Try to find any delete button
-    const btn = page.locator('button').filter({ hasText: '' }).last();
+    const _btn = page.locator('button').filter({ hasText: '' }).last();
     const allButtons = page.locator('[class*="danger"]');
 
     if (!await allButtons.first().isVisible({ timeout: 3000 }).catch(() => false)) {

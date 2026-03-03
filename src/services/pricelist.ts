@@ -1,123 +1,377 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
+import fs from 'fs';
+import sharp from 'sharp';
 import { prisma } from '@/lib/prisma';
 
 const FONT_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
+const FONT_BOLD_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Bold.ttf');
+const PUBLIC_DIR = path.join(process.cwd(), 'public');
 
 const COMPANY = {
   name: 'Clean Shop',
+  tagline: 'Побутова хімія та засоби для дому',
   website: 'cleanshop.com.ua',
+  phone: '+38 (067) 123-45-67',
+};
+
+// A4 layout
+const PW = 595.28;
+const PH = 841.89;
+const M = 40; // margin
+const CW = PW - M * 2; // content width
+const IMG = 34;
+const ROW = 46;
+
+// Modern color palette
+const C = {
+  accent: '#2563eb',      // vivid blue
+  accentSoft: '#eff3ff',  // very light blue bg
+  accentMid: '#dbeafe',   // light blue
+  dark: '#0f172a',        // almost black
+  text: '#334155',        // slate gray
+  sub: '#94a3b8',         // muted gray
+  line: '#e2e8f0',        // border gray
+  bgAlt: '#f8fafc',       // zebra alt
+  green: '#10b981',       // emerald
+  greenBg: '#ecfdf5',
+  red: '#ef4444',
+  redBg: '#fef2f2',
+  imgBg: '#f1f5f9',       // placeholder bg
 };
 
 export class PricelistError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number = 400
-  ) {
+  constructor(message: string, public statusCode: number = 400) {
     super(message);
     this.name = 'PricelistError';
   }
 }
 
+// ── Image helpers ──
+
+async function toPngOrJpeg(buf: Buffer): Promise<Buffer> {
+  if (buf[0] === 0xff && buf[1] === 0xd8) return buf;
+  if (buf[0] === 0x89 && buf[1] === 0x50) return buf;
+  return sharp(buf).resize(80, 80, { fit: 'inside' }).png().toBuffer();
+}
+
+async function loadImage(imgPath: string | null): Promise<Buffer | null> {
+  if (!imgPath) return null;
+  let raw: Buffer | null = null;
+
+  try {
+    const local = path.join(PUBLIC_DIR, imgPath);
+    if (fs.existsSync(local)) raw = fs.readFileSync(local);
+  } catch { /* */ }
+
+  if (!raw) {
+    try {
+      const base = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+      const url = imgPath.startsWith('http') ? imgPath : `${base}${imgPath}`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (r.ok) raw = Buffer.from(await r.arrayBuffer());
+    } catch { /* */ }
+  }
+
+  if (!raw) return null;
+  try { return await toPngOrJpeg(raw); } catch { return null; }
+}
+
+function fmtPrice(n: number): string {
+  return n.toFixed(2);
+}
+
+// ── Rounded rect helper ──
+function roundedRect(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, r: number) {
+  doc.moveTo(x + r, y)
+    .lineTo(x + w - r, y)
+    .quadraticCurveTo(x + w, y, x + w, y + r)
+    .lineTo(x + w, y + h - r)
+    .quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+    .lineTo(x + r, y + h)
+    .quadraticCurveTo(x, y + h, x, y + h - r)
+    .lineTo(x, y + r)
+    .quadraticCurveTo(x, y, x + r, y);
+}
+
+// ── Main generator ──
+
 export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<Buffer> {
   const products = await prisma.product.findMany({
     where: { isActive: true },
-    include: { category: { select: { name: true } } },
+    include: {
+      category: { select: { name: true } },
+      images: { where: { isMain: true }, select: { pathThumbnail: true, pathMedium: true }, take: 1 },
+    },
     orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
   });
 
-  if (products.length === 0) {
+  if (!products.length) {
     throw new PricelistError('Немає активних товарів для генерації прайс-листа');
   }
 
-  // Group products by category
   const grouped = new Map<string, typeof products>();
-  for (const product of products) {
-    const categoryName = product.category?.name || 'Без категорії';
-    if (!grouped.has(categoryName)) {
-      grouped.set(categoryName, []);
-    }
-    grouped.get(categoryName)!.push(product);
+  for (const p of products) {
+    const cat = p.category?.name || 'Інше';
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat)!.push(p);
   }
 
-  const doc = new PDFDocument({ size: 'A4', margin: 40 });
-  doc.registerFont('Roboto', FONT_PATH);
-  doc.font('Roboto');
+  const hasBold = fs.existsSync(FONT_BOLD_PATH);
+  const doc = new PDFDocument({ size: 'A4', margin: M, autoFirstPage: false });
+  doc.registerFont('R', FONT_PATH);
+  if (hasBold) doc.registerFont('B', FONT_BOLD_PATH);
+  doc.font('R');
 
   const chunks: Buffer[] = [];
-  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  doc.on('data', (c: Buffer) => chunks.push(c));
 
-  // Header
-  doc.fontSize(18).text('Clean Shop \u2014 \u041F\u0440\u0430\u0439\u0441-\u043B\u0438\u0441\u0442', { align: 'center' });
-  doc.moveDown(0.3);
-  doc.fontSize(12).text(
-    type === 'wholesale' ? '\u041E\u043F\u0442\u043E\u0432\u0438\u0439 \u043F\u0440\u0430\u0439\u0441-\u043B\u0438\u0441\u0442' : '\u0420\u043E\u0437\u0434\u0440\u0456\u0431\u043D\u0438\u0439 \u043F\u0440\u0430\u0439\u0441-\u043B\u0438\u0441\u0442',
-    { align: 'center' }
-  );
-  doc.fontSize(9).text(`\u0414\u0430\u0442\u0430: ${new Date().toLocaleDateString('uk-UA')}`, { align: 'center' });
-  doc.fontSize(9).text(COMPANY.website, { align: 'center' });
-  doc.moveDown(1);
+  let pageNum = 0;
 
-  // Table column positions
-  const colX = { code: 40, name: 110, category: 300, price: 420, stock: 500 };
-
-  const drawTableHeader = (y: number) => {
-    doc.fontSize(8).fillColor('#444444');
-    doc.text('\u041A\u043E\u0434', colX.code, y);
-    doc.text('\u041D\u0430\u0437\u0432\u0430', colX.name, y);
-    doc.text('\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0456\u044F', colX.category, y);
-    doc.text('\u0426\u0456\u043D\u0430, \u0433\u0440\u043D', colX.price, y, { width: 70, align: 'right' });
-    doc.text('\u041D\u0430\u044F\u0432\u043D\u0456\u0441\u0442\u044C', colX.stock, y, { width: 55, align: 'right' });
-    doc.moveTo(40, y + 12).lineTo(555, y + 12).stroke('#cccccc');
-    doc.fillColor('#000000');
-    return y + 20;
+  // Column positions
+  const NUM_W = 22; // width for row number column
+  const col = {
+    num: M,
+    img: M + NUM_W,
+    name: M + NUM_W + IMG + 10,
+    price: PW - M - 100,
+    stock: PW - M - 38,
   };
 
-  let y = drawTableHeader(doc.y);
+  // ── Page header ──
+  const drawHeader = (): number => {
+    // Top accent gradient (two bars)
+    doc.rect(0, 0, PW, 5).fill(C.accent);
+    doc.rect(0, 5, PW, 2).fill(C.accentMid);
 
-  for (const [categoryName, categoryProducts] of grouped) {
-    // Category section header
-    if (y > 740) {
-      doc.addPage();
-      y = drawTableHeader(40);
+    // Company name
+    if (hasBold) doc.font('B');
+    doc.fontSize(20).fillColor(C.accent);
+    doc.text(COMPANY.name, M, 22, { lineBreak: false });
+
+    // Tagline
+    doc.font('R').fontSize(8).fillColor(C.sub);
+    doc.text(COMPANY.tagline, M, 46, { lineBreak: false });
+
+    // Right: type badge
+    const typeLabel = type === 'wholesale' ? 'ОПТОВИЙ ПРАЙС' : 'РОЗДРІБНИЙ ПРАЙС';
+    const badgeW = 130;
+    const badgeX = PW - M - badgeW;
+    roundedRect(doc, badgeX, 20, badgeW, 22, 4);
+    doc.fill(C.accentSoft);
+    if (hasBold) doc.font('B');
+    doc.fontSize(8).fillColor(C.accent);
+    doc.text(typeLabel, badgeX, 27, { width: badgeW, align: 'center', lineBreak: false });
+
+    // Right: date & contacts
+    doc.font('R').fontSize(7).fillColor(C.sub);
+    doc.text(new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' }),
+      M, 48, { width: CW, align: 'right', lineBreak: false });
+    doc.text(`${COMPANY.website}  •  ${COMPANY.phone}`,
+      M, 58, { width: CW, align: 'right', lineBreak: false });
+
+    // Separator
+    doc.moveTo(M, 72).lineTo(PW - M, 72).lineWidth(0.5).stroke(C.line);
+
+    return 80;
+  };
+
+  // ── Table column header ──
+  const drawColHeader = (y: number): number => {
+    roundedRect(doc, M, y, CW, 18, 3);
+    doc.fill(C.accentSoft);
+
+    if (hasBold) doc.font('B');
+    doc.fontSize(6.5).fillColor(C.accent);
+    const ty = y + 5;
+    doc.text('№', col.num + 2, ty, { width: NUM_W, align: 'center', lineBreak: false });
+    doc.text('ФОТО', col.img + 4, ty, { width: 30, lineBreak: false });
+    doc.text('ТОВАР / КОД', col.name, ty, { width: 200, lineBreak: false });
+    doc.text('ЦІНА, ₴', col.price, ty, { width: 55, align: 'right', lineBreak: false });
+    doc.text('НАЯВНІСТЬ', col.stock, ty, { width: 38, align: 'right', lineBreak: false });
+    doc.font('R').fillColor(C.dark);
+
+    return y + 22;
+  };
+
+  // ── Category header ──
+  const drawCategory = (y: number, name: string, count: number): number => {
+    // Accent line left + light bg
+    roundedRect(doc, M, y, CW, 22, 3);
+    doc.fill('#f0f4ff');
+    doc.rect(M, y + 2, 3, 18).fill(C.accent);
+
+    if (hasBold) doc.font('B');
+    doc.fontSize(9).fillColor(C.dark);
+    doc.text(name, M + 12, y + 6, { lineBreak: false });
+
+    // Count badge
+    const countText = `${count}`;
+    const cw = doc.widthOfString(countText) + 12;
+    roundedRect(doc, PW - M - cw - 6, y + 4, cw, 14, 7);
+    doc.fill(C.accentMid);
+    doc.font('R').fontSize(7).fillColor(C.accent);
+    doc.text(countText, PW - M - cw - 6, y + 7, { width: cw, align: 'center', lineBreak: false });
+
+    doc.fillColor(C.dark).font('R');
+    return y + 28;
+  };
+
+  // ── Product row ──
+  let rowNum = 0;
+  const drawRow = async (y: number, p: typeof products[0], odd: boolean): Promise<number> => {
+    rowNum++;
+
+    // Row background
+    if (odd) {
+      doc.rect(M, y, CW, ROW).fill(C.bgAlt);
     }
 
-    doc.fontSize(9).fillColor('#222222').text(categoryName, 40, y, { underline: true });
-    doc.fillColor('#000000');
-    y += 16;
+    // Row number
+    doc.font('R').fontSize(7).fillColor(C.sub);
+    doc.text(`${rowNum}`, col.num, y + (ROW - 7) / 2, { width: NUM_W, align: 'center', lineBreak: false });
 
-    for (const p of categoryProducts) {
-      if (y > 760) {
-        doc.addPage();
-        y = drawTableHeader(40);
+    // Image
+    const imgPath = p.images?.[0]?.pathThumbnail || p.images?.[0]?.pathMedium || p.imagePath;
+    const imgBuf = await loadImage(imgPath);
+    const imgY = y + (ROW - IMG) / 2;
+
+    if (imgBuf) {
+      try {
+        // Soft rounded bg behind image
+        roundedRect(doc, col.img + 1, imgY - 1, IMG + 2, IMG + 2, 4);
+        doc.fill(C.imgBg);
+        doc.image(imgBuf, col.img + 2, imgY, { fit: [IMG, IMG], align: 'center', valign: 'center' });
+      } catch {
+        roundedRect(doc, col.img + 1, imgY - 1, IMG + 2, IMG + 2, 4);
+        doc.fill(C.imgBg);
+      }
+    } else {
+      // Subtle rounded placeholder
+      roundedRect(doc, col.img + 1, imgY - 1, IMG + 2, IMG + 2, 4);
+      doc.fill(C.imgBg);
+    }
+
+    // Product name (truncate to prevent page overflow)
+    const nameY = y + 8;
+    if (hasBold) doc.font('B');
+    doc.fontSize(8).fillColor(C.dark);
+    const nameW = col.price - col.name - 12;
+    let displayName = p.name;
+    while (doc.widthOfString(displayName) > nameW && displayName.length > 10) {
+      displayName = displayName.slice(0, -4) + '...';
+    }
+    doc.text(displayName, col.name, nameY, { width: nameW, lineBreak: false });
+
+    // Code
+    doc.font('R').fontSize(6).fillColor(C.sub);
+    doc.text(p.code, col.name, nameY + 16, { width: nameW, lineBreak: false });
+
+    // Price
+    const price = type === 'wholesale'
+      ? (p.priceWholesale !== null ? Number(p.priceWholesale) : Number(p.priceRetail))
+      : Number(p.priceRetail);
+
+    if (hasBold) doc.font('B');
+    doc.fontSize(9).fillColor(C.dark);
+    doc.text(fmtPrice(price), col.price, y + 14, { width: 55, align: 'right', lineBreak: false });
+    doc.font('R');
+
+    // Availability badge
+    const inStock = p.quantity > 0;
+    const stockText = inStock ? `${p.quantity} шт` : 'Ні';
+    const stockW = 32;
+    const stockX = PW - M - stockW - 3;
+    const stockY = y + 12;
+
+    roundedRect(doc, stockX, stockY, stockW, 16, 8);
+    doc.fill(inStock ? C.greenBg : C.redBg);
+
+    doc.fontSize(6.5).fillColor(inStock ? C.green : C.red);
+    doc.text(stockText, stockX, stockY + 4, { width: stockW, align: 'center', lineBreak: false });
+    doc.fillColor(C.dark);
+
+    // Bottom separator
+    doc.moveTo(M + 8, y + ROW - 1).lineTo(PW - M - 8, y + ROW - 1)
+      .lineWidth(0.2).stroke(C.line);
+
+    return y + ROW;
+  };
+
+  // ── Footer helper (draws on current page) ──
+  const drawFooter = () => {
+    const fy = PH - 28;
+    doc.moveTo(M, fy).lineTo(PW - M, fy).lineWidth(0.3).stroke(C.line);
+
+    // Temporarily disable auto-paging (text at bottom would trigger new page)
+    const savedMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+
+    doc.font('R').fontSize(6.5).fillColor(C.sub);
+    doc.text(`© ${new Date().getFullYear()} ${COMPANY.name}  •  ${COMPANY.website}`, M, fy + 6, { lineBreak: false });
+    doc.text(`Стор. ${pageNum}`, M, fy + 6, { width: CW, align: 'right', lineBreak: false });
+
+    doc.page.margins.bottom = savedMargin;
+  };
+
+  // ── New page helper ──
+  const newPage = (): number => {
+    if (pageNum > 0) drawFooter(); // footer on previous page
+    doc.addPage();
+    pageNum++;
+    let ny = drawHeader();
+    ny = drawColHeader(ny);
+    return ny;
+  };
+
+  // ── Build pages ──
+  let y = newPage();
+  let odd = false;
+
+  for (const [catName, catProducts] of grouped) {
+    // Need space for category + at least 1 row
+    if (y > PH - M - ROW - 50) {
+      y = newPage();
+      odd = false;
+    }
+
+    y = drawCategory(y, catName, catProducts.length);
+
+    for (const p of catProducts) {
+      if (y > PH - M - 50) {
+        y = newPage();
+        odd = false;
       }
 
-      const price = type === 'wholesale'
-        ? (p.priceWholesale !== null ? Number(p.priceWholesale) : Number(p.priceRetail))
-        : Number(p.priceRetail);
-      const availability = p.quantity > 0 ? `${p.quantity} \u0448\u0442.` : '\u041D\u0435\u043C\u0430\u0454';
-
-      doc.fontSize(7);
-      doc.text(p.code, colX.code, y, { width: 65 });
-      doc.text(p.name, colX.name, y, { width: 185 });
-      doc.text(categoryName, colX.category, y, { width: 115 });
-      doc.text(price.toFixed(2), colX.price, y, { width: 70, align: 'right' });
-      doc.text(availability, colX.stock, y, { width: 55, align: 'right' });
-
-      y += 16;
+      y = await drawRow(y, p, odd);
+      odd = !odd;
     }
+
+    // Small gap between categories
+    y += 4;
   }
 
-  // Footer
-  doc.moveDown(2);
-  doc.fontSize(8).fillColor('#666666');
-  doc.text(`\u0417\u0430\u0433\u0430\u043B\u043E\u043C \u0442\u043E\u0432\u0430\u0440\u0456\u0432: ${products.length}`, { align: 'center' });
-  doc.text(`${COMPANY.name} | ${COMPANY.website}`, { align: 'center' });
+  // Footer on last page + total
+  {
+    const fy = PH - 28;
+    doc.moveTo(M, fy).lineTo(PW - M, fy).lineWidth(0.3).stroke(C.line);
 
-  doc.end();
+    const savedMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
 
-  return new Promise<Buffer>((resolve, reject) => {
+    doc.font('R').fontSize(6.5).fillColor(C.sub);
+    doc.text(`© ${new Date().getFullYear()} ${COMPANY.name}  •  ${COMPANY.website}`, M, fy + 6, { lineBreak: false });
+    doc.text(`${products.length} товарів у каталозі`, M, fy + 6, { width: CW, align: 'center', lineBreak: false });
+    doc.text(`Стор. ${pageNum}`, M, fy + 6, { width: CW, align: 'right', lineBreak: false });
+
+    doc.page.margins.bottom = savedMargin;
+  }
+
+  const result = new Promise<Buffer>((resolve, reject) => {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
   });
+
+  doc.end();
+  return result;
 }

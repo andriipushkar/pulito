@@ -49,7 +49,7 @@ export default function WishlistPage() {
     try {
       const res = await apiClient.get<Wishlist[]>('/api/v1/me/wishlists');
       if (res.success && res.data) {
-        setWishlists(res.data);
+        setWishlists(res.data.map((wl) => ({ ...wl, items: wl.items || [] })));
       }
     } finally {
       setIsLoading(false);
@@ -61,7 +61,8 @@ export default function WishlistPage() {
     if (!name) return;
     const res = await apiClient.post<Wishlist>('/api/v1/me/wishlists', { name });
     if (res.success && res.data) {
-      setWishlists((prev) => [...prev, res.data!]);
+      const newList = { ...res.data!, items: res.data!.items || [] };
+      setWishlists((prev) => [...prev, newList]);
       setNewListName('');
       setShowNewForm(false);
     }

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import Input from '@/components/ui/Input';
+import PhoneInput, { cleanPhone } from '@/components/ui/PhoneInput';
 import Button from '@/components/ui/Button';
 
 export default function SettingsPage() {
@@ -137,12 +138,10 @@ export default function SettingsPage() {
             value={profileData.fullName}
             onChange={(e) => setProfileData((p) => ({ ...p, fullName: e.target.value }))}
           />
-          <Input
+          <PhoneInput
             label="Телефон"
-            type="tel"
             value={profileData.phone}
-            onChange={(e) => setProfileData((p) => ({ ...p, phone: e.target.value }))}
-            placeholder="+380XXXXXXXXX"
+            onChange={(e) => setProfileData((p) => ({ ...p, phone: cleanPhone(e.target.value) }))}
           />
           {profileMessage && (
             <p className={`text-sm ${profileMessage.type === 'success' ? 'text-green-600' : 'text-[var(--color-danger)]'}`}>
@@ -206,7 +205,7 @@ export default function SettingsPage() {
               </div>
               {!googleStatus.hasPassword && (
                 <p className="text-sm text-[var(--color-text-secondary)]">
-                  Щоб від'єднати Google, спочатку встановіть пароль для акаунту.
+                  Щоб від&apos;єднати Google, спочатку встановіть пароль для акаунту.
                 </p>
               )}
               <Button
@@ -215,7 +214,7 @@ export default function SettingsPage() {
                 isLoading={isUnlinkingGoogle}
                 disabled={!googleStatus.hasPassword}
               >
-                Від'єднати
+                Від&apos;єднати
               </Button>
             </>
           ) : (

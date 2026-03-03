@@ -74,6 +74,7 @@ export default function QuickView({ productId, onClose }: QuickViewProps) {
             <div className="w-1/2 shrink-0">
               <div className="aspect-square overflow-hidden rounded-[var(--radius)] bg-[var(--color-bg-secondary)]">
                 {product.images[0]?.pathMedium || product.imagePath ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={product.images[0]?.pathMedium || product.imagePath || ''}
                     alt={product.name}

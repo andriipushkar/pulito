@@ -34,7 +34,6 @@ export default function AdminOrdersPage() {
   const limit = 20;
 
   const loadOrders = useCallback(() => {
-    setIsLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (status) params.set('status', status);
     if (search) params.set('search', search);
@@ -51,9 +50,21 @@ export default function AdminOrdersPage() {
   }, [page, status, search]);
 
   useEffect(() => {
-    loadOrders();
-    setSelectedIds(new Set());
-  }, [loadOrders]);
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (status) params.set('status', status);
+    if (search) params.set('search', search);
+
+    apiClient
+      .get<OrderListItem[]>(`/api/v1/admin/orders?${params}`)
+      .then((res) => {
+        if (res.success && res.data) {
+          setOrders(res.data);
+          setTotal(res.pagination?.total || 0);
+        }
+        setSelectedIds(new Set());
+      })
+      .finally(() => setIsLoading(false));
+  }, [page, status, search]);
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());

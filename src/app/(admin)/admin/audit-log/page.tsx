@@ -25,7 +25,6 @@ export default function AdminAuditLogPage() {
   const limit = 20;
 
   useEffect(() => {
-    setIsLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (actionFilter) params.set('actionType', actionFilter);
 

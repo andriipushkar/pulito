@@ -147,6 +147,7 @@ export default function AdminBannersPage() {
               {/* Thumbnail */}
               <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
                 {b.imageDesktop ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={b.imageDesktop} alt={b.title || 'Банер'} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-secondary)]">Немає зобр.</div>

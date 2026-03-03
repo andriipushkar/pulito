@@ -21,7 +21,7 @@ test.describe('Admin Orders Management', () => {
 
     // Should have a table or list of orders
     const ordersList = page.locator('table, [data-testid="orders-list"], .orders-list');
-    const hasOrders = await ordersList.isVisible({ timeout: 5000 }).catch(() => false);
+    const _hasOrders = await ordersList.isVisible({ timeout: 5000 }).catch(() => false);
 
     // Even if empty, the page should load without errors
     const pageTitle = page.locator('h1, h2');

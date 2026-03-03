@@ -38,6 +38,8 @@ interface TopProduct {
 
 type AnalyticsTab = 'sales' | 'products' | 'clients' | 'orders' | 'performance' | 'funnel' | 'cohorts' | 'abc' | 'alerts' | 'stock' | 'price' | 'channels' | 'geography' | 'ltv' | 'segments';
 
+const SELF_CONTAINED_TABS: AnalyticsTab[] = ['performance', 'funnel', 'cohorts', 'abc', 'alerts', 'stock', 'price', 'channels', 'geography', 'ltv', 'segments'];
+
 export default function AdminAnalyticsPage() {
   const [tab, setTab] = useState<AnalyticsTab>('sales');
   const [days, setDays] = useState(30);
@@ -59,10 +61,8 @@ export default function AdminAnalyticsPage() {
     }
   }, [tab, days]);
 
-  const selfContainedTabs: AnalyticsTab[] = ['performance', 'funnel', 'cohorts', 'abc', 'alerts', 'stock', 'price', 'channels', 'geography', 'ltv', 'segments'];
-
   useEffect(() => {
-    if (selfContainedTabs.includes(tab)) {
+    if (SELF_CONTAINED_TABS.includes(tab)) {
       setIsLoading(false);
       return;
     }

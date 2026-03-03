@@ -19,6 +19,8 @@ export default function ProductCarousel({ title, products, viewAllHref }: Produc
     align: 'start',
     containScroll: 'trimSnaps',
     breakpoints: {
+      '(min-width: 1536px)': { slidesToScroll: 6 },
+      '(min-width: 1280px)': { slidesToScroll: 5 },
       '(min-width: 1024px)': { slidesToScroll: 4 },
       '(min-width: 768px)': { slidesToScroll: 3 },
       '(min-width: 640px)': { slidesToScroll: 2 },
@@ -35,28 +37,28 @@ export default function ProductCarousel({ title, products, viewAllHref }: Produc
       <div className="mb-5 flex items-center justify-between">
         <h2 className="relative text-2xl font-extrabold text-[var(--color-text)]">
           {title}
-          <span className="absolute -bottom-1 left-0 h-0.5 w-10 rounded-full bg-[var(--color-primary)]" />
+          <span className="absolute -bottom-1 left-0 h-0.5 w-12 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)]" />
         </h2>
         <div className="flex items-center gap-3">
           {viewAllHref && (
             <Link
               href={viewAllHref}
-              className="text-sm font-medium text-[var(--color-primary)] transition-colors hover:text-[var(--color-primary-dark)]"
+              className="rounded-full border border-[var(--color-primary)] px-4 py-1.5 text-sm font-medium text-[var(--color-primary)] transition-all hover:bg-[var(--color-primary)] hover:text-white"
             >
-              Дивитись все &rarr;
+              Дивитись все
             </Link>
           )}
           <div className="flex gap-1">
             <button
               onClick={scrollPrev}
-              className="rounded-full bg-[var(--color-bg-secondary)] p-2 text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-primary)] hover:text-white"
+              className="rounded-full border border-[var(--color-border)] p-2 text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white"
               aria-label="Попередній"
             >
               <ChevronLeft size={16} />
             </button>
             <button
               onClick={scrollNext}
-              className="rounded-full bg-[var(--color-bg-secondary)] p-2 text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-primary)] hover:text-white"
+              className="rounded-full border border-[var(--color-border)] p-2 text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white"
               aria-label="Наступний"
             >
               <ChevronRight size={16} />
@@ -70,7 +72,7 @@ export default function ProductCarousel({ title, products, viewAllHref }: Produc
           {products.map((product) => (
             <div
               key={product.id}
-              className="min-w-0 shrink-0 basis-1/2 pl-4 sm:basis-1/2 md:basis-1/3 lg:basis-1/4"
+              className="min-w-0 shrink-0 basis-1/3 pl-4 md:basis-1/3 lg:basis-1/4 xl:basis-1/5 2xl:basis-1/6"
             >
               <ProductCard product={product} />
             </div>

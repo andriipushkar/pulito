@@ -8,15 +8,11 @@ import Spinner from '@/components/ui/Spinner';
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(token ? 'loading' : 'error');
+  const [message, setMessage] = useState(token ? '' : 'Невалідне посилання для верифікації');
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setMessage('Невалідне посилання для верифікації');
-      return;
-    }
+    if (!token) return;
 
     fetch('/api/v1/auth/verify-email', {
       method: 'POST',

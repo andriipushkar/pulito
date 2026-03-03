@@ -173,7 +173,7 @@ export async function updateThemeSettings(themeId: number, customSettings: Recor
  * @param filename - Оригінальне ім'я файлу
  * @returns Створений об'єкт теми
  */
-export async function uploadTheme(buffer: Buffer, filename: string) {
+export async function uploadTheme(buffer: Buffer, _filename: string) {
   const AdmZip = (await import('adm-zip')).default;
   const zip = new AdmZip(buffer);
   const entries = zip.getEntries();
@@ -197,11 +197,6 @@ export async function uploadTheme(buffer: Buffer, filename: string) {
   if (!themeConfig.name || typeof themeConfig.name !== 'string') {
     throw new ThemeError('theme.json має містити поле "name"', 400);
   }
-
-  // Check for styles directory
-  const hasStyles = entries.some(
-    (e) => e.entryName.includes('styles/') || e.entryName.includes('styles\\')
-  );
 
   const folderName = themeConfig.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   const displayName = themeConfig.displayName || themeConfig.name;

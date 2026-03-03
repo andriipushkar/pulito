@@ -80,8 +80,8 @@ test.describe('Product Image Gallery', () => {
     }
 
     // Get the first thumbnail's src to compare
-    const firstThumbnailSrc = await thumbnails.nth(0).getAttribute('src');
-    const secondThumbnailSrc = await thumbnails.nth(1).getAttribute('src');
+    const _firstThumbnailSrc = await thumbnails.nth(0).getAttribute('src');
+    const _secondThumbnailSrc = await thumbnails.nth(1).getAttribute('src');
 
     // Click the second thumbnail
     const secondThumbnailButton = page.locator('button:has(img.h-16)').nth(1);
@@ -91,7 +91,7 @@ test.describe('Product Image Gallery', () => {
     await page.waitForTimeout(300);
 
     // The selected thumbnail should now have the primary border
-    const selectedBorder = secondThumbnailButton.locator('[class*="border-[var(--color-primary)]"]');
+    const _selectedBorder = secondThumbnailButton.locator('[class*="border-[var(--color-primary)]"]');
     // Or check that the button class changed
     const buttonClass = await secondThumbnailButton.getAttribute('class');
     expect(buttonClass).toContain('border-');
@@ -261,7 +261,7 @@ test.describe('Product Image Gallery', () => {
     // Mobile carousel should be visible (the lg:hidden block)
     // Check for dot indicators
     const dotButtons = page.locator('button[aria-label*="Зображення"]');
-    const dotCount = await dotButtons.count();
+    const _dotCount = await dotButtons.count();
 
     // At least the main content should be visible
     await expect(page.locator('main')).toBeVisible();

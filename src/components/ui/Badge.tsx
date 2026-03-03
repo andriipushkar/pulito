@@ -5,9 +5,9 @@ interface BadgeProps {
 }
 
 const defaultColors: Record<string, string> = {
-  promo: 'bg-[#F44336] text-white',
+  promo: 'bg-gradient-to-r from-[var(--color-gold-dark)] to-[var(--color-gold)] text-white',
   new_arrival: 'bg-[#2196F3] text-white',
-  hit: 'bg-[#FFC107] text-[#212121]',
+  hit: 'bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)] text-white',
   eco: 'bg-[#4CAF50] text-white',
   custom: 'bg-[#FF9800] text-white',
 };

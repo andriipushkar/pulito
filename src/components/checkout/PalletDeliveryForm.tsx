@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import Input from '@/components/ui/Input';
 
@@ -30,10 +30,7 @@ export default function PalletDeliveryForm({ onChange, errors }: PalletDeliveryF
     'Південь',
   ];
 
-  useEffect(() => {
-    setResult(null);
-    setCalcError('');
-  }, [weightKg, region]);
+  // Result and error are cleared when the user initiates a new calculation via handleCalculate
 
   const handleCalculate = async () => {
     const weight = Number(weightKg);

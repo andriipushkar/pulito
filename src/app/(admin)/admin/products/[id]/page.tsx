@@ -181,6 +181,7 @@ export default function AdminProductDetailPage() {
         <div className="flex flex-wrap gap-3">
           {product.images.map((img) => (
             <div key={img.id} className="group relative h-24 w-24 overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={img.pathMedium} alt="" className="h-full w-full object-contain p-1" />
               <button
                 onClick={() => handleDeleteImage(img.id)}

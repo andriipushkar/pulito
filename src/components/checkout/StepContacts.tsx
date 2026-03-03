@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import Input from '@/components/ui/Input';
+import PhoneInput, { cleanPhone } from '@/components/ui/PhoneInput';
 import type { CheckoutInput } from '@/validators/order';
 
 interface StepContactsProps {
@@ -25,13 +26,11 @@ export default function StepContacts({ data, errors, onChange }: StepContactsPro
         placeholder="Іванов Іван"
       />
 
-      <Input
+      <PhoneInput
         label={`${t('contactPhone')} *`}
-        type="tel"
         value={data.contactPhone || ''}
-        onChange={(e) => onChange('contactPhone', e.target.value)}
+        onChange={(e) => onChange('contactPhone', cleanPhone(e.target.value))}
         error={errors.contactPhone}
-        placeholder="+380XXXXXXXXX"
       />
 
       <Input

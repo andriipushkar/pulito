@@ -42,7 +42,6 @@ export default function AdminFaqPage() {
   const [saving, setSaving] = useState(false);
 
   const fetchItems = useCallback(() => {
-    setIsLoading(true);
     apiClient
       .get<AdminFaqItem[]>('/api/v1/admin/faq')
       .then((res) => {

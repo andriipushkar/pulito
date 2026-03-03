@@ -38,8 +38,9 @@ export default function HeaderMain({ categories }: HeaderMainProps) {
   }, [user]);
 
   useEffect(() => {
-    fetchNotificationCount();
     const interval = setInterval(fetchNotificationCount, 60000);
+    // Use Promise.resolve to avoid synchronous setState in effect
+    Promise.resolve().then(fetchNotificationCount);
     return () => clearInterval(interval);
   }, [fetchNotificationCount]);
 
@@ -62,7 +63,7 @@ export default function HeaderMain({ categories }: HeaderMainProps) {
           </button>
 
           <Link href="/" className="flex shrink-0 items-center gap-2 text-xl font-bold text-[var(--color-text)]">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)] text-sm font-black text-white">C</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-sm font-black text-white shadow-[var(--shadow-brand)]">C</span>
             <span>Clean<span className="text-[var(--color-primary)]">Shop</span></span>
           </Link>
 
@@ -103,7 +104,7 @@ export default function HeaderMain({ categories }: HeaderMainProps) {
             <Link href={user ? '/account' : '/auth/login'} className="flex items-center gap-1.5">
               <IconButton icon={<User size={20} />} label={user ? 'Профіль' : 'Увійти'} />
               {user?.role === 'wholesaler' && (
-                <span className="hidden rounded-full bg-[var(--color-primary)] px-2 py-0.5 text-[10px] font-semibold text-white sm:inline-block">
+                <span className="hidden rounded-full bg-gradient-to-r from-[var(--color-gold-dark)] to-[var(--color-gold)] px-2 py-0.5 text-[10px] font-semibold text-white shadow-[var(--shadow-gold)] sm:inline-block">
                   Оптовий клієнт
                 </span>
               )}
@@ -111,7 +112,7 @@ export default function HeaderMain({ categories }: HeaderMainProps) {
           </div>
         </Container>
 
-        <div className="border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-2.5 shadow-[var(--shadow)] lg:hidden">
+        <div className="bg-[var(--color-bg-secondary)] px-4 py-2.5 lg:hidden">
           <SearchBar />
         </div>
       </div>

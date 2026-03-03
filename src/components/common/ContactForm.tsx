@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { cleanPhone } from '@/components/ui/PhoneInput';
 
 export default function ContactForm() {
   const [name, setName] = useState('');
@@ -20,7 +21,7 @@ export default function ContactForm() {
       const res = await fetch('/api/v1/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone, subject, message, website: honeypot }),
+        body: JSON.stringify({ name, email, phone: cleanPhone(phone), subject, message, website: honeypot }),
       });
 
       if (res.ok) {
@@ -48,7 +49,27 @@ export default function ContactForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <input type="text" placeholder="Ваше ім'я *" value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} />
       <input type="email" placeholder="Email *" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClass} />
-      <input type="tel" placeholder="Телефон" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
+      <input
+        type="tel"
+        inputMode="numeric"
+        placeholder="+38 (0XX) XXX-XX-XX"
+        value={phone}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/\D/g, '');
+          let d = digits;
+          if (d.startsWith('380')) d = '0' + d.slice(3);
+          else if (d.startsWith('38')) d = d.slice(2);
+          if (d.length > 0 && d[0] !== '0') d = '0' + d;
+          d = d.slice(0, 10);
+          if (!d) { setPhone(''); return; }
+          let fmt = `+38 (${d.slice(0, 3)}`;
+          if (d.length > 3) fmt += `) ${d.slice(3, 6)}`;
+          if (d.length > 6) fmt += `-${d.slice(6, 8)}`;
+          if (d.length > 8) fmt += `-${d.slice(8)}`;
+          setPhone(fmt);
+        }}
+        className={inputClass}
+      />
       <input type="text" placeholder="Тема" value={subject} onChange={(e) => setSubject(e.target.value)} className={inputClass} />
       <textarea
         placeholder="Повідомлення *"

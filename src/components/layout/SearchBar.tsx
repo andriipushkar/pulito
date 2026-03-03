@@ -33,6 +33,21 @@ interface HistoryEntry {
   createdAt: string;
 }
 
+function highlightMatch(text: string, query: string) {
+  if (!query || query.length < 2) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase() ? (
+      <mark key={i} className="rounded-sm bg-[var(--color-primary-50)] px-0.5 text-[var(--color-primary-dark)]">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+}
+
 export default function SearchBar() {
   const { user } = useAuth();
   const [query, setQuery] = useState('');
@@ -42,7 +57,9 @@ export default function SearchBar() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [mobileFullscreen, setMobileFullscreen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Завантаження історії пошуку
@@ -141,6 +158,9 @@ export default function SearchBar() {
   };
 
   const handleFocus = () => {
+    if (window.innerWidth < 640) {
+      setMobileFullscreen(true);
+    }
     if (results && query.trim().length >= 2) {
       setIsOpen(true);
       setShowHistory(false);
@@ -150,10 +170,18 @@ export default function SearchBar() {
     }
   };
 
+  const closeMobileFullscreen = () => {
+    setMobileFullscreen(false);
+    setIsOpen(false);
+    setShowHistory(false);
+    inputRef.current?.blur();
+  };
+
   const handleSearch = (searchQuery: string) => {
     saveToHistory(searchQuery);
     setIsOpen(false);
     setShowHistory(false);
+    setMobileFullscreen(false);
     window.location.href = `/catalog?search=${encodeURIComponent(searchQuery)}`;
   };
 
@@ -193,6 +221,7 @@ export default function SearchBar() {
     } else if (e.key === 'Escape') {
       setIsOpen(false);
       setShowHistory(false);
+      setMobileFullscreen(false);
       setActiveIndex(-1);
     } else if (e.key === 'Enter') {
       if (activeIndex >= 0 && activeIndex < allSuggestions.length) {
@@ -217,14 +246,15 @@ export default function SearchBar() {
   const showResultsDropdown = isOpen && !showHistory && results;
 
   return (
-    <div ref={ref} className="relative w-full max-w-xl">
-      <div className="relative">
+    <div ref={ref} className={`relative w-full max-w-xl ${mobileFullscreen ? 'fixed inset-0 z-50 flex max-w-none flex-col bg-white p-4 sm:relative sm:inset-auto sm:z-auto sm:flex-row sm:bg-transparent sm:p-0' : ''}`}>
+      <div className={`relative ${mobileFullscreen ? 'flex items-center gap-2' : ''}`}>
         <input
+          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="Пошук товарів..."
-          className="w-full rounded-full border border-[var(--color-border)] bg-[var(--color-bg-secondary)] py-2.5 pl-10 pr-4 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+          className={`w-full rounded-full border border-[var(--color-border)] bg-[var(--color-bg-secondary)] py-2.5 pl-10 pr-4 text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 ${mobileFullscreen ? 'text-lg' : 'text-sm'}`}
           onKeyDown={handleKeyDown}
           role="combobox"
           aria-expanded={isOpen}
@@ -237,15 +267,27 @@ export default function SearchBar() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         {isLoading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <div className={`absolute top-1/2 -translate-y-1/2 ${mobileFullscreen ? 'right-14' : 'right-3'}`}>
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
           </div>
+        )}
+        {mobileFullscreen && (
+          <button
+            type="button"
+            onClick={closeMobileFullscreen}
+            className="shrink-0 p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+            aria-label="Закрити пошук"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         )}
       </div>
 
       {/* Випадаючий список історії пошуку */}
       {showHistoryDropdown && (
-        <div className="absolute top-full z-50 mt-1 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-md)]">
+        <div className={`${mobileFullscreen ? 'mt-2 flex-1 overflow-auto' : 'absolute top-full z-50 mt-1 w-full shadow-[var(--shadow-md)]'} rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]`}>
           <div className="p-2">
             <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
               Історія пошуку
@@ -293,7 +335,7 @@ export default function SearchBar() {
 
       {/* Випадаючий список результатів пошуку */}
       {showResultsDropdown && (
-        <div id="search-suggestions" role="listbox" className="absolute top-full z-50 mt-1 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-md)]">
+        <div id="search-suggestions" role="listbox" className={`${mobileFullscreen ? 'mt-2 flex-1 overflow-auto' : 'absolute top-full z-50 mt-1 w-full shadow-[var(--shadow-md)]'} rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]`}>
           {results.categories.length > 0 && (
             <div className="border-b border-[var(--color-border)] p-2">
               <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">Категорії</p>
@@ -305,7 +347,7 @@ export default function SearchBar() {
                   className={`block rounded px-2 py-1.5 text-sm hover:bg-[var(--color-bg-secondary)] ${activeIndex === ci ? 'bg-[var(--color-bg-secondary)]' : ''}`}
                   onClick={() => setIsOpen(false)}
                 >
-                  {cat.name} <span className="text-[var(--color-text-secondary)]">({cat._count.products})</span>
+                  {highlightMatch(cat.name, query)} <span className="text-[var(--color-text-secondary)]">({cat._count.products})</span>
                 </Link>
               ))}
             </div>
@@ -325,12 +367,13 @@ export default function SearchBar() {
                     onClick={() => setIsOpen(false)}
                   >
                     {product.imagePath ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
                       <img src={product.imagePath} alt={product.name} className="h-10 w-10 shrink-0 rounded object-contain" />
                     ) : (
                       <div className="h-10 w-10 shrink-0 rounded bg-[var(--color-bg-secondary)]" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{product.name}</p>
+                      <p className="truncate text-sm font-medium">{highlightMatch(product.name, query)}</p>
                       <p className="text-xs text-[var(--color-text-secondary)]">{product.code}</p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold">{Number(product.priceRetail).toFixed(2)} ₴</span>

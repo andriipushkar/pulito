@@ -359,14 +359,18 @@ export async function applyPersonalPricing(
  * @returns Товар з деталями та персональною ціною або null
  */
 export async function getProductBySlug(slug: string, userId?: number | null) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cacheKey = `products:slug:${slug}`;
-  const cached = await cacheGet<any>(cacheKey);
 
-  const product = cached ?? await prisma.product.findUnique({
-    where: { slug, isActive: true },
-    select: { ...productDetailSelect, categoryId: true },
-  });
+  const fetchFromDb = () =>
+    prisma.product.findUnique({
+      where: { slug, isActive: true },
+      select: { ...productDetailSelect, categoryId: true },
+    });
+
+  type ProductResult = NonNullable<Awaited<ReturnType<typeof fetchFromDb>>>;
+
+  const cached = await cacheGet<ProductResult>(cacheKey);
+  const product = cached ?? await fetchFromDb();
 
   if (!product) return null;
   if (!cached) await cacheSet(cacheKey, product, CACHE_TTL.LONG);

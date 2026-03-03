@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { apiClient } from '@/lib/api-client';
@@ -19,6 +20,7 @@ interface FrequentProduct {
 }
 
 export default function AccountDashboard() {
+  const router = useRouter();
   const { user } = useAuth();
   const { addItem } = useCart();
   const [recentOrders, setRecentOrders] = useState<OrderListItem[]>([]);
@@ -52,8 +54,8 @@ export default function AccountDashboard() {
     setRepeatingOrderId(orderId);
     try {
       await apiClient.post(`/api/v1/orders/${orderId}/reorder`, {});
-      // Reload page to refresh cart state
-      window.location.href = '/cart';
+      // Navigate to cart after reorder
+      router.push('/cart');
     } catch {
       // silently fail
       setRepeatingOrderId(null);
@@ -195,6 +197,7 @@ export default function AccountDashboard() {
               >
                 <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
                   {fp.imagePath ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={fp.imagePath} alt={fp.productName} className="h-full w-full object-contain" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)] opacity-30">

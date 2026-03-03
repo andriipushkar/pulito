@@ -63,8 +63,8 @@ export default function Modal({ isOpen, onClose, children, title, size = 'md' }:
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'var(--color-bg-overlay)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+      style={{ background: 'rgba(0,0,0,0.35)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -74,7 +74,7 @@ export default function Modal({ isOpen, onClose, children, title, size = 'md' }:
     >
       <div
         ref={dialogRef}
-        className={`w-full overflow-auto bg-[var(--color-bg)] shadow-[var(--shadow-xl)] ${size === 'full' ? sizeClasses.full : `rounded-[var(--radius)] ${sizeClasses[size]}`}`}
+        className={`w-full overflow-auto bg-[var(--color-bg)] shadow-[var(--shadow-xl)] animate-fade-in-up ${size === 'full' ? sizeClasses.full : `rounded-[var(--radius)] ${sizeClasses[size]}`}`}
         style={{ maxHeight: size === 'full' ? undefined : '90vh' }}
       >
         {title && (

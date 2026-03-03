@@ -106,10 +106,10 @@ export default function AccountFinancePage() {
 
   useEffect(() => {
     apiClient
-      .get<{ orders: OrderData[] }>('/api/v1/orders?page=1&limit=1000')
+      .get<OrderData[]>('/api/v1/orders?page=1&limit=1000')
       .then((res) => {
         if (res.success && res.data) {
-          const orders = res.data as unknown as OrderData[];
+          const orders = Array.isArray(res.data) ? res.data : [];
           setData(buildFinanceData(orders));
         }
       })

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Phone, Close } from '@/components/icons';
+import { cleanPhone } from '@/components/ui/PhoneInput';
 
 export default function CallbackButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -23,7 +24,7 @@ export default function CallbackButton() {
       const res = await fetch('/api/v1/callback-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, message, website: honeypot }),
+        body: JSON.stringify({ name, phone: cleanPhone(phone), message, website: honeypot }),
       });
 
       if (res.ok) {
@@ -50,7 +51,7 @@ export default function CallbackButton() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 animate-pulse-ring items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-lg transition-transform hover:scale-110"
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary)] text-white shadow-lg transition-transform hover:scale-110"
         aria-label="Замовити дзвінок"
       >
         <Phone size={24} />
@@ -59,7 +60,7 @@ export default function CallbackButton() {
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" onClick={() => setIsOpen(false)} />
-          <div className="relative w-full max-w-sm rounded-[var(--radius)] bg-[var(--color-bg)] p-6 shadow-xl">
+          <div className="relative w-full max-w-sm animate-fade-in-up rounded-[var(--radius)] bg-[var(--color-bg)] p-6 shadow-xl">
             <button
               onClick={() => setIsOpen(false)}
               className="absolute right-3 top-3 text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
@@ -89,9 +90,23 @@ export default function CallbackButton() {
                 />
                 <input
                   type="tel"
-                  placeholder="+380 __ ___ __ __"
+                  inputMode="numeric"
+                  placeholder="+38 (0XX) XXX-XX-XX"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    let d = digits;
+                    if (d.startsWith('380')) d = '0' + d.slice(3);
+                    else if (d.startsWith('38')) d = d.slice(2);
+                    if (d.length > 0 && d[0] !== '0') d = '0' + d;
+                    d = d.slice(0, 10);
+                    if (!d) { setPhone(''); return; }
+                    let fmt = `+38 (${d.slice(0, 3)}`;
+                    if (d.length > 3) fmt += `) ${d.slice(3, 6)}`;
+                    if (d.length > 6) fmt += `-${d.slice(6, 8)}`;
+                    if (d.length > 8) fmt += `-${d.slice(8)}`;
+                    setPhone(fmt);
+                  }}
                   required
                   className={inputClass}
                 />
@@ -122,7 +137,7 @@ export default function CallbackButton() {
                 <button
                   type="submit"
                   disabled={status === 'loading'}
-                  className="rounded-[var(--radius)] bg-[var(--color-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                  className="min-h-[44px] rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
                 >
                   {status === 'loading' ? 'Надсилання...' : 'Зателефонуйте мені'}
                 </button>

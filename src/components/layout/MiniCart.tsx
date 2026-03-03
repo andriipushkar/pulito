@@ -32,7 +32,7 @@ export default function MiniCart({ onClose }: MiniCartProps) {
       ref={ref}
       role="dialog"
       aria-label="Кошик"
-      className="absolute right-0 top-full z-50 mt-2 w-80 rounded-lg border border-[var(--color-border)] bg-white shadow-[var(--shadow-xl)]"
+      className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-[var(--color-border)] bg-white shadow-[var(--shadow-xl)]"
     >
       {items.length === 0 ? (
         <div className="p-6 text-center text-sm text-[var(--color-text-secondary)]">
@@ -43,7 +43,12 @@ export default function MiniCart({ onClose }: MiniCartProps) {
           <div className="max-h-64 overflow-auto p-3">
             {items.map((item) => (
               <div key={item.productId} className="flex items-center gap-3 border-b border-[var(--color-border)] py-2 last:border-0">
-                <div className="h-12 w-12 shrink-0 rounded bg-[var(--color-bg-secondary)]" />
+                {item.imagePath ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={item.imagePath} alt={item.name} className="h-12 w-12 shrink-0 rounded object-contain bg-[var(--color-bg-secondary)]" />
+                ) : (
+                  <div className="h-12 w-12 shrink-0 rounded bg-[var(--color-bg-secondary)]" />
+                )}
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/product/${item.slug}`}
@@ -55,18 +60,18 @@ export default function MiniCart({ onClose }: MiniCartProps) {
                   <div className="mt-1 flex items-center gap-2">
                     <button
                       onClick={() => updateQuantity(item.productId, Math.max(1, item.quantity - 1))}
-                      className="rounded border border-[var(--color-border)] p-0.5 hover:bg-[var(--color-bg-secondary)]"
+                      className="rounded border border-[var(--color-border)] p-1 hover:bg-[var(--color-bg-secondary)]"
                       aria-label="Зменшити"
                     >
-                      <Minus size={12} />
+                      <Minus size={14} />
                     </button>
                     <span className="text-xs font-medium">{item.quantity}</span>
                     <button
                       onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      className="rounded border border-[var(--color-border)] p-0.5 hover:bg-[var(--color-bg-secondary)]"
+                      className="rounded border border-[var(--color-border)] p-1 hover:bg-[var(--color-bg-secondary)]"
                       aria-label="Збільшити"
                     >
-                      <Plus size={12} />
+                      <Plus size={14} />
                     </button>
                     <span className="text-xs text-[var(--color-text-secondary)]">
                       x {Number(item.priceRetail).toFixed(2)} ₴

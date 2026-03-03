@@ -36,7 +36,6 @@ export default function PriceAnalytics({ days }: { days: number }) {
   const [view, setView] = useState<'changes' | 'promo'>('changes');
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient.get<PriceData>(`/api/v1/admin/analytics/price?days=${days}`)
       .then((res) => { if (res.success && res.data) setData(res.data); })
       .finally(() => setIsLoading(false));

@@ -11,9 +11,7 @@ import { registerSchema, loginSchema } from '@/validators/auth';
 import { checkoutSchema, updateOrderStatusSchema } from '@/validators/order';
 import { initiatePaymentSchema } from '@/validators/payment';
 import { calculatePalletCostSchema, palletConfigSchema } from '@/validators/pallet-delivery';
-import { createPersonalPriceSchema } from '@/validators/personal-price';
 import { adjustPointsSchema } from '@/validators/loyalty';
-import { grantBonusSchema } from '@/validators/referral';
 
 /** Convert a Zod schema to an OpenAPI-compatible JSON Schema object. */
 function zodSchema(schema: z.ZodType): object {

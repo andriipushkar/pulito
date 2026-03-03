@@ -148,6 +148,15 @@ export async function getLoyaltyDashboard(userId: number) {
     take: 10,
   });
 
+  const serializeLevel = (level: typeof levels[number]) => ({
+    id: level.id,
+    name: level.name,
+    minSpent: Number(level.minSpent),
+    pointsMultiplier: level.pointsMultiplier,
+    discountPercent: Number(level.discountPercent),
+    sortOrder: level.sortOrder,
+  });
+
   return {
     account: {
       id: account.id,
@@ -156,20 +165,8 @@ export async function getLoyaltyDashboard(userId: number) {
       totalSpent: Number(account.totalSpent),
       level: account.level,
     },
-    currentLevel: currentLevel
-      ? {
-          ...currentLevel,
-          minSpent: Number(currentLevel.minSpent),
-          discountPercent: Number(currentLevel.discountPercent),
-        }
-      : null,
-    nextLevel: nextLevel
-      ? {
-          ...nextLevel,
-          minSpent: Number(nextLevel.minSpent),
-          discountPercent: Number(nextLevel.discountPercent),
-        }
-      : null,
+    currentLevel: currentLevel ? serializeLevel(currentLevel) : null,
+    nextLevel: nextLevel ? serializeLevel(nextLevel) : null,
     recentTransactions,
   };
 }

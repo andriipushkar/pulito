@@ -61,16 +61,16 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
   return (
     <nav
       ref={navRef}
-      className="relative hidden bg-[var(--color-bg-secondary)] lg:block"
+      className="relative hidden bg-gradient-to-r from-[var(--color-primary-dark)] via-[var(--color-primary)] to-[var(--color-primary-dark)] lg:block"
       aria-label="Категорії"
     >
       <Container>
-        <ul className="flex items-center gap-0">
+        <ul className="flex items-center justify-center gap-2 overflow-x-auto py-2 scrollbar-hide">
           {/* Static catalog link */}
           <li>
             <Link
               href="/catalog"
-              className="inline-flex items-center gap-1.5 rounded-[var(--radius)] px-3 py-2 text-sm font-semibold text-[var(--color-text)] transition-colors hover:bg-[var(--color-primary)] hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[var(--color-gold-dark)] to-[var(--color-gold)] px-4 py-2 text-sm font-semibold text-white shadow-[var(--shadow-gold)] transition-all hover:from-[var(--color-gold)] hover:to-[var(--color-gold-light)]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -78,6 +78,21 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
               Каталог
             </Link>
           </li>
+
+          {/* Static "Акції" link */}
+          {!parents.some((c) => /акці|sale|promo/i.test(c.slug)) && (
+            <li>
+              <Link
+                href="/catalog?promo=true"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-gradient-to-r from-[#FF6B35] to-[#F44336] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:brightness-110"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2c.5 2.5 3 5 5 7-1 4-3 7-5 9-2-2-4-5-5-9 2-2 4.5-4.5 5-7z" />
+                </svg>
+                Акції
+              </Link>
+            </li>
+          )}
 
           {parents.map((cat) => {
             const children = categories.filter((c) => c.parentId === cat.id);
@@ -93,15 +108,17 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
               >
                 <Link
                   href={`/catalog?category=${cat.slug}`}
-                  className={`inline-flex items-center gap-1 px-3 py-2.5 text-sm transition-colors hover:text-[var(--color-primary)] ${
-                    isOpen ? 'text-[var(--color-primary)]' : ''
+                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition-all ${
+                    isOpen
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   {cat.name}
                   {hasChildren && (
                     <ChevronDown
                       size={14}
-                      className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                      className={`opacity-60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                     />
                   )}
                 </Link>

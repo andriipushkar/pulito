@@ -44,7 +44,6 @@ export default function PerformanceWidget({ days = 30 }: { days?: number }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient
       .get<MetricData[]>(`/api/v1/admin/analytics/performance?days=${days}`)
       .then((res) => {

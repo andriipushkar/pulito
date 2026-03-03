@@ -45,7 +45,6 @@ export default function CustomerSegmentation() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient.get<SegmentData>('/api/v1/admin/analytics/segments')
       .then((res) => { if (res.success && res.data) setData(res.data); })
       .finally(() => setIsLoading(false));
@@ -142,7 +141,7 @@ export default function CustomerSegmentation() {
                   <thead>
                     <tr className="text-[var(--color-text-secondary)]">
                       <th className="py-1 text-left font-medium">Email</th>
-                      <th className="py-1 text-left font-medium">Ім'я</th>
+                      <th className="py-1 text-left font-medium">Ім&apos;я</th>
                       <th className="py-1 text-right font-medium">Замовлень</th>
                       <th className="py-1 text-right font-medium">Витрачено</th>
                       <th className="py-1 text-right font-medium">Днів тому</th>

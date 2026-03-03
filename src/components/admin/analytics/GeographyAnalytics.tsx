@@ -41,7 +41,6 @@ export default function GeographyAnalytics({ days }: { days: number }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient.get<GeoData>(`/api/v1/admin/analytics/geography?days=${days}`)
       .then((res) => { if (res.success && res.data) setData(res.data); })
       .finally(() => setIsLoading(false));

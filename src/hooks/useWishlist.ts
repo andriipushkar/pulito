@@ -38,8 +38,8 @@ export function useWishlist() {
   }, [user]);
 
   useEffect(() => {
-    fetchWishlistCount();
     const interval = setInterval(fetchWishlistCount, 60000);
+    Promise.resolve().then(fetchWishlistCount);
     return () => clearInterval(interval);
   }, [fetchWishlistCount]);
 

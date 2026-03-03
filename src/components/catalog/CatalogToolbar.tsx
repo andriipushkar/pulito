@@ -49,7 +49,7 @@ export default function CatalogToolbar({ total, onOpenFilters }: CatalogToolbarP
           options={sortOptions}
           value={currentSort}
           onChange={(e) => handleSort(e.target.value)}
-          className="w-40"
+          className="w-32 sm:w-40"
         />
       </div>
     </div>

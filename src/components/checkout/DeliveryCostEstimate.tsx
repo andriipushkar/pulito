@@ -23,7 +23,6 @@ export default function DeliveryCostEstimate({ deliveryMethod, city, cartTotal, 
 
   useEffect(() => {
     if (!deliveryMethod || deliveryMethod === 'pickup') {
-      setEstimate(null);
       return;
     }
 
@@ -45,7 +44,10 @@ export default function DeliveryCostEstimate({ deliveryMethod, city, cartTotal, 
         .finally(() => setIsLoading(false));
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      setEstimate(null);
+    };
   }, [deliveryMethod, city, cartTotal, cartWeight]);
 
   if (!deliveryMethod || deliveryMethod === 'pickup' || isLoading) return null;

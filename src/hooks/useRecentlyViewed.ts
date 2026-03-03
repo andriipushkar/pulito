@@ -9,15 +9,14 @@ const MAX_ITEMS = 15;
 
 export function useRecentlyViewed() {
   const { user } = useAuth();
-  const [ids, setIds] = useState<number[]>([]);
-  const hasMergedRef = useRef(false);
-
-  useEffect(() => {
+  const [ids, setIds] = useState<number[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setIds(JSON.parse(saved));
+      if (saved) return JSON.parse(saved);
     } catch {}
-  }, []);
+    return [];
+  });
+  const hasMergedRef = useRef(false);
 
   // Merge localStorage data with server when user logs in
   useEffect(() => {

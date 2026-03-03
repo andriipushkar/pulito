@@ -97,6 +97,7 @@ export default async function NewsPage({
               >
                 {pub.imagePath && (
                   <div className="aspect-video bg-[var(--color-bg-secondary)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={pub.imagePath}
                       alt={pub.title}

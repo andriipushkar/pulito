@@ -21,15 +21,15 @@ const brands = [
 function BrandIcon({ name, color }: { name: string; color: string }) {
   const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2);
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="48" height="48" rx="8" fill={color} fillOpacity={0.1} />
+    <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="56" height="56" rx="10" fill={color} fillOpacity={0.1} />
       <text
-        x="24"
-        y="24"
+        x="28"
+        y="28"
         textAnchor="middle"
         dominantBaseline="central"
         fill={color}
-        fontSize="16"
+        fontSize="18"
         fontWeight="700"
         fontFamily="system-ui, sans-serif"
       >
@@ -43,7 +43,7 @@ function BrandCard({ brand }: { brand: (typeof brands)[number] }) {
   return (
     <Link
       href={`/catalog?brand=${brand.slug}`}
-      className="flex h-20 w-36 shrink-0 flex-col items-center justify-center gap-1.5 rounded-lg bg-white px-4 text-center shadow-[var(--shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]"
+      className="flex h-24 w-40 shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] bg-white px-4 text-center shadow-[var(--shadow)] grayscale transition-all duration-300 hover:grayscale-0 hover:-translate-y-0.5 hover:border-[var(--color-primary-light)] hover:shadow-[var(--shadow-md)]"
     >
       <BrandIcon name={brand.name} color={brand.color} />
       <span className="text-xs font-semibold text-[var(--color-text)]">
@@ -76,7 +76,10 @@ export default function BrandLogos() {
 
   return (
     <section className="py-6">
-      <h2 className="mb-4 text-xl font-bold">Наші бренди</h2>
+      <h2 className="relative mb-4 text-xl font-bold">
+        Наші бренди
+        <span className="absolute -bottom-1 left-0 h-0.5 w-12 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)]" />
+      </h2>
       <div className="overflow-hidden">
         <div ref={trackRef} className="flex w-max gap-6">
           {brands.map((brand) => (

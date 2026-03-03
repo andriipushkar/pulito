@@ -75,205 +75,150 @@ async function main() {
   });
   console.log(`  Wholesaler: ${wholesaler.email}`);
 
-  // --- Categories ---
+  // --- Categories (6 main) ---
   const categories = await Promise.all([
     prisma.category.upsert({
-      where: { slug: 'myiuchi-zasoby' },
+      where: { slug: 'zasoby-dlya-prannya' },
       update: {},
       create: {
-        name: 'Миючі засоби',
-        slug: 'myiuchi-zasoby',
-        description: 'Засоби для миття посуду, підлоги та поверхонь',
+        name: 'Засоби для прання',
+        slug: 'zasoby-dlya-prannya',
+        description: 'Пральні порошки, гелі, капсули, кондиціонери та плямовивідники',
         sortOrder: 1,
       },
     }),
     prisma.category.upsert({
-      where: { slug: 'pralni-poroshky' },
+      where: { slug: 'zasoby-dlya-myttya-ta-chyshchennya' },
       update: {},
       create: {
-        name: 'Пральні порошки',
-        slug: 'pralni-poroshky',
-        description: 'Пральні порошки та гелі для прання',
+        name: 'Засоби для миття та чищення',
+        slug: 'zasoby-dlya-myttya-ta-chyshchennya',
+        description: 'Засоби для миття посуду, підлоги, ванної, кухні, скла та поверхонь',
         sortOrder: 2,
       },
     }),
     prisma.category.upsert({
-      where: { slug: 'zasoby-dlya-vannoyi' },
+      where: { slug: 'zasoby-hihiyeny' },
       update: {},
       create: {
-        name: 'Засоби для ванної',
-        slug: 'zasoby-dlya-vannoyi',
-        description: 'Засоби для чищення ванної та сантехніки',
+        name: 'Засоби гігієни',
+        slug: 'zasoby-hihiyeny',
+        description: 'Туалетний папір, серветки, рушники та засоби особистої гігієни',
         sortOrder: 3,
       },
     }),
     prisma.category.upsert({
-      where: { slug: 'zasoby-dlya-kukhni' },
+      where: { slug: 'tovary-dlya-domu' },
       update: {},
       create: {
-        name: 'Засоби для кухні',
-        slug: 'zasoby-dlya-kukhni',
-        description: 'Засоби для миття посуду та кухонних поверхонь',
+        name: 'Товари для дому',
+        slug: 'tovary-dlya-domu',
+        description: 'Освіжувачі повітря, губки, ганчірки, швабри, рукавички, пакети',
         sortOrder: 4,
       },
     }),
     prisma.category.upsert({
-      where: { slug: 'osvizhuvachi-povitrya' },
+      where: { slug: 'dohlyad-za-tilom' },
       update: {},
       create: {
-        name: 'Освіжувачі повітря',
-        slug: 'osvizhuvachi-povitrya',
-        description: 'Освіжувачі та ароматизатори для дому',
+        name: 'Догляд за тілом',
+        slug: 'dohlyad-za-tilom',
+        description: 'Гелі для душу, мило, креми, лосьйони та дезодоранти',
         sortOrder: 5,
       },
     }),
     prisma.category.upsert({
-      where: { slug: 'paperovi-vyroby' },
+      where: { slug: 'dohlyad-za-volossyam' },
       update: {},
       create: {
-        name: 'Паперові вироби',
-        slug: 'paperovi-vyroby',
-        description: 'Туалетний папір, серветки, рушники',
+        name: 'Догляд за волоссям',
+        slug: 'dohlyad-za-volossyam',
+        description: 'Шампуні, бальзами, маски та засоби для укладки волосся',
         sortOrder: 6,
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: 'zasoby-dlya-prybyranya' },
-      update: {},
-      create: {
-        name: 'Засоби для прибирання',
-        slug: 'zasoby-dlya-prybyranya',
-        description: 'Ганчірки, губки, швабри, відра',
-        sortOrder: 7,
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: 'zasoby-dlya-skla' },
-      update: {},
-      create: {
-        name: 'Засоби для скла',
-        slug: 'zasoby-dlya-skla',
-        description: 'Засоби для миття вікон та дзеркал',
-        sortOrder: 8,
       },
     }),
   ]);
   console.log(`  Categories: ${categories.length} created`);
 
-  // --- Subcategories ---
-  const subcategories = await Promise.all([
-    prisma.category.upsert({
-      where: { slug: 'gel-dlya-posudu' },
-      update: {},
-      create: {
-        name: 'Гель для посуду',
-        slug: 'gel-dlya-posudu',
-        parentId: categories[3].id,
-        sortOrder: 1,
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: 'tabletky-dlya-pmm' },
-      update: {},
-      create: {
-        name: 'Таблетки для ПММ',
-        slug: 'tabletky-dlya-pmm',
-        parentId: categories[3].id,
-        sortOrder: 2,
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: 'gel-dlya-prannya' },
-      update: {},
-      create: {
-        name: 'Гель для прання',
-        slug: 'gel-dlya-prannya',
-        parentId: categories[1].id,
-        sortOrder: 1,
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: 'poroshok-dlya-prannya' },
-      update: {},
-      create: {
-        name: 'Порошок для прання',
-        slug: 'poroshok-dlya-prannya',
-        parentId: categories[1].id,
-        sortOrder: 2,
-      },
-    }),
-  ]);
-  console.log(`  Subcategories: ${subcategories.length} created`);
+  // categories index: [0]=Прання, [1]=Миття/чищення, [2]=Гігієна, [3]=Дім, [4]=Тіло, [5]=Волосся
 
-  // --- Products (50 items) ---
+  // --- Products ---
   const productsData = [
-    // Washing agents (myiuchi-zasoby)
-    { code: 'MR-PROPER-LEMON-1L', name: 'Mr. Proper Лимон засіб для миття підлоги 1л', slug: 'mr-proper-lemon-zasib-dlya-myttya-pidlogy-1l', categoryId: categories[0].id, priceRetail: 105.0, priceWholesale: 85.0, quantity: 110, isPromo: false },
-    { code: 'MR-PROPER-OCEAN-1L', name: 'Mr. Proper Океан засіб для миття підлоги 1л', slug: 'mr-proper-ocean-zasib-dlya-myttya-pidlogy-1l', categoryId: categories[0].id, priceRetail: 105.0, priceWholesale: 85.0, quantity: 95, isPromo: false },
-    { code: 'PRONTO-POLISH-250', name: 'Pronto поліроль для меблів 250мл', slug: 'pronto-poliroli-dlya-mebliv-250ml', categoryId: categories[0].id, priceRetail: 135.0, priceWholesale: 110.0, quantity: 60, isPromo: false },
-    { code: 'CLIN-MULTI-500', name: 'Clin мультиповерхневий засіб 500мл', slug: 'clin-multipoverkhneviy-zasib-500ml', categoryId: categories[0].id, priceRetail: 89.0, priceWholesale: 72.0, quantity: 130, isPromo: true, priceRetailOld: 109.0 },
-    { code: 'FROSCH-UNIVERSAL-750', name: 'Frosch універсальний засіб 750мл', slug: 'frosch-universalniy-zasib-750ml', categoryId: categories[0].id, priceRetail: 149.0, priceWholesale: 125.0, quantity: 70, isPromo: false },
+    // Засоби для прання (categories[0])
+    { code: 'TIDE-ALPINE-3KG', name: 'Tide Альпійська свіжість пральний порошок 3кг', slug: 'tide-alpiyska-svizhist-pralniy-poroshok-3kg', categoryId: categories[0].id, priceRetail: 289.0, priceWholesale: 245.0, quantity: 60, isPromo: false },
+    { code: 'ARIEL-PODS-30', name: 'Ariel Pods All-in-1 капсули для прання 30шт', slug: 'ariel-pods-all-in-1-kapsuly-dlya-prannya-30sht', categoryId: categories[0].id, priceRetail: 399.0, priceWholesale: 340.0, quantity: 50, isPromo: false },
+    { code: 'TIDE-GEL-1.5L', name: 'Tide гель для прання Весняні квіти 1.5л', slug: 'tide-gel-dlya-prannya-vesnyani-kvity-1-5l', categoryId: categories[0].id, priceRetail: 259.0, priceWholesale: 215.0, quantity: 80, isPromo: true, priceRetailOld: 299.0 },
+    { code: 'ARIEL-POWDER-3KG', name: 'Ariel Гірська Свіжість порошок 3кг', slug: 'ariel-girska-svizhist-poroshok-3kg', categoryId: categories[0].id, priceRetail: 315.0, priceWholesale: 270.0, quantity: 45, isPromo: false },
+    { code: 'PERSIL-GEL-1L', name: 'Persil Power Gel гель для прання 1л', slug: 'persil-power-gel-1l', categoryId: categories[0].id, priceRetail: 215.0, priceWholesale: 180.0, quantity: 80, isPromo: false },
+    { code: 'LENOR-SOFTENER-1L', name: 'Lenor кондиціонер Весняне пробудження 1л', slug: 'lenor-kondytsioner-vesnyane-probudzhennya-1l', categoryId: categories[0].id, priceRetail: 139.0, priceWholesale: 115.0, quantity: 70, isPromo: false },
+    { code: 'VANISH-OXI-450', name: 'Vanish Oxi Action плямовивідник 450г', slug: 'vanish-oxi-action-plyamovyvidnyk-450g', categoryId: categories[0].id, priceRetail: 199.0, priceWholesale: 165.0, quantity: 55, isPromo: true, priceRetailOld: 239.0 },
+    { code: 'CALGON-TABS-15', name: 'Calgon таблетки для пральних машин 15шт', slug: 'calgon-tabletky-dlya-pralnykh-mashyn-15sht', categoryId: categories[0].id, priceRetail: 179.0, priceWholesale: 149.0, quantity: 40, isPromo: false },
 
-    // Laundry (pralni-poroshky)
-    { code: 'TIDE-ALPINE-3KG', name: 'Tide Альпійська свіжість пральний порошок 3кг', slug: 'tide-alpiyska-svizhist-pralniy-poroshok-3kg', categoryId: categories[1].id, priceRetail: 289.0, priceWholesale: 245.0, quantity: 60, isPromo: false },
-    { code: 'ARIEL-PODS-30', name: 'Ariel Pods All-in-1 капсули для прання 30шт', slug: 'ariel-pods-all-in-1-kapsuly-dlya-prannya-30sht', categoryId: categories[1].id, priceRetail: 399.0, priceWholesale: 340.0, quantity: 50, isPromo: false },
-    { code: 'TIDE-GEL-1.5L', name: 'Tide гель для прання Весняні квіти 1.5л', slug: 'tide-gel-dlya-prannya-vesnyani-kvity-1-5l', categoryId: subcategories[2].id, priceRetail: 259.0, priceWholesale: 215.0, quantity: 80, isPromo: true, priceRetailOld: 299.0 },
-    { code: 'ARIEL-POWDER-3KG', name: 'Ariel Гірська Свіжість порошок 3кг', slug: 'ariel-girska-svizhist-poroshok-3kg', categoryId: subcategories[3].id, priceRetail: 315.0, priceWholesale: 270.0, quantity: 45, isPromo: false },
-    { code: 'PERSIL-GEL-1L', name: 'Persil Power Gel гель для прання 1л', slug: 'persil-power-gel-1l', categoryId: subcategories[2].id, priceRetail: 215.0, priceWholesale: 180.0, quantity: 80, isPromo: false },
+    // Засоби для миття та чищення (categories[1])
+    { code: 'MR-PROPER-LEMON-1L', name: 'Mr. Proper Лимон засіб для миття підлоги 1л', slug: 'mr-proper-lemon-zasib-dlya-myttya-pidlogy-1l', categoryId: categories[1].id, priceRetail: 105.0, priceWholesale: 85.0, quantity: 110, isPromo: false },
+    { code: 'MR-PROPER-OCEAN-1L', name: 'Mr. Proper Океан засіб для миття підлоги 1л', slug: 'mr-proper-ocean-zasib-dlya-myttya-pidlogy-1l', categoryId: categories[1].id, priceRetail: 105.0, priceWholesale: 85.0, quantity: 95, isPromo: false },
+    { code: 'PRONTO-POLISH-250', name: 'Pronto поліроль для меблів 250мл', slug: 'pronto-poliroli-dlya-mebliv-250ml', categoryId: categories[1].id, priceRetail: 135.0, priceWholesale: 110.0, quantity: 60, isPromo: false },
+    { code: 'CLIN-MULTI-500', name: 'Clin мультиповерхневий засіб 500мл', slug: 'clin-multipoverkhneviy-zasib-500ml', categoryId: categories[1].id, priceRetail: 89.0, priceWholesale: 72.0, quantity: 130, isPromo: true, priceRetailOld: 109.0 },
+    { code: 'FROSCH-UNIVERSAL-750', name: 'Frosch універсальний засіб 750мл', slug: 'frosch-universalniy-zasib-750ml', categoryId: categories[1].id, priceRetail: 149.0, priceWholesale: 125.0, quantity: 70, isPromo: false },
+    { code: 'DOMESTOS-FRESH-750', name: 'Domestos Свіжість Атлантики засіб для ванної 750мл', slug: 'domestos-svizhist-atlantyky-750ml', categoryId: categories[1].id, priceRetail: 119.0, priceWholesale: 98.0, quantity: 90, isPromo: true, priceRetailOld: 139.0 },
+    { code: 'DOMESTOS-LEMON-750', name: 'Domestos Лимон засіб для унітазу 750мл', slug: 'domestos-lemon-zasib-dlya-unitazu-750ml', categoryId: categories[1].id, priceRetail: 119.0, priceWholesale: 98.0, quantity: 85, isPromo: false },
+    { code: 'CILLIT-BANG-750', name: 'Cillit Bang антіжир засіб для ванної 750мл', slug: 'cillit-bang-antizhyr-zasib-750ml', categoryId: categories[1].id, priceRetail: 159.0, priceWholesale: 130.0, quantity: 65, isPromo: false },
+    { code: 'BREF-WC-BLOCK-3', name: 'Bref Power Activ блок для унітазу 3шт', slug: 'bref-power-activ-blok-dlya-unitazu-3sht', categoryId: categories[1].id, priceRetail: 139.0, priceWholesale: 115.0, quantity: 100, isPromo: true, priceRetailOld: 169.0 },
+    { code: 'SANFOR-GEL-750', name: 'Sanfor антибактеріальний гель 750мл', slug: 'sanfor-antibakterialniy-gel-750ml', categoryId: categories[1].id, priceRetail: 79.0, priceWholesale: 63.0, quantity: 120, isPromo: false },
+    { code: 'FAIRY-LEMON-450', name: 'Fairy Лимон засіб для миття посуду 450мл', slug: 'fairy-lemon-zasib-dlya-myttya-posudu-450ml', categoryId: categories[1].id, priceRetail: 89.9, priceWholesale: 72.0, quantity: 150, isPromo: false },
+    { code: 'FAIRY-SENSETIVE-450', name: 'Fairy Sensitive засіб для миття посуду 450мл', slug: 'fairy-sensitive-zasib-dlya-myttya-posudu-450ml', categoryId: categories[1].id, priceRetail: 94.5, priceWholesale: 76.0, quantity: 120, isPromo: true, priceRetailOld: 109.0 },
+    { code: 'FAIRY-PLATINUM-430', name: 'Fairy Platinum засіб для миття посуду 430мл', slug: 'fairy-platinum-zasib-dlya-myttya-posudu-430ml', categoryId: categories[1].id, priceRetail: 119.0, priceWholesale: 98.0, quantity: 90, isPromo: false },
+    { code: 'FINISH-TABS-50', name: 'Finish All in 1 таблетки для посудомийної машини 50шт', slug: 'finish-all-in-1-tabletky-dlya-pmm-50sht', categoryId: categories[1].id, priceRetail: 489.0, priceWholesale: 410.0, quantity: 35, isPromo: true, priceRetailOld: 559.0 },
+    { code: 'FINISH-TABS-100', name: 'Finish Quantum таблетки для ПММ 100шт', slug: 'finish-quantum-tabletky-dlya-pmm-100sht', categoryId: categories[1].id, priceRetail: 879.0, priceWholesale: 740.0, quantity: 20, isPromo: false },
+    { code: 'SOMAT-TABS-60', name: 'Somat Gold таблетки для ПММ 60шт', slug: 'somat-gold-tabletky-dlya-pmm-60sht', categoryId: categories[1].id, priceRetail: 549.0, priceWholesale: 460.0, quantity: 25, isPromo: false },
+    { code: 'GALA-LEMON-500', name: 'Gala Лимон засіб для миття посуду 500мл', slug: 'gala-lemon-zasib-dlya-myttya-posudu-500ml', categoryId: categories[1].id, priceRetail: 55.0, priceWholesale: 44.0, quantity: 200, isPromo: false },
+    { code: 'GALA-ALOE-500', name: 'Gala Алое засіб для миття посуду 500мл', slug: 'gala-aloe-zasib-dlya-myttya-posudu-500ml', categoryId: categories[1].id, priceRetail: 55.0, priceWholesale: 44.0, quantity: 180, isPromo: false },
+    { code: 'CLIN-GLASS-500', name: 'Clin засіб для миття скла 500мл', slug: 'clin-zasib-dlya-myttya-skla-500ml', categoryId: categories[1].id, priceRetail: 79.0, priceWholesale: 64.0, quantity: 110, isPromo: false },
+    { code: 'MR-MUSCLE-GLASS-500', name: 'Mr. Muscle засіб для скла 500мл', slug: 'mr-muscle-zasib-dlya-skla-500ml', categoryId: categories[1].id, priceRetail: 89.0, priceWholesale: 72.0, quantity: 95, isPromo: false },
+    { code: 'HELP-GLASS-750', name: 'Help засіб для скла та дзеркал 750мл', slug: 'help-zasib-dlya-skla-ta-dzerkal-750ml', categoryId: categories[1].id, priceRetail: 59.0, priceWholesale: 47.0, quantity: 140, isPromo: false },
+    { code: 'SARMA-POWDER-400', name: 'Сарма чистячий порошок 400г', slug: 'sarma-chystyachiy-poroshok-400g', categoryId: categories[1].id, priceRetail: 35.0, priceWholesale: 28.0, quantity: 200, isPromo: false },
+    { code: 'PEMOLUX-POWDER-480', name: 'Пемолюкс чистячий порошок Лимон 480г', slug: 'pemolux-chystyachiy-poroshok-lemon-480g', categoryId: categories[1].id, priceRetail: 45.0, priceWholesale: 36.0, quantity: 180, isPromo: false },
+    { code: 'FROSCH-KITCHEN-500', name: 'Frosch засіб для кухні Сода 500мл', slug: 'frosch-zasib-dlya-kukhni-soda-500ml', categoryId: categories[1].id, priceRetail: 129.0, priceWholesale: 105.0, quantity: 65, isPromo: false },
 
-    // Bathroom (zasoby-dlya-vannoyi)
-    { code: 'DOMESTOS-FRESH-750', name: 'Domestos Свіжість Атлантики засіб для ванної 750мл', slug: 'domestos-svizhist-atlantyky-750ml', categoryId: categories[2].id, priceRetail: 119.0, priceWholesale: 98.0, quantity: 90, isPromo: true, priceRetailOld: 139.0 },
-    { code: 'DOMESTOS-LEMON-750', name: 'Domestos Лимон засіб для унітазу 750мл', slug: 'domestos-lemon-zasib-dlya-unitazu-750ml', categoryId: categories[2].id, priceRetail: 119.0, priceWholesale: 98.0, quantity: 85, isPromo: false },
-    { code: 'CILLIT-BANG-750', name: 'Cillit Bang антіжир засіб для ванної 750мл', slug: 'cillit-bang-antizhyr-zasib-750ml', categoryId: categories[2].id, priceRetail: 159.0, priceWholesale: 130.0, quantity: 65, isPromo: false },
-    { code: 'BREF-WC-BLOCK-3', name: 'Bref Power Activ блок для унітазу 3шт', slug: 'bref-power-activ-blok-dlya-unitazu-3sht', categoryId: categories[2].id, priceRetail: 139.0, priceWholesale: 115.0, quantity: 100, isPromo: true, priceRetailOld: 169.0 },
-    { code: 'SANFOR-GEL-750', name: 'Sanfor антибактеріальний гель 750мл', slug: 'sanfor-antibakterialniy-gel-750ml', categoryId: categories[2].id, priceRetail: 79.0, priceWholesale: 63.0, quantity: 120, isPromo: false },
+    // Засоби гігієни (categories[2])
+    { code: 'ZEWA-DELUXE-8', name: 'Zewa Deluxe туалетний папір 3-шаровий 8 рулонів', slug: 'zewa-deluxe-tualetniy-papir-3-sharoviy-8-ruloniv', categoryId: categories[2].id, priceRetail: 159.0, priceWholesale: 130.0, quantity: 200, isPromo: false },
+    { code: 'ZEWA-DELUXE-16', name: 'Zewa Deluxe туалетний папір 3-шаровий 16 рулонів', slug: 'zewa-deluxe-tualetniy-papir-3-sharoviy-16-ruloniv', categoryId: categories[2].id, priceRetail: 299.0, priceWholesale: 250.0, quantity: 100, isPromo: true, priceRetailOld: 349.0 },
+    { code: 'ZEWA-TOWEL-2', name: 'Zewa паперові рушники 2 рулони', slug: 'zewa-paperovi-rushnyky-2-rulony', categoryId: categories[2].id, priceRetail: 89.0, priceWholesale: 72.0, quantity: 150, isPromo: false },
+    { code: 'KLEENEX-TISSUES-100', name: 'Kleenex серветки косметичні 100шт', slug: 'kleenex-servetky-kosmetychni-100sht', categoryId: categories[2].id, priceRetail: 65.0, priceWholesale: 52.0, quantity: 120, isPromo: false },
+    { code: 'RUTA-NAPKINS-100', name: 'Рута серветки столові 100шт', slug: 'ruta-servetky-stolovi-100sht', categoryId: categories[2].id, priceRetail: 35.0, priceWholesale: 28.0, quantity: 300, isPromo: false },
+    { code: 'SELPAK-TISSUE-150', name: 'Selpak серветки 3-шарові 150шт', slug: 'selpak-servetky-3-sharovi-150sht', categoryId: categories[2].id, priceRetail: 79.0, priceWholesale: 64.0, quantity: 90, isPromo: false },
 
-    // Kitchen (zasoby-dlya-kukhni)
-    { code: 'FAIRY-LEMON-450', name: 'Fairy Лимон засіб для миття посуду 450мл', slug: 'fairy-lemon-zasib-dlya-myttya-posudu-450ml', categoryId: subcategories[0].id, priceRetail: 89.9, priceWholesale: 72.0, quantity: 150, isPromo: false },
-    { code: 'FAIRY-SENSETIVE-450', name: 'Fairy Sensitive засіб для миття посуду 450мл', slug: 'fairy-sensitive-zasib-dlya-myttya-posudu-450ml', categoryId: subcategories[0].id, priceRetail: 94.5, priceWholesale: 76.0, quantity: 120, isPromo: true, priceRetailOld: 109.0 },
-    { code: 'FAIRY-PLATINUM-430', name: 'Fairy Platinum засіб для миття посуду 430мл', slug: 'fairy-platinum-zasib-dlya-myttya-posudu-430ml', categoryId: subcategories[0].id, priceRetail: 119.0, priceWholesale: 98.0, quantity: 90, isPromo: false },
-    { code: 'FINISH-TABS-50', name: 'Finish All in 1 таблетки для посудомийної машини 50шт', slug: 'finish-all-in-1-tabletky-dlya-pmm-50sht', categoryId: subcategories[1].id, priceRetail: 489.0, priceWholesale: 410.0, quantity: 35, isPromo: true, priceRetailOld: 559.0 },
-    { code: 'FINISH-TABS-100', name: 'Finish Quantum таблетки для ПММ 100шт', slug: 'finish-quantum-tabletky-dlya-pmm-100sht', categoryId: subcategories[1].id, priceRetail: 879.0, priceWholesale: 740.0, quantity: 20, isPromo: false },
-    { code: 'SOMAT-TABS-60', name: 'Somat Gold таблетки для ПММ 60шт', slug: 'somat-gold-tabletky-dlya-pmm-60sht', categoryId: subcategories[1].id, priceRetail: 549.0, priceWholesale: 460.0, quantity: 25, isPromo: false },
-    { code: 'GALA-LEMON-500', name: 'Gala Лимон засіб для миття посуду 500мл', slug: 'gala-lemon-zasib-dlya-myttya-posudu-500ml', categoryId: subcategories[0].id, priceRetail: 55.0, priceWholesale: 44.0, quantity: 200, isPromo: false },
-    { code: 'GALA-ALOE-500', name: 'Gala Алое засіб для миття посуду 500мл', slug: 'gala-aloe-zasib-dlya-myttya-posudu-500ml', categoryId: subcategories[0].id, priceRetail: 55.0, priceWholesale: 44.0, quantity: 180, isPromo: false },
+    // Товари для дому (categories[3])
+    { code: 'GLADE-AUTO-269', name: 'Glade Автоматичний освіжувач повітря Лаванда 269мл', slug: 'glade-avtomatychniy-osvizhuvach-lavanda-269ml', categoryId: categories[3].id, priceRetail: 169.0, priceWholesale: 140.0, quantity: 45, isPromo: false },
+    { code: 'GLADE-SPRAY-300', name: 'Glade Квітковий спрей освіжувач 300мл', slug: 'glade-kvitkoviy-spray-osvizhuvach-300ml', categoryId: categories[3].id, priceRetail: 95.0, priceWholesale: 78.0, quantity: 100, isPromo: false },
+    { code: 'AIRWICK-ELEC-19', name: 'Air Wick електричний освіжувач Лаванда 19мл', slug: 'airwick-elektrychniy-osvizhuvach-lavanda-19ml', categoryId: categories[3].id, priceRetail: 149.0, priceWholesale: 125.0, quantity: 55, isPromo: true, priceRetailOld: 179.0 },
+    { code: 'AIRWICK-REFILL-250', name: 'Air Wick змінний балон Свіжість лісу 250мл', slug: 'airwick-zminniy-balon-svizhist-lisu-250ml', categoryId: categories[3].id, priceRetail: 109.0, priceWholesale: 89.0, quantity: 70, isPromo: false },
+    { code: 'BRISE-CANDLE-120', name: 'Brise ароматична свічка Ваніль 120г', slug: 'brise-aromatychna-svichka-vanil-120g', categoryId: categories[3].id, priceRetail: 89.0, priceWholesale: 72.0, quantity: 40, isPromo: false },
+    { code: 'SCOTCH-BRITE-3', name: 'Scotch-Brite губки кухонні 3шт', slug: 'scotch-brite-gubky-kukhonni-3sht', categoryId: categories[3].id, priceRetail: 45.0, priceWholesale: 36.0, quantity: 250, isPromo: false },
+    { code: 'VILEDA-MOP-TWIST', name: 'Vileda швабра Twist з віджимом', slug: 'vileda-shvabra-twist-z-vidzhymom', categoryId: categories[3].id, priceRetail: 599.0, priceWholesale: 490.0, quantity: 30, isPromo: false },
+    { code: 'VILEDA-CLOTH-3', name: 'Vileda ганчірки мікрофібра 3шт', slug: 'vileda-ganchirky-mikrofibra-3sht', categoryId: categories[3].id, priceRetail: 149.0, priceWholesale: 120.0, quantity: 80, isPromo: true, priceRetailOld: 179.0 },
+    { code: 'SPONTEX-GLOVES-M', name: 'Spontex рукавички господарські M', slug: 'spontex-rukavychky-gospodarski-m', categoryId: categories[3].id, priceRetail: 69.0, priceWholesale: 55.0, quantity: 160, isPromo: false },
+    { code: 'FREKEN-BOK-BAGS-35', name: 'Фрекен Бок сміттєві пакети 35л 30шт', slug: 'freken-bok-smittevi-pakety-35l-30sht', categoryId: categories[3].id, priceRetail: 49.0, priceWholesale: 39.0, quantity: 400, isPromo: false },
 
-    // Air fresheners (osvizhuvachi-povitrya)
-    { code: 'GLADE-AUTO-269', name: 'Glade Автоматичний освіжувач повітря Лаванда 269мл', slug: 'glade-avtomatychniy-osvizhuvach-lavanda-269ml', categoryId: categories[4].id, priceRetail: 169.0, priceWholesale: 140.0, quantity: 45, isPromo: false },
-    { code: 'GLADE-SPRAY-300', name: 'Glade Квітковий спрей освіжувач 300мл', slug: 'glade-kvitkoviy-spray-osvizhuvach-300ml', categoryId: categories[4].id, priceRetail: 95.0, priceWholesale: 78.0, quantity: 100, isPromo: false },
-    { code: 'AIRWICK-ELEC-19', name: 'Air Wick електричний освіжувач Лаванда 19мл', slug: 'airwick-elektrychniy-osvizhuvach-lavanda-19ml', categoryId: categories[4].id, priceRetail: 149.0, priceWholesale: 125.0, quantity: 55, isPromo: true, priceRetailOld: 179.0 },
-    { code: 'AIRWICK-REFILL-250', name: 'Air Wick змінний балон Свіжість лісу 250мл', slug: 'airwick-zminniy-balon-svizhist-lisu-250ml', categoryId: categories[4].id, priceRetail: 109.0, priceWholesale: 89.0, quantity: 70, isPromo: false },
-    { code: 'BRISE-CANDLE-120', name: 'Brise ароматична свічка Ваніль 120г', slug: 'brise-aromatychna-svichka-vanil-120g', categoryId: categories[4].id, priceRetail: 89.0, priceWholesale: 72.0, quantity: 40, isPromo: false },
+    // Догляд за тілом (categories[4])
+    { code: 'DOVE-SHOWER-250', name: 'Dove крем-гель для душу Ніжне шовкове 250мл', slug: 'dove-krem-gel-dlya-dushu-nizhne-shovkove-250ml', categoryId: categories[4].id, priceRetail: 119.0, priceWholesale: 98.0, quantity: 80, isPromo: false },
+    { code: 'NIVEA-SHOWER-500', name: 'Nivea гель для душу Свіжість океану 500мл', slug: 'nivea-gel-dlya-dushu-svizhist-okeanu-500ml', categoryId: categories[4].id, priceRetail: 145.0, priceWholesale: 120.0, quantity: 65, isPromo: false },
+    { code: 'PALMOLIVE-SOAP-90', name: 'Palmolive мило Натурель Оливка 90г', slug: 'palmolive-mylo-naturel-olyvka-90g', categoryId: categories[4].id, priceRetail: 29.0, priceWholesale: 22.0, quantity: 300, isPromo: false },
+    { code: 'DOVE-CREAM-75', name: 'Dove крем для рук Інтенсивний догляд 75мл', slug: 'dove-krem-dlya-ruk-intensyvniy-dohlyad-75ml', categoryId: categories[4].id, priceRetail: 89.0, priceWholesale: 72.0, quantity: 90, isPromo: true, priceRetailOld: 109.0 },
+    { code: 'REXONA-DEO-150', name: 'Rexona дезодорант-спрей Невидимий 150мл', slug: 'rexona-dezodorant-sprey-nevydymiy-150ml', categoryId: categories[4].id, priceRetail: 109.0, priceWholesale: 89.0, quantity: 100, isPromo: false },
+    { code: 'NIVEA-BODY-250', name: 'Nivea лосьйон для тіла Ніжність 250мл', slug: 'nivea-losyon-dlya-tila-nizhnist-250ml', categoryId: categories[4].id, priceRetail: 159.0, priceWholesale: 130.0, quantity: 55, isPromo: false },
+    { code: 'SAFEGUARD-SOAP-90', name: 'Safeguard антибактеріальне мило Класичне 90г', slug: 'safeguard-antybakterialne-mylo-klasychne-90g', categoryId: categories[4].id, priceRetail: 35.0, priceWholesale: 27.0, quantity: 250, isPromo: false },
+    { code: 'FA-SHOWER-250', name: 'Fa гель для душу Yoghurt Алое Вера 250мл', slug: 'fa-gel-dlya-dushu-yoghurt-aloe-vera-250ml', categoryId: categories[4].id, priceRetail: 99.0, priceWholesale: 80.0, quantity: 70, isPromo: true, priceRetailOld: 119.0 },
 
-    // Paper products (paperovi-vyroby)
-    { code: 'ZEWA-DELUXE-8', name: 'Zewa Deluxe туалетний папір 3-шаровий 8 рулонів', slug: 'zewa-deluxe-tualetniy-papir-3-sharoviy-8-ruloniv', categoryId: categories[5].id, priceRetail: 159.0, priceWholesale: 130.0, quantity: 200, isPromo: false },
-    { code: 'ZEWA-DELUXE-16', name: 'Zewa Deluxe туалетний папір 3-шаровий 16 рулонів', slug: 'zewa-deluxe-tualetniy-papir-3-sharoviy-16-ruloniv', categoryId: categories[5].id, priceRetail: 299.0, priceWholesale: 250.0, quantity: 100, isPromo: true, priceRetailOld: 349.0 },
-    { code: 'ZEWA-TOWEL-2', name: 'Zewa паперові рушники 2 рулони', slug: 'zewa-paperovi-rushnyky-2-rulony', categoryId: categories[5].id, priceRetail: 89.0, priceWholesale: 72.0, quantity: 150, isPromo: false },
-    { code: 'KLEENEX-TISSUES-100', name: 'Kleenex серветки косметичні 100шт', slug: 'kleenex-servetky-kosmetychni-100sht', categoryId: categories[5].id, priceRetail: 65.0, priceWholesale: 52.0, quantity: 120, isPromo: false },
-    { code: 'RUTA-NAPKINS-100', name: 'Рута серветки столові 100шт', slug: 'ruta-servetky-stolovi-100sht', categoryId: categories[5].id, priceRetail: 35.0, priceWholesale: 28.0, quantity: 300, isPromo: false },
-    { code: 'SELPAK-TISSUE-150', name: 'Selpak серветки 3-шарові 150шт', slug: 'selpak-servetky-3-sharovi-150sht', categoryId: categories[5].id, priceRetail: 79.0, priceWholesale: 64.0, quantity: 90, isPromo: false },
-
-    // Cleaning supplies (zasoby-dlya-prybyranya)
-    { code: 'SCOTCH-BRITE-3', name: 'Scotch-Brite губки кухонні 3шт', slug: 'scotch-brite-gubky-kukhonni-3sht', categoryId: categories[6].id, priceRetail: 45.0, priceWholesale: 36.0, quantity: 250, isPromo: false },
-    { code: 'VILEDA-MOP-TWIST', name: 'Vileda швабра Twist з віджимом', slug: 'vileda-shvabra-twist-z-vidzhymom', categoryId: categories[6].id, priceRetail: 599.0, priceWholesale: 490.0, quantity: 30, isPromo: false },
-    { code: 'VILEDA-CLOTH-3', name: 'Vileda ганчірки мікрофібра 3шт', slug: 'vileda-ganchirky-mikrofibra-3sht', categoryId: categories[6].id, priceRetail: 149.0, priceWholesale: 120.0, quantity: 80, isPromo: true, priceRetailOld: 179.0 },
-    { code: 'SPONTEX-GLOVES-M', name: 'Spontex рукавички господарські M', slug: 'spontex-rukavychky-gospodarski-m', categoryId: categories[6].id, priceRetail: 69.0, priceWholesale: 55.0, quantity: 160, isPromo: false },
-    { code: 'FREKEN-BOK-BAGS-35', name: 'Фрекен Бок сміттєві пакети 35л 30шт', slug: 'freken-bok-smittevi-pakety-35l-30sht', categoryId: categories[6].id, priceRetail: 49.0, priceWholesale: 39.0, quantity: 400, isPromo: false },
-
-    // Glass cleaners (zasoby-dlya-skla)
-    { code: 'CLIN-GLASS-500', name: 'Clin засіб для миття скла 500мл', slug: 'clin-zasib-dlya-myttya-skla-500ml', categoryId: categories[7].id, priceRetail: 79.0, priceWholesale: 64.0, quantity: 110, isPromo: false },
-    { code: 'MR-MUSCLE-GLASS-500', name: 'Mr. Muscle засіб для скла 500мл', slug: 'mr-muscle-zasib-dlya-skla-500ml', categoryId: categories[7].id, priceRetail: 89.0, priceWholesale: 72.0, quantity: 95, isPromo: false },
-    { code: 'HELP-GLASS-750', name: 'Help засіб для скла та дзеркал 750мл', slug: 'help-zasib-dlya-skla-ta-dzerkal-750ml', categoryId: categories[7].id, priceRetail: 59.0, priceWholesale: 47.0, quantity: 140, isPromo: false },
-
-    // More laundry products
-    { code: 'LENOR-SOFTENER-1L', name: 'Lenor кондиціонер Весняне пробудження 1л', slug: 'lenor-kondytsioner-vesnyane-probudzhennya-1l', categoryId: categories[1].id, priceRetail: 139.0, priceWholesale: 115.0, quantity: 70, isPromo: false },
-    { code: 'VANISH-OXI-450', name: 'Vanish Oxi Action плямовивідник 450г', slug: 'vanish-oxi-action-plyamovyvidnyk-450g', categoryId: categories[1].id, priceRetail: 199.0, priceWholesale: 165.0, quantity: 55, isPromo: true, priceRetailOld: 239.0 },
-    { code: 'CALGON-TABS-15', name: 'Calgon таблетки для пральних машин 15шт', slug: 'calgon-tabletky-dlya-pralnykh-mashyn-15sht', categoryId: categories[1].id, priceRetail: 179.0, priceWholesale: 149.0, quantity: 40, isPromo: false },
-
-    // Additional cleaning
-    { code: 'SARMA-POWDER-400', name: 'Сарма чистячий порошок 400г', slug: 'sarma-chystyachiy-poroshok-400g', categoryId: categories[0].id, priceRetail: 35.0, priceWholesale: 28.0, quantity: 200, isPromo: false },
-    { code: 'PEMOLUX-POWDER-480', name: 'Пемолюкс чистячий порошок Лимон 480г', slug: 'pemolux-chystyachiy-poroshok-lemon-480g', categoryId: categories[0].id, priceRetail: 45.0, priceWholesale: 36.0, quantity: 180, isPromo: false },
-    { code: 'FROSCH-KITCHEN-500', name: 'Frosch засіб для кухні Сода 500мл', slug: 'frosch-zasib-dlya-kukhni-soda-500ml', categoryId: categories[3].id, priceRetail: 129.0, priceWholesale: 105.0, quantity: 65, isPromo: false },
+    // Догляд за волоссям (categories[5])
+    { code: 'HEAD-SHOULDERS-400', name: 'Head & Shoulders шампунь Основний догляд 400мл', slug: 'head-shoulders-shampun-osnovniy-dohlyad-400ml', categoryId: categories[5].id, priceRetail: 169.0, priceWholesale: 140.0, quantity: 75, isPromo: false },
+    { code: 'PANTENE-SHAMPOO-400', name: 'Pantene Pro-V шампунь Густе та міцне 400мл', slug: 'pantene-pro-v-shampun-guste-ta-mitsne-400ml', categoryId: categories[5].id, priceRetail: 179.0, priceWholesale: 148.0, quantity: 60, isPromo: false },
+    { code: 'GARNIER-FRUCTIS-400', name: 'Garnier Fructis шампунь Ріст на повну силу 400мл', slug: 'garnier-fructis-shampun-rist-na-povnu-sylu-400ml', categoryId: categories[5].id, priceRetail: 149.0, priceWholesale: 122.0, quantity: 85, isPromo: true, priceRetailOld: 179.0 },
+    { code: 'LOREAL-ELSEVE-250', name: "L'Oréal Elseve бальзам Повне відновлення 250мл", slug: 'loreal-elseve-balzam-povne-vidnovlennya-250ml', categoryId: categories[5].id, priceRetail: 159.0, priceWholesale: 130.0, quantity: 50, isPromo: false },
+    { code: 'DOVE-HAIR-250', name: 'Dove шампунь Інтенсивне відновлення 250мл', slug: 'dove-shampun-intensyvne-vidnovlennya-250ml', categoryId: categories[5].id, priceRetail: 129.0, priceWholesale: 105.0, quantity: 70, isPromo: false },
+    { code: 'GLISS-KUR-MASK-300', name: 'Gliss Kur маска для волосся Екстремальне відновлення 300мл', slug: 'gliss-kur-maska-ekstremalne-vidnovlennya-300ml', categoryId: categories[5].id, priceRetail: 189.0, priceWholesale: 155.0, quantity: 40, isPromo: false },
+    { code: 'SCHAUMA-SHAMPOO-400', name: 'Schauma шампунь 7 Трав свіжість 400мл', slug: 'schauma-shampun-7-trav-svizhist-400ml', categoryId: categories[5].id, priceRetail: 109.0, priceWholesale: 89.0, quantity: 95, isPromo: false },
+    { code: 'TRESEMME-SPRAY-200', name: 'TRESemmé спрей для укладки Термозахист 200мл', slug: 'tresemme-sprey-dlya-ukladky-termozakhyst-200ml', categoryId: categories[5].id, priceRetail: 199.0, priceWholesale: 165.0, quantity: 35, isPromo: true, priceRetailOld: 239.0 },
   ];
 
   const products = [];
@@ -353,6 +298,12 @@ async function main() {
       slug: 'returns',
       title: 'Повернення та обмін',
       content: '<h2>Умови повернення</h2><p>Повернення товару протягом 14 днів з моменту покупки за умови збереження товарного вигляду та упаковки.</p>',
+      isPublished: true,
+    },
+    {
+      slug: 'wholesale',
+      title: 'Стати оптовим клієнтом',
+      content: '<h2>Оптова співпраця з Clean Shop</h2><p>Ми пропонуємо вигідні умови для оптових покупців:</p><ul><li>Знижки від 10% на весь асортимент</li><li>Персональний менеджер</li><li>Гнучка система ціноутворення</li><li>Безкоштовна доставка від 5000 грн</li><li>Оплата по безготівковому розрахунку</li></ul><h3>Як стати оптовим клієнтом?</h3><ol><li>Зареєструйтесь на сайті</li><li>Перейдіть у особистий кабінет</li><li>Заповніть заявку на оптове обслуговування</li><li>Менеджер зв\'яжеться з вами протягом 1 робочого дня</li></ol><h3>Мінімальне замовлення</h3><p>Мінімальна сума оптового замовлення — 5000 грн. Для окремих категорій товарів діють умови кратності.</p>',
       isPublished: true,
     },
   ];
@@ -550,6 +501,23 @@ async function main() {
     });
   }
   console.log(`  Product Notes: ${noteItems.length} created`);
+
+  // --- Loyalty Levels ---
+  const loyaltyLevels = [
+    { name: 'bronze', minSpent: 0, pointsMultiplier: 1.0, discountPercent: 0, sortOrder: 1 },
+    { name: 'silver', minSpent: 5000, pointsMultiplier: 1.5, discountPercent: 3, sortOrder: 2 },
+    { name: 'gold', minSpent: 20000, pointsMultiplier: 2.0, discountPercent: 5, sortOrder: 3 },
+    { name: 'platinum', minSpent: 50000, pointsMultiplier: 3.0, discountPercent: 10, sortOrder: 4 },
+  ];
+
+  for (const level of loyaltyLevels) {
+    await prisma.loyaltyLevel.upsert({
+      where: { name: level.name },
+      update: {},
+      create: level,
+    });
+  }
+  console.log(`  Loyalty Levels: ${loyaltyLevels.length} created`);
 
   console.log('\nSeeding complete!');
   console.log('---');

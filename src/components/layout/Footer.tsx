@@ -6,8 +6,9 @@ import { Telegram, Viber, Instagram, Facebook } from '@/components/icons';
 export default function Footer() {
   return (
     <footer className="bg-[var(--color-primary-dark)] text-blue-100">
-      <Container className="py-12">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="h-1 bg-gradient-to-r from-[var(--color-primary-light)] via-[var(--color-primary)] to-[var(--color-primary-dark)]" />
+      <Container className="py-14">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-12">
           <div className="lg:col-span-2">
             <Link href="/" className="mb-4 inline-flex items-center gap-2 text-xl font-bold text-white">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)] text-sm font-black text-white">C</span>
@@ -16,18 +17,19 @@ export default function Footer() {
             <p className="mb-5 mt-3 max-w-sm text-sm leading-relaxed text-blue-200">
               Інтернет-магазин побутової хімії та засобів для дому. Оригінальна продукція, доступні ціни, швидка доставка по Україні.
             </p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-300">Ми в соцмережах</p>
             <div className="flex gap-3">
-              <a href="https://t.me/cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-blue-200 transition-colors hover:bg-[var(--color-primary)] hover:text-white">
-                <Telegram size={18} />
+              <a href="https://t.me/cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
+                <Telegram size={20} />
               </a>
-              <a href="viber://pa?chatURI=cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Viber" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-blue-200 transition-colors hover:bg-[var(--color-primary)] hover:text-white">
-                <Viber size={18} />
+              <a href="viber://pa?chatURI=cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Viber" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
+                <Viber size={20} />
               </a>
-              <a href="https://instagram.com/cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-blue-200 transition-colors hover:bg-[var(--color-primary)] hover:text-white">
-                <Instagram size={18} />
+              <a href="https://instagram.com/cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
+                <Instagram size={20} />
               </a>
-              <a href="https://facebook.com/cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-blue-200 transition-colors hover:bg-[var(--color-primary)] hover:text-white">
-                <Facebook size={18} />
+              <a href="https://facebook.com/cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
+                <Facebook size={20} />
               </a>
             </div>
           </div>
@@ -78,23 +80,24 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 border-t border-white/10 pt-6">
+        <div className="mt-10 border-t border-white/15 pt-6">
+          <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wider text-blue-300">Приймаємо оплату</p>
           <div className="mb-4 flex items-center justify-center gap-4">
-            <svg viewBox="0 0 48 32" className="h-7 w-auto text-blue-300" aria-label="Visa">
-              <rect width="48" height="32" rx="4" fill="currentColor" opacity="0.15"/>
+            <svg viewBox="0 0 48 32" className="h-8 w-auto text-blue-300" aria-label="Visa">
+              <rect width="48" height="32" rx="4" fill="currentColor" opacity="0.2"/>
               <text x="24" y="20" textAnchor="middle" fill="currentColor" fontSize="11" fontWeight="bold" fontStyle="italic">VISA</text>
             </svg>
-            <svg viewBox="0 0 48 32" className="h-7 w-auto text-blue-300" aria-label="Mastercard">
-              <rect width="48" height="32" rx="4" fill="currentColor" opacity="0.15"/>
+            <svg viewBox="0 0 48 32" className="h-8 w-auto text-blue-300" aria-label="Mastercard">
+              <rect width="48" height="32" rx="4" fill="currentColor" opacity="0.2"/>
               <circle cx="19" cy="16" r="8" fill="currentColor" opacity="0.25"/>
               <circle cx="29" cy="16" r="8" fill="currentColor" opacity="0.2"/>
             </svg>
-            <svg viewBox="0 0 48 32" className="h-7 w-auto text-blue-300" aria-label="LiqPay">
-              <rect width="48" height="32" rx="4" fill="currentColor" opacity="0.15"/>
+            <svg viewBox="0 0 48 32" className="h-8 w-auto text-blue-300" aria-label="LiqPay">
+              <rect width="48" height="32" rx="4" fill="currentColor" opacity="0.2"/>
               <text x="24" y="20" textAnchor="middle" fill="currentColor" fontSize="8" fontWeight="bold">LiqPay</text>
             </svg>
-            <svg viewBox="0 0 48 32" className="h-7 w-auto text-blue-300" aria-label="Monobank">
-              <rect width="48" height="32" rx="4" fill="currentColor" opacity="0.15"/>
+            <svg viewBox="0 0 48 32" className="h-8 w-auto text-blue-300" aria-label="Monobank">
+              <rect width="48" height="32" rx="4" fill="currentColor" opacity="0.2"/>
               <text x="24" y="20" textAnchor="middle" fill="currentColor" fontSize="7" fontWeight="bold">mono</text>
             </svg>
           </div>

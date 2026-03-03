@@ -24,7 +24,6 @@ export default function ConversionFunnel({ days = 30 }: { days?: number }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient
       .get<FunnelData>(`/api/v1/admin/analytics/funnel?days=${days}`)
       .then((res) => {

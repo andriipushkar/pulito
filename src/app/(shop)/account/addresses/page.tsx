@@ -34,7 +34,12 @@ export default function AddressesPage() {
     setIsLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    apiClient.get<Address[]>('/api/v1/me/addresses').then((res) => {
+      if (res.success && res.data) setAddresses(res.data);
+      setIsLoading(false);
+    });
+  }, []);
 
   const handleChange = (field: string, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));

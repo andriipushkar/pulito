@@ -41,7 +41,16 @@ export default function AdminBotSettingsPage() {
     setIsLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    Promise.all([
+      apiClient.get<AutoReply[]>('/api/v1/admin/bot-replies'),
+      apiClient.get<WelcomeMessage[]>('/api/v1/admin/bot-welcome'),
+    ]).then(([r1, r2]) => {
+      if (r1.success && r1.data) setReplies(r1.data);
+      if (r2.success && r2.data) setWelcomes(r2.data);
+      setIsLoading(false);
+    });
+  }, []);
 
   const addReply = async () => {
     await apiClient.post('/api/v1/admin/bot-replies', newReply);

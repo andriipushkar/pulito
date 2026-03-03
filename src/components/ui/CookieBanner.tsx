@@ -1,21 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 const COOKIE_CONSENT_KEY = 'cookie-consent-accepted';
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(COOKIE_CONSENT_KEY)) setVisible(true);
+    } catch { /* SSR / private browsing */ }
+  }, []);
   const [showSettings, setShowSettings] = useState(false);
   const [analytics, setAnalytics] = useState(true);
   const [marketing, setMarketing] = useState(false);
-
-  useEffect(() => {
-    const accepted = localStorage.getItem(COOKIE_CONSENT_KEY);
-    if (!accepted) {
-      setVisible(true);
-    }
-  }, []);
 
   const saveConsent = async (analyticsAccepted: boolean, marketingAccepted: boolean) => {
     const sessionId = crypto.randomUUID();
@@ -49,7 +49,7 @@ export default function CookieBanner() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 border-t p-4 shadow-lg"
+      className="fixed bottom-4 left-4 right-4 z-50 rounded-2xl border p-5 shadow-xl sm:left-auto sm:max-w-xl"
       style={{
         backgroundColor: 'var(--color-surface, #ffffff)',
         borderColor: 'var(--color-border, #e2e8f0)',
@@ -61,9 +61,9 @@ export default function CookieBanner() {
             <p className="flex-1 text-sm" style={{ color: 'var(--color-text-secondary, #475569)' }}>
               Ми використовуємо файли cookie для покращення роботи сайту та аналізу трафіку.
               Натискаючи &quot;Прийняти&quot;, ви погоджуєтеся з використанням cookie.{' '}
-              <a href="/pages/privacy-policy" className="underline hover:no-underline" style={{ color: 'var(--color-primary, #2563eb)' }}>
+              <Link href="/pages/privacy-policy" className="underline hover:no-underline" style={{ color: 'var(--color-primary, #2563eb)' }}>
                 Політика конфіденційності
-              </a>
+              </Link>
             </p>
             <div className="flex gap-2">
               <button

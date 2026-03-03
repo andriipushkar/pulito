@@ -39,7 +39,6 @@ export default function StockAnalytics({ days }: { days: number }) {
   const [view, setView] = useState<'critical' | 'dead' | 'turnover'>('critical');
 
   useEffect(() => {
-    setIsLoading(true);
     apiClient.get<StockData>(`/api/v1/admin/analytics/stock?days=${days}`)
       .then((res) => { if (res.success && res.data) setData(res.data); })
       .finally(() => setIsLoading(false));

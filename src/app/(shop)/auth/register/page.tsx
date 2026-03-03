@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Input from '@/components/ui/Input';
+import PhoneInput, { cleanPhone } from '@/components/ui/PhoneInput';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { z } from 'zod';
@@ -112,13 +113,11 @@ export default function RegisterPage() {
           placeholder="Мінімум 8 символів"
           autoComplete="new-password"
         />
-        <Input
+        <PhoneInput
           label="Телефон (опційно)"
-          type="tel"
           value={form.phone}
-          onChange={(e) => handleChange('phone', e.target.value)}
+          onChange={(e) => handleChange('phone', cleanPhone(e.target.value))}
           error={errors.phone}
-          placeholder="+380..."
           autoComplete="tel"
         />
 

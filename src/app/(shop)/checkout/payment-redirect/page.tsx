@@ -9,14 +9,11 @@ import Spinner from '@/components/ui/Spinner';
 export default function PaymentRedirectPage() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
-  const [status, setStatus] = useState<'loading' | 'success' | 'pending' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'pending' | 'error'>(orderId ? 'loading' : 'error');
   const [orderNumber, setOrderNumber] = useState('');
 
   useEffect(() => {
-    if (!orderId) {
-      setStatus('error');
-      return;
-    }
+    if (!orderId) return;
 
     const checkPayment = async () => {
       const res = await apiClient.get<{
