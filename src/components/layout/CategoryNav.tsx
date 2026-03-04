@@ -9,6 +9,7 @@ import type { CategoryListItem } from '@/types/category';
 
 interface CategoryNavProps {
   categories: CategoryListItem[];
+  shrink?: boolean;
 }
 
 /** Return the number of grid columns based on the child count and whether there is a cover image. */
@@ -19,7 +20,7 @@ function getColumnCount(childCount: number, hasCover: boolean): number {
   return maxCols;
 }
 
-export default function CategoryNav({ categories }: CategoryNavProps) {
+export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
   const [openId, setOpenId] = useState<number | null>(null);
   const [visible, setVisible] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,7 +66,7 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
       aria-label="Категорії"
     >
       <Container>
-        <ul className="flex items-center justify-center gap-2 overflow-x-auto py-2 scrollbar-hide">
+        <ul className={`flex flex-wrap items-center justify-center gap-1.5 transition-all duration-300 ${shrink ? 'py-1' : 'py-2'}`}>
           {/* Static catalog link */}
           <li>
             <Link

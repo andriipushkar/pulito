@@ -65,6 +65,9 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const breadcrumbs = [
     { label: 'Головна', href: '/' },
     { label: 'Каталог', href: '/catalog' },
+    ...(categoryData?.parent
+      ? [{ label: categoryData.parent.name, href: `/catalog?category=${categoryData.parent.slug}` }]
+      : []),
     ...(categoryData ? [{ label: categoryData.name }] : []),
   ];
 

@@ -6,8 +6,9 @@ import Container from '@/components/ui/Container';
 import SearchBar from './SearchBar';
 import IconButton from '@/components/ui/IconButton';
 import MiniCart from './MiniCart';
-import MobileMenu from './MobileMenu';
-import { Heart, Cart, User, Menu, Bell } from '@/components/icons';
+import { Heart, Cart, User, Bell } from '@/components/icons';
+import CallbackButton from '@/components/common/CallbackButton';
+import ChatWidget from '@/components/common/ChatWidget';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
@@ -17,14 +18,14 @@ import type { CategoryListItem } from '@/types/category';
 
 interface HeaderMainProps {
   categories: CategoryListItem[];
+  shrink?: boolean;
 }
 
-export default function HeaderMain({ categories }: HeaderMainProps) {
+export default function HeaderMain({ categories, shrink }: HeaderMainProps) {
   const { user } = useAuth();
   const { itemCount, total } = useCart();
   const { wishlistCount } = useWishlist();
   const [cartOpen, setCartOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchNotificationCount = useCallback(async () => {
@@ -53,18 +54,10 @@ export default function HeaderMain({ categories }: HeaderMainProps) {
         Перейти до основного вмісту
       </a>
       <div className="border-b border-[var(--color-border)]">
-        <Container className="flex items-center gap-4 py-3">
-          <button
-            className="flex h-10 w-10 items-center justify-center rounded-[var(--radius)] transition-colors hover:bg-[var(--color-bg-secondary)] lg:hidden"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Меню"
-          >
-            <Menu size={26} />
-          </button>
-
+        <Container className={`flex items-center gap-4 transition-all duration-300 ${shrink ? 'py-1.5' : 'py-3'}`}>
           <Link href="/" className="flex shrink-0 items-center gap-2 text-xl font-bold text-[var(--color-text)]">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-sm font-black text-white shadow-[var(--shadow-brand)]">C</span>
-            <span>Clean<span className="text-[var(--color-primary)]">Shop</span></span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-sm font-black text-white shadow-[var(--shadow-brand)]">П</span>
+            <span>Поро<span className="text-[var(--color-primary)]">шок</span></span>
           </Link>
 
           <div className="hidden flex-1 lg:block">
@@ -72,17 +65,32 @@ export default function HeaderMain({ categories }: HeaderMainProps) {
           </div>
 
           <div className="ml-auto flex items-center gap-1">
+            <CallbackButton
+              triggerClassName="relative inline-flex items-center justify-center rounded-[var(--radius)] text-[var(--color-text)] transition-colors hover:bg-[var(--color-bg-secondary)] h-10 w-10"
+              iconSize={20}
+            />
+            <div className="relative">
+              <ChatWidget
+                triggerClassName="relative inline-flex items-center justify-center rounded-[var(--radius)] text-[var(--color-text)] transition-colors hover:bg-[var(--color-bg-secondary)] h-10 w-10"
+                iconSize={20}
+              />
+            </div>
+
             {user && (
-              <Link href="/account/notifications" className="hidden sm:block">
+              <Link href="/account/notifications" className="hidden lg:block">
                 <IconButton icon={<Bell size={20} />} badge={unreadCount} label="Сповіщення" />
               </Link>
             )}
 
-            <Link href="/wishlist" className="hidden sm:block">
+            <Link href="/account/wishlist" className="hidden lg:block">
               <IconButton icon={<Heart size={20} />} badge={wishlistCount} label="Обране" />
             </Link>
 
-            <div className="relative flex items-center gap-1">
+            <div
+              className="relative flex items-center gap-1"
+              onMouseEnter={() => { if (itemCount > 0) setCartOpen(true); }}
+              onMouseLeave={() => setCartOpen(false)}
+            >
               <IconButton
                 icon={<Cart size={20} />}
                 badge={itemCount}
@@ -90,7 +98,7 @@ export default function HeaderMain({ categories }: HeaderMainProps) {
                 onClick={() => setCartOpen(!cartOpen)}
               />
               {itemCount > 0 && (
-                <span className="hidden text-sm font-medium text-[var(--color-text)] sm:inline-block">
+                <span className="hidden text-sm font-medium text-[var(--color-text)] lg:inline-block">
                   {formatPrice(total(user?.role))}
                 </span>
               )}
@@ -104,7 +112,7 @@ export default function HeaderMain({ categories }: HeaderMainProps) {
             <Link href={user ? '/account' : '/auth/login'} className="flex items-center gap-1.5">
               <IconButton icon={<User size={20} />} label={user ? 'Профіль' : 'Увійти'} />
               {user?.role === 'wholesaler' && (
-                <span className="hidden rounded-full bg-gradient-to-r from-[var(--color-gold-dark)] to-[var(--color-gold)] px-2 py-0.5 text-[10px] font-semibold text-white shadow-[var(--shadow-gold)] sm:inline-block">
+                <span className="hidden rounded-full bg-gradient-to-r from-[var(--color-gold-dark)] to-[var(--color-gold)] px-2 py-0.5 text-[10px] font-semibold text-white shadow-[var(--shadow-gold)] lg:inline-block">
                   Оптовий клієнт
                 </span>
               )}
@@ -117,11 +125,6 @@ export default function HeaderMain({ categories }: HeaderMainProps) {
         </div>
       </div>
 
-      <MobileMenu
-        isOpen={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        categories={categories}
-      />
     </>
   );
 }

@@ -24,18 +24,29 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const product = await getProductBySlug(slug);
   if (!product) return { title: 'Товар не знайдено' };
 
+  const baseUrl = process.env.APP_URL || 'http://localhost:3000';
   const title = product.content?.seoTitle || product.name;
-  const description = product.content?.seoDescription || product.content?.shortDescription || `${product.name} — купити за вигідною ціною в Clean Shop`;
+  const description = product.content?.seoDescription || product.content?.shortDescription || `${product.name} — купити за вигідною ціною в Порошок`;
   const image = product.images[0]?.pathFull || product.imagePath;
+  const url = `${baseUrl}/product/${slug}`;
 
   return {
     title,
     description,
+    alternates: { canonical: url },
     openGraph: {
       title,
       description,
+      url,
       ...(image && { images: [{ url: image }] }),
       type: 'website',
+      siteName: 'Порошок',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      ...(image && { images: [image] }),
     },
   };
 }
@@ -63,6 +74,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const breadcrumbs = [
     { label: 'Головна', href: '/' },
     { label: 'Каталог', href: '/catalog' },
+    ...(product.category?.parent
+      ? [{ label: product.category.parent.name, href: `/catalog?category=${product.category.parent.slug}` }]
+      : []),
     ...(product.category
       ? [{ label: product.category.name, href: `/catalog?category=${product.category.slug}` }]
       : []),

@@ -43,7 +43,7 @@ function ThemePreview({ colors }: { colors: Record<string, string> }) {
   return (
     <div className="mt-4 overflow-hidden rounded-lg border-2 border-dashed border-[var(--color-border)] p-4" style={style}>
       <div className="mb-3 flex items-center gap-3 rounded-lg p-3" style={{ backgroundColor: colors['--color-bg'] || '#fff' }}>
-        <span className="text-lg font-bold" style={{ color: colors['--color-primary'] || '#2563eb' }}>Clean Shop</span>
+        <span className="text-lg font-bold" style={{ color: colors['--color-primary'] || '#2563eb' }}>Порошок</span>
         <div className="ml-auto flex gap-2">
           <span className="rounded px-3 py-1 text-xs text-white" style={{ backgroundColor: colors['--color-primary'] || '#2563eb' }}>Каталог</span>
           <span className="rounded px-3 py-1 text-xs" style={{ color: colors['--color-text-secondary'] || '#6b7280', borderWidth: 1, borderColor: colors['--color-border'] || '#e5e7eb' }}>Акції</span>

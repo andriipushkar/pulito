@@ -9,10 +9,16 @@ const FONT_BOLD_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Bold.tt
 const PUBLIC_DIR = path.join(process.cwd(), 'public');
 
 const COMPANY = {
-  name: 'Clean Shop',
+  name: 'Порошок',
   tagline: 'Побутова хімія та засоби для дому',
-  website: 'cleanshop.com.ua',
+  website: 'poroshok.ua',
   phone: '+38 (067) 123-45-67',
+  social: {
+    telegram: 't.me/poroshok_shop',
+    viber: 'poroshok_shop',
+    instagram: 'instagram.com/poroshok_shop',
+    facebook: 'facebook.com/poroshok_shop',
+  },
 };
 
 // A4 layout
@@ -170,10 +176,15 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
     doc.text(`${COMPANY.website}  •  ${COMPANY.phone}`,
       M, 58, { width: CW, align: 'right', lineBreak: false });
 
-    // Separator
-    doc.moveTo(M, 72).lineTo(PW - M, 72).lineWidth(0.5).stroke(C.line);
+    // Social media line
+    const socials = `Telegram: ${COMPANY.social.telegram}  •  Viber: ${COMPANY.social.viber}  •  Instagram: ${COMPANY.social.instagram}  •  Facebook: ${COMPANY.social.facebook}`;
+    doc.fontSize(6.5).fillColor(C.accent);
+    doc.text(socials, M, 68, { width: CW, align: 'right', lineBreak: false });
 
-    return 80;
+    // Separator
+    doc.moveTo(M, 80).lineTo(PW - M, 80).lineWidth(0.5).stroke(C.line);
+
+    return 88;
   };
 
   // ── Table column header ──
@@ -279,7 +290,7 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
 
     // Availability badge
     const inStock = p.quantity > 0;
-    const stockText = inStock ? `${p.quantity} шт` : 'Ні';
+    const stockText = inStock ? 'Так' : 'Ні';
     const stockW = 32;
     const stockX = PW - M - stockW - 3;
     const stockY = y + 12;

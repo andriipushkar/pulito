@@ -14,7 +14,7 @@ import {
 const FONT_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
 
 const COMPANY = {
-  name: 'Clean Shop',
+  name: 'Порошок',
   description: 'Аналітичний звіт',
 };
 

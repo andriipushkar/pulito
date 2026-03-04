@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Технічні роботи — Clean Shop',
+  title: 'Технічні роботи — Порошок',
 };
 
 export default function MaintenancePage() {
@@ -18,7 +18,7 @@ export default function MaintenancePage() {
           Зазвичай це займає кілька хвилин. Дякуємо за терпіння!
         </p>
         <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
-          Якщо проблема не зникає, зв&apos;яжіться з нами: info@cleanshop.ua
+          Якщо проблема не зникає, зв&apos;яжіться з нами: info@poroshok.ua
         </p>
       </div>
     </div>

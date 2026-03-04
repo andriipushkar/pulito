@@ -165,7 +165,12 @@ const productListSelect = {
   ordersCount: true,
   createdAt: true,
   category: {
-    select: { id: true, name: true, slug: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      parent: { select: { name: true, slug: true } },
+    },
   },
   badges: {
     select: { id: true, badgeType: true, customText: true, customColor: true, priority: true },
@@ -221,7 +226,14 @@ const productDetailSelect = {
     orderBy: { priority: 'desc' },
   },
   category: {
-    select: { id: true, name: true, slug: true, seoTitle: true, seoDescription: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      seoTitle: true,
+      seoDescription: true,
+      parent: { select: { name: true, slug: true } },
+    },
   },
 } satisfies Prisma.ProductSelect;
 

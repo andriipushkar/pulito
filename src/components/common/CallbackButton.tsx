@@ -1,10 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Phone, Close } from '@/components/icons';
 import { cleanPhone } from '@/components/ui/PhoneInput';
 
-export default function CallbackButton() {
+interface CallbackButtonProps {
+  triggerClassName?: string;
+  iconSize?: number;
+}
+
+export default function CallbackButton({ triggerClassName, iconSize }: CallbackButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -51,13 +57,13 @@ export default function CallbackButton() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary)] text-white shadow-lg transition-transform hover:scale-110"
+        className={triggerClassName || "fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary)] text-white shadow-lg transition-transform hover:scale-110"}
         aria-label="Замовити дзвінок"
       >
-        <Phone size={24} />
+        <Phone size={iconSize || 24} />
       </button>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" onClick={() => setIsOpen(false)} />
           <div className="relative w-full max-w-sm animate-fade-in-up rounded-[var(--radius)] bg-[var(--color-bg)] p-6 shadow-xl">
@@ -144,7 +150,8 @@ export default function CallbackButton() {
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

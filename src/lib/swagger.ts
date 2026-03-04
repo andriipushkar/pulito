@@ -21,11 +21,11 @@ function zodSchema(schema: z.ZodType): object {
 export const openApiDocument = {
   openapi: '3.0.3',
   info: {
-    title: 'Clean Shop API',
+    title: 'Порошок API',
     description: 'REST API для інтернет-магазину побутової хімії (оптово-роздрібна платформа)',
     version: '1.0.0',
     contact: {
-      name: 'Clean Shop',
+      name: 'Порошок',
     },
   },
   servers: [

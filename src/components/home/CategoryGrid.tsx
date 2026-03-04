@@ -74,9 +74,9 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
   if (displayCategories.length === 0) return null;
 
   return (
-    <section className="py-8">
-      <div className="mb-5 flex items-center justify-between">
-        <h2 className="relative text-2xl font-extrabold text-[var(--color-text)]">
+    <section>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="relative text-xl font-extrabold text-[var(--color-text)] sm:text-2xl">
           Категорії
           <span className="absolute -bottom-1 left-0 h-0.5 w-12 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)]" />
         </h2>
@@ -87,7 +87,7 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
           Усі категорії &rarr;
         </Link>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
         {displayCategories.map((cat, idx) => {
           const bg = categoryBgs[idx % categoryBgs.length];
           return (

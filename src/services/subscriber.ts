@@ -119,11 +119,11 @@ async function sendConfirmationEmail(email: string, token: string) {
   const url = `${env.APP_URL}/subscribe/confirm?token=${token}`;
   await sendEmail({
     to: email,
-    subject: 'Підтвердіть підписку — Clean Shop',
+    subject: 'Підтвердіть підписку — Порошок',
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
         <h2 style="color:#2563eb">Підтвердження підписки</h2>
-        <p>Дякуємо за підписку на розсилку Clean Shop!</p>
+        <p>Дякуємо за підписку на розсилку Порошок!</p>
         <p>Для підтвердження підписки натисніть на кнопку нижче:</p>
         <a href="${url}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Підтвердити підписку</a>
         <p style="color:#64748b;font-size:14px">Або скопіюйте це посилання: <br/>${url}</p>

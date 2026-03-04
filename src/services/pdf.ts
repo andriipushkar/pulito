@@ -17,9 +17,9 @@ export class PdfError extends Error {
 const FONT_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
 
 const COMPANY = {
-  name: 'Clean Shop',
+  name: 'Порошок',
   description: 'Інтернет-магазин побутової хімії',
-  website: 'cleanshop.com.ua',
+  website: 'poroshok.ua',
 };
 
 /**

@@ -79,7 +79,7 @@ async function downloadAndProcessImage(url: string, productId: number): Promise<
     const res = await fetch(url, {
       signal: controller.signal,
       redirect: 'error', // prevent redirect-based SSRF bypasses
-      headers: { 'User-Agent': 'CleanShop-Import/1.0' },
+      headers: { 'User-Agent': 'Poroshok-Import/1.0' },
     });
     clearTimeout(timeout);
 

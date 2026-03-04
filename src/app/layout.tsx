@@ -24,7 +24,7 @@ const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'Clean Shop',
+  name: 'Порошок',
   url: baseUrl,
   logo: `${baseUrl}/images/icon-512.png`,
   description:
@@ -32,7 +32,7 @@ const organizationJsonLd = {
   contactPoint: {
     '@type': 'ContactPoint',
     telephone: process.env.CONTACT_PHONE || '+380XXXXXXXXX',
-    email: process.env.CONTACT_EMAIL || 'info@clean-shop.ua',
+    email: process.env.CONTACT_EMAIL || 'info@poroshok.ua',
     contactType: 'customer service',
     availableLanguage: 'Ukrainian',
   },
@@ -49,8 +49,8 @@ const organizationJsonLd = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'Clean Shop — Інтернет-магазин побутової хімії',
-    template: '%s | Clean Shop',
+    default: 'Порошок — Інтернет-магазин побутової хімії',
+    template: '%s | Порошок',
   },
   description:
     'Оптово-роздрібний інтернет-магазин побутової хімії. Широкий асортимент, вигідні ціни, швидка доставка по Україні.',
@@ -59,10 +59,15 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  ...(process.env.GOOGLE_SITE_VERIFICATION && {
+    verification: {
+      google: process.env.GOOGLE_SITE_VERIFICATION,
+    },
+  }),
   openGraph: {
     type: 'website',
     locale: 'uk_UA',
-    siteName: 'Clean Shop',
+    siteName: 'Порошок',
   },
   alternates: {
     canonical: baseUrl,
@@ -75,7 +80,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Clean Shop',
+    title: 'Порошок',
   },
 };
 
@@ -88,7 +93,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <link rel="apple-touch-icon" href="/images/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="alternate" type="application/rss+xml" title="Clean Shop — Нові товари" href="/feed.xml" />
+        <link rel="alternate" type="application/rss+xml" title="Порошок — Нові товари" href="/feed.xml" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}

@@ -57,7 +57,7 @@ export async function sendAnalyticsDigest(period: DigestPeriod) {
 
   const html = `
     <div style="font-family:sans-serif;max-width:700px;margin:0 auto;padding:20px">
-      <h2 style="color:#2563eb;margin-bottom:4px">${periodLabel} дайджест — Clean Shop</h2>
+      <h2 style="color:#2563eb;margin-bottom:4px">${periodLabel} дайджест — Порошок</h2>
       <p style="color:#64748b;font-size:14px;margin-top:0">${dateRange}</p>
 
       <div style="display:flex;gap:16px;margin:24px 0">
@@ -106,7 +106,7 @@ export async function sendAnalyticsDigest(period: DigestPeriod) {
 
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />
       <p style="color:#94a3b8;font-size:12px">
-        Цей дайджест надіслано автоматично з <a href="${env.APP_URL}/admin/analytics" style="color:#2563eb">Clean Shop</a>
+        Цей дайджест надіслано автоматично з <a href="${env.APP_URL}/admin/analytics" style="color:#2563eb">Порошок</a>
       </p>
     </div>
   `;

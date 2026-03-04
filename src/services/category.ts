@@ -42,6 +42,9 @@ export async function getCategoryBySlug(slug: string) {
   return prisma.category.findUnique({
     where: { slug },
     include: {
+      parent: {
+        select: { name: true, slug: true },
+      },
       _count: {
         select: { products: { where: { isActive: true } } },
       },

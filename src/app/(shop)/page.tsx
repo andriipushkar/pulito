@@ -13,9 +13,9 @@ import { getHomepageBlocks } from '@/services/homepage';
 const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'Clean Shop',
-  url: process.env.APP_URL || 'https://clean-shop.ua',
-  logo: `${process.env.APP_URL || 'https://clean-shop.ua'}/images/icon-512.png`,
+  name: 'Порошок',
+  url: process.env.APP_URL || 'https://poroshok.ua',
+  logo: `${process.env.APP_URL || 'https://poroshok.ua'}/images/icon-512.png`,
   description:
     'Оптово-роздрібний інтернет-магазин побутової хімії. Широкий асортимент, вигідні ціни, швидка доставка по Україні.',
   address: {
@@ -74,9 +74,9 @@ export default async function HomePage() {
     seo_text: (
       <section className="py-8">
         <div className="rounded-2xl bg-gradient-to-br from-[var(--color-primary-50)] to-white p-8 shadow-[var(--shadow)]">
-          <h2 className="mb-4 text-xl font-bold text-[var(--color-text)]">Інтернет-магазин побутової хімії Clean Shop</h2>
+          <h2 className="mb-4 text-xl font-bold text-[var(--color-text)]">Інтернет-магазин побутової хімії Порошок</h2>
           <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
-            Ласкаво просимо до Clean Shop — вашого надійного постачальника побутової хімії в Україні.
+            Ласкаво просимо до Порошок — вашого надійного постачальника побутової хімії в Україні.
             Ми пропонуємо широкий асортимент засобів для прибирання, прання, миття посуду та догляду за домом
             від провідних світових та вітчизняних виробників. Оптовим покупцям — спеціальні ціни та умови
             співпраці. Швидка доставка по всій Україні.
@@ -87,12 +87,12 @@ export default async function HomePage() {
   };
 
   return (
-    <Container className="py-8">
+    <Container className="py-4 sm:py-6 lg:py-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
-      <div className="space-y-12">
+      <div className="space-y-6 sm:space-y-8 lg:space-y-12">
       {enabledBlocks.map((block, index) => {
         const component = blockComponents[block.key];
         if (!component) return null;

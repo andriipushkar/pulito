@@ -38,7 +38,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const { user } = useAuth();
   const [showQuickView, setShowQuickView] = useState(false);
-  const [isWished, setIsWished] = useState(() => getLocalWishlist().includes(product.id));
+  const [isWished, setIsWished] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const inStock = product.quantity > 0;
   const mainImage = product.images[0]?.pathMedium || product.imagePath;
@@ -52,6 +52,8 @@ export default function ProductCard({ product }: ProductCardProps) {
           if (res.success && res.data) setIsWished(res.data.wishlisted);
         })
         .catch(() => {});
+    } else {
+      setIsWished(getLocalWishlist().includes(product.id));
     }
   }, [user, product.id]);
 
@@ -139,7 +141,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               <circle cx="50" cy="8" r="1.5" fill="currentColor" opacity="0.3" />
               <circle cx="53" cy="12" r="1" fill="currentColor" opacity="0.2" />
             </svg>
-            <span className="mt-2 text-[10px] font-semibold tracking-widest text-gray-300 select-none">CleanShop</span>
+            <span className="mt-2 text-[10px] font-semibold tracking-widest text-gray-300 select-none">Порошок</span>
           </div>
         )}
 

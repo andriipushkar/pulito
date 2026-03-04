@@ -130,9 +130,35 @@
   to { opacity: 1; }
 }
 
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes slide-in-left {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
+}
+
+@keyframes slide-up-sheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fade-overlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @utility scrollbar-hide {
@@ -159,6 +185,34 @@
   .animate-slide-in-left {
     animation: slide-in-left 0.25s ease-out both;
   }
+
+  .animate-slide-up-sheet {
+    animation: slide-up-sheet 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+
+  .animate-fade-overlay {
+    animation: fade-overlay 0.25s ease-out both;
+  }
+
+  .animate-slide-up-fade {
+    animation: slide-up-fade 0.4s ease-out both;
+  }
+
+  .animate-count-up {
+    animation: count-up 0.3s ease-out both;
+  }
+
+  .stagger-children > * {
+    animation: slide-up-fade 0.4s ease-out both;
+  }
+  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+  .stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+  .stagger-children > *:nth-child(8) { animation-delay: 350ms; }
 
   .glass {
     background: rgba(255, 255, 255, 0.7);

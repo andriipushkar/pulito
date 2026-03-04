@@ -11,24 +11,24 @@ export default function Footer() {
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-12">
           <div className="lg:col-span-2">
             <Link href="/" className="mb-4 inline-flex items-center gap-2 text-xl font-bold text-white">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)] text-sm font-black text-white">C</span>
-              Clean<span className="text-[var(--color-primary)]">Shop</span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)] text-sm font-black text-white">П</span>
+              Поро<span className="text-[var(--color-primary)]">шок</span>
             </Link>
             <p className="mb-5 mt-3 max-w-sm text-sm leading-relaxed text-blue-200">
               Інтернет-магазин побутової хімії та засобів для дому. Оригінальна продукція, доступні ціни, швидка доставка по Україні.
             </p>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-300">Ми в соцмережах</p>
             <div className="flex gap-3">
-              <a href="https://t.me/cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
+              <a href="https://t.me/poroshok_shop" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
                 <Telegram size={20} />
               </a>
-              <a href="viber://pa?chatURI=cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Viber" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
+              <a href="viber://pa?chatURI=poroshok_shop" target="_blank" rel="noopener noreferrer" aria-label="Viber" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
                 <Viber size={20} />
               </a>
-              <a href="https://instagram.com/cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
+              <a href="https://instagram.com/poroshok_shop" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
                 <Instagram size={20} />
               </a>
-              <a href="https://facebook.com/cleanshop" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
+              <a href="https://facebook.com/poroshok_shop" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-blue-200 transition-all hover:bg-[var(--color-primary)] hover:text-white hover:shadow-[var(--shadow-brand)]">
                 <Facebook size={20} />
               </a>
             </div>
@@ -67,8 +67,8 @@ export default function Footer() {
               <li>Пн-Пт: 9:00 - 18:00</li>
               <li>Сб: 10:00 - 15:00</li>
               <li>
-                <a href="mailto:info@clean-shop.ua" className="transition-colors hover:text-white">
-                  info@clean-shop.ua
+                <a href="mailto:info@poroshok.ua" className="transition-colors hover:text-white">
+                  info@poroshok.ua
                 </a>
               </li>
             </ul>
@@ -102,7 +102,7 @@ export default function Footer() {
             </svg>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-blue-300">
-            <span>&copy; {new Date().getFullYear()} CleanShop. Всі права захищені.</span>
+            <span>&copy; {new Date().getFullYear()} Порошок. Всі права захищені.</span>
             <Link href="/pages/privacy-policy" className="transition-colors hover:text-white">Політика конфіденційності</Link>
             <Link href="/pages/public-offer" className="transition-colors hover:text-white">Публічна оферта</Link>
           </div>

@@ -44,6 +44,7 @@ export const DELETE = withAuth(async (_request: NextRequest, { user, params }) =
     return successResponse({ message: 'Список видалено' });
   } catch (error) {
     if (error instanceof WishlistError) return errorResponse(error.message, error.statusCode);
+    console.error('[wishlist DELETE]', error);
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

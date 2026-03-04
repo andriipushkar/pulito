@@ -73,8 +73,8 @@ export default function USPBlock({ items }: USPBlockProps) {
   const usps = items && items.length > 0 ? items : defaultItems;
 
   return (
-    <section className="rounded-2xl bg-[var(--color-bg-secondary)] py-8 px-4">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <section className="rounded-2xl bg-[var(--color-bg-secondary)] px-3 py-4 sm:px-4 sm:py-6 lg:py-8">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         {usps.map((usp, i) => (
           <div
             key={i}

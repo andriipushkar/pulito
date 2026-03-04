@@ -38,7 +38,7 @@ export default function Error({
           На головну
         </Link>
         <a
-          href="mailto:info@clean-shop.ua"
+          href="mailto:info@poroshok.ua"
           className="inline-flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] px-6 py-3 text-sm transition-colors hover:bg-[var(--color-bg-secondary)]"
         >
           <Phone size={18} />

@@ -84,12 +84,12 @@ self.addEventListener('push', (event) => {
       badge: '/icons/icon-72x72.png',
       data: { url: payload.url || '/' },
       vibrate: [200, 100, 200],
-      tag: 'clean-shop-notification',
+      tag: 'poroshok-notification',
       renotify: true,
     };
 
     event.waitUntil(
-      self.registration.showNotification(payload.title || 'Clean Shop', options)
+      self.registration.showNotification(payload.title || 'Порошок', options)
     );
   } catch {
     // Invalid payload, ignore

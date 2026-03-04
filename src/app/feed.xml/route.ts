@@ -34,9 +34,9 @@ export async function GET() {
   const rss = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Clean Shop — Нові товари</title>
+    <title>Порошок — Нові товари</title>
     <link>${baseUrl}</link>
-    <description>Нові товари побутової хімії в інтернет-магазині Clean Shop</description>
+    <description>Нові товари побутової хімії в інтернет-магазині Порошок</description>
     <language>uk</language>
     <atom:link href="${baseUrl}/feed.xml" rel="self" type="application/rss+xml"/>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>

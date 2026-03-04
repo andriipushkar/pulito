@@ -38,8 +38,8 @@ export default function ContactsPage() {
               <Mail size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-semibold">Email</h3>
-                <a href="mailto:info@clean-shop.ua" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
-                  info@clean-shop.ua
+                <a href="mailto:info@poroshok.ua" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
+                  info@poroshok.ua
                 </a>
               </div>
             </div>

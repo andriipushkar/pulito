@@ -6,8 +6,8 @@ import Pagination from '@/components/ui/Pagination';
 import { prisma } from '@/lib/prisma';
 
 export const metadata: Metadata = {
-  title: 'Новини та акції — Clean Shop',
-  description: 'Останні новини, акції та спеціальні пропозиції від Clean Shop',
+  title: 'Новини та акції — Порошок',
+  description: 'Останні новини, акції та спеціальні пропозиції від Порошок',
 };
 
 async function getPublications(page: number = 1) {

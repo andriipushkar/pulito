@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,6 +14,11 @@ export default function MiniCart({ onClose }: MiniCartProps) {
   const { items, total, removeItem, updateQuantity } = useCart();
   const { user } = useAuth();
   const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setVisible(true));
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -25,6 +30,7 @@ export default function MiniCart({ onClose }: MiniCartProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
 
+  const isWholesaler = user?.role === 'wholesaler';
   const cartTotal = total(user?.role);
 
   return (
@@ -32,8 +38,16 @@ export default function MiniCart({ onClose }: MiniCartProps) {
       ref={ref}
       role="dialog"
       aria-label="Кошик"
-      className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-[var(--color-border)] bg-white shadow-[var(--shadow-xl)]"
+      className={`absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-[var(--color-border)] bg-white shadow-[var(--shadow-xl)] transition-all duration-200 ${
+        visible
+          ? 'translate-y-0 opacity-100'
+          : '-translate-y-2 opacity-0'
+      }`}
     >
+      <div className="border-b border-[var(--color-border)] px-3 py-2">
+        <span className="text-sm font-semibold">Кошик ({items.length})</span>
+      </div>
+
       {items.length === 0 ? (
         <div className="p-6 text-center text-sm text-[var(--color-text-secondary)]">
           Кошик порожній
@@ -74,7 +88,9 @@ export default function MiniCart({ onClose }: MiniCartProps) {
                       <Plus size={14} />
                     </button>
                     <span className="text-xs text-[var(--color-text-secondary)]">
-                      x {Number(item.priceRetail).toFixed(2)} ₴
+                      x {isWholesaler && item.priceWholesale
+                        ? Number(item.priceWholesale).toFixed(2)
+                        : Number(item.priceRetail).toFixed(2)} ₴
                     </span>
                   </div>
                 </div>

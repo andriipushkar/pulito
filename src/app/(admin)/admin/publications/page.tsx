@@ -45,7 +45,7 @@ const PUBLICATION_TEMPLATES: PublicationTemplate[] = [
     title: 'Новинка: [Назва товару]',
     content:
       'Зустрічайте новинку в нашому магазині!\n\n[Назва товару] — [короткий опис товару та його переваги].\n\nЦіна: [ціна] грн\nЗамовляйте прямо зараз!',
-    hashtags: '#новинка #cleanshop #новийтовар',
+    hashtags: '#новинка #порошок #новийтовар',
     channels: ['telegram', 'viber', 'site'],
   },
   {
@@ -53,7 +53,7 @@ const PUBLICATION_TEMPLATES: PublicationTemplate[] = [
     title: 'Акція: [Назва акції]',
     content:
       'Знижка [XX]%! Тільки до [дата]!\n\n[Опис акції та товарів, що беруть участь].\n\nНе пропустіть вигідну пропозицію!',
-    hashtags: '#акція #знижка #cleanshop',
+    hashtags: '#акція #знижка #порошок',
     channels: ['telegram', 'viber'],
   },
   {
@@ -61,7 +61,7 @@ const PUBLICATION_TEMPLATES: PublicationTemplate[] = [
     title: '[Заголовок новини]',
     content:
       '[Основний текст новини — що сталося, чому це важливо для клієнтів].\n\nДетальніше на нашому сайті.',
-    hashtags: '#новини #cleanshop',
+    hashtags: '#новини #порошок',
     channels: ['telegram', 'site'],
   },
 ];
@@ -291,7 +291,7 @@ export default function AdminPublicationsPage() {
                 label="Хештеги"
                 value={form.hashtags}
                 onChange={(e) => setForm((f) => ({ ...f, hashtags: e.target.value }))}
-                placeholder="#акція #cleanshop"
+                placeholder="#акція #порошок"
               />
               <div>
                 <label className="mb-1 block text-sm font-medium">Запланувати</label>

@@ -108,7 +108,7 @@ async function handleStart(chatId: number, firstName: string) {
   const user = await findLinkedUser(chatId);
   const greeting = user
     ? `Вітаємо, ${user.fullName || firstName}! 👋`
-    : `Вітаємо у Clean Shop, ${firstName}! 👋`;
+    : `Вітаємо у Порошок, ${firstName}! 👋`;
 
   await sendMessage(chatId, `${greeting}\n\nОберіть дію:`, {
     reply_markup: MAIN_MENU,
@@ -491,7 +491,7 @@ async function handleSettingsToggleNotification(chatId: number, enable: boolean)
 
 async function handleContact(chatId: number) {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
-  await sendMessage(chatId, `📞 <b>Контакти Clean Shop</b>\n\n📱 Телефон: +380 XX XXX XX XX\n📧 Email: info@cleanshop.ua\n🕐 Графік: Пн-Пт 9:00-18:00\n🌐 Сайт: ${appUrl}`);
+  await sendMessage(chatId, `📞 <b>Контакти Порошок</b>\n\n📱 Телефон: +380 XX XXX XX XX\n📧 Email: info@poroshok.ua\n🕐 Графік: Пн-Пт 9:00-18:00\n🌐 Сайт: ${appUrl}`);
 }
 
 async function handleHelp(chatId: number) {

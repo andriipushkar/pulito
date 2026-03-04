@@ -39,9 +39,21 @@ export async function getOrCreateDefaultWishlist(userId: number) {
     orderBy: { createdAt: 'asc' },
   });
   if (existing) return existing;
-  return prisma.wishlist.create({
-    data: { userId, name: 'Обране' },
-  });
+
+  // Use a try/catch to handle race conditions —
+  // if another request already created the default wishlist, just return it.
+  try {
+    return await prisma.wishlist.create({
+      data: { userId, name: 'Обране' },
+    });
+  } catch {
+    const fallback = await prisma.wishlist.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (fallback) return fallback;
+    throw new WishlistError('Не вдалося створити список', 500);
+  }
 }
 
 export async function resolveWishlistId(userId: number, idParam: string): Promise<number> {
@@ -68,6 +80,7 @@ export async function getUserWishlists(userId: number) {
     include: {
       _count: { select: { items: true } },
       items: {
+        where: { product: { isActive: true } },
         orderBy: { addedAt: 'desc' },
         include: wishlistItemInclude,
       },
@@ -80,6 +93,7 @@ export async function getWishlistById(userId: number, wishlistId: number) {
     where: { id: wishlistId },
     include: {
       items: {
+        where: { product: { isActive: true } },
         orderBy: { addedAt: 'desc' },
         include: wishlistItemInclude,
       },
@@ -99,6 +113,7 @@ export async function createWishlist(userId: number, name: string) {
     include: {
       _count: { select: { items: true } },
       items: {
+        where: { product: { isActive: true } },
         orderBy: { addedAt: 'desc' },
         include: wishlistItemInclude,
       },
@@ -124,7 +139,38 @@ export async function deleteWishlist(userId: number, wishlistId: number) {
     throw new WishlistError('Список не знайдено', 404);
   }
 
-  await prisma.wishlist.delete({ where: { id: wishlistId } });
+  // Use transaction: delete items first, then wishlist
+  await prisma.$transaction([
+    prisma.wishlistItem.deleteMany({ where: { wishlistId } }),
+    prisma.wishlist.delete({ where: { id: wishlistId } }),
+  ]);
+}
+
+export async function deleteEmptyWishlists(userId: number): Promise<number> {
+  // Find all wishlists with 0 items
+  const allWishlists = await prisma.wishlist.findMany({
+    where: { userId },
+    include: { _count: { select: { items: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const emptyIds = allWishlists
+    .filter((wl) => wl._count.items === 0)
+    .map((wl) => wl.id);
+
+  // Keep at least one wishlist
+  if (emptyIds.length === allWishlists.length && emptyIds.length > 0) {
+    emptyIds.shift(); // keep the oldest
+  }
+
+  if (emptyIds.length === 0) return 0;
+
+  await prisma.$transaction([
+    prisma.wishlistItem.deleteMany({ where: { wishlistId: { in: emptyIds } } }),
+    prisma.wishlist.deleteMany({ where: { id: { in: emptyIds } } }),
+  ]);
+
+  return emptyIds.length;
 }
 
 export async function addItemToWishlist(userId: number, wishlistId: number, productId: number) {

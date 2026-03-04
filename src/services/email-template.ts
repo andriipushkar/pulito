@@ -14,14 +14,14 @@ function baseLayout(content: string): string {
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden">
         <!-- Header -->
         <tr><td style="background:${primaryColor};padding:24px;text-align:center">
-          <a href="${env.APP_URL}" style="color:#ffffff;font-size:24px;font-weight:bold;text-decoration:none">Clean Shop</a>
+          <a href="${env.APP_URL}" style="color:#ffffff;font-size:24px;font-weight:bold;text-decoration:none">Порошок</a>
         </td></tr>
         <!-- Content -->
         <tr><td style="padding:32px 24px">${content}</td></tr>
         <!-- Footer -->
         <tr><td style="background:#f8fafc;padding:20px 24px;text-align:center;border-top:1px solid #e2e8f0">
           <p style="margin:0;font-size:12px;color:#94a3b8">
-            © ${new Date().getFullYear()} Clean Shop. Усі права захищені.<br>
+            © ${new Date().getFullYear()} Порошок. Усі права захищені.<br>
             <a href="${env.APP_URL}" style="color:${primaryColor};text-decoration:none">${env.APP_URL}</a>
           </p>
           <p style="margin:8px 0 0;font-size:11px;color:#94a3b8">
@@ -126,7 +126,7 @@ export async function sendOrderConfirmation(data: {
 
   await sendEmail({
     to: data.to,
-    subject: `Замовлення #${data.orderNumber} підтверджено — Clean Shop`,
+    subject: `Замовлення #${data.orderNumber} підтверджено — Порошок`,
     html: baseLayout(content),
   });
 }
@@ -172,7 +172,7 @@ export async function sendOrderStatusChanged(data: {
 
   await sendEmail({
     to: data.to,
-    subject: `Замовлення #${data.orderNumber} — ${data.newStatus} — Clean Shop`,
+    subject: `Замовлення #${data.orderNumber} — ${data.newStatus} — Порошок`,
     html: baseLayout(content),
   });
 }
@@ -191,7 +191,7 @@ export async function sendWelcomeEmail(data: { to: string; name: string }) {
   const content = `
     <h2 style="margin:0 0 16px;color:#1e293b">Ласкаво просимо!</h2>
     <p style="color:#475569">Шановний(а) ${data.name},</p>
-    <p style="color:#475569">Дякуємо за реєстрацію в Clean Shop! Тепер вам доступні:</p>
+    <p style="color:#475569">Дякуємо за реєстрацію в Порошок! Тепер вам доступні:</p>
     <ul style="color:#475569">
       <li>Особистий кабінет з історією замовлень</li>
       <li>Списки бажань та обране</li>
@@ -202,7 +202,7 @@ export async function sendWelcomeEmail(data: { to: string; name: string }) {
 
   await sendEmail({
     to: data.to,
-    subject: 'Ласкаво просимо до Clean Shop!',
+    subject: 'Ласкаво просимо до Порошок!',
     html: baseLayout(content),
   });
 }
@@ -251,7 +251,7 @@ export async function sendDigestEmail(data: {
   }
 
   const content = `
-    <h2 style="margin:0 0 16px;color:#1e293b">Щотижневий дайджест Clean Shop</h2>
+    <h2 style="margin:0 0 16px;color:#1e293b">Щотижневий дайджест Порошок</h2>
     <p style="color:#475569">Шановний(а) ${data.name},</p>
     <p style="color:#475569">Ось що нового за ${data.period}:</p>
     ${data.newProducts.length > 0 ? `
@@ -272,7 +272,7 @@ export async function sendDigestEmail(data: {
 
   await sendEmail({
     to: data.to,
-    subject: `Дайджест Clean Shop — ${data.period}`,
+    subject: `Дайджест Порошок — ${data.period}`,
     html: baseLayout(content),
   });
 }
@@ -329,7 +329,7 @@ export async function sendCartAbandonmentEmail(data: {
 
   await sendEmail({
     to: data.to,
-    subject: 'Ви забули товари в кошику — Clean Shop',
+    subject: 'Ви забули товари в кошику — Порошок',
     html: baseLayout(content),
   });
 }
@@ -370,7 +370,7 @@ export async function sendWholesaleApproved(data: {
 
   await sendEmail({
     to: data.to,
-    subject: 'Оптовий статус підтверджено — Clean Shop',
+    subject: 'Оптовий статус підтверджено — Порошок',
     html: baseLayout(content),
   });
 }
@@ -402,7 +402,7 @@ export async function sendWholesaleRejected(data: {
 
   await sendEmail({
     to: data.to,
-    subject: 'Запит на оптовий статус відхилено — Clean Shop',
+    subject: 'Запит на оптовий статус відхилено — Порошок',
     html: baseLayout(content),
   });
 }

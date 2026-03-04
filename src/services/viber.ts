@@ -149,7 +149,7 @@ export async function sendViberNotification(
 async function handleSubscribed(userId: string, name: string) {
   await sendTextMessage(
     userId,
-    `Вітаємо у Clean Shop, ${name}! 👋\n\nОберіть дію з меню нижче або напишіть назву товару для пошуку.`,
+    `Вітаємо у Порошок, ${name}! 👋\n\nОберіть дію з меню нижче або напишіть назву товару для пошуку.`,
     MAIN_KEYBOARD
   );
 }
@@ -393,7 +393,7 @@ async function handleContact(userId: string) {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   await sendTextMessage(
     userId,
-    `📞 Контакти Clean Shop\n\nТелефон: +380 XX XXX XX XX\nEmail: info@cleanshop.ua\nГрафік: Пн-Пт 9:00-18:00\nСайт: ${appUrl}`,
+    `📞 Контакти Порошок\n\nТелефон: +380 XX XXX XX XX\nEmail: info@poroshok.ua\nГрафік: Пн-Пт 9:00-18:00\nСайт: ${appUrl}`,
     MAIN_KEYBOARD
   );
 }
