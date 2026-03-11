@@ -532,6 +532,33 @@ export async function sendClientNotification(
 }
 
 /**
+ * Send a product photo to a user via Telegram.
+ * Looks up the user's telegramChatId and sends the image with caption.
+ */
+export async function sendProductPhotoToUser(
+  userId: number,
+  imageUrl: string,
+  caption: string
+): Promise<boolean> {
+  if (!BOT_TOKEN) return false;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { telegramChatId: true },
+  });
+
+  if (!user?.telegramChatId) return false;
+
+  const chatId = Number(user.telegramChatId);
+  try {
+    await sendPhoto(chatId, imageUrl, caption);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Notify manager about a new order via Telegram.
  */
 export async function notifyManagerNewOrder(order: {

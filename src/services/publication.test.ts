@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createPublication, getPublications, publishNow, PublicationError } from './publication';
+import { createPublication, getPublications, publishNow, updatePublication, deletePublication, PublicationError } from './publication';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -9,6 +9,7 @@ vi.mock('@/lib/prisma', () => ({
       findUnique: vi.fn(),
       count: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
     publicationImage: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -200,5 +201,436 @@ describe('publishNow', () => {
 
     const result = await publishNow(1);
     expect(result.status).toBe('published');
+  });
+
+  it('should publish with Telegram buttons when provided', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    vi.stubEnv('TELEGRAM_CHANNEL_ID', '@test');
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 1,
+      title: 'Test',
+      content: 'Content',
+      channels: ['telegram'],
+      hashtags: null,
+      buttons: [{ text: 'Buy', url: 'https://example.com' }],
+    } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1, status: 'published' } as never);
+
+    await publishNow(1);
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.reply_markup).toBeDefined();
+    expect(body.reply_markup.inline_keyboard[0][0].text).toBe('Buy');
+  });
+
+  it('should handle Telegram publish error gracefully', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    vi.stubEnv('TELEGRAM_CHANNEL_ID', '@test');
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 1,
+      title: 'Test',
+      content: 'Content',
+      channels: ['telegram'],
+      hashtags: null,
+      buttons: null,
+    } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1, status: 'published' } as never);
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+    // Should not throw
+    const result = await publishNow(1);
+    expect(result.status).toBe('published');
+  });
+
+  it('should handle Viber publish error gracefully', async () => {
+    vi.stubEnv('VIBER_AUTH_TOKEN', 'test-viber-token');
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 1,
+      title: 'Test',
+      content: 'Content',
+      channels: ['viber'],
+      hashtags: null,
+      buttons: null,
+    } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1, status: 'published' } as never);
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+    const result = await publishNow(1);
+    expect(result.status).toBe('published');
+  });
+
+  it('should publish to Instagram with image', async () => {
+    const { env } = await import('@/config/env');
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+
+    const { publishImagePost } = await import('@/services/instagram');
+    vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_1', igPermalink: 'https://ig.com/p/1' });
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 1,
+      title: 'IG Test',
+      content: 'Content',
+      channels: ['instagram'],
+      hashtags: '#test',
+      imagePath: '/uploads/image.jpg',
+      buttons: null,
+      firstComment: null,
+    } as never);
+    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1, status: 'published' } as never);
+
+    await publishNow(1);
+
+    expect(publishImagePost).toHaveBeenCalled();
+    // update called once for igMediaId and once for status
+    expect(mockPrisma.publication.update).toHaveBeenCalledTimes(2);
+
+    // Reset
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+  });
+
+  it('should publish to Instagram as Reels with video', async () => {
+    const { env } = await import('@/config/env');
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+
+    const { publishReelsPost } = await import('@/services/instagram');
+    vi.mocked(publishReelsPost).mockResolvedValue({ igMediaId: 'media_2', igPermalink: 'https://ig.com/p/2' });
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 2,
+      title: 'Reels Test',
+      content: 'Content',
+      channels: ['instagram'],
+      hashtags: null,
+      imagePath: null,
+      buttons: null,
+      firstComment: null,
+    } as never);
+    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([
+      { imagePath: '/uploads/video.mp4', sortOrder: 0 },
+      { imagePath: '/uploads/cover.jpg', sortOrder: 1 },
+    ]);
+    mockPrisma.publication.update.mockResolvedValue({ id: 2, status: 'published' } as never);
+
+    await publishNow(2);
+
+    expect(publishReelsPost).toHaveBeenCalledWith(
+      expect.stringContaining('/uploads/video.mp4'),
+      expect.any(String),
+      expect.stringContaining('/uploads/cover.jpg')
+    );
+
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+  });
+
+  it('should post first comment on Instagram if configured', async () => {
+    const { env } = await import('@/config/env');
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+
+    const { publishImagePost, postFirstComment } = await import('@/services/instagram');
+    vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_3', igPermalink: 'https://ig.com/p/3' });
+    vi.mocked(postFirstComment).mockResolvedValue(undefined as never);
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 3,
+      title: 'IG Comment Test',
+      content: 'Content',
+      channels: ['instagram'],
+      hashtags: null,
+      imagePath: '/uploads/img.jpg',
+      buttons: null,
+      firstComment: 'First comment text!',
+    } as never);
+    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]);
+    mockPrisma.publication.update.mockResolvedValue({ id: 3, status: 'published' } as never);
+
+    await publishNow(3);
+
+    expect(postFirstComment).toHaveBeenCalledWith('media_3', 'First comment text!');
+
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+  });
+
+  it('should handle Instagram first comment error gracefully', async () => {
+    const { env } = await import('@/config/env');
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+
+    const { publishImagePost, postFirstComment } = await import('@/services/instagram');
+    vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_4', igPermalink: 'https://ig.com/p/4' });
+    vi.mocked(postFirstComment).mockRejectedValue(new Error('Comment failed'));
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 4,
+      title: 'IG Comment Fail',
+      content: 'Content',
+      channels: ['instagram'],
+      hashtags: null,
+      imagePath: '/uploads/img.jpg',
+      buttons: null,
+      firstComment: 'Comment',
+    } as never);
+    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]);
+    mockPrisma.publication.update.mockResolvedValue({ id: 4, status: 'published' } as never);
+
+    // Should not throw
+    await publishNow(4);
+
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+  });
+
+  it('should handle Instagram publish error gracefully', async () => {
+    const { env } = await import('@/config/env');
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+
+    const { publishImagePost } = await import('@/services/instagram');
+    vi.mocked(publishImagePost).mockRejectedValue(new Error('IG API Error'));
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 5,
+      title: 'IG Fail',
+      content: 'Content',
+      channels: ['instagram'],
+      hashtags: null,
+      imagePath: '/uploads/img.jpg',
+      buttons: null,
+      firstComment: null,
+    } as never);
+    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]);
+    mockPrisma.publication.update.mockResolvedValue({ id: 5, status: 'published' } as never);
+
+    // Should not throw
+    await publishNow(5);
+
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+  });
+
+  it('should skip Instagram image post when no imageUrl and no video', async () => {
+    const { env } = await import('@/config/env');
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+
+    const { publishImagePost, publishReelsPost } = await import('@/services/instagram');
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 7,
+      title: 'No Image IG',
+      content: 'Content',
+      channels: ['instagram'],
+      hashtags: null,
+      imagePath: null, // no image
+      buttons: null,
+      firstComment: null,
+    } as never);
+    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]); // no video
+    mockPrisma.publication.update.mockResolvedValue({ id: 7, status: 'published' } as never);
+
+    await publishNow(7);
+
+    // Neither publishImagePost nor publishReelsPost should be called
+    expect(publishImagePost).not.toHaveBeenCalled();
+    expect(publishReelsPost).not.toHaveBeenCalled();
+    // Only the final status update, no igMediaId update
+    expect(mockPrisma.publication.update).toHaveBeenCalledTimes(1);
+
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+  });
+
+  it('should use APP_URL from process.env when set', async () => {
+    vi.stubEnv('APP_URL', 'https://example.com');
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 8,
+      title: 'Test',
+      content: 'Content',
+      channels: [],
+      hashtags: null,
+      buttons: null,
+    } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 8, status: 'published' } as never);
+
+    await publishNow(8);
+
+    expect(mockPrisma.publication.update).toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it('should fallback to localhost when APP_URL not set', async () => {
+    const originalAppUrl = process.env.APP_URL;
+    delete process.env.APP_URL;
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 9,
+      title: 'Test',
+      content: 'Content',
+      channels: [],
+      hashtags: null,
+      buttons: null,
+    } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 9, status: 'published' } as never);
+
+    await publishNow(9);
+
+    expect(mockPrisma.publication.update).toHaveBeenCalled();
+    if (originalAppUrl !== undefined) process.env.APP_URL = originalAppUrl;
+  });
+
+  it('should publish Reels without cover image', async () => {
+    const { env } = await import('@/config/env');
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+
+    const { publishReelsPost } = await import('@/services/instagram');
+    vi.mocked(publishReelsPost).mockResolvedValue({ igMediaId: 'media_5', igPermalink: 'https://ig.com/p/5' });
+
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 6,
+      title: 'Reels No Cover',
+      content: 'Content',
+      channels: ['instagram'],
+      hashtags: null,
+      imagePath: null,
+      buttons: null,
+      firstComment: null,
+    } as never);
+    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([
+      { imagePath: '/uploads/video.mov', sortOrder: 0 },
+    ]);
+    mockPrisma.publication.update.mockResolvedValue({ id: 6, status: 'published' } as never);
+
+    await publishNow(6);
+
+    expect(publishReelsPost).toHaveBeenCalledWith(
+      expect.stringContaining('/uploads/video.mov'),
+      expect.any(String),
+      undefined
+    );
+
+    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+  });
+});
+
+describe('PublicationError', () => {
+  it('should create error with default status code', () => {
+    const err = new PublicationError('test');
+    expect(err.statusCode).toBe(400);
+    expect(err.name).toBe('PublicationError');
+  });
+
+  it('should create error with custom status code', () => {
+    const err = new PublicationError('not found', 404);
+    expect(err.statusCode).toBe(404);
+  });
+});
+
+describe('updatePublication', () => {
+  it('should throw 404 when publication not found', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue(null);
+    await expect(updatePublication(999, { title: 'New' })).rejects.toThrow(PublicationError);
+  });
+
+  it('should update only provided fields', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({ id: 1 } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1 } as never);
+
+    await updatePublication(1, { title: 'Updated Title', content: 'New content' });
+
+    expect(mockPrisma.publication.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: expect.objectContaining({ title: 'Updated Title', content: 'New content' }),
+    });
+  });
+
+  it('should update valid status', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({ id: 1 } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1, status: 'published' } as never);
+
+    await updatePublication(1, { status: 'published' });
+
+    expect(mockPrisma.publication.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: expect.objectContaining({ status: 'published' }),
+    });
+  });
+
+  it('should ignore invalid status', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({ id: 1 } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1 } as never);
+
+    await updatePublication(1, { status: 'invalid_status' });
+
+    const updateCall = mockPrisma.publication.update.mock.calls[0][0];
+    expect(updateCall.data.status).toBeUndefined();
+  });
+
+  it('should handle scheduledAt null correctly', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({ id: 1 } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1 } as never);
+
+    await updatePublication(1, { scheduledAt: '' });
+
+    const updateCall = mockPrisma.publication.update.mock.calls[0][0];
+    expect(updateCall.data.scheduledAt).toBeNull();
+  });
+
+  it('should handle scheduledAt with value', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({ id: 1 } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1 } as never);
+
+    await updatePublication(1, { scheduledAt: '2026-06-01T12:00:00Z' });
+
+    const updateCall = mockPrisma.publication.update.mock.calls[0][0];
+    expect(updateCall.data.scheduledAt).toEqual(new Date('2026-06-01T12:00:00Z'));
+  });
+
+  it('should update channels, hashtags, imagePath', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({ id: 1 } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 1 } as never);
+
+    await updatePublication(1, {
+      channels: ['telegram', 'viber'],
+      hashtags: '#new',
+      imagePath: '/new.jpg',
+    });
+
+    const updateCall = mockPrisma.publication.update.mock.calls[0][0];
+    expect(updateCall.data.channels).toEqual(['telegram', 'viber']);
+    expect(updateCall.data.hashtags).toBe('#new');
+    expect(updateCall.data.imagePath).toBe('/new.jpg');
+  });
+});
+
+describe('deletePublication', () => {
+  it('should throw 404 when publication not found', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue(null);
+    await expect(deletePublication(999)).rejects.toThrow(PublicationError);
+  });
+
+  it('should throw when trying to delete published publication', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({ id: 1, status: 'published' } as never);
+    await expect(deletePublication(1)).rejects.toThrow('Не можна видалити опубліковану публікацію');
+  });
+
+  it('should delete draft publication', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({ id: 1, status: 'draft' } as never);
+    (mockPrisma.publication as Record<string, ReturnType<typeof vi.fn>>).delete.mockResolvedValue({} as never);
+
+    await deletePublication(1);
+
+    expect((mockPrisma.publication as Record<string, ReturnType<typeof vi.fn>>).delete).toHaveBeenCalledWith({ where: { id: 1 } });
   });
 });

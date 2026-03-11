@@ -19,6 +19,8 @@ const wishlistItemInclude = {
       code: true,
       priceRetail: true,
       priceWholesale: true,
+      priceWholesale2: true,
+      priceWholesale3: true,
       priceRetailOld: true,
       quantity: true,
       isPromo: true,

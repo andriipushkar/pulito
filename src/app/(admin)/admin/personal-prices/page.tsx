@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface PersonalPrice {
   id: number;
@@ -50,6 +51,7 @@ export default function PersonalPricesPage() {
   const [form, setForm] = useState<FormData>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState('');
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     const res = await apiClient.get<PersonalPrice[]>(`/api/v1/admin/personal-prices?page=${page}&limit=20`);
@@ -99,8 +101,14 @@ export default function PersonalPricesPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Видалити цю персональну ціну?')) return;
+  const handleDelete = (id: number) => {
+    setDeleteId(id);
+  };
+
+  const executeDelete = async () => {
+    if (deleteId === null) return;
+    const id = deleteId;
+    setDeleteId(null);
     await apiClient.delete(`/api/v1/admin/personal-prices/${id}`);
     fetchData();
   };
@@ -183,6 +191,14 @@ export default function PersonalPricesPage() {
           <Button onClick={() => setPage((p) => p + 1)} disabled={items.length < 20}>Далі</Button>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={executeDelete}
+        variant="danger"
+        message="Видалити цю персональну ціну?"
+      />
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

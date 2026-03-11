@@ -81,7 +81,7 @@ export async function handlePaymentCallback(
   provider: PaymentProvider,
   callbackResult: PaymentCallbackResult
 ): Promise<void> {
-  const { orderId, status, transactionId, rawData } = callbackResult;
+  const { orderId, status, transactionId, rawData, receiptUrl } = callbackResult;
 
   const payment = await prisma.payment.findUnique({
     where: { orderId },
@@ -99,6 +99,7 @@ export async function handlePaymentCallback(
         transactionId,
         callbackData: rawData as unknown as Prisma.InputJsonValue,
         paidAt: status === 'success' ? new Date() : null,
+        receiptUrl: receiptUrl || null,
       },
     });
   } else {
@@ -109,6 +110,7 @@ export async function handlePaymentCallback(
         transactionId,
         callbackData: rawData as unknown as Prisma.InputJsonValue,
         paidAt: status === 'success' ? new Date() : payment.paidAt,
+        receiptUrl: receiptUrl || payment.receiptUrl,
       },
     });
   }

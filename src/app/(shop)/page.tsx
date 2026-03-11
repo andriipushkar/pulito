@@ -1,7 +1,6 @@
 import Container from '@/components/ui/Container';
 import AnimateOnScroll from '@/components/ui/AnimateOnScroll';
 import BannerSlider from '@/components/home/BannerSlider';
-import USPBlock from '@/components/home/USPBlock';
 import CategoryGrid from '@/components/home/CategoryGrid';
 import BrandLogos from '@/components/home/BrandLogos';
 import ProductCarousel from '@/components/product/ProductCarousel';
@@ -46,8 +45,7 @@ export default async function HomePage() {
 
   const blockComponents: Record<string, React.ReactNode> = {
     banner_slider: <BannerSlider />,
-    usp: <USPBlock />,
-    categories: <CategoryGrid categories={categories} />,
+    categories: categories.length > 0 ? <CategoryGrid categories={categories} /> : null,
     promo_products: promoProducts.length > 0 ? (
       <ProductCarousel
         title="Акційні товари"
@@ -69,13 +67,12 @@ export default async function HomePage() {
         viewAllHref="/catalog?sort=popular"
       />
     ) : null,
-    recently_viewed: <RecentlyViewedSection />,
     brands: <BrandLogos />,
     seo_text: (
-      <section className="py-8">
-        <div className="rounded-2xl bg-gradient-to-br from-[var(--color-primary-50)] to-white p-8 shadow-[var(--shadow)]">
-          <h2 className="mb-4 text-xl font-bold text-[var(--color-text)]">Інтернет-магазин побутової хімії Порошок</h2>
-          <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
+      <section>
+        <div className="rounded-2xl border border-[var(--color-border)]/40 bg-gradient-to-br from-[var(--color-primary-50)]/60 to-white p-5 sm:p-6 lg:p-8">
+          <h2 className="mb-2 text-base font-semibold tracking-tight text-[var(--color-text)] sm:text-lg lg:text-xl">Інтернет-магазин побутової хімії Порошок</h2>
+          <p className="max-w-3xl text-[13px] leading-relaxed text-[var(--color-text-secondary)] sm:text-sm">
             Ласкаво просимо до Порошок — вашого надійного постачальника побутової хімії в Україні.
             Ми пропонуємо широкий асортимент засобів для прибирання, прання, миття посуду та догляду за домом
             від провідних світових та вітчизняних виробників. Оптовим покупцям — спеціальні ціни та умови
@@ -92,17 +89,18 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
-      <div className="space-y-6 sm:space-y-8 lg:space-y-12">
-      {enabledBlocks.map((block, index) => {
-        const component = blockComponents[block.key];
-        if (!component) return null;
-        return (
+      <div className="space-y-6 sm:space-y-8 lg:space-y-8">
+      {enabledBlocks
+        .filter((block) => blockComponents[block.key] != null)
+        .map((block, index) => (
           <AnimateOnScroll key={block.key} delay={index * 100}>
-            {component}
+            {blockComponents[block.key]}
           </AnimateOnScroll>
-        );
-      })}
+        ))}
       </div>
+
+      {/* Recently viewed — rendered separately, self-hiding when empty */}
+      <RecentlyViewedSection />
     </Container>
   );
 }

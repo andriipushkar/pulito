@@ -6,6 +6,9 @@ import {
   getUnreadCount,
   markAsRead,
   markAllAsRead,
+  deleteNotification,
+  deleteReadNotifications,
+  cleanupExpiredNotifications,
   notifyOrderStatusChange,
 } from './notification';
 
@@ -16,6 +19,7 @@ vi.mock('@/lib/prisma', () => ({
       findMany: vi.fn(),
       count: vi.fn(),
       updateMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
 }));
@@ -161,5 +165,149 @@ describe('notifyOrderStatusChange', () => {
         message: 'Статус вашого замовлення змінено на "custom_status"',
       }),
     });
+  });
+
+  it('should use correct label for each known status', async () => {
+    mockPrisma.userNotification.create.mockResolvedValue({} as never);
+
+    const knownStatuses: Record<string, string> = {
+      processing: 'В обробці',
+      confirmed: 'Підтверджене',
+      paid: 'Оплачене',
+      shipped: 'Відправлене',
+      completed: 'Виконане',
+      cancelled: 'Скасоване',
+      returned: 'Повернення',
+    };
+
+    for (const [status, label] of Object.entries(knownStatuses)) {
+      vi.clearAllMocks();
+      mockPrisma.userNotification.create.mockResolvedValue({} as never);
+
+      await notifyOrderStatusChange(1, 'ORD-X', status, 1);
+
+      expect(mockPrisma.userNotification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          message: `Статус вашого замовлення змінено на "${label}"`,
+        }),
+      });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteNotification
+// ---------------------------------------------------------------------------
+
+describe('deleteNotification', () => {
+  it('should delete a specific notification for user', async () => {
+    mockPrisma.userNotification.deleteMany.mockResolvedValue({ count: 1 } as never);
+
+    const result = await deleteNotification(5, 1);
+
+    expect(result).toEqual({ count: 1 });
+    expect(mockPrisma.userNotification.deleteMany).toHaveBeenCalledWith({
+      where: { id: 5, userId: 1 },
+    });
+  });
+
+  it('should return count 0 when notification not found', async () => {
+    mockPrisma.userNotification.deleteMany.mockResolvedValue({ count: 0 } as never);
+
+    const result = await deleteNotification(999, 1);
+
+    expect(result).toEqual({ count: 0 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteReadNotifications
+// ---------------------------------------------------------------------------
+
+describe('deleteReadNotifications', () => {
+  it('should delete all read notifications for user', async () => {
+    mockPrisma.userNotification.deleteMany.mockResolvedValue({ count: 5 } as never);
+
+    const result = await deleteReadNotifications(1);
+
+    expect(result).toEqual({ count: 5 });
+    expect(mockPrisma.userNotification.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 1, isRead: true },
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cleanupExpiredNotifications
+// ---------------------------------------------------------------------------
+
+describe('cleanupExpiredNotifications', () => {
+  it('should delete read notifications older than default 90 days', async () => {
+    mockPrisma.userNotification.deleteMany.mockResolvedValue({ count: 10 } as never);
+
+    const result = await cleanupExpiredNotifications();
+
+    expect(result).toEqual({ deleted: 10 });
+    expect(mockPrisma.userNotification.deleteMany).toHaveBeenCalledWith({
+      where: {
+        createdAt: { lt: expect.any(Date) },
+        isRead: true,
+      },
+    });
+  });
+
+  it('should accept custom maxAgeDays parameter', async () => {
+    mockPrisma.userNotification.deleteMany.mockResolvedValue({ count: 3 } as never);
+
+    const result = await cleanupExpiredNotifications(30);
+
+    expect(result).toEqual({ deleted: 3 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getUserNotifications - default params
+// ---------------------------------------------------------------------------
+
+describe('getUserNotifications - default params', () => {
+  it('should use default page 1 and limit 20 when no params provided', async () => {
+    mockPrisma.userNotification.findMany.mockResolvedValue([] as never);
+    mockPrisma.userNotification.count.mockResolvedValue(0);
+
+    await getUserNotifications(1);
+
+    expect(mockPrisma.userNotification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 20 })
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// markAsRead - verify readAt is a Date
+// ---------------------------------------------------------------------------
+
+describe('markAsRead - readAt', () => {
+  it('should set readAt to a Date instance', async () => {
+    mockPrisma.userNotification.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await markAsRead(1, 1);
+
+    const call = mockPrisma.userNotification.updateMany.mock.calls[0][0];
+    expect(call.data.readAt).toBeInstanceOf(Date);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// markAllAsRead - verify readAt is a Date
+// ---------------------------------------------------------------------------
+
+describe('markAllAsRead - readAt', () => {
+  it('should set readAt to a Date instance', async () => {
+    mockPrisma.userNotification.updateMany.mockResolvedValue({ count: 3 } as never);
+
+    await markAllAsRead(1);
+
+    const call = mockPrisma.userNotification.updateMany.mock.calls[0][0];
+    expect(call.data.readAt).toBeInstanceOf(Date);
   });
 });

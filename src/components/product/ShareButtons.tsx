@@ -31,11 +31,11 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
   };
 
   const btnClass =
-    'flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]';
+    'flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] active:scale-95';
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-[var(--color-text-secondary)]">Поділитись:</span>
+      <span className="text-xs text-[var(--color-text-secondary)]">Поділитись:</span>
       <button onClick={handleCopy} className={btnClass} aria-label="Копіювати посилання" title="Копіювати посилання">
         {copied ? <Check size={16} /> : <Copy size={16} />}
       </button>

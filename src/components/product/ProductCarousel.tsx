@@ -19,7 +19,6 @@ export default function ProductCarousel({ title, products, viewAllHref }: Produc
     align: 'start',
     containScroll: 'trimSnaps',
     breakpoints: {
-      '(min-width: 1536px)': { slidesToScroll: 6 },
       '(min-width: 1280px)': { slidesToScroll: 5 },
       '(min-width: 1024px)': { slidesToScroll: 4 },
       '(min-width: 768px)': { slidesToScroll: 3 },
@@ -33,11 +32,11 @@ export default function ProductCarousel({ title, products, viewAllHref }: Produc
   if (products.length === 0) return null;
 
   return (
-    <section className="py-8">
-      <div className="mb-5 flex items-center justify-between">
-        <h2 className="relative text-2xl font-extrabold text-[var(--color-text)]">
+    <section className="py-4 sm:py-6">
+      <div className="mb-3 flex items-center justify-between sm:mb-4">
+        <h2 className="relative text-lg font-extrabold text-[var(--color-text)] sm:text-xl">
           {title}
-          <span className="absolute -bottom-1 left-0 h-0.5 w-12 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)]" />
+          <span className="absolute -bottom-1 left-0 h-0.5 w-10 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)]" />
         </h2>
         <div className="flex items-center gap-3">
           {viewAllHref && (
@@ -72,7 +71,7 @@ export default function ProductCarousel({ title, products, viewAllHref }: Produc
           {products.map((product) => (
             <div
               key={product.id}
-              className="min-w-0 shrink-0 basis-1/3 pl-4 md:basis-1/3 lg:basis-1/4 xl:basis-1/5 2xl:basis-1/6"
+              className="min-w-0 shrink-0 basis-1/3 pl-4 md:basis-1/3 lg:basis-1/4 xl:basis-1/5"
             >
               <ProductCard product={product} />
             </div>

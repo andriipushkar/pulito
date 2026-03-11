@@ -13,9 +13,11 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
   return (
     <AuthProvider>
       <CartProvider>
+        <div className="flex min-h-screen flex-col">
         <Header categories={categories} />
-        <main id="main-content" className="min-h-[60vh] animate-fade-in-up">{children}</main>
+        <main id="main-content" className="flex-1 animate-fade-in-up">{children}</main>
         <Footer />
+        </div>
         <MobileBottomNav categories={categories} />
         <BackToTop />
         <AriaLiveRegion />

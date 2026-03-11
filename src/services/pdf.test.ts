@@ -266,3 +266,170 @@ describe('generateCommercialOfferPdf', () => {
     expect(url).toMatch(/^\/uploads\/offers\/offer_\d+\.pdf$/);
   });
 });
+
+describe('generateInvoicePdf - directory creation', () => {
+  it('should create directory when it does not exist', async () => {
+    const fs = await import('fs');
+    vi.mocked(fs.existsSync).mockReturnValueOnce(false);
+
+    const mockOrder = {
+      id: 5,
+      orderNumber: 'ORD-005',
+      createdAt: new Date('2025-04-01'),
+      contactName: 'Тест',
+      contactPhone: '+380991111111',
+      contactEmail: null,
+      deliveryCity: null,
+      deliveryAddress: null,
+      discountAmount: 0,
+      deliveryCost: 0,
+      totalAmount: 100,
+      items: [{ productCode: null, productName: 'Item', priceAtOrder: 100, quantity: 1, subtotal: 100 }],
+      payment: null,
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder as never);
+
+    const url = await generateInvoicePdf(5);
+    expect(url).toMatch(/^\/uploads\/invoices\/invoice_ORD-005_\d+\.pdf$/);
+    expect(fs.mkdirSync).toHaveBeenCalled();
+  });
+});
+
+describe('generateInvoicePdf - many items causing page break', () => {
+  it('should handle many items (y > 700 triggers addPage)', async () => {
+    // Create many items to trigger the y > 700 page break
+    const items = Array.from({ length: 40 }, (_, i) => ({
+      productCode: `P${i}`,
+      productName: `Product ${i}`,
+      priceAtOrder: 100,
+      quantity: 1,
+      subtotal: 100,
+    }));
+
+    const mockOrder = {
+      id: 10,
+      orderNumber: 'ORD-010',
+      createdAt: new Date('2025-06-01'),
+      contactName: 'Test',
+      contactPhone: '+380501111111',
+      contactEmail: null,
+      deliveryCity: null,
+      deliveryAddress: null,
+      discountAmount: 0,
+      deliveryCost: 0,
+      totalAmount: 4000,
+      items,
+      payment: null,
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder as never);
+
+    const url = await generateInvoicePdf(10);
+    expect(url).toMatch(/^\/uploads\/invoices\/invoice_ORD-010_\d+\.pdf$/);
+  });
+});
+
+describe('generateDeliveryNotePdf - many items causing page break', () => {
+  it('should handle many items (y > 700 triggers addPage)', async () => {
+    const items = Array.from({ length: 40 }, (_, i) => ({
+      productCode: `P${i}`,
+      productName: `Product ${i}`,
+      priceAtOrder: 100,
+      quantity: 1,
+      subtotal: 100,
+    }));
+
+    const mockOrder = {
+      id: 11,
+      orderNumber: 'ORD-011',
+      createdAt: new Date('2025-06-01'),
+      contactName: 'Test',
+      contactPhone: '+380501111111',
+      contactEmail: null,
+      deliveryCity: null,
+      deliveryAddress: null,
+      trackingNumber: null,
+      totalAmount: 4000,
+      items,
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder as never);
+
+    const url = await generateDeliveryNotePdf(11);
+    expect(url).toMatch(/^\/uploads\/delivery-notes\/delivery_note_ORD-011_\d+\.pdf$/);
+  });
+});
+
+describe('generateCommercialOfferPdf - many products causing page break', () => {
+  it('should handle many products (y > 700 triggers addPage)', async () => {
+    const products = Array.from({ length: 40 }, (_, i) => ({
+      code: `C${i}`,
+      name: `Product ${i}`,
+      price: 100,
+    }));
+
+    const url = await generateCommercialOfferPdf(products, 'Large Client');
+    expect(url).toMatch(/^\/uploads\/offers\/offer_\d+\.pdf$/);
+  });
+});
+
+describe('generateDeliveryNotePdf - directory creation', () => {
+  it('should create directory when it does not exist (line 184)', async () => {
+    const fs = await import('fs');
+    vi.mocked(fs.existsSync).mockReturnValueOnce(false);
+
+    const mockOrder = {
+      id: 20,
+      orderNumber: 'ORD-020',
+      createdAt: new Date('2025-07-01'),
+      contactName: 'Тест',
+      contactPhone: '+380991111111',
+      contactEmail: null,
+      deliveryCity: null,
+      deliveryAddress: null,
+      trackingNumber: null,
+      totalAmount: 100,
+      items: [{ productCode: null, productName: 'Item', priceAtOrder: 100, quantity: 1, subtotal: 100 }],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder as never);
+
+    const url = await generateDeliveryNotePdf(20);
+    expect(url).toMatch(/^\/uploads\/delivery-notes\/delivery_note_ORD-020_\d+\.pdf$/);
+    expect(fs.mkdirSync).toHaveBeenCalled();
+  });
+});
+
+describe('generateCommercialOfferPdf - directory creation', () => {
+  it('should create directory when it does not exist (line 308)', async () => {
+    const fs = await import('fs');
+    vi.mocked(fs.existsSync).mockReturnValueOnce(false);
+
+    const url = await generateCommercialOfferPdf([{ code: 'C099', name: 'Test', price: 50 }]);
+    expect(url).toMatch(/^\/uploads\/offers\/offer_\d+\.pdf$/);
+    expect(fs.mkdirSync).toHaveBeenCalled();
+  });
+});
+
+describe('generateDeliveryNotePdf - without optional fields', () => {
+  it('should handle order without contactEmail, city, address, tracking', async () => {
+    const mockOrder = {
+      id: 6,
+      orderNumber: 'ORD-006',
+      createdAt: new Date('2025-05-01'),
+      contactName: 'Мінімальний замовник',
+      contactPhone: '+380505555555',
+      contactEmail: null,
+      deliveryCity: null,
+      deliveryAddress: null,
+      trackingNumber: null,
+      totalAmount: 200,
+      items: [{ productCode: null, productName: 'Товар', priceAtOrder: 200, quantity: 1, subtotal: 200 }],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder as never);
+    const url = await generateDeliveryNotePdf(6);
+    expect(url).toMatch(/^\/uploads\/delivery-notes\/delivery_note_ORD-006_\d+\.pdf$/);
+  });
+});

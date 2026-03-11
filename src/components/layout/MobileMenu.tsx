@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Close, Telegram, Viber, Instagram, Heart, User, ChevronRight } from '@/components/icons';
+import { Close, Telegram, Viber, Instagram, Facebook, TikTok, Heart, User, ChevronRight, Phone, MessageCircle, HelpCircle } from '@/components/icons';
 import type { CategoryListItem } from '@/types/category';
 
 interface MobileMenuProps {
@@ -148,17 +148,49 @@ export default function MobileMenu({ isOpen, onClose, categories }: MobileMenuPr
             </Link>
           </div>
 
+          {/* Divider */}
+          <div className="my-1 border-t border-[var(--color-border)]/60" />
+
+          {/* Contact & info links */}
+          <div>
+            <a
+              href="tel:+380001234567"
+              className="flex min-h-[48px] items-center gap-3 rounded-xl px-4 text-[15px] text-[var(--color-text-secondary)] transition-colors active:bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/60"
+            >
+              <Phone size={18} />
+              +38 (000) 123-45-67
+            </a>
+            <Link
+              href="/contacts"
+              className="flex min-h-[48px] items-center gap-3 rounded-xl px-4 text-[15px] text-[var(--color-text-secondary)] transition-colors active:bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/60"
+              onClick={onClose}
+            >
+              <MessageCircle size={18} />
+              Зворотній зв&apos;язок
+            </Link>
+            <Link
+              href="/faq"
+              className="flex min-h-[48px] items-center gap-3 rounded-xl px-4 text-[15px] text-[var(--color-text-secondary)] transition-colors active:bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/60"
+              onClick={onClose}
+            >
+              <HelpCircle size={18} />
+              Питання та відповіді
+            </Link>
+          </div>
+
           {/* Social — at the very bottom */}
-          <div className="mt-4 flex items-center justify-center gap-4 border-t border-[var(--color-border)]/40 pb-4 pt-4">
-            <a href="#" aria-label="Telegram" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]">
-              <Telegram size={18} />
-            </a>
-            <a href="#" aria-label="Viber" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]">
-              <Viber size={18} />
-            </a>
-            <a href="#" aria-label="Instagram" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]">
-              <Instagram size={18} />
-            </a>
+          <div className="mt-4 flex items-center justify-center gap-3 border-t border-[var(--color-border)]/40 pb-4 pt-4">
+            {[
+              { href: 'https://t.me/poroshok_shop', label: 'Telegram', Icon: Telegram },
+              { href: 'viber://pa?chatURI=poroshok_shop', label: 'Viber', Icon: Viber },
+              { href: 'https://instagram.com/poroshok_shop', label: 'Instagram', Icon: Instagram },
+              { href: 'https://www.facebook.com/poroshok.shop', label: 'Facebook', Icon: Facebook },
+              { href: 'https://www.tiktok.com/@poroshok_shop', label: 'TikTok', Icon: TikTok },
+            ].map(({ href, label, Icon }) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]">
+                <Icon size={18} />
+              </a>
+            ))}
           </div>
         </nav>
       </div>

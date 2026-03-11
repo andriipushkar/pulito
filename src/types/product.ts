@@ -29,6 +29,8 @@ export interface ProductListItem {
   slug: string;
   priceRetail: Price;
   priceWholesale: Price | null;
+  priceWholesale2: Price | null;
+  priceWholesale3: Price | null;
   priceRetailOld: Price | null;
   priceWholesaleOld: Price | null;
   quantity: number;

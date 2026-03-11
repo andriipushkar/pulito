@@ -10,6 +10,7 @@ export interface PaymentCallbackResult {
   status: 'success' | 'failure' | 'processing';
   transactionId: string;
   rawData: Record<string, unknown>;
+  receiptUrl?: string;
 }
 
 export interface LiqPayCallbackData {
@@ -39,6 +40,7 @@ export interface MonobankCallbackData {
   reference: string;
   createdDate: string;
   modifiedDate: string;
+  receiptUrl?: string;
 }
 
 export interface MonobankInvoiceResponse {

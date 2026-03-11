@@ -62,6 +62,7 @@ model User {
   wholesaleStatus       WholesaleStatus  @default(none) @map("wholesale_status")
   wholesaleRequestDate  DateTime?        @map("wholesale_request_date")
   wholesaleApprovedDate DateTime?        @map("wholesale_approved_date")
+  wholesaleGroup        Int?             @map("wholesale_group")
   wholesaleMonthlyVol   String?          @map("wholesale_monthly_volume")
   assignedManagerId     Int?             @map("assigned_manager_id")
   assignedManager       User?            @relation("ManagerToClient", fields: [assignedManagerId], references: [id])
@@ -73,6 +74,10 @@ model User {
   viberUserId           String?          @map("viber_user_id")
   avatarUrl             String?          @map("avatar_url")
   isVerified            Boolean          @default(false) @map("is_verified")
+  isBlocked             Boolean          @default(false) @map("is_blocked")
+  blockedAt             DateTime?        @map("blocked_at")
+  blockedReason         String?          @map("blocked_reason")
+  adminNote             String?          @map("admin_note")
   createdAt             DateTime         @default(now()) @map("created_at")
   updatedAt             DateTime         @updatedAt @map("updated_at")
 
@@ -145,8 +150,12 @@ model Product {
   category          Category? @relation(fields: [categoryId], references: [id])
   priceRetail       Decimal   @map("price_retail") @db.Decimal(10, 2)
   priceWholesale    Decimal?  @map("price_wholesale") @db.Decimal(10, 2)
+  priceWholesale2   Decimal?  @map("price_wholesale_2") @db.Decimal(10, 2)
+  priceWholesale3   Decimal?  @map("price_wholesale_3") @db.Decimal(10, 2)
   priceRetailOld    Decimal?  @map("price_retail_old") @db.Decimal(10, 2)
   priceWholesaleOld Decimal?  @map("price_wholesale_old") @db.Decimal(10, 2)
+  priceWholesaleOld2 Decimal? @map("price_wholesale_old_2") @db.Decimal(10, 2)
+  priceWholesaleOld3 Decimal? @map("price_wholesale_old_3") @db.Decimal(10, 2)
   quantity          Int       @default(0)
   isPromo           Boolean   @default(false) @map("is_promo")
   promoStartDate    DateTime? @map("promo_start_date")
@@ -289,9 +298,13 @@ model PriceHistory {
   product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   priceRetailOld    Decimal? @map("price_retail_old") @db.Decimal(10, 2)
   priceRetailNew    Decimal? @map("price_retail_new") @db.Decimal(10, 2)
-  priceWholesaleOld Decimal? @map("price_wholesale_old") @db.Decimal(10, 2)
-  priceWholesaleNew Decimal? @map("price_wholesale_new") @db.Decimal(10, 2)
-  changedAt         DateTime @default(now()) @map("changed_at")
+  priceWholesaleOld  Decimal? @map("price_wholesale_old") @db.Decimal(10, 2)
+  priceWholesaleNew  Decimal? @map("price_wholesale_new") @db.Decimal(10, 2)
+  priceWholesale2Old Decimal? @map("price_wholesale_2_old") @db.Decimal(10, 2)
+  priceWholesale2New Decimal? @map("price_wholesale_2_new") @db.Decimal(10, 2)
+  priceWholesale3Old Decimal? @map("price_wholesale_3_old") @db.Decimal(10, 2)
+  priceWholesale3New Decimal? @map("price_wholesale_3_new") @db.Decimal(10, 2)
+  changedAt          DateTime @default(now()) @map("changed_at")
   importId          Int?     @map("import_id")
 
   @@map("price_history")
@@ -368,6 +381,7 @@ model Order {
   managerComment       String?        @map("manager_comment")
   cancelledReason      String?        @map("cancelled_reason")
   cancelledBy          String?        @map("cancelled_by")
+  assignedManagerId    Int?           @map("assigned_manager_id")
   source               OrderSource    @default(web)
   utmSource            String?        @map("utm_source")
   utmMedium            String?        @map("utm_medium")
@@ -453,6 +467,7 @@ model Payment {
   confirmer       User?         @relation("PaymentConfirmer", fields: [confirmedBy], references: [id])
   transactionId   String?       @map("transaction_id")
   invoicePdfUrl   String?       @map("invoice_pdf_url")
+  receiptUrl      String?       @map("receipt_url")
   notes           String?
   paymentProvider String?       @map("payment_provider") // 'liqpay' | 'monobank'
   callbackData    Json?         @map("callback_data")
@@ -859,6 +874,12 @@ enum AuditActionType {
   page_edit
   rule_change
   data_delete
+  user_block
+  user_unblock
+  user_edit
+  password_reset
+  wholesale_approve
+  wholesale_reject
 }
 
 model AuditLog {

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
@@ -7,6 +8,7 @@ import ProductCard from '@/components/product/ProductCard';
 import CatalogClient from './CatalogClient';
 import { getProducts } from '@/services/product';
 import { getCategories, getCategoryBySlug } from '@/services/category';
+import { prisma } from '@/lib/prisma';
 import { Search } from '@/components/icons';
 
 interface CatalogPageProps {
@@ -61,6 +63,20 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
 
   const totalPages = Math.ceil(total / limit);
   const categoryData = category ? await getCategoryBySlug(category) : null;
+
+  // Check for slug redirect if category not found
+  if (category && !categoryData) {
+    const slugRedirect = await prisma.slugRedirect.findUnique({
+      where: { oldSlug: category },
+    });
+    if (slugRedirect && slugRedirect.type === 'category') {
+      const redirectParams = new URLSearchParams();
+      redirectParams.set('category', slugRedirect.newSlug);
+      if (search) redirectParams.set('search', search);
+      if (sort !== 'popular') redirectParams.set('sort', sort);
+      redirect(`/catalog?${redirectParams.toString()}`);
+    }
+  }
 
   const breadcrumbs = [
     { label: 'Головна', href: '/' },

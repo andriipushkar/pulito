@@ -142,6 +142,13 @@ export async function updateCategory(
     if (existing) {
       throw new CategoryError('Категорія з таким slug вже існує', 409);
     }
+
+    // Auto-create redirect from old slug to new slug
+    await prisma.slugRedirect.upsert({
+      where: { oldSlug: category.slug },
+      update: { newSlug: slug, type: 'category' },
+      create: { oldSlug: category.slug, newSlug: slug, type: 'category' },
+    });
   }
 
   if (data.parentId !== undefined && data.parentId !== null) {

@@ -42,23 +42,37 @@ const orderListSelect = {
   clientType: true,
   totalAmount: true,
   itemsCount: true,
+  contactName: true,
+  contactPhone: true,
   paymentMethod: true,
   paymentStatus: true,
   deliveryMethod: true,
+  trackingNumber: true,
   createdAt: true,
 } satisfies Prisma.OrderSelect;
 
 const orderDetailSelect = {
   ...orderListSelect,
+  userId: true,
+  assignedManagerId: true,
   discountAmount: true,
   deliveryCost: true,
-  contactName: true,
-  contactPhone: true,
   contactEmail: true,
   deliveryCity: true,
   deliveryAddress: true,
-  trackingNumber: true,
+  deliveryWarehouseRef: true,
   comment: true,
+  managerComment: true,
+  source: true,
+  payment: {
+    select: {
+      receiptUrl: true,
+      paymentProvider: true,
+      transactionId: true,
+      paidAt: true,
+    },
+  },
+  user: { select: { id: true, fullName: true, email: true, role: true, wholesaleGroup: true } },
   items: {
     select: {
       id: true,
@@ -633,17 +647,27 @@ export async function editOrderItems(
  * @param filters - Фільтри (статус, пошук, дати, пагінація)
  * @returns Об'єкт зі списком замовлень та загальною кількістю
  */
-export async function getAllOrders(filters: OrderFilterInput) {
+export async function getAllOrders(filters: OrderFilterInput & { clientType?: string }) {
   const where: Prisma.OrderWhereInput = {};
 
   if (filters.status) {
     where.status = filters.status;
+  }
+  if (filters.clientType) {
+    where.clientType = filters.clientType as 'retail' | 'wholesale';
+  }
+  if (filters.paymentMethod) {
+    where.paymentMethod = filters.paymentMethod;
+  }
+  if (filters.deliveryMethod) {
+    where.deliveryMethod = filters.deliveryMethod;
   }
   if (filters.search) {
     where.OR = [
       { orderNumber: { contains: filters.search, mode: 'insensitive' } },
       { contactName: { contains: filters.search, mode: 'insensitive' } },
       { contactPhone: { contains: filters.search, mode: 'insensitive' } },
+      { trackingNumber: { contains: filters.search, mode: 'insensitive' } },
     ];
   }
   if (filters.dateFrom) {
@@ -654,18 +678,18 @@ export async function getAllOrders(filters: OrderFilterInput) {
   }
 
   const skip = (filters.page - 1) * filters.limit;
+  const sortBy = filters.sortBy || 'createdAt';
+  const sortOrder = filters.sortOrder || 'desc';
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
       where,
       select: {
         ...orderListSelect,
-        contactName: true,
-        contactPhone: true,
         contactEmail: true,
         user: { select: { id: true, fullName: true, email: true, role: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { [sortBy]: sortOrder },
       skip,
       take: filters.limit,
     }),
@@ -673,4 +697,36 @@ export async function getAllOrders(filters: OrderFilterInput) {
   ]);
 
   return { orders, total };
+}
+
+export async function getOrderStats() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    totalNew,
+    totalProcessing,
+    totalToday,
+    revenueToday,
+    totalUnpaid,
+  ] = await Promise.all([
+    prisma.order.count({ where: { status: 'new_order' } }),
+    prisma.order.count({ where: { status: 'processing' } }),
+    prisma.order.count({ where: { createdAt: { gte: today } } }),
+    prisma.order.aggregate({
+      where: { createdAt: { gte: today }, status: { notIn: ['cancelled', 'returned'] } },
+      _sum: { totalAmount: true },
+    }),
+    prisma.order.count({
+      where: { paymentStatus: 'pending', status: { notIn: ['cancelled', 'returned', 'completed'] } },
+    }),
+  ]);
+
+  return {
+    newOrders: totalNew,
+    processingOrders: totalProcessing,
+    todayOrders: totalToday,
+    todayRevenue: Number(revenueToday._sum.totalAmount ?? 0),
+    unpaidOrders: totalUnpaid,
+  };
 }

@@ -25,6 +25,19 @@ interface ExportClientsParams {
   format?: 'xlsx' | 'csv';
 }
 
+function autoFitColumns(ws: XLSX.WorkSheet, data: Record<string, unknown>[]) {
+  if (data.length === 0) return;
+  const headers = Object.keys(data[0]);
+  const colWidths = headers.map((header) => {
+    const maxDataLen = data.reduce((max, row) => {
+      const val = String(row[header] ?? '');
+      return Math.max(max, val.length);
+    }, 0);
+    return Math.min(Math.max(header.length, maxDataLen) + 3, 50);
+  });
+  ws['!cols'] = colWidths.map((w) => ({ wch: w }));
+}
+
 function toBuffer(workbook: XLSX.WorkBook, format: 'xlsx' | 'csv'): Buffer {
   if (format === 'csv') {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -52,6 +65,22 @@ export async function exportOrders(params: ExportOrdersParams = {}) {
     orderBy: { createdAt: 'desc' },
   });
 
+  const STATUS_LABELS: Record<string, string> = {
+    new_order: 'Нове', processing: 'В обробці', confirmed: 'Підтверджене',
+    paid: 'Оплачене', shipped: 'Відправлене', completed: 'Виконане',
+    cancelled: 'Скасоване', returned: 'Повернення',
+  };
+  const PAYMENT_LABELS: Record<string, string> = {
+    cod: 'Накладений платіж', bank_transfer: 'На розрахунковий рахунок',
+    online: 'Онлайн-оплата', card_prepay: 'Передоплата на картку',
+  };
+  const PAYMENT_STATUS: Record<string, string> = {
+    pending: 'Очікує оплати', paid: 'Оплачено', partial: 'Часткова оплата', refunded: 'Повернення коштів',
+  };
+  const DELIVERY_LABELS: Record<string, string> = {
+    nova_poshta: 'Нова Пошта', ukrposhta: 'Укрпошта', pickup: 'Самовивіз', pallet: 'Палетна доставка',
+  };
+
   const rows = orders.map((o) => ({
     '№ замовлення': o.orderNumber,
     'Дата': o.createdAt.toLocaleDateString('uk-UA'),
@@ -59,10 +88,11 @@ export async function exportOrders(params: ExportOrdersParams = {}) {
     'Телефон': o.contactPhone,
     'Email': o.contactEmail || '',
     'Тип': o.clientType === 'wholesale' ? 'Оптовий' : 'Роздрібний',
-    'Статус': o.status,
-    'Оплата': o.paymentMethod,
-    'Статус оплати': o.paymentStatus,
-    'Доставка': o.deliveryMethod,
+    'Статус': STATUS_LABELS[o.status] || o.status,
+    'Оплата': PAYMENT_LABELS[o.paymentMethod] || o.paymentMethod,
+    'Статус оплати': PAYMENT_STATUS[o.paymentStatus] || o.paymentStatus,
+    'Доставка': DELIVERY_LABELS[o.deliveryMethod] || o.deliveryMethod,
+    'ТТН': o.trackingNumber || '',
     'Місто': o.deliveryCity || '',
     'Кількість товарів': o.itemsCount,
     'Знижка': Number(o.discountAmount),
@@ -73,6 +103,7 @@ export async function exportOrders(params: ExportOrdersParams = {}) {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
+  autoFitColumns(ws, rows);
   XLSX.utils.book_append_sheet(wb, ws, 'Замовлення');
 
   return {
@@ -120,6 +151,7 @@ export async function exportClients(params: ExportClientsParams = {}) {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
+  autoFitColumns(ws, rows);
   XLSX.utils.book_append_sheet(wb, ws, 'Клієнти');
 
   return {
@@ -145,7 +177,9 @@ export async function exportCatalog(params: { format?: 'xlsx' | 'csv' } = {}) {
     'Назва': p.name,
     'Категорія': p.category?.name || '',
     'Роздрібна ціна': Number(p.priceRetail),
-    'Оптова ціна': Number(p.priceWholesale),
+    'Ціна: Дрібний опт': p.priceWholesale != null ? Number(p.priceWholesale) : '',
+    'Ціна: Середній опт': p.priceWholesale2 != null ? Number(p.priceWholesale2) : '',
+    'Ціна: Великий опт': p.priceWholesale3 != null ? Number(p.priceWholesale3) : '',
     'Залишок': p.quantity,
     'Акція': p.isPromo ? 'Так' : 'Ні',
     'Статус': p.isActive ? 'Активний' : 'Неактивний',
@@ -153,6 +187,7 @@ export async function exportCatalog(params: { format?: 'xlsx' | 'csv' } = {}) {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
+  autoFitColumns(ws, rows);
   XLSX.utils.book_append_sheet(wb, ws, 'Каталог');
 
   return {

@@ -12,6 +12,13 @@ const generateSchema = z.object({
     'clients_activity',
     'wholesale_report',
     'delivery_report',
+    'financial_report',
+    'returns_cancellations',
+    'wholesale_groups',
+    'product_leaders',
+    'manager_activity',
+    'acquisition_channels',
+    'summary_report',
   ]),
   format: z.enum(['xlsx', 'csv', 'pdf']),
   params: z.object({

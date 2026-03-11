@@ -13,6 +13,22 @@ const mockLoginUser = vi.fn();
 vi.mock('@/services/auth', () => ({
   loginUser: (...args: unknown[]) => mockLoginUser(...args),
 }));
+vi.mock('@/services/rate-limit', () => {
+  class RateLimitError extends Error {
+    statusCode: number;
+    retryAfter?: number;
+    constructor(message: string, statusCode: number) {
+      super(message);
+      this.statusCode = statusCode;
+    }
+  }
+  return {
+    checkLoginRateLimit: vi.fn(),
+    recordFailedLogin: vi.fn(),
+    clearLoginAttempts: vi.fn(),
+    RateLimitError,
+  };
+});
 
 import { POST } from './route';
 import { AuthError } from '@/services/auth-errors';
@@ -92,5 +108,35 @@ describe('POST /api/v1/auth/login', () => {
     }));
 
     expect(res.status).toBe(500);
+  });
+
+  it('should return 429 with Retry-After for RateLimitError', async () => {
+    const { RateLimitError } = await import('@/services/rate-limit');
+    const { checkLoginRateLimit } = await import('@/services/rate-limit');
+    const error = new RateLimitError('Too many attempts', 429);
+    error.retryAfter = 60;
+    vi.mocked(checkLoginRateLimit).mockRejectedValue(error);
+
+    const res = await POST(createRequest({
+      email: 'u@t.com',
+      password: 'pass1234',
+    }));
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
+  });
+
+  it('should return 429 without Retry-After when not set', async () => {
+    const { RateLimitError } = await import('@/services/rate-limit');
+    const { checkLoginRateLimit } = await import('@/services/rate-limit');
+    vi.mocked(checkLoginRateLimit).mockRejectedValue(new RateLimitError('Too many attempts', 429));
+
+    const res = await POST(createRequest({
+      email: 'u@t.com',
+      password: 'pass1234',
+    }));
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBeNull();
   });
 });

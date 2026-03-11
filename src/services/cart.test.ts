@@ -17,9 +17,15 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
+const mockGetEffectivePrice = vi.fn();
+vi.mock('@/services/personal-price', () => ({
+  getEffectivePrice: (...args: unknown[]) => mockGetEffectivePrice(...args),
+}));
+
 import { prisma } from '@/lib/prisma';
 import {
   getCartItems,
+  getCartWithPersonalPrices,
   addToCart,
   updateCartItem,
   removeFromCart,
@@ -397,5 +403,107 @@ describe('mergeCart', () => {
       })
     );
     expect(result).toHaveLength(1);
+  });
+
+  it('should skip products that do not exist', async () => {
+    const localItems = [{ productId: 10, quantity: 2 }];
+
+    mockPrisma.cartItem.findUnique.mockResolvedValueOnce(null as never);
+    mockPrisma.product.findUnique.mockResolvedValueOnce(null as never);
+
+    mockPrisma.cartItem.findMany.mockResolvedValue([] as never);
+
+    const result = await mergeCart(1, localItems);
+
+    expect(mockPrisma.cartItem.create).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+});
+
+describe('getCartWithPersonalPrices', () => {
+  it('should return items with fixedPrice personal price', async () => {
+    const items = [makeCartItem()];
+    mockPrisma.cartItem.findMany.mockResolvedValue(items as never);
+    mockPrisma.product.findUnique.mockResolvedValue({ categoryId: 5 } as never);
+    mockGetEffectivePrice.mockResolvedValue({ fixedPrice: 85, discountPercent: null });
+
+    const result = await getCartWithPersonalPrices(1);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].personalPrice).toBe(85);
+  });
+
+  it('should return items with discountPercent personal price', async () => {
+    const items = [makeCartItem()];
+    mockPrisma.cartItem.findMany.mockResolvedValue(items as never);
+    mockPrisma.product.findUnique.mockResolvedValue({ categoryId: 5 } as never);
+    mockGetEffectivePrice.mockResolvedValue({ fixedPrice: null, discountPercent: 10 });
+
+    const result = await getCartWithPersonalPrices(1);
+
+    expect(result).toHaveLength(1);
+    // 100 * (1 - 10/100) = 90, rounded
+    expect(result[0].personalPrice).toBe(90);
+  });
+
+  it('should return null personalPrice when no effective price', async () => {
+    const items = [makeCartItem()];
+    mockPrisma.cartItem.findMany.mockResolvedValue(items as never);
+    mockPrisma.product.findUnique.mockResolvedValue({ categoryId: 5 } as never);
+    mockGetEffectivePrice.mockResolvedValue(null);
+
+    const result = await getCartWithPersonalPrices(1);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].personalPrice).toBeNull();
+  });
+
+  it('should return null personalPrice when effective has neither fixedPrice nor discountPercent', async () => {
+    const items = [makeCartItem()];
+    mockPrisma.cartItem.findMany.mockResolvedValue(items as never);
+    mockPrisma.product.findUnique.mockResolvedValue({ categoryId: 5 } as never);
+    mockGetEffectivePrice.mockResolvedValue({ fixedPrice: null, discountPercent: null });
+
+    const result = await getCartWithPersonalPrices(1);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].personalPrice).toBeNull();
+  });
+
+  it('should handle product with no categoryId', async () => {
+    const items = [makeCartItem()];
+    mockPrisma.cartItem.findMany.mockResolvedValue(items as never);
+    mockPrisma.product.findUnique.mockResolvedValue(null as never);
+    mockGetEffectivePrice.mockResolvedValue(null);
+
+    const result = await getCartWithPersonalPrices(1);
+
+    expect(result).toHaveLength(1);
+    expect(mockGetEffectivePrice).toHaveBeenCalledWith(1, 10, null);
+  });
+});
+
+describe('updateCartItem', () => {
+  it('should allow update when product is null (deleted product)', async () => {
+    const item = { id: 1, userId: 1, productId: 10, quantity: 2 };
+    mockPrisma.cartItem.findUnique.mockResolvedValue(item as never);
+    mockPrisma.product.findUnique.mockResolvedValue(null as never);
+
+    const updated = makeCartItem({ quantity: 3 });
+    mockPrisma.cartItem.update.mockResolvedValue(updated as never);
+
+    const result = await updateCartItem(1, 10, 3);
+    expect(result).toEqual(updated);
+  });
+});
+
+describe('CartError', () => {
+  it('should create error with message and status code', () => {
+    const error = new CartError('Test error', 400);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(CartError);
+    expect(error.message).toBe('Test error');
+    expect(error.statusCode).toBe(400);
+    expect(error.name).toBe('CartError');
   });
 });

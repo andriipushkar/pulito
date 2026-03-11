@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Trash, Check, Close } from '@/components/icons';
 
 interface Banner {
@@ -33,6 +34,7 @@ export default function AdminBannersPage() {
   const [editForm, setEditForm] = useState<EditForm>({ title: '', subtitle: '', buttonLink: '', buttonText: '', sortOrder: 0 });
   const [dragOverId, setDragOverId] = useState<number | null>(null);
   const [uploading, setUploading] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadBanners = useCallback(() => {
     apiClient
@@ -50,8 +52,14 @@ export default function AdminBannersPage() {
     loadBanners();
   };
 
-  const deleteBanner = async (id: number) => {
-    if (!confirm('Видалити банер?')) return;
+  const deleteBanner = (id: number) => {
+    setDeleteId(id);
+  };
+
+  const executeDeleteBanner = async () => {
+    if (deleteId === null) return;
+    const id = deleteId;
+    setDeleteId(null);
     await apiClient.delete(`/api/v1/admin/banners/${id}`);
     loadBanners();
   };
@@ -230,6 +238,14 @@ export default function AdminBannersPage() {
           <div className="py-8 text-center text-[var(--color-text-secondary)]">Банерів немає</div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={executeDeleteBanner}
+        variant="danger"
+        message="Видалити банер?"
+      />
     </div>
   );
 }

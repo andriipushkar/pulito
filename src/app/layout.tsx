@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import './globals.css';
@@ -9,8 +9,8 @@ import CookieBanner from '@/components/ui/CookieBanner';
 import WebVitalsReporter from '@/components/common/WebVitalsReporter';
 import Toaster from '@/components/common/Toaster';
 
-const inter = Inter({
-  subsets: ['latin', 'cyrillic'],
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ['latin', 'cyrillic-ext'],
   variable: '--font-sans',
   display: 'swap',
 });
@@ -89,7 +89,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={inter.variable}>
+    <html lang={locale} className={plusJakarta.variable}>
       <head>
         <link rel="apple-touch-icon" href="/images/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />

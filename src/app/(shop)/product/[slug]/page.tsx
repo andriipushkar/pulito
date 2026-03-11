@@ -90,12 +90,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <Breadcrumbs items={breadcrumbs} className="mb-6" />
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-10">
         <ImageGallery images={product.images} productName={product.name} />
         <ProductInfo product={product} />
       </div>
 
-      <div className="mt-8">
+      <div className="mt-10">
         <ProductTabs content={product.content} />
       </div>
 
@@ -120,6 +120,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
         code={product.code}
         priceRetail={Number(product.priceRetail)}
         priceWholesale={product.priceWholesale ? Number(product.priceWholesale) : null}
+        priceWholesale2={product.priceWholesale2 ? Number(product.priceWholesale2) : null}
+        priceWholesale3={product.priceWholesale3 ? Number(product.priceWholesale3) : null}
         imagePath={product.images[0]?.pathMedium || product.imagePath}
         quantity={product.quantity}
       />

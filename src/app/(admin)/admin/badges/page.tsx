@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Check, Close } from '@/components/icons';
 
 const BADGE_TYPES = [
@@ -40,6 +41,7 @@ export default function AdminBadgesPage() {
   const [form, setForm] = useState({ productId: '', badgeType: 'promo', customText: '', customColor: '#2563eb', priority: 0 });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({ badgeType: 'promo', customText: '', customColor: '#2563eb', priority: 0 });
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadBadges = () => {
     apiClient.get<Badge[]>('/api/v1/admin/badges').then((res) => {
@@ -88,8 +90,14 @@ export default function AdminBadgesPage() {
     loadBadges();
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Видалити бейдж?')) return;
+  const handleDelete = (id: number) => {
+    setDeleteId(id);
+  };
+
+  const executeDelete = async () => {
+    if (deleteId === null) return;
+    const id = deleteId;
+    setDeleteId(null);
     await apiClient.delete(`/api/v1/admin/badges/${id}`);
     loadBadges();
   };
@@ -209,6 +217,14 @@ export default function AdminBadgesPage() {
           <div className="py-8 text-center text-[var(--color-text-secondary)]">Бейджів немає</div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={executeDelete}
+        variant="danger"
+        message="Видалити бейдж?"
+      />
     </div>
   );
 }

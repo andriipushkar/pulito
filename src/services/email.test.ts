@@ -31,6 +31,7 @@ vi.mock('@/config/env', () => ({
 }));
 
 import { sendEmail, sendVerificationEmail, sendPasswordResetEmail, EmailError } from './email';
+import { env } from '@/config/env';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -163,6 +164,41 @@ describe('sendEmail', () => {
         attachments: undefined,
       })
     );
+  });
+
+  it('should use fallback from when SMTP_FROM is not set', async () => {
+    const original = env.SMTP_FROM;
+    (env as any).SMTP_FROM = '';
+    mockSendMail.mockResolvedValue({ messageId: '<msg-fallback@test.com>' });
+
+    await sendEmail({
+      to: 'user@example.com',
+      subject: 'Fallback From',
+      html: '<p>Test</p>',
+    });
+
+    expect(mockSendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: '"Порошок" <test@test.com>',
+      })
+    );
+    (env as any).SMTP_FROM = original;
+  });
+
+  it('should handle non-Error thrown objects', async () => {
+    mockSendMail.mockRejectedValue('string error');
+
+    try {
+      await sendEmail({
+        to: 'user@example.com',
+        subject: 'Non-Error',
+        html: '<p>Test</p>',
+      });
+      expect.unreachable('Should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(EmailError);
+      expect((error as EmailError).message).toBe('Невідома помилка відправки email');
+    }
   });
 });
 

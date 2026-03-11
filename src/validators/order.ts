@@ -48,6 +48,10 @@ export const orderFilterSchema = z.object({
   search: z.string().optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
+  sortBy: z.enum(['createdAt', 'totalAmount', 'status', 'orderNumber']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  paymentMethod: z.enum(['cod', 'bank_transfer', 'online', 'card_prepay']).optional(),
+  deliveryMethod: z.enum(['nova_poshta', 'ukrposhta', 'pickup', 'pallet']).optional(),
 });
 
 export type OrderFilterInput = z.infer<typeof orderFilterSchema>;

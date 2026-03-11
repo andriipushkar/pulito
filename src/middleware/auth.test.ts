@@ -14,7 +14,7 @@ vi.mock('@/services/auth', () => ({
   isAccessTokenBlacklisted: (...args: unknown[]) => mockIsBlacklisted(...args),
 }));
 
-import { withAuth, withRole } from './auth';
+import { withAuth, withOptionalAuth, withRole } from './auth';
 import { signAccessToken } from '@/services/token';
 
 function createRequest(token?: string): NextRequest {
@@ -137,6 +137,69 @@ describe('auth middleware', () => {
 
       expect(res.status).toBe(401);
       expect(handler).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('withOptionalAuth', () => {
+    it('should call handler with null user when no token', async () => {
+      const handler = vi.fn().mockResolvedValue(new Response('ok'));
+      const wrapped = withOptionalAuth(handler);
+      await wrapped(createRequest());
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.any(NextRequest),
+        expect.objectContaining({ user: null })
+      );
+    });
+
+    it('should call handler with user when valid token', async () => {
+      const token = signAccessToken({ sub: 1, email: 'test@test.com', role: 'client' });
+      const handler = vi.fn().mockResolvedValue(new Response('ok'));
+      const wrapped = withOptionalAuth(handler);
+      await wrapped(createRequest(token));
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.any(NextRequest),
+        expect.objectContaining({
+          user: { id: 1, email: 'test@test.com', role: 'client' },
+        })
+      );
+    });
+
+    it('should call handler with null user when token is invalid', async () => {
+      const handler = vi.fn().mockResolvedValue(new Response('ok'));
+      const wrapped = withOptionalAuth(handler);
+      await wrapped(createRequest('invalid-token'));
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.any(NextRequest),
+        expect.objectContaining({ user: null })
+      );
+    });
+
+    it('should call handler with null user when token is blacklisted', async () => {
+      mockIsBlacklisted.mockResolvedValue(true);
+      const token = signAccessToken({ sub: 1, email: 'test@test.com', role: 'client' });
+      const handler = vi.fn().mockResolvedValue(new Response('ok'));
+      const wrapped = withOptionalAuth(handler);
+      await wrapped(createRequest(token));
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.any(NextRequest),
+        expect.objectContaining({ user: null })
+      );
+    });
+
+    it('should pass params through to handler', async () => {
+      const handler = vi.fn().mockResolvedValue(new Response('ok'));
+      const wrapped = withOptionalAuth(handler);
+      const paramsPromise = Promise.resolve({ id: '123' });
+      await wrapped(createRequest(), { params: paramsPromise });
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.any(NextRequest),
+        expect.objectContaining({ user: null, params: paramsPromise })
+      );
     });
   });
 });

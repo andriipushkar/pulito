@@ -23,6 +23,8 @@ interface ResolvedLine {
   productSlug: string | null;
   priceRetail: number | null;
   priceWholesale: number | null;
+  priceWholesale2: number | null;
+  priceWholesale3: number | null;
   availableQuantity: number | null;
   imagePath: string | null;
   status: 'found' | 'not_found' | 'insufficient_stock';
@@ -63,6 +65,8 @@ export async function resolveQuickOrder(lines: QuickOrderLine[]): Promise<Resolv
       slug: true,
       priceRetail: true,
       priceWholesale: true,
+      priceWholesale2: true,
+      priceWholesale3: true,
       quantity: true,
       imagePath: true,
     },
@@ -82,6 +86,8 @@ export async function resolveQuickOrder(lines: QuickOrderLine[]): Promise<Resolv
         productSlug: null,
         priceRetail: null,
         priceWholesale: null,
+        priceWholesale2: null,
+        priceWholesale3: null,
         availableQuantity: null,
         imagePath: null,
         status: 'not_found' as const,
@@ -97,7 +103,9 @@ export async function resolveQuickOrder(lines: QuickOrderLine[]): Promise<Resolv
       productName: product.name,
       productSlug: product.slug,
       priceRetail: Number(product.priceRetail),
-      priceWholesale: Number(product.priceWholesale),
+      priceWholesale: product.priceWholesale != null ? Number(product.priceWholesale) : null,
+      priceWholesale2: product.priceWholesale2 != null ? Number(product.priceWholesale2) : null,
+      priceWholesale3: product.priceWholesale3 != null ? Number(product.priceWholesale3) : null,
       availableQuantity: product.quantity,
       imagePath: product.imagePath,
       status: hasStock ? ('found' as const) : ('insufficient_stock' as const),

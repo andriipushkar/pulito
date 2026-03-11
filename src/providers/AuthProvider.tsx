@@ -10,6 +10,7 @@ interface AuthUser {
   fullName: string | null;
   companyName?: string | null;
   wholesaleStatus?: string | null;
+  wholesaleGroup?: number | null;
 }
 
 interface AuthContextValue {

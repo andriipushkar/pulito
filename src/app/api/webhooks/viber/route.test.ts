@@ -66,6 +66,23 @@ describe('POST /api/webhooks/viber', () => {
     expect(mockVerifyViberSignature).toHaveBeenCalledWith(body, 'abc123');
   });
 
+  it('should handle async processing error gracefully', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockHandleViberEvent.mockRejectedValue(new Error('processing failed'));
+
+    const request = new NextRequest('http://localhost/api/webhooks/viber', {
+      method: 'POST',
+      body: JSON.stringify({ event: 'message' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    const res = await POST(request);
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(consoleSpy).toHaveBeenCalledWith('Viber processing error:', expect.any(Error));
+    consoleSpy.mockRestore();
+  });
+
   it('should always return 200 even on parse error', async () => {
     const request = new NextRequest('http://localhost/api/webhooks/viber', {
       method: 'POST',

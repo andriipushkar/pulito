@@ -37,10 +37,28 @@ export async function getFeedbackList(filters: {
   limit: number;
   type?: 'form' | 'callback';
   status?: 'new_feedback' | 'processed' | 'rejected';
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
   const where: Prisma.FeedbackWhereInput = {};
   if (filters.type) where.type = filters.type;
   if (filters.status) where.status = filters.status;
+  if (filters.search) {
+    where.OR = [
+      { name: { contains: filters.search, mode: 'insensitive' } },
+      { email: { contains: filters.search, mode: 'insensitive' } },
+    ];
+  }
+  if (filters.dateFrom || filters.dateTo) {
+    where.createdAt = {};
+    if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
+    if (filters.dateTo) {
+      const end = new Date(filters.dateTo);
+      end.setHours(23, 59, 59, 999);
+      where.createdAt.lte = end;
+    }
+  }
 
   const skip = (filters.page - 1) * filters.limit;
 

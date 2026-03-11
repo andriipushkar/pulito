@@ -205,7 +205,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8">
       <Breadcrumbs
         items={[
           { label: 'Головна', href: '/' },
@@ -219,43 +219,80 @@ export default function CheckoutPage() {
 
       <CheckoutSteps currentStep={step} />
 
-      <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
-        {step === 1 && <StepContacts data={formData} errors={errors} onChange={handleChange} />}
-        {step === 2 && <StepDelivery data={formData} errors={errors} onChange={handleChange} />}
-        {step === 3 && <StepPayment data={formData} errors={errors} onChange={handleChange} />}
-        {step === 4 && (
-          <StepConfirmation
-            data={formData}
-            items={items}
-            total={cartTotal}
-            loyaltyPoints={loyaltyPoints}
-            loyaltyPointsToSpend={loyaltyPointsToSpend}
-            onLoyaltyPointsChange={handleLoyaltyPointsChange}
-          />
-        )}
-
-        {errors.submit && (
-          <p className="mt-4 text-sm text-[var(--color-danger)]">{errors.submit}</p>
-        )}
-
-        <div className="mt-6 flex justify-between">
-          {step > 1 ? (
-            <Button variant="outline" onClick={handleBack}>
-              Назад
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={() => router.push('/cart')}>
-              Повернутись до кошика
-            </Button>
+      <div className="gap-6 lg:grid lg:grid-cols-[1fr_340px]">
+        {/* Left: form steps */}
+        <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
+          {step === 1 && <StepContacts data={formData} errors={errors} onChange={handleChange} />}
+          {step === 2 && <StepDelivery data={formData} errors={errors} onChange={handleChange} />}
+          {step === 3 && <StepPayment data={formData} errors={errors} onChange={handleChange} />}
+          {step === 4 && (
+            <StepConfirmation
+              data={formData}
+              items={items}
+              total={cartTotal}
+              loyaltyPoints={loyaltyPoints}
+              loyaltyPointsToSpend={loyaltyPointsToSpend}
+              onLoyaltyPointsChange={handleLoyaltyPointsChange}
+            />
           )}
 
-          {step < 4 ? (
-            <Button onClick={handleNext}>Далі</Button>
-          ) : (
-            <Button onClick={handleSubmit} isLoading={isSubmitting}>
-              Підтвердити замовлення
-            </Button>
+          {errors.submit && (
+            <p className="mt-4 text-sm text-[var(--color-danger)]">{errors.submit}</p>
           )}
+
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+            {step > 1 ? (
+              <Button variant="outline" onClick={handleBack} className="w-full sm:w-auto">
+                Назад
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => router.push('/cart')} className="w-full sm:w-auto">
+                Повернутись до кошика
+              </Button>
+            )}
+
+            {step < 4 ? (
+              <Button onClick={handleNext} className="w-full sm:w-auto">Далі</Button>
+            ) : (
+              <Button onClick={handleSubmit} isLoading={isSubmitting} className="w-full sm:w-auto">
+                Підтвердити замовлення
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Right: order summary (desktop) */}
+        <div className="mt-6 lg:mt-0">
+          <div className="sticky top-[140px] rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-5">
+            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">Ваше замовлення</h3>
+            <div className="max-h-[280px] space-y-3 overflow-y-auto">
+              {items.map((item) => (
+                <div key={item.productId} className="flex items-center gap-3">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--color-bg-secondary)]">
+                    {item.imagePath ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={item.imagePath} alt={item.name} className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)]">
+                        <CartIcon size={16} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium">{item.name}</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">{item.quantity} x {item.priceRetail.toFixed(0)} ₴</p>
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold">{(item.priceRetail * item.quantity).toFixed(0)} ₴</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--color-text-secondary)]">Разом</span>
+                <span className="text-lg font-bold">{cartTotal.toFixed(0)} ₴</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Trash, Check, Close, Eye } from '@/components/icons';
 
 interface Publication {
@@ -105,6 +106,7 @@ export default function AdminPublicationsPage() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const applyTemplate = (tpl: PublicationTemplate) => {
     setForm({
@@ -149,8 +151,14 @@ export default function AdminPublicationsPage() {
     loadPublications();
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Видалити публікацію?')) return;
+  const handleDelete = (id: number) => {
+    setDeleteId(id);
+  };
+
+  const executeDelete = async () => {
+    if (deleteId === null) return;
+    const id = deleteId;
+    setDeleteId(null);
     await apiClient.delete(`/api/v1/admin/publications/${id}`);
     loadPublications();
   };
@@ -537,6 +545,14 @@ export default function AdminPublicationsPage() {
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={executeDelete}
+        variant="danger"
+        message="Видалити публікацію?"
+      />
     </div>
   );
 }

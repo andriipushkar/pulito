@@ -68,7 +68,7 @@ export async function registerUser(data: {
     .catch(() => {});
 
   return {
-    user: { id: user.id, email: user.email, role: user.role },
+    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
     tokens,
   };
 }
@@ -94,10 +94,14 @@ export async function loginUser(data: {
     throw new AuthError('Невірний email або пароль', 401);
   }
 
+  if (user.isBlocked) {
+    throw new AuthError('Ваш акаунт заблоковано. Зверніться до підтримки.', 403);
+  }
+
   const tokens = await createTokenPair(user.id, user.email, user.role, data.ipAddress, data.deviceInfo);
 
   return {
-    user: { id: user.id, email: user.email, role: user.role },
+    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
     tokens,
   };
 }
@@ -142,7 +146,7 @@ export async function refreshTokens(
   const tokens = await createTokenPair(user.id, user.email, user.role, ipAddress, deviceInfo);
 
   return {
-    user: { id: user.id, email: user.email, role: user.role },
+    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
     tokens,
   };
 }
@@ -252,7 +256,7 @@ export async function loginWithGoogle(
   const tokens = await createTokenPair(user.id, user.email, user.role);
 
   return {
-    user: { id: user.id, email: user.email, role: user.role },
+    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
     tokens,
   };
 }

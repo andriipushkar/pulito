@@ -15,7 +15,7 @@ export default function ProductTabs({ content }: ProductTabsProps) {
       label: 'Опис',
       content: (
         <div
-          className="prose max-w-none"
+          className="prose max-w-none leading-relaxed"
           dangerouslySetInnerHTML={{ __html: sanitizeHtml(content.fullDescription) }}
         />
       ),

@@ -41,9 +41,17 @@ export default function PriceDisplay({
         </>
       )}
       {wholesale !== null && (
-        <span className={`${sizeClasses[size].old} text-[var(--color-text-secondary)]`}>
-          Опт: {wholesale.toFixed(2)} ₴
-        </span>
+        <div className="flex w-full flex-col gap-1 pt-1">
+          <span className={`${sizeClasses[size].old} inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)]/10 px-2.5 py-1 font-bold text-[var(--color-primary-dark)]`} title="Оптова ціна від 5 шт.">
+            <span className="rounded bg-[var(--color-primary)] px-1 py-0.5 text-[9px] font-bold uppercase leading-none text-white">Опт</span>
+            {wholesale.toFixed(2)} ₴
+          </span>
+          {retail > wholesale && (
+            <span className="text-[11px] text-[var(--color-in-stock)]">
+              Економія {(retail - wholesale).toFixed(0)} ₴ при купівлі оптом
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

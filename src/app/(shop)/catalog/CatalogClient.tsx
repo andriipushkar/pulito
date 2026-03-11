@@ -21,7 +21,9 @@ export default function CatalogClient({ total, categories, children }: CatalogCl
 
       <div className="mt-4 flex gap-6">
         <aside className="hidden w-64 shrink-0 lg:block">
-          <FilterSidebar categories={categories} />
+          <div className="sticky top-[140px]">
+            <FilterSidebar categories={categories} />
+          </div>
         </aside>
         <div className="min-w-0 flex-1">{children}</div>
       </div>

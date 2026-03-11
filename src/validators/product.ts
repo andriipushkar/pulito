@@ -28,6 +28,8 @@ export const createProductSchema = z.object({
   categoryId: z.number().int().positive().optional().nullable(),
   priceRetail: z.number().min(0, 'Ціна не може бути від\'ємною'),
   priceWholesale: z.number().min(0).optional().nullable(),
+  priceWholesale2: z.number().min(0).optional().nullable(),
+  priceWholesale3: z.number().min(0).optional().nullable(),
   quantity: z.number().int().min(0).default(0),
   isPromo: z.boolean().default(false),
   isActive: z.boolean().default(true),

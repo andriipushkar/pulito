@@ -14,11 +14,15 @@ export default function Header({ categories }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 50);
+    const onScroll = () => {
+      // Hysteresis: hide at 80px, show back at 20px to prevent jitter at threshold
+      if (!scrolled && window.scrollY > 80) setScrolled(true);
+      else if (scrolled && window.scrollY < 20) setScrolled(false);
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [scrolled]);
 
   return (
     <header className="sticky top-0 z-40 bg-[var(--color-bg)]/95 shadow-[var(--shadow-md)] backdrop-blur-md">

@@ -18,9 +18,11 @@ const STATUS_OPTIONS = [
 
 const BULK_ACTIONS = [
   { value: '', label: 'Масова дія...' },
-  { value: 'processing', label: 'Встановити: В обробці' },
-  { value: 'confirmed', label: 'Встановити: Підтверджено' },
-  { value: 'shipped', label: 'Встановити: Відправлено' },
+  { value: 'processing', label: 'Статус: В обробці' },
+  { value: 'confirmed', label: 'Статус: Підтверджено' },
+  { value: 'shipped', label: 'Статус: Відправлено' },
+  { value: 'completed', label: 'Статус: Завершено' },
+  { value: 'cancelled', label: 'Статус: Скасовано' },
   { value: 'export_csv', label: 'Експорт CSV' },
   { value: 'print_labels', label: 'Друк етикеток' },
 ];

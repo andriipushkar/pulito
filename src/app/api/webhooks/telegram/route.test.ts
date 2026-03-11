@@ -63,6 +63,24 @@ describe('POST /api/webhooks/telegram', () => {
     expect(res.status).toBe(200);
   });
 
+  it('should handle async processing error gracefully', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockHandleTelegramUpdate.mockRejectedValue(new Error('processing failed'));
+
+    const request = new NextRequest('http://localhost/api/webhooks/telegram', {
+      method: 'POST',
+      body: JSON.stringify({ update_id: 999 }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    const res = await POST(request);
+    expect(res.status).toBe(200);
+    // Wait for async .catch to fire
+    await new Promise((r) => setTimeout(r, 50));
+    expect(consoleSpy).toHaveBeenCalledWith('Telegram processing error:', expect.any(Error));
+    consoleSpy.mockRestore();
+  });
+
   it('should always return 200 even on parse error', async () => {
     const request = new NextRequest('http://localhost/api/webhooks/telegram', {
       method: 'POST',

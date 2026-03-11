@@ -28,6 +28,9 @@ export default function AdminEmailTemplatesPage() {
   const [editBody, setEditBody] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState('');
 
   const loadTemplates = () => {
     setIsLoading(true);
@@ -107,6 +110,45 @@ export default function AdminEmailTemplatesPage() {
           <div className="rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-3 text-xs text-[var(--color-text-secondary)]">
             <p className="font-semibold">Доступні змінні:</p>
             <p className="mt-1">{'{{name}}'} — Ім&apos;я клієнта, {'{{orderNumber}}'} — Номер замовлення, {'{{status}}'} — Статус, {'{{link}}'} — Посилання, {'{{amount}}'} — Сума</p>
+          </div>
+
+          {/* Test email */}
+          <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+            <p className="mb-2 text-sm font-semibold">Тестовий лист</p>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Email для тесту..."
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  if (!testEmail || !editingTemplate) return;
+                  setIsSendingTest(true);
+                  setTestResult('');
+                  const res = await apiClient.post(`/api/v1/admin/email-templates/${editingTemplate.id}/test`, {
+                    email: testEmail,
+                    subject: editSubject,
+                    bodyHtml: editBody,
+                  });
+                  setTestResult(res.success ? 'Тестовий лист надіслано' : (res.error || 'Помилка'));
+                  setIsSendingTest(false);
+                  setTimeout(() => setTestResult(''), 5000);
+                }}
+                isLoading={isSendingTest}
+                disabled={!testEmail}
+              >
+                Надіслати тест
+              </Button>
+            </div>
+            {testResult && (
+              <p className={`mt-2 text-xs ${testResult.includes('надіслано') ? 'text-green-600' : 'text-[var(--color-danger)]'}`}>
+                {testResult}
+              </p>
+            )}
           </div>
         </div>
       </div>

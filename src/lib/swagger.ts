@@ -82,6 +82,8 @@ export const openApiDocument = {
           code: { type: 'string' },
           priceRetail: { type: 'number' },
           priceWholesale: { type: 'number', nullable: true },
+          priceWholesale2: { type: 'number', nullable: true },
+          priceWholesale3: { type: 'number', nullable: true },
           quantity: { type: 'integer' },
           isActive: { type: 'boolean' },
         },

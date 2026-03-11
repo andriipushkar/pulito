@@ -15,7 +15,7 @@ export default function AnimateOnScroll({ children, delay = 0, className = '' }:
     <div
       ref={ref}
       className={`${isInView ? 'animate-fade-in-up' : 'opacity-0'} ${className}`}
-      style={delay ? { animationDelay: `${delay}ms` } : undefined}
+      style={{ willChange: 'transform, opacity', ...(delay ? { animationDelay: `${delay}ms` } : undefined) }}
     >
       {children}
     </div>

@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
-import { USER_ROLE_LABELS, WHOLESALE_STATUS_LABELS } from '@/types/user';
-import type { UserListItem, UserRole, WholesaleStatus } from '@/types/user';
+import { apiClient, getAccessToken } from '@/lib/api-client';
+import { USER_ROLE_LABELS, WHOLESALE_STATUS_LABELS, WHOLESALE_GROUP_LABELS } from '@/types/user';
+import type { UserListItem, UserRole, WholesaleStatus, WholesaleGroup } from '@/types/user';
 import Select from '@/components/ui/Select';
-import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import Pagination from '@/components/ui/Pagination';
+import { Search } from '@/components/icons';
 
 const ROLE_OPTIONS = [
   { value: '', label: 'Всі ролі' },
@@ -24,24 +24,56 @@ const WHOLESALE_OPTIONS = [
   { value: 'rejected', label: 'Відхилено' },
 ];
 
+const WHOLESALE_GROUP_OPTIONS = [
+  { value: '', label: 'Всі групи' },
+  ...Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => ({ value: v, label: l })),
+];
+
+const SORT_OPTIONS = [
+  { value: 'createdAt:desc', label: 'Найновіші' },
+  { value: 'createdAt:asc', label: 'Найстаріші' },
+  { value: 'fullName:asc', label: "Ім'я (А-Я)" },
+  { value: 'fullName:desc', label: "Ім'я (Я-А)" },
+  { value: 'orders:desc', label: 'Замовлень (більше)' },
+  { value: 'orders:asc', label: 'Замовлень (менше)' },
+];
+
 export default function AdminUsersPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [showFilters, setShowFilters] = useState(false);
 
   const page = Number(searchParams.get('page')) || 1;
   const role = searchParams.get('role') || '';
   const wholesaleStatus = searchParams.get('wholesaleStatus') || '';
+  const wholesaleGroup = searchParams.get('wholesaleGroup') || '';
+  const dateFrom = searchParams.get('dateFrom') || '';
+  const dateTo = searchParams.get('dateTo') || '';
+  const search = searchParams.get('search') || '';
+  const sortParam = searchParams.get('sort') || 'createdAt:desc';
+  const [sortBy, sortOrder] = sortParam.split(':') as [string, string];
   const limit = 20;
 
-  useEffect(() => {
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  const hasFilters = !!(role || wholesaleStatus || wholesaleGroup || dateFrom || dateTo || search);
+
+  const loadUsers = useCallback(() => {
+    setIsLoading(true);
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      sortBy: sortBy || 'createdAt',
+      sortOrder: sortOrder || 'desc',
+    });
     if (role) params.set('role', role);
     if (wholesaleStatus) params.set('wholesaleStatus', wholesaleStatus);
-    if (searchParams.get('search')) params.set('search', searchParams.get('search')!);
+    if (wholesaleGroup) params.set('wholesaleGroup', wholesaleGroup);
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
+    if (search) params.set('search', search);
 
     apiClient
       .get<UserListItem[]>(`/api/v1/admin/users?${params}`)
@@ -52,7 +84,11 @@ export default function AdminUsersPage() {
         }
       })
       .finally(() => setIsLoading(false));
-  }, [page, role, wholesaleStatus, searchParams]);
+  }, [page, role, wholesaleStatus, wholesaleGroup, dateFrom, dateTo, search, sortBy, sortOrder]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -62,20 +98,47 @@ export default function AdminUsersPage() {
     router.push(`/admin/users?${params}`);
   };
 
-  const handleSearch = () => {
-    updateFilter('search', search);
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateFilter('search', searchQuery);
   };
 
-  const handleWholesaleAction = async (userId: number, action: 'approve' | 'reject') => {
-    await apiClient.put(`/api/v1/admin/users/${userId}/wholesale`, { action });
-    // Reload
-    const params = new URLSearchParams(searchParams.toString());
-    apiClient.get<UserListItem[]>(`/api/v1/admin/users?${params}`).then((res) => {
-      if (res.success && res.data) {
-        setUsers(res.data);
-        setTotal(res.pagination?.total || 0);
-      }
-    });
+  const handleWholesaleAction = async (userId: number, action: 'approve' | 'reject', wholesaleGroup?: number) => {
+    await apiClient.put(`/api/v1/admin/users/${userId}/wholesale`, { action, wholesaleGroup: wholesaleGroup || 1 });
+    loadUsers();
+  };
+
+  const handleExport = async () => {
+    const params = new URLSearchParams({ type: 'clients', format: 'xlsx' });
+    if (role) params.set('role', role);
+
+    try {
+      const headers: Record<string, string> = { 'X-Requested-With': 'XMLHttpRequest' };
+      const token = getAccessToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/v1/admin/export?${params}`, {
+        headers,
+        credentials: 'include',
+      });
+
+      if (!res.ok) { alert('Помилка експорту'); return; }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition');
+      const filename = disposition?.match(/filename="(.+)"/)?.[1] || `clients_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Помилка експорту');
+    }
   };
 
   const formatDate = (d: string | Date) =>
@@ -83,34 +146,110 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-bold">Користувачі</h2>
-
-      <div className="mb-4 flex flex-wrap gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-xl font-bold">Користувачі</h2>
         <div className="flex gap-2">
-          <Input
-            placeholder="Пошук..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="w-52"
-          />
-          <Button variant="outline" size="sm" onClick={handleSearch}>
-            Знайти
+          <Button size="sm" variant="outline" onClick={() => setShowFilters(!showFilters)}>
+            {showFilters ? 'Сховати фільтри' : 'Фільтри'}
+            {hasFilters && !showFilters && (
+              <span className="ml-1 inline-block h-2 w-2 rounded-full bg-[var(--color-primary)]" />
+            )}
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleExport}>
+            Експорт
           </Button>
         </div>
-        <Select
-          options={ROLE_OPTIONS}
-          value={role}
-          onChange={(e) => updateFilter('role', e.target.value)}
-          className="w-40"
-        />
-        <Select
-          options={WHOLESALE_OPTIONS}
-          value={wholesaleStatus}
-          onChange={(e) => updateFilter('wholesaleStatus', e.target.value)}
-          className="w-52"
-        />
       </div>
+
+      {/* Search + Sort */}
+      <div className="mb-3 flex flex-wrap items-end gap-3">
+        <form onSubmit={handleSearch} className="flex">
+          <div className="relative">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Email, ім'я, телефон, компанія..."
+              className="w-64 rounded-l-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-r-[var(--radius)] bg-[var(--color-primary)] px-4 text-sm text-white"
+          >
+            Знайти
+          </button>
+        </form>
+        <Select
+          options={SORT_OPTIONS}
+          value={sortParam}
+          onChange={(e) => updateFilter('sort', e.target.value)}
+          className="w-48"
+        />
+        {hasFilters && (
+          <button
+            onClick={() => router.push('/admin/users')}
+            className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:underline"
+          >
+            Скинути фільтри
+          </button>
+        )}
+      </div>
+
+      {/* Extended filters */}
+      {showFilters && (
+        <div className="mb-4 flex flex-wrap items-end gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Роль</label>
+            <Select
+              options={ROLE_OPTIONS}
+              value={role}
+              onChange={(e) => updateFilter('role', e.target.value)}
+              className="w-40"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Оптовий статус</label>
+            <Select
+              options={WHOLESALE_OPTIONS}
+              value={wholesaleStatus}
+              onChange={(e) => updateFilter('wholesaleStatus', e.target.value)}
+              className="w-48"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Оптова група</label>
+            <Select
+              options={WHOLESALE_GROUP_OPTIONS}
+              value={wholesaleGroup}
+              onChange={(e) => updateFilter('wholesaleGroup', e.target.value)}
+              className="w-36"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Зареєстрований від</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => updateFilter('dateFrom', e.target.value)}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-[7px] text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Зареєстрований до</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => updateFilter('dateTo', e.target.value)}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-[7px] text-sm"
+            />
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -125,6 +264,7 @@ export default function AdminUsersPage() {
                   <th className="px-4 py-3 text-left font-medium">Користувач</th>
                   <th className="px-4 py-3 text-left font-medium">Роль</th>
                   <th className="px-4 py-3 text-left font-medium">Опт</th>
+                  <th className="px-4 py-3 text-center font-medium">Група</th>
                   <th className="px-4 py-3 text-center font-medium">Замовлень</th>
                   <th className="px-4 py-3 text-left font-medium">Дата</th>
                   <th className="px-4 py-3 text-right font-medium">Дії</th>
@@ -134,9 +274,16 @@ export default function AdminUsersPage() {
                 {users.map((u) => (
                   <tr key={u.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
                     <td className="px-4 py-3">
-                      <Link href={`/admin/users/${u.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
-                        {u.fullName}
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/admin/users/${u.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
+                          {u.fullName}
+                        </Link>
+                        {u.isBlocked && (
+                          <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+                            Заблоковано
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-[var(--color-text-secondary)]">{u.email}</p>
                       {u.companyName && (
                         <p className="text-xs text-[var(--color-text-secondary)]">{u.companyName}</p>
@@ -148,23 +295,48 @@ export default function AdminUsersPage() {
                         {WHOLESALE_STATUS_LABELS[u.wholesaleStatus as WholesaleStatus]}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      {u.wholesaleGroup ? (
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          u.wholesaleGroup === 1 ? 'bg-blue-100 text-blue-700' :
+                          u.wholesaleGroup === 2 ? 'bg-violet-100 text-violet-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {WHOLESALE_GROUP_LABELS[u.wholesaleGroup as WholesaleGroup]}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[var(--color-text-secondary)]">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center">{u._count.orders}</td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(u.createdAt)}</td>
                     <td className="px-4 py-3 text-right">
                       {u.wholesaleStatus === 'pending' && (
-                        <div className="flex justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1">
+                          <select
+                            className="rounded border border-[var(--color-border)] bg-white px-1.5 py-1 text-xs"
+                            defaultValue="1"
+                            id={`wg-${u.id}`}
+                          >
+                            {Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => (
+                              <option key={v} value={v}>{l}</option>
+                            ))}
+                          </select>
                           <Button
                             size="sm"
-                            onClick={() => handleWholesaleAction(u.id, 'approve')}
+                            onClick={() => {
+                              const el = document.getElementById(`wg-${u.id}`) as HTMLSelectElement;
+                              handleWholesaleAction(u.id, 'approve', Number(el?.value || 1));
+                            }}
                           >
-                            Підтвердити
+                            Так
                           </Button>
                           <Button
                             size="sm"
                             variant="danger"
                             onClick={() => handleWholesaleAction(u.id, 'reject')}
                           >
-                            Відхилити
+                            Ні
                           </Button>
                         </div>
                       )}
@@ -173,7 +345,7 @@ export default function AdminUsersPage() {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                    <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
                       Користувачів не знайдено
                     </td>
                   </tr>
@@ -182,14 +354,18 @@ export default function AdminUsersPage() {
             </table>
           </div>
 
-          {total > limit && (
-            <Pagination
-              currentPage={page}
-              totalPages={Math.ceil(total / limit)}
-              baseUrl="/admin/users"
-              className="mt-6"
-            />
-          )}
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Всього: {total} користувачів
+            </p>
+            {total > limit && (
+              <Pagination
+                currentPage={page}
+                totalPages={Math.ceil(total / limit)}
+                baseUrl="/admin/users"
+              />
+            )}
+          </div>
         </>
       )}
     </div>

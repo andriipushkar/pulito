@@ -21,6 +21,9 @@ export const feedbackFilterSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   type: z.enum(['form', 'callback']).optional(),
   status: z.enum(['new_feedback', 'processed', 'rejected']).optional(),
+  search: z.string().max(100).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
 });
 
 export const updateFeedbackStatusSchema = z.object({

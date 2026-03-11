@@ -36,6 +36,12 @@ vi.mock('@/lib/prisma', () => ({
     },
     loyaltyTransaction: {
       findFirst: vi.fn(),
+      create: vi.fn(),
+    },
+    loyaltyAccount: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -47,8 +53,8 @@ vi.mock('@/services/telegram', () => ({
 }));
 
 vi.mock('@/services/loyalty', () => ({
-  earnPoints: vi.fn(),
-  adjustPoints: vi.fn(),
+  earnPoints: vi.fn().mockResolvedValue(undefined),
+  adjustPoints: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { prisma } from '@/lib/prisma';
@@ -62,6 +68,9 @@ import {
   getAllOrders,
   OrderError,
 } from '@/services/order';
+
+// Pre-import to ensure vi.mock intercepts dynamic import() calls
+import '@/services/loyalty';
 import type { CheckoutInput, OrderFilterInput } from '@/validators/order';
 
 const mockPrisma = prisma as unknown as MockPrismaClient;
@@ -1118,5 +1127,698 @@ describe('OrderError', () => {
     expect(error.message).toBe('Тестова помилка');
     expect(error.statusCode).toBe(400);
     expect(error.name).toBe('OrderError');
+  });
+});
+
+describe('createOrder - wholesale per-product rules', () => {
+  it('should throw 400 when wholesale min_quantity rule violated', async () => {
+    const checkout = makeCheckout();
+    const cartItems = [
+      {
+        productId: 1,
+        productCode: 'SKU-001',
+        productName: 'Товар 1',
+        price: 100,
+        quantity: 2,
+        isPromo: false,
+      },
+    ];
+
+    // No global rules, per-product rule: min_quantity 5
+    mockPrisma.wholesaleRule.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 2, isActive: true, productId: 1, ruleType: 'min_quantity', value: 5 }] as never);
+
+    try {
+      await createOrder(null, checkout, cartItems, 'wholesale');
+      expect.unreachable('Should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(OrderError);
+      expect((err as OrderError).statusCode).toBe(400);
+      expect((err as OrderError).message).toContain('Мінімальна кількість');
+    }
+  });
+
+  it('should throw 400 when wholesale multiplicity rule violated', async () => {
+    const checkout = makeCheckout();
+    const cartItems = [
+      {
+        productId: 1,
+        productCode: 'SKU-001',
+        productName: 'Товар 1',
+        price: 100,
+        quantity: 3, // Not multiple of 2
+        isPromo: false,
+      },
+    ];
+
+    mockPrisma.wholesaleRule.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 3, isActive: true, productId: 1, ruleType: 'multiplicity', value: 2 }] as never);
+
+    try {
+      await createOrder(null, checkout, cartItems, 'wholesale');
+      expect.unreachable('Should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(OrderError);
+      expect((err as OrderError).statusCode).toBe(400);
+      expect((err as OrderError).message).toContain('кратно');
+    }
+  });
+});
+
+describe('getUserOrders - date filters', () => {
+  it('should filter by dateFrom', async () => {
+    mockPrisma.order.findMany.mockResolvedValue([] as never);
+    mockPrisma.order.count.mockResolvedValue(0 as never);
+
+    await getUserOrders(1, makeFilters({ dateFrom: '2026-01-01' }));
+
+    expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: expect.objectContaining({ gte: new Date('2026-01-01') }),
+        }),
+      })
+    );
+  });
+
+  it('should filter by dateTo', async () => {
+    mockPrisma.order.findMany.mockResolvedValue([] as never);
+    mockPrisma.order.count.mockResolvedValue(0 as never);
+
+    await getUserOrders(1, makeFilters({ dateTo: '2026-12-31' }));
+
+    expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: expect.objectContaining({ lte: new Date('2026-12-31') }),
+        }),
+      })
+    );
+  });
+
+  it('should filter by both dateFrom and dateTo', async () => {
+    mockPrisma.order.findMany.mockResolvedValue([] as never);
+    mockPrisma.order.count.mockResolvedValue(0 as never);
+
+    await getUserOrders(1, makeFilters({ dateFrom: '2026-01-01', dateTo: '2026-12-31' }));
+
+    expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: { gte: new Date('2026-01-01'), lte: new Date('2026-12-31') },
+        }),
+      })
+    );
+  });
+});
+
+describe('getAllOrders - search filter', () => {
+  it('should apply search filter to orderNumber, contactName, contactPhone', async () => {
+    mockPrisma.order.findMany.mockResolvedValue([] as never);
+    mockPrisma.order.count.mockResolvedValue(0 as never);
+
+    await getAllOrders(makeFilters({ search: 'Тест' }));
+
+    expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { orderNumber: { contains: 'Тест', mode: 'insensitive' } },
+            { contactName: { contains: 'Тест', mode: 'insensitive' } },
+            { contactPhone: { contains: 'Тест', mode: 'insensitive' } },
+          ],
+        }),
+      })
+    );
+  });
+});
+
+describe('updateOrderStatus - client not owner', () => {
+  it('should throw 404 when client tries to cancel another users order', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'new_order',
+      userId: 99,
+      items: [],
+    };
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+
+    await expect(
+      updateOrderStatus(1, 'cancelled', 5, 'client_action')
+    ).rejects.toThrow('Замовлення не знайдено');
+  });
+});
+
+describe('updateOrderStatus - items without productId', () => {
+  it('should skip stock restore for items with null productId', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'new_order',
+      userId: 1,
+      items: [
+        { productId: null, quantity: 2 },
+        { productId: 1, quantity: 3 },
+      ],
+    };
+    const updatedOrder = makeOrderDetail({ status: 'cancelled' });
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.product.update.mockResolvedValue({} as never);
+    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+
+    await updateOrderStatus(1, 'cancelled', 10, 'manager');
+
+    // Only one product.update call (for productId: 1, not null)
+    expect(mockPrisma.product.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.product.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { quantity: { increment: 3 } },
+    });
+  });
+});
+
+describe('editOrderItems - insufficient stock on increase', () => {
+  it('should throw 400 when increasing quantity beyond stock', async () => {
+    const order = {
+      id: 1,
+      status: 'new_order',
+      items: [
+        {
+          id: 10,
+          productId: 1,
+          productCode: 'SKU-001',
+          productName: 'Товар 1',
+          priceAtOrder: 100,
+          quantity: 2,
+          subtotal: 200,
+          isPromo: false,
+        },
+      ],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(order as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.product.findUnique.mockResolvedValue({ quantity: 1 } as never); // Only 1 in stock, need 3 more
+
+    await expect(editOrderItems(1, [{ itemId: 10, quantity: 5 }], 10)).rejects.toThrow(OrderError);
+  });
+
+  it('should throw 404 when adding a non-existent product', async () => {
+    const order = {
+      id: 1,
+      status: 'new_order',
+      items: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(order as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.product.findUnique.mockResolvedValue(null as never);
+
+    await expect(editOrderItems(1, [{ productId: 999, quantity: 1 }], 10)).rejects.toThrow('Товар не знайдено');
+  });
+
+  it('should throw 400 when adding product with insufficient stock', async () => {
+    const order = {
+      id: 1,
+      status: 'new_order',
+      items: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(order as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.product.findUnique.mockResolvedValue({
+      id: 5, code: 'SKU-005', name: 'Товар', priceRetail: 100, quantity: 2,
+    } as never);
+
+    await expect(editOrderItems(1, [{ productId: 5, quantity: 10 }], 10)).rejects.toThrow('Недостатньо товару');
+  });
+
+  it('should skip non-existent items during quantity update', async () => {
+    const order = {
+      id: 1,
+      status: 'new_order',
+      items: [
+        { id: 10, productId: 1, productCode: 'SKU', productName: 'T', priceAtOrder: 100, quantity: 2, subtotal: 200, isPromo: false },
+      ],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(order as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 2, subtotal: 200 }] as never);
+    mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
+    mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
+
+    // Try to update an item that doesn't exist in the order
+    await editOrderItems(1, [{ itemId: 999, quantity: 5 }], 10);
+
+    // Should not try to update stock or orderItem
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    expect(mockPrisma.orderItem.update).not.toHaveBeenCalled();
+  });
+
+  it('should handle decreasing item quantity (restore stock)', async () => {
+    const order = {
+      id: 1,
+      status: 'new_order',
+      items: [
+        { id: 10, productId: 1, productCode: 'SKU', productName: 'T', priceAtOrder: 100, quantity: 5, subtotal: 500, isPromo: false },
+      ],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(order as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.product.update.mockResolvedValue({} as never);
+    mockPrisma.orderItem.update.mockResolvedValue({} as never);
+    mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 2, subtotal: 200 }] as never);
+    mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
+    mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
+
+    await editOrderItems(1, [{ itemId: 10, quantity: 2 }], 10);
+
+    // Stock should be decremented by -3 (i.e., returned to stock)
+    expect(mockPrisma.product.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { quantity: { decrement: -3 } },
+    });
+  });
+
+  it('should remove item without restoring stock when productId is null', async () => {
+    const order = {
+      id: 1,
+      status: 'new_order',
+      items: [
+        { id: 10, productId: null, productCode: null, productName: 'Custom', priceAtOrder: 100, quantity: 1, subtotal: 100, isPromo: false },
+      ],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(order as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.orderItem.delete.mockResolvedValue({} as never);
+    mockPrisma.orderItem.findMany.mockResolvedValue([] as never);
+    mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
+    mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
+
+    await editOrderItems(1, [{ itemId: 10, quantity: 0, remove: true }], 10);
+
+    // product.update should NOT be called since productId is null
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    expect(mockPrisma.orderItem.delete).toHaveBeenCalledWith({ where: { id: 10 } });
+  });
+
+  it('should skip stock adjustment when quantity is unchanged', async () => {
+    const order = {
+      id: 1,
+      status: 'new_order',
+      items: [
+        { id: 10, productId: 1, productCode: 'SKU', productName: 'T', priceAtOrder: 100, quantity: 5, subtotal: 500, isPromo: false },
+      ],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(order as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.orderItem.update.mockResolvedValue({} as never);
+    mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 5, subtotal: 500 }] as never);
+    mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
+    mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
+
+    await editOrderItems(1, [{ itemId: 10, quantity: 5 }], 10);
+
+    // qtyDiff === 0, so product.update should NOT be called
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    // But orderItem should still be updated (with same subtotal)
+    expect(mockPrisma.orderItem.update).toHaveBeenCalled();
+  });
+
+  it('should skip stock adjustment when productId is null on quantity change', async () => {
+    const order = {
+      id: 1,
+      status: 'new_order',
+      items: [
+        { id: 10, productId: null, productCode: null, productName: 'Custom', priceAtOrder: 50, quantity: 2, subtotal: 100, isPromo: false },
+      ],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(order as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.orderItem.update.mockResolvedValue({} as never);
+    mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 3, subtotal: 150 }] as never);
+    mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
+    mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
+
+    await editOrderItems(1, [{ itemId: 10, quantity: 3 }], 10);
+
+    // productId is null so product.update should NOT be called even though qtyDiff !== 0
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    expect(mockPrisma.orderItem.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { quantity: 3, subtotal: 150 },
+    });
+  });
+});
+
+describe('updateOrderStatus - completed with referral bonus', () => {
+  it('should trigger referral bonus flow when order completed and referral exists', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'shipped',
+      userId: 5,
+      items: [],
+    };
+    const updatedOrder = {
+      id: 1,
+      orderNumber: 'ORD-001',
+      status: 'completed',
+      totalAmount: 500,
+      trackingNumber: null,
+      clientType: 'retail',
+      paymentMethod: 'cod',
+      paymentStatus: 'paid',
+      deliveryMethod: 'nova_poshta',
+      createdAt: new Date(),
+      itemsCount: 2,
+      items: [],
+      statusHistory: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.referral.findFirst.mockResolvedValue({
+      id: 10,
+      referrerUserId: 99,
+    } as never);
+    mockPrisma.referral.update.mockResolvedValue({} as never);
+    mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue(null as never);
+
+    const result = await updateOrderStatus(1, 'completed', 10, 'manager');
+
+    expect(result.status).toBe('completed');
+    // The referral and loyalty calls are fire-and-forget so we just verify no errors
+  });
+});
+
+describe('updateOrderStatus - cancelled with loyalty points reversal', () => {
+  it('should trigger loyalty points reversal when order cancelled and earn tx exists', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'new_order',
+      userId: 5,
+      items: [],
+    };
+    const updatedOrder = {
+      id: 1,
+      orderNumber: 'ORD-002',
+      status: 'cancelled',
+      totalAmount: 300,
+      trackingNumber: null,
+      clientType: 'retail',
+      paymentMethod: 'cod',
+      paymentStatus: 'pending',
+      deliveryMethod: 'nova_poshta',
+      createdAt: new Date(),
+      itemsCount: 1,
+      items: [],
+      statusHistory: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.referral.findFirst.mockResolvedValue(null as never);
+    mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue({
+      points: 50,
+    } as never);
+
+    const result = await updateOrderStatus(1, 'cancelled', 10, 'manager');
+
+    expect(result.status).toBe('cancelled');
+
+    // Wait for fire-and-forget loyalty reversal chain to complete
+    await new Promise((r) => setTimeout(r, 50));
+  });
+
+  it('should not reverse points when no earn transaction exists', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'new_order',
+      userId: 5,
+      items: [],
+    };
+    const updatedOrder = {
+      id: 1,
+      orderNumber: 'ORD-003',
+      status: 'cancelled',
+      totalAmount: 300,
+      trackingNumber: null,
+      clientType: 'retail',
+      paymentMethod: 'cod',
+      paymentStatus: 'pending',
+      deliveryMethod: 'nova_poshta',
+      createdAt: new Date(),
+      itemsCount: 1,
+      items: [],
+      statusHistory: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.referral.findFirst.mockResolvedValue(null as never);
+    mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue(null as never);
+
+    const result = await updateOrderStatus(1, 'cancelled', 10, 'manager');
+
+    expect(result.status).toBe('cancelled');
+
+    // Wait for fire-and-forget chain
+    await new Promise((r) => setTimeout(r, 50));
+  });
+
+  it('should trigger loyalty reversal when order returned and earn tx exists', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'shipped',
+      userId: 5,
+      items: [{ productId: 1, quantity: 1 }],
+    };
+    const updatedOrder = {
+      id: 1,
+      orderNumber: 'ORD-004',
+      status: 'returned',
+      totalAmount: 300,
+      trackingNumber: null,
+      clientType: 'retail',
+      paymentMethod: 'cod',
+      paymentStatus: 'pending',
+      deliveryMethod: 'nova_poshta',
+      createdAt: new Date(),
+      itemsCount: 1,
+      items: [],
+      statusHistory: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.product.update.mockResolvedValue({} as never);
+    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.referral.findFirst.mockResolvedValue(null as never);
+    mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue({
+      points: 30,
+    } as never);
+
+    const result = await updateOrderStatus(1, 'returned', 10, 'manager');
+    expect(result.status).toBe('returned');
+
+    await new Promise((r) => setTimeout(r, 50));
+  });
+
+  it('should handle loyalty reversal when earn tx has 0 points', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'new_order',
+      userId: 5,
+      items: [],
+    };
+    const updatedOrder = {
+      id: 1,
+      orderNumber: 'ORD-005',
+      status: 'cancelled',
+      totalAmount: 300,
+      trackingNumber: null,
+      clientType: 'retail',
+      paymentMethod: 'cod',
+      paymentStatus: 'pending',
+      deliveryMethod: 'nova_poshta',
+      createdAt: new Date(),
+      itemsCount: 1,
+      items: [],
+      statusHistory: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.referral.findFirst.mockResolvedValue(null as never);
+    mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue({
+      points: 0,
+    } as never);
+
+    const result = await updateOrderStatus(1, 'cancelled', 10, 'manager');
+    expect(result.status).toBe('cancelled');
+
+    await new Promise((r) => setTimeout(r, 50));
+  });
+});
+
+describe('updateOrderStatus - completed with referral bonus (full chain)', () => {
+  it('should execute full referral bonus chain: update status, award points, mark bonus_granted', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'shipped',
+      userId: 5,
+      items: [],
+    };
+    const updatedOrder = {
+      id: 1,
+      orderNumber: 'ORD-REF',
+      status: 'completed',
+      totalAmount: 500,
+      trackingNumber: null,
+      clientType: 'retail',
+      paymentMethod: 'cod',
+      paymentStatus: 'paid',
+      deliveryMethod: 'nova_poshta',
+      createdAt: new Date(),
+      itemsCount: 2,
+      items: [],
+      statusHistory: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.referral.findFirst.mockResolvedValue({
+      id: 10,
+      referrerUserId: 99,
+    } as never);
+    mockPrisma.referral.update.mockResolvedValue({} as never);
+
+    const result = await updateOrderStatus(1, 'completed', 10, 'manager');
+    expect(result.status).toBe('completed');
+
+    // Wait for fire-and-forget chains to complete
+    await new Promise((r) => setTimeout(r, 100));
+
+    // The referral.update should have been called at least once (for first_order status)
+    expect(mockPrisma.referral.update).toHaveBeenCalled();
+  });
+
+  it('should execute bonus_granted update after adjustPoints completes', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'shipped',
+      userId: 5,
+      items: [],
+    };
+    const updatedOrder = {
+      id: 1,
+      orderNumber: 'ORD-BONUS',
+      status: 'completed',
+      totalAmount: 500,
+      trackingNumber: null,
+      clientType: 'retail',
+      paymentMethod: 'cod',
+      paymentStatus: 'paid',
+      deliveryMethod: 'nova_poshta',
+      createdAt: new Date(),
+      itemsCount: 2,
+      items: [],
+      statusHistory: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.referral.findFirst.mockResolvedValue({
+      id: 10,
+      referrerUserId: 99,
+    } as never);
+    mockPrisma.referral.update.mockResolvedValue({} as never);
+    // The chain uses the real loyalty module (dynamic import bypasses vi.mock)
+    // so we need loyaltyAccount mock to be set up
+    (mockPrisma as any).loyaltyAccount.findUnique.mockResolvedValue({
+      id: 1, userId: 99, points: 500, totalSpent: 1000, level: 'bronze',
+    } as never);
+    (mockPrisma as any).loyaltyAccount.update.mockResolvedValue({} as never);
+    (mockPrisma as any).loyaltyTransaction.create.mockResolvedValue({} as never);
+    // $transaction needs to handle both callback style and array style
+    mockPrisma.$transaction.mockImplementation(async (arg: any) => {
+      if (typeof arg === 'function') return arg(mockPrisma);
+      // Array style - just resolve all promises
+      return Promise.all(arg);
+    });
+
+    const result = await updateOrderStatus(1, 'completed', 10, 'manager');
+    expect(result.status).toBe('completed');
+
+    // Wait for fire-and-forget chain to settle
+    await vi.waitFor(() => {
+      expect(mockPrisma.referral.update.mock.calls.length).toBeGreaterThanOrEqual(2);
+    }, { timeout: 2000, interval: 20 });
+
+    const updateCalls = mockPrisma.referral.update.mock.calls;
+    expect(updateCalls.length).toBe(2);
+    expect(updateCalls[0][0]).toEqual(expect.objectContaining({
+      where: { id: 10 },
+      data: expect.objectContaining({ status: 'first_order' }),
+    }));
+    expect(updateCalls[1][0]).toEqual(expect.objectContaining({
+      where: { id: 10 },
+      data: expect.objectContaining({
+        status: 'bonus_granted',
+        bonusType: 'points',
+        bonusValue: 100,
+      }),
+    }));
+  });
+
+  it('should not process referral bonus when no referral exists', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'shipped',
+      userId: 5,
+      items: [],
+    };
+    const updatedOrder = {
+      id: 1,
+      orderNumber: 'ORD-NOREF',
+      status: 'completed',
+      totalAmount: 500,
+      trackingNumber: null,
+      clientType: 'retail',
+      paymentMethod: 'cod',
+      paymentStatus: 'paid',
+      deliveryMethod: 'nova_poshta',
+      createdAt: new Date(),
+      itemsCount: 2,
+      items: [],
+      statusHistory: [],
+    };
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.referral.findFirst.mockResolvedValue(null as never);
+
+    const result = await updateOrderStatus(1, 'completed', 10, 'manager');
+    expect(result.status).toBe('completed');
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    // referral.update should NOT be called when no referral exists
+    expect(mockPrisma.referral.update).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+let retryStrategyFn: ((times: number) => number) | undefined;
+
 const mockRedisInstance = {
   ping: vi.fn().mockResolvedValue('PONG'),
   get: vi.fn().mockResolvedValue(null),
@@ -10,7 +12,10 @@ const mockRedisInstance = {
 vi.mock('ioredis', () => {
   return {
     default: class Redis {
-      constructor() {
+      constructor(_url: string, opts?: { retryStrategy?: (times: number) => number }) {
+        if (opts?.retryStrategy) {
+          retryStrategyFn = opts.retryStrategy;
+        }
         return mockRedisInstance;
       }
     },
@@ -22,6 +27,7 @@ describe('redis', () => {
     vi.resetModules();
     const g = globalThis as unknown as { redis: unknown };
     delete g.redis;
+    retryStrategyFn = undefined;
   });
 
   it('should export redis instance', async () => {
@@ -35,13 +41,6 @@ describe('redis', () => {
     expect(CACHE_TTL.MEDIUM).toBe(300);
     expect(CACHE_TTL.LONG).toBe(3600);
     expect(CACHE_TTL.DAY).toBe(86400);
-  });
-
-  it('should have correct CACHE_TTL ordering', async () => {
-    const { CACHE_TTL } = await import('./redis');
-    expect(CACHE_TTL.SHORT).toBeLessThan(CACHE_TTL.MEDIUM);
-    expect(CACHE_TTL.MEDIUM).toBeLessThan(CACHE_TTL.LONG);
-    expect(CACHE_TTL.LONG).toBeLessThan(CACHE_TTL.DAY);
   });
 
   it('should create redis instance from ioredis', async () => {
@@ -62,8 +61,29 @@ describe('redis', () => {
     expect(second).toBe(first);
   });
 
-  it('CACHE_TTL DAY should equal 24 hours in seconds', async () => {
-    const { CACHE_TTL } = await import('./redis');
-    expect(CACHE_TTL.DAY).toBe(24 * 60 * 60);
+  it('retryStrategy returns delay capped at 2000ms', async () => {
+    await import('./redis');
+    expect(retryStrategyFn).toBeDefined();
+    // times=1 → min(50, 2000) = 50
+    expect(retryStrategyFn!(1)).toBe(50);
+    // times=10 → min(500, 2000) = 500
+    expect(retryStrategyFn!(10)).toBe(500);
+    // times=100 → min(5000, 2000) = 2000
+    expect(retryStrategyFn!(100)).toBe(2000);
+  });
+
+  it('should not cache on globalThis in production', async () => {
+    const origEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const { redis } = await import('./redis');
+      expect(redis).toBeDefined();
+      const g = globalThis as unknown as { redis: unknown };
+      // In production, globalForRedis.redis should NOT be set by the module
+      // (it was deleted in beforeEach, and the production branch skips caching)
+      expect(g.redis).toBeUndefined();
+    } finally {
+      process.env.NODE_ENV = origEnv;
+    }
   });
 });

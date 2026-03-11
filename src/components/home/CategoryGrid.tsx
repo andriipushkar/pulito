@@ -15,7 +15,7 @@ const categoryBgs = [
 ];
 
 function CategoryIcon({ index }: { index: number }) {
-  const cls = "h-14 w-14";
+  const cls = "h-8 w-8 sm:h-10 sm:w-10";
   switch (index % 6) {
     case 0: // spray
       return (
@@ -69,54 +69,90 @@ function CategoryIcon({ index }: { index: number }) {
 export default function CategoryGrid({ categories }: CategoryGridProps) {
   const displayCategories = categories
     .filter((c) => !c.parentId && c.isVisible)
-    .slice(0, 6);
+    .slice(0, 8);
 
   if (displayCategories.length === 0) return null;
 
   return (
-    <section>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="relative text-xl font-extrabold text-[var(--color-text)] sm:text-2xl">
+    <section className="lg:hidden">
+      <div className="mb-3 flex items-center justify-between sm:mb-4">
+        <h2 className="relative text-lg font-bold tracking-tight text-[var(--color-text)] sm:text-2xl">
           Категорії
-          <span className="absolute -bottom-1 left-0 h-0.5 w-12 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)]" />
+          <span className="absolute -bottom-1 left-0 h-0.5 w-10 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-light)]" />
         </h2>
         <Link
           href="/catalog"
-          className="text-sm font-medium text-[var(--color-primary)] transition-colors hover:text-[var(--color-primary-dark)]"
+          className="text-xs font-semibold text-[var(--color-primary)] transition-colors hover:text-[var(--color-primary-dark)] sm:text-sm"
         >
-          Усі категорії &rarr;
+          Усi &rarr;
         </Link>
       </div>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-        {displayCategories.map((cat, idx) => {
-          const bg = categoryBgs[idx % categoryBgs.length];
-          return (
-            <Link
-              key={cat.id}
-              href={`/catalog?category=${cat.slug}`}
-              className="group flex flex-col items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4 transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--color-primary-light)] hover:shadow-[var(--shadow-brand-lg)]"
-            >
-              <div className={`flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] transition-transform duration-300 group-hover:scale-110`}>
-                {cat.coverImage ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={cat.coverImage}
-                    alt={cat.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <CategoryIcon index={idx} />
-                )}
-              </div>
-              <div className="text-center">
-                <h3 className="text-sm font-semibold text-[var(--color-text)]">{cat.name}</h3>
-                <span className="mt-1 inline-block rounded-full bg-[var(--color-primary-50)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-primary)]">
-                  {cat._count.products} товарів
+
+      {/* Mobile: horizontal scroll stories */}
+      <div className="-mx-4 px-4 sm:hidden">
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          {displayCategories.map((cat, idx) => {
+            const bg = categoryBgs[idx % categoryBgs.length];
+            return (
+              <Link
+                key={cat.id}
+                href={`/catalog?category=${cat.slug}`}
+                className="flex w-[72px] shrink-0 flex-col items-center gap-1.5 active:scale-95"
+              >
+                <div className={`flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[22px] ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] ring-2 ring-white transition-transform duration-200`}>
+                  {cat.coverImage ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={cat.coverImage}
+                      alt={cat.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <CategoryIcon index={idx} />
+                  )}
+                </div>
+                <span className="line-clamp-2 w-full text-center text-[11px] font-semibold leading-tight text-[var(--color-text)]">
+                  {cat.name}
                 </span>
-              </div>
-            </Link>
-          );
-        })}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Desktop: horizontal scroll like mobile but bigger */}
+      <div className="-mx-6 hidden px-6 sm:block lg:-mx-8 lg:px-8">
+        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+          {displayCategories.map((cat, idx) => {
+            const bg = categoryBgs[idx % categoryBgs.length];
+            return (
+              <Link
+                key={cat.id}
+                href={`/catalog?category=${cat.slug}`}
+                className="group flex w-[120px] shrink-0 flex-col items-center gap-2 transition-transform duration-200 hover:-translate-y-1 lg:w-[130px]"
+              >
+                <div className={`flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-[22px] ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] ring-2 ring-white transition-transform duration-200 group-hover:scale-105 lg:h-[96px] lg:w-[96px]`}>
+                  {cat.coverImage ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={cat.coverImage}
+                      alt={cat.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <CategoryIcon index={idx} />
+                  )}
+                </div>
+                <div className="text-center">
+                  <h3 className="line-clamp-2 text-xs font-bold leading-tight text-[var(--color-text)] lg:text-sm">{cat.name}</h3>
+                  <span className="mt-0.5 text-[10px] font-medium text-[var(--color-text-secondary)]">
+                    {cat._count.products} товарів
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

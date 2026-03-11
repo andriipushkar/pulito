@@ -127,6 +127,14 @@ const COLUMN_MAP: Record<string, string> = {
   'ціна, євро': 'priceWholesale',
   'ціна євро': 'priceWholesale',
   'євро': 'priceWholesale',
+  'ціна опт 2': 'priceWholesale2',
+  'оптова ціна 2': 'priceWholesale2',
+  'price_wholesale_2': 'priceWholesale2',
+  'опт група 2': 'priceWholesale2',
+  'ціна опт 3': 'priceWholesale3',
+  'оптова ціна 3': 'priceWholesale3',
+  'price_wholesale_3': 'priceWholesale3',
+  'опт група 3': 'priceWholesale3',
   'акція': 'isPromo',
   'promo': 'isPromo',
   'is_promo': 'isPromo',
@@ -266,7 +274,9 @@ function parseSupplierFormat(
     // Check if any price column has a value
     const retailPrice = parsePrice(normalized.priceRetail);
     const wholesalePrice = parsePrice(normalized.priceWholesale);
-    const hasAnyPrice = retailPrice !== null || wholesalePrice !== null;
+    const wholesalePrice2 = parsePrice(normalized.priceWholesale2);
+    const wholesalePrice3 = parsePrice(normalized.priceWholesale3);
+    const hasAnyPrice = retailPrice !== null || wholesalePrice !== null || wholesalePrice2 !== null || wholesalePrice3 !== null;
 
     if (!hasAnyPrice) {
       // Row without prices = category separator
@@ -382,6 +392,8 @@ export async function importProducts(
         // Validate prices — in supplier format, at least one price is enough
         const priceRetail = parsePrice(row.priceRetail);
         const priceWholesale = parsePrice(row.priceWholesale);
+        const priceWholesale2 = parsePrice(row.priceWholesale2);
+        const priceWholesale3 = parsePrice(row.priceWholesale3);
 
         if (isSupplierFormat) {
           if (priceRetail === null && priceWholesale === null) {
@@ -473,6 +485,20 @@ export async function importProducts(
             updateData.priceWholesale = priceWholesale;
           }
 
+          if (priceWholesale2 !== null) {
+            if (Number(existingProduct.priceWholesale2) !== priceWholesale2) {
+              updateData.priceWholesaleOld2 = existingProduct.priceWholesale2;
+            }
+            updateData.priceWholesale2 = priceWholesale2;
+          }
+
+          if (priceWholesale3 !== null) {
+            if (Number(existingProduct.priceWholesale3) !== priceWholesale3) {
+              updateData.priceWholesaleOld3 = existingProduct.priceWholesale3;
+            }
+            updateData.priceWholesale3 = priceWholesale3;
+          }
+
           // Update slug if name changed
           if (existingProduct.name !== name) {
             const slug = createSlug(name);
@@ -513,6 +539,8 @@ export async function importProducts(
               categoryId,
               priceRetail: priceRetail ?? 0,
               priceWholesale,
+              priceWholesale2,
+              priceWholesale3,
               quantity,
               isPromo,
             },

@@ -5,8 +5,10 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import Pagination from '@/components/ui/Pagination';
+import PageSizeSelector from '@/components/admin/PageSizeSelector';
 
 interface FeedbackItem {
   id: number;
@@ -64,13 +66,20 @@ export default function AdminFeedbackPage() {
   const page = Number(searchParams.get('page')) || 1;
   const type = searchParams.get('type') || '';
   const status = searchParams.get('status') || '';
-  const limit = 20;
+  const search = searchParams.get('search') || '';
+  const dateFrom = searchParams.get('dateFrom') || '';
+  const dateTo = searchParams.get('dateTo') || '';
+  const limit = Number(searchParams.get('limit')) || 20;
+  const [searchInput, setSearchInput] = useState(search);
 
   useEffect(() => {
     setIsLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (type) params.set('type', type);
     if (status) params.set('status', status);
+    if (search) params.set('search', search);
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
 
     apiClient
       .get<FeedbackItem[]>(`/api/v1/admin/feedback?${params}`)
@@ -81,7 +90,7 @@ export default function AdminFeedbackPage() {
         }
       })
       .finally(() => setIsLoading(false));
-  }, [page, type, status]);
+  }, [page, type, status, search, dateFrom, dateTo, limit]);
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -112,9 +121,36 @@ export default function AdminFeedbackPage() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-xl font-bold">Зворотний зв&apos;язок</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-end gap-2">
+          <form
+            onSubmit={(e) => { e.preventDefault(); updateFilter('search', searchInput.trim()); }}
+            className="flex gap-1"
+          >
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Ім'я або email..."
+              className="w-44"
+            />
+            <Button size="sm" type="submit" variant="outline">Знайти</Button>
+          </form>
           <Select options={TYPE_OPTIONS} value={type} onChange={(e) => updateFilter('type', e.target.value)} className="w-40" />
           <Select options={STATUS_OPTIONS} value={status} onChange={(e) => updateFilter('status', e.target.value)} className="w-36" />
+          <Input type="date" value={dateFrom} onChange={(e) => updateFilter('dateFrom', e.target.value)} className="w-36" />
+          <Input type="date" value={dateTo} onChange={(e) => updateFilter('dateTo', e.target.value)} className="w-36" />
+          {(search || dateFrom || dateTo) && (
+            <Button size="sm" variant="outline" onClick={() => {
+              setSearchInput('');
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete('search');
+              params.delete('dateFrom');
+              params.delete('dateTo');
+              params.set('page', '1');
+              router.push(`/admin/feedback?${params}`);
+            }}>
+              Скинути
+            </Button>
+          )}
         </div>
       </div>
 
@@ -181,9 +217,12 @@ export default function AdminFeedbackPage() {
             )}
           </div>
 
-          {total > limit && (
-            <Pagination currentPage={page} totalPages={Math.ceil(total / limit)} baseUrl="/admin/feedback" className="mt-6" />
-          )}
+          <div className="mt-4 flex items-center justify-between">
+            <PageSizeSelector value={limit} onChange={(size) => updateFilter('limit', String(size))} />
+            {total > limit && (
+              <Pagination currentPage={page} totalPages={Math.ceil(total / limit)} baseUrl="/admin/feedback" className="" />
+            )}
+          </div>
         </>
       )}
     </div>

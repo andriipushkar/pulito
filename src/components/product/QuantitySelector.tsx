@@ -22,14 +22,14 @@ export default function QuantitySelector({
   };
 
   return (
-    <div className={`inline-flex items-center rounded-[var(--radius)] border border-[var(--color-border)] ${className}`}>
+    <div className={`inline-flex items-center rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] ${className}`}>
       <button
         onClick={() => handleChange(value - 1)}
         disabled={value <= min}
-        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-[var(--color-bg-secondary)] disabled:opacity-40"
+        className="flex h-12 w-12 items-center justify-center rounded-l-xl font-medium text-[var(--color-text)] transition-colors hover:bg-[var(--color-border)] active:scale-95 disabled:opacity-30"
         aria-label="Зменшити"
       >
-        <Minus size={16} />
+        <Minus size={20} />
       </button>
       <input
         type="number"
@@ -37,15 +37,15 @@ export default function QuantitySelector({
         onChange={(e) => handleChange(Number(e.target.value) || min)}
         min={min}
         max={max}
-        className="h-10 w-14 border-x border-[var(--color-border)] bg-transparent text-center text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="h-12 w-14 border-x border-[var(--color-border)] bg-transparent text-center text-lg font-bold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <button
         onClick={() => handleChange(value + 1)}
         disabled={value >= max}
-        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-[var(--color-bg-secondary)] disabled:opacity-40"
+        className="flex h-12 w-12 items-center justify-center rounded-r-xl font-medium text-[var(--color-text)] transition-colors hover:bg-[var(--color-border)] active:scale-95 disabled:opacity-30"
         aria-label="Збільшити"
       >
-        <Plus size={16} />
+        <Plus size={18} />
       </button>
     </div>
   );

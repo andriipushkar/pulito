@@ -50,6 +50,7 @@ vi.mock('@/config/env', () => ({
 import {
   registerUser,
   loginUser,
+  loginWithGoogle,
   refreshTokens,
   logoutUser,
   isAccessTokenBlacklisted,
@@ -288,6 +289,188 @@ describe('auth service', () => {
 
       const user = await getUserById(999);
       expect(user).toBeNull();
+    });
+  });
+
+  describe('registerUser - referral code', () => {
+    it('should register with referral code', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 3,
+        email: 'ref@test.com',
+        role: 'client',
+        fullName: 'Ref User',
+      });
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 1 });
+
+      const result = await registerUser({
+        email: 'ref@test.com',
+        password: 'password123',
+        fullName: 'Ref User',
+        referralCode: 'REF123',
+      });
+
+      expect(result.user.id).toBe(3);
+      expect(result.tokens.accessToken).toBeDefined();
+    });
+
+    it('should register with optional fields (phone, companyName, edrpou)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 4,
+        email: 'full@test.com',
+        role: 'client',
+        fullName: 'Full User',
+      });
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 1 });
+
+      const result = await registerUser({
+        email: 'full@test.com',
+        password: 'password123',
+        fullName: 'Full User',
+        phone: '+380501234567',
+        companyName: 'Test Co',
+        edrpou: '12345678',
+      });
+
+      expect(result.user.id).toBe(4);
+      const createCall = mockPrisma.user.create.mock.calls[0][0];
+      expect(createCall.data.phone).toBe('+380501234567');
+    });
+  });
+
+  describe('loginUser - with IP and device', () => {
+    it('should login with ipAddress and deviceInfo', async () => {
+      const hash = await bcrypt.hash('pass123', 10);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        email: 'user@test.com',
+        passwordHash: hash,
+        role: 'client',
+      });
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 1 });
+
+      const result = await loginUser({
+        email: 'user@test.com',
+        password: 'pass123',
+        ipAddress: '192.168.1.1',
+        deviceInfo: 'Chrome/120',
+      });
+
+      expect(result.user.email).toBe('user@test.com');
+      expect(mockPrisma.refreshToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ipAddress: '192.168.1.1',
+            deviceInfo: 'Chrome/120',
+          }),
+        })
+      );
+    });
+  });
+
+  describe('refreshTokens - user not found', () => {
+    it('should throw 401 when user no longer exists', async () => {
+      const oldRefresh = signRefreshToken({ sub: 1 });
+      const tokenHash = hashToken(oldRefresh);
+
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 10,
+        tokenHash,
+        userId: 1,
+        revokedAt: null,
+      });
+      mockPrisma.refreshToken.update.mockResolvedValue({ id: 10 });
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(refreshTokens(oldRefresh)).rejects.toThrow('Користувача не знайдено');
+    });
+  });
+
+  describe('logoutUser - expired access token', () => {
+    it('should not blacklist an already expired token (remaining <= 0)', async () => {
+      // Create a token that simulates already being expired by passing a bad string
+      // The getTokenRemainingSeconds should return <= 0 for an invalid/expired token
+      await logoutUser('expired.token.value');
+      // setex should not be called if remaining <= 0
+      expect(mockRedis.setex).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('loginWithGoogle', () => {
+    it('should create new user if googleId and email not found', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // googleId lookup
+        .mockResolvedValueOnce(null); // email lookup
+      mockPrisma.user.create.mockResolvedValue({
+        id: 10,
+        email: 'google@test.com',
+        role: 'client',
+      });
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 1 });
+
+      const result = await loginWithGoogle('gid-123', 'google@test.com', 'Google User', 'https://avatar.url');
+
+      expect(result.user.id).toBe(10);
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: 'google@test.com',
+            googleId: 'gid-123',
+            isVerified: true,
+          }),
+        })
+      );
+    });
+
+    it('should link googleId to existing email user', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // googleId lookup
+        .mockResolvedValueOnce({ id: 5, email: 'existing@test.com', role: 'client', avatarUrl: null }); // email lookup
+      mockPrisma.user.update.mockResolvedValue({
+        id: 5,
+        email: 'existing@test.com',
+        role: 'client',
+        googleId: 'gid-456',
+      });
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 1 });
+
+      const result = await loginWithGoogle('gid-456', 'existing@test.com', 'Existing User');
+
+      expect(result.user.id).toBe(5);
+      expect(mockPrisma.user.update).toHaveBeenCalled();
+    });
+
+    it('should return existing user found by googleId', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 7,
+        email: 'guser@test.com',
+        role: 'client',
+        googleId: 'gid-789',
+      });
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 1 });
+
+      const result = await loginWithGoogle('gid-789', 'guser@test.com', 'Google User');
+
+      expect(result.user.id).toBe(7);
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('should process referral for new user with referral code', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // googleId
+        .mockResolvedValueOnce(null); // email
+      mockPrisma.user.create.mockResolvedValue({
+        id: 11,
+        email: 'newref@test.com',
+        role: 'client',
+      });
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 1 });
+
+      const result = await loginWithGoogle('gid-new', 'newref@test.com', 'New User', undefined, 'REF456');
+
+      expect(result.user.id).toBe(11);
     });
   });
 });

@@ -9,6 +9,7 @@ import { Heart, HeartFilled, Cart, Search } from '@/components/icons';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
+import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import type { ProductListItem } from '@/types/product';
 
 const WISHLIST_STORAGE_KEY = 'clean-shop-wishlist';
@@ -30,6 +31,34 @@ function setLocalWishlist(ids: number[]) {
   } catch {}
 }
 
+// Витягує ключові характеристики (об'єм, вагу) з назви або опису
+function extractAttributes(name: string, description?: string | null): string[] {
+  const text = `${name} ${description || ''}`;
+  const attrs: string[] = [];
+  // Об'єм: 500мл, 1л, 1.5 л, 2L тощо
+  const volumeMatch = text.match(/(\d+[.,]?\d*)\s*(мл|ml|л|l|літр[іа]?)\b/i);
+  if (volumeMatch) {
+    const val = volumeMatch[1].replace(',', '.');
+    const unit = volumeMatch[2].toLowerCase();
+    const normalized = unit === 'мл' || unit === 'ml' ? `${val} мл` : `${val} л`;
+    attrs.push(normalized);
+  }
+  // Вага: 500г, 1кг, 2.5 кг тощо
+  const weightMatch = text.match(/(\d+[.,]?\d*)\s*(г|g|кг|kg|грам)\b/i);
+  if (weightMatch) {
+    const val = weightMatch[1].replace(',', '.');
+    const unit = weightMatch[2].toLowerCase();
+    const normalized = unit === 'г' || unit === 'g' || unit === 'грам' ? `${val} г` : `${val} кг`;
+    attrs.push(normalized);
+  }
+  // Кількість штук: 10 шт, 20шт тощо
+  const pcsMatch = text.match(/(\d+)\s*(шт|tabs?|caps?|штук)\b/i);
+  if (pcsMatch) {
+    attrs.push(`${pcsMatch[1]} шт`);
+  }
+  return attrs;
+}
+
 interface ProductCardProps {
   product: ProductListItem;
 }
@@ -40,9 +69,12 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [showQuickView, setShowQuickView] = useState(false);
   const [isWished, setIsWished] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const inStock = product.quantity > 0;
   const mainImage = product.images[0]?.pathMedium || product.imagePath;
+  const hoverImage = product.images[1]?.pathMedium;
   const blurImage = product.images[0]?.pathBlur;
+  const attributes = extractAttributes(product.name, product.content?.shortDescription);
 
   useEffect(() => {
     if (user) {
@@ -97,7 +129,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       slug: product.slug,
       code: product.code,
       priceRetail: Number(product.priceRetail),
-      priceWholesale: product.priceWholesale ? Number(product.priceWholesale) : null,
+      priceWholesale: resolveWholesalePrice(product, user?.wholesaleGroup) ?? (product.priceWholesale ? Number(product.priceWholesale) : null),
       imagePath: mainImage,
       quantity: 1,
       maxQuantity: product.quantity,
@@ -105,7 +137,11 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <div className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-transparent bg-[var(--color-bg)] shadow-[var(--shadow)] transition-all duration-300 hover:shadow-[var(--shadow-xl)] hover:border-[var(--color-primary-light)]/30 hover:-translate-y-1 sm:rounded-2xl">
+    <div
+      className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-transparent bg-[var(--color-bg)] shadow-[var(--shadow)] transition-all duration-300 hover:shadow-[var(--shadow-xl)] hover:border-[var(--color-primary-light)]/30 hover:-translate-y-1 sm:rounded-2xl"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <Link href={`/product/${product.slug}`} className="relative aspect-square overflow-hidden bg-[var(--color-bg-secondary)]">
         {mainImage ? (
           <>
@@ -122,10 +158,19 @@ export default function ProductCard({ product }: ProductCardProps) {
             <img
               src={mainImage}
               alt={product.name}
-              className={`h-full w-full object-contain transition-all duration-300 group-hover:scale-105 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`h-full w-full object-contain transition-all duration-500 ${imageLoaded ? 'opacity-100' : 'opacity-0'} ${hovered && hoverImage ? 'scale-105 opacity-0' : 'group-hover:scale-105'}`}
               loading="lazy"
               onLoad={() => setImageLoaded(true)}
             />
+            {hoverImage && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={hoverImage}
+                alt={product.name}
+                className={`absolute inset-0 h-full w-full object-contain transition-all duration-500 ${hovered ? 'scale-105 opacity-100' : 'opacity-0'}`}
+                loading="lazy"
+              />
+            )}
           </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
@@ -184,7 +229,17 @@ export default function ProductCard({ product }: ProductCardProps) {
           {product.name}
         </Link>
 
-        {product.content?.shortDescription && (
+        {attributes.length > 0 && (
+          <div className="mb-1 flex flex-wrap gap-1">
+            {attributes.map((attr) => (
+              <span key={attr} className="inline-flex items-center rounded-md bg-[var(--color-bg-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)]">
+                {attr}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {product.content?.shortDescription && !attributes.length && (
           <p className="mb-1 line-clamp-1 text-xs text-[var(--color-text-secondary)]">
             {product.content.shortDescription}
           </p>
@@ -197,7 +252,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             size="sm"
           />
 
-          <div className="mt-2 flex items-center justify-between gap-1 sm:gap-2">
+          <div className="mt-2.5 flex items-center justify-between gap-1 sm:mt-3 sm:gap-2">
             <span className={`shrink-0 text-[10px] font-medium sm:text-xs ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}>
               {inStock ? 'В наявності' : 'Немає'}
             </span>

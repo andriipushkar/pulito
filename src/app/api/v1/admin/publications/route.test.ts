@@ -88,6 +88,20 @@ describe('POST /api/v1/admin/publications', () => {
     expect(body.data.title).toBe('New Pub');
   });
 
+  it('should return PublicationError status code', async () => {
+    const { PublicationError } = await import('@/services/publication');
+    mockCreatePublication.mockRejectedValue(new PublicationError('invalid data'));
+
+    const request = new NextRequest('http://localhost/api/v1/admin/publications', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Test', content: 'Test', channels: [] }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    const res = await POST(request, { user: { id: 1, role: 'admin' } } as never);
+    expect(res.status).toBe(400);
+  });
+
   it('should return 500 on unexpected error', async () => {
     mockCreatePublication.mockRejectedValue(new Error('Unexpected'));
 

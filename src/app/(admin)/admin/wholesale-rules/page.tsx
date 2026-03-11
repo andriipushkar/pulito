@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Spinner from '@/components/ui/Spinner';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface WholesaleRule {
   id: number;
@@ -32,6 +33,7 @@ export default function AdminWholesaleRulesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({ ruleType: 'min_order_amount', productId: '', value: '', isActive: true });
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadRules = () => {
     setIsLoading(true);
@@ -83,8 +85,14 @@ export default function AdminWholesaleRulesPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Видалити це правило?')) return;
+  const handleDelete = (id: number) => {
+    setDeleteId(id);
+  };
+
+  const executeDelete = async () => {
+    if (deleteId === null) return;
+    const id = deleteId;
+    setDeleteId(null);
     await apiClient.delete(`/api/v1/admin/wholesale-rules/${id}`);
     loadRules();
   };
@@ -183,6 +191,14 @@ export default function AdminWholesaleRulesPage() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={executeDelete}
+        variant="danger"
+        message="Видалити це правило?"
+      />
     </div>
   );
 }

@@ -41,7 +41,7 @@ export default function Tabs({ tabs, defaultTab, className = '' }: TabsProps) {
 
   return (
     <div className={className}>
-      <div role="tablist" className="flex gap-0 border-b border-[var(--color-border)]">
+      <div role="tablist" className="flex gap-1.5 overflow-x-auto rounded-2xl bg-[var(--color-bg-secondary)] p-1.5 scrollbar-hide">
         {tabs.map((tab, i) => (
           <button
             key={tab.id}
@@ -53,9 +53,9 @@ export default function Tabs({ tabs, defaultTab, className = '' }: TabsProps) {
             tabIndex={activeTab === tab.id ? 0 : -1}
             onClick={() => setActiveTab(tab.id)}
             onKeyDown={(e) => handleKeyDown(e, i)}
-            className={`px-4 py-3 text-sm font-medium transition-colors ${
+            className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
               activeTab === tab.id
-                ? 'border-b-2 border-[var(--color-primary)] text-[var(--color-primary)]'
+                ? 'bg-white text-[var(--color-text)] shadow-[var(--shadow)]'
                 : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
             }`}
           >
@@ -70,7 +70,7 @@ export default function Tabs({ tabs, defaultTab, className = '' }: TabsProps) {
           id={`tabpanel-${tab.id}`}
           aria-labelledby={`tab-${tab.id}`}
           hidden={activeTab !== tab.id}
-          className="py-4"
+          className="py-5"
         >
           {tab.content}
         </div>

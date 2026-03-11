@@ -9,6 +9,8 @@ const cartItemInclude = {
       code: true,
       priceRetail: true,
       priceWholesale: true,
+      priceWholesale2: true,
+      priceWholesale3: true,
       quantity: true,
       isPromo: true,
       isActive: true,

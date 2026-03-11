@@ -6,6 +6,7 @@ import { spendPoints, LoyaltyError } from '@/services/loyalty';
 import { getIdempotentResponse, setIdempotentResponse } from '@/services/idempotency';
 import { checkoutSchema, guestCheckoutSchema, orderFilterSchema } from '@/validators/order';
 import { successResponse, errorResponse, paginatedResponse } from '@/utils/api-response';
+import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import { prisma } from '@/lib/prisma';
 
 export const GET = withAuth(async (request: NextRequest, { user }) => {
@@ -49,12 +50,24 @@ export const POST = withOptionalAuth(async (request: NextRequest, { user }) => {
       }
 
       const clientType = user.role === 'wholesaler' ? 'wholesale' : 'retail';
+
+      // Get user's wholesale group for price resolution
+      let wholesaleGroup: number | null = null;
+      if (clientType === 'wholesale') {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { wholesaleGroup: true },
+        });
+        wholesaleGroup = dbUser?.wholesaleGroup ?? 1;
+      }
+
       const orderItems = cartItems.map((item) => {
         let price: number;
         if (item.personalPrice !== null) {
           price = item.personalPrice;
-        } else if (clientType === 'wholesale' && item.product.priceWholesale) {
-          price = Number(item.product.priceWholesale);
+        } else if (clientType === 'wholesale') {
+          const resolved = resolveWholesalePrice(item.product, wholesaleGroup);
+          price = resolved ?? Number(item.product.priceRetail);
         } else {
           price = Number(item.product.priceRetail);
         }

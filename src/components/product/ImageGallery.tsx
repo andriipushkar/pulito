@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Modal from '@/components/ui/Modal';
 import { ChevronLeft, ChevronRight, Close } from '@/components/icons';
@@ -19,6 +19,22 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
   const mainRef = useRef<HTMLDivElement>(null);
 
   const [mobileRef, mobileApi] = useEmblaCarousel({ loop: true });
+  const [mobileIndex, setMobileIndex] = useState(0);
+
+  // Sync mobile carousel index
+  const onMobileSelect = useCallback(() => {
+    if (mobileApi) {
+      const idx = mobileApi.selectedScrollSnap();
+      setMobileIndex(idx);
+      setSelectedIndex(idx);
+    }
+  }, [mobileApi]);
+
+  useEffect(() => {
+    if (!mobileApi) return;
+    mobileApi.on('select', onMobileSelect);
+    return () => { mobileApi.off('select', onMobileSelect); };
+  }, [mobileApi, onMobileSelect]);
 
   const currentImage = images[selectedIndex];
   const mainImageLoaded = loadedIndex === selectedIndex;
@@ -48,43 +64,17 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
   return (
     <>
       {/* Desktop */}
-      <div className="hidden lg:block">
-        <div
-          ref={mainRef}
-          className="relative mb-3 cursor-zoom-in overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)]"
-          onClick={() => setLightboxOpen(true)}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-        >
-          <div className="relative aspect-square">
-            {currentImage?.pathBlur && !mainImageLoaded && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={currentImage.pathBlur}
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 h-full w-full scale-110 object-contain blur-lg"
-              />
-            )}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={currentImage?.pathFull || currentImage?.pathMedium || ''}
-              alt={currentImage?.altText || productName}
-              className={`h-full w-full object-contain transition-all duration-200 ${mainImageLoaded ? 'opacity-100' : 'opacity-0'}`}
-              style={zoomStyle}
-              onLoad={() => setLoadedIndex(selectedIndex)}
-            />
-          </div>
-        </div>
-
+      <div className="hidden lg:flex lg:gap-3">
+        {/* Vertical thumbnails */}
         {images.length > 1 && (
-          <div className="flex gap-2 overflow-auto">
+          <div className="flex shrink-0 flex-col gap-2 overflow-y-auto" style={{ maxHeight: 'calc(100vw * 0.35)' }}>
             {images.map((img, i) => (
               <button
                 key={img.id}
                 onClick={() => setSelectedIndex(i)}
-                className={`shrink-0 overflow-hidden rounded-[var(--radius)] border-2 transition-colors ${
-                  i === selectedIndex ? 'border-[var(--color-primary)]' : 'border-[var(--color-border)]'
+                onMouseEnter={() => setSelectedIndex(i)}
+                className={`shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                  i === selectedIndex ? 'border-[var(--color-primary)] shadow-[var(--shadow-brand)]' : 'border-[var(--color-border)] hover:border-[var(--color-primary-light)]'
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -97,11 +87,42 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
             ))}
           </div>
         )}
+
+        {/* Main image */}
+        <div className="flex-1">
+          <div
+            ref={mainRef}
+            className="relative cursor-zoom-in overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]"
+            onClick={() => setLightboxOpen(true)}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div className="relative aspect-square">
+              {currentImage?.pathBlur && !mainImageLoaded && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={currentImage.pathBlur}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 h-full w-full scale-110 object-contain blur-lg"
+                />
+              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={currentImage?.pathFull || currentImage?.pathMedium || ''}
+                alt={currentImage?.altText || productName}
+                className={`h-full w-full object-contain transition-all duration-200 ${mainImageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                style={zoomStyle}
+                onLoad={() => setLoadedIndex(selectedIndex)}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Mobile */}
       <div className="lg:hidden">
-        <div className="overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]" ref={mobileRef}>
+        <div className="relative overflow-hidden rounded-2xl border border-[var(--color-border)]" ref={mobileRef}>
           <div className="flex">
             {images.map((img, i) => (
               <div key={img.id} className="min-w-0 shrink-0 basis-full">
@@ -117,21 +138,26 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
               </div>
             ))}
           </div>
+          {images.length > 1 && (
+            <>
+              <div className="absolute bottom-3 right-3 rounded-full bg-black/40 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                {mobileIndex + 1} / {images.length}
+              </div>
+              <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+                {images.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => mobileApi?.scrollTo(i)}
+                    className={`rounded-full transition-all ${
+                      i === mobileIndex ? 'h-2 w-6 bg-[var(--color-primary)]' : 'h-2 w-2 bg-white/60'
+                    }`}
+                    aria-label={`Зображення ${i + 1}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
-        {images.length > 1 && (
-          <div className="mt-2 flex justify-center gap-1.5">
-            {images.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => mobileApi?.scrollTo(i)}
-                className={`h-2 w-2 rounded-full transition-colors ${
-                  i === selectedIndex ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-border)]'
-                }`}
-                aria-label={`Зображення ${i + 1}`}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Lightbox */}

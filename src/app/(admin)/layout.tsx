@@ -7,13 +7,13 @@ import Spinner from '@/components/ui/Spinner';
 import { useState, type ReactNode } from 'react';
 import { Menu, Close } from '@/components/icons';
 import AuthProvider from '@/providers/AuthProvider';
+import { useAdminHotkeys } from '@/hooks/useAdminHotkeys';
 
 const NAV_SECTIONS = [
   {
     items: [
       { href: '/admin', label: 'Dashboard', icon: '📊', exact: true },
       { href: '/admin/orders', label: 'Замовлення', icon: '📦' },
-      { href: '/admin/orders/bulk', label: 'Масові дії', icon: '📋' },
       { href: '/admin/users', label: 'Користувачі', icon: '👥' },
       { href: '/admin/analytics', label: 'Аналітика', icon: '📈' },
       { href: '/admin/reports', label: 'Звіти', icon: '📊' },
@@ -42,6 +42,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/admin/channels', label: 'Статистика каналів', icon: '📡' },
       { href: '/admin/bot-settings', label: 'Налаштування ботів', icon: '🤖' },
+      { href: '/admin/moderation', label: 'Модерація', icon: '🛡️' },
     ],
   },
   {
@@ -52,6 +53,7 @@ const NAV_SECTIONS = [
       { href: '/admin/banners', label: 'Банери', icon: '🖼️' },
       { href: '/admin/themes', label: 'Теми', icon: '🎨' },
       { href: '/admin/seo-templates', label: 'SEO-шаблони', icon: '🔍' },
+      { href: '/admin/seo-audit', label: 'SEO-аудит', icon: '🔗' },
       { href: '/admin/pallet-delivery', label: 'Палетна доставка', icon: '🚚' },
       { href: '/admin/audit-log', label: 'Журнал дій', icon: '📋' },
     ],
@@ -71,6 +73,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { showHelp, setShowHelp, shortcuts } = useAdminHotkeys();
 
   if (isLoading) {
     return (
@@ -112,7 +115,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Головне меню">
         {NAV_SECTIONS.map((section, si) => (
           <div key={si} className="mb-4">
             {section.title && (
@@ -162,19 +165,27 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-[var(--color-bg-secondary)]">
+      <a
+        href="#admin-main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-[var(--radius)] focus:bg-[var(--color-primary)] focus:px-4 focus:py-2 focus:text-white focus:shadow-lg"
+      >
+        Перейти до контенту
+      </a>
+
       {/* Sidebar (desktop) */}
-      <aside className="hidden w-60 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-bg)] lg:block">
+      <aside className="hidden w-60 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-bg)] lg:block" aria-label="Навігація адмін-панелі">
         {sidebar}
       </aside>
 
       {/* Sidebar (mobile overlay) */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Навігаційне меню">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
           />
-          <aside className="relative z-10 h-full w-60 bg-[var(--color-bg)]">
+          <aside className="relative z-10 h-full w-60 bg-[var(--color-bg)]" aria-label="Навігація адмін-панелі">
             {sidebar}
           </aside>
         </div>
@@ -182,7 +193,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 lg:px-6">
+        <header className="flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 lg:px-6" role="banner">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden"
@@ -191,10 +202,43 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
             <Menu size={24} />
           </button>
           <h1 className="text-lg font-semibold">Панель управління</h1>
+          <button
+            onClick={() => setShowHelp(true)}
+            className="ml-auto hidden text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text)] lg:block"
+            title="Гарячі клавіші"
+          >
+            Натисніть <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-1.5 py-0.5 font-mono text-[10px]">/</kbd> для гарячих клавіш
+          </button>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <main id="admin-main-content" className="flex-1 p-4 lg:p-6">{children}</main>
       </div>
+
+      {/* Keyboard shortcuts help modal */}
+      {showHelp && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Гарячі клавіші">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowHelp(false)} aria-hidden="true" />
+          <div className="relative z-10 w-full max-w-md rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold">Гарячі клавіші</h3>
+              <button onClick={() => setShowHelp(false)} className="text-[var(--color-text-secondary)] hover:text-[var(--color-text)]" aria-label="Закрити">
+                <Close size={20} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {shortcuts.map((s) => (
+                <div key={s.key + (s.ctrl ? 'c' : '') + (s.shift ? 's' : '')} className="flex items-center justify-between text-sm">
+                  <span>{s.description}</span>
+                  <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs font-mono">
+                    {s.ctrl ? 'Ctrl+' : ''}{s.shift ? 'Shift+' : ''}{s.key.toUpperCase()}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-[var(--color-text-secondary)]">Натисніть Esc для закриття</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -19,6 +19,8 @@ const mockPrisma = prisma as unknown as MockPrismaClient;
 
 import {
   getPublishedFaq,
+  getFaqCategories,
+  getAllFaq,
   searchFaq,
   createFaqItem,
   updateFaqItem,
@@ -284,5 +286,49 @@ describe('incrementFaqClick', () => {
       where: { id: 1 },
       data: { clickCount: { increment: 1 } },
     });
+  });
+});
+
+describe('getFaqCategories', () => {
+  it('should return unique categories from published items', async () => {
+    const items = [
+      { category: 'Доставка' },
+      { category: 'Оплата' },
+    ];
+    mockPrisma.faqItem.findMany.mockResolvedValue(items as never);
+
+    const result = await getFaqCategories();
+
+    expect(mockPrisma.faqItem.findMany).toHaveBeenCalledWith({
+      where: { isPublished: true },
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' },
+    });
+    expect(result).toEqual(['Доставка', 'Оплата']);
+  });
+
+  it('should return empty array when no published items', async () => {
+    mockPrisma.faqItem.findMany.mockResolvedValue([] as never);
+
+    const result = await getFaqCategories();
+    expect(result).toEqual([]);
+  });
+});
+
+describe('getAllFaq', () => {
+  it('should return all FAQ items ordered by category and sortOrder', async () => {
+    const items = [
+      { id: 1, category: 'A', question: 'Q1', answer: 'A1', sortOrder: 0, isPublished: true },
+      { id: 2, category: 'A', question: 'Q2', answer: 'A2', sortOrder: 1, isPublished: false },
+    ];
+    mockPrisma.faqItem.findMany.mockResolvedValue(items as never);
+
+    const result = await getAllFaq();
+
+    expect(mockPrisma.faqItem.findMany).toHaveBeenCalledWith({
+      orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
+    });
+    expect(result).toEqual(items);
   });
 });

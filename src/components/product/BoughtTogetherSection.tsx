@@ -53,24 +53,32 @@ export default function BoughtTogetherSection({ productId }: BoughtTogetherSecti
 
   return (
     <div className="mt-10">
-      <h2 className="mb-4 text-lg font-bold">З цим товаром купують</h2>
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <h2 className="relative mb-4 text-lg font-bold">
+        З цим товаром купують
+        <span className="absolute -bottom-1 left-0 h-0.5 w-10 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-light)]" />
+      </h2>
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide lg:grid lg:grid-cols-6 lg:overflow-visible">
         {products.map((p) => {
           const image = p.images[0]?.pathThumbnail || p.imagePath;
           return (
             <div
               key={p.id}
-              className="flex w-[160px] shrink-0 flex-col overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]"
+              className="flex w-[150px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow)] transition-all hover:shadow-[var(--shadow-md)] hover:-translate-y-1 lg:w-auto"
             >
-              <Link href={`/product/${p.slug}`} className="block aspect-square bg-[var(--color-bg-secondary)]">
+              <Link href={`/product/${p.slug}`} className="block aspect-[4/3] bg-[var(--color-bg-secondary)]">
                 {image ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={image} alt={p.name} className="h-full w-full object-contain p-2" loading="lazy" />
+                  <img src={image} alt={p.name} className="h-full w-full object-contain p-1.5" loading="lazy" />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)] opacity-30">
-                    <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <div className="flex h-full flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-gray-50 to-gray-100">
+                    <svg className="h-10 w-10 text-gray-300" viewBox="0 0 64 64" fill="none">
+                      <rect x="18" y="8" width="28" height="4" rx="2" fill="currentColor" opacity="0.4" />
+                      <rect x="16" y="14" width="32" height="42" rx="6" fill="currentColor" opacity="0.15" />
+                      <rect x="16" y="14" width="32" height="42" rx="6" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
+                      <circle cx="32" cy="32" r="8" fill="currentColor" opacity="0.12" />
+                      <text x="32" y="36" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" opacity="0.25">P</text>
                     </svg>
+                    <span className="text-[9px] font-medium text-gray-300">Порошок</span>
                   </div>
                 )}
               </Link>
@@ -78,11 +86,11 @@ export default function BoughtTogetherSection({ productId }: BoughtTogetherSecti
                 <Link href={`/product/${p.slug}`} className="mb-1 line-clamp-2 text-xs font-medium leading-tight hover:text-[var(--color-primary)]">
                   {p.name}
                 </Link>
-                <div className="mt-auto flex items-center justify-between">
-                  <span className="text-sm font-bold">{Number(p.priceRetail).toFixed(2)} ₴</span>
+                <div className="mt-auto flex items-center justify-between gap-1">
+                  <span className="text-sm font-bold">{Number(p.priceRetail).toFixed(0)} ₴</span>
                   <button
                     onClick={() => handleAdd(p)}
-                    className="rounded-[var(--radius)] bg-[var(--color-primary)] p-1.5 text-white transition-colors hover:bg-[var(--color-primary-dark)]"
+                    className="rounded-lg bg-[var(--color-primary)] p-1.5 text-white shadow-[var(--shadow-brand)] transition-all hover:bg-[var(--color-primary-dark)] active:scale-95"
                     aria-label="В кошик"
                   >
                     <Cart size={14} />

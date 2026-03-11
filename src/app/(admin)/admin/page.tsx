@@ -238,6 +238,26 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* Alerts */}
+      {(() => {
+        const alerts: { text: string; href: string; type: 'danger' | 'warning' }[] = [];
+        if (stats.orders.newCount > 0) alerts.push({ text: `${stats.orders.newCount} нових замовлень очікують обробки`, href: '/admin/orders?status=new_order', type: 'warning' });
+        if (stats.products.outOfStock > 0) alerts.push({ text: `${stats.products.outOfStock} товарів немає в наявності`, href: '/admin/products?stock=out', type: 'danger' });
+        if (stats.users.pendingWholesale > 0) alerts.push({ text: `${stats.users.pendingWholesale} оптових запитів очікують підтвердження`, href: '/admin/users?wholesaleStatus=pending', type: 'warning' });
+        if (alerts.length === 0) return null;
+        return (
+          <div className="mb-6 space-y-2">
+            {alerts.map((a, i) => (
+              <Link key={i} href={a.href} className={`flex items-center gap-2 rounded-[var(--radius)] px-4 py-3 text-sm font-medium ${a.type === 'danger' ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
+                <span className="text-base">{a.type === 'danger' ? '!' : '!'}</span>
+                {a.text}
+                <span className="ml-auto text-xs opacity-70">Переглянути →</span>
+              </Link>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Widgets rendered in user-configured order */}
       {widgetOrder.map((widgetKey) => {
         if (hiddenWidgets.has(widgetKey)) return null;

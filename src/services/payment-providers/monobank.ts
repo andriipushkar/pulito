@@ -127,5 +127,6 @@ export async function verifyCallback(
     status,
     transactionId: data.invoiceId,
     rawData: data as unknown as Record<string, unknown>,
+    receiptUrl: data.receiptUrl,
   };
 }

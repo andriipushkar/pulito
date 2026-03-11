@@ -28,14 +28,14 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 };
 
 export const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
-  new_order: '#3b82f6',
-  processing: '#f59e0b',
-  confirmed: '#10b981',
-  paid: '#06b6d4',
-  shipped: '#8b5cf6',
-  completed: '#6b7280',
-  cancelled: '#ef4444',
-  returned: '#f97316',
+  new_order: '#2563eb',
+  processing: '#d97706',
+  confirmed: '#059669',
+  paid: '#0891b2',
+  shipped: '#7c3aed',
+  completed: '#4b5563',
+  cancelled: '#dc2626',
+  returned: '#ea580c',
 };
 
 export const DELIVERY_METHOD_LABELS: Record<DeliveryMethod, string> = {
@@ -78,22 +78,34 @@ export interface OrderListItem {
   clientType: ClientType;
   totalAmount: Price;
   itemsCount: number;
+  contactName: string;
+  contactPhone: string;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   deliveryMethod: DeliveryMethod;
+  trackingNumber: string | null;
   createdAt: string | Date;
 }
 
 export interface OrderDetail extends OrderListItem {
+  userId: number | null;
+  assignedManagerId: number | null;
   discountAmount: Price;
   deliveryCost: Price;
-  contactName: string;
-  contactPhone: string;
   contactEmail: string;
   deliveryCity: string | null;
   deliveryAddress: string | null;
-  trackingNumber: string | null;
+  deliveryWarehouseRef: string | null;
   comment: string | null;
+  managerComment: string | null;
+  source: string;
+  payment: {
+    receiptUrl: string | null;
+    paymentProvider: string | null;
+    transactionId: string | null;
+    paidAt: string | Date | null;
+  } | null;
+  user: { id: number; fullName: string; email: string; role: string; wholesaleGroup: number | null } | null;
   items: OrderItemData[];
   statusHistory: {
     id: number;

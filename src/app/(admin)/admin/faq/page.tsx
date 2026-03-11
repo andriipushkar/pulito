@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Plus, Trash, Check, Close, ChevronDown } from '@/components/icons';
 
 interface AdminFaqItem {
@@ -40,6 +41,9 @@ export default function AdminFaqPage() {
   const [editForm, setEditForm] = useState<FaqFormData>(emptyForm);
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [sortField, setSortField] = useState<'sortOrder' | 'question' | 'clickCount'>('sortOrder');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const fetchItems = useCallback(() => {
     apiClient
@@ -56,9 +60,21 @@ export default function AdminFaqPage() {
 
   const categories = [...new Set(items.map((i) => i.category))].sort();
 
+  const sortedItems = [...items].sort((a, b) => {
+    let cmp = 0;
+    if (sortField === 'question') cmp = a.question.localeCompare(b.question, 'uk');
+    else cmp = (a[sortField] ?? 0) - (b[sortField] ?? 0);
+    return sortDir === 'desc' ? -cmp : cmp;
+  });
+
   const filteredItems = filterCategory
-    ? items.filter((i) => i.category === filterCategory)
-    : items;
+    ? sortedItems.filter((i) => i.category === filterCategory)
+    : sortedItems;
+
+  const toggleSort = (field: typeof sortField) => {
+    if (sortField === field) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+  };
 
   const grouped = filteredItems.reduce<Record<string, AdminFaqItem[]>>((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
@@ -88,8 +104,14 @@ export default function AdminFaqPage() {
     setSaving(false);
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('Видалити це питання?')) return;
+  function handleDelete(id: number) {
+    setDeleteId(id);
+  }
+
+  async function executeDelete() {
+    if (deleteId === null) return;
+    const id = deleteId;
+    setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/faq/${id}`);
     if (res.success) {
       setItems((prev) => prev.filter((item) => item.id !== id));
@@ -136,27 +158,41 @@ export default function AdminFaqPage() {
         </button>
       </div>
 
-      {/* Category filter */}
-      {categories.length > 1 && (
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-sm text-[var(--color-text-secondary)]">Фільтр:</span>
-          <div className="relative">
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="appearance-none rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-1.5 pl-3 pr-8 text-sm"
-            >
-              <option value="">Всі категорії</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+      {/* Filters and sorting */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        {categories.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-[var(--color-text-secondary)]">Фільтр:</span>
+            <div className="relative">
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="appearance-none rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-1.5 pl-3 pr-8 text-sm"
+              >
+                <option value="">Всі категорії</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+            </div>
           </div>
+        )}
+        <div className="flex items-center gap-1 text-xs">
+          <span className="text-[var(--color-text-secondary)]">Сортувати:</span>
+          {([['sortOrder', 'Порядок'], ['question', 'Питання'], ['clickCount', 'Кліки']] as const).map(([field, label]) => (
+            <button
+              key={field}
+              onClick={() => toggleSort(field)}
+              className={`rounded px-2 py-1 ${sortField === field ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}`}
+            >
+              {label} {sortField === field && (sortDir === 'asc' ? '↑' : '↓')}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Create form */}
       {showCreateForm && (
@@ -356,6 +392,14 @@ export default function AdminFaqPage() {
           {filterCategory ? 'Немає питань у цій категорії' : 'FAQ порожній'}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={executeDelete}
+        variant="danger"
+        message="Видалити це питання?"
+      />
     </div>
   );
 }

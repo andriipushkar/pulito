@@ -99,6 +99,14 @@
             "type": "number",
             "nullable": true
           },
+          "priceWholesale2": {
+            "type": "number",
+            "nullable": true
+          },
+          "priceWholesale3": {
+            "type": "number",
+            "nullable": true
+          },
           "quantity": {
             "type": "integer"
           },

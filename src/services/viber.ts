@@ -120,6 +120,46 @@ async function handleLinkVerify(viberId: string, inputCode: string) {
   await sendTextMessage(viberId, '✅ Акаунт успішно прив\'язано! Тепер ви отримуватимете сповіщення у Viber.', MAIN_KEYBOARD);
 }
 
+async function sendPictureMessage(receiverId: string, imageUrl: string, text: string) {
+  await fetch(`${API_URL}/send_message`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Viber-Auth-Token': AUTH_TOKEN },
+    body: JSON.stringify({
+      receiver: receiverId,
+      min_api_version: 7,
+      type: 'picture',
+      text,
+      media: imageUrl,
+    }),
+  });
+}
+
+/**
+ * Send a product photo to a user via Viber.
+ * Looks up the user's viberUserId and sends the image with caption.
+ */
+export async function sendProductPhotoToUser(
+  userId: number,
+  imageUrl: string,
+  caption: string
+): Promise<boolean> {
+  if (!AUTH_TOKEN) return false;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { viberUserId: true },
+  });
+
+  if (!user?.viberUserId) return false;
+
+  try {
+    await sendPictureMessage(user.viberUserId, imageUrl, caption);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Send a notification to a user via Viber (by userId).
  * Used by notification-queue for dispatching Viber notifications.

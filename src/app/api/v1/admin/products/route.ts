@@ -13,13 +13,37 @@ export const GET = withRole('manager', 'admin')(async (request: NextRequest) => 
     const search = searchParams.get('search')?.trim() || '';
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {};
+    const categoryId = searchParams.get('categoryId');
+    const isActive = searchParams.get('isActive');
+    const stock = searchParams.get('stock');
+    const sort = searchParams.get('sort') || 'id_desc';
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: Record<string, any> = {};
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { code: { contains: search, mode: 'insensitive' } },
       ];
     }
+    if (categoryId) where.categoryId = Number(categoryId);
+    if (isActive === 'true') where.isActive = true;
+    else if (isActive === 'false') where.isActive = false;
+    if (stock === 'out') where.quantity = 0;
+    else if (stock === 'low') where.quantity = { gt: 0, lte: 5 };
+    else if (stock === 'in') where.quantity = { gt: 5 };
+
+    const orderByMap: Record<string, object> = {
+      id_desc: { id: 'desc' },
+      id_asc: { id: 'asc' },
+      name_asc: { name: 'asc' },
+      name_desc: { name: 'desc' },
+      price_asc: { priceRetail: 'asc' },
+      price_desc: { priceRetail: 'desc' },
+      quantity_asc: { quantity: 'asc' },
+      quantity_desc: { quantity: 'desc' },
+      sales_desc: { ordersCount: 'desc' },
+    };
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({
@@ -31,13 +55,16 @@ export const GET = withRole('manager', 'admin')(async (request: NextRequest) => 
           slug: true,
           priceRetail: true,
           priceWholesale: true,
+          priceWholesale2: true,
+          priceWholesale3: true,
           quantity: true,
           isActive: true,
           isPromo: true,
           imagePath: true,
+          ordersCount: true,
           category: { select: { id: true, name: true } },
         },
-        orderBy: { id: 'desc' },
+        orderBy: orderByMap[sort] || { id: 'desc' },
         skip,
         take: limit,
       }),

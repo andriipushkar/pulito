@@ -11,7 +11,8 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { u
     const body = await request.json();
 
     if (body.action === 'approve') {
-      const result = await approveWholesale(numId, user.id);
+      const wholesaleGroup = body.wholesaleGroup ? Number(body.wholesaleGroup) : 1;
+      const result = await approveWholesale(numId, user.id, wholesaleGroup);
       return successResponse(result);
     }
 

@@ -135,7 +135,7 @@ export class ProductError extends Error {
 /** Convert Prisma Decimal fields to plain numbers for Server→Client serialization */
 function serializeProduct<T extends Record<string, unknown>>(product: T): T {
   const result = { ...product };
-  for (const key of ['priceRetail', 'priceWholesale', 'priceRetailOld', 'priceWholesaleOld'] as const) {
+  for (const key of ['priceRetail', 'priceWholesale', 'priceWholesale2', 'priceWholesale3', 'priceRetailOld', 'priceWholesaleOld', 'priceWholesaleOld2', 'priceWholesaleOld3'] as const) {
     if (key in result && result[key] != null) {
       (result as Record<string, unknown>)[key] = Number(result[key]);
     }
@@ -155,6 +155,8 @@ const productListSelect = {
   slug: true,
   priceRetail: true,
   priceWholesale: true,
+  priceWholesale2: true,
+  priceWholesale3: true,
   priceRetailOld: true,
   priceWholesaleOld: true,
   quantity: true,
@@ -457,6 +459,8 @@ export async function searchAutocomplete(query: string) {
             code: true,
             priceRetail: true,
             priceWholesale: true,
+            priceWholesale2: true,
+            priceWholesale3: true,
             quantity: true,
             imagePath: true,
             images: {
@@ -501,6 +505,8 @@ export async function createProduct(data: {
   categoryId?: number | null;
   priceRetail: number;
   priceWholesale?: number | null;
+  priceWholesale2?: number | null;
+  priceWholesale3?: number | null;
   quantity?: number;
   isPromo?: boolean;
   isActive?: boolean;
@@ -533,6 +539,8 @@ export async function createProduct(data: {
       categoryId: data.categoryId ?? null,
       priceRetail: data.priceRetail,
       priceWholesale: data.priceWholesale ?? null,
+      priceWholesale2: data.priceWholesale2 ?? null,
+      priceWholesale3: data.priceWholesale3 ?? null,
       quantity: data.quantity ?? 0,
       isPromo: data.isPromo ?? false,
       isActive: data.isActive ?? true,
@@ -558,6 +566,8 @@ export async function updateProduct(
     categoryId?: number | null;
     priceRetail?: number;
     priceWholesale?: number | null;
+    priceWholesale2?: number | null;
+    priceWholesale3?: number | null;
     quantity?: number;
     isPromo?: boolean;
     isActive?: boolean;
@@ -611,6 +621,20 @@ export async function updateProduct(
     updateData.priceWholesale = data.priceWholesale;
   }
 
+  if (data.priceWholesale2 !== undefined && Number(product.priceWholesale2) !== data.priceWholesale2) {
+    updateData.priceWholesaleOld2 = product.priceWholesale2;
+    updateData.priceWholesale2 = data.priceWholesale2;
+  } else if (data.priceWholesale2 !== undefined) {
+    updateData.priceWholesale2 = data.priceWholesale2;
+  }
+
+  if (data.priceWholesale3 !== undefined && Number(product.priceWholesale3) !== data.priceWholesale3) {
+    updateData.priceWholesaleOld3 = product.priceWholesale3;
+    updateData.priceWholesale3 = data.priceWholesale3;
+  } else if (data.priceWholesale3 !== undefined) {
+    updateData.priceWholesale3 = data.priceWholesale3;
+  }
+
   if (data.name !== undefined) {
     updateData.name = data.name;
     if (data.name !== product.name) {
@@ -618,7 +642,17 @@ export async function updateProduct(
       const slugExists = await prisma.product.findFirst({
         where: { slug, id: { not: id } },
       });
-      updateData.slug = slugExists ? `${slug}-${product.code.toLowerCase()}` : slug;
+      const newSlug = slugExists ? `${slug}-${product.code.toLowerCase()}` : slug;
+      updateData.slug = newSlug;
+
+      // Auto-create redirect from old slug to new slug
+      if (product.slug !== newSlug) {
+        await prisma.slugRedirect.upsert({
+          where: { oldSlug: product.slug },
+          update: { newSlug, type: 'product' },
+          create: { oldSlug: product.slug, newSlug, type: 'product' },
+        });
+      }
     }
   }
 
