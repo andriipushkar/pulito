@@ -1,24 +1,27 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { apiClient } from '@/lib/api-client';
 import { WHOLESALE_GROUP_LABELS } from '@/types/user';
 import type { WholesaleGroup } from '@/types/user';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
-import PerformanceWidget from '@/components/admin/analytics/PerformanceWidget';
-import ConversionFunnel from '@/components/admin/analytics/ConversionFunnel';
-import CohortAnalysis from '@/components/admin/analytics/CohortAnalysis';
-import ABCAnalysis from '@/components/admin/analytics/ABCAnalysis';
-import AlertsConfig from '@/components/admin/analytics/AlertsConfig';
-import StockAnalytics from '@/components/admin/analytics/StockAnalytics';
-import PriceAnalytics from '@/components/admin/analytics/PriceAnalytics';
-import ChannelAnalytics from '@/components/admin/analytics/ChannelAnalytics';
-import GeographyAnalytics from '@/components/admin/analytics/GeographyAnalytics';
-import CustomerLTV from '@/components/admin/analytics/CustomerLTV';
-import CustomerSegmentation from '@/components/admin/analytics/CustomerSegmentation';
-import RFMAnalysis from '@/components/admin/analytics/RFMAnalysis';
-import ChurnPrediction from '@/components/admin/analytics/ChurnPrediction';
+
+// Lazy load heavy analytics components (recharts ~8MB)
+const PerformanceWidget = dynamic(() => import('@/components/admin/analytics/PerformanceWidget'), { ssr: false });
+const ConversionFunnel = dynamic(() => import('@/components/admin/analytics/ConversionFunnel'), { ssr: false });
+const CohortAnalysis = dynamic(() => import('@/components/admin/analytics/CohortAnalysis'), { ssr: false });
+const ABCAnalysis = dynamic(() => import('@/components/admin/analytics/ABCAnalysis'), { ssr: false });
+const AlertsConfig = dynamic(() => import('@/components/admin/analytics/AlertsConfig'), { ssr: false });
+const StockAnalytics = dynamic(() => import('@/components/admin/analytics/StockAnalytics'), { ssr: false });
+const PriceAnalytics = dynamic(() => import('@/components/admin/analytics/PriceAnalytics'), { ssr: false });
+const ChannelAnalytics = dynamic(() => import('@/components/admin/analytics/ChannelAnalytics'), { ssr: false });
+const GeographyAnalytics = dynamic(() => import('@/components/admin/analytics/GeographyAnalytics'), { ssr: false });
+const CustomerLTV = dynamic(() => import('@/components/admin/analytics/CustomerLTV'), { ssr: false });
+const CustomerSegmentation = dynamic(() => import('@/components/admin/analytics/CustomerSegmentation'), { ssr: false });
+const RFMAnalysis = dynamic(() => import('@/components/admin/analytics/RFMAnalysis'), { ssr: false });
+const ChurnPrediction = dynamic(() => import('@/components/admin/analytics/ChurnPrediction'), { ssr: false });
 
 type AnalyticsTab = 'dashboard' | 'sales' | 'products' | 'clients' | 'orders' | 'performance' | 'funnel' | 'cohorts' | 'abc' | 'alerts' | 'stock' | 'price' | 'channels' | 'geography' | 'ltv' | 'segments' | 'rfm' | 'churn';
 

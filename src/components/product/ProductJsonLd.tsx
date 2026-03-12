@@ -23,6 +23,10 @@ export default function ProductJsonLd({ product }: ProductJsonLdProps) {
     ...(product.content?.shortDescription && { description: product.content.shortDescription }),
     ...(images.length > 0 ? { image: images } : mainImage ? { image: mainImage } : {}),
     ...(product.category && { category: product.category.name }),
+    brand: {
+      '@type': 'Brand',
+      name: 'Порошок',
+    },
     offers: {
       '@type': 'Offer',
       url: `${baseUrl}/product/${product.slug}`,
@@ -36,6 +40,36 @@ export default function ProductJsonLd({ product }: ProductJsonLdProps) {
         '@type': 'Organization',
         name: 'Порошок',
         url: baseUrl,
+      },
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingDestination: {
+          '@type': 'DefinedRegion',
+          addressCountry: 'UA',
+        },
+        deliveryTime: {
+          '@type': 'ShippingDeliveryTime',
+          handlingTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 0,
+            maxValue: 1,
+            unitCode: 'DAY',
+          },
+          transitTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 1,
+            maxValue: 3,
+            unitCode: 'DAY',
+          },
+        },
+      },
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        applicableCountry: 'UA',
+        returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+        merchantReturnDays: 14,
+        returnMethod: 'https://schema.org/ReturnByMail',
+        returnFees: 'https://schema.org/ReturnFeesCustomerResponsibility',
       },
       ...(oldPrice && oldPrice > price && {
         priceValidUntil: product.promoEndDate

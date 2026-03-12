@@ -1,3 +1,4 @@
+import { randomBytes, createHmac } from 'crypto';
 import { env } from '@/config/env';
 
 export class GoogleOAuthError extends Error {
@@ -28,7 +29,38 @@ const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 
-export function getGoogleAuthUrl(): string {
+/**
+ * Generate a signed OAuth state parameter to prevent CSRF.
+ * Format: <random_nonce>.<hmac_signature>
+ */
+export function generateOAuthState(): string {
+  const nonce = randomBytes(16).toString('hex');
+  const signature = createHmac('sha256', env.APP_SECRET)
+    .update(nonce)
+    .digest('hex');
+  return `${nonce}.${signature}`;
+}
+
+/**
+ * Verify the OAuth state parameter signature.
+ */
+export function verifyOAuthState(state: string): boolean {
+  const parts = state.split('.');
+  if (parts.length !== 2) return false;
+  const [nonce, signature] = parts;
+  const expected = createHmac('sha256', env.APP_SECRET)
+    .update(nonce)
+    .digest('hex');
+  // Constant-time comparison
+  if (expected.length !== signature.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+export function getGoogleAuthUrl(state: string): string {
   const clientId = env.GOOGLE_CLIENT_ID;
   if (!clientId) {
     throw new GoogleOAuthError('Google OAuth not configured');
@@ -42,6 +74,7 @@ export function getGoogleAuthUrl(): string {
     scope: 'openid email profile',
     access_type: 'offline',
     prompt: 'consent',
+    state,
   });
 
   return `${GOOGLE_AUTH_URL}?${params.toString()}`;

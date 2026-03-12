@@ -6,6 +6,7 @@ vi.mock('@/config/env', () => ({
     APP_URL: 'https://test.com',
     GOOGLE_CLIENT_ID: 'test-client-id',
     GOOGLE_CLIENT_SECRET: 'test-secret',
+    APP_SECRET: 'test-app-secret-for-hmac',
   },
 }));
 
@@ -31,11 +32,12 @@ describe('GoogleOAuthError', () => {
 
 describe('getGoogleAuthUrl', () => {
   it('should return a valid Google auth URL', () => {
-    const url = getGoogleAuthUrl();
+    const url = getGoogleAuthUrl('test-state-value');
     expect(url).toContain('accounts.google.com');
     expect(url).toContain('client_id=test-client-id');
     expect(url).toContain('redirect_uri=');
     expect(url).toContain('scope=openid+email+profile');
+    expect(url).toContain('state=test-state-value');
   });
 });
 
@@ -112,12 +114,12 @@ describe('getGoogleAuthUrl - missing client ID', () => {
   it('should throw when client ID is not configured', async () => {
     const envMod = await import('@/config/env');
     const originalClientId = envMod.env.GOOGLE_CLIENT_ID;
-    (envMod.env as Record<string, string>).GOOGLE_CLIENT_ID = '';
+    (envMod.env as unknown as Record<string, string>).GOOGLE_CLIENT_ID = '';
 
     try {
-      expect(() => getGoogleAuthUrl()).toThrow(GoogleOAuthError);
+      expect(() => getGoogleAuthUrl('test-state')).toThrow(GoogleOAuthError);
     } finally {
-      (envMod.env as Record<string, string>).GOOGLE_CLIENT_ID = originalClientId;
+      (envMod.env as unknown as Record<string, string>).GOOGLE_CLIENT_ID = originalClientId;
     }
   });
 });
@@ -126,12 +128,12 @@ describe('exchangeCodeForTokens - missing credentials', () => {
   it('should throw when client ID or secret is not configured', async () => {
     const envMod = await import('@/config/env');
     const originalClientId = envMod.env.GOOGLE_CLIENT_ID;
-    (envMod.env as Record<string, string>).GOOGLE_CLIENT_ID = '';
+    (envMod.env as unknown as Record<string, string>).GOOGLE_CLIENT_ID = '';
 
     try {
       await expect(exchangeCodeForTokens('code')).rejects.toThrow('Google OAuth not configured');
     } finally {
-      (envMod.env as Record<string, string>).GOOGLE_CLIENT_ID = originalClientId;
+      (envMod.env as unknown as Record<string, string>).GOOGLE_CLIENT_ID = originalClientId;
     }
   });
 

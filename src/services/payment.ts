@@ -4,6 +4,7 @@ import { env } from '@/config/env';
 import type { PaymentProvider, PaymentInitResult, PaymentCallbackResult } from '@/types/payment';
 import * as liqpay from './payment-providers/liqpay';
 import * as monobank from './payment-providers/monobank';
+import * as wayforpay from './payment-providers/wayforpay';
 
 export class PaymentError extends Error {
   constructor(
@@ -52,9 +53,12 @@ export async function initiatePayment(
   if (provider === 'liqpay') {
     const serverUrl = `${env.APP_URL}/api/webhooks/liqpay`;
     result = await liqpay.createPayment(orderId, amount, description, resultUrl, serverUrl);
-  } else {
+  } else if (provider === 'monobank') {
     const webhookUrl = `${env.APP_URL}/api/webhooks/monobank`;
     result = await monobank.createPayment(orderId, amount, description, resultUrl, webhookUrl);
+  } else {
+    const serviceUrl = `${env.APP_URL}/api/webhooks/wayforpay`;
+    result = await wayforpay.createPayment(orderId, amount, description, resultUrl, serviceUrl);
   }
 
   // Create or update payment record

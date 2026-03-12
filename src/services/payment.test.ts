@@ -28,14 +28,20 @@ vi.mock('./payment-providers/monobank', () => ({
   createPayment: vi.fn(),
 }));
 
+vi.mock('./payment-providers/wayforpay', () => ({
+  createPayment: vi.fn(),
+}));
+
 import { prisma } from '@/lib/prisma';
 import * as liqpay from './payment-providers/liqpay';
 import * as monobank from './payment-providers/monobank';
+import * as wayforpay from './payment-providers/wayforpay';
 import { PaymentError, initiatePayment, handlePaymentCallback, getPaymentStatus } from './payment';
 
 const mockPrisma = prisma as unknown as MockPrismaClient;
 const mockLiqpay = liqpay as { createPayment: ReturnType<typeof vi.fn> };
 const mockMonobank = monobank as { createPayment: ReturnType<typeof vi.fn> };
+const mockWayforpay = wayforpay as { createPayment: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -159,6 +165,33 @@ describe('initiatePayment', () => {
         create: expect.objectContaining({
           paymentProvider: 'monobank',
           transactionId: 'mono-456',
+        }),
+      })
+    );
+  });
+
+  it('calls wayforpay.createPayment when provider is wayforpay', async () => {
+    (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(baseOrder);
+    const paymentResult = { paymentId: 'order_1_1700000000', redirectUrl: 'https://secure.wayforpay.com/invoice/test' };
+    mockWayforpay.createPayment.mockResolvedValue(paymentResult);
+    (mockPrisma.payment.upsert as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    const result = await initiatePayment(1, 'wayforpay');
+
+    expect(result).toEqual(paymentResult);
+    expect(mockWayforpay.createPayment).toHaveBeenCalledWith(
+      1,
+      500,
+      'Замовлення #ORD-001',
+      'https://test.com/checkout/payment-redirect?orderId=1',
+      'https://test.com/api/webhooks/wayforpay'
+    );
+    expect(mockPrisma.payment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orderId: 1 },
+        create: expect.objectContaining({
+          paymentProvider: 'wayforpay',
+          transactionId: 'order_1_1700000000',
         }),
       })
     );
@@ -298,6 +331,66 @@ describe('handlePaymentCallback', () => {
         paymentStatus: 'pending',
         paidAt: null,
       }),
+    });
+
+    expect(mockPrisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('creates payment record for wayforpay provider on success', async () => {
+    (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (mockPrisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (mockPrisma.order.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    await handlePaymentCallback('wayforpay', successCallback);
+
+    expect(mockPrisma.payment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orderId: 1,
+        paymentMethod: 'online',
+        paymentStatus: 'paid',
+        amount: 0,
+        paymentProvider: 'wayforpay',
+        transactionId: 'txn-001',
+        callbackData: { some: 'data' },
+        paidAt: expect.any(Date),
+      }),
+    });
+
+    expect(mockPrisma.order.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        paymentStatus: 'paid',
+        statusHistory: {
+          create: {
+            oldStatus: null,
+            newStatus: 'paid',
+            changeSource: 'system',
+            comment: 'Оплата підтверджена через wayforpay',
+          },
+        },
+      },
+    });
+  });
+
+  it('updates existing payment for wayforpay on failure without updating order', async () => {
+    const existingPayment = {
+      orderId: 1,
+      paymentStatus: 'pending',
+      paidAt: null,
+    };
+    (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(existingPayment);
+    (mockPrisma.payment.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    await handlePaymentCallback('wayforpay', failureCallback);
+
+    expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+      where: { orderId: 1 },
+      data: {
+        paymentStatus: 'pending',
+        transactionId: 'txn-002',
+        callbackData: { error: 'declined' },
+        paidAt: null,
+      },
     });
 
     expect(mockPrisma.order.update).not.toHaveBeenCalled();

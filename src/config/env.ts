@@ -36,6 +36,8 @@ const envSchema = z.object({
   LIQPAY_PUBLIC_KEY: z.string().default(''),
   LIQPAY_PRIVATE_KEY: z.string().default(''),
   MONOBANK_TOKEN: z.string().default(''),
+  WAYFORPAY_MERCHANT_ACCOUNT: z.string().default(''),
+  WAYFORPAY_SECRET_KEY: z.string().default(''),
   TELEGRAM_BOT_TOKEN: z.string().default(''),
   TELEGRAM_MANAGER_CHAT_ID: z.string().default(''),
   MAINTENANCE_MODE: z.enum(['true', 'false']).default('false'),

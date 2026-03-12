@@ -128,11 +128,22 @@ export async function refreshTokens(
   const tokenHash = hashToken(refreshToken);
   const stored = await prisma.refreshToken.findUnique({ where: { tokenHash } });
 
-  if (!stored || stored.revokedAt) {
+  if (!stored) {
     throw new AuthError('Refresh token відкликано', 401);
   }
 
-  // Revoke old token
+  // SECURITY: Refresh token reuse detection.
+  // If a revoked token is presented, it means the token was stolen and used
+  // after rotation. Revoke ALL tokens for this user (nuke the family).
+  if (stored.revokedAt) {
+    await prisma.refreshToken.updateMany({
+      where: { userId: stored.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    throw new AuthError('Виявлено повторне використання токена. Всі сесії завершено.', 401);
+  }
+
+  // Revoke old token (normal rotation)
   await prisma.refreshToken.update({
     where: { id: stored.id },
     data: { revokedAt: new Date() },

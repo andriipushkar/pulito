@@ -6,12 +6,13 @@ import Container from '@/components/ui/Container';
 import SearchBar from './SearchBar';
 import IconButton from '@/components/ui/IconButton';
 import MiniCart from './MiniCart';
-import { Heart, Cart, User, Bell } from '@/components/icons';
+import { Heart, Cart, User, Bell, Compare } from '@/components/icons';
 import CallbackButton from '@/components/common/CallbackButton';
 import ChatWidget from '@/components/common/ChatWidget';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
+import { useComparison } from '@/hooks/useComparison';
 import { apiClient } from '@/lib/api-client';
 import { formatPrice } from '@/utils/format';
 import type { CategoryListItem } from '@/types/category';
@@ -25,6 +26,7 @@ export default function HeaderMain({ categories, shrink }: HeaderMainProps) {
   const { user } = useAuth();
   const { itemCount, total } = useCart();
   const { wishlistCount } = useWishlist();
+  const { count: comparisonCount } = useComparison();
   const [cartOpen, setCartOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -107,6 +109,10 @@ export default function HeaderMain({ categories, shrink }: HeaderMainProps) {
                 <IconButton icon={<Bell size={20} />} badge={unreadCount} label="Сповіщення" />
               </Link>
             )}
+
+            <Link href="/comparison" className="hidden lg:block">
+              <IconButton icon={<Compare size={20} />} badge={comparisonCount} label="Порівняння" />
+            </Link>
 
             <Link href="/account/wishlist" className="hidden lg:block">
               <IconButton icon={<Heart size={20} />} badge={wishlistCount} label="Обране" />

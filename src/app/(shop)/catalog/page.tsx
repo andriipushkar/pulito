@@ -1,5 +1,9 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+
+// ISR: revalidate catalog every 60 seconds
+export const revalidate = 60;
+
 import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
@@ -40,6 +44,13 @@ export async function generateMetadata({ searchParams }: CatalogPageProps): Prom
     description: category?.seoDescription || 'Каталог побутової хімії. Широкий вибір товарів за вигідними цінами.',
     alternates: {
       canonical,
+    },
+    openGraph: {
+      title,
+      description: category?.seoDescription || 'Каталог побутової хімії. Широкий вибір товарів за вигідними цінами.',
+      url: canonical,
+      type: 'website',
+      siteName: 'Порошок',
     },
   };
 }
@@ -96,8 +107,40 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   if (inStock) currentSearchParams.in_stock = 'true';
   if (sort !== 'popular') currentSearchParams.sort = sort;
 
+  const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+  const collectionJsonLd = !search ? {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: categoryData?.name || 'Каталог товарів',
+    url: `${baseUrl}/catalog${category ? `?category=${category}` : ''}`,
+    ...(categoryData?.seoDescription && { description: categoryData.seoDescription }),
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'Порошок',
+      url: baseUrl,
+    },
+    ...(products.length > 0 && {
+      mainEntity: {
+        '@type': 'ItemList',
+        numberOfItems: total,
+        itemListElement: products.slice(0, 10).map((p, i) => ({
+          '@type': 'ListItem',
+          position: (page - 1) * limit + i + 1,
+          url: `${baseUrl}/product/${p.slug}`,
+          name: p.name,
+        })),
+      },
+    }),
+  } : null;
+
   return (
     <Container className="py-6">
+      {collectionJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
+        />
+      )}
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       <h1 className="mb-6 text-2xl font-bold">

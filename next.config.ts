@@ -3,10 +3,21 @@ import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
+// CDN support: set CDN_URL env to serve static assets from CDN (e.g. Cloudflare, CloudFront)
+const cdnUrl = process.env.CDN_URL || '';
+
 const nextConfig: NextConfig = {
   output: 'standalone',
+  ...(cdnUrl && { assetPrefix: cdnUrl }),
+  poweredByHeader: false,
+  compress: true,
   images: {
     formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 31536000,
+    ...(cdnUrl && {
+      loader: 'default',
+      path: `${cdnUrl}/_next/image`,
+    }),
     remotePatterns: [
       {
         protocol: 'https',
@@ -57,4 +68,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// Bundle analyzer: run with ANALYZE=true npm run build
+const withBundleAnalyzer = process.env.ANALYZE === 'true'
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  ? require('@next/bundle-analyzer')({ enabled: true })
+  : (config: NextConfig) => config;
+
+export default withBundleAnalyzer(withNextIntl(nextConfig));

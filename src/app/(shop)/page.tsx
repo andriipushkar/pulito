@@ -1,10 +1,15 @@
+import dynamic from 'next/dynamic';
 import Container from '@/components/ui/Container';
 import AnimateOnScroll from '@/components/ui/AnimateOnScroll';
 import BannerSlider from '@/components/home/BannerSlider';
 import CategoryGrid from '@/components/home/CategoryGrid';
-import BrandLogos from '@/components/home/BrandLogos';
 import ProductCarousel from '@/components/product/ProductCarousel';
-import RecentlyViewedSection from '@/components/product/RecentlyViewedSection';
+
+const BrandLogos = dynamic(() => import('@/components/home/BrandLogos'));
+const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'));
+
+// ISR: revalidate homepage every 60 seconds
+export const revalidate = 60;
 import { getCategories } from '@/services/category';
 import { getPromoProducts, getNewProducts, getPopularProducts } from '@/services/product';
 import { getHomepageBlocks } from '@/services/homepage';

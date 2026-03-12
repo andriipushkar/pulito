@@ -126,7 +126,8 @@
     "onlineDesc": "Visa / Mastercard через платіжний шлюз",
     "cardPrepayDesc": "Переказ на картку за реквізитами",
     "liqpayDesc": "Оплата через LiqPay (PrivatBank)",
-    "monobankDesc": "Оплата через Monobank Acquiring"
+    "monobankDesc": "Оплата через Monobank Acquiring",
+    "wayforpayDesc": "Visa/Mastercard, Apple Pay, Google Pay, Оплата частинами"
   },
   "order": {
     "title": "Оформлення замовлення",

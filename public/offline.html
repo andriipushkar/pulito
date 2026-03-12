@@ -6,14 +6,15 @@
   <title>Offline — Порошок</title>
   <style>
     :root {
-      --color-primary: #78C4AA;
-      --color-primary-dark: #5BAF91;
-      --color-text: #1e293b;
-      --color-text-secondary: #64748b;
+      --color-primary: #1E88E5;
+      --color-primary-dark: #1565C0;
+      --color-text: #212121;
+      --color-text-secondary: #757575;
       --color-bg: #ffffff;
-      --color-bg-secondary: #f7faf8;
-      --color-border: #e2e8f0;
-      --radius: 0.5rem;
+      --color-bg-secondary: #F5F5F5;
+      --color-border: #E0E0E0;
+      --color-success: #4CAF50;
+      --radius: 0.75rem;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -28,7 +29,7 @@
     .container {
       text-align: center;
       padding: 2rem;
-      max-width: 480px;
+      max-width: 400px;
     }
     .icon {
       width: 64px;
@@ -37,8 +38,9 @@
       color: var(--color-text-secondary);
     }
     h1 {
-      font-size: 1.5rem;
+      font-size: 1.25rem;
       margin-bottom: 0.5rem;
+      font-weight: 700;
     }
     p {
       color: var(--color-text-secondary);
@@ -47,28 +49,64 @@
       margin-bottom: 1.5rem;
     }
     .btn {
-      display: inline-block;
+      display: block;
+      width: 100%;
       background: var(--color-primary);
       color: white;
       border: none;
       padding: 0.75rem 1.5rem;
       border-radius: var(--radius);
       font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 0.75rem;
+    }
+    .btn:hover { background: var(--color-primary-dark); }
+    .btn-outline {
+      display: block;
+      width: 100%;
+      background: transparent;
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
       font-weight: 500;
       cursor: pointer;
       text-decoration: none;
+      text-align: center;
     }
-    .btn:hover { background: var(--color-primary-dark); }
+    .btn-outline:hover { background: var(--color-bg-secondary); }
+    .online-banner {
+      display: none;
+      background: var(--color-success);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
       <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636a9 9 0 010 12.728M5.636 5.636a9 9 0 000 12.728M8.464 15.536a5 5 0 010-7.072M15.536 8.464a5 5 0 010 7.072M12 12h.01" />
     </svg>
-    <h1>Немає зʼєднання</h1>
-    <p>Перевірте підключення до інтернету та спробуйте знову.</p>
+    <div id="online-banner" class="online-banner">
+      З'єднання відновлено. Оновлення...
+    </div>
+    <h1>Немає з'єднання</h1>
+    <p>Перевірте підключення до інтернету. Раніше переглянуті сторінки можуть бути доступні офлайн.</p>
     <button class="btn" onclick="window.location.reload()">Спробувати знову</button>
+    <a class="btn-outline" href="/catalog">Каталог (офлайн)</a>
   </div>
+  <script>
+    window.addEventListener('online', function() {
+      document.getElementById('online-banner').style.display = 'block';
+      setTimeout(function() { window.location.reload(); }, 1500);
+    });
+  </script>
 </body>
 </html>

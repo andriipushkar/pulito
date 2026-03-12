@@ -126,7 +126,8 @@
     "onlineDesc": "Visa / Mastercard via payment gateway",
     "cardPrepayDesc": "Card prepayment by bank details",
     "liqpayDesc": "Pay via LiqPay (PrivatBank)",
-    "monobankDesc": "Pay via Monobank Acquiring"
+    "monobankDesc": "Pay via Monobank Acquiring",
+    "wayforpayDesc": "Visa/Mastercard, Apple Pay, Google Pay, Installments"
   },
   "order": {
     "title": "Checkout",

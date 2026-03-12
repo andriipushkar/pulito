@@ -6,6 +6,36 @@ const MAINTENANCE_ALLOWED_PATHS = ['/maintenance', '/admin', '/api/v1/admin', '/
 const CSRF_EXEMPT_PREFIXES = ['/api/webhooks/', '/api/v1/cron/', '/api/v1/metrics'];
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+// In-memory sliding window rate limiter for middleware (Redis is too slow for edge middleware)
+// This provides a first line of defense; per-route Redis rate limiting is more precise.
+const ipRequestCounts = new Map<string, { count: number; resetAt: number }>();
+const GLOBAL_RATE_LIMIT = 120; // requests per window
+const GLOBAL_RATE_WINDOW = 60_000; // 1 minute
+
+function checkGlobalRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipRequestCounts.get(ip);
+
+  if (!entry || now >= entry.resetAt) {
+    ipRequestCounts.set(ip, { count: 1, resetAt: now + GLOBAL_RATE_WINDOW });
+    return true;
+  }
+
+  entry.count++;
+  return entry.count <= GLOBAL_RATE_LIMIT;
+}
+
+// Periodically clean up stale entries (every 5 min)
+let lastCleanup = Date.now();
+function cleanupRateLimitMap() {
+  const now = Date.now();
+  if (now - lastCleanup < 300_000) return;
+  lastCleanup = now;
+  for (const [ip, entry] of ipRequestCounts) {
+    if (now >= entry.resetAt) ipRequestCounts.delete(ip);
+  }
+}
+
 /** Resolve the effective host, preferring X-Forwarded-Host for reverse-proxy setups. */
 function getEffectiveHost(request: NextRequest): string | null {
   return request.headers.get('x-forwarded-host') || request.headers.get('host');
@@ -78,11 +108,42 @@ export default function middleware(request: NextRequest) {
     }
   }
 
+  // Global rate limiting for API routes
+  if (pathname.startsWith('/api')) {
+    cleanupRateLimitMap();
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
+
+    if (!checkGlobalRateLimit(ip)) {
+      return NextResponse.json(
+        { success: false, error: 'Забагато запитів. Спробуйте пізніше.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': '60',
+            'X-RateLimit-Limit': String(GLOBAL_RATE_LIMIT),
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
+    }
+  }
+
   // CSRF protection for mutating API requests
   const csrfError = checkCsrf(request);
   if (csrfError) return csrfError;
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  // Security headers
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+  return response;
 }
 
 export const config = {

@@ -21,6 +21,56 @@
       "purpose": "any maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "Каталог",
+      "short_name": "Каталог",
+      "url": "/catalog",
+      "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Кошик",
+      "short_name": "Кошик",
+      "url": "/cart",
+      "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Мої замовлення",
+      "short_name": "Замовлення",
+      "url": "/account/orders",
+      "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Порівняння",
+      "short_name": "Порівняти",
+      "url": "/comparison",
+      "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/images/screenshots/mobile-home.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Головна сторінка магазину Порошок"
+    },
+    {
+      "src": "/images/screenshots/mobile-catalog.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Каталог товарів"
+    },
+    {
+      "src": "/images/screenshots/desktop-home.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Головна сторінка — десктоп"
+    }
+  ],
   "categories": ["shopping", "lifestyle"],
-  "lang": "uk"
+  "lang": "uk",
+  "prefer_related_applications": false
 }

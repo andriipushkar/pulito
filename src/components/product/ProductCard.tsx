@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
 import PriceDisplay from './PriceDisplay';
-import QuickView from './QuickView';
-import { Heart, HeartFilled, Cart, Search } from '@/components/icons';
+import { Heart, HeartFilled, Cart, Search, Compare } from '@/components/icons';
+
+const QuickView = dynamic(() => import('./QuickView'), { ssr: false });
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
+import { useComparison } from '@/hooks/useComparison';
 import { apiClient } from '@/lib/api-client';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import type { ProductListItem } from '@/types/product';
@@ -66,6 +69,8 @@ interface ProductCardProps {
 export default function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const { user } = useAuth();
+  const { has: hasCompare, toggle: toggleCompare } = useComparison();
+  const isCompared = hasCompare(product.id);
   const [showQuickView, setShowQuickView] = useState(false);
   const [isWished, setIsWished] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -207,6 +212,15 @@ export default function ProductCard({ product }: ProductCardProps) {
             onClick={handleToggleWishlist}
           >
             {isWished ? <HeartFilled size={16} /> : <Heart size={16} />}
+          </button>
+          <button
+            className={`rounded-full bg-white/90 p-1 shadow-[var(--shadow)] backdrop-blur-sm transition-colors sm:p-1.5 ${
+              isCompared ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
+            }`}
+            aria-label={isCompared ? 'Видалити з порівняння' : 'Додати до порівняння'}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleCompare(product.id); }}
+          >
+            <Compare size={16} />
           </button>
           <button
             className="hidden rounded-full bg-white/90 p-1.5 text-[var(--color-text-secondary)] shadow-[var(--shadow)] backdrop-blur-sm hover:text-[var(--color-primary)] sm:block"

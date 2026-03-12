@@ -15,6 +15,7 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; descriptionKey: string }[] = [
 const ONLINE_PROVIDERS = [
   { value: 'liqpay', label: 'LiqPay', descriptionKey: 'liqpayDesc' },
   { value: 'monobank', label: 'Monobank', descriptionKey: 'monobankDesc' },
+  { value: 'wayforpay', label: 'WayForPay', descriptionKey: 'wayforpayDesc' },
 ];
 
 interface StepPaymentProps {

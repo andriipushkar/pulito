@@ -1,4 +1,4 @@
-export type PaymentProvider = 'liqpay' | 'monobank';
+export type PaymentProvider = 'liqpay' | 'monobank' | 'wayforpay';
 
 export interface PaymentInitResult {
   redirectUrl: string;
@@ -46,4 +46,22 @@ export interface MonobankCallbackData {
 export interface MonobankInvoiceResponse {
   invoiceId: string;
   pageUrl: string;
+}
+
+export interface WayForPayCallbackData {
+  merchantAccount: string;
+  orderReference: string;
+  merchantSignature: string;
+  amount: number;
+  currency: string;
+  authCode?: string;
+  cardPan?: string;
+  transactionStatus: string;
+  reasonCode: number;
+  reason?: string;
+  transactionId?: number;
+  receiptUrl?: string;
+  paymentSystem?: string;
+  fee?: number;
+  cardType?: string;
 }

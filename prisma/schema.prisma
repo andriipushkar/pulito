@@ -107,6 +107,7 @@ model User {
   loyaltyAccount        LoyaltyAccount?
   loyaltyTransactions   LoyaltyTransaction[]
   pushSubscriptions     PushSubscription[]
+  reviews               Review[]
 
   @@map("users")
 }
@@ -185,6 +186,7 @@ model Product {
   publications    Publication[]           @relation("PublicationProduct")
   wholesaleRules  WholesaleRule[]
   clientEvents    ClientEvent[]
+  reviews         Review[]
 
   @@index([categoryId])
   @@index([isActive, isPromo])
@@ -1383,6 +1385,40 @@ model ChannelStats {
 }
 
 // ─────────────────────────────────────
+// Reviews & Ratings (Відгуки та рейтинги)
+// ─────────────────────────────────────
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+model Review {
+  id        Int          @id @default(autoincrement())
+  productId Int          @map("product_id")
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    Int          @map("user_id")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int          // 1-5
+  title     String?      @db.VarChar(200)
+  comment   String?      @db.VarChar(2000)
+  pros      String?      @db.VarChar(500)
+  cons      String?      @db.VarChar(500)
+  status    ReviewStatus @default(pending)
+  isVerifiedPurchase Boolean @default(false) @map("is_verified_purchase")
+  helpfulCount   Int     @default(0) @map("helpful_count")
+  adminReply     String? @map("admin_reply") @db.VarChar(1000)
+  adminReplyAt   DateTime? @map("admin_reply_at")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  @@unique([productId, userId])
+  @@index([productId, status])
+  @@index([userId])
+  @@map("reviews")
+}
+
+// ─────────────────────────────────────
 // Slug Redirects (SEO 301 redirects for changed slugs)
 // ─────────────────────────────────────
 model SlugRedirect {
@@ -1393,4 +1429,93 @@ model SlugRedirect {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("slug_redirects")
+}
+
+// ─────────────────────────────────────
+// Coupons & Promo Codes (Купони та промокоди)
+// ─────────────────────────────────────
+enum CouponType {
+  percent
+  fixed_amount
+  free_delivery
+}
+
+model Coupon {
+  id                Int        @id @default(autoincrement())
+  code              String     @unique
+  description       String?
+  type              CouponType
+  value             Decimal    @db.Decimal(10, 2) // percent value or fixed amount
+  minOrderAmount    Decimal?   @map("min_order_amount") @db.Decimal(10, 2)
+  maxDiscount       Decimal?   @map("max_discount") @db.Decimal(10, 2) // cap for percent coupons
+  usageLimit        Int?       @map("usage_limit")      // total uses allowed
+  usageLimitPerUser Int?       @map("usage_limit_per_user")
+  usedCount         Int        @default(0) @map("used_count")
+  validFrom         DateTime?  @map("valid_from")
+  validUntil        DateTime?  @map("valid_until")
+  isActive          Boolean    @default(true) @map("is_active")
+  createdBy         Int?       @map("created_by")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  redemptions CouponRedemption[]
+
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id        Int      @id @default(autoincrement())
+  couponId  Int      @map("coupon_id")
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  userId    Int?     @map("user_id")
+  orderId   Int?     @map("order_id")
+  discount  Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([couponId])
+  @@index([userId])
+  @@map("coupon_redemptions")
+}
+
+// ─────────────────────────────────────
+// Returns / RMA (Повернення)
+// ─────────────────────────────────────
+enum ReturnStatus {
+  requested
+  approved
+  rejected
+  received
+  refunded
+}
+
+enum ReturnReason {
+  defective
+  wrong_item
+  not_as_described
+  changed_mind
+  damaged_delivery
+  other
+}
+
+model ReturnRequest {
+  id             Int          @id @default(autoincrement())
+  orderId        Int          @map("order_id")
+  userId         Int          @map("user_id")
+  status         ReturnStatus @default(requested)
+  reason         ReturnReason
+  description    String?      @db.VarChar(2000)
+  items          Json         // Array of { orderItemId, productName, quantity, amount }
+  totalAmount    Decimal      @map("total_amount") @db.Decimal(10, 2)
+  trackingNumber String?      @map("tracking_number")
+  adminComment   String?      @map("admin_comment") @db.VarChar(1000)
+  processedBy    Int?         @map("processed_by")
+  processedAt    DateTime?    @map("processed_at")
+  refundedAt     DateTime?    @map("refunded_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@map("return_requests")
 }

@@ -1,4 +1,8 @@
 import type { Metadata } from 'next';
+
+// ISR: revalidate FAQ every 5 minutes
+export const revalidate = 300;
+
 import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import FaqContent from '@/components/faq/FaqContent';

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 import { notFound, redirect } from 'next/navigation';
 import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
@@ -8,12 +9,17 @@ import ProductTabs from '@/components/product/ProductTabs';
 import ProductJsonLd from '@/components/product/ProductJsonLd';
 import ProductCarousel from '@/components/product/ProductCarousel';
 import RecentlyViewedTracker from '@/components/product/RecentlyViewedTracker';
-import RecentlyViewedSection from '@/components/product/RecentlyViewedSection';
-import PriceHistoryChart from '@/components/product/PriceHistoryChart';
-import BoughtTogetherSection from '@/components/product/BoughtTogetherSection';
 import FloatingBuyBar from '@/components/product/FloatingBuyBar';
 import { getProductBySlug, getProducts } from '@/services/product';
 import { prisma } from '@/lib/prisma';
+
+const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'));
+const PriceHistoryChart = dynamic(() => import('@/components/product/PriceHistoryChart'), { ssr: false });
+const BoughtTogetherSection = dynamic(() => import('@/components/product/BoughtTogetherSection'));
+const ReviewSection = dynamic(() => import('@/components/product/ReviewSection'), { ssr: false });
+
+// ISR: revalidate product pages every 120 seconds
+export const revalidate = 120;
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -29,6 +35,8 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const description = product.content?.seoDescription || product.content?.shortDescription || `${product.name} — купити за вигідною ціною в Порошок`;
   const image = product.images[0]?.pathFull || product.imagePath;
   const url = `${baseUrl}/product/${slug}`;
+
+  const price = Number(product.priceRetail);
 
   return {
     title,
@@ -47,6 +55,13 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       title,
       description,
       ...(image && { images: [image] }),
+    },
+    other: {
+      'product:price:amount': price.toFixed(2),
+      'product:price:currency': 'UAH',
+      'product:availability': product.quantity > 0 ? 'in stock' : 'out of stock',
+      'product:condition': 'new',
+      ...(product.code && { 'product:retailer_item_id': product.code }),
     },
   };
 }
@@ -98,6 +113,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <div className="mt-10">
         <ProductTabs content={product.content} />
       </div>
+
+      <ReviewSection productId={product.id} />
 
       <PriceHistoryChart productSlug={slug} />
 

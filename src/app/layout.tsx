@@ -5,6 +5,7 @@ import { getLocale, getMessages } from 'next-intl/server';
 import './globals.css';
 import ThemeProvider from '@/providers/ThemeProvider';
 import ServiceWorkerRegistration from '@/components/common/ServiceWorkerRegistration';
+import InstallPrompt from '@/components/common/InstallPrompt';
 import CookieBanner from '@/components/ui/CookieBanner';
 import WebVitalsReporter from '@/components/common/WebVitalsReporter';
 import Toaster from '@/components/common/Toaster';
@@ -91,6 +92,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} className={plusJakarta.variable}>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
         <link rel="apple-touch-icon" href="/images/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="alternate" type="application/rss+xml" title="Порошок — Нові товари" href="/feed.xml" />
@@ -107,6 +112,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </NextIntlClientProvider>
         <WebVitalsReporter />
         <ServiceWorkerRegistration />
+        <InstallPrompt />
         <Toaster />
         <CookieBanner />
       </body>

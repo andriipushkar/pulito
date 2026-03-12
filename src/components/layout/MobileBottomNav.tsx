@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Heart, Cart, User } from '@/components/icons';
+import { Heart, Cart, User, Compare } from '@/components/icons';
 import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
+import { useComparison } from '@/hooks/useComparison';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import MobileMenu from './MobileMenu';
@@ -34,6 +35,7 @@ export default function MobileBottomNav({ categories }: MobileBottomNavProps) {
   const pathname = usePathname();
   const { itemCount } = useCart();
   const { wishlistCount } = useWishlist();
+  const { count: comparisonCount } = useComparison();
   const { user } = useAuth();
   const lastScrollY = useRef(0);
 
@@ -119,20 +121,20 @@ export default function MobileBottomNav({ categories }: MobileBottomNavProps) {
             <span className={`text-[10px] font-semibold ${isActive('/cart') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'}`}>Кошик</span>
           </Link>
 
-          {/* Wishlist */}
+          {/* Comparison */}
           <Link
-            href="/account/wishlist"
-            className={`relative ${navItemBase} ${pathname === '/account/wishlist' ? activeClass : inactiveClass}`}
+            href="/comparison"
+            className={`relative ${navItemBase} ${pathname === '/comparison' ? activeClass : inactiveClass}`}
           >
             <div className="relative">
-              <Heart size={22} />
-              {wishlistCount > 0 && (
+              <Compare size={22} />
+              {comparisonCount > 0 && (
                 <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-primary)] px-1 text-[9px] font-bold text-white">
-                  {wishlistCount}
+                  {comparisonCount}
                 </span>
               )}
             </div>
-            <span>Обране</span>
+            <span>Порівняти</span>
           </Link>
 
           {/* Profile */}

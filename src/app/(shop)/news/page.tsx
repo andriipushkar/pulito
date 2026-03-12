@@ -1,4 +1,8 @@
 import type { Metadata } from 'next';
+
+// ISR: revalidate news every 5 minutes
+export const revalidate = 300;
+
 import Link from 'next/link';
 import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
