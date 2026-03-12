@@ -6,34 +6,55 @@ const MAINTENANCE_ALLOWED_PATHS = ['/maintenance', '/admin', '/api/v1/admin', '/
 const CSRF_EXEMPT_PREFIXES = ['/api/webhooks/', '/api/v1/cron/', '/api/v1/metrics'];
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-// In-memory sliding window rate limiter for middleware (Redis is too slow for edge middleware)
-// This provides a first line of defense; per-route Redis rate limiting is more precise.
-const ipRequestCounts = new Map<string, { count: number; resetAt: number }>();
+// Redis-based sliding window rate limiter — safe for horizontal scaling (multiple instances).
+// Falls back to in-memory when Redis is unavailable.
 const GLOBAL_RATE_LIMIT = 120; // requests per window
-const GLOBAL_RATE_WINDOW = 60_000; // 1 minute
+const GLOBAL_RATE_WINDOW = 60; // seconds
 
-function checkGlobalRateLimit(ip: string): boolean {
+// In-memory fallback for when Redis is unreachable
+const ipRequestCounts = new Map<string, { count: number; resetAt: number }>();
+
+async function checkGlobalRateLimitRedis(ip: string): Promise<boolean> {
+  try {
+    const { redis } = await import('@/lib/redis');
+    const key = `rl:mw:${ip}`;
+    const now = Date.now();
+    const windowMs = GLOBAL_RATE_WINDOW * 1000;
+
+    const pipeline = redis.pipeline();
+    pipeline.zremrangebyscore(key, 0, now - windowMs);
+    pipeline.zadd(key, now, `${now}:${Math.random().toString(36).slice(2, 6)}`);
+    pipeline.zcard(key);
+    pipeline.expire(key, GLOBAL_RATE_WINDOW);
+
+    const results = await pipeline.exec();
+    const count = (results?.[2]?.[1] as number) || 0;
+    return count <= GLOBAL_RATE_LIMIT;
+  } catch {
+    // Redis unavailable — fall back to in-memory
+    return checkGlobalRateLimitInMemory(ip);
+  }
+}
+
+function checkGlobalRateLimitInMemory(ip: string): boolean {
   const now = Date.now();
   const entry = ipRequestCounts.get(ip);
 
   if (!entry || now >= entry.resetAt) {
-    ipRequestCounts.set(ip, { count: 1, resetAt: now + GLOBAL_RATE_WINDOW });
+    ipRequestCounts.set(ip, { count: 1, resetAt: now + GLOBAL_RATE_WINDOW * 1000 });
     return true;
   }
 
   entry.count++;
-  return entry.count <= GLOBAL_RATE_LIMIT;
-}
 
-// Periodically clean up stale entries (every 5 min)
-let lastCleanup = Date.now();
-function cleanupRateLimitMap() {
-  const now = Date.now();
-  if (now - lastCleanup < 300_000) return;
-  lastCleanup = now;
-  for (const [ip, entry] of ipRequestCounts) {
-    if (now >= entry.resetAt) ipRequestCounts.delete(ip);
+  // Periodic cleanup
+  if (ipRequestCounts.size > 10000) {
+    for (const [k, v] of ipRequestCounts) {
+      if (now >= v.resetAt) ipRequestCounts.delete(k);
+    }
   }
+
+  return entry.count <= GLOBAL_RATE_LIMIT;
 }
 
 /** Resolve the effective host, preferring X-Forwarded-Host for reverse-proxy setups. */
@@ -97,7 +118,7 @@ function checkCsrf(request: NextRequest): NextResponse | null {
   return null;
 }
 
-export default function middleware(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Maintenance mode check
@@ -108,15 +129,15 @@ export default function middleware(request: NextRequest) {
     }
   }
 
-  // Global rate limiting for API routes
+  // Global rate limiting for API routes (Redis-based, safe for multi-instance)
   if (pathname.startsWith('/api')) {
-    cleanupRateLimitMap();
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       request.headers.get('x-real-ip') ||
       'unknown';
 
-    if (!checkGlobalRateLimit(ip)) {
+    const allowed = await checkGlobalRateLimitRedis(ip);
+    if (!allowed) {
       return NextResponse.json(
         { success: false, error: 'Забагато запитів. Спробуйте пізніше.' },
         {

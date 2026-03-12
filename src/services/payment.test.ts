@@ -231,6 +231,7 @@ describe('handlePaymentCallback', () => {
 
   it('creates payment record when none exists (success status)', async () => {
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 500 });
     (mockPrisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
     (mockPrisma.order.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
 
@@ -241,7 +242,7 @@ describe('handlePaymentCallback', () => {
         orderId: 1,
         paymentMethod: 'online',
         paymentStatus: 'paid',
-        amount: 0,
+        amount: 500,
         paymentProvider: 'liqpay',
         transactionId: 'txn-001',
         callbackData: { some: 'data' },
@@ -321,6 +322,7 @@ describe('handlePaymentCallback', () => {
 
   it('creates payment record on failure when none exists', async () => {
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 300 });
     (mockPrisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
 
     await handlePaymentCallback('monobank', failureCallback);
@@ -329,6 +331,7 @@ describe('handlePaymentCallback', () => {
       data: expect.objectContaining({
         orderId: 1,
         paymentStatus: 'pending',
+        amount: 300,
         paidAt: null,
       }),
     });
@@ -338,6 +341,7 @@ describe('handlePaymentCallback', () => {
 
   it('creates payment record for wayforpay provider on success', async () => {
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 750 });
     (mockPrisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
     (mockPrisma.order.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
 
@@ -348,7 +352,7 @@ describe('handlePaymentCallback', () => {
         orderId: 1,
         paymentMethod: 'online',
         paymentStatus: 'paid',
-        amount: 0,
+        amount: 750,
         paymentProvider: 'wayforpay',
         transactionId: 'txn-001',
         callbackData: { some: 'data' },

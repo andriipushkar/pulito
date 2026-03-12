@@ -91,14 +91,30 @@ export async function handlePaymentCallback(
     where: { orderId },
   });
 
+  // Resolve the actual order amount for cases where payment record doesn't exist yet
+  const resolveAmount = async (): Promise<number> => {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { totalAmount: true },
+    });
+    return order ? Number(order.totalAmount) : 0;
+  };
+
+  const mapStatus = (s: string): 'paid' | 'pending' => {
+    if (s === 'success') return 'paid';
+    // 'failure' and 'processing' both stay as 'pending' —
+    // we don't mark as failed because the provider may retry or the user may retry payment
+    return 'pending';
+  };
+
   if (!payment) {
-    // Create payment record if it doesn't exist
+    const amount = await resolveAmount();
     await prisma.payment.create({
       data: {
         orderId,
         paymentMethod: 'online',
-        paymentStatus: status === 'success' ? 'paid' : 'pending',
-        amount: 0,
+        paymentStatus: mapStatus(status),
+        amount,
         paymentProvider: provider,
         transactionId,
         callbackData: rawData as unknown as Prisma.InputJsonValue,
@@ -110,7 +126,7 @@ export async function handlePaymentCallback(
     await prisma.payment.update({
       where: { orderId },
       data: {
-        paymentStatus: status === 'success' ? 'paid' : status === 'failure' ? 'pending' : 'pending',
+        paymentStatus: mapStatus(status),
         transactionId,
         callbackData: rawData as unknown as Prisma.InputJsonValue,
         paidAt: status === 'success' ? new Date() : payment.paidAt,
