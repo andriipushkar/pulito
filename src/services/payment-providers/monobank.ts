@@ -20,10 +20,12 @@ export class MonobankError extends Error {
   }
 }
 
-let cachedPubKey: crypto.KeyObject | null = null;
+let cachedPubKey: { key: crypto.KeyObject; expiresAt: number } | null = null;
 
 async function getMonoPubKey(): Promise<crypto.KeyObject> {
-  if (cachedPubKey) return cachedPubKey;
+  if (cachedPubKey && cachedPubKey.expiresAt > Date.now()) {
+    return cachedPubKey.key;
+  }
 
   const res = await fetch(MONO_PUBKEY_URL, {
     headers: { 'X-Token': env.MONOBANK_TOKEN },
@@ -34,13 +36,14 @@ async function getMonoPubKey(): Promise<crypto.KeyObject> {
   }
 
   const { key } = await res.json();
-  cachedPubKey = crypto.createPublicKey({
+  const pubKey = crypto.createPublicKey({
     key: Buffer.from(key, 'base64'),
     format: 'der',
     type: 'spki',
   });
 
-  return cachedPubKey;
+  cachedPubKey = { key: pubKey, expiresAt: Date.now() + 86400000 }; // 24h
+  return pubKey;
 }
 
 export async function createPayment(
@@ -108,6 +111,15 @@ export async function verifyCallback(
 
   const data: MonobankCallbackData = JSON.parse(body);
 
+  // Reject stale webhooks older than 10 minutes
+  const WEBHOOK_MAX_AGE_MS = 10 * 60 * 1000;
+  if (data.modifiedDate) {
+    const webhookTime = new Date(data.modifiedDate).getTime();
+    if (!isNaN(webhookTime) && Date.now() - webhookTime > WEBHOOK_MAX_AGE_MS) {
+      throw new MonobankError('Webhook timestamp too old', 400);
+    }
+  }
+
   const orderIdStr = data.reference.replace('order_', '');
   const orderId = parseInt(orderIdStr, 10);
 
@@ -128,5 +140,6 @@ export async function verifyCallback(
     transactionId: data.invoiceId,
     rawData: data as unknown as Record<string, unknown>,
     receiptUrl: data.receiptUrl,
+    amount: data.amount / 100,
   };
 }

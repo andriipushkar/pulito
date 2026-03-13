@@ -1,9 +1,16 @@
+import type { Metadata } from 'next';
 import dynamic from 'next/dynamic';
 import Container from '@/components/ui/Container';
 import AnimateOnScroll from '@/components/ui/AnimateOnScroll';
 import BannerSlider from '@/components/home/BannerSlider';
 import CategoryGrid from '@/components/home/CategoryGrid';
 import ProductCarousel from '@/components/product/ProductCarousel';
+
+export const metadata: Metadata = {
+  title: 'Головна',
+  description:
+    'Порошок — інтернет-магазин побутової хімії. Широкий асортимент засобів для прибирання, прання та догляду за домом з доставкою по Україні.',
+};
 
 const BrandLogos = dynamic(() => import('@/components/home/BrandLogos'));
 const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'));

@@ -35,6 +35,8 @@ export async function POST(request: NextRequest) {
       201
     );
     response.headers.set('Set-Cookie', serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl));
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Pragma', 'no-cache');
 
     return response;
   } catch (error) {

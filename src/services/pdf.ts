@@ -3,6 +3,7 @@ import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
+import { getSettings } from '@/services/settings';
 
 export class PdfError extends Error {
   constructor(
@@ -30,12 +31,15 @@ const COLORS = {
   accent: '#FF9800',
 };
 
-const COMPANY = {
-  name: 'Порошок',
-  description: 'Інтернет-магазин побутової хімії',
-  website: 'poroshok.ua',
-  phone: '+380 (XX) XXX-XX-XX',
-};
+async function getCompanyInfo() {
+  const s = await getSettings();
+  return {
+    name: s.site_name,
+    description: s.company_description,
+    website: s.site_email.split('@')[1] || 'poroshok.ua',
+    phone: s.site_phone_display,
+  };
+}
 
 const PAGE_MARGIN = 50;
 const CONTENT_WIDTH = 495; // A4 width - 2*margin
@@ -45,7 +49,7 @@ function setupDoc(doc: InstanceType<typeof PDFDocument>) {
   doc.registerFont('Bold', FONT_BOLD);
 }
 
-function drawHeader(doc: InstanceType<typeof PDFDocument>) {
+function drawHeader(doc: InstanceType<typeof PDFDocument>, COMPANY: { name: string; description: string; website: string; phone: string }) {
   // Blue header bar
   doc.rect(0, 0, 595.28, 80).fill(COLORS.primary);
 
@@ -127,7 +131,7 @@ function drawTableRow(
   doc.y = y + 18;
 }
 
-function drawFooter(doc: InstanceType<typeof PDFDocument>) {
+function drawFooter(doc: InstanceType<typeof PDFDocument>, COMPANY: { name: string; description: string; website: string; phone: string }) {
   const bottomY = 780;
 
   // Footer line
@@ -146,6 +150,7 @@ function drawFooter(doc: InstanceType<typeof PDFDocument>) {
  * Генерує PDF рахунку-фактури для замовлення.
  */
 export async function generateInvoicePdf(orderId: number): Promise<string> {
+  const COMPANY = await getCompanyInfo();
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
@@ -175,7 +180,7 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
   doc.pipe(stream);
 
   // Header
-  drawHeader(doc);
+  drawHeader(doc, COMPANY);
 
   // Title
   drawDocTitle(
@@ -209,9 +214,9 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
     const item = order.items[i];
 
     if (doc.y > 720) {
-      drawFooter(doc);
+      drawFooter(doc, COMPANY);
       doc.addPage();
-      drawHeader(doc);
+      drawHeader(doc, COMPANY);
       drawTableHeader(doc, colDefs);
     }
 
@@ -269,7 +274,7 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
   });
 
   // Footer
-  drawFooter(doc);
+  drawFooter(doc, COMPANY);
 
   doc.end();
 
@@ -293,6 +298,7 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
  * Генерує видаткову накладну PDF для замовлення.
  */
 export async function generateDeliveryNotePdf(orderId: number): Promise<string> {
+  const COMPANY = await getCompanyInfo();
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: { items: true },
@@ -319,7 +325,7 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
   doc.pipe(stream);
 
   // Header
-  drawHeader(doc);
+  drawHeader(doc, COMPANY);
 
   // Title
   drawDocTitle(
@@ -374,9 +380,9 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
     const item = order.items[i];
 
     if (doc.y > 700) {
-      drawFooter(doc);
+      drawFooter(doc, COMPANY);
       doc.addPage();
-      drawHeader(doc);
+      drawHeader(doc, COMPANY);
       drawTableHeader(doc, colDefs);
     }
 
@@ -423,7 +429,7 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
   doc.moveTo(rightCol + 55, sigY + 12).lineTo(rightCol + 200, sigY + 12).lineWidth(0.5).stroke(COLORS.border);
 
   // Footer
-  drawFooter(doc);
+  drawFooter(doc, COMPANY);
 
   doc.end();
 
@@ -452,6 +458,7 @@ export async function generateCommercialOfferPdf(
     throw new PdfError('Список товарів порожній', 400);
   }
 
+  const COMPANY = await getCompanyInfo();
   const offersDir = path.join(env.UPLOAD_DIR, 'offers');
   if (!existsSync(offersDir)) {
     mkdirSync(offersDir, { recursive: true });
@@ -469,7 +476,7 @@ export async function generateCommercialOfferPdf(
   doc.pipe(stream);
 
   // Header
-  drawHeader(doc);
+  drawHeader(doc, COMPANY);
 
   // Title
   drawDocTitle(
@@ -498,9 +505,9 @@ export async function generateCommercialOfferPdf(
     const p = products[i];
 
     if (doc.y > 720) {
-      drawFooter(doc);
+      drawFooter(doc, COMPANY);
       doc.addPage();
-      drawHeader(doc);
+      drawHeader(doc, COMPANY);
       drawTableHeader(doc, colDefs);
     }
 
@@ -523,7 +530,7 @@ export async function generateCommercialOfferPdf(
   doc.text(`Контакти: ${COMPANY.website}`);
 
   // Footer
-  drawFooter(doc);
+  drawFooter(doc, COMPANY);
 
   doc.end();
 

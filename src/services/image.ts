@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
+import { validateFileType } from '@/utils/file-validation';
 
 export class ImageError extends Error {
   constructor(
@@ -43,13 +44,17 @@ export async function processProductImage(
   productId: number,
   isMain = false
 ) {
-  // Validate format
   if (!ALLOWED_FORMATS.includes(mimeType)) {
     throw new ImageError('Непідтримуваний формат. Дозволені: JPG, PNG, WebP', 400);
   }
 
   if (fileBuffer.length > MAX_FILE_SIZE) {
     throw new ImageError('Максимальний розмір файлу: 5 МБ', 400);
+  }
+
+  const { valid } = await validateFileType(fileBuffer, ALLOWED_FORMATS);
+  if (!valid) {
+    throw new ImageError('Вміст файлу не відповідає заявленому формату', 400);
   }
 
   // Get product

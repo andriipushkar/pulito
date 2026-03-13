@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { validateFileType } from '@/utils/file-validation';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -35,6 +36,12 @@ export const POST = withRole('admin', 'manager')(
       const filePath = path.join(uploadDir, filename);
 
       const buffer = Buffer.from(await file.arrayBuffer());
+
+      const { valid } = await validateFileType(buffer, allowedTypes);
+      if (!valid) {
+        return errorResponse('Вміст файлу не відповідає заявленому формату', 400);
+      }
+
       await fs.writeFile(filePath, buffer);
 
       const imageUrl = `/uploads/banners/${filename}`;

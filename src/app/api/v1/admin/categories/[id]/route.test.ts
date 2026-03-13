@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/category', () => ({ updateCategorySchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/category', () => ({
@@ -100,7 +100,7 @@ describe('PUT /api/v1/admin/categories/[id]', () => {
   it('handles CategoryError', async () => {
     const { CategoryError } = await import('@/services/category');
     vi.mocked(updateCategorySchema.safeParse).mockReturnValue({ success: true, data: { name: 'Updated' } } as any);
-    vi.mocked(updateCategory).mockRejectedValue(new CategoryError('Duplicate'));
+    vi.mocked(updateCategory).mockRejectedValue(new (CategoryError as any)('Duplicate'));
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ name: 'Updated' }),
@@ -141,7 +141,7 @@ describe('DELETE /api/v1/admin/categories/[id]', () => {
 
   it('handles CategoryError', async () => {
     const { CategoryError } = await import('@/services/category');
-    vi.mocked(deleteCategory).mockRejectedValue(new CategoryError('Has children'));
+    vi.mocked(deleteCategory).mockRejectedValue(new (CategoryError as any)('Has children'));
     const req = new Request('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req as any, mockCtx as any);
     expect(res.status).toBe(400);

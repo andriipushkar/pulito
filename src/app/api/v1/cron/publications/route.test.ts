@@ -10,7 +10,7 @@ describe('POST src/app/api/v1/cron/publications', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns result on success with valid auth', async () => {
-    vi.mocked(publishScheduledPublications).mockResolvedValue({ published: 2, failed: 0 });
+    vi.mocked(publishScheduledPublications).mockResolvedValue({ published: 2, failed: 0 } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer test-app-secret' },

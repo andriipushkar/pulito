@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 vi.mock('@/middleware/auth', () => ({
-  withAuth: (handler: Function) => handler,
-  withOptionalAuth: (handler: Function) => handler,
-  withRole: () => (handler: Function) => handler,
+  withAuth: (handler: Function) => (...args: unknown[]) => handler(...args),
+  withOptionalAuth: (handler: Function) => (...args: unknown[]) => handler(...args),
+  withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args),
 }));
 
 vi.mock('@/services/push', () => ({
@@ -30,7 +30,7 @@ describe('POST /api/v1/push/unsubscribe', () => {
   it('unsubscribes on success', async () => {
     mocked.mockResolvedValue(undefined as never);
     const req = makeReq({ endpoint: 'https://push.example.com' });
-    const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) });
+    const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) } as any);
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.data.unsubscribed).toBe(true);
@@ -38,14 +38,14 @@ describe('POST /api/v1/push/unsubscribe', () => {
 
   it('returns 400 when endpoint missing', async () => {
     const req = makeReq({});
-    const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) });
+    const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) } as any);
     expect(res.status).toBe(400);
   });
 
   it('returns 500 on error', async () => {
     mocked.mockRejectedValue(new Error('fail'));
     const req = makeReq({ endpoint: 'https://push.example.com' });
-    const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) });
+    const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) } as any);
     expect(res.status).toBe(500);
   });
 });

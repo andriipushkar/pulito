@@ -79,6 +79,9 @@ jobs:
 
       - run: npx prisma generate
 
+      - name: Security audit
+        run: npm audit --production --audit-level=high || true
+
       - name: Build Next.js
         run: npm run build
 

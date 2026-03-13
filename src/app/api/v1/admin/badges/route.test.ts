@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -16,13 +16,13 @@ describe('GET /api/v1/admin/badges', () => {
 
   it('returns badges on success', async () => {
     vi.mocked(prisma.productBadge.findMany).mockResolvedValue([]);
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(200);
   });
 
   it('returns 500 on error', async () => {
     vi.mocked(prisma.productBadge.findMany).mockRejectedValue(new Error('fail'));
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(500);
   });
 });

@@ -43,10 +43,17 @@ export async function POST(request: NextRequest) {
     // Successful login — clear rate limit
     await clearLoginAttempts(ipAddress, parsed.data.email);
 
+    // If 2FA is required, return temp token without setting cookies
+    if (result.requiresTwoFactor) {
+      return successResponse({ requiresTwoFactor: true, tempToken: result.tempToken });
+    }
+
     const { user, tokens } = result;
     const refreshTtl = parseTtlToSeconds(env.JWT_REFRESH_TTL);
     const response = successResponse({ user, accessToken: tokens.accessToken });
     response.headers.set('Set-Cookie', serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl));
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Pragma', 'no-cache');
 
     return response;
   } catch (error) {

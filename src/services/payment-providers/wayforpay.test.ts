@@ -63,8 +63,8 @@ describe('WayForPay provider', () => {
     const envMod = await import('@/config/env');
     const origAccount = envMod.env.WAYFORPAY_MERCHANT_ACCOUNT;
     const origKey = envMod.env.WAYFORPAY_SECRET_KEY;
-    (envMod.env as Record<string, string>).WAYFORPAY_MERCHANT_ACCOUNT = '';
-    (envMod.env as Record<string, string>).WAYFORPAY_SECRET_KEY = '';
+    (envMod.env as unknown as Record<string, string>).WAYFORPAY_MERCHANT_ACCOUNT = '';
+    (envMod.env as unknown as Record<string, string>).WAYFORPAY_SECRET_KEY = '';
 
     try {
       const { createPayment, WayForPayError } = await import('./wayforpay');
@@ -75,8 +75,8 @@ describe('WayForPay provider', () => {
         createPayment(1, 100, 'test', 'http://r', 'http://s')
       ).rejects.toThrow('WayForPay credentials not configured');
     } finally {
-      (envMod.env as Record<string, string>).WAYFORPAY_MERCHANT_ACCOUNT = origAccount;
-      (envMod.env as Record<string, string>).WAYFORPAY_SECRET_KEY = origKey;
+      (envMod.env as unknown as Record<string, string>).WAYFORPAY_MERCHANT_ACCOUNT = origAccount;
+      (envMod.env as unknown as Record<string, string>).WAYFORPAY_SECRET_KEY = origKey;
     }
   });
 
@@ -425,7 +425,7 @@ describe('WayForPay provider', () => {
     it('should throw when secret key is not configured', async () => {
       const envMod = await import('@/config/env');
       const origKey = envMod.env.WAYFORPAY_SECRET_KEY;
-      (envMod.env as Record<string, string>).WAYFORPAY_SECRET_KEY = '';
+      (envMod.env as unknown as Record<string, string>).WAYFORPAY_SECRET_KEY = '';
 
       try {
         const { verifyCallback, WayForPayError } = await import('./wayforpay');
@@ -443,7 +443,7 @@ describe('WayForPay provider', () => {
         expect(() => verifyCallback(callbackData as any)).toThrow(WayForPayError);
         expect(() => verifyCallback(callbackData as any)).toThrow('WayForPay secret key not configured');
       } finally {
-        (envMod.env as Record<string, string>).WAYFORPAY_SECRET_KEY = origKey;
+        (envMod.env as unknown as Record<string, string>).WAYFORPAY_SECRET_KEY = origKey;
       }
     });
   });

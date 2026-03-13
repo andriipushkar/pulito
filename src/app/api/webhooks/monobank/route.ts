@@ -1,9 +1,16 @@
 import { NextRequest } from 'next/server';
 import { verifyCallback } from '@/services/payment-providers/monobank';
 import { handlePaymentCallback } from '@/services/payment';
+import { checkWebhookRateLimit } from '@/utils/webhook-security';
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const allowed = await checkWebhookRateLimit('monobank', ip);
+    if (!allowed) {
+      return new Response('Rate limited', { status: 429 });
+    }
+
     const body = await request.text();
     const xSign = request.headers.get('X-Sign') || '';
 

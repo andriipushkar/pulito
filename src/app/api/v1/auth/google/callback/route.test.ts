@@ -20,6 +20,7 @@ vi.mock('@/services/google-oauth', () => {
   return {
     exchangeCodeForTokens: vi.fn(),
     getGoogleUserProfile: vi.fn(),
+    verifyOAuthState: vi.fn().mockReturnValue(true),
     GoogleOAuthError,
   };
 });
@@ -53,15 +54,17 @@ const mockLoginWithGoogle = loginWithGoogle as ReturnType<typeof vi.fn>;
 describe('GET /api/v1/auth/google/callback', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('redirects with access token on success', async () => {
+  it('redirects to callback on success', async () => {
     mockExchange.mockResolvedValue({ access_token: 'gtoken' });
     mockGetProfile.mockResolvedValue({ id: 'g1', email: 'u@g.com', name: 'User', picture: 'pic' });
     mockLoginWithGoogle.mockResolvedValue({ tokens: { accessToken: 'at', refreshToken: 'rt' } });
 
-    const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=authcode');
+    const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=authcode&state=validstate', {
+      headers: { cookie: 'oauth_state=validstate' },
+    });
     const res = await GET(req);
     expect(res.status).toBe(307);
-    expect(res.headers.get('location')).toContain('accessToken=at');
+    expect(res.headers.get('location')).toContain('/auth/callback');
   });
 
   it('redirects to login with error=oauth_denied when error param', async () => {
@@ -80,14 +83,18 @@ describe('GET /api/v1/auth/google/callback', () => {
 
   it('redirects on GoogleOAuthError', async () => {
     mockExchange.mockRejectedValue(new GoogleOAuthError('fail', 400));
-    const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=bad');
+    const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=bad&state=validstate', {
+      headers: { cookie: 'oauth_state=validstate' },
+    });
     const res = await GET(req);
     expect(res.headers.get('location')).toContain('error=oauth_failed');
   });
 
   it('redirects on generic error', async () => {
     mockExchange.mockRejectedValue(new Error('fail'));
-    const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=bad');
+    const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=bad&state=validstate', {
+      headers: { cookie: 'oauth_state=validstate' },
+    });
     const res = await GET(req);
     expect(res.headers.get('location')).toContain('error=server_error');
   });

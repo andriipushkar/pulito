@@ -5,6 +5,20 @@ vi.mock('@/services/verification', () => ({
   requestPasswordReset: vi.fn(),
 }));
 
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 2, retryAfter: 0 }),
+  RATE_LIMITS: { sensitive: { prefix: 'rl:sens:', max: 3, windowSec: 900 } },
+  RateLimitError: class RateLimitError extends Error {
+    statusCode: number;
+    retryAfter?: number;
+    constructor(message: string, statusCode = 429, retryAfter?: number) {
+      super(message);
+      this.statusCode = statusCode;
+      this.retryAfter = retryAfter;
+    }
+  },
+}));
+
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
   withOptionalAuth: (handler: Function) => handler,

@@ -2,13 +2,14 @@ import { NextRequest } from 'next/server';
 import { publishScheduledPublications } from '@/services/jobs/publish-scheduled';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { env } from '@/config/env';
+import { timingSafeCompare } from '@/utils/timing-safe';
 
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
     const expectedToken = `Bearer ${env.APP_SECRET}`;
 
-    if (authHeader !== expectedToken) {
+    if (!authHeader || !timingSafeCompare(authHeader, expectedToken)) {
       return errorResponse('Unauthorized', 401);
     }
 

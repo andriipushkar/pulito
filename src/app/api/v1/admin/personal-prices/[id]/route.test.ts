@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/personal-price', () => ({ updatePersonalPriceSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/personal-price', () => ({
@@ -92,7 +92,7 @@ describe('DELETE /api/v1/admin/personal-prices/[id]', () => {
 
   it('returns PersonalPriceError status on PersonalPriceError', async () => {
     const { PersonalPriceError } = await import('@/services/personal-price');
-    vi.mocked(deletePersonalPrice).mockRejectedValue(new PersonalPriceError('not found'));
+    vi.mocked(deletePersonalPrice).mockRejectedValue(new (PersonalPriceError as any)('not found'));
     const req = new Request('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req as any, mockCtx as any);
     expect(res.status).toBe(400);
@@ -143,7 +143,7 @@ describe('PUT /api/v1/admin/personal-prices/[id] - edge cases', () => {
   it('returns PersonalPriceError status on PersonalPriceError', async () => {
     const { PersonalPriceError } = await import('@/services/personal-price');
     vi.mocked(updatePersonalPriceSchema.safeParse).mockReturnValue({ success: true, data: { price: 60 } } as any);
-    vi.mocked(updatePersonalPrice).mockRejectedValue(new PersonalPriceError('conflict'));
+    vi.mocked(updatePersonalPrice).mockRejectedValue(new (PersonalPriceError as any)('conflict'));
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ price: 60 }),

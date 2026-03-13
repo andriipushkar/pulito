@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/nova-poshta', () => ({ createTTNSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/nova-poshta', () => ({
@@ -26,7 +26,7 @@ describe('POST /api/v1/admin/orders/[id]/ttn', () => {
   it('creates TTN on success', async () => {
     vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, status: 'processing', trackingNumber: null } as any);
     vi.mocked(createTTNSchema.safeParse).mockReturnValue({ success: true, data: {} } as any);
-    vi.mocked(createInternetDocument).mockResolvedValue({ intDocNumber: '123', ref: 'abc', costOnSite: '50', estimatedDeliveryDate: '2025-01-01' });
+    vi.mocked(createInternetDocument).mockResolvedValue({ intDocNumber: '123', ref: 'abc', costOnSite: '50' as any, estimatedDeliveryDate: '2025-01-01' });
     vi.mocked(prisma.order.update).mockResolvedValue({} as any);
     const req = new Request('http://localhost', {
       method: 'POST',

@@ -11,7 +11,7 @@ import { env } from '@/config/env';
 const bulkSchema = z.object({
   action: z.enum(['activate', 'deactivate', 'export', 'export_filtered']),
   productIds: z.array(z.number()).optional(),
-  filters: z.record(z.string()).optional(),
+  filters: z.record(z.string(), z.string()).optional(),
 });
 
 export const POST = withRole('manager', 'admin')(async (request: NextRequest) => {

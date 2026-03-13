@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/services/export', () => ({
   exportOrders: vi.fn(),
@@ -17,7 +17,7 @@ describe('GET /api/v1/admin/export', () => {
 
   it('exports orders on success', async () => {
     vi.mocked(exportOrders).mockResolvedValue({
-      buffer: new ArrayBuffer(8),
+      buffer: new ArrayBuffer(8) as any,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       filename: 'orders.xlsx',
     });
@@ -28,7 +28,7 @@ describe('GET /api/v1/admin/export', () => {
 
   it('exports clients on success', async () => {
     vi.mocked(exportClients).mockResolvedValue({
-      buffer: new ArrayBuffer(8),
+      buffer: new ArrayBuffer(8) as any,
       contentType: 'text/csv',
       filename: 'clients.csv',
     });
@@ -39,7 +39,7 @@ describe('GET /api/v1/admin/export', () => {
 
   it('exports catalog on success', async () => {
     vi.mocked(exportCatalog).mockResolvedValue({
-      buffer: new ArrayBuffer(8),
+      buffer: new ArrayBuffer(8) as any,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       filename: 'catalog.xlsx',
     });
@@ -50,7 +50,7 @@ describe('GET /api/v1/admin/export', () => {
 
   it('defaults to orders export when no type specified', async () => {
     vi.mocked(exportOrders).mockResolvedValue({
-      buffer: new ArrayBuffer(8),
+      buffer: new ArrayBuffer(8) as any,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       filename: 'orders.xlsx',
     });

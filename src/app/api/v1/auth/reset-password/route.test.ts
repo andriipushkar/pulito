@@ -41,26 +41,26 @@ describe('POST /api/v1/auth/reset-password', () => {
 
   it('returns success for valid data', async () => {
     mockResetPassword.mockResolvedValue(undefined);
-    const res = await POST(makeRequest({ token: 'valid-token', password: 'newpassword123' }));
+    const res = await POST(makeRequest({ token: 'valid-token', password: 'NewPassword1!' }));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
   });
 
   it('returns 422 for missing token', async () => {
-    const res = await POST(makeRequest({ password: 'newpassword123' }));
+    const res = await POST(makeRequest({ password: 'NewPassword1!' }));
     expect(res.status).toBe(422);
   });
 
   it('returns AuthError status on AuthError', async () => {
     mockResetPassword.mockRejectedValue(new AuthError('Token expired', 400));
-    const res = await POST(makeRequest({ token: 'expired', password: 'newpassword123' }));
+    const res = await POST(makeRequest({ token: 'expired', password: 'NewPassword1!' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 500 on server error', async () => {
     mockResetPassword.mockRejectedValue(new Error('fail'));
-    const res = await POST(makeRequest({ token: 'valid', password: 'newpassword123' }));
+    const res = await POST(makeRequest({ token: 'valid', password: 'NewPassword1!' }));
     expect(res.status).toBe(500);
   });
 });

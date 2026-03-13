@@ -1,10 +1,13 @@
 import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
+import { redis } from '@/lib/redis';
 import { env } from '@/config/env';
 import type { PaymentProvider, PaymentInitResult, PaymentCallbackResult } from '@/types/payment';
 import * as liqpay from './payment-providers/liqpay';
 import * as monobank from './payment-providers/monobank';
 import * as wayforpay from './payment-providers/wayforpay';
+
+const WEBHOOK_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
 export class PaymentError extends Error {
   constructor(
@@ -85,18 +88,47 @@ export async function handlePaymentCallback(
   provider: PaymentProvider,
   callbackResult: PaymentCallbackResult
 ): Promise<void> {
-  const { orderId, status, transactionId, rawData, receiptUrl } = callbackResult;
+  const { orderId, status, transactionId, rawData, receiptUrl, amount: paidAmount } = callbackResult;
+
+  // Replay protection: atomic SET NX ensures only one thread processes each webhook
+  const webhookKey = `webhook:${provider}:${transactionId}`;
+  const wasSet = await redis.set(webhookKey, '1', 'EX', WEBHOOK_TTL_SECONDS, 'NX');
+  if (!wasSet) {
+    console.log(`[payment] Duplicate webhook ignored: ${webhookKey}`);
+    return; // Already processed
+  }
+
+  // Amount validation: verify paid amount matches order total
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { totalAmount: true },
+  });
+
+  let effectiveStatus = status;
+
+  if (status === 'success' && paidAmount != null && order) {
+    const expectedAmount = Number(order.totalAmount);
+    if (Math.abs(paidAmount - expectedAmount) > 0.01) {
+      console.warn(
+        `[payment] Amount mismatch for order ${orderId} via ${provider}: ` +
+        `paid ${paidAmount}, expected ${expectedAmount}. Treating as failure.`
+      );
+      effectiveStatus = 'failure';
+    }
+  }
 
   const payment = await prisma.payment.findUnique({
     where: { orderId },
   });
 
+  // Prevent payment status downgrade: if already paid, ignore subsequent callbacks
+  if (payment && payment.paymentStatus === 'paid') {
+    console.log(`[payment] Order ${orderId} already paid, ignoring callback`);
+    return;
+  }
+
   // Resolve the actual order amount for cases where payment record doesn't exist yet
-  const resolveAmount = async (): Promise<number> => {
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: { totalAmount: true },
-    });
+  const resolveAmount = (): number => {
     return order ? Number(order.totalAmount) : 0;
   };
 
@@ -108,17 +140,17 @@ export async function handlePaymentCallback(
   };
 
   if (!payment) {
-    const amount = await resolveAmount();
+    const amount = resolveAmount();
     await prisma.payment.create({
       data: {
         orderId,
         paymentMethod: 'online',
-        paymentStatus: mapStatus(status),
+        paymentStatus: mapStatus(effectiveStatus),
         amount,
         paymentProvider: provider,
         transactionId,
         callbackData: rawData as unknown as Prisma.InputJsonValue,
-        paidAt: status === 'success' ? new Date() : null,
+        paidAt: effectiveStatus === 'success' ? new Date() : null,
         receiptUrl: receiptUrl || null,
       },
     });
@@ -126,17 +158,17 @@ export async function handlePaymentCallback(
     await prisma.payment.update({
       where: { orderId },
       data: {
-        paymentStatus: mapStatus(status),
+        paymentStatus: mapStatus(effectiveStatus),
         transactionId,
         callbackData: rawData as unknown as Prisma.InputJsonValue,
-        paidAt: status === 'success' ? new Date() : payment.paidAt,
+        paidAt: effectiveStatus === 'success' ? new Date() : payment.paidAt,
         receiptUrl: receiptUrl || payment.receiptUrl,
       },
     });
   }
 
   // Update order payment status
-  if (status === 'success') {
+  if (effectiveStatus === 'success') {
     await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -152,6 +184,7 @@ export async function handlePaymentCallback(
       },
     });
   }
+
 }
 
 export async function getPaymentStatus(orderId: number) {

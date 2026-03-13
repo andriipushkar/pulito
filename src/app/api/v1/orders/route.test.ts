@@ -43,7 +43,11 @@ vi.mock('@/validators/order', () => ({
 }));
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: { product: { findMany: vi.fn() } },
+  prisma: { product: { findMany: vi.fn() }, user: { findUnique: vi.fn() } },
+}));
+
+vi.mock('@/lib/wholesale-price', () => ({
+  resolveWholesalePrice: vi.fn(),
 }));
 
 vi.mock('@/middleware/auth', () => ({
@@ -183,6 +187,12 @@ describe('POST /api/v1/orders', () => {
     ]);
     mockCreateOrder.mockResolvedValue({ id: 2, orderNumber: 'ORD-002' });
 
+    const { prisma } = await import('@/lib/prisma');
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ wholesaleGroup: 1 } as any);
+
+    const { resolveWholesalePrice } = await import('@/lib/wholesale-price');
+    vi.mocked(resolveWholesalePrice).mockReturnValue(80);
+
     const req = new NextRequest('http://localhost/api/v1/orders', {
       method: 'POST',
       body: JSON.stringify({ paymentMethod: 'cash' }),
@@ -230,7 +240,7 @@ describe('POST /api/v1/orders', () => {
   it('handles loyalty points error gracefully', async () => {
     const { LoyaltyError } = await import('@/services/loyalty');
     const { spendPoints } = await import('@/services/loyalty');
-    vi.mocked(spendPoints).mockRejectedValue(new LoyaltyError('Insufficient points'));
+    vi.mocked(spendPoints).mockRejectedValue(new (LoyaltyError as any)('Insufficient points'));
 
     mockCheckoutParse.mockReturnValue({
       success: true,

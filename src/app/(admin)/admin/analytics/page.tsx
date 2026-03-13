@@ -112,7 +112,7 @@ export default function AdminAnalyticsPage() {
     { key: 'churn', label: 'Відтік' },
   ];
 
-  const canExportCsv = ['sales', 'products', 'orders'].includes(tab) && data;
+  const canExportCsv = ['sales', 'products', 'orders'].includes(tab) && !!data;
 
   return (
     <div>

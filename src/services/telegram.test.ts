@@ -2264,7 +2264,8 @@ describe('handleTelegramUpdate - error in message handler', () => {
           message_id: 100,
           chat: { id: 600, type: 'private' },
           date: Date.now(),
-        },
+          from: { id: 600, first_name: 'Test' },
+        } as any,
       },
     })).resolves.toBeUndefined();
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/services/faq', () => ({
   getAllFaq: vi.fn(),
@@ -16,13 +16,13 @@ describe('GET /api/v1/admin/faq', () => {
 
   it('returns FAQ on success', async () => {
     vi.mocked(getAllFaq).mockResolvedValue([]);
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(200);
   });
 
   it('returns 500 on error', async () => {
     vi.mocked(getAllFaq).mockRejectedValue(new Error('fail'));
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(500);
   });
 });
@@ -53,7 +53,7 @@ describe('POST /api/v1/admin/faq', () => {
 
   it('returns FaqError status code', async () => {
     const { FaqError } = await import('@/services/faq');
-    vi.mocked(createFaqItem).mockRejectedValue(new FaqError('duplicate'));
+    vi.mocked(createFaqItem).mockRejectedValue(new (FaqError as any)('duplicate'));
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ category: 'General', question: 'How does it work?', answer: 'Like this works' }),

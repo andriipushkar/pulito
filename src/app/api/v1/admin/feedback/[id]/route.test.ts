@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/feedback', () => ({ updateFeedbackStatusSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/feedback', () => ({
@@ -53,7 +53,7 @@ describe('PUT /api/v1/admin/feedback/[id]', () => {
   it('returns FeedbackError status code', async () => {
     const { FeedbackError } = await import('@/services/feedback');
     vi.mocked(updateFeedbackStatusSchema.safeParse).mockReturnValue({ success: true, data: { status: 'approved' } } as any);
-    vi.mocked(updateFeedbackStatus).mockRejectedValue(new FeedbackError('not found'));
+    vi.mocked(updateFeedbackStatus).mockRejectedValue(new (FeedbackError as any)('not found'));
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ status: 'approved' }),

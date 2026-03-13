@@ -44,6 +44,11 @@ export async function generateMetadata({ searchParams }: CatalogPageProps): Prom
     description: category?.seoDescription || 'Каталог побутової хімії. Широкий вибір товарів за вигідними цінами.',
     alternates: {
       canonical,
+      languages: {
+        'uk': canonical,
+        'en': `${baseUrl}/en/catalog${canonicalQuery ? `?${canonicalQuery}` : ''}`,
+        'x-default': canonical,
+      },
     },
     openGraph: {
       title,

@@ -5,7 +5,7 @@ describe('auth validators', () => {
   describe('registerSchema', () => {
     const validData = {
       email: 'user@example.com',
-      password: 'securepass123',
+      password: 'SecurePass123!',
       fullName: 'Тест Юзер',
     };
 
@@ -58,7 +58,7 @@ describe('auth validators', () => {
   describe('loginSchema', () => {
     const validData = {
       email: 'user@example.com',
-      password: 'securepass123',
+      password: 'SecurePass123!',
     };
 
     it('should accept valid login data', () => {

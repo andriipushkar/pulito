@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/referral', () => ({ grantBonusSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/referral', () => ({
@@ -53,7 +53,7 @@ describe('POST /api/v1/admin/referrals/[id]/bonus', () => {
   it('returns ReferralError status code', async () => {
     const { ReferralError } = await import('@/services/referral');
     vi.mocked(grantBonusSchema.safeParse).mockReturnValue({ success: true, data: { amount: 100 } } as any);
-    vi.mocked(grantReferralBonus).mockRejectedValue(new ReferralError('not found'));
+    vi.mocked(grantReferralBonus).mockRejectedValue(new (ReferralError as any)('not found'));
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ amount: 100 }),

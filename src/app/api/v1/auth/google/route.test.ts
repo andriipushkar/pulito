@@ -10,6 +10,7 @@ vi.mock('@/services/google-oauth', () => {
   }
   return {
     getGoogleAuthUrl: vi.fn(),
+    generateOAuthState: vi.fn().mockReturnValue('mock-state'),
     GoogleOAuthError,
   };
 });

@@ -11,6 +11,7 @@ export interface PaymentCallbackResult {
   transactionId: string;
   rawData: Record<string, unknown>;
   receiptUrl?: string;
+  amount?: number;
 }
 
 export interface LiqPayCallbackData {

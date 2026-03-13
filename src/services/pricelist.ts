@@ -3,23 +3,11 @@ import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
 import { prisma } from '@/lib/prisma';
+import { getSettings } from '@/services/settings';
 
 const FONT_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
 const FONT_BOLD_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Bold.ttf');
 const PUBLIC_DIR = path.join(process.cwd(), 'public');
-
-const COMPANY = {
-  name: 'Порошок',
-  tagline: 'Побутова хімія та засоби для дому',
-  website: 'poroshok.ua',
-  phone: '+38 (067) 123-45-67',
-  social: {
-    telegram: 't.me/poroshok_shop',
-    viber: 'poroshok_shop',
-    instagram: 'instagram.com/poroshok_shop',
-    facebook: 'facebook.com/poroshok_shop',
-  },
-};
 
 // A4 layout
 const PW = 595.28;
@@ -103,6 +91,20 @@ function roundedRect(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h
 // ── Main generator ──
 
 export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<Buffer> {
+  const s = await getSettings();
+  const COMPANY = {
+    name: s.site_name,
+    tagline: s.company_description,
+    website: s.site_email.split('@')[1] || 'poroshok.ua',
+    phone: s.site_phone_display,
+    social: {
+      telegram: s.social_telegram.replace('https://', ''),
+      viber: s.social_viber.replace('viber://pa?chatURI=', ''),
+      instagram: s.social_instagram.replace('https://', ''),
+      facebook: s.social_facebook.replace('https://www.', ''),
+    },
+  };
+
   const products = await prisma.product.findMany({
     where: { isActive: true },
     include: {

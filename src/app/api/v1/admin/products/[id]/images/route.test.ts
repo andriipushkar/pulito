@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/services/image', () => ({
   processProductImage: vi.fn(),
@@ -57,7 +57,7 @@ describe('POST /api/v1/admin/products/[id]/images', () => {
     const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
     const formData = new FormData();
     formData.append('images', file);
-    vi.mocked(processProductImage).mockRejectedValue(new ImageError('too large'));
+    vi.mocked(processProductImage).mockRejectedValue(new (ImageError as any)('too large'));
     const req = new Request('http://localhost', { method: 'POST', body: formData });
     const res = await POST(req as any, mockCtx as any);
     expect(res.status).toBe(400);

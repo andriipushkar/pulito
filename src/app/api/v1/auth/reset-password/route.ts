@@ -3,13 +3,11 @@ import { z } from 'zod';
 import { resetPassword } from '@/services/verification';
 import { AuthError } from '@/services/auth-errors';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { passwordSchema } from '@/validators/auth';
 
 const schema = z.object({
   token: z.string().min(1, 'Токен обов\'язковий'),
-  password: z
-    .string()
-    .min(8, 'Пароль має містити щонайменше 8 символів')
-    .max(128, 'Пароль занадто довгий'),
+  password: passwordSchema,
 });
 
 export async function POST(request: NextRequest) {

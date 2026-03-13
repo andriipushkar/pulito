@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/product', () => ({ createProductSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/product', () => ({
@@ -91,7 +91,7 @@ describe('POST /api/v1/admin/products', () => {
   it('handles ProductError', async () => {
     const { ProductError } = await import('@/services/product');
     vi.mocked(createProductSchema.safeParse).mockReturnValue({ success: true, data: { name: 'Test', code: 'T1' } } as any);
-    vi.mocked(createProduct).mockRejectedValue(new ProductError('Duplicate code'));
+    vi.mocked(createProduct).mockRejectedValue(new (ProductError as any)('Duplicate code'));
     const req = new NextRequest('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ name: 'Test', code: 'T1' }),

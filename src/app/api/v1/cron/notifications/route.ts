@@ -3,11 +3,13 @@ import { processNotificationQueue } from '@/services/notification-queue';
 import { cleanupExpiredNotifications } from '@/services/notification';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { env } from '@/config/env';
+import { timingSafeCompare } from '@/utils/timing-safe';
 
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${env.APP_SECRET}`) {
+    const expectedToken = `Bearer ${env.APP_SECRET}`;
+    if (!authHeader || !timingSafeCompare(authHeader, expectedToken)) {
       return errorResponse('Unauthorized', 401);
     }
 

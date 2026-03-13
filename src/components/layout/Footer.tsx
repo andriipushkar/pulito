@@ -1,15 +1,28 @@
+'use client';
+
 import Link from 'next/link';
 import Container from '@/components/ui/Container';
 import SubscriptionForm from './SubscriptionForm';
 import { Telegram, Viber, Instagram, Facebook, TikTok } from '@/components/icons';
+import { useSettings } from '@/hooks/useSettings';
 
-const socialLinks = [
-  { href: 'https://t.me/poroshok_shop', label: 'Telegram', Icon: Telegram },
-  { href: 'viber://pa?chatURI=poroshok_shop', label: 'Viber', Icon: Viber },
-  { href: 'https://instagram.com/poroshok_shop', label: 'Instagram', Icon: Instagram },
-  { href: 'https://www.facebook.com/poroshok.shop', label: 'Facebook', Icon: Facebook },
-  { href: 'https://www.tiktok.com/@poroshok_shop', label: 'TikTok', Icon: TikTok },
-];
+const iconMap: Record<string, React.FC<{ size: number }>> = {
+  social_telegram: Telegram,
+  social_viber: Viber,
+  social_instagram: Instagram,
+  social_facebook: Facebook,
+  social_tiktok: TikTok,
+};
+
+const socialLabels: Record<string, string> = {
+  social_telegram: 'Telegram',
+  social_viber: 'Viber',
+  social_instagram: 'Instagram',
+  social_facebook: 'Facebook',
+  social_tiktok: 'TikTok',
+};
+
+const SOCIAL_KEYS = ['social_telegram', 'social_viber', 'social_instagram', 'social_facebook', 'social_tiktok'] as const;
 
 const buyerLinks = [
   { href: '/pages/about', label: 'Про компанію' },
@@ -28,6 +41,16 @@ const catalogLinks = [
 ];
 
 export default function Footer() {
+  const settings = useSettings();
+
+  const socialLinks = SOCIAL_KEYS
+    .filter((key) => settings[key])
+    .map((key) => ({
+      href: settings[key],
+      label: socialLabels[key],
+      Icon: iconMap[key],
+    }));
+
   return (
     <footer className="bg-[var(--color-text)] text-white/70">
       <Container className="py-8 lg:py-10">
@@ -65,8 +88,8 @@ export default function Footer() {
               </ul>
               <div className="mt-4">
                 <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">Контакти</h3>
-                <a href="tel:+380001234567" className="text-[13px] font-medium text-white">+38 (000) 123-45-67</a>
-                <p className="text-[11px] text-white/40">Пн-Пт 9-18, Сб 10-15</p>
+                <a href={`tel:${settings.site_phone}`} className="text-[13px] font-medium text-white">{settings.site_phone_display}</a>
+                <p className="text-[11px] text-white/40">{settings.working_hours}</p>
               </div>
             </div>
           </div>
@@ -85,7 +108,7 @@ export default function Footer() {
               Поро<span className="text-[var(--color-primary)]">шок</span>
             </Link>
             <p className="mt-2 text-xs leading-relaxed text-white/50">
-              Інтернет-магазин побутової хімії та засобів для дому. Оригінальна продукція, доступні ціни, швидка доставка по Україні.
+              {settings.company_description}
             </p>
             <h4 className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wider text-white/40">Ми в соцмережах</h4>
             <div className="flex gap-2">
@@ -117,10 +140,9 @@ export default function Footer() {
 
           <div>
             <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/40">Контакти</h3>
-            <a href="tel:+380001234567" className="text-sm font-medium text-white transition-colors hover:text-[var(--color-primary)]">+38 (000) 123-45-67</a>
-            <p className="mt-1 text-xs text-white/40">Пн-Пт: 9:00 - 18:00</p>
-            <p className="text-xs text-white/40">Сб: 10:00 - 15:00</p>
-            <a href="mailto:info@poroshok.ua" className="mt-1.5 block text-xs transition-colors hover:text-white">info@poroshok.ua</a>
+            <a href={`tel:${settings.site_phone}`} className="text-sm font-medium text-white transition-colors hover:text-[var(--color-primary)]">{settings.site_phone_display}</a>
+            <p className="mt-1 text-xs text-white/40">{settings.working_hours}</p>
+            <a href={`mailto:${settings.site_email}`} className="mt-1.5 block text-xs transition-colors hover:text-white">{settings.site_email}</a>
           </div>
 
           <div className="ml-auto w-[220px] shrink-0">
@@ -146,7 +168,7 @@ export default function Footer() {
             ))}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-white/30">
-            <span>&copy; {new Date().getFullYear()} Порошок. Всі права захищені.</span>
+            <span>&copy; {new Date().getFullYear()} {settings.site_name}. Всі права захищені.</span>
             <Link href="/pages/privacy-policy" className="transition-colors hover:text-white/60">Політика конфіденційності</Link>
             <Link href="/pages/public-offer" className="transition-colors hover:text-white/60">Публічна оферта</Link>
           </div>

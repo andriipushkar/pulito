@@ -1,7 +1,7 @@
 import { redis } from '@/lib/redis';
 
 const PREFIX = 'idem:';
-const TTL = 3600; // 1 hour
+const TTL = 86400; // 24 hours
 
 /**
  * Check if an idempotency key has been used. If so, return the cached response.

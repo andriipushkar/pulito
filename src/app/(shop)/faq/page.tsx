@@ -9,9 +9,19 @@ import FaqContent from '@/components/faq/FaqContent';
 import FaqJsonLd from '@/components/faq/FaqJsonLd';
 import { getPublishedFaq } from '@/services/faq';
 
+const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+
 export const metadata: Metadata = {
   title: 'Часті питання (FAQ)',
   description: 'Відповіді на поширені питання про замовлення, доставку, оплату та повернення товарів.',
+  alternates: {
+    canonical: `${baseUrl}/faq`,
+    languages: {
+      'uk': `${baseUrl}/faq`,
+      'en': `${baseUrl}/en/faq`,
+      'x-default': `${baseUrl}/faq`,
+    },
+  },
 };
 
 export default async function FaqPage() {

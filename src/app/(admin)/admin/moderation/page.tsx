@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
@@ -296,7 +295,7 @@ function LogsTab() {
   }, [page, platformFilter, actionFilter]);
 
   const markFalsePositive = async (logId: number) => {
-    await apiClient.patch(`/api/v1/admin/moderation/logs`, { logId, isFalsePositive: true });
+    await apiClient.put(`/api/v1/admin/moderation/logs`, { logId, isFalsePositive: true });
     setLogs((prev) => prev.map((l) => l.id === logId ? { ...l, isFalsePositive: true } : l));
   };
 

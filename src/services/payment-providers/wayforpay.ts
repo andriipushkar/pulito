@@ -148,6 +148,7 @@ export function verifyCallback(body: WayForPayCallbackData): PaymentCallbackResu
     transactionId: String(body.transactionId || body.orderReference),
     rawData: body as unknown as Record<string, unknown>,
     receiptUrl: body.receiptUrl,
+    amount: body.amount,
   };
 }
 

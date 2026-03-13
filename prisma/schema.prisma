@@ -73,6 +73,9 @@ model User {
   telegramChatId        BigInt?          @map("telegram_chat_id")
   viberUserId           String?          @map("viber_user_id")
   avatarUrl             String?          @map("avatar_url")
+  twoFactorEnabled      Boolean          @default(false) @map("two_factor_enabled")
+  twoFactorSecret       String?          @map("two_factor_secret")
+  twoFactorBackupCodes  String[]         @default([]) @map("two_factor_backup_codes")
   isVerified            Boolean          @default(false) @map("is_verified")
   isBlocked             Boolean          @default(false) @map("is_blocked")
   blockedAt             DateTime?        @map("blocked_at")
@@ -109,6 +112,9 @@ model User {
   pushSubscriptions     PushSubscription[]
   reviews               Review[]
 
+  @@index([role])
+  @@index([createdAt])
+  @@index([wholesaleStatus])
   @@map("users")
 }
 
@@ -597,6 +603,8 @@ model UserNotification {
   createdAt        DateTime         @default(now()) @map("created_at")
   readAt           DateTime?        @map("read_at")
 
+  @@index([userId])
+  @@index([createdAt])
   @@map("user_notifications")
 }
 
@@ -652,6 +660,7 @@ model RecentlyViewed {
 
   @@unique([userId, productId])
   @@index([userId, viewedAt])
+  @@index([productId, viewedAt])
   @@map("recently_viewed")
 }
 
@@ -669,6 +678,7 @@ model SearchHistory {
   createdAt        DateTime @default(now()) @map("created_at")
 
   @@index([userId, createdAt(sort: Desc)])
+  @@index([query])
   @@map("search_history")
 }
 
@@ -1415,6 +1425,7 @@ model Review {
   @@unique([productId, userId])
   @@index([productId, status])
   @@index([userId])
+  @@index([createdAt])
   @@map("reviews")
 }
 

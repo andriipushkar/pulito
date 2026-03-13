@@ -23,7 +23,7 @@ const makeProduct = (id: number) => ({
   priceRetail: 100, priceWholesale: null, priceRetailOld: null, priceWholesaleOld: null,
   quantity: 10, isPromo: false, isActive: true, imagePath: null, viewsCount: 0, ordersCount: 0,
   createdAt: '2024-01-01', category: null, badges: [], images: [], content: null,
-});
+}) as any;
 
 describe('ProductCarousel', () => {
   afterEach(() => { cleanup(); });

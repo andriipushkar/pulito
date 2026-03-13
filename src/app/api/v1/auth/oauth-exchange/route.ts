@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
 
   // Clear the one-time cookie
   const response = successResponse({ accessToken });
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('Pragma', 'no-cache');
   response.headers.append(
     'Set-Cookie',
     serialize('oauth_access_token', '', {

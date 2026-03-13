@@ -90,14 +90,14 @@ describe('Monobank provider', () => {
   it('should throw when token not configured', async () => {
     const { env } = await import('@/config/env');
     const original = env.MONOBANK_TOKEN;
-    (env as Record<string, string>).MONOBANK_TOKEN = '';
+    (env as unknown as Record<string, string>).MONOBANK_TOKEN = '';
 
     const { createPayment } = await import('./monobank');
     await expect(
       createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost')
     ).rejects.toThrow('Monobank token not configured');
 
-    (env as Record<string, string>).MONOBANK_TOKEN = original;
+    (env as unknown as Record<string, string>).MONOBANK_TOKEN = original;
   });
 
   describe('MonobankError', () => {

@@ -24,6 +24,8 @@ export async function POST(request: NextRequest) {
     const refreshTtl = parseTtlToSeconds(env.JWT_REFRESH_TTL);
     const response = successResponse({ user, accessToken: tokens.accessToken });
     response.headers.set('Set-Cookie', serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl));
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Pragma', 'no-cache');
 
     return response;
   } catch (error) {

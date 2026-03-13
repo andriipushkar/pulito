@@ -9,6 +9,7 @@ import InstallPrompt from '@/components/common/InstallPrompt';
 import CookieBanner from '@/components/ui/CookieBanner';
 import WebVitalsReporter from '@/components/common/WebVitalsReporter';
 import Toaster from '@/components/common/Toaster';
+import { getSettings } from '@/services/settings';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'cyrillic-ext'],
@@ -21,32 +22,6 @@ export const viewport: Viewport = {
 };
 
 const baseUrl = process.env.APP_URL || 'http://localhost:3000';
-
-const organizationJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'Порошок',
-  url: baseUrl,
-  logo: `${baseUrl}/images/icon-512.png`,
-  description:
-    'Оптово-роздрібний інтернет-магазин побутової хімії. Широкий асортимент, вигідні ціни, швидка доставка по Україні.',
-  contactPoint: {
-    '@type': 'ContactPoint',
-    telephone: process.env.CONTACT_PHONE || '+380XXXXXXXXX',
-    email: process.env.CONTACT_EMAIL || 'info@poroshok.ua',
-    contactType: 'customer service',
-    availableLanguage: 'Ukrainian',
-  },
-  address: {
-    '@type': 'PostalAddress',
-    addressCountry: 'UA',
-    addressLocality: process.env.COMPANY_CITY || 'Україна',
-  },
-  sameAs: [
-    process.env.INSTAGRAM_PROFILE_URL,
-    process.env.TELEGRAM_CHANNEL_URL,
-  ].filter(Boolean),
-};
 
 export const metadata: Metadata = {
   title: {
@@ -86,8 +61,52 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const locale = await getLocale();
-  const messages = await getMessages();
+  const [locale, messages, settings] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    getSettings(),
+  ]);
+
+  const webSiteJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: settings.site_name,
+    url: baseUrl,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${baseUrl}/catalog?search={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
+  const organizationJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: settings.site_name,
+    url: baseUrl,
+    logo: `${baseUrl}/images/icon-512.png`,
+    description: settings.company_description,
+    contactPoint: {
+      '@type': 'ContactPoint',
+      telephone: settings.site_phone,
+      email: settings.site_email,
+      contactType: 'customer service',
+      availableLanguage: 'Ukrainian',
+    },
+    address: {
+      '@type': 'PostalAddress',
+      addressCountry: 'UA',
+      addressLocality: settings.site_address,
+    },
+    sameAs: [
+      settings.social_instagram,
+      settings.social_telegram,
+      settings.social_facebook,
+    ].filter(Boolean),
+  };
 
   return (
     <html lang={locale} className={plusJakarta.variable}>
@@ -98,10 +117,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
         <link rel="apple-touch-icon" href="/images/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="alternate" type="application/rss+xml" title="Порошок — Нові товари" href="/feed.xml" />
+        <link rel="alternate" type="application/rss+xml" title={`${settings.site_name} — Нові товари`} href="/feed.xml" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteJsonLd) }}
         />
       </head>
       <body>

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/product', () => ({ updateProductSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/product', () => ({
@@ -100,7 +100,7 @@ describe('PUT /api/v1/admin/products/[id]', () => {
   it('handles ProductError', async () => {
     const { ProductError } = await import('@/services/product');
     vi.mocked(updateProductSchema.safeParse).mockReturnValue({ success: true, data: { name: 'Updated' } } as any);
-    vi.mocked(updateProduct).mockRejectedValue(new ProductError('Duplicate'));
+    vi.mocked(updateProduct).mockRejectedValue(new (ProductError as any)('Duplicate'));
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ name: 'Updated' }),
@@ -141,7 +141,7 @@ describe('DELETE /api/v1/admin/products/[id]', () => {
 
   it('handles ProductError', async () => {
     const { ProductError } = await import('@/services/product');
-    vi.mocked(deleteProduct).mockRejectedValue(new ProductError('In use'));
+    vi.mocked(deleteProduct).mockRejectedValue(new (ProductError as any)('In use'));
     const req = new Request('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req as any, mockCtx as any);
     expect(res.status).toBe(400);

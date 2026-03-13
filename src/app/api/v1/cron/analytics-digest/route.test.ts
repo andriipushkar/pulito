@@ -10,7 +10,7 @@ describe('POST /api/v1/cron/analytics-digest', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('sends digest on success', async () => {
-    vi.mocked(sendAnalyticsDigest).mockResolvedValue({ sent: true });
+    vi.mocked(sendAnalyticsDigest).mockResolvedValue({ sent: true } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer test-app-secret', 'Content-Type': 'application/json' },
@@ -41,7 +41,7 @@ describe('POST /api/v1/cron/analytics-digest', () => {
   });
 
   it('defaults to daily period when body parse fails', async () => {
-    vi.mocked(sendAnalyticsDigest).mockResolvedValue({ sent: true });
+    vi.mocked(sendAnalyticsDigest).mockResolvedValue({ sent: true } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer test-app-secret' },

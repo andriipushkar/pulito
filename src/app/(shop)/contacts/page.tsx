@@ -3,15 +3,63 @@ import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import ContactForm from '@/components/common/ContactForm';
 import { Phone, Mail, MapPin, Clock } from '@/components/icons';
+import { getSettings } from '@/services/settings';
+
+const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
 export const metadata: Metadata = {
   title: 'Контакти',
   description: 'Зв\'яжіться з нами. Адреса, телефон, email та форма зворотного зв\'язку.',
+  alternates: {
+    canonical: `${baseUrl}/contacts`,
+    languages: {
+      'uk': `${baseUrl}/contacts`,
+      'en': `${baseUrl}/en/contacts`,
+      'x-default': `${baseUrl}/contacts`,
+    },
+  },
 };
 
-export default function ContactsPage() {
+export default async function ContactsPage() {
+  const settings = await getSettings();
+
+  const localBusinessJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    name: settings.site_name,
+    description: settings.company_description,
+    '@id': `${baseUrl}/#business`,
+    url: baseUrl,
+    telephone: settings.site_phone,
+    email: settings.site_email,
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: settings.site_address,
+      addressLocality: 'Київ',
+      addressCountry: 'UA',
+    },
+    openingHoursSpecification: [
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        opens: '09:00',
+        closes: '18:00',
+      },
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Saturday'],
+        opens: '10:00',
+        closes: '15:00',
+      },
+    ],
+  };
+
   return (
     <Container className="py-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+      />
       <Breadcrumbs
         items={[
           { label: 'Головна', href: '/' },
@@ -29,8 +77,8 @@ export default function ContactsPage() {
               <Phone size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-semibold">Телефон</h3>
-                <a href="tel:+380001234567" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
-                  +38 (000) 123-45-67
+                <a href={`tel:${settings.site_phone}`} className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
+                  {settings.site_phone_display}
                 </a>
               </div>
             </div>
@@ -38,8 +86,8 @@ export default function ContactsPage() {
               <Mail size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-semibold">Email</h3>
-                <a href="mailto:info@poroshok.ua" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
-                  info@poroshok.ua
+                <a href={`mailto:${settings.site_email}`} className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
+                  {settings.site_email}
                 </a>
               </div>
             </div>
@@ -47,15 +95,14 @@ export default function ContactsPage() {
               <MapPin size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-semibold">Адреса</h3>
-                <p className="text-sm text-[var(--color-text-secondary)]">м. Київ, вул. Хрещатик, 1</p>
+                <p className="text-sm text-[var(--color-text-secondary)]">{settings.site_address}</p>
               </div>
             </div>
             <div className="flex gap-3 rounded-[var(--radius)] border border-[var(--color-border)] p-4">
               <Clock size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-semibold">Графік роботи</h3>
-                <p className="text-sm text-[var(--color-text-secondary)]">Пн-Пт: 9:00-18:00</p>
-                <p className="text-sm text-[var(--color-text-secondary)]">Сб: 10:00-15:00</p>
+                <p className="text-sm text-[var(--color-text-secondary)]">{settings.working_hours}</p>
               </div>
             </div>
           </div>

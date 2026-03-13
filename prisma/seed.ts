@@ -259,15 +259,22 @@ async function main() {
 
   // --- Site Settings ---
   const settings = [
-    { key: 'site_name', value: 'Clean Shop' },
-    { key: 'site_description', value: 'Інтернет-магазин побутової хімії' },
-    { key: 'contact_phone', value: '+380 50 123 45 67' },
-    { key: 'contact_email', value: 'info@clean-shop.ua' },
-    { key: 'contact_address', value: 'м. Київ, вул. Хрещатик, 1' },
-    { key: 'work_hours', value: 'Пн-Пт: 9:00-18:00, Сб: 10:00-15:00' },
+    { key: 'site_name', value: 'Порошок' },
+    { key: 'site_phone', value: '+380001234567' },
+    { key: 'site_phone_display', value: '+38 (000) 123-45-67' },
+    { key: 'site_email', value: 'info@poroshok.ua' },
+    { key: 'site_address', value: 'м. Київ, вул. Хрещатик, 1' },
+    { key: 'working_hours', value: 'Пн-Пт: 9:00 - 18:00, Сб: 10:00 - 15:00' },
+    { key: 'free_delivery_threshold', value: '2000' },
+    { key: 'social_telegram', value: 'https://t.me/poroshok_shop' },
+    { key: 'social_viber', value: 'viber://pa?chatURI=poroshok_shop' },
+    { key: 'social_instagram', value: 'https://instagram.com/poroshok_shop' },
+    { key: 'social_facebook', value: 'https://www.facebook.com/poroshok.shop' },
+    { key: 'social_tiktok', value: 'https://www.tiktok.com/@poroshok_shop' },
+    { key: 'company_description', value: 'Інтернет-магазин побутової хімії та засобів для дому. Оригінальна продукція, доступні ціни, швидка доставка по Україні.' },
+    { key: 'maintenance_mode', value: 'false' },
     { key: 'min_order_retail', value: '200' },
     { key: 'min_order_wholesale', value: '5000' },
-    { key: 'free_delivery_from', value: '1500' },
     { key: 'currency', value: 'UAH' },
   ];
 

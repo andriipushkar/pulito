@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/order', () => ({ updateOrderStatusSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/order', () => ({
@@ -53,7 +53,7 @@ describe('PUT /api/v1/admin/orders/[id]/status', () => {
   it('returns OrderError status code', async () => {
     const { OrderError } = await import('@/services/order');
     vi.mocked(updateOrderStatusSchema.safeParse).mockReturnValue({ success: true, data: { status: 'processing' } } as any);
-    vi.mocked(updateOrderStatus).mockRejectedValue(new OrderError('invalid transition'));
+    vi.mocked(updateOrderStatus).mockRejectedValue(new (OrderError as any)('invalid transition'));
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ status: 'processing' }),

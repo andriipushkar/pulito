@@ -10,7 +10,7 @@ describe('POST src/app/api/v1/cron/auto-badges', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns result on success with valid auth', async () => {
-    vi.mocked(autoAssignBadges).mockResolvedValue({ assigned: 3 });
+    vi.mocked(autoAssignBadges).mockResolvedValue({ assigned: 3 } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer test-app-secret' },

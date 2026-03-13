@@ -8,14 +8,7 @@ import {
   PAYMENT_STATUS_LABELS,
   ORDER_STATUS_LABELS,
 } from '@/types/order';
-
-const COMPANY = {
-  name: 'Порошок',
-  tagline: 'Інтернет-магазин побутової хімії та засобів для дому',
-  website: 'poroshok.ua',
-  phone: '+38 (067) 123-45-67',
-  email: 'admin@poroshok.ua',
-};
+import { useSettings } from '@/hooks/useSettings';
 
 interface PrintableOrderProps {
   order: OrderDetail;
@@ -23,6 +16,14 @@ interface PrintableOrderProps {
 
 export default function PrintableOrder({ order }: PrintableOrderProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const settings = useSettings();
+  const COMPANY = {
+    name: settings.site_name,
+    tagline: settings.company_description,
+    website: settings.site_email.split('@')[1] || 'poroshok.ua',
+    phone: settings.site_phone_display,
+    email: settings.site_email,
+  };
 
   const handlePrint = () => {
     const content = printRef.current;

@@ -6,7 +6,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     order: { findMany: vi.fn(), groupBy: vi.fn() },
     orderItem: { groupBy: vi.fn() },
-    product: { count: vi.fn() },
+    product: { count: vi.fn(), findMany: vi.fn() },
     user: { count: vi.fn(), findMany: vi.fn() },
     dailyFunnelStats: { findMany: vi.fn() },
   },
@@ -50,6 +50,7 @@ describe('GET /api/v1/admin/analytics', () => {
   it('returns products analytics', async () => {
     vi.mocked(prisma.orderItem.groupBy).mockResolvedValue([]);
     vi.mocked(prisma.product.count).mockResolvedValue(5);
+    vi.mocked(prisma.product.findMany).mockResolvedValue([]);
     const req = new Request('http://localhost/api/v1/admin/analytics?type=products');
     const res = await GET(req as any);
     const json = await res.json();
@@ -60,14 +61,19 @@ describe('GET /api/v1/admin/analytics', () => {
   it('returns clients analytics', async () => {
     vi.mocked(prisma.user.count)
       .mockResolvedValueOnce(10) // newUsers
-      .mockResolvedValueOnce(100) // totalUsers
+      .mockResolvedValueOnce(100) // prevNewUsers
+      .mockResolvedValueOnce(50) // totalUsers
       .mockResolvedValueOnce(5); // wholesalers
-    vi.mocked(prisma.order.groupBy).mockResolvedValue([
-      { userId: 1, _sum: { totalAmount: 500 }, _count: 3 },
-    ] as any);
-    vi.mocked(prisma.user.findMany).mockResolvedValue([
-      { id: 1, fullName: 'John', email: 'john@test.com', companyName: null },
-    ] as any);
+    vi.mocked(prisma.order.groupBy)
+      .mockResolvedValueOnce([
+        { userId: 1, _sum: { totalAmount: 500 }, _count: 3 },
+      ] as any) // topClients
+      .mockResolvedValueOnce([] as any); // wholesaleGroups
+    vi.mocked(prisma.user.findMany)
+      .mockResolvedValueOnce([
+        { id: 1, fullName: 'John', email: 'john@test.com', companyName: null },
+      ] as any) // clientInfo
+      .mockResolvedValueOnce([] as any); // wgUsers
     const req = new Request('http://localhost/api/v1/admin/analytics?type=clients');
     const res = await GET(req as any);
     const json = await res.json();
@@ -80,11 +86,16 @@ describe('GET /api/v1/admin/analytics', () => {
     vi.mocked(prisma.user.count)
       .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(0);
-    vi.mocked(prisma.order.groupBy).mockResolvedValue([
-      { userId: null, _sum: { totalAmount: 100 }, _count: 1 },
-    ] as any);
-    vi.mocked(prisma.user.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.order.groupBy)
+      .mockResolvedValueOnce([
+        { userId: null, _sum: { totalAmount: 100 }, _count: 1 },
+      ] as any)
+      .mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.user.findMany)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([] as any);
     const req = new Request('http://localhost/api/v1/admin/analytics?type=clients');
     const res = await GET(req as any);
     const json = await res.json();
@@ -96,11 +107,16 @@ describe('GET /api/v1/admin/analytics', () => {
     vi.mocked(prisma.user.count)
       .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(0);
-    vi.mocked(prisma.order.groupBy).mockResolvedValue([
-      { userId: 999, _sum: { totalAmount: 100 }, _count: 1 },
-    ] as any);
-    vi.mocked(prisma.user.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.order.groupBy)
+      .mockResolvedValueOnce([
+        { userId: 999, _sum: { totalAmount: 100 }, _count: 1 },
+      ] as any)
+      .mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.user.findMany)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([] as any);
     const req = new Request('http://localhost/api/v1/admin/analytics?type=clients');
     const res = await GET(req as any);
     const json = await res.json();

@@ -11,12 +11,13 @@ import ProductCarousel from '@/components/product/ProductCarousel';
 import RecentlyViewedTracker from '@/components/product/RecentlyViewedTracker';
 import FloatingBuyBar from '@/components/product/FloatingBuyBar';
 import { getProductBySlug, getProducts } from '@/services/product';
+import { getProductRatingStats } from '@/services/review';
 import { prisma } from '@/lib/prisma';
 
 const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'));
-const PriceHistoryChart = dynamic(() => import('@/components/product/PriceHistoryChart'), { ssr: false });
+const PriceHistoryChart = dynamic(() => import('@/components/product/PriceHistoryChart'));
 const BoughtTogetherSection = dynamic(() => import('@/components/product/BoughtTogetherSection'));
-const ReviewSection = dynamic(() => import('@/components/product/ReviewSection'), { ssr: false });
+const ReviewSection = dynamic(() => import('@/components/product/ReviewSection'));
 
 // ISR: revalidate product pages every 120 seconds
 export const revalidate = 120;
@@ -41,7 +42,14 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   return {
     title,
     description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      languages: {
+        'uk': url,
+        'en': `${baseUrl}/en/product/${slug}`,
+        'x-default': url,
+      },
+    },
     openGraph: {
       title,
       description,
@@ -77,6 +85,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
+  const ratingStats = await getProductRatingStats(product.id);
+
   const relatedProducts = product.category
     ? (await getProducts({
         category: product.category.slug,
@@ -100,7 +110,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <Container className="py-6">
-      <ProductJsonLd product={product} />
+      <ProductJsonLd product={product} ratingStats={ratingStats} />
       <RecentlyViewedTracker productId={product.id} />
 
       <Breadcrumbs items={breadcrumbs} className="mb-6" />

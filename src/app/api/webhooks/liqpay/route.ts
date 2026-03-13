@@ -1,9 +1,16 @@
 import { NextRequest } from 'next/server';
 import { verifyCallback } from '@/services/payment-providers/liqpay';
 import { handlePaymentCallback } from '@/services/payment';
+import { checkWebhookRateLimit } from '@/utils/webhook-security';
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const allowed = await checkWebhookRateLimit('liqpay', ip);
+    if (!allowed) {
+      return new Response('Rate limited', { status: 429 });
+    }
+
     const formData = await request.formData();
     const data = formData.get('data') as string;
     const signature = formData.get('signature') as string;

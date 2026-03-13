@@ -10,7 +10,7 @@ describe('POST src/app/api/v1/cron/instagram-insights', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns result on success with valid auth', async () => {
-    vi.mocked(collectInstagramInsights).mockResolvedValue({ collected: 10 });
+    vi.mocked(collectInstagramInsights).mockResolvedValue({ collected: 10 } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer test-app-secret' },

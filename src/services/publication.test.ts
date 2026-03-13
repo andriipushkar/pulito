@@ -264,8 +264,8 @@ describe('publishNow', () => {
 
   it('should publish to Instagram with image', async () => {
     const { env } = await import('@/config/env');
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
 
     const { publishImagePost } = await import('@/services/instagram');
     vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_1', igPermalink: 'https://ig.com/p/1' });
@@ -290,14 +290,14 @@ describe('publishNow', () => {
     expect(mockPrisma.publication.update).toHaveBeenCalledTimes(2);
 
     // Reset
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
   });
 
   it('should publish to Instagram as Reels with video', async () => {
     const { env } = await import('@/config/env');
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
 
     const { publishReelsPost } = await import('@/services/instagram');
     vi.mocked(publishReelsPost).mockResolvedValue({ igMediaId: 'media_2', igPermalink: 'https://ig.com/p/2' });
@@ -326,14 +326,14 @@ describe('publishNow', () => {
       expect.stringContaining('/uploads/cover.jpg')
     );
 
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
   });
 
   it('should post first comment on Instagram if configured', async () => {
     const { env } = await import('@/config/env');
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
 
     const { publishImagePost, postFirstComment } = await import('@/services/instagram');
     vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_3', igPermalink: 'https://ig.com/p/3' });
@@ -356,14 +356,14 @@ describe('publishNow', () => {
 
     expect(postFirstComment).toHaveBeenCalledWith('media_3', 'First comment text!');
 
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
   });
 
   it('should handle Instagram first comment error gracefully', async () => {
     const { env } = await import('@/config/env');
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
 
     const { publishImagePost, postFirstComment } = await import('@/services/instagram');
     vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_4', igPermalink: 'https://ig.com/p/4' });
@@ -385,14 +385,14 @@ describe('publishNow', () => {
     // Should not throw
     await publishNow(4);
 
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
   });
 
   it('should handle Instagram publish error gracefully', async () => {
     const { env } = await import('@/config/env');
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
 
     const { publishImagePost } = await import('@/services/instagram');
     vi.mocked(publishImagePost).mockRejectedValue(new Error('IG API Error'));
@@ -413,14 +413,14 @@ describe('publishNow', () => {
     // Should not throw
     await publishNow(5);
 
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
   });
 
   it('should skip Instagram image post when no imageUrl and no video', async () => {
     const { env } = await import('@/config/env');
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
 
     const { publishImagePost, publishReelsPost } = await import('@/services/instagram');
 
@@ -445,8 +445,8 @@ describe('publishNow', () => {
     // Only the final status update, no igMediaId update
     expect(mockPrisma.publication.update).toHaveBeenCalledTimes(1);
 
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
   });
 
   it('should use APP_URL from process.env when set', async () => {
@@ -490,8 +490,8 @@ describe('publishNow', () => {
 
   it('should publish Reels without cover image', async () => {
     const { env } = await import('@/config/env');
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
 
     const { publishReelsPost } = await import('@/services/instagram');
     vi.mocked(publishReelsPost).mockResolvedValue({ igMediaId: 'media_5', igPermalink: 'https://ig.com/p/5' });
@@ -519,8 +519,8 @@ describe('publishNow', () => {
       undefined
     );
 
-    (env as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
+    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
   });
 });
 

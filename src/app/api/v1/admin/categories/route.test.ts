@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/category', () => ({ createCategorySchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/category', () => ({
@@ -18,13 +18,13 @@ describe('GET /api/v1/admin/categories', () => {
 
   it('returns categories on success', async () => {
     vi.mocked(getCategories).mockResolvedValue([]);
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(200);
   });
 
   it('returns 500 on error', async () => {
     vi.mocked(getCategories).mockRejectedValue(new Error('fail'));
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(500);
   });
 });
@@ -58,7 +58,7 @@ describe('POST /api/v1/admin/categories', () => {
   it('handles CategoryError', async () => {
     const { CategoryError } = await import('@/services/category');
     vi.mocked(createCategorySchema.safeParse).mockReturnValue({ success: true, data: { name: 'Test' } } as any);
-    vi.mocked(createCategory).mockRejectedValue(new CategoryError('Duplicate'));
+    vi.mocked(createCategory).mockRejectedValue(new (CategoryError as any)('Duplicate'));
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ name: 'Test' }),

@@ -8,6 +8,11 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 // Redis-based sliding window rate limiter — safe for horizontal scaling (multiple instances).
 // Falls back to in-memory when Redis is unavailable.
+//
+// TODO: Implement tiered rate limiting:
+// - /api/v1/auth/login: 10 req/15min (brute force protection)
+// - /api/v1/admin/import/*: 5 req/min (heavy operations)
+// - /api/v1/products/search: 60 req/min
 const GLOBAL_RATE_LIMIT = 120; // requests per window
 const GLOBAL_RATE_WINDOW = 60; // seconds
 

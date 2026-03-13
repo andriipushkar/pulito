@@ -10,7 +10,7 @@ describe('POST src/app/api/v1/cron/analytics-alerts', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns result on success with valid auth', async () => {
-    vi.mocked(checkAnalyticsAlerts).mockResolvedValue({ checked: 5 });
+    vi.mocked(checkAnalyticsAlerts).mockResolvedValue({ checked: 5 } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer test-app-secret' },

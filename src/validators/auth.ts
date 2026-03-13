@@ -1,11 +1,16 @@
 import { z } from 'zod';
 
+export const passwordSchema = z
+  .string()
+  .min(8, 'Пароль має бути мінімум 8 символів')
+  .max(128, 'Пароль має бути максимум 128 символів')
+  .refine((val) => /[A-Z]/.test(val) && /[a-z]/.test(val) && /\d/.test(val) && /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/]/.test(val),
+    { message: 'Пароль повинен містити великі та малі літери, цифру та спеціальний символ' }
+  );
+
 export const registerSchema = z.object({
   email: z.string().email('Невалідний email'),
-  password: z
-    .string()
-    .min(8, 'Пароль має бути мінімум 8 символів')
-    .max(128, 'Пароль має бути максимум 128 символів'),
+  password: passwordSchema,
   fullName: z
     .string()
     .min(2, "Ім'я має бути мінімум 2 символи")

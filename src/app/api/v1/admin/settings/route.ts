@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { invalidateSettingsCache } from '@/services/settings';
 
 export const GET = withRole('admin')(
   async () => {
@@ -31,6 +32,7 @@ export const PUT = withRole('admin')(
         });
       }
 
+      await invalidateSettingsCache();
       return successResponse({ updated: entries.length });
     } catch {
       return errorResponse('Помилка збереження налаштувань', 500);

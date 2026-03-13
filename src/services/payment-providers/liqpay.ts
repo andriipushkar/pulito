@@ -86,5 +86,6 @@ export function verifyCallback(data: string, signature: string): PaymentCallback
     status,
     transactionId: String(decoded.transaction_id || decoded.payment_id || ''),
     rawData: decoded as unknown as Record<string, unknown>,
+    amount: decoded.amount,
   };
 }

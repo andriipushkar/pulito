@@ -131,15 +131,15 @@ describe('LiqPay provider', () => {
     const envMod = await import('@/config/env');
     const origPublic = envMod.env.LIQPAY_PUBLIC_KEY;
     const origPrivate = envMod.env.LIQPAY_PRIVATE_KEY;
-    (envMod.env as Record<string, string>).LIQPAY_PUBLIC_KEY = '';
-    (envMod.env as Record<string, string>).LIQPAY_PRIVATE_KEY = '';
+    (envMod.env as unknown as Record<string, string>).LIQPAY_PUBLIC_KEY = '';
+    (envMod.env as unknown as Record<string, string>).LIQPAY_PRIVATE_KEY = '';
 
     try {
       const { createPayment, LiqPayError } = await import('./liqpay');
       await expect(createPayment(1, 100, 'test', 'http://r', 'http://s')).rejects.toThrow(LiqPayError);
     } finally {
-      (envMod.env as Record<string, string>).LIQPAY_PUBLIC_KEY = origPublic;
-      (envMod.env as Record<string, string>).LIQPAY_PRIVATE_KEY = origPrivate;
+      (envMod.env as unknown as Record<string, string>).LIQPAY_PUBLIC_KEY = origPublic;
+      (envMod.env as unknown as Record<string, string>).LIQPAY_PRIVATE_KEY = origPrivate;
     }
   });
 

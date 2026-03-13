@@ -51,7 +51,6 @@ describe('MobileBottomNav', () => {
     expect(container.textContent).toContain('Головна');
     expect(container.textContent).toContain('Каталог');
     expect(container.textContent).toContain('Кошик');
-    expect(container.textContent).toContain('Обране');
     expect(container.textContent).toContain('Профіль');
   });
 
@@ -79,13 +78,6 @@ describe('MobileBottomNav', () => {
     const spans = cartLink!.querySelectorAll('span');
     const cartLabelSpan = Array.from(spans).find(s => s.textContent === 'Кошик');
     expect(cartLabelSpan!.className).toContain('text-[var(--color-primary)]');
-  });
-
-  it('highlights active wishlist link', () => {
-    mockPathname.current = '/account/wishlist';
-    const { container } = render(<MobileBottomNav categories={[]} />);
-    const wishlistLink = container.querySelector('a[href="/account/wishlist"]');
-    expect(wishlistLink!.className).toContain('text-[var(--color-primary)]');
   });
 
   it('highlights active account link (not wishlist)', () => {
@@ -118,21 +110,6 @@ describe('MobileBottomNav', () => {
     mockItemCount.current = 0;
     const { container } = render(<MobileBottomNav categories={[]} />);
     expect(container.querySelector('.animate-cart-pulse')).toBeNull();
-  });
-
-  it('shows wishlist count badge', () => {
-    mockWishlistCount.current = 5;
-    const { container } = render(<MobileBottomNav categories={[]} />);
-    expect(container.textContent).toContain('5');
-  });
-
-  it('does not show wishlist badge when count is 0', () => {
-    mockWishlistCount.current = 0;
-    const { container } = render(<MobileBottomNav categories={[]} />);
-    const wishlistLink = container.querySelector('a[href="/account/wishlist"]');
-    // No badge span inside wishlist
-    const badges = wishlistLink!.querySelectorAll('.rounded-full');
-    expect(badges.length).toBe(0);
   });
 
   it('fetches notification count when user is logged in', async () => {

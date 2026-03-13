@@ -10,7 +10,7 @@ describe('POST src/app/api/v1/cron/auto-tracking', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns result on success with valid auth', async () => {
-    vi.mocked(autoTrackDeliveries).mockResolvedValue({ tracked: 5 });
+    vi.mocked(autoTrackDeliveries).mockResolvedValue({ tracked: 5 } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer test-app-secret' },

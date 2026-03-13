@@ -366,7 +366,7 @@ export async function sendMessageToUser(
   if (channels.includes('telegram') && user.telegramChatId) {
     try {
       const tg = await import('@/services/telegram');
-      await tg.sendMessage(Number(user.telegramChatId), message);
+      await tg.sendClientNotification(Number(user.telegramChatId), 'Сповіщення', message);
       sent.push('telegram');
     } catch { /* skip */ }
   }
@@ -374,7 +374,7 @@ export async function sendMessageToUser(
   if (channels.includes('viber') && user.viberUserId) {
     try {
       const vb = await import('@/services/viber');
-      await vb.sendTextMessage(user.viberUserId, message);
+      await vb.sendViberNotification(Number(user.viberUserId), 'Сповіщення', message);
       sent.push('viber');
     } catch { /* skip */ }
   }

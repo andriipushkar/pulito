@@ -74,7 +74,7 @@ describe('redis', () => {
 
   it('should not cache on globalThis in production', async () => {
     const origEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
+    (process.env as any).NODE_ENV = 'production';
     try {
       const { redis } = await import('./redis');
       expect(redis).toBeDefined();
@@ -83,7 +83,7 @@ describe('redis', () => {
       // (it was deleted in beforeEach, and the production branch skips caching)
       expect(g.redis).toBeUndefined();
     } finally {
-      process.env.NODE_ENV = origEnv;
+      (process.env as any).NODE_ENV = origEnv;
     }
   });
 });

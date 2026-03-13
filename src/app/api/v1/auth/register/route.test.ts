@@ -9,6 +9,20 @@ vi.mock('@/config/env', () => ({
   },
 }));
 
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 9, retryAfter: 0 }),
+  RATE_LIMITS: { auth: { prefix: 'rl:auth:', max: 10, windowSec: 60 } },
+  RateLimitError: class RateLimitError extends Error {
+    statusCode: number;
+    retryAfter?: number;
+    constructor(message: string, statusCode = 429, retryAfter?: number) {
+      super(message);
+      this.statusCode = statusCode;
+      this.retryAfter = retryAfter;
+    }
+  },
+}));
+
 const mockRegisterUser = vi.fn();
 vi.mock('@/services/auth', () => ({
   registerUser: (...args: unknown[]) => mockRegisterUser(...args),
@@ -38,7 +52,7 @@ describe('POST /api/v1/auth/register', () => {
 
     const res = await POST(createRequest({
       email: 'new@test.com',
-      password: 'password123',
+      password: 'Password1!',
       fullName: 'Тест Юзер',
     }));
     const body = await res.json();
@@ -73,7 +87,7 @@ describe('POST /api/v1/auth/register', () => {
 
     const res = await POST(createRequest({
       email: 'dup@test.com',
-      password: 'password123',
+      password: 'Password1!',
       fullName: 'Duplicate User',
     }));
     const body = await res.json();
@@ -87,7 +101,7 @@ describe('POST /api/v1/auth/register', () => {
 
     const res = await POST(createRequest({
       email: 'err@test.com',
-      password: 'password123',
+      password: 'Password1!',
       fullName: 'Error User',
     }));
 

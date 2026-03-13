@@ -106,12 +106,12 @@ describe('ukrposhta service', () => {
     it('should throw when token not configured', async () => {
       const { env } = await import('@/config/env');
       const original = env.UKRPOSHTA_BEARER_TOKEN;
-      (env as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = '';
+      (env as unknown as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = '';
 
       const { trackParcel } = await import('./ukrposhta');
       await expect(trackParcel('barcode')).rejects.toThrow('Ukrposhta API token not configured');
 
-      (env as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = original;
+      (env as unknown as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = original;
     });
   });
 
@@ -257,7 +257,7 @@ describe('ukrposhta service', () => {
     it('should throw when token not configured', async () => {
       const { env } = await import('@/config/env');
       const original = env.UKRPOSHTA_BEARER_TOKEN;
-      (env as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = '';
+      (env as unknown as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = '';
 
       const { createShipment } = await import('./ukrposhta');
       await expect(
@@ -278,7 +278,7 @@ describe('ukrposhta service', () => {
         })
       ).rejects.toThrow('Ukrposhta API token not configured');
 
-      (env as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = original;
+      (env as unknown as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = original;
     });
   });
 
@@ -322,12 +322,12 @@ describe('ukrposhta service', () => {
     it('should throw when token not configured', async () => {
       const { env } = await import('@/config/env');
       const original = env.UKRPOSHTA_BEARER_TOKEN;
-      (env as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = '';
+      (env as unknown as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = '';
 
       const { getShipmentLabel } = await import('./ukrposhta');
       await expect(getShipmentLabel('uuid')).rejects.toThrow('Ukrposhta API token not configured');
 
-      (env as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = original;
+      (env as unknown as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = original;
     });
   });
 });

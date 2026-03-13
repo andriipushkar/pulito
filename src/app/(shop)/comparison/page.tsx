@@ -3,9 +3,19 @@ import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import ComparisonTable from '@/components/product/ComparisonTable';
 
+const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+
 export const metadata: Metadata = {
   title: 'Порівняння товарів',
   description: 'Порівняйте характеристики товарів побутової хімії.',
+  alternates: {
+    canonical: `${baseUrl}/comparison`,
+    languages: {
+      'uk': `${baseUrl}/comparison`,
+      'en': `${baseUrl}/en/comparison`,
+      'x-default': `${baseUrl}/comparison`,
+    },
+  },
 };
 
 export default function ComparisonPage() {

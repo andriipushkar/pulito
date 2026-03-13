@@ -12,12 +12,15 @@ import { prisma } from '@/lib/prisma';
 
 const mockCtx = { params: Promise.resolve({ id: '1' }) };
 
+// Minimal valid JPEG: starts with FF D8 FF E0 magic bytes
+const jpegBytes = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01]);
+
 describe('POST /api/v1/admin/banners/[id]/upload', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('uploads image on success', async () => {
     vi.mocked(prisma.banner.update).mockResolvedValue({ id: 1, imageDesktop: '/uploads/banners/test.jpg' } as any);
-    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+    const file = new File([jpegBytes], 'test.jpg', { type: 'image/jpeg' });
     const formData = new FormData();
     formData.append('image', file);
     const req = new Request('http://localhost', { method: 'POST', body: formData });
@@ -27,7 +30,7 @@ describe('POST /api/v1/admin/banners/[id]/upload', () => {
 
   it('returns 500 on error', async () => {
     vi.mocked(prisma.banner.update).mockRejectedValue(new Error('fail'));
-    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+    const file = new File([jpegBytes], 'test.jpg', { type: 'image/jpeg' });
     const formData = new FormData();
     formData.append('image', file);
     const req = new Request('http://localhost', { method: 'POST', body: formData });
@@ -62,7 +65,7 @@ describe('POST /api/v1/admin/banners/[id]/upload', () => {
 
   it('handles file without extension', async () => {
     vi.mocked(prisma.banner.update).mockResolvedValue({ id: 1 } as any);
-    const file = new File(['test'], 'image', { type: 'image/jpeg' });
+    const file = new File([jpegBytes], 'image', { type: 'image/jpeg' });
     const formData = new FormData();
     formData.append('image', file);
     const req = new Request('http://localhost', { method: 'POST', body: formData });

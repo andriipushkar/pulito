@@ -12,7 +12,6 @@ import {
 } from '@/types/user';
 import type {
   UserDetail,
-  UserRole,
   UserStats,
   UserAuditEntry,
   UserOrder,

@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { AuthError } from './auth-errors';
@@ -6,6 +7,8 @@ import {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
+  sign2faToken,
+  verify2faToken,
   hashToken,
   parseTtlToSeconds,
   getTokenRemainingSeconds,
@@ -78,19 +81,38 @@ export async function registerUser(data: {
  * @param data - Дані для входу (email, пароль, IP-адреса, інформація про пристрій)
  * @returns Об'єкт з даними користувача та парою токенів
  */
+const LOGIN_ATTEMPTS_PREFIX = 'login_attempts:';
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_TTL = 900;
+
+type LoginResult =
+  | { requiresTwoFactor: false; user: AuthUser; tokens: TokenPair }
+  | { requiresTwoFactor: true; tempToken: string };
+
 export async function loginUser(data: {
   email: string;
   password: string;
   ipAddress?: string;
   deviceInfo?: string;
-}): Promise<{ user: AuthUser; tokens: TokenPair }> {
+}): Promise<LoginResult> {
+  const attemptsKey = `${LOGIN_ATTEMPTS_PREFIX}${data.email}`;
+
+  const attempts = await redis.get(attemptsKey);
+  if (attempts && parseInt(attempts, 10) >= MAX_LOGIN_ATTEMPTS) {
+    throw new AuthError('Акаунт тимчасово заблоковано. Спробуйте через 15 хвилин.', 429);
+  }
+
   const user = await prisma.user.findUnique({ where: { email: data.email } });
   if (!user || !user.passwordHash) {
+    await redis.incr(attemptsKey);
+    await redis.expire(attemptsKey, LOCKOUT_TTL);
     throw new AuthError('Невірний email або пароль', 401);
   }
 
   const valid = await bcrypt.compare(data.password, user.passwordHash);
   if (!valid) {
+    await redis.incr(attemptsKey);
+    await redis.expire(attemptsKey, LOCKOUT_TTL);
     throw new AuthError('Невірний email або пароль', 401);
   }
 
@@ -98,7 +120,82 @@ export async function loginUser(data: {
     throw new AuthError('Ваш акаунт заблоковано. Зверніться до підтримки.', 403);
   }
 
+  await redis.del(attemptsKey);
+
+  // If 2FA is enabled, return a short-lived temp token instead of full credentials
+  if (user.twoFactorEnabled && user.twoFactorSecret) {
+    const ipHash = createHash('sha256').update(data.ipAddress || 'unknown').digest('hex').slice(0, 16);
+    const tempToken = sign2faToken({ sub: user.id, iph: ipHash });
+    return { requiresTwoFactor: true, tempToken };
+  }
+
   const tokens = await createTokenPair(user.id, user.email, user.role, data.ipAddress, data.deviceInfo);
+
+  return {
+    requiresTwoFactor: false,
+    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
+    tokens,
+  };
+}
+
+/**
+ * @description Завершує вхід з двофакторною автентифікацією. Перевіряє тимчасовий токен та TOTP-код.
+ * @param tempToken - Тимчасовий JWT-токен, отриманий після успішного введення паролю
+ * @param code - 6-значний TOTP-код з додатку автентифікації
+ * @param ipAddress - IP-адреса клієнта
+ * @param deviceInfo - Інформація про пристрій
+ * @returns Об'єкт з даними користувача та парою токенів
+ */
+export async function verifyTwoFactorLogin(
+  tempToken: string,
+  code: string,
+  ipAddress?: string,
+  deviceInfo?: string,
+): Promise<{ user: AuthUser; tokens: TokenPair }> {
+  let payload;
+  try {
+    payload = verify2faToken(tempToken);
+  } catch {
+    throw new AuthError('Невалідний або прострочений токен 2FA', 401);
+  }
+
+  // Verify IP binding
+  if (payload.iph) {
+    const currentIpHash = createHash('sha256').update(ipAddress || 'unknown').digest('hex').slice(0, 16);
+    if (payload.iph !== currentIpHash) {
+      throw new AuthError('IP-адреса змінилася. Увійдіть знову.', 401);
+    }
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+  if (!user || !user.twoFactorSecret || !user.twoFactorEnabled) {
+    throw new AuthError('Користувача не знайдено або 2FA не налаштовано', 401);
+  }
+
+  const { verifyTOTP, hashBackupCode } = await import('./totp');
+  let totpValid = verifyTOTP(user.twoFactorSecret, code);
+
+  // If TOTP failed, check backup codes
+  if (!totpValid && user.twoFactorBackupCodes && user.twoFactorBackupCodes.length > 0) {
+    const hashedInput = hashBackupCode(code);
+    const codeIndex = user.twoFactorBackupCodes.indexOf(hashedInput);
+    if (codeIndex !== -1) {
+      totpValid = true;
+      // Remove used backup code
+      const updatedCodes = [...user.twoFactorBackupCodes];
+      updatedCodes.splice(codeIndex, 1);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { twoFactorBackupCodes: updatedCodes },
+      });
+    }
+  }
+
+  if (!totpValid) {
+    throw new AuthError('Невірний код двофакторної автентифікації', 401);
+  }
+
+  const tokens = await createTokenPair(user.id, user.email, user.role, ipAddress, deviceInfo);
 
   return {
     user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },

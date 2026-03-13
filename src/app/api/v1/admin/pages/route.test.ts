@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/services/static-page', () => ({
   getAllPages: vi.fn(),
@@ -16,13 +16,13 @@ describe('GET /api/v1/admin/pages', () => {
 
   it('returns pages on success', async () => {
     vi.mocked(getAllPages).mockResolvedValue([]);
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(200);
   });
 
   it('returns 500 on error', async () => {
     vi.mocked(getAllPages).mockRejectedValue(new Error('fail'));
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(500);
   });
 });
@@ -53,7 +53,7 @@ describe('POST /api/v1/admin/pages', () => {
 
   it('returns StaticPageError status code', async () => {
     const { StaticPageError } = await import('@/services/static-page');
-    vi.mocked(createPage).mockRejectedValue(new StaticPageError('duplicate slug'));
+    vi.mocked(createPage).mockRejectedValue(new (StaticPageError as any)('duplicate slug'));
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ title: 'Test Page', content: 'Content here' }),

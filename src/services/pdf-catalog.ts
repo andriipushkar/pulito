@@ -3,6 +3,7 @@ import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
+import { getSettings } from '@/services/settings';
 
 export class PdfCatalogError extends Error {
   constructor(
@@ -16,18 +17,18 @@ export class PdfCatalogError extends Error {
 
 const FONT_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
 
-const COMPANY = {
-  name: 'Порошок',
-  description: 'Інтернет-магазин побутової хімії',
-  website: 'poroshok.ua',
-};
-
 interface PriceListOptions {
   type: 'retail' | 'wholesale';
   categoryId?: number;
 }
 
 export async function generatePriceList(options: PriceListOptions): Promise<string> {
+  const s = await getSettings();
+  const COMPANY = {
+    name: s.site_name,
+    description: s.company_description,
+    website: s.site_email.split('@')[1] || 'poroshok.ua',
+  };
   const { type, categoryId } = options;
 
   const where: Record<string, unknown> = { isActive: true };
@@ -125,6 +126,12 @@ interface IllustratedCatalogOptions {
 }
 
 export async function generateIllustratedCatalog(options: IllustratedCatalogOptions = {}): Promise<string> {
+  const s2 = await getSettings();
+  const COMPANY = {
+    name: s2.site_name,
+    description: s2.company_description,
+    website: s2.site_email.split('@')[1] || 'poroshok.ua',
+  };
   const { categoryId, promoOnly } = options;
 
   const where: Record<string, unknown> = { isActive: true };

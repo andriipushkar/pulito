@@ -20,13 +20,6 @@ const LEVEL_COLORS: Record<string, string> = {
   platinum: '#8B5CF6',
 };
 
-const LEVEL_GRADIENTS: Record<string, string> = {
-  bronze: 'from-amber-600 to-amber-800',
-  silver: 'from-gray-400 to-gray-600',
-  gold: 'from-yellow-400 to-amber-500',
-  platinum: 'from-violet-400 to-purple-600',
-};
-
 const LEVEL_BG: Record<string, string> = {
   bronze: 'bg-amber-50',
   silver: 'bg-gray-50',

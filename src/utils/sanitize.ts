@@ -22,7 +22,7 @@ export function sanitizeHtml(dirty: string): string {
     ALLOWED_ATTR: [
       'href', 'target', 'rel',
       'src', 'alt', 'width', 'height', 'loading',
-      'class', 'style',
+      'class',
       'colspan', 'rowspan',
       'controls', 'type',
     ],

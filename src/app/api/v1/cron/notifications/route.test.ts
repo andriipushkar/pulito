@@ -12,8 +12,8 @@ describe('POST /api/v1/cron/notifications', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('processes notifications on success', async () => {
-    vi.mocked(processNotificationQueue).mockResolvedValue({ processed: 5 });
-    vi.mocked(cleanupExpiredNotifications).mockResolvedValue({ deleted: 2 });
+    vi.mocked(processNotificationQueue).mockResolvedValue({ processed: 5 } as any);
+    vi.mocked(cleanupExpiredNotifications).mockResolvedValue({ deleted: 2 } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer test-app-secret' },

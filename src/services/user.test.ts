@@ -9,6 +9,10 @@ vi.mock('@/lib/prisma', () => ({
       count: vi.fn(),
       update: vi.fn(),
     },
+    auditLog: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -104,6 +108,7 @@ describe('getUserById', () => {
 describe('updateUserRole', () => {
   it('should update role for valid roles', async () => {
     const updated = { id: 1, role: 'manager' };
+    mockPrisma.user.findUnique.mockResolvedValue({ role: 'client' } as never);
     mockPrisma.user.update.mockResolvedValue(updated as never);
 
     const result = await updateUserRole(1, 'manager');
@@ -122,6 +127,7 @@ describe('updateUserRole', () => {
   });
 
   it('should accept all valid roles', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ role: 'client' } as never);
     mockPrisma.user.update.mockResolvedValue({} as never);
 
     for (const role of ['client', 'wholesaler', 'manager', 'admin']) {

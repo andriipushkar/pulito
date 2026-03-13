@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/services/order', () => ({
   editOrderItems: vi.fn(),
@@ -59,7 +59,7 @@ describe('PUT /api/v1/admin/orders/[id]/items', () => {
 
   it('returns OrderError status on OrderError', async () => {
     const { OrderError } = await import('@/services/order');
-    vi.mocked(editOrderItems).mockRejectedValue(new OrderError('order locked'));
+    vi.mocked(editOrderItems).mockRejectedValue(new (OrderError as any)('order locked'));
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ items: [{ productId: 1, quantity: 2 }] }),

@@ -2,9 +2,10 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { paginatedResponse, errorResponse } from '@/utils/api-response';
+import { filterArrayByRole } from '@/utils/role-filter';
 
 export const GET = withRole('admin', 'manager')(
-  async (request: NextRequest) => {
+  async (request: NextRequest, { user: adminUser }) => {
     try {
       const { searchParams } = new URL(request.url);
       const page = Math.max(1, Number(searchParams.get('page')) || 1);
@@ -38,7 +39,9 @@ export const GET = withRole('admin', 'manager')(
         prisma.auditLog.count({ where }),
       ]);
 
-      return paginatedResponse(logs, total, page, limit);
+      const role = adminUser!.role as 'admin' | 'manager';
+      const filtered = filterArrayByRole(logs as Record<string, unknown>[], role);
+      return paginatedResponse(filtered, total, page, limit);
     } catch {
       return errorResponse('Помилка завантаження журналу', 500);
     }

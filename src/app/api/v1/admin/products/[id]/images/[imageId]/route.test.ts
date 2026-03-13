@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/services/image', () => ({
   deleteProductImage: vi.fn(),
@@ -38,7 +38,7 @@ describe('DELETE /api/v1/admin/products/[id]/images/[imageId]', () => {
 
   it('returns ImageError status on ImageError', async () => {
     const { ImageError } = await import('@/services/image');
-    vi.mocked(deleteProductImage).mockRejectedValue(new ImageError('not found'));
+    vi.mocked(deleteProductImage).mockRejectedValue(new (ImageError as any)('not found'));
     const req = new Request('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req as any, mockCtx as any);
     expect(res.status).toBe(400);

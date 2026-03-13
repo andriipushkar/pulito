@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 const mockSafeParse = vi.fn().mockReturnValue({ success: true, data: {} });
 vi.mock('@/validators/pallet-delivery', () => ({ palletConfigSchema: { partial: () => ({ safeParse: (...args: unknown[]) => mockSafeParse(...args) }) } }));
@@ -17,14 +17,14 @@ describe('GET /api/v1/admin/settings/pallet-delivery', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns pallet config on success', async () => {
-    vi.mocked(getPalletConfig).mockResolvedValue({});
-    const res = await GET();
+    vi.mocked(getPalletConfig).mockResolvedValue({} as any);
+    const res = await (GET as any)();
     expect(res.status).toBe(200);
   });
 
   it('returns 500 on error', async () => {
     vi.mocked(getPalletConfig).mockRejectedValue(new Error('fail'));
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(500);
   });
 });
@@ -33,7 +33,7 @@ describe('PUT /api/v1/admin/settings/pallet-delivery', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('updates pallet config on success', async () => {
-    vi.mocked(updatePalletConfig).mockResolvedValue({});
+    vi.mocked(updatePalletConfig).mockResolvedValue({} as any);
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ enabled: true }),
@@ -80,7 +80,7 @@ describe('PUT /api/v1/admin/settings/pallet-delivery', () => {
 
   it('returns PalletDeliveryError status on PalletDeliveryError', async () => {
     const { PalletDeliveryError } = await import('@/services/pallet-delivery');
-    vi.mocked(updatePalletConfig).mockRejectedValue(new PalletDeliveryError('bad config'));
+    vi.mocked(updatePalletConfig).mockRejectedValue(new (PalletDeliveryError as any)('bad config'));
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ enabled: true }),

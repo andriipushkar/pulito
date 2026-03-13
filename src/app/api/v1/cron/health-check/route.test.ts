@@ -10,7 +10,7 @@ describe('POST src/app/api/v1/cron/health-check', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns result on success with valid auth', async () => {
-    vi.mocked(runHealthChecks).mockResolvedValue({ healthy: true });
+    vi.mocked(runHealthChecks).mockResolvedValue({ healthy: true } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer test-app-secret' },

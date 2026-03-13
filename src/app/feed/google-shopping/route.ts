@@ -12,6 +12,12 @@ function escapeXml(str: string): string {
 export async function GET() {
   const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
+  // Google product category mapping for household chemicals
+  const googleCategoryMap: Record<string, string> = {
+    // Household cleaning supplies
+    'default': '623', // Household Supplies > Household Cleaning Supplies
+  };
+
   const products = await prisma.product.findMany({
     where: { isActive: true, quantity: { gt: 0 } },
     orderBy: { updatedAt: 'desc' },
@@ -27,7 +33,7 @@ export async function GET() {
       imagePath: true,
       updatedAt: true,
       content: { select: { shortDescription: true } },
-      category: { select: { name: true, slug: true, parent: { select: { name: true } } } },
+      category: { select: { name: true, slug: true, parent: { select: { name: true, slug: true } } } },
       images: {
         select: { pathFull: true },
         orderBy: [{ isMain: 'desc' as const }, { sortOrder: 'asc' as const }],
@@ -51,6 +57,9 @@ export async function GET() {
         ? categoryParts.join(' > ')
         : 'Побутова хімія';
 
+      const categorySlug = p.category?.slug || p.category?.parent?.slug || '';
+      const googleCategory = googleCategoryMap[categorySlug] || googleCategoryMap['default'];
+
       return `  <item>
     <g:id>${p.id}</g:id>
     <g:title>${escapeXml(p.name)}</g:title>
@@ -64,6 +73,12 @@ export async function GET() {
     <g:mpn>${escapeXml(p.code)}</g:mpn>
     <g:product_type>${escapeXml(productType)}</g:product_type>
     <g:brand>Порошок</g:brand>
+    <g:google_product_category>${googleCategory}</g:google_product_category>
+    <g:shipping>
+      <g:country>UA</g:country>
+      <g:service>Нова Пошта</g:service>
+      <g:price>0 UAH</g:price>
+    </g:shipping>
   </item>`;
     })
     .join('\n');

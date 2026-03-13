@@ -1,5 +1,6 @@
 import { randomBytes, createHmac } from 'crypto';
 import { env } from '@/config/env';
+import { timingSafeCompare } from '@/utils/timing-safe';
 
 export class GoogleOAuthError extends Error {
   constructor(
@@ -48,16 +49,13 @@ export function verifyOAuthState(state: string): boolean {
   const parts = state.split('.');
   if (parts.length !== 2) return false;
   const [nonce, signature] = parts;
-  const expected = createHmac('sha256', env.APP_SECRET)
+  const expectedSignature = createHmac('sha256', env.APP_SECRET)
     .update(nonce)
     .digest('hex');
-  // Constant-time comparison
-  if (expected.length !== signature.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) {
-    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  if (!timingSafeCompare(expectedSignature, signature)) {
+    return false;
   }
-  return diff === 0;
+  return true;
 }
 
 export function getGoogleAuthUrl(state: string): string {
@@ -105,10 +103,8 @@ export async function exchangeCodeForTokens(code: string): Promise<GoogleTokenRe
   const data = await res.json();
 
   if (!res.ok || !data.access_token) {
-    throw new GoogleOAuthError(
-      `Failed to exchange code: ${data.error_description || data.error || 'Unknown error'}`,
-      401
-    );
+    console.error('Google token exchange failed:', data.error_description || data.error || 'Unknown error');
+    throw new GoogleOAuthError('Помилка автентифікації Google', 401);
   }
 
   return data as GoogleTokenResponse;
@@ -122,10 +118,8 @@ export async function getGoogleUserProfile(accessToken: string): Promise<GoogleU
   const data = await res.json();
 
   if (!res.ok || !data.id) {
-    throw new GoogleOAuthError(
-      `Failed to get user profile: ${data.error?.message || 'Unknown error'}`,
-      401
-    );
+    console.error('Google user profile fetch failed:', data.error?.message || 'Unknown error');
+    throw new GoogleOAuthError('Помилка отримання профілю Google', 401);
   }
 
   return {

@@ -16,6 +16,13 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
+vi.mock('@/lib/redis', () => ({
+  redis: {
+    get: vi.fn(),
+    set: vi.fn(),
+  },
+}));
+
 vi.mock('@/config/env', () => ({
   env: { APP_URL: 'https://test.com' },
 }));
@@ -33,15 +40,17 @@ vi.mock('./payment-providers/wayforpay', () => ({
 }));
 
 import { prisma } from '@/lib/prisma';
+import { redis } from '@/lib/redis';
 import * as liqpay from './payment-providers/liqpay';
 import * as monobank from './payment-providers/monobank';
 import * as wayforpay from './payment-providers/wayforpay';
 import { PaymentError, initiatePayment, handlePaymentCallback, getPaymentStatus } from './payment';
 
 const mockPrisma = prisma as unknown as MockPrismaClient;
-const mockLiqpay = liqpay as { createPayment: ReturnType<typeof vi.fn> };
-const mockMonobank = monobank as { createPayment: ReturnType<typeof vi.fn> };
-const mockWayforpay = wayforpay as { createPayment: ReturnType<typeof vi.fn> };
+const mockRedis = redis as unknown as { get: ReturnType<typeof vi.fn>; set: ReturnType<typeof vi.fn> };
+const mockLiqpay = liqpay as unknown as { createPayment: ReturnType<typeof vi.fn> };
+const mockMonobank = monobank as unknown as { createPayment: ReturnType<typeof vi.fn> };
+const mockWayforpay = wayforpay as unknown as { createPayment: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -230,6 +239,8 @@ describe('handlePaymentCallback', () => {
   };
 
   it('creates payment record when none exists (success status)', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 500 });
     (mockPrisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
@@ -267,12 +278,15 @@ describe('handlePaymentCallback', () => {
   });
 
   it('updates existing payment record (success status) and updates order', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
     const existingPayment = {
       orderId: 1,
       paymentStatus: 'pending',
       paidAt: null,
     };
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(existingPayment);
+    (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 500 });
     (mockPrisma.payment.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
     (mockPrisma.order.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
 
@@ -285,6 +299,7 @@ describe('handlePaymentCallback', () => {
         transactionId: 'txn-001',
         callbackData: { some: 'data' },
         paidAt: expect.any(Date),
+        receiptUrl: undefined,
       },
     });
 
@@ -297,12 +312,15 @@ describe('handlePaymentCallback', () => {
   });
 
   it('updates payment on failure status without updating order', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
     const existingPayment = {
       orderId: 1,
       paymentStatus: 'pending',
       paidAt: null,
     };
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(existingPayment);
+    (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 500 });
     (mockPrisma.payment.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
 
     await handlePaymentCallback('liqpay', failureCallback);
@@ -314,6 +332,7 @@ describe('handlePaymentCallback', () => {
         transactionId: 'txn-002',
         callbackData: { error: 'declined' },
         paidAt: null,
+        receiptUrl: undefined,
       },
     });
 
@@ -321,6 +340,8 @@ describe('handlePaymentCallback', () => {
   });
 
   it('creates payment record on failure when none exists', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 300 });
     (mockPrisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
@@ -340,6 +361,8 @@ describe('handlePaymentCallback', () => {
   });
 
   it('creates payment record for wayforpay provider on success', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 750 });
     (mockPrisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
@@ -377,12 +400,15 @@ describe('handlePaymentCallback', () => {
   });
 
   it('updates existing payment for wayforpay on failure without updating order', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
     const existingPayment = {
       orderId: 1,
       paymentStatus: 'pending',
       paidAt: null,
     };
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(existingPayment);
+    (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 500 });
     (mockPrisma.payment.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
 
     await handlePaymentCallback('wayforpay', failureCallback);
@@ -394,6 +420,7 @@ describe('handlePaymentCallback', () => {
         transactionId: 'txn-002',
         callbackData: { error: 'declined' },
         paidAt: null,
+        receiptUrl: undefined,
       },
     });
 
@@ -401,12 +428,15 @@ describe('handlePaymentCallback', () => {
   });
 
   it('handles processing status with existing payment', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
     const existingPayment = {
       orderId: 1,
       paymentStatus: 'pending',
       paidAt: null,
     };
     (mockPrisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(existingPayment);
+    (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ totalAmount: 500 });
     (mockPrisma.payment.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
 
     await handlePaymentCallback('liqpay', {
@@ -423,6 +453,7 @@ describe('handlePaymentCallback', () => {
         transactionId: 'txn-003',
         callbackData: { status: 'processing' },
         paidAt: null,
+        receiptUrl: undefined,
       },
     });
 

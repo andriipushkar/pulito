@@ -9,9 +9,19 @@ import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
 import { prisma } from '@/lib/prisma';
 
+const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+
 export const metadata: Metadata = {
   title: 'Новини та акції — Порошок',
   description: 'Останні новини, акції та спеціальні пропозиції від Порошок',
+  alternates: {
+    canonical: `${baseUrl}/news`,
+    languages: {
+      'uk': `${baseUrl}/news`,
+      'en': `${baseUrl}/en/news`,
+      'x-default': `${baseUrl}/news`,
+    },
+  },
 };
 
 async function getPublications(page: number = 1) {
@@ -81,8 +91,37 @@ export default async function NewsPage({
     { label: 'Новини та акції' },
   ];
 
+  const itemListJsonLd = publications.length > 0 ? {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Новини та акції — Порошок',
+    numberOfItems: publications.length,
+    itemListElement: publications.map((pub, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      item: {
+        '@type': 'NewsArticle',
+        headline: pub.title,
+        ...(pub.content && { description: pub.content.slice(0, 200) }),
+        ...(pub.imagePath && { image: pub.imagePath }),
+        ...(pub.publishedAt && { datePublished: pub.publishedAt.toISOString() }),
+        publisher: {
+          '@type': 'Organization',
+          name: 'Порошок',
+          url: baseUrl,
+        },
+      },
+    })),
+  } : null;
+
   return (
     <Container className="py-6">
+      {itemListJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+        />
+      )}
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       <h1 className="mb-6 text-2xl font-bold">Новини та акції</h1>

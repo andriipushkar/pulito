@@ -34,13 +34,13 @@ describe('PalletDeliveryForm', () => {
   });
 
   it('renders heading and calculate button', () => {
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
     expect(container.textContent).toContain('Палетна доставка');
     expect(container.textContent).toContain('Розрахувати вартість');
   });
 
   it('renders region select with options', () => {
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
     const select = container.querySelector('select') as HTMLSelectElement;
     expect(select).toBeInTheDocument();
     const options = select.querySelectorAll('option');
@@ -50,14 +50,14 @@ describe('PalletDeliveryForm', () => {
   });
 
   it('renders weight input and address/city inputs', () => {
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
     expect(container.textContent).toContain('Вага замовлення (кг) *');
     expect(container.textContent).toContain('Адреса доставки *');
     expect(container.textContent).toContain('Місто *');
   });
 
   it('shows error when calculating with empty weight', async () => {
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
     const calcBtn = Array.from(container.querySelectorAll('button')).find(
       (b) => b.textContent?.includes('Розрахувати'),
     )!;
@@ -70,7 +70,7 @@ describe('PalletDeliveryForm', () => {
   });
 
   it('shows error when calculating with zero weight', async () => {
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
     // Set weight to 0
     const inputs = container.querySelectorAll('input[type="number"]');
     fireEvent.change(inputs[0], { target: { value: '0' } });
@@ -91,7 +91,7 @@ describe('PalletDeliveryForm', () => {
       data: { cost: 1500, estimatedDays: '3-5', isFreeDelivery: false },
     });
 
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
 
     // Set weight
     const inputs = container.querySelectorAll('input[type="number"]');
@@ -127,7 +127,7 @@ describe('PalletDeliveryForm', () => {
       data: { cost: 0, estimatedDays: '2-3', isFreeDelivery: true },
     });
 
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
 
     const inputs = container.querySelectorAll('input[type="number"]');
     fireEvent.change(inputs[0], { target: { value: '500' } });
@@ -148,7 +148,7 @@ describe('PalletDeliveryForm', () => {
       error: 'Сервер недоступний',
     });
 
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
 
     const inputs = container.querySelectorAll('input[type="number"]');
     fireEvent.change(inputs[0], { target: { value: '100' } });
@@ -166,7 +166,7 @@ describe('PalletDeliveryForm', () => {
   it('shows default error message when API returns no error text', async () => {
     mockPost.mockResolvedValue({ success: false });
 
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
 
     const inputs = container.querySelectorAll('input[type="number"]');
     fireEvent.change(inputs[0], { target: { value: '100' } });
@@ -187,7 +187,7 @@ describe('PalletDeliveryForm', () => {
       () => new Promise((resolve) => { resolvePost = resolve; }),
     );
 
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
 
     const inputs = container.querySelectorAll('input[type="number"]');
     fireEvent.change(inputs[0], { target: { value: '100' } });
@@ -214,7 +214,7 @@ describe('PalletDeliveryForm', () => {
   it('sends undefined region when none selected', async () => {
     mockPost.mockResolvedValue({ success: false });
 
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
 
     const inputs = container.querySelectorAll('input[type="number"]');
     fireEvent.change(inputs[0], { target: { value: '50' } });
@@ -233,7 +233,7 @@ describe('PalletDeliveryForm', () => {
   });
 
   it('calls onChange for address and city inputs', () => {
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
     const allInputs = container.querySelectorAll('input:not([type="number"])');
     // Address input (placeholder = "Адреса складу або підприємства")
     const addressInput = container.querySelector('input[placeholder="Адреса складу або підприємства"]') as HTMLInputElement;
@@ -248,21 +248,21 @@ describe('PalletDeliveryForm', () => {
 
   it('displays errors from props', () => {
     const errors = { palletWeightKg: 'Обов\'язкове поле', deliveryAddress: 'Введіть адресу', deliveryCity: 'Введіть місто' };
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={errors} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={errors} />);
     expect(container.textContent).toContain('Обов\'язкове поле');
     expect(container.textContent).toContain('Введіть адресу');
     expect(container.textContent).toContain('Введіть місто');
   });
 
   it('changes weight input value', () => {
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
     const inputs = container.querySelectorAll('input[type="number"]');
     fireEvent.change(inputs[0], { target: { value: '300' } });
     expect((inputs[0] as HTMLInputElement).value).toBe('300');
   });
 
   it('changes region select value', () => {
-    const { container } = render(<PalletDeliveryForm onChange={onChange} errors={{}} />);
+    const { container } = render(<PalletDeliveryForm onChange={onChange as any} errors={{}} />);
     const select = container.querySelector('select') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: 'Південь' } });
     expect(select.value).toBe('Південь');

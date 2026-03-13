@@ -32,11 +32,11 @@ describe('getIdempotentResponse', () => {
 });
 
 describe('setIdempotentResponse', () => {
-  it('stores with TTL of 3600', async () => {
+  it('stores with TTL of 86400', async () => {
     vi.mocked(redis.setex).mockResolvedValue('OK' as any);
 
     await setIdempotentResponse('abc-123', '{"ok":true}');
 
-    expect(redis.setex).toHaveBeenCalledWith('idem:abc-123', 3600, '{"ok":true}');
+    expect(redis.setex).toHaveBeenCalledWith('idem:abc-123', 86400, '{"ok":true}');
   });
 });

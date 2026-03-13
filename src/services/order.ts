@@ -515,6 +515,7 @@ export async function editOrderItems(
     select: {
       id: true,
       status: true,
+      paymentStatus: true,
       items: {
         select: {
           id: true,
@@ -532,6 +533,11 @@ export async function editOrderItems(
 
   if (!order) {
     throw new OrderError('Замовлення не знайдено', 404);
+  }
+
+  // Cannot edit items after payment has been confirmed
+  if (order.paymentStatus === 'paid') {
+    throw new OrderError('Редагування позицій неможливе: замовлення вже оплачено', 400);
   }
 
   // Can only edit items in early statuses

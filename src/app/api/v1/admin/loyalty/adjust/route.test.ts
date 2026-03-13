@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/loyalty', () => ({ adjustPointsSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/loyalty', () => ({
@@ -53,7 +53,7 @@ describe('POST /api/v1/admin/loyalty/adjust', () => {
   it('returns LoyaltyError status on LoyaltyError', async () => {
     const { LoyaltyError } = await import('@/services/loyalty');
     vi.mocked(adjustPointsSchema.safeParse).mockReturnValue({ success: true, data: { userId: 1, points: 100 } } as any);
-    vi.mocked(adjustPoints).mockRejectedValue(new LoyaltyError('insufficient'));
+    vi.mocked(adjustPoints).mockRejectedValue(new (LoyaltyError as any)('insufficient'));
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ userId: 1, points: 100 }),

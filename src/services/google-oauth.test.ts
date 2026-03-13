@@ -106,7 +106,7 @@ describe('getGoogleUserProfile', () => {
       json: async () => ({}),
     });
 
-    await expect(getGoogleUserProfile('bad-token')).rejects.toThrow('Unknown error');
+    await expect(getGoogleUserProfile('bad-token')).rejects.toThrow('Помилка отримання профілю Google');
   });
 });
 
@@ -146,7 +146,7 @@ describe('exchangeCodeForTokens - missing credentials', () => {
     try {
       await exchangeCodeForTokens('expired-code');
     } catch (e) {
-      expect((e as GoogleOAuthError).message).toContain('Code expired');
+      expect((e as GoogleOAuthError).message).toBe('Помилка автентифікації Google');
       expect((e as GoogleOAuthError).statusCode).toBe(401);
     }
   });

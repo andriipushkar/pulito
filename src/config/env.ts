@@ -8,7 +8,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().default('redis://localhost:6380/0'),
 
-  JWT_SECRET: z.string().min(16),
+  JWT_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('30d'),
 
@@ -21,7 +21,8 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().default('./uploads'),
   MAX_FILE_SIZE: z.coerce.number().default(10485760),
 
-  APP_SECRET: z.string().min(8).default('dev-app-secret-not-for-production'),
+  // Used for cron endpoint authentication — must be cryptographically strong
+  APP_SECRET: z.string().min(32).default('dev-app-secret-not-for-production-32c'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   INSTAGRAM_ACCESS_TOKEN: z.string().default(''),

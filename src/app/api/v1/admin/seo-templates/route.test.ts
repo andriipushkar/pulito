@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/services/seo-template', () => ({
   getSeoTemplates: vi.fn(),
@@ -16,20 +16,20 @@ describe('GET /api/v1/admin/seo-templates', () => {
 
   it('returns templates on success', async () => {
     vi.mocked(getSeoTemplates).mockResolvedValue([]);
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(200);
   });
 
   it('returns 500 on error', async () => {
     vi.mocked(getSeoTemplates).mockRejectedValue(new Error('fail'));
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(500);
   });
 
   it('returns SeoTemplateError status on SeoTemplateError', async () => {
     const { SeoTemplateError } = await import('@/services/seo-template');
     vi.mocked(getSeoTemplates).mockRejectedValue(new SeoTemplateError('bad'));
-    const res = await GET();
+    const res = await (GET as any)();
     expect(res.status).toBe(400);
   });
 });

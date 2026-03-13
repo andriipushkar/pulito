@@ -87,7 +87,7 @@ describe('prisma', () => {
 
   it('should use development log levels when NODE_ENV is development (line 15)', async () => {
     const origEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
+    (process.env as any).NODE_ENV = 'development';
     try {
       const { prisma } = await import('./prisma');
       expect(prisma).toBeDefined();
@@ -95,20 +95,20 @@ describe('prisma', () => {
       // We can't directly verify the log arg since PrismaClient is mocked,
       // but we verify it doesn't throw and creates a valid instance
     } finally {
-      process.env.NODE_ENV = origEnv;
+      (process.env as any).NODE_ENV = origEnv;
     }
   });
 
   it('should not cache on globalThis in production', async () => {
     const origEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
+    (process.env as any).NODE_ENV = 'production';
     try {
       const { prisma } = await import('./prisma');
       // In production, globalForPrisma.prisma is not set
       // But since we just imported, prisma still exists from construction
       expect(prisma).toBeDefined();
     } finally {
-      process.env.NODE_ENV = origEnv;
+      (process.env as any).NODE_ENV = origEnv;
     }
   });
 });

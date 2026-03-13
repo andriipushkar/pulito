@@ -12,7 +12,7 @@ const mockWishlistCount = vi.hoisted(() => ({ current: 0 }));
 vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
 vi.mock('@/components/ui/Container', () => ({ default: ({ children, ...props }: any) => <div {...props}>{children}</div> }));
 vi.mock('@/components/ui/IconButton', () => ({ default: ({ label, onClick, badge, ...props }: any) => <button aria-label={label} onClick={onClick} data-badge={badge} {...props}>{badge != null && badge > 0 ? badge : ''}</button> }));
-vi.mock('@/components/icons', () => ({ Bell: () => <span data-testid="bell-icon" />, Cart: () => <span data-testid="cart-icon" />, Check: () => <span data-testid="icon" />, ChevronDown: () => <span data-testid="icon" />, ChevronLeft: () => <span data-testid="icon" />, ChevronRight: () => <span data-testid="icon" />, Close: () => <span data-testid="icon" />, Copy: () => <span data-testid="icon" />, Facebook: () => <span data-testid="icon" />, Filter: () => <span data-testid="icon" />, Heart: () => <span data-testid="icon" />, HeartFilled: () => <span data-testid="icon" />, HelpCircle: () => <span data-testid="icon" />, Instagram: () => <span data-testid="icon" />, MessageCircle: () => <span data-testid="icon" />, Minus: () => <span data-testid="icon" />, Phone: () => <span data-testid="icon" />, Plus: () => <span data-testid="icon" />, Search: () => <span data-testid="icon" />, Telegram: () => <span data-testid="icon" />, TikTok: () => <span data-testid="icon" />, Trash: () => <span data-testid="icon" />, User: () => <span data-testid="icon" />, Viber: () => <span data-testid="icon" /> }));
+vi.mock('@/components/icons', () => ({ Bell: () => <span data-testid="bell-icon" />, Cart: () => <span data-testid="cart-icon" />, Check: () => <span data-testid="icon" />, ChevronDown: () => <span data-testid="icon" />, ChevronLeft: () => <span data-testid="icon" />, ChevronRight: () => <span data-testid="icon" />, Close: () => <span data-testid="icon" />, Compare: () => <span data-testid="icon" />, Copy: () => <span data-testid="icon" />, Facebook: () => <span data-testid="icon" />, Filter: () => <span data-testid="icon" />, Heart: () => <span data-testid="icon" />, HeartFilled: () => <span data-testid="icon" />, HelpCircle: () => <span data-testid="icon" />, Instagram: () => <span data-testid="icon" />, MessageCircle: () => <span data-testid="icon" />, Minus: () => <span data-testid="icon" />, Phone: () => <span data-testid="icon" />, Plus: () => <span data-testid="icon" />, Search: () => <span data-testid="icon" />, Telegram: () => <span data-testid="icon" />, TikTok: () => <span data-testid="icon" />, Trash: () => <span data-testid="icon" />, User: () => <span data-testid="icon" />, Viber: () => <span data-testid="icon" /> }));
 vi.mock('./SearchBar', () => ({ default: () => <div data-testid="search-bar" /> }));
 vi.mock('./MiniCart', () => ({ default: ({ onClose }: any) => <div data-testid="mini-cart"><button onClick={onClose}>Close</button></div> }));
 vi.mock('@/components/common/CallbackButton', () => ({ default: () => <div data-testid="callback-btn" /> }));
@@ -22,6 +22,19 @@ vi.mock('@/hooks/useCart', () => ({ useCart: () => ({ itemCount: mockItemCount.c
 vi.mock('@/hooks/useWishlist', () => ({ useWishlist: () => ({ wishlistCount: mockWishlistCount.current }) }));
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...args: any[]) => mockGet(...args) } }));
 vi.mock('@/utils/format', () => ({ formatPrice: (v: number) => `${v} ₴` }));
+vi.mock('@/hooks/useSettings', () => ({
+  useSettings: () => ({
+    site_name: 'Порошок',
+    site_phone: '+380001234567',
+    site_phone_display: '+38 (000) 123-45-67',
+    site_email: 'info@poroshok.ua',
+    site_address: 'м. Київ',
+    working_hours: 'Пн-Пт: 9:00-18:00',
+    free_delivery_threshold: '2000',
+    social_telegram: '', social_viber: '', social_instagram: '', social_facebook: '', social_tiktok: '',
+    maintenance_mode: 'false', company_description: '', company_legal_name: '', company_edrpou: '', company_ipn: '', company_iban: '', company_bank: '', company_legal_address: '', default_seo_title: '', default_seo_description: '', google_analytics_id: '', facebook_pixel_id: '',
+  }),
+}));
 
 import HeaderMain from './HeaderMain';
 
@@ -81,7 +94,7 @@ describe('HeaderMain', () => {
 
   it('renders phone link on mobile', () => {
     render(<HeaderMain categories={[]} />);
-    expect(screen.getByText('Зателефонувати')).toBeInTheDocument();
+    expect(screen.getByText('+38 (000) 123-45-67')).toBeInTheDocument();
   });
 
   it('renders empty cart text', () => {

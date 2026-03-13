@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
+vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/personal-price', () => ({
   personalPriceFilterSchema: { safeParse: vi.fn() },
@@ -73,7 +73,7 @@ describe('POST /api/v1/admin/personal-prices', () => {
   it('returns PersonalPriceError status code', async () => {
     const { PersonalPriceError } = await import('@/services/personal-price');
     vi.mocked(createPersonalPriceSchema.safeParse).mockReturnValue({ success: true, data: { userId: 1, productId: 1, price: 50 } } as any);
-    vi.mocked(createPersonalPrice).mockRejectedValue(new PersonalPriceError('duplicate'));
+    vi.mocked(createPersonalPrice).mockRejectedValue(new (PersonalPriceError as any)('duplicate'));
     const req = new NextRequest('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ userId: 1, productId: 1, price: 50 }),

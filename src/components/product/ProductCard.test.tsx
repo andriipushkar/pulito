@@ -10,6 +10,18 @@ const mockApiDelete = vi.hoisted(() => vi.fn().mockResolvedValue({ success: true
 const mockUser = vi.hoisted(() => ({ value: null as any }));
 
 vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
+vi.mock('next/dynamic', () => {
+  const { useState, useEffect } = require('react');
+  return {
+    default: (loader: () => Promise<any>) => {
+      return function DynamicWrapper(props: any) {
+        const [Comp, setComp] = (useState as any)(null);
+        useEffect(() => { loader().then((mod: any) => setComp(() => mod.default || mod)); }, []);
+        return Comp ? <Comp {...props} /> : null;
+      };
+    },
+  };
+});
 vi.mock('@/components/ui/Badge', () => ({ default: ({ children }: any) => <span data-testid="badge">{children}</span> }));
 vi.mock('./PriceDisplay', () => ({ default: () => <div data-testid="price-display" /> }));
 vi.mock('./QuickView', () => ({ default: ({ onClose }: any) => <div data-testid="quick-view"><button onClick={onClose}>close</button></div> }));
@@ -17,9 +29,11 @@ vi.mock('@/components/icons', () => ({
   Heart: () => <span data-testid="heart-icon" />,
   HeartFilled: () => <span data-testid="heart-filled-icon" />,
   Cart: () => <span data-testid="cart-icon" />,
+  Compare: () => <span data-testid="compare-icon" />,
   Search: () => <span data-testid="search-icon" />,
 }));
 vi.mock('@/hooks/useCart', () => ({ useCart: () => ({ addItem: mockAddItem }) }));
+vi.mock('@/hooks/useComparison', () => ({ useComparison: () => ({ count: 0, has: () => false, toggle: vi.fn() }) }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: mockUser.value }) }));
 vi.mock('@/lib/api-client', () => ({
   apiClient: { get: (...args: any[]) => mockApiGet(...args), post: (...args: any[]) => mockApiPost(...args), delete: (...args: any[]) => mockApiDelete(...args) },
@@ -191,12 +205,14 @@ describe('ProductCard', () => {
     expect(stored).toEqual([1, 2]);
   });
 
-  it('shows quick view button and opens on click', () => {
+  it('shows quick view button and opens on click', async () => {
     const { getAllByLabelText, queryByTestId } = render(<ProductCard product={makeProduct()} />);
     expect(queryByTestId('quick-view')).not.toBeInTheDocument();
     const qvBtn = getAllByLabelText('Швидкий перегляд')[0];
     fireEvent.click(qvBtn);
-    expect(queryByTestId('quick-view')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(queryByTestId('quick-view')).toBeInTheDocument();
+    });
   });
 
   it('renders links to product page', () => {
@@ -212,11 +228,13 @@ describe('ProductCard', () => {
     fireEvent.mouseLeave(card);
   });
 
-  it('opens quick view and closes it', () => {
+  it('opens quick view and closes it', async () => {
     const { getAllByLabelText, queryByTestId, getByText } = render(<ProductCard product={makeProduct()} />);
     const qvBtn = getAllByLabelText('Швидкий перегляд')[0];
     fireEvent.click(qvBtn);
-    expect(queryByTestId('quick-view')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(queryByTestId('quick-view')).toBeInTheDocument();
+    });
     fireEvent.click(getByText('close'));
     expect(queryByTestId('quick-view')).not.toBeInTheDocument();
   });

@@ -2,9 +2,10 @@ import type { ProductDetail } from '@/types/product';
 
 interface ProductJsonLdProps {
   product: ProductDetail;
+  ratingStats?: { averageRating: number; totalReviews: number } | null;
 }
 
-export default function ProductJsonLd({ product }: ProductJsonLdProps) {
+export default function ProductJsonLd({ product, ratingStats }: ProductJsonLdProps) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '';
   const price = Number(product.priceRetail);
   const oldPrice = product.priceRetailOld ? Number(product.priceRetailOld) : null;
@@ -27,6 +28,13 @@ export default function ProductJsonLd({ product }: ProductJsonLdProps) {
       '@type': 'Brand',
       name: 'Порошок',
     },
+    ...(ratingStats && ratingStats.totalReviews > 0 && {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: ratingStats.averageRating,
+        reviewCount: ratingStats.totalReviews,
+      },
+    }),
     offers: {
       '@type': 'Offer',
       url: `${baseUrl}/product/${product.slug}`,

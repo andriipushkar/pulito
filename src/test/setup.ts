@@ -9,5 +9,5 @@ beforeEach(() => {
   vi.stubEnv('JWT_ACCESS_TTL', '15m');
   vi.stubEnv('JWT_REFRESH_TTL', '30d');
   vi.stubEnv('APP_URL', 'http://localhost:3000');
-  vi.stubEnv('APP_SECRET', 'test-app-secret');
+  vi.stubEnv('APP_SECRET', 'test-app-secret-minimum-32-chars!!');
 });

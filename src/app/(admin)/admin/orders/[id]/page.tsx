@@ -77,7 +77,7 @@ export default function AdminOrderDetailPage() {
     apiClient.get<{ id: number; fullName: string }[]>('/api/v1/admin/users?role=manager&role2=admin&limit=50').then((res) => {
       if (res.success && res.data) {
         const list = Array.isArray(res.data) ? res.data : [];
-        setManagers(list.filter((u: { role?: string }) => u.role === 'admin' || u.role === 'manager'));
+        setManagers(list);
       }
     });
   }, [id]);

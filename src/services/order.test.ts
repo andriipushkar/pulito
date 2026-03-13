@@ -172,11 +172,11 @@ const makeOrderDetail = (overrides?: Record<string, unknown>) => ({
   ...overrides,
 });
 
-const makeFilters = (overrides?: Partial<OrderFilterInput>): OrderFilterInput => ({
+const makeFilters = (overrides?: Partial<OrderFilterInput>) => ({
   page: 1,
   limit: 20,
   ...overrides,
-});
+} as OrderFilterInput);
 
 // ---------------------------------------------------------------------------
 // createOrder
@@ -1248,6 +1248,7 @@ describe('getAllOrders - search filter', () => {
             { orderNumber: { contains: 'Тест', mode: 'insensitive' } },
             { contactName: { contains: 'Тест', mode: 'insensitive' } },
             { contactPhone: { contains: 'Тест', mode: 'insensitive' } },
+            { trackingNumber: { contains: 'Тест', mode: 'insensitive' } },
           ],
         }),
       })

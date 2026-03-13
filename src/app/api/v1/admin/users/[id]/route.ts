@@ -20,13 +20,15 @@ import {
   UserError,
 } from '@/services/user';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { filterByRole, filterArrayByRole } from '@/utils/role-filter';
 
-export const GET = withRole('admin', 'manager')(async (request: NextRequest, { params }) => {
+export const GET = withRole('admin', 'manager')(async (request: NextRequest, { params, user: adminUser }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
 
+    const role = adminUser!.role as 'admin' | 'manager';
     const section = request.nextUrl.searchParams.get('section');
 
     if (section === 'orders') {
@@ -39,7 +41,8 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest, { p
     }
     if (section === 'audit') {
       const logs = await getUserAuditLog(numId);
-      return successResponse(logs);
+      const filtered = filterArrayByRole(logs as Record<string, unknown>[], role);
+      return successResponse(filtered);
     }
     if (section === 'wishlist') {
       const items = await getUserWishlist(numId);
@@ -55,14 +58,16 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest, { p
     }
     if (section === 'export') {
       const data = await exportUserData(numId);
-      return successResponse(data);
+      const filtered = filterByRole(data as Record<string, unknown>, role);
+      return successResponse(filtered);
     }
 
     const user = await getUserById(numId);
     if (!user) {
       return errorResponse('Користувача не знайдено', 404);
     }
-    return successResponse(user);
+    const filtered = filterByRole(user as Record<string, unknown>, role);
+    return successResponse(filtered);
   } catch (error) {
     if (error instanceof UserError) {
       return errorResponse(error.message, error.statusCode);

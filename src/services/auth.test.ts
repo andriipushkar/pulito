@@ -28,6 +28,7 @@ const { mockPrisma, mockRedis } = vi.hoisted(() => {
       set: vi.fn().mockResolvedValue('OK'),
       del: vi.fn().mockResolvedValue(1),
       setex: vi.fn().mockResolvedValue('OK'),
+      incr: vi.fn().mockResolvedValue(1),
       expire: vi.fn().mockResolvedValue(1),
       ttl: vi.fn().mockResolvedValue(-1),
       keys: vi.fn().mockResolvedValue([]),
@@ -130,9 +131,12 @@ describe('auth service', () => {
 
       const result = await loginUser({ email: 'user@test.com', password: 'correct-pass' });
 
-      expect(result.user.email).toBe('user@test.com');
-      expect(result.tokens.accessToken).toBeDefined();
-      expect(result.tokens.refreshToken).toBeDefined();
+      expect(result.requiresTwoFactor).toBe(false);
+      if (!result.requiresTwoFactor) {
+        expect(result.user.email).toBe('user@test.com');
+        expect(result.tokens.accessToken).toBeDefined();
+        expect(result.tokens.refreshToken).toBeDefined();
+      }
     });
 
     it('should throw 401 for non-existent user', async () => {
@@ -213,7 +217,7 @@ describe('auth service', () => {
         revokedAt: new Date(),
       });
 
-      await expect(refreshTokens(oldRefresh)).rejects.toThrow('Refresh token відкликано');
+      await expect(refreshTokens(oldRefresh)).rejects.toThrow('Виявлено повторне використання токена');
     });
 
     it('should throw 401 for unknown refresh token', async () => {
@@ -357,7 +361,10 @@ describe('auth service', () => {
         deviceInfo: 'Chrome/120',
       });
 
-      expect(result.user.email).toBe('user@test.com');
+      expect(result.requiresTwoFactor).toBe(false);
+      if (!result.requiresTwoFactor) {
+        expect(result.user.email).toBe('user@test.com');
+      }
       expect(mockPrisma.refreshToken.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({

@@ -1,5 +1,9 @@
-export const metadata = {
-  title: 'Технічні роботи — Порошок',
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Технічні роботи',
+  description: 'Наразі ми проводимо планове оновлення сайту. Будь ласка, спробуйте пізніше.',
+  robots: { index: false, follow: false },
 };
 
 export default function MaintenancePage() {

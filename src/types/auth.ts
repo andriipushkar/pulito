@@ -10,6 +10,12 @@ export interface JwtRefreshPayload {
   type: 'refresh';
 }
 
+export interface Jwt2faPayload {
+  sub: number;
+  type: '2fa';
+  iph?: string;
+}
+
 export interface AuthUser {
   id: number;
   email: string;

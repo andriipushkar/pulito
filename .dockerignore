@@ -1,0 +1,14 @@
+.git
+.github
+.next
+node_modules
+coverage
+playwright-report
+test
+e2e
+*.md
+.env
+.env.local
+.env.*.local
+.vscode
+.idea

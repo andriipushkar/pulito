@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Close, Telegram, Viber, Instagram, Facebook, TikTok, Heart, User, ChevronRight, Phone, MessageCircle, HelpCircle } from '@/components/icons';
+import { useSettings } from '@/hooks/useSettings';
 import type { CategoryListItem } from '@/types/category';
 
 interface MobileMenuProps {
@@ -11,9 +12,28 @@ interface MobileMenuProps {
   categories: CategoryListItem[];
 }
 
+const iconMap: Record<string, React.FC<{ size: number }>> = {
+  social_telegram: Telegram,
+  social_viber: Viber,
+  social_instagram: Instagram,
+  social_facebook: Facebook,
+  social_tiktok: TikTok,
+};
+
+const socialLabels: Record<string, string> = {
+  social_telegram: 'Telegram',
+  social_viber: 'Viber',
+  social_instagram: 'Instagram',
+  social_facebook: 'Facebook',
+  social_tiktok: 'TikTok',
+};
+
+const SOCIAL_KEYS = ['social_telegram', 'social_viber', 'social_instagram', 'social_facebook', 'social_tiktok'] as const;
+
 export default function MobileMenu({ isOpen, onClose, categories }: MobileMenuProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const settings = useSettings();
 
   /* Lock body scroll & focus close button */
   useEffect(() => {
@@ -154,11 +174,11 @@ export default function MobileMenu({ isOpen, onClose, categories }: MobileMenuPr
           {/* Contact & info links */}
           <div>
             <a
-              href="tel:+380001234567"
+              href={`tel:${settings.site_phone}`}
               className="flex min-h-[48px] items-center gap-3 rounded-xl px-4 text-[15px] text-[var(--color-text-secondary)] transition-colors active:bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/60"
             >
               <Phone size={18} />
-              +38 (000) 123-45-67
+              {settings.site_phone_display}
             </a>
             <Link
               href="/contacts"
@@ -180,13 +200,10 @@ export default function MobileMenu({ isOpen, onClose, categories }: MobileMenuPr
 
           {/* Social — at the very bottom */}
           <div className="mt-4 flex items-center justify-center gap-3 border-t border-[var(--color-border)]/40 pb-4 pt-4">
-            {[
-              { href: 'https://t.me/poroshok_shop', label: 'Telegram', Icon: Telegram },
-              { href: 'viber://pa?chatURI=poroshok_shop', label: 'Viber', Icon: Viber },
-              { href: 'https://instagram.com/poroshok_shop', label: 'Instagram', Icon: Instagram },
-              { href: 'https://www.facebook.com/poroshok.shop', label: 'Facebook', Icon: Facebook },
-              { href: 'https://www.tiktok.com/@poroshok_shop', label: 'TikTok', Icon: TikTok },
-            ].map(({ href, label, Icon }) => (
+            {SOCIAL_KEYS
+              .filter((key) => settings[key])
+              .map((key) => ({ href: settings[key], label: socialLabels[key], Icon: iconMap[key] }))
+              .map(({ href, label, Icon }) => (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]">
                 <Icon size={18} />
               </a>
