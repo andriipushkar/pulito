@@ -109,14 +109,21 @@ describe('api-client', () => {
     );
   });
 
-  it('does not retry on 401 when no accessToken set', async () => {
+  it('attempts refresh on 401 even without accessToken', async () => {
+    // First call returns 401
     mockFetch.mockResolvedValueOnce({
       status: 401,
       json: () => Promise.resolve({ success: false, error: 'unauthorized' }),
     });
+    // Refresh call fails
+    mockFetch.mockResolvedValueOnce({
+      status: 401,
+      ok: false,
+      json: () => Promise.resolve({ success: false }),
+    });
 
     const result = await apiClient.get('/api/v1/test');
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2); // original + refresh attempt
     expect(result).toEqual({ success: false, error: 'unauthorized' });
   });
 

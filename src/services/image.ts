@@ -5,6 +5,9 @@ import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
 import { validateFileType } from '@/utils/file-validation';
 
+const WATERMARK_TEXT = process.env.WATERMARK_TEXT || 'poroshok.com';
+const WATERMARK_ENABLED = process.env.WATERMARK_ENABLED !== 'false'; // enabled by default
+
 export class ImageError extends Error {
   constructor(
     message: string,
@@ -78,7 +81,7 @@ export async function processProductImage(
   const originalPath = path.join(imageDir, `${baseName}_original${getExtension(mimeType)}`);
   await fs.writeFile(originalPath, fileBuffer);
 
-  // Generate resized variants as WebP
+  // Generate resized variants as WebP (with watermark on full & medium)
   const variants = await Promise.all(
     Object.entries(SIZES).map(async ([key, size]) => {
       const filename = `${baseName}_${size.width}x${size.height}.webp`;
@@ -88,14 +91,35 @@ export async function processProductImage(
         .resize(size.width, size.height, {
           fit: 'inside',
           withoutEnlargement: true,
-        })
-        .webp({ quality: key === 'blur' ? 20 : 80 });
+        });
 
       if (key === 'blur') {
-        pipeline = pipeline.blur(5);
+        pipeline = pipeline.blur(5).webp({ quality: 20 });
+      } else {
+        pipeline = pipeline.webp({ quality: 80 });
       }
 
-      await pipeline.toFile(filePath);
+      // Apply watermark to full and medium sizes
+      if (WATERMARK_ENABLED && (key === 'full' || key === 'medium')) {
+        const resizedBuffer = await pipeline.toBuffer();
+        const resizedMeta = await sharp(resizedBuffer).metadata();
+        const w = resizedMeta.width || size.width;
+        const h = resizedMeta.height || size.height;
+        const fontSize = Math.max(12, Math.floor(w * 0.035));
+        const pad = Math.floor(fontSize * 0.5);
+
+        const svgWatermark = `
+          <svg width="${w}" height="${h}">
+            <style>.wm { fill: rgba(255,255,255,0.5); font-size: ${fontSize}px; font-family: Arial, sans-serif; font-weight: bold; }</style>
+            <text x="${w - pad}" y="${h - pad}" text-anchor="end" class="wm">${WATERMARK_TEXT}</text>
+          </svg>`;
+
+        await sharp(resizedBuffer)
+          .composite([{ input: Buffer.from(svgWatermark), gravity: 'southeast' }])
+          .toFile(filePath);
+      } else {
+        await pipeline.toFile(filePath);
+      }
 
       return { key, path: getRelativePath(filePath) };
     })

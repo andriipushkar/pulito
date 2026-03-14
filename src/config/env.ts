@@ -45,6 +45,10 @@ const envSchema = z.object({
 
   FACEBOOK_PAGE_ACCESS_TOKEN: z.string().default(''),
   FACEBOOK_PAGE_ID: z.string().default(''),
+  TYPESENSE_HOST: z.string().default('localhost'),
+  TYPESENSE_PORT: z.coerce.number().default(8108),
+  TYPESENSE_API_KEY: z.string().default('ts-clean-dev-key'),
+  TYPESENSE_PROTOCOL: z.enum(['http', 'https']).default('http'),
   MAINTENANCE_MODE: z.enum(['true', 'false']).default('false'),
 });
 

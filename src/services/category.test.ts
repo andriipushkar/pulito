@@ -7,8 +7,10 @@ vi.mock('@/lib/prisma', () => ({
     category: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      count: vi.fn().mockResolvedValue(3),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
     },
     slugRedirect: {

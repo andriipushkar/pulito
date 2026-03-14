@@ -43,7 +43,11 @@ vi.mock('@/validators/order', () => ({
 }));
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: { product: { findMany: vi.fn() }, user: { findUnique: vi.fn() } },
+  prisma: {
+    product: { findMany: vi.fn() },
+    user: { findUnique: vi.fn() },
+    loyaltyAccount: { findUnique: vi.fn().mockResolvedValue({ points: 500 }) },
+  },
 }));
 
 vi.mock('@/lib/wholesale-price', () => ({
@@ -109,7 +113,7 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false },
+        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 1, orderNumber: 'ORD-001' });
@@ -182,7 +186,7 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: 80, isPromo: false },
+        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: 80, isPromo: false, quantity: 10, isActive: true },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 2, orderNumber: 'ORD-002' });
@@ -217,7 +221,7 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: 50,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: 80, isPromo: false },
+        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: 80, isPromo: false, quantity: 10, isActive: true },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 3, orderNumber: 'ORD-003' });
@@ -237,7 +241,7 @@ describe('POST /api/v1/orders', () => {
     );
   });
 
-  it('handles loyalty points error gracefully', async () => {
+  it('handles loyalty points error gracefully (pre-validated, spendPoints fails silently)', async () => {
     const { LoyaltyError } = await import('@/services/loyalty');
     const { spendPoints } = await import('@/services/loyalty');
     vi.mocked(spendPoints).mockRejectedValue(new (LoyaltyError as any)('Insufficient points'));
@@ -250,7 +254,7 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false },
+        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 4, orderNumber: 'ORD-004' });
@@ -261,9 +265,10 @@ describe('POST /api/v1/orders', () => {
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
+    // Pre-validation passes (mock has 500 points), order created, spendPoints fails silently
     expect(res.status).toBe(201);
     const json = await res.json();
-    expect(json.data.loyaltyPointsError).toBe('Insufficient points');
+    expect(json.data.orderNumber).toBe('ORD-004');
   });
 
   it('sets idempotency response for authenticated order', async () => {
@@ -278,7 +283,7 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false },
+        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 5, orderNumber: 'ORD-005' });
@@ -307,7 +312,7 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false },
+        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 6, orderNumber: 'ORD-006' });
@@ -331,7 +336,7 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false },
+        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
       },
     ]);
     mockCreateOrder.mockRejectedValue(new OrderError('Order limit exceeded', 429));

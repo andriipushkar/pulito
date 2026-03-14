@@ -11,6 +11,10 @@ vi.mock('@/services/product', () => ({
   searchAutocomplete: vi.fn(),
 }));
 
+vi.mock('@/services/typesense', () => ({
+  autocomplete: vi.fn().mockResolvedValue(null),
+}));
+
 import { GET } from './route';
 import { searchAutocomplete } from '@/services/product';
 

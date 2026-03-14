@@ -50,6 +50,24 @@ services:
       retries: 5
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
 
+  typesense:
+    image: typesense/typesense:27.1
+    container_name: clean_typesense
+    restart: unless-stopped
+    ports:
+      - '8108:8108'
+    volumes:
+      - typesense_data:/data
+    environment:
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-ts-clean-dev-key}
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:8108/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
+  typesense_data:
