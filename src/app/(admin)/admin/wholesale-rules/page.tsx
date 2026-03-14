@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import Spinner from '@/components/ui/Spinner';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 
 interface WholesaleRule {
   id: number;
@@ -39,7 +40,11 @@ export default function AdminWholesaleRulesPage() {
     setIsLoading(true);
     apiClient
       .get<WholesaleRule[]>('/api/v1/admin/wholesale-rules')
-      .then((res) => { if (res.success && res.data) setRules(res.data); })
+      .then((res) => {
+        if (res.success && res.data) setRules(res.data);
+        else toast.error('Не вдалося завантажити правила');
+      })
+      .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
   };
 
@@ -77,9 +82,14 @@ export default function AdminWholesaleRulesPage() {
         : await apiClient.post('/api/v1/admin/wholesale-rules', payload);
 
       if (res.success) {
+        toast.success(editingId ? 'Правило оновлено' : 'Правило створено');
         resetForm();
         loadRules();
+      } else {
+        toast.error(res.error || 'Помилка збереження');
       }
+    } catch {
+      toast.error('Помилка мережі');
     } finally {
       setIsSaving(false);
     }
@@ -93,12 +103,18 @@ export default function AdminWholesaleRulesPage() {
     if (deleteId === null) return;
     const id = deleteId;
     setDeleteId(null);
-    await apiClient.delete(`/api/v1/admin/wholesale-rules/${id}`);
+    const res = await apiClient.delete(`/api/v1/admin/wholesale-rules/${id}`);
+    if (res.success) {
+      toast.success('Правило видалено');
+    } else {
+      toast.error('Помилка видалення');
+    }
     loadRules();
   };
 
   const handleToggle = async (rule: WholesaleRule) => {
-    await apiClient.put(`/api/v1/admin/wholesale-rules/${rule.id}`, { isActive: !rule.isActive });
+    const res = await apiClient.put(`/api/v1/admin/wholesale-rules/${rule.id}`, { isActive: !rule.isActive });
+    if (res.success) toast.success(rule.isActive ? 'Правило вимкнено' : 'Правило увімкнено');
     loadRules();
   };
 
@@ -152,7 +168,7 @@ export default function AdminWholesaleRulesPage() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Spinner size="md" /></div>
+        <AdminTableSkeleton rows={5} columns={5} />
       ) : (
         <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
           <table className="w-full text-sm">

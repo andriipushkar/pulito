@@ -49,6 +49,19 @@ export const POST = withOptionalAuth(async (request: NextRequest, { user }) => {
         return errorResponse('Кошик порожній', 400);
       }
 
+      // Re-validate stock for all cart items before creating order
+      for (const item of cartItems) {
+        if (item.product.quantity < item.quantity) {
+          return errorResponse(
+            `Недостатньо товару "${item.product.name}". Доступно: ${item.product.quantity} шт., у кошику: ${item.quantity} шт.`,
+            400
+          );
+        }
+        if (!item.product.isActive) {
+          return errorResponse(`Товар "${item.product.name}" більше не доступний`, 400);
+        }
+      }
+
       const clientType = user.role === 'wholesaler' ? 'wholesale' : 'retail';
 
       // Get user's wholesale group for price resolution
@@ -82,16 +95,31 @@ export const POST = withOptionalAuth(async (request: NextRequest, { user }) => {
         };
       });
 
+      // Validate loyalty points BEFORE creating order
+      const loyaltyPointsToSpend = parsed.data.loyaltyPointsToSpend;
+      if (loyaltyPointsToSpend && loyaltyPointsToSpend > 0) {
+        const userPoints = await prisma.loyaltyAccount.findUnique({
+          where: { userId: user.id },
+          select: { points: true },
+        });
+        if (!userPoints || userPoints.points < loyaltyPointsToSpend) {
+          return errorResponse(
+            `Недостатньо балів. Доступно: ${userPoints?.points ?? 0}, запитано: ${loyaltyPointsToSpend}`,
+            400
+          );
+        }
+      }
+
       const order = await createOrder(user.id, parsed.data, orderItems, clientType);
 
-      // Handle loyalty points spending
-      const loyaltyPointsToSpend = parsed.data.loyaltyPointsToSpend;
+      // Spend loyalty points after order is created (pre-validated above)
       if (loyaltyPointsToSpend && loyaltyPointsToSpend > 0) {
         try {
           await spendPoints(user.id, loyaltyPointsToSpend, order.id);
         } catch (error) {
           if (error instanceof LoyaltyError) {
-            return successResponse({ ...order, loyaltyPointsError: error.message }, 201);
+            // Points were pre-validated, so this is unexpected — log but don't fail
+            console.error('Loyalty points spend failed after validation:', error.message);
           }
         }
       }

@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 
 interface PersonalPrice {
   id: number;
@@ -50,30 +52,36 @@ export default function PersonalPricesPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [message, setMessage] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
-    const res = await apiClient.get<PersonalPrice[]>(`/api/v1/admin/personal-prices?page=${page}&limit=20`);
-    if (res.success && res.data) {
-      setItems(res.data);
-      setTotal((res as unknown as { pagination: { total: number } }).pagination?.total || 0);
-    }
-    setIsLoading(false);
-  }, [page]);
-
-  useEffect(() => {
-    apiClient.get<PersonalPrice[]>(`/api/v1/admin/personal-prices?page=${page}&limit=20`).then((res) => {
+    setIsLoading(true);
+    try {
+      const res = await apiClient.get<PersonalPrice[]>(`/api/v1/admin/personal-prices?page=${page}&limit=20`);
       if (res.success && res.data) {
         setItems(res.data);
         setTotal((res as unknown as { pagination: { total: number } }).pagination?.total || 0);
+      } else {
+        toast.error('Не вдалося завантажити персональні ціни');
       }
+    } catch {
+      toast.error('Помилка мережі');
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, [page]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   const handleSubmit = async () => {
-    setMessage('');
+    if (!form.userId) {
+      toast.error('ID користувача обов\'язковий');
+      return;
+    }
+    setIsSaving(true);
     const payload = {
       userId: parseInt(form.userId),
       productId: form.productId ? parseInt(form.productId) : undefined,
@@ -84,33 +92,42 @@ export default function PersonalPricesPage() {
       validUntil: form.validUntil || undefined,
     };
 
-    let res;
-    if (editingId) {
-      res = await apiClient.put(`/api/v1/admin/personal-prices/${editingId}`, payload);
-    } else {
-      res = await apiClient.post('/api/v1/admin/personal-prices', payload);
-    }
+    try {
+      const res = editingId
+        ? await apiClient.put(`/api/v1/admin/personal-prices/${editingId}`, payload)
+        : await apiClient.post('/api/v1/admin/personal-prices', payload);
 
-    if (res.success) {
-      setShowModal(false);
-      setForm(emptyForm);
-      setEditingId(null);
-      fetchData();
-    } else {
-      setMessage(res.error || 'Помилка збереження');
+      if (res.success) {
+        toast.success(editingId ? 'Персональну ціну оновлено' : 'Персональну ціну створено');
+        setShowModal(false);
+        setForm(emptyForm);
+        setEditingId(null);
+        fetchData();
+      } else {
+        toast.error(res.error || 'Помилка збереження');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    } finally {
+      setIsSaving(false);
     }
-  };
-
-  const handleDelete = (id: number) => {
-    setDeleteId(id);
   };
 
   const executeDelete = async () => {
     if (deleteId === null) return;
     const id = deleteId;
     setDeleteId(null);
-    await apiClient.delete(`/api/v1/admin/personal-prices/${id}`);
-    fetchData();
+    try {
+      const res = await apiClient.delete(`/api/v1/admin/personal-prices/${id}`);
+      if (res.success) {
+        toast.success('Персональну ціну видалено');
+        fetchData();
+      } else {
+        toast.error(res.error || 'Помилка видалення');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    }
   };
 
   const handleEdit = (item: PersonalPrice) => {
@@ -127,69 +144,71 @@ export default function PersonalPricesPage() {
     setShowModal(true);
   };
 
-  if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
-  }
-
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Персональні ціни</h2>
+        <h2 className="text-xl font-bold">Персональні ціни <span className="text-base font-normal text-[var(--color-text-secondary)]">({total})</span></h2>
         <Button onClick={() => { setForm(emptyForm); setEditingId(null); setShowModal(true); }}>
           + Додати
         </Button>
       </div>
 
-      <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)]">
-        <table className="w-full text-sm">
-          <thead className="bg-[var(--color-bg-secondary)]">
-            <tr>
-              <th className="px-4 py-2 text-left">Користувач</th>
-              <th className="px-4 py-2 text-left">Товар/Категорія</th>
-              <th className="px-4 py-2 text-right">Знижка %</th>
-              <th className="px-4 py-2 text-right">Фікс. ціна</th>
-              <th className="px-4 py-2 text-left">Термін</th>
-              <th className="px-4 py-2 text-right">Дії</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-t border-[var(--color-border)]">
-                <td className="px-4 py-2">
-                  <p className="text-xs font-medium">{item.user.fullName}</p>
-                  <p className="text-xs text-[var(--color-text-secondary)]">{item.user.email}</p>
-                </td>
-                <td className="px-4 py-2 text-xs">
-                  {item.product ? `${item.product.name} (${item.product.code})` : `Категорія #${item.categoryId}`}
-                </td>
-                <td className="px-4 py-2 text-right text-xs">
-                  {item.discountPercent ? `${Number(item.discountPercent)}%` : '—'}
-                </td>
-                <td className="px-4 py-2 text-right text-xs">
-                  {item.fixedPrice ? `${Number(item.fixedPrice).toFixed(2)} ₴` : '—'}
-                </td>
-                <td className="px-4 py-2 text-xs">
-                  {item.validFrom ? new Date(item.validFrom).toLocaleDateString() : '∞'} — {item.validUntil ? new Date(item.validUntil).toLocaleDateString() : '∞'}
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <button onClick={() => handleEdit(item)} className="mr-2 text-xs text-[var(--color-primary)] hover:underline">Ред.</button>
-                  <button onClick={() => handleDelete(item.id)} className="text-xs text-[var(--color-danger)] hover:underline">Вид.</button>
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[var(--color-text-secondary)]">Немає персональних цін</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {isLoading ? (
+        <AdminTableSkeleton rows={6} columns={6} />
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
+            <table className="w-full text-sm">
+              <thead className="bg-[var(--color-bg-secondary)]">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium">Користувач</th>
+                  <th className="px-4 py-2 text-left font-medium">Товар/Категорія</th>
+                  <th className="px-4 py-2 text-right font-medium">Знижка %</th>
+                  <th className="px-4 py-2 text-right font-medium">Фікс. ціна</th>
+                  <th className="px-4 py-2 text-left font-medium">Термін</th>
+                  <th className="px-4 py-2 text-right font-medium">Дії</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id} className="border-t border-[var(--color-border)] transition-colors hover:bg-[var(--color-bg-secondary)]">
+                    <td className="px-4 py-2">
+                      <p className="text-xs font-medium">{item.user.fullName}</p>
+                      <p className="text-xs text-[var(--color-text-secondary)]">{item.user.email}</p>
+                    </td>
+                    <td className="px-4 py-2 text-xs">
+                      {item.product ? `${item.product.name} (${item.product.code})` : `Категорія #${item.categoryId}`}
+                    </td>
+                    <td className="px-4 py-2 text-right text-xs">
+                      {item.discountPercent ? `${Number(item.discountPercent)}%` : '—'}
+                    </td>
+                    <td className="px-4 py-2 text-right text-xs">
+                      {item.fixedPrice ? `${Number(item.fixedPrice).toFixed(2)} grn` : '—'}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">
+                      {item.validFrom ? new Date(item.validFrom).toLocaleDateString('uk-UA') : '∞'} — {item.validUntil ? new Date(item.validUntil).toLocaleDateString('uk-UA') : '∞'}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <button onClick={() => handleEdit(item)} className="mr-2 text-xs text-[var(--color-primary)] hover:underline">Ред.</button>
+                      <button onClick={() => setDeleteId(item.id)} className="text-xs text-[var(--color-danger)] hover:underline">Вид.</button>
+                    </td>
+                  </tr>
+                ))}
+                {items.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[var(--color-text-secondary)]">Немає персональних цін</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      {total > 20 && (
-        <div className="mt-4 flex justify-center gap-2">
-          <Button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Назад</Button>
-          <span className="px-3 py-2 text-sm">Сторінка {page}</span>
-          <Button onClick={() => setPage((p) => p + 1)} disabled={items.length < 20}>Далі</Button>
-        </div>
+          {total > 20 && (
+            <div className="mt-4 flex justify-center gap-2">
+              <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Назад</Button>
+              <span className="px-3 py-2 text-sm text-[var(--color-text-secondary)]">Сторінка {page} з {Math.ceil(total / 20)}</span>
+              <Button variant="outline" onClick={() => setPage((p) => p + 1)} disabled={items.length < 20}>Далі</Button>
+            </div>
+          )}
+        </>
       )}
 
       <ConfirmDialog
@@ -200,27 +219,30 @@ export default function PersonalPricesPage() {
         message="Видалити цю персональну ціну?"
       />
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-[var(--radius)] bg-[var(--color-bg)] p-6 shadow-lg">
-            <h3 className="mb-4 text-lg font-semibold">{editingId ? 'Редагувати' : 'Додати'} персональну ціну</h3>
-            {message && <p className="mb-3 text-xs text-[var(--color-danger)]">{message}</p>}
-            <div className="space-y-3">
-              <Input label="ID користувача *" value={form.userId} onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))} disabled={!!editingId} />
-              <Input label="ID товару" value={form.productId} onChange={(e) => setForm((f) => ({ ...f, productId: e.target.value }))} />
-              <Input label="ID категорії" value={form.categoryId} onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))} />
-              <Input label="Знижка (%)" value={form.discountPercent} onChange={(e) => setForm((f) => ({ ...f, discountPercent: e.target.value }))} />
-              <Input label="Фіксована ціна (₴)" value={form.fixedPrice} onChange={(e) => setForm((f) => ({ ...f, fixedPrice: e.target.value }))} />
-              <Input label="Дійсна з" type="date" value={form.validFrom} onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))} />
-              <Input label="Дійсна до" type="date" value={form.validUntil} onChange={(e) => setForm((f) => ({ ...f, validUntil: e.target.value }))} />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button onClick={() => { setShowModal(false); setMessage(''); }}>Скасувати</Button>
-              <Button onClick={handleSubmit}>Зберегти</Button>
-            </div>
+      {/* Create/Edit Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => { setShowModal(false); setEditingId(null); }}
+        title={editingId ? 'Редагувати персональну ціну' : 'Додати персональну ціну'}
+      >
+        <div className="space-y-3 p-4">
+          <Input label="ID користувача *" type="number" value={form.userId} onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))} disabled={!!editingId} />
+          <Input label="ID товару" type="number" value={form.productId} onChange={(e) => setForm((f) => ({ ...f, productId: e.target.value }))} placeholder="Для конкретного товару" />
+          <Input label="ID категорії" type="number" value={form.categoryId} onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))} placeholder="Для всієї категорії" />
+          <Input label="Знижка (%)" type="number" value={form.discountPercent} onChange={(e) => setForm((f) => ({ ...f, discountPercent: e.target.value }))} />
+          <Input label="Фіксована ціна (грн)" type="number" value={form.fixedPrice} onChange={(e) => setForm((f) => ({ ...f, fixedPrice: e.target.value }))} />
+          <Input label="Дійсна з" type="date" value={form.validFrom} onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))} />
+          <Input label="Дійсна до" type="date" value={form.validUntil} onChange={(e) => setForm((f) => ({ ...f, validUntil: e.target.value }))} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setShowModal(false); setEditingId(null); }}>
+              Скасувати
+            </Button>
+            <Button onClick={handleSubmit} isLoading={isSaving}>
+              {editingId ? 'Зберегти' : 'Створити'}
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

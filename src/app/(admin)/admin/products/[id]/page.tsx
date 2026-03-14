@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -53,7 +54,6 @@ export default function AdminProductDetailPage() {
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
   const { isUploading, progress, upload: uploadWithProgress } = useUploadProgress();
@@ -104,7 +104,6 @@ export default function AdminProductDetailPage() {
   const handleSave = async () => {
     if (!validateAll(form)) return;
     setIsSaving(true);
-    setMessage(null);
     try {
       const payload = {
         name: form.name,
@@ -128,12 +127,12 @@ export default function AdminProductDetailPage() {
       };
       const res = await apiClient.put(`/api/v1/admin/products/${id}`, payload);
       if (res.success) {
-        setMessage({ type: 'success', text: 'Збережено!' });
+        toast.success('Збережено!');
       } else {
-        setMessage({ type: 'error', text: res.error || 'Помилка збереження' });
+        toast.error(res.error || 'Помилка збереження');
       }
     } catch {
-      setMessage({ type: 'error', text: 'Помилка мережі' });
+      toast.error('Помилка мережі');
     } finally {
       setIsSaving(false);
     }
@@ -189,12 +188,6 @@ export default function AdminProductDetailPage() {
         <h2 className="mt-1 text-xl font-bold">{product.name}</h2>
         <p className="text-sm text-[var(--color-text-secondary)]">ID: {product.id} | Код: {product.code}</p>
       </div>
-
-      {message && (
-        <div className={`mb-4 rounded-[var(--radius)] p-3 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-[var(--color-danger)]'}`}>
-          {message.text}
-        </div>
-      )}
 
       {/* Images */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
@@ -289,6 +282,18 @@ export default function AdminProductDetailPage() {
 
       <div className="flex gap-3">
         <Button onClick={handleSave} isLoading={isSaving}>Зберегти зміни</Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            const title = encodeURIComponent(`Новинка: ${product.name}`);
+            const price = Number(product.priceRetail).toFixed(0);
+            const content = encodeURIComponent(`${product.name}\n\nЦіна: ${price} грн\nЗамовляйте прямо зараз!`);
+            const image = encodeURIComponent(product.imagePath || '');
+            router.push(`/admin/publications?prefill=product&title=${title}&content=${content}&image=${image}&productId=${product.id}`);
+          }}
+        >
+          Опублікувати в соцмережі
+        </Button>
         <Button variant="outline" onClick={() => router.push('/admin/products')}>Скасувати</Button>
       </div>
 

@@ -19,12 +19,16 @@ const generateSchema = z.object({
     'manager_activity',
     'acquisition_channels',
     'summary_report',
+    'custom',
   ]),
   format: z.enum(['xlsx', 'csv', 'pdf']),
   params: z.object({
     dateFrom: z.string().optional(),
     dateTo: z.string().optional(),
     status: z.string().optional(),
+    entity: z.string().optional(),
+    fields: z.array(z.string()).optional(),
+    filters: z.record(z.string(), z.unknown()).optional(),
   }).optional().default({}),
 });
 

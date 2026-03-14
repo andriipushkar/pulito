@@ -14,20 +14,45 @@ vi.mock('@/lib/prisma', () => ({
     publicationImage: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    publicationChannel: {
+      upsert: vi.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({}),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
+const mockEnv: Record<string, string> = {
+  INSTAGRAM_ACCESS_TOKEN: '',
+  INSTAGRAM_BUSINESS_ACCOUNT_ID: '',
+  TELEGRAM_BOT_TOKEN: '',
+  TELEGRAM_CHANNEL_ID: '',
+  FACEBOOK_PAGE_ACCESS_TOKEN: '',
+  FACEBOOK_PAGE_ID: '',
+};
+
 vi.mock('@/config/env', () => ({
-  env: {
-    INSTAGRAM_ACCESS_TOKEN: '',
-    INSTAGRAM_BUSINESS_ACCOUNT_ID: '',
-  },
+  env: new Proxy({} as Record<string, string>, {
+    get: (_target, prop: string) => mockEnv[prop] ?? '',
+    set: (_target, prop: string, value: string) => { mockEnv[prop] = value; return true; },
+  }),
 }));
 
 vi.mock('@/services/instagram', () => ({
   publishImagePost: vi.fn(),
   publishReelsPost: vi.fn(),
   postFirstComment: vi.fn(),
+}));
+
+const mockChannelConfigs: Record<string, Record<string, unknown> | null> = {
+  telegram: null,
+  viber: null,
+  facebook: null,
+  instagram: null,
+};
+
+vi.mock('@/services/channel-config', () => ({
+  getChannelConfig: vi.fn((channel: string) => Promise.resolve(mockChannelConfigs[channel])),
 }));
 
 import { prisma } from '@/lib/prisma';
@@ -39,7 +64,12 @@ const mockFetch = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   global.fetch = mockFetch;
-  mockFetch.mockResolvedValue({ ok: true });
+  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ ok: true }) });
+  // Reset channel configs
+  mockChannelConfigs.telegram = null;
+  mockChannelConfigs.viber = null;
+  mockChannelConfigs.facebook = null;
+  mockChannelConfigs.instagram = null;
 });
 
 describe('createPublication', () => {
@@ -142,8 +172,7 @@ describe('publishNow', () => {
   });
 
   it('should publish to Telegram when configured', async () => {
-    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
-    vi.stubEnv('TELEGRAM_CHANNEL_ID', '@test');
+    mockChannelConfigs.telegram = { enabled: true, botToken: 'test-token', channelId: '@test' };
 
     mockPrisma.publication.findUnique.mockResolvedValue({
       id: 1,
@@ -161,14 +190,16 @@ describe('publishNow', () => {
       expect.stringContaining('api.telegram.org'),
       expect.objectContaining({ method: 'POST' })
     );
-    expect(mockPrisma.publication.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: expect.objectContaining({ status: 'published' }),
-    });
+    expect(mockPrisma.publication.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 1 },
+        data: expect.objectContaining({ status: 'published' }),
+      })
+    );
   });
 
   it('should publish to Viber when configured', async () => {
-    vi.stubEnv('VIBER_AUTH_TOKEN', 'test-viber-token');
+    mockChannelConfigs.viber = { enabled: true, authToken: 'test-viber-token' };
 
     mockPrisma.publication.findUnique.mockResolvedValue({
       id: 2,
@@ -204,8 +235,7 @@ describe('publishNow', () => {
   });
 
   it('should publish with Telegram buttons when provided', async () => {
-    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
-    vi.stubEnv('TELEGRAM_CHANNEL_ID', '@test');
+    mockChannelConfigs.telegram = { enabled: true, botToken: 'test-token', channelId: '@test' };
 
     mockPrisma.publication.findUnique.mockResolvedValue({
       id: 1,
@@ -225,8 +255,7 @@ describe('publishNow', () => {
   });
 
   it('should handle Telegram publish error gracefully', async () => {
-    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
-    vi.stubEnv('TELEGRAM_CHANNEL_ID', '@test');
+    mockChannelConfigs.telegram = { enabled: true, botToken: 'test-token', channelId: '@test' };
 
     mockPrisma.publication.findUnique.mockResolvedValue({
       id: 1,
@@ -245,7 +274,7 @@ describe('publishNow', () => {
   });
 
   it('should handle Viber publish error gracefully', async () => {
-    vi.stubEnv('VIBER_AUTH_TOKEN', 'test-viber-token');
+    mockChannelConfigs.viber = { enabled: true, authToken: 'test-viber-token' };
 
     mockPrisma.publication.findUnique.mockResolvedValue({
       id: 1,
@@ -263,9 +292,7 @@ describe('publishNow', () => {
   });
 
   it('should publish to Instagram with image', async () => {
-    const { env } = await import('@/config/env');
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
 
     const { publishImagePost } = await import('@/services/instagram');
     vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_1', igPermalink: 'https://ig.com/p/1' });
@@ -290,14 +317,11 @@ describe('publishNow', () => {
     expect(mockPrisma.publication.update).toHaveBeenCalledTimes(2);
 
     // Reset
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    mockChannelConfigs.instagram = null;
   });
 
   it('should publish to Instagram as Reels with video', async () => {
-    const { env } = await import('@/config/env');
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
 
     const { publishReelsPost } = await import('@/services/instagram');
     vi.mocked(publishReelsPost).mockResolvedValue({ igMediaId: 'media_2', igPermalink: 'https://ig.com/p/2' });
@@ -326,14 +350,11 @@ describe('publishNow', () => {
       expect.stringContaining('/uploads/cover.jpg')
     );
 
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    mockChannelConfigs.instagram = null;
   });
 
   it('should post first comment on Instagram if configured', async () => {
-    const { env } = await import('@/config/env');
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
 
     const { publishImagePost, postFirstComment } = await import('@/services/instagram');
     vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_3', igPermalink: 'https://ig.com/p/3' });
@@ -356,14 +377,11 @@ describe('publishNow', () => {
 
     expect(postFirstComment).toHaveBeenCalledWith('media_3', 'First comment text!');
 
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    mockChannelConfigs.instagram = null;
   });
 
   it('should handle Instagram first comment error gracefully', async () => {
-    const { env } = await import('@/config/env');
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
 
     const { publishImagePost, postFirstComment } = await import('@/services/instagram');
     vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_4', igPermalink: 'https://ig.com/p/4' });
@@ -385,14 +403,11 @@ describe('publishNow', () => {
     // Should not throw
     await publishNow(4);
 
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    mockChannelConfigs.instagram = null;
   });
 
   it('should handle Instagram publish error gracefully', async () => {
-    const { env } = await import('@/config/env');
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
 
     const { publishImagePost } = await import('@/services/instagram');
     vi.mocked(publishImagePost).mockRejectedValue(new Error('IG API Error'));
@@ -413,14 +428,11 @@ describe('publishNow', () => {
     // Should not throw
     await publishNow(5);
 
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    mockChannelConfigs.instagram = null;
   });
 
   it('should skip Instagram image post when no imageUrl and no video', async () => {
-    const { env } = await import('@/config/env');
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
 
     const { publishImagePost, publishReelsPost } = await import('@/services/instagram');
 
@@ -445,8 +457,7 @@ describe('publishNow', () => {
     // Only the final status update, no igMediaId update
     expect(mockPrisma.publication.update).toHaveBeenCalledTimes(1);
 
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    mockChannelConfigs.instagram = null;
   });
 
   it('should use APP_URL from process.env when set', async () => {
@@ -489,9 +500,7 @@ describe('publishNow', () => {
   });
 
   it('should publish Reels without cover image', async () => {
-    const { env } = await import('@/config/env');
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = 'ig-token';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = 'ig-account';
+    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
 
     const { publishReelsPost } = await import('@/services/instagram');
     vi.mocked(publishReelsPost).mockResolvedValue({ igMediaId: 'media_5', igPermalink: 'https://ig.com/p/5' });
@@ -519,8 +528,7 @@ describe('publishNow', () => {
       undefined
     );
 
-    (env as unknown as Record<string, string>).INSTAGRAM_ACCESS_TOKEN = '';
-    (env as unknown as Record<string, string>).INSTAGRAM_BUSINESS_ACCOUNT_ID = '';
+    mockChannelConfigs.instagram = null;
   });
 });
 

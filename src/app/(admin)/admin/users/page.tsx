@@ -3,14 +3,19 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import { USER_ROLE_LABELS, WHOLESALE_STATUS_LABELS, WHOLESALE_GROUP_LABELS } from '@/types/user';
 import type { UserListItem, UserRole, WholesaleStatus, WholesaleGroup } from '@/types/user';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
-import Spinner from '@/components/ui/Spinner';
 import Pagination from '@/components/ui/Pagination';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import PageSizeSelector from '@/components/admin/PageSizeSelector';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Search } from '@/components/icons';
+import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
 
 const ROLE_OPTIONS = [
   { value: '', label: 'Всі ролі' },
@@ -46,6 +51,12 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [showFilters, setShowFilters] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    userId: number;
+    action: 'approve' | 'reject';
+    userName: string;
+    wholesaleGroup?: number;
+  } | null>(null);
 
   const page = Number(searchParams.get('page')) || 1;
   const role = searchParams.get('role') || '';
@@ -56,7 +67,18 @@ export default function AdminUsersPage() {
   const search = searchParams.get('search') || '';
   const sortParam = searchParams.get('sort') || 'createdAt:desc';
   const [sortBy, sortOrder] = sortParam.split(':') as [string, string];
-  const limit = 20;
+  const limit = Number(searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
+
+  // Debounced search
+  const debouncedSearch = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
+
+  useEffect(() => {
+    const currentSearch = searchParams.get('search') || '';
+    if (debouncedSearch !== currentSearch) {
+      updateFilter('search', debouncedSearch);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const hasFilters = !!(role || wholesaleStatus || wholesaleGroup || dateFrom || dateTo || search);
 
@@ -81,10 +103,13 @@ export default function AdminUsersPage() {
         if (res.success && res.data) {
           setUsers(res.data);
           setTotal(res.pagination?.total || 0);
+        } else {
+          toast.error('Не вдалося завантажити користувачів');
         }
       })
+      .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
-  }, [page, role, wholesaleStatus, wholesaleGroup, dateFrom, dateTo, search, sortBy, sortOrder]);
+  }, [page, limit, role, wholesaleStatus, wholesaleGroup, dateFrom, dateTo, search, sortBy, sortOrder]);
 
   useEffect(() => {
     loadUsers();
@@ -98,14 +123,29 @@ export default function AdminUsersPage() {
     router.push(`/admin/users?${params}`);
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateFilter('search', searchQuery);
+  const handlePageSizeChange = (size: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('limit', String(size));
+    params.set('page', '1');
+    router.push(`/admin/users?${params}`);
   };
 
-  const handleWholesaleAction = async (userId: number, action: 'approve' | 'reject', wholesaleGroup?: number) => {
-    await apiClient.put(`/api/v1/admin/users/${userId}/wholesale`, { action, wholesaleGroup: wholesaleGroup || 1 });
-    loadUsers();
+  const handleWholesaleConfirm = async () => {
+    if (!confirmAction) return;
+    const res = await apiClient.put(`/api/v1/admin/users/${confirmAction.userId}/wholesale`, {
+      action: confirmAction.action,
+      wholesaleGroup: confirmAction.wholesaleGroup || 1,
+    });
+    if (res.success) {
+      toast.success(confirmAction.action === 'approve'
+        ? `Оптовий доступ надано для ${confirmAction.userName}`
+        : `Заявку відхилено для ${confirmAction.userName}`
+      );
+      loadUsers();
+    } else {
+      toast.error(res.error || 'Помилка');
+    }
+    setConfirmAction(null);
   };
 
   const handleExport = async () => {
@@ -122,7 +162,7 @@ export default function AdminUsersPage() {
         credentials: 'include',
       });
 
-      if (!res.ok) { alert('Помилка експорту'); return; }
+      if (!res.ok) { toast.error('Помилка експорту'); return; }
 
       const blob = await res.blob();
       const disposition = res.headers.get('Content-Disposition');
@@ -136,8 +176,9 @@ export default function AdminUsersPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      toast.success('Експорт завершено');
     } catch {
-      alert('Помилка експорту');
+      toast.error('Помилка експорту');
     }
   };
 
@@ -163,27 +204,19 @@ export default function AdminUsersPage() {
 
       {/* Search + Sort */}
       <div className="mb-3 flex flex-wrap items-end gap-3">
-        <form onSubmit={handleSearch} className="flex">
-          <div className="relative">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Email, ім'я, телефон, компанія..."
-              className="w-64 rounded-l-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-r-[var(--radius)] bg-[var(--color-primary)] px-4 text-sm text-white"
-          >
-            Знайти
-          </button>
-        </form>
+        <div className="relative">
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Email, ім'я, телефон, компанія..."
+            className="w-64 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm"
+          />
+        </div>
         <Select
           options={SORT_OPTIONS}
           value={sortParam}
@@ -252,9 +285,7 @@ export default function AdminUsersPage() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size="md" />
-        </div>
+        <AdminTableSkeleton rows={10} columns={7} />
       ) : (
         <>
           <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
@@ -272,7 +303,7 @@ export default function AdminUsersPage() {
               </thead>
               <tbody>
                 {users.map((u) => (
-                  <tr key={u.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
+                  <tr key={u.id} className="border-b border-[var(--color-border)] last:border-0 transition-colors hover:bg-[var(--color-bg-secondary)]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Link href={`/admin/users/${u.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
@@ -326,7 +357,12 @@ export default function AdminUsersPage() {
                             size="sm"
                             onClick={() => {
                               const el = document.getElementById(`wg-${u.id}`) as HTMLSelectElement;
-                              handleWholesaleAction(u.id, 'approve', Number(el?.value || 1));
+                              setConfirmAction({
+                                userId: u.id,
+                                action: 'approve',
+                                userName: u.fullName,
+                                wholesaleGroup: Number(el?.value || 1),
+                              });
                             }}
                           >
                             Так
@@ -334,7 +370,11 @@ export default function AdminUsersPage() {
                           <Button
                             size="sm"
                             variant="danger"
-                            onClick={() => handleWholesaleAction(u.id, 'reject')}
+                            onClick={() => setConfirmAction({
+                              userId: u.id,
+                              action: 'reject',
+                              userName: u.fullName,
+                            })}
                           >
                             Ні
                           </Button>
@@ -354,10 +394,11 @@ export default function AdminUsersPage() {
             </table>
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Всього: {total} користувачів
-            </p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-4">
+              <p className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</p>
+              <PageSizeSelector value={limit} onChange={handlePageSizeChange} />
+            </div>
             {total > limit && (
               <Pagination
                 currentPage={page}
@@ -368,6 +409,20 @@ export default function AdminUsersPage() {
           </div>
         </>
       )}
+
+      {/* Confirm wholesale action */}
+      <ConfirmDialog
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleWholesaleConfirm}
+        variant={confirmAction?.action === 'reject' ? 'danger' : 'default'}
+        title={confirmAction?.action === 'approve' ? 'Підтвердити оптовий доступ' : 'Відхилити заявку'}
+        message={confirmAction?.action === 'approve'
+          ? `Надати оптовий доступ користувачу "${confirmAction?.userName}"?`
+          : `Відхилити заявку на оптовий доступ від "${confirmAction?.userName}"?`
+        }
+        confirmText={confirmAction?.action === 'approve' ? 'Так, підтвердити' : 'Так, відхилити'}
+      />
     </div>
   );
 }

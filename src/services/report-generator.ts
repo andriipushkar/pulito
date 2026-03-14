@@ -21,7 +21,8 @@ type TemplateKey =
   | 'product_leaders'
   | 'manager_activity'
   | 'acquisition_channels'
-  | 'summary_report';
+  | 'summary_report'
+  | 'custom';
 
 type Format = 'xlsx' | 'csv' | 'pdf';
 
@@ -29,6 +30,9 @@ interface ReportParams {
   dateFrom?: string;
   dateTo?: string;
   status?: string;
+  entity?: string;
+  fields?: string[];
+  filters?: Record<string, unknown>;
 }
 
 const TEMPLATE_LABELS: Record<TemplateKey, string> = {
@@ -45,6 +49,7 @@ const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   manager_activity: 'Активність менеджерів',
   acquisition_channels: 'Канали залучення',
   summary_report: 'Зведений звіт',
+  custom: 'Власний звіт',
 };
 
 // ── Main entry point ──
@@ -584,6 +589,13 @@ const DATA_FETCHERS: Record<TemplateKey, (params: ReportParams) => Promise<RowDa
   manager_activity: fetchManagerActivity,
   acquisition_channels: fetchAcquisitionChannels,
   summary_report: fetchSummaryReport,
+  custom: async (params: ReportParams) => {
+    // Custom report - fetch data based on entity param
+    const entity = params.entity || 'products';
+    if (entity === 'orders') return fetchSalesSummary(params);
+    if (entity === 'clients') return fetchClientsActivity(params);
+    return fetchProductsStock(params);
+  },
 };
 
 // ── Renderers ──
@@ -844,6 +856,13 @@ const PDF_CONFIGS: Record<TemplateKey, PdfConfig> = {
   },
   summary_report: {
     title: 'Зведений звіт',
+    columns: [
+      { label: 'Показник', key: 'Показник', width: 300 },
+      { label: 'Значення', key: 'Значення', width: 200, align: 'right' },
+    ],
+  },
+  custom: {
+    title: 'Власний звіт',
     columns: [
       { label: 'Показник', key: 'Показник', width: 300 },
       { label: 'Значення', key: 'Значення', width: 200, align: 'right' },

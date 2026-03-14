@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface AutoReply {
   id: number;
@@ -30,38 +32,52 @@ export default function AdminBotSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [newReply, setNewReply] = useState({ triggerText: '', responseText: '', platform: 'all' });
   const [showReplyForm, setShowReplyForm] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const loadData = async () => {
-    const [r1, r2] = await Promise.all([
-      apiClient.get<AutoReply[]>('/api/v1/admin/bot-replies'),
-      apiClient.get<WelcomeMessage[]>('/api/v1/admin/bot-welcome'),
-    ]);
-    if (r1.success && r1.data) setReplies(r1.data);
-    if (r2.success && r2.data) setWelcomes(r2.data);
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    Promise.all([
-      apiClient.get<AutoReply[]>('/api/v1/admin/bot-replies'),
-      apiClient.get<WelcomeMessage[]>('/api/v1/admin/bot-welcome'),
-    ]).then(([r1, r2]) => {
+  const loadData = useCallback(async () => {
+    try {
+      const [r1, r2] = await Promise.all([
+        apiClient.get<AutoReply[]>('/api/v1/admin/bot-replies'),
+        apiClient.get<WelcomeMessage[]>('/api/v1/admin/bot-welcome'),
+      ]);
       if (r1.success && r1.data) setReplies(r1.data);
       if (r2.success && r2.data) setWelcomes(r2.data);
+    } catch {
+      toast.error('Помилка завантаження налаштувань ботів');
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, []);
 
+  useEffect(() => { loadData(); }, [loadData]);
+
   const addReply = async () => {
-    await apiClient.post('/api/v1/admin/bot-replies', newReply);
-    setShowReplyForm(false);
-    setNewReply({ triggerText: '', responseText: '', platform: 'all' });
-    loadData();
+    if (!newReply.responseText.trim()) {
+      toast.error('Введіть текст відповіді');
+      return;
+    }
+    const res = await apiClient.post('/api/v1/admin/bot-replies', newReply);
+    if (res.success) {
+      toast.success('Авто-відповідь додано');
+      setShowReplyForm(false);
+      setNewReply({ triggerText: '', responseText: '', platform: 'all' });
+      loadData();
+    } else {
+      toast.error(res.error || 'Помилка додавання');
+    }
   };
 
-  const deleteReply = async (id: number) => {
-    await apiClient.delete(`/api/v1/admin/bot-replies/${id}`);
-    loadData();
+  const executeDelete = async () => {
+    if (deleteId === null) return;
+    const id = deleteId;
+    setDeleteId(null);
+    const res = await apiClient.delete(`/api/v1/admin/bot-replies/${id}`);
+    if (res.success) {
+      toast.success('Авто-відповідь видалено');
+      loadData();
+    } else {
+      toast.error('Помилка видалення');
+    }
   };
 
   if (isLoading) {
@@ -109,7 +125,7 @@ export default function AdminBotSettingsPage() {
           <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <div className="grid gap-3 md:grid-cols-3">
               <Input label="Ключове слово" value={newReply.triggerText} onChange={(e) => setNewReply({ ...newReply, triggerText: e.target.value })} />
-              <Input label="Відповідь" value={newReply.responseText} onChange={(e) => setNewReply({ ...newReply, responseText: e.target.value })} />
+              <Input label="Відповідь *" value={newReply.responseText} onChange={(e) => setNewReply({ ...newReply, responseText: e.target.value })} />
               <div>
                 <label className="mb-1 block text-sm font-medium">Платформа</label>
                 <select
@@ -131,11 +147,11 @@ export default function AdminBotSettingsPage() {
 
         <div className="space-y-2">
           {replies.map((r) => (
-            <div key={r.id} className="flex items-center gap-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+            <div key={r.id} className="flex items-center gap-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 transition-colors hover:bg-[var(--color-bg-secondary)]">
               <code className="rounded bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs">{r.triggerText}</code>
               <span className="flex-1 text-sm">{r.responseText}</span>
               <span className="text-xs text-[var(--color-text-secondary)]">{r.platform}</span>
-              <button onClick={() => deleteReply(r.id)} className="text-xs text-[var(--color-danger)]">Видалити</button>
+              <button onClick={() => setDeleteId(r.id)} className="text-xs text-[var(--color-danger)] hover:underline">Видалити</button>
             </div>
           ))}
           {replies.length === 0 && (
@@ -143,6 +159,14 @@ export default function AdminBotSettingsPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={executeDelete}
+        variant="danger"
+        message="Видалити цю авто-відповідь?"
+      />
     </div>
   );
 }

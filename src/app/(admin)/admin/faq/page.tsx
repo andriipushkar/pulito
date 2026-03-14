@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -87,9 +88,12 @@ export default function AdminFaqPage() {
     setSaving(true);
     const res = await apiClient.post<AdminFaqItem>('/api/v1/admin/faq', createForm);
     if (res.success && res.data) {
+      toast.success('Питання створено');
       setItems((prev) => [...prev, res.data!]);
       setCreateForm(emptyForm);
       setShowCreateForm(false);
+    } else {
+      toast.error(res.error || 'Помилка створення');
     }
     setSaving(false);
   }
@@ -98,8 +102,11 @@ export default function AdminFaqPage() {
     setSaving(true);
     const res = await apiClient.put<AdminFaqItem>(`/api/v1/admin/faq/${id}`, editForm);
     if (res.success && res.data) {
+      toast.success('Питання оновлено');
       setItems((prev) => prev.map((item) => (item.id === id ? res.data! : item)));
       setEditingId(null);
+    } else {
+      toast.error(res.error || 'Помилка');
     }
     setSaving(false);
   }
@@ -114,7 +121,10 @@ export default function AdminFaqPage() {
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/faq/${id}`);
     if (res.success) {
+      toast.success('Питання видалено');
       setItems((prev) => prev.filter((item) => item.id !== id));
+    } else {
+      toast.error('Помилка видалення');
     }
   }
 

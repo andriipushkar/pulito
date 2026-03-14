@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { WHOLESALE_GROUP_LABELS } from '@/types/user';
 import type { WholesaleGroup } from '@/types/user';
@@ -88,6 +89,7 @@ export default function AdminAnalyticsPage() {
     setIsLoading(true);
     apiClient.get(`/api/v1/admin/analytics?type=${tab}&days=${days}`)
       .then((res) => { if (res.success && res.data) setData(res.data); })
+      .catch(() => toast.error('Помилка завантаження аналітики'))
       .finally(() => setIsLoading(false));
   }, [tab, days]);
 

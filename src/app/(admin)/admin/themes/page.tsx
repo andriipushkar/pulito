@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface Theme {
   id: number;
@@ -76,8 +78,8 @@ export default function AdminThemesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [colors, setColors] = useState<Record<string, string>>({});
   const [showPreview, setShowPreview] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [activateId, setActivateId] = useState<number | null>(null);
 
   const loadThemes = () => {
     apiClient.get<Theme[]>('/api/v1/admin/themes').then((res) => {
@@ -88,7 +90,10 @@ export default function AdminThemesPage() {
   useEffect(() => { loadThemes(); }, []);
 
   const activateTheme = async (id: number) => {
-    await apiClient.put(`/api/v1/admin/themes/${id}/activate`, {});
+    setActivateId(null);
+    const res = await apiClient.put(`/api/v1/admin/themes/${id}/activate`, {});
+    if (res.success) toast.success('Тему активовано');
+    else toast.error(res.error || 'Помилка активації');
     loadThemes();
   };
 
@@ -99,7 +104,9 @@ export default function AdminThemesPage() {
 
   const saveColors = async () => {
     if (!editingId) return;
-    await apiClient.put(`/api/v1/admin/themes/${editingId}`, { customSettings: colors });
+    const res = await apiClient.put(`/api/v1/admin/themes/${editingId}`, { customSettings: colors });
+    if (res.success) toast.success('Кольори збережено');
+    else toast.error(res.error || 'Помилка збереження');
     setEditingId(null);
     loadThemes();
   };
@@ -108,12 +115,11 @@ export default function AdminThemesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.name.endsWith('.zip')) {
-      setUploadStatus('Будь ласка, завантажте ZIP-файл');
+      toast.error('Будь ласка, завантажте ZIP-файл');
       return;
     }
 
     setIsUploading(true);
-    setUploadStatus(null);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -130,14 +136,14 @@ export default function AdminThemesPage() {
         headers,
       });
       if (res.ok) {
-        setUploadStatus('Тему успішно завантажено');
+        toast.success('Тему успішно завантажено');
         loadThemes();
       } else {
         const data = await res.json().catch(() => null);
-        setUploadStatus(data?.message || 'Помилка завантаження теми');
+        toast.error(data?.message || 'Помилка завантаження теми');
       }
     } catch {
-      setUploadStatus('Помилка мережі');
+      toast.error('Помилка мережі');
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -158,12 +164,6 @@ export default function AdminThemesPage() {
         </label>
       </div>
 
-      {uploadStatus && (
-        <div className={`mb-4 rounded-[var(--radius)] px-4 py-2 text-sm ${uploadStatus.includes('успішно') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          {uploadStatus}
-        </div>
-      )}
-
       <div className="space-y-4">
         {themes.map((t) => (
           <div key={t.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
@@ -175,7 +175,7 @@ export default function AdminThemesPage() {
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => startEdit(t)}>Кольори</Button>
                 {!t.isActive ? (
-                  <Button size="sm" onClick={() => activateTheme(t.id)}>Активувати</Button>
+                  <Button size="sm" onClick={() => setActivateId(t.id)}>Активувати</Button>
                 ) : (
                   <span className="rounded-full bg-green-100 px-3 py-1 text-xs text-green-700">Активна</span>
                 )}
@@ -214,6 +214,15 @@ export default function AdminThemesPage() {
           <div className="py-8 text-center text-[var(--color-text-secondary)]">Тем не знайдено</div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={activateId !== null}
+        onClose={() => setActivateId(null)}
+        onConfirm={() => activateId && activateTheme(activateId)}
+        title="Активувати тему"
+        message="Зміна теми вплине на зовнішній вигляд сайту для всіх відвідувачів. Продовжити?"
+        confirmText="Так, активувати"
+      />
     </div>
   );
 }

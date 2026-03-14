@@ -714,19 +714,44 @@ model Publication {
   igInsightsJson Json?             @map("ig_insights_json")
   tgMessageId    BigInt?           @map("tg_message_id")
   viberMsgToken  String?           @map("viber_message_token")
+  fbPostId       String?           @map("fb_post_id")
+  fbPermalink    String?           @map("fb_permalink")
   buttons        Json?
+  channelContents Json?            @map("channel_contents") // Per-channel content overrides: { telegram: { title, content, hashtags }, ... }
   templateType   String?           @map("template_type")
   errorMessage   String?           @map("error_message")
   retryCount     Int               @default(0) @map("retry_count")
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
-  images PublicationImage[]
+  images           PublicationImage[]
+  channelResults   PublicationChannel[]
 
   @@index([status, scheduledAt])
   @@index([createdBy])
   @@index([publishedAt(sort: Desc)])
   @@map("publications")
+}
+
+model PublicationChannel {
+  id            Int         @id @default(autoincrement())
+  publicationId Int         @map("publication_id")
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  channel       String      // telegram, viber, facebook, instagram, tiktok, site
+  status        String      @default("pending") // pending, published, failed
+  externalId    String?     @map("external_id")   // tg message_id, ig media_id, fb post_id, etc.
+  permalink     String?     // link to the post
+  errorMessage  String?     @map("error_message")
+  retryCount    Int         @default(0) @map("retry_count")
+  views         Int?        // Number of views/impressions
+  clicks        Int?        // Number of clicks/interactions
+  engagement    Float?      // Engagement rate (likes+comments+shares / views)
+  publishedAt   DateTime?   @map("published_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@unique([publicationId, channel])
+  @@index([publicationId])
+  @@map("publication_channels")
 }
 
 model PublicationImage {
@@ -1417,6 +1442,7 @@ model Review {
   status    ReviewStatus @default(pending)
   isVerifiedPurchase Boolean @default(false) @map("is_verified_purchase")
   helpfulCount   Int     @default(0) @map("helpful_count")
+  images         Json?    // Array of image paths: ["/uploads/reviews/1.jpg", ...]
   adminReply     String? @map("admin_reply") @db.VarChar(1000)
   adminReplyAt   DateTime? @map("admin_reply_at")
   createdAt DateTime     @default(now()) @map("created_at")
@@ -1427,6 +1453,23 @@ model Review {
   @@index([userId])
   @@index([createdAt])
   @@map("reviews")
+}
+
+// ─────────────────────────────────────
+// Webhook Logs
+// ─────────────────────────────────────
+model WebhookLog {
+  id          Int      @id @default(autoincrement())
+  source      String   // telegram, viber, monobank, liqpay, wayforpay
+  event       String   // message, callback, payment, etc.
+  payload     Json?
+  statusCode  Int?     @map("status_code")
+  error       String?
+  processedAt DateTime @default(now()) @map("processed_at")
+  durationMs  Int?     @map("duration_ms")
+
+  @@index([source, processedAt(sort: Desc)])
+  @@map("webhook_logs")
 }
 
 // ─────────────────────────────────────

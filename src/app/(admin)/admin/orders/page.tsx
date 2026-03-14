@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import {
@@ -14,9 +15,18 @@ import {
 } from '@/types/order';
 import type { OrderListItem, OrderStatus, PaymentStatus, PaymentMethod, DeliveryMethod } from '@/types/order';
 import Select from '@/components/ui/Select';
-import Spinner from '@/components/ui/Spinner';
 import Pagination from '@/components/ui/Pagination';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import AdminTableSkeleton, { AdminStatsSkeleton } from '@/components/admin/AdminTableSkeleton';
+import PageSizeSelector from '@/components/admin/PageSizeSelector';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Search } from '@/components/icons';
+import {
+  DEFAULT_PAGE_SIZE,
+  ORDER_STATS_POLL_INTERVAL,
+  ALLOWED_ORDER_TRANSITIONS,
+  SEARCH_DEBOUNCE_MS,
+} from '@/config/admin-constants';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Всі статуси' },
@@ -47,17 +57,6 @@ const SORT_OPTIONS = [
   { value: 'status:asc', label: 'Статус (A-Z)' },
   { value: 'orderNumber:desc', label: 'Номер (новіші)' },
 ];
-
-const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  new_order: ['processing', 'cancelled'],
-  processing: ['confirmed', 'cancelled'],
-  confirmed: ['paid', 'shipped', 'cancelled'],
-  paid: ['shipped', 'cancelled'],
-  shipped: ['completed', 'returned'],
-  completed: ['returned'],
-  cancelled: [],
-  returned: [],
-};
 
 interface OrderStats {
   newOrders: number;
@@ -99,6 +98,7 @@ export default function AdminOrdersPage() {
   const [quickStatusUpdating, setQuickStatusUpdating] = useState(false);
   const [newOrdersBadge, setNewOrdersBadge] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+  const [confirmStatusChange, setConfirmStatusChange] = useState<{orderId: number; status: string} | null>(null);
   const lastKnownNewRef = useRef<number | null>(null);
 
   const page = Number(searchParams.get('page')) || 1;
@@ -111,11 +111,23 @@ export default function AdminOrdersPage() {
   const search = searchParams.get('search') || '';
   const sortParam = searchParams.get('sort') || 'createdAt:desc';
   const [sortBy, sortOrder] = sortParam.split(':') as [string, string];
-  const limit = 20;
+  const limit = Number(searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
+
+  // Debounced search
+  const debouncedSearch = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
+
+  useEffect(() => {
+    const currentSearch = searchParams.get('search') || '';
+    if (debouncedSearch !== currentSearch) {
+      updateFilter('search', debouncedSearch);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const hasFilters = !!(status || clientType || paymentMethod || deliveryMethod || dateFrom || dateTo || search);
 
   const loadOrders = useCallback(() => {
+    setIsLoading(true);
     const params = new URLSearchParams({
       page: String(page),
       limit: String(limit),
@@ -136,10 +148,13 @@ export default function AdminOrdersPage() {
         if (res.success && res.data) {
           setOrders(res.data);
           setTotal(res.pagination?.total || 0);
+        } else {
+          toast.error('Не вдалося завантажити замовлення');
         }
       })
+      .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
-  }, [page, status, clientType, paymentMethod, deliveryMethod, dateFrom, dateTo, search, sortBy, sortOrder]);
+  }, [page, limit, status, clientType, paymentMethod, deliveryMethod, dateFrom, dateTo, search, sortBy, sortOrder]);
 
   useEffect(() => {
     loadOrders();
@@ -156,6 +171,7 @@ export default function AdminOrdersPage() {
           const diff = res.data.newOrders - lastKnownNewRef.current;
           setNewOrdersBadge((prev) => prev + diff);
           playNotificationSound();
+          toast.info(`+${diff} нових замовлень!`);
         }
         lastKnownNewRef.current = res.data.newOrders;
       }
@@ -164,8 +180,7 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     loadStats();
-    // Poll every 30 seconds
-    const interval = setInterval(loadStats, 30000);
+    const interval = setInterval(loadStats, ORDER_STATS_POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [loadStats]);
 
@@ -177,19 +192,30 @@ export default function AdminOrdersPage() {
     router.push(`/admin/orders?${params}`);
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateFilter('search', searchQuery);
+  const handlePageSizeChange = (size: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('limit', String(size));
+    params.set('page', '1');
+    router.push(`/admin/orders?${params}`);
   };
 
-  const handleQuickStatusUpdate = async (orderId: number, newStatusVal: string) => {
+  const handleQuickStatusInit = (orderId: number, newStatusVal: string) => {
     if (!newStatusVal) return;
+    setConfirmStatusChange({ orderId, status: newStatusVal });
+  };
+
+  const handleQuickStatusConfirm = async () => {
+    if (!confirmStatusChange) return;
     setQuickStatusUpdating(true);
-    const res = await apiClient.put(`/api/v1/admin/orders/${orderId}/status`, { status: newStatusVal });
+    const res = await apiClient.put(`/api/v1/admin/orders/${confirmStatusChange.orderId}/status`, { status: confirmStatusChange.status });
     if (res.success) {
+      toast.success(`Статус змінено на "${ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus]}"`);
       loadOrders();
       loadStats();
+    } else {
+      toast.error(res.error || 'Помилка зміни статусу');
     }
+    setConfirmStatusChange(null);
     setQuickStatusOrderId(null);
     setQuickStatusValue('');
     setQuickStatusUpdating(false);
@@ -216,7 +242,7 @@ export default function AdminOrdersPage() {
       });
 
       if (!res.ok) {
-        alert('Помилка експорту');
+        toast.error('Помилка експорту');
         return;
       }
 
@@ -232,8 +258,9 @@ export default function AdminOrdersPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      toast.success('Експорт завершено');
     } catch {
-      alert('Помилка експорту');
+      toast.error('Помилка експорту');
     }
   };
 
@@ -289,7 +316,9 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Stats cards */}
-      {stats && (
+      {!stats ? (
+        <AdminStatsSkeleton count={5} />
+      ) : (
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard
             label="Нових"
@@ -328,27 +357,19 @@ export default function AdminOrdersPage() {
 
       {/* Search + Sort row */}
       <div className="mb-3 flex flex-wrap items-end gap-3">
-        <form onSubmit={handleSearch} className="flex">
-          <div className="relative">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Номер, ім\u02BCя, телефон, ТТН..."
-              className="w-64 rounded-l-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-r-[var(--radius)] bg-[var(--color-primary)] px-4 text-sm text-white"
-          >
-            Знайти
-          </button>
-        </form>
+        <div className="relative">
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Номер, ім\u02BCя, телефон, ТТН..."
+            className="w-64 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm"
+          />
+        </div>
         <Select
           options={SORT_OPTIONS}
           value={sortParam}
@@ -426,9 +447,7 @@ export default function AdminOrdersPage() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size="md" />
-        </div>
+        <AdminTableSkeleton rows={10} columns={7} />
       ) : (
         <>
           <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
@@ -446,7 +465,7 @@ export default function AdminOrdersPage() {
               </thead>
               <tbody>
                 {orders.map((order) => {
-                  const transitions = ALLOWED_TRANSITIONS[order.status] || [];
+                  const transitions = ALLOWED_ORDER_TRANSITIONS[order.status] || [];
                   return (
                     <tr
                       key={order.id}
@@ -527,7 +546,7 @@ export default function AdminOrdersPage() {
                                   ))}
                                 </select>
                                 <button
-                                  onClick={() => handleQuickStatusUpdate(order.id, quickStatusValue)}
+                                  onClick={() => handleQuickStatusInit(order.id, quickStatusValue)}
                                   disabled={!quickStatusValue || quickStatusUpdating}
                                   className="rounded bg-[var(--color-primary)] px-1.5 py-1 text-[10px] font-medium text-white disabled:opacity-50"
                                 >
@@ -574,10 +593,11 @@ export default function AdminOrdersPage() {
             </table>
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Всього: {total} замовлень
-            </p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-4">
+              <p className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</p>
+              <PageSizeSelector value={limit} onChange={handlePageSizeChange} />
+            </div>
             {total > limit && (
               <Pagination
                 currentPage={page}
@@ -588,6 +608,18 @@ export default function AdminOrdersPage() {
           </div>
         </>
       )}
+
+      {/* Confirm status change */}
+      <ConfirmDialog
+        isOpen={!!confirmStatusChange}
+        onClose={() => setConfirmStatusChange(null)}
+        onConfirm={handleQuickStatusConfirm}
+        variant="warning"
+        title="Зміна статусу"
+        message={confirmStatusChange ? `Змінити статус замовлення на "${ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus]}"?` : ''}
+        confirmText="Так, змінити"
+        isLoading={quickStatusUpdating}
+      />
     </div>
   );
 }

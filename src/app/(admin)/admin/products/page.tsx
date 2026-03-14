@@ -3,12 +3,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
-import Spinner from '@/components/ui/Spinner';
 import Pagination from '@/components/ui/Pagination';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import PageSizeSelector from '@/components/admin/PageSizeSelector';
+import { useDebounce } from '@/hooks/useDebounce';
+import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
 
 interface AdminProduct {
   id: number;
@@ -53,6 +58,8 @@ const SORT_OPTIONS = [
   { value: 'quantity_asc', label: 'Залишок: мало' },
   { value: 'quantity_desc', label: 'Залишок: багато' },
   { value: 'sales_desc', label: 'За продажами' },
+  { value: 'category_asc', label: 'Категорія А-Я' },
+  { value: 'category_desc', label: 'Категорія Я-А' },
 ];
 
 const BULK_ACTIONS = [
@@ -74,12 +81,28 @@ export default function AdminProductsPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkAction, setBulkAction] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
+  const [confirmBulk, setConfirmBulk] = useState(false);
 
   const page = Number(searchParams.get('page')) || 1;
-  const limit = 20;
+  const limit = Number(searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
+
+  // Debounced search
+  const debouncedSearch = useDebounce(search, SEARCH_DEBOUNCE_MS);
+
+  // Auto-search on debounced value change
+  useEffect(() => {
+    const currentSearch = searchParams.get('search') || '';
+    if (debouncedSearch !== currentSearch) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      else params.delete('search');
+      params.set('page', '1');
+      router.push(`/admin/products?${params}`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   // Load categories once
   useEffect(() => {
@@ -109,10 +132,13 @@ export default function AdminProductsPage() {
           setProducts(res.data);
           setTotal(res.pagination?.total || 0);
           setSelected(new Set());
+        } else {
+          toast.error('Не вдалося завантажити товари');
         }
       })
+      .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
-  }, [page, searchParams]);
+  }, [page, limit, searchParams]);
 
   useEffect(() => { loadProducts(); }, [loadProducts]);
 
@@ -124,10 +150,9 @@ export default function AdminProductsPage() {
     router.push(`/admin/products?${params}`);
   };
 
-  const handleSearch = () => {
+  const handlePageSizeChange = (size: number) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (search) params.set('search', search);
-    else params.delete('search');
+    params.set('limit', String(size));
     params.set('page', '1');
     router.push(`/admin/products?${params}`);
   };
@@ -148,15 +173,22 @@ export default function AdminProductsPage() {
 
   const handleBulkAction = async () => {
     if (!bulkAction || selected.size === 0) return;
+
+    // Require confirmation for destructive actions
+    if (['activate', 'deactivate', 'change_category'].includes(bulkAction) && !confirmBulk) {
+      setConfirmBulk(true);
+      return;
+    }
+
+    setConfirmBulk(false);
     setIsProcessing(true);
-    setMessage(null);
 
     try {
       const ids = Array.from(selected);
 
       if (bulkAction === 'change_category') {
         if (!bulkCategoryId) {
-          setMessage({ type: 'error', text: 'Оберіть категорію' });
+          toast.error('Оберіть категорію');
           setIsProcessing(false);
           return;
         }
@@ -164,11 +196,11 @@ export default function AdminProductsPage() {
           action: 'change_category', productIds: ids, categoryId: Number(bulkCategoryId),
         });
         if (res.success) {
-          setMessage({ type: 'success', text: `Категорію змінено для ${ids.length} товарів` });
+          toast.success(`Категорію змінено для ${ids.length} товарів`);
           setBulkCategoryId('');
           loadProducts();
         } else {
-          setMessage({ type: 'error', text: res.error || 'Помилка' });
+          toast.error(res.error || 'Помилка');
         }
       } else if (bulkAction === 'export') {
         const res = await apiClient.post<{ url: string }>('/api/v1/admin/products/bulk', {
@@ -176,23 +208,23 @@ export default function AdminProductsPage() {
         });
         if (res.success && res.data?.url) {
           window.open(res.data.url, '_blank');
-          setMessage({ type: 'success', text: `Експортовано ${ids.length} товарів` });
+          toast.success(`Експортовано ${ids.length} товарів`);
         } else {
-          setMessage({ type: 'error', text: res.error || 'Помилка експорту' });
+          toast.error(res.error || 'Помилка експорту');
         }
       } else {
         const res = await apiClient.post('/api/v1/admin/products/bulk', {
           action: bulkAction, productIds: ids,
         });
         if (res.success) {
-          setMessage({ type: 'success', text: `Оновлено ${ids.length} товарів` });
+          toast.success(`Оновлено ${ids.length} товарів`);
           loadProducts();
         } else {
-          setMessage({ type: 'error', text: res.error || 'Помилка' });
+          toast.error(res.error || 'Помилка');
         }
       }
     } catch {
-      setMessage({ type: 'error', text: 'Помилка виконання' });
+      toast.error('Помилка виконання');
     } finally {
       setIsProcessing(false);
       setBulkAction('');
@@ -218,10 +250,10 @@ export default function AdminProductsPage() {
       });
       if (res.success && res.data?.url) {
         window.open(res.data.url, '_blank');
-        setMessage({ type: 'success', text: 'Експорт готовий' });
+        toast.success('Експорт готовий');
       }
     } catch {
-      setMessage({ type: 'error', text: 'Помилка експорту' });
+      toast.error('Помилка експорту');
     } finally {
       setIsProcessing(false);
     }
@@ -236,6 +268,8 @@ export default function AdminProductsPage() {
     ...categories.map((c) => ({ value: String(c.id), label: c.name })),
   ];
 
+  const bulkActionLabel = BULK_ACTIONS.find((a) => a.value === bulkAction)?.label || bulkAction;
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
@@ -245,10 +279,8 @@ export default function AdminProductsPage() {
             placeholder="Пошук за назвою або кодом..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             className="w-64"
           />
-          <Button variant="outline" size="sm" onClick={handleSearch}>Знайти</Button>
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             Фільтри{activeFilters > 0 ? ` (${activeFilters})` : ''}
           </Button>
@@ -278,12 +310,6 @@ export default function AdminProductsPage() {
         </div>
       )}
 
-      {message && (
-        <div className={`mb-4 rounded-[var(--radius)] p-3 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-[var(--color-danger)]'}`}>
-          {message.text}
-        </div>
-      )}
-
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
@@ -308,7 +334,7 @@ export default function AdminProductsPage() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Spinner size="md" /></div>
+        <AdminTableSkeleton rows={limit > 20 ? 20 : limit} columns={8} />
       ) : (
         <>
           <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
@@ -331,7 +357,7 @@ export default function AdminProductsPage() {
                 {products.map((p) => (
                   <tr
                     key={p.id}
-                    className={`border-b border-[var(--color-border)] last:border-0 ${selected.has(p.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'}`}
+                    className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${selected.has(p.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'}`}
                   >
                     <td className="px-3 py-3">
                       <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="accent-[var(--color-primary)]" />
@@ -381,11 +407,28 @@ export default function AdminProductsPage() {
             </table>
           </div>
 
-          {total > limit && (
-            <Pagination currentPage={page} totalPages={Math.ceil(total / limit)} baseUrl="/admin/products" className="mt-6" />
-          )}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-4">
+              <p className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</p>
+              <PageSizeSelector value={limit} onChange={handlePageSizeChange} />
+            </div>
+            {total > limit && (
+              <Pagination currentPage={page} totalPages={Math.ceil(total / limit)} baseUrl="/admin/products" />
+            )}
+          </div>
         </>
       )}
+
+      {/* Confirm dialog for bulk actions */}
+      <ConfirmDialog
+        isOpen={confirmBulk}
+        onClose={() => setConfirmBulk(false)}
+        onConfirm={handleBulkAction}
+        variant="warning"
+        title="Підтвердження масової дії"
+        message={`Ви впевнені, що хочете виконати "${bulkActionLabel}" для ${selected.size} товарів?`}
+        confirmText="Так, виконати"
+      />
     </div>
   );
 }

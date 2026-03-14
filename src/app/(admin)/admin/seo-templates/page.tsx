@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Check, Close, Eye } from '@/components/icons';
 
 interface SeoTemplate {
@@ -47,6 +49,7 @@ export default function AdminSeoTemplatesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({ entityType: 'product', titleTemplate: '', descriptionTemplate: '', altTemplate: '' });
   const [previewId, setPreviewId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadTemplates = () => {
     apiClient.get<SeoTemplate[]>('/api/v1/admin/seo-templates').then((res) => {
@@ -57,20 +60,34 @@ export default function AdminSeoTemplatesPage() {
   useEffect(() => { loadTemplates(); }, []);
 
   const handleCreate = async () => {
-    await apiClient.post('/api/v1/admin/seo-templates', form);
-    setShowForm(false);
-    setForm({ entityType: 'product', titleTemplate: '', descriptionTemplate: '', altTemplate: '' });
-    loadTemplates();
+    const res = await apiClient.post('/api/v1/admin/seo-templates', form);
+    if (res.success) {
+      toast.success('Шаблон створено');
+      setShowForm(false);
+      setForm({ entityType: 'product', titleTemplate: '', descriptionTemplate: '', altTemplate: '' });
+      loadTemplates();
+    } else {
+      toast.error(res.error || 'Помилка створення');
+    }
   };
 
   const handleBulkGenerate = async () => {
     const res = await apiClient.post<{ updated: number; total: number }>('/api/v1/admin/seo-templates/generate', {});
-    if (res.success && res.data) setGenResult(res.data);
+    if (res.success && res.data) {
+      setGenResult(res.data);
+      toast.success(`Оновлено ${res.data.updated} з ${res.data.total} товарів`);
+    } else {
+      toast.error('Помилка генерації');
+    }
   };
 
-  const handleDelete = async (id: number) => {
-    await apiClient.delete(`/api/v1/admin/seo-templates/${id}`);
-    loadTemplates();
+  const executeDelete = async () => {
+    if (deleteId === null) return;
+    const id = deleteId;
+    setDeleteId(null);
+    const res = await apiClient.delete(`/api/v1/admin/seo-templates/${id}`);
+    if (res.success) { toast.success('Шаблон видалено'); loadTemplates(); }
+    else toast.error('Помилка видалення');
   };
 
   const startEdit = (t: SeoTemplate) => {
@@ -84,7 +101,9 @@ export default function AdminSeoTemplatesPage() {
   };
 
   const saveEdit = async (id: number) => {
-    await apiClient.put(`/api/v1/admin/seo-templates/${id}`, editForm);
+    const res = await apiClient.put(`/api/v1/admin/seo-templates/${id}`, editForm);
+    if (res.success) toast.success('Шаблон оновлено');
+    else toast.error(res.error || 'Помилка');
     setEditingId(null);
     loadTemplates();
   };
@@ -193,7 +212,7 @@ export default function AdminSeoTemplatesPage() {
                       <Eye size={14} />
                     </button>
                     <button onClick={() => startEdit(t)} className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]">Редагувати</button>
-                    <button onClick={() => handleDelete(t.id)} className="text-xs text-[var(--color-danger)]">Видалити</button>
+                    <button onClick={() => setDeleteId(t.id)} className="text-xs text-[var(--color-danger)] hover:underline">Видалити</button>
                   </div>
                 </div>
                 <p className="mt-2 text-sm"><strong>Title:</strong> {t.titleTemplate}</p>
@@ -216,6 +235,14 @@ export default function AdminSeoTemplatesPage() {
           <div className="py-8 text-center text-[var(--color-text-secondary)]">Шаблонів немає</div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={executeDelete}
+        variant="danger"
+        message="Видалити цей SEO-шаблон?"
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -29,7 +30,7 @@ interface AdminCategory {
   name: string;
   slug: string;
   sortOrder: number;
-  isActive: boolean;
+  isVisible: boolean;
   parentId: number | null;
   _count?: { products: number; children: number };
 }
@@ -38,7 +39,7 @@ export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', slug: '', sortOrder: 0, isActive: true });
+  const [editForm, setEditForm] = useState({ name: '', slug: '', sortOrder: 0, isVisible: true });
   const [isSaving, setIsSaving] = useState(false);
   const [mergeSource, setMergeSource] = useState<number | null>(null);
   const [mergeTarget, setMergeTarget] = useState<string>('');
@@ -69,7 +70,7 @@ export default function AdminCategoriesPage() {
 
   const handleEdit = (cat: AdminCategory) => {
     setEditingId(cat.id);
-    setEditForm({ name: cat.name, slug: cat.slug, sortOrder: cat.sortOrder, isActive: cat.isActive });
+    setEditForm({ name: cat.name, slug: cat.slug, sortOrder: cat.sortOrder, isVisible: cat.isVisible });
   };
 
   const handleSave = async () => {
@@ -182,7 +183,9 @@ export default function AdminCategoriesPage() {
   };
 
   const handleToggle = async (cat: AdminCategory) => {
-    await apiClient.put(`/api/v1/admin/categories/${cat.id}`, { isActive: !cat.isActive });
+    const res = await apiClient.put(`/api/v1/admin/categories/${cat.id}`, { isVisible: !cat.isVisible });
+    if (res.success) toast.success(cat.isVisible ? 'Категорію сховано' : 'Категорію показано');
+    else toast.error(res.error || 'Помилка');
     loadCategories();
   };
 
@@ -339,12 +342,12 @@ function SortableCategoryRow({
 }: {
   cat: AdminCategory;
   isEditing: boolean;
-  editForm: { name: string; slug: string; sortOrder: number; isActive: boolean };
+  editForm: { name: string; slug: string; sortOrder: number; isVisible: boolean };
   isSaving: boolean;
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
-  onEditFormChange: (form: { name: string; slug: string; sortOrder: number; isActive: boolean }) => void;
+  onEditFormChange: (form: { name: string; slug: string; sortOrder: number; isVisible: boolean }) => void;
   onToggle: () => void;
   onMerge: () => void;
   onDelete: () => void;
@@ -373,7 +376,7 @@ function SortableCategoryRow({
           <Input value={editForm.slug} onChange={(e) => onEditFormChange({ ...editForm, slug: e.target.value })} placeholder="Slug" className="w-40" />
           <Input type="number" value={String(editForm.sortOrder)} onChange={(e) => onEditFormChange({ ...editForm, sortOrder: Number(e.target.value) })} placeholder="Порядок" className="w-24" />
           <label className="flex items-center gap-1.5 text-sm">
-            <input type="checkbox" checked={editForm.isActive} onChange={(e) => onEditFormChange({ ...editForm, isActive: e.target.checked })} className="accent-[var(--color-primary)]" />
+            <input type="checkbox" checked={editForm.isVisible} onChange={(e) => onEditFormChange({ ...editForm, isVisible: e.target.checked })} className="accent-[var(--color-primary)]" />
             Активна
           </label>
           <Button size="sm" onClick={onSave} isLoading={isSaving}>Зберегти</Button>
@@ -409,8 +412,8 @@ function SortableCategoryRow({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <button onClick={onToggle} className={`rounded-full px-2 py-0.5 text-xs font-medium ${cat.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
-          {cat.isActive ? 'Активна' : 'Вимкнена'}
+        <button onClick={onToggle} className={`rounded-full px-2 py-0.5 text-xs font-medium ${cat.isVisible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+          {cat.isVisible ? 'Активна' : 'Вимкнена'}
         </button>
         <button onClick={onEdit} className="text-xs text-[var(--color-primary)] hover:underline">Редагувати</button>
         <button onClick={onMerge} className="text-xs text-[var(--color-text-secondary)] hover:underline">Об&apos;єднати</button>

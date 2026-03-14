@@ -1,10 +1,18 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import {
+  PHONE_UA_PATTERN,
+  IBAN_UA_PATTERN,
+  EDRPOU_PATTERN,
+  IPN_PATTERN,
+} from '@/config/admin-constants';
 
 interface PalletRegion {
   name: string;
@@ -24,14 +32,21 @@ interface PalletConfig {
 
 type SectionKey = 'general' | 'company' | 'social' | 'analytics' | 'delivery';
 
-const SECTIONS: { key: SectionKey; label: string; fields: { key: string; label: string; hint?: string }[] }[] = [
+const SECTIONS: { key: SectionKey; label: string; fields: { key: string; label: string; hint?: string; validate?: (v: string) => string | null }[] }[] = [
   {
     key: 'general',
     label: 'Загальні',
     fields: [
       { key: 'site_name', label: 'Назва сайту', hint: 'Відображається у заголовку браузера та листах' },
-      { key: 'site_phone', label: 'Телефон', hint: 'Формат: +380XXXXXXXXX' },
-      { key: 'site_email', label: 'Email', hint: 'Основний email для листів від клієнтів' },
+      {
+        key: 'site_phone',
+        label: 'Телефон',
+        hint: 'Формат: +380XXXXXXXXX',
+        validate: (v) => v && !PHONE_UA_PATTERN.test(v) ? 'Невірний формат. Використовуйте +380XXXXXXXXX' : null,
+      },
+      { key: 'site_email', label: 'Email', hint: 'Основний email для листів від клієнтів',
+        validate: (v) => v && !v.includes('@') ? 'Невірний формат email' : null,
+      },
       { key: 'site_address', label: 'Адреса', hint: 'Фізична адреса для контактної сторінки' },
       { key: 'working_hours', label: 'Графік роботи', hint: 'Наприклад: Пн-Пт 9:00-18:00' },
     ],
@@ -41,9 +56,24 @@ const SECTIONS: { key: SectionKey; label: string; fields: { key: string; label: 
     label: 'Юридична інформація',
     fields: [
       { key: 'company_legal_name', label: 'Юридична назва', hint: 'Повна назва ФОП або ТОВ' },
-      { key: 'company_edrpou', label: 'ЄДРПОУ', hint: '8-значний код з ЄДР' },
-      { key: 'company_ipn', label: 'ІПН', hint: '10- або 12-значний податковий номер' },
-      { key: 'company_iban', label: 'IBAN', hint: 'UA + 27 цифр — банківський рахунок для оплат' },
+      {
+        key: 'company_edrpou',
+        label: 'ЄДРПОУ',
+        hint: '8-значний код з ЄДР',
+        validate: (v) => v && !EDRPOU_PATTERN.test(v) ? 'ЄДРПОУ має містити рівно 8 цифр' : null,
+      },
+      {
+        key: 'company_ipn',
+        label: 'ІПН',
+        hint: '10- або 12-значний податковий номер',
+        validate: (v) => v && !IPN_PATTERN.test(v) ? 'ІПН має містити 10 або 12 цифр' : null,
+      },
+      {
+        key: 'company_iban',
+        label: 'IBAN',
+        hint: 'UA + 27 цифр — банківський рахунок для оплат',
+        validate: (v) => v && !IBAN_UA_PATTERN.test(v) ? 'IBAN має починатися з UA та містити 29 символів' : null,
+      },
       { key: 'company_bank', label: 'Банк', hint: 'Назва банку для реквізитів в рахунках' },
       { key: 'company_legal_address', label: 'Юридична адреса' },
     ],
@@ -64,8 +94,15 @@ const SECTIONS: { key: SectionKey; label: string; fields: { key: string; label: 
     fields: [
       { key: 'default_seo_title', label: 'SEO Title (за замовч.)', hint: 'Заголовок для сторінок без власного SEO-title (до 70 символів)' },
       { key: 'default_seo_description', label: 'SEO Description (за замовч.)', hint: 'Мета-опис за замовчуванням (до 160 символів)' },
-      { key: 'google_analytics_id', label: 'Google Analytics ID', hint: 'Формат: G-XXXXXXXXXX або UA-XXXXXXXX-X' },
-      { key: 'facebook_pixel_id', label: 'Facebook Pixel ID', hint: 'Числовий ID з кабінету Meta Ads' },
+      {
+        key: 'google_analytics_id',
+        label: 'Google Analytics ID',
+        hint: 'Формат: G-XXXXXXXXXX або UA-XXXXXXXX-X',
+        validate: (v) => v && !/^(G-[A-Z0-9]+|UA-\d+-\d+)$/.test(v) ? 'Невірний формат GA ID' : null,
+      },
+      { key: 'facebook_pixel_id', label: 'Facebook Pixel ID', hint: 'Числовий ID з кабінету Meta Ads',
+        validate: (v) => v && !/^\d+$/.test(v) ? 'Pixel ID має бути числом' : null,
+      },
     ],
   },
 ];
@@ -74,8 +111,9 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState('');
   const [activeSection, setActiveSection] = useState<SectionKey | 'delivery'>('general');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [confirmSave, setConfirmSave] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -86,13 +124,38 @@ export default function AdminSettingsPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const handleSave = async () => {
+  const validateFields = (): boolean => {
+    const section = SECTIONS.find((s) => s.key === activeSection);
+    if (!section) return true;
+    const errors: Record<string, string> = {};
+    for (const field of section.fields) {
+      if (field.validate) {
+        const err = field.validate(settings[field.key] || '');
+        if (err) errors[field.key] = err;
+      }
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSaveClick = () => {
+    if (!validateFields()) {
+      toast.error('Виправте помилки перед збереженням');
+      return;
+    }
+    setConfirmSave(true);
+  };
+
+  const handleSaveConfirm = async () => {
+    setConfirmSave(false);
     setIsSaving(true);
-    setMessage('');
     const res = await apiClient.put('/api/v1/admin/settings', settings);
     setIsSaving(false);
-    setMessage(res.success ? 'Збережено' : 'Помилка збереження');
-    setTimeout(() => setMessage(''), 3000);
+    if (res.success) {
+      toast.success('Налаштування збережено');
+    } else {
+      toast.error('Помилка збереження');
+    }
   };
 
   if (isLoading) {
@@ -104,22 +167,16 @@ export default function AdminSettingsPage() {
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold">Налаштування сайту</h2>
         {activeSection !== 'delivery' && (
-          <Button onClick={handleSave} isLoading={isSaving}>Зберегти</Button>
+          <Button onClick={handleSaveClick} isLoading={isSaving}>Зберегти</Button>
         )}
       </div>
-
-      {message && (
-        <div className={`mb-4 rounded-[var(--radius)] px-4 py-2 text-sm ${message === 'Збережено' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          {message}
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="mb-6 flex flex-wrap gap-1 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-1">
         {SECTIONS.map((s) => (
           <button
             key={s.key}
-            onClick={() => setActiveSection(s.key)}
+            onClick={() => { setActiveSection(s.key); setFieldErrors({}); }}
             className={`rounded-[var(--radius)] px-4 py-2 text-sm font-medium transition-colors ${activeSection === s.key ? 'bg-[var(--color-bg)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}`}
           >
             {s.label}
@@ -147,7 +204,13 @@ export default function AdminSettingsPage() {
                 <Input
                   label={field.label}
                   value={settings[field.key] || ''}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                  onChange={(e) => {
+                    setSettings((prev) => ({ ...prev, [field.key]: e.target.value }));
+                    if (fieldErrors[field.key]) {
+                      setFieldErrors((prev) => { const next = { ...prev }; delete next[field.key]; return next; });
+                    }
+                  }}
+                  error={fieldErrors[field.key]}
                 />
                 {field.hint && (
                   <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{field.hint}</p>
@@ -157,6 +220,15 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmSave}
+        onClose={() => setConfirmSave(false)}
+        onConfirm={handleSaveConfirm}
+        title="Зберегти налаштування"
+        message="Ви впевнені, що хочете зберегти зміни в налаштуваннях сайту? Зміни набудуть чинності відразу."
+        confirmText="Так, зберегти"
+      />
     </div>
   );
 }
@@ -165,7 +237,7 @@ function PalletDeliverySettings() {
   const [config, setConfig] = useState<PalletConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [confirmSave, setConfirmSave] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -176,14 +248,17 @@ function PalletDeliverySettings() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const handleSave = useCallback(async () => {
+  const handleSaveConfirm = useCallback(async () => {
     if (!config) return;
+    setConfirmSave(false);
     setIsSaving(true);
-    setMessage('');
     const res = await apiClient.put('/api/v1/admin/settings/pallet-delivery', config);
     setIsSaving(false);
-    setMessage(res.success ? 'Збережено' : 'Помилка збереження');
-    setTimeout(() => setMessage(''), 3000);
+    if (res.success) {
+      toast.success('Налаштування палетної доставки збережено');
+    } else {
+      toast.error('Помилка збереження');
+    }
   }, [config]);
 
   const updateField = useCallback((field: keyof PalletConfig, value: unknown) => {
@@ -214,14 +289,8 @@ function PalletDeliverySettings() {
     <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-lg font-semibold">Палетна доставка</h3>
-        <Button onClick={handleSave} isLoading={isSaving}>Зберегти</Button>
+        <Button onClick={() => setConfirmSave(true)} isLoading={isSaving}>Зберегти</Button>
       </div>
-
-      {message && (
-        <div className={`mb-4 rounded-[var(--radius)] px-4 py-2 text-sm ${message === 'Збережено' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          {message}
-        </div>
-      )}
 
       <div className="mb-4 flex items-center gap-3">
         <label className="flex items-center gap-2 text-sm">
@@ -254,6 +323,15 @@ function PalletDeliverySettings() {
           ))}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmSave}
+        onClose={() => setConfirmSave(false)}
+        onConfirm={handleSaveConfirm}
+        title="Зберегти налаштування доставки"
+        message="Зміни в налаштуваннях палетної доставки набудуть чинності відразу."
+        confirmText="Так, зберегти"
+      />
     </div>
   );
 }

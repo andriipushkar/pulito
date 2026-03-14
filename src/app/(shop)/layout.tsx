@@ -1,4 +1,3 @@
-import AuthProvider from '@/providers/AuthProvider';
 import CartProvider from '@/providers/CartProvider';
 import SettingsProvider from '@/providers/SettingsProvider';
 import Header from '@/components/layout/Header';
@@ -16,19 +15,17 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
   ]);
 
   return (
-    <AuthProvider>
-      <CartProvider>
-        <SettingsProvider settings={settings}>
-          <div className="flex min-h-screen flex-col">
-          <Header categories={categories} />
-          <main id="main-content" className="flex-1 animate-fade-in-up">{children}</main>
-          <Footer />
-          </div>
-          <MobileBottomNav categories={categories} />
-          <BackToTop />
-          <AriaLiveRegion />
-        </SettingsProvider>
-      </CartProvider>
-    </AuthProvider>
+    <CartProvider>
+      <SettingsProvider settings={settings}>
+        <div className="flex min-h-screen flex-col">
+        <Header categories={categories} />
+        <main id="main-content" className="flex-1 animate-fade-in-up">{children}</main>
+        <Footer />
+        </div>
+        <MobileBottomNav categories={categories} />
+        <BackToTop />
+        <AriaLiveRegion />
+      </SettingsProvider>
+    </CartProvider>
   );
 }

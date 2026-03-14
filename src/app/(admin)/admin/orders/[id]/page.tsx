@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import {
   ORDER_STATUS_LABELS,
@@ -18,19 +19,10 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import OrderItemsEditor from '@/components/admin/OrderItemsEditor';
 import CreateTTNForm from '@/components/admin/CreateTTNForm';
-
-const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  new_order: ['processing', 'cancelled'],
-  processing: ['confirmed', 'cancelled'],
-  confirmed: ['paid', 'shipped', 'cancelled'],
-  paid: ['shipped', 'cancelled'],
-  shipped: ['completed', 'returned'],
-  completed: ['returned'],
-  cancelled: [],
-  returned: [],
-};
+import { ALLOWED_ORDER_TRANSITIONS, TTN_PATTERN } from '@/config/admin-constants';
 
 export default function AdminOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,7 +32,6 @@ export default function AdminOrderDetailPage() {
   const [newStatus, setNewStatus] = useState('');
   const [comment, setComment] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [error, setError] = useState('');
   const [isEditingItems, setIsEditingItems] = useState(false);
   const [sendPhotoItem, setSendPhotoItem] = useState<{
     productId: number;
@@ -51,12 +42,14 @@ export default function AdminOrderDetailPage() {
   const [sendPhotoResult, setSendPhotoResult] = useState('');
   const [managerComment, setManagerComment] = useState('');
   const [isSavingComment, setIsSavingComment] = useState(false);
-  const [actionResult, setActionResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [managers, setManagers] = useState<{ id: number; fullName: string }[]>([]);
   const [selectedManager, setSelectedManager] = useState<string>('');
+  const [confirmStatusChange, setConfirmStatusChange] = useState(false);
+  const [confirmManagerChange, setConfirmManagerChange] = useState<string | null>(null);
 
   // TTN state
   const [ttnInput, setTtnInput] = useState('');
+  const [ttnError, setTtnError] = useState('');
   const [isSavingTtn, setIsSavingTtn] = useState(false);
   const [isEditingTtn, setIsEditingTtn] = useState(false);
   const [showCreateTtnForm, setShowCreateTtnForm] = useState(false);
@@ -93,22 +86,23 @@ export default function AdminOrderDetailPage() {
 
   const handleStatusUpdate = async () => {
     if (!newStatus) return;
+    setConfirmStatusChange(false);
     setIsUpdating(true);
-    setError('');
     try {
       const res = await apiClient.put(`/api/v1/admin/orders/${id}/status`, {
         status: newStatus,
         comment: comment || undefined,
       });
       if (res.success) {
+        toast.success(`Статус змінено на "${ORDER_STATUS_LABELS[newStatus as OrderStatus]}"`);
         await reloadOrder();
         setNewStatus('');
         setComment('');
       } else {
-        setError(res.error || 'Помилка оновлення');
+        toast.error(res.error || 'Помилка оновлення');
       }
     } catch {
-      setError('Помилка мережі');
+      toast.error('Помилка мережі');
     } finally {
       setIsUpdating(false);
     }
@@ -120,50 +114,54 @@ export default function AdminOrderDetailPage() {
       comment: managerComment,
     });
     if (res.success) {
-      setActionResult({ type: 'success', text: 'Коментар збережено' });
+      toast.success('Коментар збережено');
     } else {
-      setActionResult({ type: 'error', text: res.error || 'Помилка' });
+      toast.error(res.error || 'Помилка');
     }
     setIsSavingComment(false);
-    setTimeout(() => setActionResult(null), 3000);
   };
 
   const handleSaveTtn = async () => {
     if (!ttnInput.trim()) return;
+    // Validate TTN format
+    if (!TTN_PATTERN.test(ttnInput.trim())) {
+      setTtnError('ТТН має містити рівно 14 цифр');
+      return;
+    }
+    setTtnError('');
     setIsSavingTtn(true);
     const res = await apiClient.put(`/api/v1/admin/orders/${id}/ttn`, {
       trackingNumber: ttnInput.trim(),
     });
     if (res.success) {
-      setActionResult({ type: 'success', text: 'ТТН збережено' });
+      toast.success('ТТН збережено');
       setIsEditingTtn(false);
       await reloadOrder();
     } else {
-      setActionResult({ type: 'error', text: res.error || 'Помилка збереження ТТН' });
+      toast.error(res.error || 'Помилка збереження ТТН');
     }
     setIsSavingTtn(false);
-    setTimeout(() => setActionResult(null), 3000);
   };
 
   const handleCreateInvoice = async () => {
-    setActionResult(null);
     const res = await apiClient.post(`/api/v1/admin/orders/${id}/invoice`, {});
     if (res.success) {
       const data = res.data as { invoicePdfUrl: string };
       window.open(data.invoicePdfUrl, '_blank');
+      toast.success('Рахунок створено');
     } else {
-      setActionResult({ type: 'error', text: res.error || 'Помилка створення рахунку' });
+      toast.error(res.error || 'Помилка створення рахунку');
     }
   };
 
   const handleCreateDeliveryNote = async () => {
-    setActionResult(null);
     const res = await apiClient.post(`/api/v1/admin/orders/${id}/delivery-note`, {});
     if (res.success) {
       const data = res.data as { pdfUrl: string };
       window.open(data.pdfUrl, '_blank');
+      toast.success('Видаткову накладну створено');
     } else {
-      setActionResult({ type: 'error', text: res.error || 'Помилка створення накладної' });
+      toast.error(res.error || 'Помилка створення накладної');
     }
   };
 
@@ -222,7 +220,7 @@ export default function AdminOrderDetailPage() {
     );
   }
 
-  const allowedStatuses = ALLOWED_TRANSITIONS[order.status] || [];
+  const allowedStatuses = ALLOWED_ORDER_TRANSITIONS[order.status] || [];
   const orderTotal = Number(order.totalAmount);
   const deliveryCost = Number(order.deliveryCost || 0);
   const discount = Number(order.discountAmount || 0);
@@ -269,15 +267,10 @@ export default function AdminOrderDetailPage() {
         </div>
       </div>
 
-      {actionResult && (
-        <div
-          className={`mb-4 rounded-[var(--radius)] p-3 text-sm ${
-            actionResult.type === 'success'
-              ? 'bg-green-50 text-green-700'
-              : 'bg-red-50 text-[var(--color-danger)]'
-          }`}
-        >
-          {actionResult.text}
+      {/* TTN validation error */}
+      {ttnError && (
+        <div className="mb-4 rounded-[var(--radius)] bg-red-50 p-3 text-sm text-[var(--color-danger)]">
+          {ttnError}
         </div>
       )}
 
@@ -304,11 +297,10 @@ export default function AdminOrderDetailPage() {
               onChange={(e) => setComment(e.target.value)}
               className="flex-1"
             />
-            <Button onClick={handleStatusUpdate} isLoading={isUpdating} disabled={!newStatus}>
+            <Button onClick={() => newStatus && setConfirmStatusChange(true)} isLoading={isUpdating} disabled={!newStatus}>
               Оновити
             </Button>
           </div>
-          {error && <p className="mt-2 text-sm text-[var(--color-danger)]">{error}</p>}
         </div>
       )}
 
@@ -322,18 +314,8 @@ export default function AdminOrderDetailPage() {
               ...managers.map((m) => ({ value: String(m.id), label: m.fullName })),
             ]}
             value={selectedManager}
-            onChange={async (e) => {
-              const val = e.target.value;
-              setSelectedManager(val);
-              const res = await apiClient.put(`/api/v1/admin/orders/${id}`, {
-                assignedManagerId: val ? Number(val) : null,
-              });
-              if (res.success) {
-                setActionResult({ type: 'success', text: val ? 'Менеджера призначено' : 'Менеджера знято' });
-              } else {
-                setActionResult({ type: 'error', text: res.error || 'Помилка' });
-              }
-              setTimeout(() => setActionResult(null), 3000);
+            onChange={(e) => {
+              setConfirmManagerChange(e.target.value);
             }}
             className="w-64"
           />
@@ -670,13 +652,46 @@ export default function AdminOrderDetailPage() {
           orderAmount={orderTotal}
           onCreated={async (trackingNumber) => {
             setShowCreateTtnForm(false);
-            setActionResult({ type: 'success', text: `ТТН створено: ${trackingNumber}` });
+            toast.success(`ТТН створено: ${trackingNumber}`);
             await reloadOrder();
-            setTimeout(() => setActionResult(null), 5000);
           }}
           onCancel={() => setShowCreateTtnForm(false)}
         />
       </Modal>
+
+      {/* Confirm status change */}
+      <ConfirmDialog
+        isOpen={confirmStatusChange}
+        onClose={() => setConfirmStatusChange(false)}
+        onConfirm={handleStatusUpdate}
+        variant="warning"
+        title="Змінити статус замовлення"
+        message={`Змінити статус на "${ORDER_STATUS_LABELS[newStatus as OrderStatus] || newStatus}"?`}
+        confirmText="Так, змінити"
+        isLoading={isUpdating}
+      />
+
+      {/* Confirm manager change */}
+      <ConfirmDialog
+        isOpen={confirmManagerChange !== null}
+        onClose={() => setConfirmManagerChange(null)}
+        onConfirm={async () => {
+          const val = confirmManagerChange || '';
+          setConfirmManagerChange(null);
+          setSelectedManager(val);
+          const res = await apiClient.put(`/api/v1/admin/orders/${id}`, {
+            assignedManagerId: val ? Number(val) : null,
+          });
+          if (res.success) {
+            toast.success(val ? 'Менеджера призначено' : 'Менеджера знято');
+          } else {
+            toast.error(res.error || 'Помилка');
+          }
+        }}
+        title="Зміна менеджера"
+        message={confirmManagerChange ? `Призначити менеджера для цього замовлення?` : 'Зняти призначення менеджера?'}
+        confirmText="Так"
+      />
 
       {/* Send photo modal */}
       <Modal

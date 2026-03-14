@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -58,8 +59,11 @@ export default function AdminEmailTemplatesPage() {
         bodyHtml: editBody,
       });
       if (res.success) {
+        toast.success('Шаблон збережено');
         setEditingTemplate(null);
         loadTemplates();
+      } else {
+        toast.error(res.error || 'Помилка збереження');
       }
     } finally {
       setIsSaving(false);
@@ -67,7 +71,8 @@ export default function AdminEmailTemplatesPage() {
   };
 
   const handleToggle = async (tpl: EmailTemplate) => {
-    await apiClient.put(`/api/v1/admin/email-templates/${tpl.id}`, { isActive: !tpl.isActive });
+    const res = await apiClient.put(`/api/v1/admin/email-templates/${tpl.id}`, { isActive: !tpl.isActive });
+    if (res.success) toast.success(tpl.isActive ? 'Шаблон вимкнено' : 'Шаблон увімкнено');
     loadTemplates();
   };
 
@@ -134,9 +139,9 @@ export default function AdminEmailTemplatesPage() {
                     subject: editSubject,
                     bodyHtml: editBody,
                   });
-                  setTestResult(res.success ? 'Тестовий лист надіслано' : (res.error || 'Помилка'));
+                  if (res.success) toast.success('Тестовий лист надіслано');
+                  else toast.error(res.error || 'Помилка відправки');
                   setIsSendingTest(false);
-                  setTimeout(() => setTestResult(''), 5000);
                 }}
                 isLoading={isSendingTest}
                 disabled={!testEmail}

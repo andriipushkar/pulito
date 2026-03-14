@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -48,7 +49,9 @@ export default function AdminBannersPage() {
   useEffect(() => { loadBanners(); }, [loadBanners]);
 
   const toggleActive = async (id: number, isActive: boolean) => {
-    await apiClient.put(`/api/v1/admin/banners/${id}`, { isActive: !isActive });
+    const res = await apiClient.put(`/api/v1/admin/banners/${id}`, { isActive: !isActive });
+    if (res.success) toast.success(isActive ? 'Банер вимкнено' : 'Банер увімкнено');
+    else toast.error('Помилка');
     loadBanners();
   };
 
@@ -60,7 +63,9 @@ export default function AdminBannersPage() {
     if (deleteId === null) return;
     const id = deleteId;
     setDeleteId(null);
-    await apiClient.delete(`/api/v1/admin/banners/${id}`);
+    const res = await apiClient.delete(`/api/v1/admin/banners/${id}`);
+    if (res.success) toast.success('Банер видалено');
+    else toast.error('Помилка видалення');
     loadBanners();
   };
 
@@ -76,7 +81,9 @@ export default function AdminBannersPage() {
   };
 
   const saveEdit = async (id: number) => {
-    await apiClient.put(`/api/v1/admin/banners/${id}`, editForm);
+    const res = await apiClient.put(`/api/v1/admin/banners/${id}`, editForm);
+    if (res.success) toast.success('Банер оновлено');
+    else toast.error(res.error || 'Помилка');
     setEditingId(null);
     loadBanners();
   };
@@ -96,7 +103,10 @@ export default function AdminBannersPage() {
         credentials: 'include',
         headers,
       });
-      if (res.ok) loadBanners();
+      if (res.ok) { toast.success('Зображення завантажено'); loadBanners(); }
+      else toast.error('Помилка завантаження зображення');
+    } catch {
+      toast.error('Помилка мережі');
     } finally {
       setUploading(null);
     }
@@ -133,8 +143,10 @@ export default function AdminBannersPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold">Банери / Слайдер</h2>
-        <Button onClick={() => {
-          apiClient.post('/api/v1/admin/banners', { title: 'Новий банер', imageDesktop: '' }).then(() => loadBanners());
+        <Button onClick={async () => {
+          const res = await apiClient.post('/api/v1/admin/banners', { title: 'Новий банер', imageDesktop: '' });
+          if (res.success) { toast.success('Банер створено'); loadBanners(); }
+          else toast.error('Помилка створення');
         }}>+ Додати</Button>
       </div>
 

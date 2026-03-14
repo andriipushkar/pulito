@@ -26,7 +26,17 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navRef = useRef<HTMLElement>(null);
 
-  const parents = categories.filter((c) => !c.parentId);
+  const parents = categories
+    .filter((c) => !c.parentId)
+    .sort((a, b) => {
+      // Categories with sortOrder > 0 come first (manually ordered), then alphabetical
+      if (a.sortOrder && !b.sortOrder) return -1;
+      if (!a.sortOrder && b.sortOrder) return 1;
+      if (a.sortOrder && b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.name.localeCompare(b.name, 'uk');
+    });
+  // Show all parents — limited to 8 by backend
+  const visibleParents = parents;
 
   /* ---- hover helpers with a small delay to avoid flicker ---- */
   const openMenu = useCallback((id: number) => {
@@ -66,7 +76,7 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
       aria-label="Категорії"
     >
       <Container>
-        <ul className={`flex flex-wrap items-center justify-center gap-1.5 transition-all duration-300 ${shrink ? 'py-1' : 'py-2'}`}>
+        <ul className={`flex items-center justify-center gap-1 overflow-hidden transition-all duration-300 ${shrink ? 'py-1' : 'py-2'}`}>
           {/* Static catalog link */}
           <li>
             <Link
@@ -95,7 +105,7 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
             </li>
           )}
 
-          {parents.map((cat) => {
+          {visibleParents.map((cat) => {
             const children = categories.filter((c) => c.parentId === cat.id);
             const hasChildren = children.length > 0;
             const isOpen = openId === cat.id;
@@ -109,13 +119,13 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
               >
                 <Link
                   href={`/catalog?category=${cat.slug}`}
-                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition-all ${
+                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                     isOpen
                       ? 'bg-white/20 text-white'
                       : 'text-white/80 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  {cat.name}
+                  <span className="max-w-[160px] truncate">{cat.name}</span>
                   {hasChildren && (
                     <ChevronDown
                       size={14}
@@ -208,6 +218,7 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
               </li>
             );
           })}
+
         </ul>
       </Container>
     </nav>

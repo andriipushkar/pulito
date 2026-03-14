@@ -19,29 +19,11 @@ const GLOBAL_RATE_WINDOW = 60; // seconds
 // In-memory fallback for when Redis is unreachable
 const ipRequestCounts = new Map<string, { count: number; resetAt: number }>();
 
-async function checkGlobalRateLimitRedis(ip: string): Promise<boolean> {
-  try {
-    const { redis } = await import('@/lib/redis');
-    const key = `rl:mw:${ip}`;
-    const now = Date.now();
-    const windowMs = GLOBAL_RATE_WINDOW * 1000;
-
-    const pipeline = redis.pipeline();
-    pipeline.zremrangebyscore(key, 0, now - windowMs);
-    pipeline.zadd(key, now, `${now}:${Math.random().toString(36).slice(2, 6)}`);
-    pipeline.zcard(key);
-    pipeline.expire(key, GLOBAL_RATE_WINDOW);
-
-    const results = await pipeline.exec();
-    const count = (results?.[2]?.[1] as number) || 0;
-    return count <= GLOBAL_RATE_LIMIT;
-  } catch {
-    // Redis unavailable — fall back to in-memory
-    return checkGlobalRateLimitInMemory(ip);
-  }
-}
-
-function checkGlobalRateLimitInMemory(ip: string): boolean {
+// In-memory sliding window rate limiter.
+// Note: ioredis cannot run in Edge Runtime (Next.js middleware),
+// so we use in-memory rate limiting here. For multi-instance deployments,
+// move rate limiting to a Node.js API route or reverse proxy.
+function checkGlobalRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = ipRequestCounts.get(ip);
 
@@ -141,7 +123,7 @@ export default async function middleware(request: NextRequest) {
       request.headers.get('x-real-ip') ||
       'unknown';
 
-    const allowed = await checkGlobalRateLimitRedis(ip);
+    const allowed = checkGlobalRateLimit(ip);
     if (!allowed) {
       return NextResponse.json(
         { success: false, error: 'Забагато запитів. Спробуйте пізніше.' },
@@ -168,6 +150,20 @@ export default async function middleware(request: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+  response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  response.headers.set('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' https://www.google-analytics.com https://api.telegram.org",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '));
 
   return response;
 }

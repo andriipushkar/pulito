@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface LoyaltyLevel {
   id?: number;
@@ -19,7 +21,7 @@ export default function AdminLoyaltyPage() {
   const [levels, setLevels] = useState<LoyaltyLevel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [confirmSaveLevels, setConfirmSaveLevels] = useState(false);
 
   // Manual adjust form
   const [adjustUserId, setAdjustUserId] = useState('');
@@ -52,28 +54,37 @@ export default function AdminLoyaltyPage() {
   }, []);
 
   const handleSaveLevels = async () => {
+    setConfirmSaveLevels(false);
     setIsSaving(true);
-    setMessage('');
     const res = await apiClient.put('/api/v1/admin/loyalty/settings', { levels });
     setIsSaving(false);
-    setMessage(res.success ? 'Збережено' : 'Помилка');
+    if (res.success) toast.success('Рівні лояльності збережено');
+    else toast.error(res.error || 'Помилка збереження');
   };
 
   const handleAdjust = async () => {
-    if (!adjustUserId || !adjustPoints || !adjustDesc) return;
+    if (!adjustUserId || !adjustPoints || !adjustDesc) {
+      toast.error('Заповніть всі поля');
+      return;
+    }
+    const pts = parseInt(adjustPoints);
+    if (isNaN(pts) || pts <= 0) {
+      toast.error('Кількість балів має бути більше 0');
+      return;
+    }
     const res = await apiClient.post('/api/v1/admin/loyalty/adjust', {
       userId: parseInt(adjustUserId),
       type: adjustType,
-      points: parseInt(adjustPoints),
+      points: pts,
       description: adjustDesc,
     });
     if (res.success) {
       setAdjustUserId('');
       setAdjustPoints('');
       setAdjustDesc('');
-      setMessage('Бали оновлено');
+      toast.success('Бали оновлено');
     } else {
-      setMessage(res.error || 'Помилка');
+      toast.error(res.error || 'Помилка');
     }
   };
 
@@ -92,12 +103,6 @@ export default function AdminLoyaltyPage() {
   return (
     <div>
       <h2 className="mb-6 text-xl font-bold">Програма лояльності</h2>
-
-      {message && (
-        <div className={`mb-4 rounded-[var(--radius)] px-4 py-2 text-sm ${message === 'Збережено' || message === 'Бали оновлено' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          {message}
-        </div>
-      )}
 
       {/* Levels configuration */}
       <div className="mb-8">
@@ -153,7 +158,7 @@ export default function AdminLoyaltyPage() {
           </table>
         </div>
         <div className="mt-3 flex gap-2">
-          <Button onClick={handleSaveLevels} isLoading={isSaving}>Зберегти рівні</Button>
+          <Button onClick={() => setConfirmSaveLevels(true)} isLoading={isSaving}>Зберегти рівні</Button>
           <Button
             onClick={() =>
               setLevels((prev) => [
@@ -190,6 +195,15 @@ export default function AdminLoyaltyPage() {
           <Button onClick={handleAdjust}>Застосувати</Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmSaveLevels}
+        onClose={() => setConfirmSaveLevels(false)}
+        onConfirm={handleSaveLevels}
+        title="Зберегти рівні лояльності"
+        message="Зміни в рівнях лояльності набудуть чинності для всіх користувачів. Продовжити?"
+        confirmText="Так, зберегти"
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ export interface CreateReviewData {
   comment?: string;
   pros?: string;
   cons?: string;
+  images?: string[];
 }
 
 export async function createReview(data: CreateReviewData) {

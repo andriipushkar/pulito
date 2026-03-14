@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Spinner from '@/components/ui/Spinner';
 import Pagination from '@/components/ui/Pagination';
 import PageSizeSelector from '@/components/admin/PageSizeSelector';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useDebounce } from '@/hooks/useDebounce';
+import { SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
 
 interface FeedbackItem {
   id: number;
@@ -26,22 +30,19 @@ interface FeedbackItem {
 const TYPE_LABELS: Record<string, string> = {
   form: 'Форма зв\'язку',
   callback: 'Зворотний дзвінок',
-  complaint: 'Скарга',
-  suggestion: 'Пропозиція',
 };
 
+// Aligned with DB enum: FeedbackStatus = new_feedback | processed | rejected
 const STATUS_LABELS: Record<string, string> = {
   new_feedback: 'Новий',
-  in_progress: 'В роботі',
-  resolved: 'Вирішено',
-  closed: 'Закрито',
+  processed: 'Оброблено',
+  rejected: 'Відхилено',
 };
 
 const STATUS_COLORS: Record<string, string> = {
   new_feedback: '#f59e0b',
-  in_progress: '#3b82f6',
-  resolved: '#22c55e',
-  closed: '#6b7280',
+  processed: '#22c55e',
+  rejected: '#6b7280',
 };
 
 const TYPE_OPTIONS = [
@@ -62,6 +63,7 @@ export default function AdminFeedbackPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ id: number; status: string } | null>(null);
 
   const page = Number(searchParams.get('page')) || 1;
   const type = searchParams.get('type') || '';
@@ -71,6 +73,16 @@ export default function AdminFeedbackPage() {
   const dateTo = searchParams.get('dateTo') || '';
   const limit = Number(searchParams.get('limit')) || 20;
   const [searchInput, setSearchInput] = useState(search);
+
+  const debouncedSearch = useDebounce(searchInput, SEARCH_DEBOUNCE_MS);
+
+  useEffect(() => {
+    const currentSearch = searchParams.get('search') || '';
+    if (debouncedSearch !== currentSearch) {
+      updateFilter('search', debouncedSearch);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -87,8 +99,11 @@ export default function AdminFeedbackPage() {
         if (res.success && res.data) {
           setItems(res.data);
           setTotal(res.pagination?.total || 0);
+        } else {
+          toast.error('Не вдалося завантажити звернення');
         }
       })
+      .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
   }, [page, type, status, search, dateFrom, dateTo, limit]);
 
@@ -101,6 +116,7 @@ export default function AdminFeedbackPage() {
   };
 
   const handleStatusUpdate = async (id: number, newStatus: string) => {
+    setConfirmAction(null);
     setUpdatingId(id);
     try {
       const res = await apiClient.put(`/api/v1/admin/feedback/${id}`, { status: newStatus });
@@ -108,7 +124,12 @@ export default function AdminFeedbackPage() {
         setItems((prev) => prev.map((item) =>
           item.id === id ? { ...item, status: newStatus, processedAt: new Date().toISOString() } : item
         ));
+        toast.success(`Статус змінено на "${STATUS_LABELS[newStatus]}"`);
+      } else {
+        toast.error(res.error || 'Помилка зміни статусу');
       }
+    } catch {
+      toast.error('Помилка мережі');
     } finally {
       setUpdatingId(null);
     }
@@ -120,20 +141,14 @@ export default function AdminFeedbackPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-xl font-bold">Зворотний зв&apos;язок</h2>
+        <h2 className="text-xl font-bold">Зворотний зв&apos;язок <span className="text-base font-normal text-[var(--color-text-secondary)]">({total})</span></h2>
         <div className="flex flex-wrap items-end gap-2">
-          <form
-            onSubmit={(e) => { e.preventDefault(); updateFilter('search', searchInput.trim()); }}
-            className="flex gap-1"
-          >
-            <Input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Ім'я або email..."
-              className="w-44"
-            />
-            <Button size="sm" type="submit" variant="outline">Знайти</Button>
-          </form>
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Ім'я або email..."
+            className="w-44"
+          />
           <Select options={TYPE_OPTIONS} value={type} onChange={(e) => updateFilter('type', e.target.value)} className="w-40" />
           <Select options={STATUS_OPTIONS} value={status} onChange={(e) => updateFilter('status', e.target.value)} className="w-36" />
           <Input type="date" value={dateFrom} onChange={(e) => updateFilter('dateFrom', e.target.value)} className="w-36" />
@@ -155,12 +170,12 @@ export default function AdminFeedbackPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Spinner size="md" /></div>
+        <AdminTableSkeleton rows={6} columns={4} />
       ) : (
         <>
           <div className="space-y-3">
             {items.map((item) => (
-              <div key={item.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
+              <div key={item.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] transition-colors hover:border-[var(--color-primary)]/30">
                 <div
                   className="flex cursor-pointer items-center justify-between px-4 py-3"
                   onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
@@ -168,16 +183,19 @@ export default function AdminFeedbackPage() {
                   <div className="flex items-center gap-3">
                     <span
                       className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
-                      style={{ backgroundColor: STATUS_COLORS[item.status] }}
+                      style={{ backgroundColor: STATUS_COLORS[item.status] || '#6b7280' }}
                     >
-                      {STATUS_LABELS[item.status]}
+                      {STATUS_LABELS[item.status] || item.status}
                     </span>
                     <span className="text-sm font-medium">{item.name}</span>
                     {item.subject && <span className="text-sm text-[var(--color-text-secondary)]">— {item.subject}</span>}
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-[var(--color-text-secondary)]">{TYPE_LABELS[item.type]}</span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">{TYPE_LABELS[item.type] || item.type}</span>
                     <span className="text-xs text-[var(--color-text-secondary)]">{formatDate(item.createdAt)}</span>
+                    <svg className={`h-4 w-4 text-[var(--color-text-secondary)] transition-transform ${expandedId === item.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
                 </div>
 
@@ -191,19 +209,20 @@ export default function AdminFeedbackPage() {
                     <p className="mb-4 whitespace-pre-wrap rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-3 text-sm">{item.message}</p>
                     <div className="flex gap-2">
                       {item.status === 'new_feedback' && (
-                        <Button size="sm" onClick={() => handleStatusUpdate(item.id, 'in_progress')} isLoading={updatingId === item.id}>
-                          Взяти в роботу
-                        </Button>
+                        <>
+                          <Button size="sm" onClick={() => setConfirmAction({ id: item.id, status: 'processed' })} isLoading={updatingId === item.id}>
+                            Оброблено
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setConfirmAction({ id: item.id, status: 'rejected' })} isLoading={updatingId === item.id}>
+                            Відхилити
+                          </Button>
+                        </>
                       )}
-                      {item.status === 'in_progress' && (
-                        <Button size="sm" onClick={() => handleStatusUpdate(item.id, 'resolved')} isLoading={updatingId === item.id}>
-                          Вирішено
-                        </Button>
+                      {item.status === 'processed' && (
+                        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">Оброблено</span>
                       )}
-                      {item.status !== 'closed' && (
-                        <Button size="sm" variant="outline" onClick={() => handleStatusUpdate(item.id, 'closed')} isLoading={updatingId === item.id}>
-                          Закрити
-                        </Button>
+                      {item.status === 'rejected' && (
+                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">Відхилено</span>
                       )}
                     </div>
                   </div>
@@ -217,14 +236,25 @@ export default function AdminFeedbackPage() {
             )}
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <PageSizeSelector value={limit} onChange={(size) => updateFilter('limit', String(size))} />
             {total > limit && (
-              <Pagination currentPage={page} totalPages={Math.ceil(total / limit)} baseUrl="/admin/feedback" className="" />
+              <Pagination currentPage={page} totalPages={Math.ceil(total / limit)} baseUrl="/admin/feedback" />
             )}
           </div>
         </>
       )}
+
+      {/* Confirm status change */}
+      <ConfirmDialog
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={() => confirmAction && handleStatusUpdate(confirmAction.id, confirmAction.status)}
+        variant={confirmAction?.status === 'rejected' ? 'danger' : 'default'}
+        title="Зміна статусу"
+        message={confirmAction?.status === 'processed' ? 'Позначити звернення як оброблене?' : 'Відхилити звернення?'}
+        confirmText={confirmAction?.status === 'processed' ? 'Так, оброблено' : 'Так, відхилити'}
+      />
     </div>
   );
 }

@@ -40,7 +40,11 @@ const envSchema = z.object({
   WAYFORPAY_MERCHANT_ACCOUNT: z.string().default(''),
   WAYFORPAY_SECRET_KEY: z.string().default(''),
   TELEGRAM_BOT_TOKEN: z.string().default(''),
+  TELEGRAM_CHANNEL_ID: z.string().default(''),
   TELEGRAM_MANAGER_CHAT_ID: z.string().default(''),
+
+  FACEBOOK_PAGE_ACCESS_TOKEN: z.string().default(''),
+  FACEBOOK_PAGE_ID: z.string().default(''),
   MAINTENANCE_MODE: z.enum(['true', 'false']).default('false'),
 });
 

@@ -82,6 +82,14 @@ export async function createCategory(data: {
     throw new CategoryError('Категорія з таким slug вже існує', 409);
   }
 
+  // Limit parent categories to 8
+  if (!data.parentId) {
+    const parentCount = await prisma.category.count({ where: { parentId: null } });
+    if (parentCount >= 8) {
+      throw new CategoryError('Максимум 8 батьківських категорій. Створіть підкатегорію замість нової батьківської.', 400);
+    }
+  }
+
   if (data.parentId) {
     const parent = await prisma.category.findUnique({ where: { id: data.parentId } });
     if (!parent) {
@@ -158,6 +166,14 @@ export async function updateCategory(
     const parent = await prisma.category.findUnique({ where: { id: data.parentId } });
     if (!parent) {
       throw new CategoryError('Батьківська категорія не знайдена', 404);
+    }
+  }
+
+  // Prevent making a child into a parent if limit reached
+  if (data.parentId === null && category.parentId !== null) {
+    const parentCount = await prisma.category.count({ where: { parentId: null } });
+    if (parentCount >= 8) {
+      throw new CategoryError('Максимум 8 батьківських категорій. Неможливо перенести на верхній рівень.', 400);
     }
   }
 

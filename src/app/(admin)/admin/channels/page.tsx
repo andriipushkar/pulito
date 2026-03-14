@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 
@@ -35,8 +36,11 @@ export default function AdminChannelsPage() {
         if (res.success && res.data) {
           setStats(res.data.stats);
           setPublications(res.data.recentPublications);
+        } else {
+          toast.error('Не вдалося завантажити статистику каналів');
         }
       })
+      .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
   }, []);
 

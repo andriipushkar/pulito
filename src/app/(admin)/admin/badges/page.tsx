@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import { Check, Close } from '@/components/icons';
 
 const BADGE_TYPES = [
@@ -52,16 +53,21 @@ export default function AdminBadgesPage() {
   useEffect(() => { loadBadges(); }, []);
 
   const handleCreate = async () => {
-    await apiClient.post('/api/v1/admin/badges', {
+    const res = await apiClient.post('/api/v1/admin/badges', {
       productId: Number(form.productId),
       badgeType: form.badgeType,
       customText: form.badgeType === 'custom' ? form.customText : null,
       customColor: form.customColor || null,
       priority: form.priority,
     });
-    setShowForm(false);
-    setForm({ productId: '', badgeType: 'promo', customText: '', customColor: '#2563eb', priority: 0 });
-    loadBadges();
+    if (res.success) {
+      toast.success('Бейдж створено');
+      setShowForm(false);
+      setForm({ productId: '', badgeType: 'promo', customText: '', customColor: '#2563eb', priority: 0 });
+      loadBadges();
+    } else {
+      toast.error(res.error || 'Помилка створення');
+    }
   };
 
   const startEdit = (b: Badge) => {
@@ -75,18 +81,21 @@ export default function AdminBadgesPage() {
   };
 
   const saveEdit = async (id: number) => {
-    await apiClient.put(`/api/v1/admin/badges/${id}`, {
+    const res = await apiClient.put(`/api/v1/admin/badges/${id}`, {
       badgeType: editForm.badgeType,
       customText: editForm.badgeType === 'custom' ? editForm.customText : null,
       customColor: editForm.customColor,
       priority: editForm.priority,
     });
+    if (res.success) toast.success('Бейдж оновлено');
+    else toast.error(res.error || 'Помилка');
     setEditingId(null);
     loadBadges();
   };
 
   const toggleActive = async (id: number, isActive: boolean) => {
-    await apiClient.put(`/api/v1/admin/badges/${id}`, { isActive: !isActive });
+    const res = await apiClient.put(`/api/v1/admin/badges/${id}`, { isActive: !isActive });
+    if (res.success) toast.success(isActive ? 'Бейдж вимкнено' : 'Бейдж увімкнено');
     loadBadges();
   };
 
@@ -98,14 +107,16 @@ export default function AdminBadgesPage() {
     if (deleteId === null) return;
     const id = deleteId;
     setDeleteId(null);
-    await apiClient.delete(`/api/v1/admin/badges/${id}`);
+    const res = await apiClient.delete(`/api/v1/admin/badges/${id}`);
+    if (res.success) toast.success('Бейдж видалено');
+    else toast.error('Помилка видалення');
     loadBadges();
   };
 
   const getBadgeLabel = (type: string) => BADGE_TYPES.find((t) => t.value === type)?.label || type;
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return <AdminTableSkeleton rows={5} columns={4} />;
   }
 
   return (

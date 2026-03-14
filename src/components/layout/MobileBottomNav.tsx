@@ -119,6 +119,22 @@ export default function MobileBottomNav({ categories }: MobileBottomNavProps) {
             <span className={`text-[10px] font-semibold ${isActive('/cart') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'}`}>Кошик</span>
           </Link>
 
+          {/* Wishlist */}
+          <Link
+            href="/account/wishlist"
+            className={`${navItemBase} ${isActive('/account/wishlist') ? activeClass : inactiveClass}`}
+          >
+            <div className="relative">
+              <Heart size={22} />
+              {wishlistCount > 0 && (
+                <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-danger)] px-1 text-[9px] font-bold text-white">
+                  {wishlistCount > 9 ? '9+' : wishlistCount}
+                </span>
+              )}
+            </div>
+            <span>Обране</span>
+          </Link>
+
           {/* Profile */}
           <Link
             href="/account"

@@ -34,9 +34,13 @@ describe('GET /api/v1/health', () => {
 
     expect(res.status).toBe(200);
     expect(body.status).toBe('healthy');
-    expect(body.checks.database).toBe('ok');
-    expect(body.checks.redis).toBe('ok');
+    expect(body.checks.database.status).toBe('ok');
+    expect(body.checks.redis.status).toBe('ok');
+    expect(body.checks.database.latencyMs).toBeTypeOf('number');
     expect(body.timestamp).toBeDefined();
+    expect(body.uptime).toBeTypeOf('number');
+    expect(body.memory).toBeDefined();
+    expect(body.loadAvg).toBeInstanceOf(Array);
   });
 
   it('should return degraded when database is down', async () => {
@@ -47,8 +51,9 @@ describe('GET /api/v1/health', () => {
 
     expect(res.status).toBe(503);
     expect(body.status).toBe('degraded');
-    expect(body.checks.database).toBe('error');
-    expect(body.checks.redis).toBe('ok');
+    expect(body.checks.database.status).toBe('error');
+    expect(body.checks.database.error).toBe('Connection refused');
+    expect(body.checks.redis.status).toBe('ok');
   });
 
   it('should return degraded when redis is down', async () => {
@@ -59,8 +64,8 @@ describe('GET /api/v1/health', () => {
 
     expect(res.status).toBe(503);
     expect(body.status).toBe('degraded');
-    expect(body.checks.database).toBe('ok');
-    expect(body.checks.redis).toBe('error');
+    expect(body.checks.database.status).toBe('ok');
+    expect(body.checks.redis.status).toBe('error');
   });
 
   it('should return degraded when both services are down', async () => {
@@ -72,8 +77,8 @@ describe('GET /api/v1/health', () => {
 
     expect(res.status).toBe(503);
     expect(body.status).toBe('degraded');
-    expect(body.checks.database).toBe('error');
-    expect(body.checks.redis).toBe('error');
+    expect(body.checks.database.status).toBe('error');
+    expect(body.checks.redis.status).toBe('error');
   });
 
   it('should include ISO timestamp', async () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -141,24 +142,32 @@ function RulesTab() {
 
       if (editingRule) {
         const res = await apiClient.put(`/api/v1/admin/moderation/rules/${editingRule.id}`, payload);
-        if (res.success) { setEditingRule(null); loadRules(); }
+        if (res.success) { toast.success('Правило оновлено'); setEditingRule(null); loadRules(); }
+        else toast.error(res.error || 'Помилка');
       } else {
         const res = await apiClient.post('/api/v1/admin/moderation/rules', payload);
-        if (res.success) { setShowCreate(false); resetForm(); loadRules(); }
+        if (res.success) { toast.success('Правило створено'); setShowCreate(false); resetForm(); loadRules(); }
+        else toast.error(res.error || 'Помилка');
       }
+    } catch {
+      toast.error('Помилка мережі');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleToggle = async (rule: ModerationRule) => {
-    await apiClient.put(`/api/v1/admin/moderation/rules/${rule.id}`, { isActive: !rule.isActive });
+    const res = await apiClient.put(`/api/v1/admin/moderation/rules/${rule.id}`, { isActive: !rule.isActive });
+    if (res.success) toast.success(rule.isActive ? 'Правило вимкнено' : 'Правило увімкнено');
+    else toast.error('Помилка');
     loadRules();
   };
 
   const executeDelete = async () => {
     if (!deleteId) return;
-    await apiClient.delete(`/api/v1/admin/moderation/rules/${deleteId}`);
+    const res = await apiClient.delete(`/api/v1/admin/moderation/rules/${deleteId}`);
+    if (res.success) toast.success('Правило видалено');
+    else toast.error('Помилка видалення');
     setDeleteId(null);
     loadRules();
   };
@@ -295,8 +304,13 @@ function LogsTab() {
   }, [page, platformFilter, actionFilter]);
 
   const markFalsePositive = async (logId: number) => {
-    await apiClient.put(`/api/v1/admin/moderation/logs`, { logId, isFalsePositive: true });
-    setLogs((prev) => prev.map((l) => l.id === logId ? { ...l, isFalsePositive: true } : l));
+    const res = await apiClient.patch(`/api/v1/admin/moderation/logs`, { id: logId, isFalsePositive: true });
+    if (res.success) {
+      toast.success('Позначено як помилкове спрацювання');
+      setLogs((prev) => prev.map((l) => l.id === logId ? { ...l, isFalsePositive: true } : l));
+    } else {
+      toast.error(res.error || 'Помилка');
+    }
   };
 
   const formatDate = (d: string) =>

@@ -33,31 +33,44 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const refreshInterval = useRef<ReturnType<typeof setInterval>>(undefined);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
 
   const refreshAuth = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      });
-      if (!res.ok) {
-        setUser(null);
-        setAccessToken(null);
-        return;
-      }
-      const data = await res.json();
-      if (data.success && data.data) {
-        setAccessToken(data.data.accessToken);
-        setUser(data.data.user);
-      } else {
-        setUser(null);
-        setAccessToken(null);
-      }
-    } catch {
-      setUser(null);
-      setAccessToken(null);
+    // Prevent concurrent refresh calls (React Strict Mode double-mount, race conditions)
+    if (refreshInFlight.current) {
+      return refreshInFlight.current;
     }
+
+    const doRefresh = async () => {
+      try {
+        const res = await fetch('/api/v1/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!res.ok) {
+          setUser(null);
+          setAccessToken(null);
+          return;
+        }
+        const data = await res.json();
+        if (data.success && data.data) {
+          setAccessToken(data.data.accessToken);
+          setUser(data.data.user);
+        } else {
+          setUser(null);
+          setAccessToken(null);
+        }
+      } catch {
+        setUser(null);
+        setAccessToken(null);
+      } finally {
+        refreshInFlight.current = null;
+      }
+    };
+
+    refreshInFlight.current = doRefresh();
+    return refreshInFlight.current;
   }, []);
 
   useEffect(() => {

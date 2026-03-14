@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import Spinner from '@/components/ui/Spinner';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 
 interface AdminPage {
   id: number;
@@ -24,7 +25,9 @@ export default function AdminPagesPage() {
       .get<AdminPage[]>('/api/v1/admin/pages')
       .then((res) => {
         if (res.success && res.data) setPages(res.data);
+        else toast.error('Не вдалося завантажити сторінки');
       })
+      .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -32,7 +35,7 @@ export default function AdminPagesPage() {
     new Date(d).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return <AdminTableSkeleton rows={5} columns={5} />;
   }
 
   return (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -56,8 +57,15 @@ export default function AdminHomepagePage() {
   const saveBlocks = async () => {
     setIsSaving(true);
     try {
-      await apiClient.put('/api/v1/admin/homepage-blocks', blocks);
-      setHasChanges(false);
+      const res = await apiClient.put('/api/v1/admin/homepage-blocks', blocks);
+      if (res.success) {
+        toast.success('Блоки збережено');
+        setHasChanges(false);
+      } else {
+        toast.error(res.error || 'Помилка збереження');
+      }
+    } catch {
+      toast.error('Помилка мережі');
     } finally {
       setIsSaving(false);
     }

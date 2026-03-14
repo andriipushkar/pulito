@@ -56,7 +56,7 @@ async function request<T>(
 
   let res = await fetch(url, { ...options, headers, credentials: 'include' });
 
-  if (res.status === 401 && accessToken) {
+  if (res.status === 401) {
     const newToken = await refreshAccessToken();
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;
@@ -83,7 +83,33 @@ export const apiClient = {
       body: body ? JSON.stringify(body) : undefined,
     });
   },
+  patch<T>(url: string, body?: unknown) {
+    return request<T>(url, {
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  },
   delete<T>(url: string) {
     return request<T>(url, { method: 'DELETE' });
+  },
+  async upload<T>(url: string, formData: FormData): Promise<ApiResponse<T>> {
+    const headers: Record<string, string> = {
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    let res = await fetch(url, { method: 'POST', headers, body: formData, credentials: 'include' });
+
+    if (res.status === 401 && accessToken) {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        headers['Authorization'] = `Bearer ${newToken}`;
+        res = await fetch(url, { method: 'POST', headers, body: formData, credentials: 'include' });
+      }
+    }
+
+    return res.json();
   },
 };

@@ -43,6 +43,8 @@ export const GET = withRole('manager', 'admin')(async (request: NextRequest) => 
       quantity_asc: { quantity: 'asc' },
       quantity_desc: { quantity: 'desc' },
       sales_desc: { ordersCount: 'desc' },
+      category_asc: { category: { name: 'asc' } },
+      category_desc: { category: { name: 'desc' } },
     };
 
     const [products, total] = await Promise.all([

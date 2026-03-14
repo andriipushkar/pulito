@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import type { DashboardStats } from '@/types/user';
 import Spinner from '@/components/ui/Spinner';
@@ -131,10 +132,11 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, [autoRefresh, loadStats]);
 
-  const saveSettings = useCallback((order: string[], hidden: Set<string>) => {
-    apiClient.put('/api/v1/admin/dashboard/settings', {
+  const saveSettings = useCallback(async (order: string[], hidden: Set<string>) => {
+    const res = await apiClient.put('/api/v1/admin/dashboard/settings', {
       layout: { widgetOrder: order, hiddenWidgets: [...hidden] },
     });
+    if (!res.success) toast.error('Не вдалося зберегти налаштування');
   }, []);
 
   const toggleWidget = (key: string) => {

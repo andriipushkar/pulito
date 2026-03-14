@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface PalletRegion {
   name: string;
@@ -26,7 +28,7 @@ export default function AdminPalletDeliveryPage() {
   const [config, setConfig] = useState<PalletConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [confirmSave, setConfirmSave] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -39,11 +41,12 @@ export default function AdminPalletDeliveryPage() {
 
   const handleSave = useCallback(async () => {
     if (!config) return;
+    setConfirmSave(false);
     setIsSaving(true);
-    setMessage('');
     const res = await apiClient.put('/api/v1/admin/settings/pallet-delivery', config);
     setIsSaving(false);
-    setMessage(res.success ? 'Збережено' : 'Помилка збереження');
+    if (res.success) toast.success('Налаштування доставки збережено');
+    else toast.error(res.error || 'Помилка збереження');
   }, [config]);
 
   const updateField = useCallback((field: keyof PalletConfig, value: unknown) => {
@@ -89,14 +92,8 @@ export default function AdminPalletDeliveryPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Палетна доставка</h1>
-        <Button onClick={handleSave} isLoading={isSaving}>Зберегти</Button>
+        <Button onClick={() => setConfirmSave(true)} isLoading={isSaving}>Зберегти</Button>
       </div>
-
-      {message && (
-        <div className={`mb-4 rounded-[var(--radius)] px-4 py-2 text-sm ${message === 'Збережено' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          {message}
-        </div>
-      )}
 
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
         <div className="mb-4 flex items-center gap-3">
@@ -186,6 +183,15 @@ export default function AdminPalletDeliveryPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmSave}
+        onClose={() => setConfirmSave(false)}
+        onConfirm={handleSave}
+        title="Зберегти налаштування доставки"
+        message="Зміни набудуть чинності відразу для всіх замовлень. Продовжити?"
+        confirmText="Так, зберегти"
+      />
     </div>
   );
 }
