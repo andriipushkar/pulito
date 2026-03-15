@@ -255,10 +255,35 @@
                     "maxLength": 100
                   },
                   "phone": {
-                    "type": "string"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\+380\\d{9}$"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      }
+                    ]
                   },
                   "referralCode": {
                     "type": "string"
+                  },
+                  "companyName": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "edrpou": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{8}$"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -561,7 +586,7 @@
                   },
                   "contactPhone": {
                     "type": "string",
-                    "minLength": 10
+                    "pattern": "^\\+380\\d{9}$"
                   },
                   "contactEmail": {
                     "type": "string",
@@ -616,7 +641,8 @@
                     "type": "string",
                     "enum": [
                       "liqpay",
-                      "monobank"
+                      "monobank",
+                      "wayforpay"
                     ]
                   }
                 },
@@ -705,7 +731,8 @@
                     "type": "string",
                     "enum": [
                       "liqpay",
-                      "monobank"
+                      "monobank",
+                      "wayforpay"
                     ]
                   }
                 },

@@ -32,7 +32,21 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const allowedOrigins = [appUrl, 'http://localhost:3000'];
+
     return [
+      // CORS for API routes — only allow own origin
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: allowedOrigins[0] },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,PATCH,DELETE,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Requested-With, X-Idempotency-Key' },
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Max-Age', value: '86400' },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [
