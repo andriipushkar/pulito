@@ -66,25 +66,7 @@ const nextConfig: NextConfig = {
             key: 'X-Permitted-Cross-Domain-Policies',
             value: 'none',
           },
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              // unsafe-inline required for Next.js inline styles; unsafe-eval for dev HMR only
-              process.env.NODE_ENV === 'production'
-                ? "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com"
-                : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "img-src 'self' data: blob: https:",
-              "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://www.google-analytics.com https://api.telegram.org https://api.novaposhta.ua",
-              "frame-ancestors 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-              "object-src 'none'",
-              "upgrade-insecure-requests",
-            ].join('; '),
-          },
+          // CSP is set dynamically in middleware.ts with per-request nonce
         ],
       },
     ];

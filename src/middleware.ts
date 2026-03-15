@@ -153,7 +153,23 @@ export default async function middleware(request: NextRequest) {
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
-  // CSP is set in next.config.ts headers — not duplicated here
+
+  // CSP with per-request nonce — replaces unsafe-inline for scripts
+  const nonce = crypto.randomUUID().replace(/-/g, '');
+  response.headers.set('X-Nonce', nonce);
+  response.headers.set('Content-Security-Policy', [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' https://www.google-analytics.com https://api.telegram.org https://api.novaposhta.ua",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+    "upgrade-insecure-requests",
+  ].join('; '));
 
   return response;
 }

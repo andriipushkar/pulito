@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
-import { updateMarketplaceListing, deleteMarketplaceListing } from '@/services/marketplaces';
+import { updateMarketplaceListing, deleteMarketplaceListing, MARKETPLACE_CHANNELS } from '@/services/marketplaces';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { env } from '@/config/env';
+
+const VALID_CHANNELS: readonly string[] = MARKETPLACE_CHANNELS;
 
 // Update a marketplace listing
 export const PUT = withRole('admin', 'manager')(
@@ -14,6 +16,10 @@ export const PUT = withRole('admin', 'manager')(
 
       if (!channel || !externalId) {
         return errorResponse('channel та externalId обов\'язкові', 400);
+      }
+
+      if (!VALID_CHANNELS.includes(channel)) {
+        return errorResponse('Невідомий маркетплейс', 400);
       }
 
       const result = await updateMarketplaceListing(channel, externalId, {
@@ -45,6 +51,10 @@ export const DELETE = withRole('admin', 'manager')(
 
       if (!channel || !externalId) {
         return errorResponse('channel та externalId обов\'язкові', 400);
+      }
+
+      if (!VALID_CHANNELS.includes(channel)) {
+        return errorResponse('Невідомий маркетплейс', 400);
       }
 
       const result = await deleteMarketplaceListing(channel, externalId);

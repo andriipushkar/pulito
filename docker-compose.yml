@@ -8,9 +8,11 @@ services:
     ports:
       - '3000:3000'
     environment:
-      DATABASE_URL: postgresql://clean_user:clean_pass@postgres:5432/clean_shop
+      DATABASE_URL: postgresql://${POSTGRES_USER:-clean_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-clean_shop}
       REDIS_URL: redis://redis:6379
       NODE_ENV: production
+      APP_SECRET: ${APP_SECRET:?APP_SECRET must be set}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
     depends_on:
       postgres:
         condition: service_healthy

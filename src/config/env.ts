@@ -25,7 +25,7 @@ const envSchema = z.object({
   MAX_FILE_SIZE: z.coerce.number().default(10485760),
 
   // Used for cron endpoint authentication — must be cryptographically strong
-  APP_SECRET: z.string().min(32).default('dev-app-secret-not-for-production-32c'),
+  APP_SECRET: z.string().min(32),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   INSTAGRAM_ACCESS_TOKEN: z.string().default(''),
@@ -65,11 +65,8 @@ function validateEnv(): Env {
     throw new Error('Invalid environment variables');
   }
 
-  // Production guards — prevent insecure defaults
+  // Production guards
   if (parsed.data.NODE_ENV === 'production') {
-    if (parsed.data.APP_SECRET === 'dev-app-secret-not-for-production-32c') {
-      throw new Error('APP_SECRET must be set in production (not default value)');
-    }
     if (parsed.data.TYPESENSE_API_KEY === 'ts-clean-dev-key') {
       console.warn('WARNING: TYPESENSE_API_KEY is using default dev key in production');
     }
