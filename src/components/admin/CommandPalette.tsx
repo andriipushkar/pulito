@@ -33,6 +33,7 @@ const COMMANDS: CommandItem[] = [
   { label: 'Налаштування каналів', href: '/admin/channel-settings', icon: '🔧', section: 'Канали' },
   { label: 'Налаштування ботів', href: '/admin/bot-settings', icon: '🤖', section: 'Канали' },
   { label: 'Модерація', href: '/admin/moderation', icon: '🛡️', section: 'Канали' },
+  { label: 'Маркетплейси', href: '/admin/marketplaces', icon: '🏪', section: 'Маркетплейси' },
   { label: 'Загальні налаштування', href: '/admin/settings', icon: '⚙️', section: 'Налаштування' },
   { label: 'Платіжні системи', href: '/admin/payment-settings', icon: '💳', section: 'Налаштування' },
   { label: 'Служби доставки', href: '/admin/delivery-settings', icon: '🚚', section: 'Налаштування' },

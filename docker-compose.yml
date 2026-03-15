@@ -22,9 +22,9 @@ services:
     container_name: clean_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: clean_user
-      POSTGRES_PASSWORD: clean_pass
-      POSTGRES_DB: clean_shop
+      POSTGRES_USER: ${POSTGRES_USER:-clean_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-clean_shop}
     ports:
       - '5432:5432'
     volumes:
@@ -60,7 +60,7 @@ services:
       - typesense_data:/data
     environment:
       TYPESENSE_DATA_DIR: /data
-      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-ts-clean-dev-key}
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:?TYPESENSE_API_KEY must be set}
     healthcheck:
       test: ['CMD', 'curl', '-sf', 'http://localhost:8108/health']
       interval: 10s

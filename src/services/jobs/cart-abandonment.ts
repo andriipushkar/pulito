@@ -5,47 +5,40 @@ import { sendCartAbandonmentEmail } from '../email-template';
 export async function processAbandonedCarts(hoursThreshold = 24) {
   const thresholdDate = new Date(Date.now() - hoursThreshold * 60 * 60 * 1000);
 
-  // Find users with cart items older than threshold
-  const usersWithCarts = await prisma.cartItem.groupBy({
-    by: ['userId'],
+  // Single query with joins — avoids N+1 problem
+  const users = await prisma.user.findMany({
     where: {
-      updatedAt: { lt: thresholdDate },
+      cartItems: {
+        some: { updatedAt: { lt: thresholdDate } },
+      },
+    },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      cartItems: {
+        where: { updatedAt: { lt: thresholdDate } },
+        include: {
+          product: { select: { name: true, priceRetail: true } },
+        },
+      },
     },
   });
 
-  if (usersWithCarts.length === 0) {
+  if (users.length === 0) {
     return { sent: 0, message: 'Немає покинутих кошиків' };
   }
 
   let sent = 0;
 
-  for (const { userId } of usersWithCarts) {
+  for (const user of users) {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true, fullName: true },
-      });
-
-      if (!user?.email) continue;
-
-      const cartItems = await prisma.cartItem.findMany({
-        where: {
-          userId,
-          updatedAt: { lt: thresholdDate },
-        },
-        include: {
-          product: {
-            select: { name: true, priceRetail: true },
-          },
-        },
-      });
-
-      if (cartItems.length === 0) continue;
+      if (!user.email || user.cartItems.length === 0) continue;
 
       await sendCartAbandonmentEmail({
         to: user.email,
         name: user.fullName,
-        items: cartItems.map((item) => ({
+        items: user.cartItems.map((item) => ({
           name: item.product.name,
           quantity: item.quantity,
           price: Number(item.product.priceRetail),
@@ -58,5 +51,5 @@ export async function processAbandonedCarts(hoursThreshold = 24) {
     }
   }
 
-  return { sent, total: usersWithCarts.length };
+  return { sent, total: users.length };
 }

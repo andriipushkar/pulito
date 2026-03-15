@@ -153,17 +153,7 @@ export default async function middleware(request: NextRequest) {
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
-  response.headers.set('Content-Security-Policy', [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
-    "img-src 'self' data: blob: https:",
-    "font-src 'self' https://fonts.gstatic.com",
-    "connect-src 'self' https://www.google-analytics.com https://api.telegram.org",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join('; '));
+  // CSP is set in next.config.ts headers — not duplicated here
 
   return response;
 }

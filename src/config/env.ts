@@ -8,7 +8,10 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().default('redis://localhost:6380/0'),
 
-  JWT_SECRET: z.string().min(32),
+  JWT_SECRET: z.string().min(32).refine(
+    (s) => new Set(s).size >= 16,
+    { message: 'JWT_SECRET must have sufficient entropy (16+ unique chars)' }
+  ),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('30d'),
 
@@ -60,6 +63,16 @@ function validateEnv(): Env {
   if (!parsed.success) {
     console.error('Invalid environment variables:', parsed.error.flatten().fieldErrors);
     throw new Error('Invalid environment variables');
+  }
+
+  // Production guards — prevent insecure defaults
+  if (parsed.data.NODE_ENV === 'production') {
+    if (parsed.data.APP_SECRET === 'dev-app-secret-not-for-production-32c') {
+      throw new Error('APP_SECRET must be set in production (not default value)');
+    }
+    if (parsed.data.TYPESENSE_API_KEY === 'ts-clean-dev-key') {
+      console.warn('WARNING: TYPESENSE_API_KEY is using default dev key in production');
+    }
   }
 
   return parsed.data;

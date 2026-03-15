@@ -6,8 +6,7 @@ const { mockSendCartAbandonmentEmail } = vi.hoisted(() => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    cartItem: { groupBy: vi.fn(), findMany: vi.fn() },
-    user: { findUnique: vi.fn() },
+    user: { findMany: vi.fn() },
   },
 }));
 
@@ -23,8 +22,7 @@ import { prisma } from '@/lib/prisma';
 import { processAbandonedCarts } from './cart-abandonment';
 
 const mockPrisma = prisma as unknown as {
-  cartItem: { groupBy: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
-  user: { findUnique: ReturnType<typeof vi.fn> };
+  user: { findMany: ReturnType<typeof vi.fn> };
 };
 
 beforeEach(() => {
@@ -33,17 +31,17 @@ beforeEach(() => {
 
 describe('processAbandonedCarts', () => {
   it('should return early when no abandoned carts', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([]);
+    mockPrisma.user.findMany.mockResolvedValue([]);
     const result = await processAbandonedCarts();
     expect(result).toEqual({ sent: 0, message: 'Немає покинутих кошиків' });
   });
 
   it('should use default 24 hours threshold', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([]);
+    mockPrisma.user.findMany.mockResolvedValue([]);
     await processAbandonedCarts();
 
-    const call = mockPrisma.cartItem.groupBy.mock.calls[0][0];
-    const threshold = call.where.updatedAt.lt as Date;
+    const call = mockPrisma.user.findMany.mock.calls[0][0];
+    const threshold = call.where.cartItems.some.updatedAt.lt as Date;
     const expectedMs = 24 * 60 * 60 * 1000;
     const diff = Date.now() - threshold.getTime();
     expect(diff).toBeGreaterThanOrEqual(expectedMs - 1000);
@@ -51,11 +49,11 @@ describe('processAbandonedCarts', () => {
   });
 
   it('should accept custom hours threshold', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([]);
+    mockPrisma.user.findMany.mockResolvedValue([]);
     await processAbandonedCarts(48);
 
-    const call = mockPrisma.cartItem.groupBy.mock.calls[0][0];
-    const threshold = call.where.updatedAt.lt as Date;
+    const call = mockPrisma.user.findMany.mock.calls[0][0];
+    const threshold = call.where.cartItems.some.updatedAt.lt as Date;
     const expectedMs = 48 * 60 * 60 * 1000;
     const diff = Date.now() - threshold.getTime();
     expect(diff).toBeGreaterThanOrEqual(expectedMs - 1000);
@@ -63,87 +61,68 @@ describe('processAbandonedCarts', () => {
   });
 
   it('should skip users without email', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([{ userId: 1 }]);
-    mockPrisma.user.findUnique.mockResolvedValue({ email: null, fullName: 'Test' });
-
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: 1, email: null, fullName: 'No Email', cartItems: [{ product: { name: 'Test', priceRetail: 100 }, quantity: 1 }] },
+    ]);
     const result = await processAbandonedCarts();
-    expect(result).toEqual({ sent: 0, total: 1 });
+    expect(result.sent).toBe(0);
     expect(mockSendCartAbandonmentEmail).not.toHaveBeenCalled();
   });
 
-  it('should skip when user not found (null)', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([{ userId: 1 }]);
-    mockPrisma.user.findUnique.mockResolvedValue(null);
-
+  it('should skip when cart items are empty', async () => {
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: 1, email: 'test@test.com', fullName: 'Test', cartItems: [] },
+    ]);
     const result = await processAbandonedCarts();
-    expect(result).toEqual({ sent: 0, total: 1 });
-    expect(mockSendCartAbandonmentEmail).not.toHaveBeenCalled();
-  });
-
-  it('should skip when cart items are empty after query', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([{ userId: 1 }]);
-    mockPrisma.user.findUnique.mockResolvedValue({ email: 'user@test.com', fullName: 'User' });
-    mockPrisma.cartItem.findMany.mockResolvedValue([]);
-
-    const result = await processAbandonedCarts();
-    expect(result).toEqual({ sent: 0, total: 1 });
-    expect(mockSendCartAbandonmentEmail).not.toHaveBeenCalled();
+    expect(result.sent).toBe(0);
   });
 
   it('should send email for valid abandoned cart', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([{ userId: 1 }]);
-    mockPrisma.user.findUnique.mockResolvedValue({ email: 'user@test.com', fullName: 'John' });
-    mockPrisma.cartItem.findMany.mockResolvedValue([
-      { quantity: 2, product: { name: 'Product A', priceRetail: 100 } },
+    mockPrisma.user.findMany.mockResolvedValue([
+      {
+        id: 1,
+        email: 'user@test.com',
+        fullName: 'Test User',
+        cartItems: [
+          { product: { name: 'Product A', priceRetail: 100 }, quantity: 2 },
+        ],
+      },
     ]);
     mockSendCartAbandonmentEmail.mockResolvedValue(undefined);
 
     const result = await processAbandonedCarts();
-
-    expect(result).toEqual({ sent: 1, total: 1 });
+    expect(result.sent).toBe(1);
     expect(mockSendCartAbandonmentEmail).toHaveBeenCalledWith({
       to: 'user@test.com',
-      name: 'John',
+      name: 'Test User',
       items: [{ name: 'Product A', quantity: 2, price: 100 }],
       cartUrl: 'https://example.com/cart',
     });
   });
 
   it('should process multiple users and count successful sends', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([{ userId: 1 }, { userId: 2 }]);
-    mockPrisma.user.findUnique
-      .mockResolvedValueOnce({ email: 'a@test.com', fullName: 'A' })
-      .mockResolvedValueOnce({ email: 'b@test.com', fullName: 'B' });
-    mockPrisma.cartItem.findMany.mockResolvedValue([
-      { quantity: 1, product: { name: 'Prod', priceRetail: 50 } },
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: 1, email: 'a@test.com', fullName: 'A', cartItems: [{ product: { name: 'P1', priceRetail: 50 }, quantity: 1 }] },
+      { id: 2, email: 'b@test.com', fullName: 'B', cartItems: [{ product: { name: 'P2', priceRetail: 75 }, quantity: 3 }] },
     ]);
     mockSendCartAbandonmentEmail.mockResolvedValue(undefined);
 
     const result = await processAbandonedCarts();
-    expect(result).toEqual({ sent: 2, total: 2 });
+    expect(result.sent).toBe(2);
+    expect(result.total).toBe(2);
   });
 
   it('should continue processing when email send fails', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([{ userId: 1 }, { userId: 2 }]);
-    mockPrisma.user.findUnique
-      .mockResolvedValueOnce({ email: 'a@test.com', fullName: 'A' })
-      .mockResolvedValueOnce({ email: 'b@test.com', fullName: 'B' });
-    mockPrisma.cartItem.findMany.mockResolvedValue([
-      { quantity: 1, product: { name: 'Prod', priceRetail: 50 } },
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: 1, email: 'fail@test.com', fullName: 'Fail', cartItems: [{ product: { name: 'P1', priceRetail: 50 }, quantity: 1 }] },
+      { id: 2, email: 'ok@test.com', fullName: 'OK', cartItems: [{ product: { name: 'P2', priceRetail: 75 }, quantity: 1 }] },
     ]);
     mockSendCartAbandonmentEmail
-      .mockRejectedValueOnce(new Error('Email fail'))
+      .mockRejectedValueOnce(new Error('SMTP error'))
       .mockResolvedValueOnce(undefined);
 
     const result = await processAbandonedCarts();
-    expect(result).toEqual({ sent: 1, total: 2 });
-  });
-
-  it('should handle error during user lookup gracefully', async () => {
-    mockPrisma.cartItem.groupBy.mockResolvedValue([{ userId: 1 }]);
-    mockPrisma.user.findUnique.mockRejectedValue(new Error('DB error'));
-
-    const result = await processAbandonedCarts();
-    expect(result).toEqual({ sent: 0, total: 1 });
+    expect(result.sent).toBe(1);
+    expect(result.total).toBe(2);
   });
 });

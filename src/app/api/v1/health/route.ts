@@ -50,19 +50,15 @@ export async function GET() {
   }
 
   const allOk = Object.values(checks).every((c) => c.status === 'ok');
-  const uptimeSeconds = Math.round(process.uptime());
 
+  // Public endpoint — minimal info to prevent information disclosure
   return NextResponse.json(
     {
       status: allOk ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
-      uptime: uptimeSeconds,
-      memory: {
-        rss: Math.round(process.memoryUsage.rss() / (1024 * 1024)),
-        heapUsed: Math.round(process.memoryUsage().heapUsed / (1024 * 1024)),
-      },
-      loadAvg: os.loadavg().map((v) => Math.round(v * 100) / 100),
-      checks,
+      checks: Object.fromEntries(
+        Object.entries(checks).map(([k, v]) => [k, { status: v.status }])
+      ),
     },
     { status: allOk ? 200 : 503 }
   );

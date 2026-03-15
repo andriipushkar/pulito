@@ -12,6 +12,7 @@ import { Trash, Check, Close, Eye } from '@/components/icons';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
 import { SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
+import { sanitizeHtml } from '@/utils/sanitize';
 
 interface ChannelResult {
   id: number;
@@ -108,6 +109,10 @@ const ALL_CHANNELS = [
   { key: 'facebook', label: 'Facebook' },
   { key: 'instagram', label: 'Instagram' },
   { key: 'tiktok', label: 'TikTok' },
+  { key: 'olx', label: 'OLX' },
+  { key: 'rozetka', label: 'Rozetka' },
+  { key: 'prom', label: 'Prom.ua' },
+  { key: 'epicentrk', label: 'Epicentr K' },
   { key: 'site', label: 'Сайт' },
 ] as const;
 
@@ -1133,7 +1138,7 @@ export default function AdminPublicationsPage() {
                         <div className="mb-1 flex items-center gap-1 text-[10px] text-[var(--color-text-secondary)]">
                           {label} (HTML) {hasOverride && <span className="rounded bg-blue-100 px-1 text-blue-600">custom</span>}
                         </div>
-                        <div dangerouslySetInnerHTML={{ __html: `<b>${title}</b><br/><br/>${content.replace(/\n/g, '<br/>')}${hashtags ? `<br/><br/>${hashtags}` : ''}` }} />
+                        <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(`<b>${title}</b><br/><br/>${content.replace(/\n/g, '<br/>')}${hashtags ? `<br/><br/>${hashtags}` : ''}`) }} />
                       </div>
                     );
                   }

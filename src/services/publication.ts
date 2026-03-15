@@ -273,6 +273,29 @@ async function publishToChannel(
     case 'site':
       // Site publication is just the publication record itself
       return { status: 'published' };
+    case 'olx':
+    case 'rozetka':
+    case 'prom':
+    case 'epicentrk': {
+      // Marketplace channels — publish product listing
+      const { publishToMarketplace } = await import('@/services/marketplaces');
+      const product = pub.productId
+        ? await prisma.product.findUnique({
+            where: { id: pub.productId },
+            select: { id: true, name: true, code: true, priceRetail: true, quantity: true, imagePath: true, images: { select: { pathFull: true }, take: 8 } },
+          })
+        : null;
+      const images = product?.images.map((img) => img.pathFull).filter(Boolean) as string[] || [];
+      if (pub.imagePath && !images.includes(pub.imagePath)) images.unshift(pub.imagePath);
+      return publishToMarketplace(channel, {
+        title: cc.title,
+        description: `${cc.content}${cc.hashtags ? `\n\n${cc.hashtags}` : ''}`,
+        price: product ? Number(product.priceRetail) : 0,
+        images,
+        productCode: product?.code,
+        quantity: product?.quantity ?? 1,
+      }, appUrl);
+    }
     default:
       return { status: 'failed', error: `Невідомий канал: ${channel}` };
   }

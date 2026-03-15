@@ -7,7 +7,7 @@ import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
-type ChannelKey = 'telegram' | 'viber' | 'facebook' | 'instagram' | 'tiktok';
+type ChannelKey = 'telegram' | 'viber' | 'facebook' | 'instagram' | 'tiktok' | 'olx' | 'rozetka' | 'prom' | 'epicentrk';
 
 interface ChannelField {
   key: string;
@@ -84,6 +84,53 @@ const CHANNELS: ChannelDef[] = [
       { key: 'openId', label: 'Open ID', placeholder: 'Ваш TikTok Open ID' },
     ],
   },
+  {
+    key: 'olx',
+    name: 'OLX',
+    icon: '🟢',
+    color: '#002f34',
+    description: 'Публікація оголошень на OLX.ua',
+    fields: [
+      { key: 'clientId', label: 'Client ID', placeholder: 'OLX API Client ID' },
+      { key: 'accessToken', label: 'Access Token', placeholder: 'OLX API Access Token', sensitive: true },
+      { key: 'defaultCategoryId', label: 'Категорія за замовч.', placeholder: '1430 (Побутова хімія)', optional: true },
+      { key: 'cityId', label: 'Місто (ID)', placeholder: '1 (Київ)', optional: true },
+      { key: 'contactName', label: 'Ім\'я контакту', placeholder: 'Порошок', optional: true },
+      { key: 'contactPhone', label: 'Телефон', placeholder: '+380501234567', optional: true },
+    ],
+  },
+  {
+    key: 'rozetka',
+    name: 'Rozetka',
+    icon: '🟩',
+    color: '#00a046',
+    description: 'Публікація товарів на Rozetka Marketplace',
+    fields: [
+      { key: 'apiKey', label: 'API Key', placeholder: 'Rozetka Seller API Key', sensitive: true },
+      { key: 'sellerId', label: 'Seller ID', placeholder: '12345' },
+    ],
+  },
+  {
+    key: 'prom',
+    name: 'Prom.ua',
+    icon: '🔵',
+    color: '#2b5797',
+    description: 'Публікація товарів на Prom.ua',
+    fields: [
+      { key: 'apiToken', label: 'API Token', placeholder: 'Prom.ua API Token', sensitive: true },
+    ],
+  },
+  {
+    key: 'epicentrk',
+    name: 'Epicentr K',
+    icon: '🟠',
+    color: '#f57c00',
+    description: 'Публікація товарів на маркетплейсі Епіцентр К',
+    fields: [
+      { key: 'apiKey', label: 'API Key', placeholder: 'Epicentr Marketplace API Key', sensitive: true },
+      { key: 'sellerId', label: 'Seller ID', placeholder: '12345' },
+    ],
+  },
 ];
 
 interface TestResult {
@@ -93,29 +140,31 @@ interface TestResult {
 }
 
 export default function ChannelSettingsPage() {
-  const [configs, setConfigs] = useState<Record<ChannelKey, Record<string, string | boolean> | null>>({
-    telegram: null, viber: null, facebook: null, instagram: null, tiktok: null,
+  const [configs, setConfigs] = useState(() => {
+    const o = {} as Record<ChannelKey, Record<string, string | boolean> | null>;
+    CHANNELS.forEach((c) => { o[c.key] = null; });
+    return o;
   });
-  const [forms, setForms] = useState<Record<ChannelKey, Record<string, string | boolean>>>({
-    telegram: { enabled: false },
-    viber: { enabled: false },
-    facebook: { enabled: false },
-    instagram: { enabled: false },
-    tiktok: { enabled: false },
+  const [forms, setForms] = useState(() => {
+    const o = {} as Record<ChannelKey, Record<string, string | boolean>>;
+    CHANNELS.forEach((c) => { o[c.key] = { enabled: false }; });
+    return o;
   });
-  const [dirty, setDirty] = useState<Record<ChannelKey, Set<string>>>({
-    telegram: new Set(), viber: new Set(), facebook: new Set(), instagram: new Set(), tiktok: new Set(),
+  const [dirty, setDirty] = useState(() => {
+    const o = {} as Record<ChannelKey, Set<string>>;
+    CHANNELS.forEach((c) => { o[c.key] = new Set(); });
+    return o;
   });
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
-  const [testing, setTesting] = useState<Record<ChannelKey, boolean>>({
-    telegram: false, viber: false, facebook: false, instagram: false, tiktok: false,
-  });
-  const [testResults, setTestResults] = useState<Record<ChannelKey, TestResult | null>>({
-    telegram: null, viber: null, facebook: null, instagram: null, tiktok: null,
-  });
-  const [saving, setSaving] = useState<Record<ChannelKey, boolean>>({
-    telegram: false, viber: false, facebook: false, instagram: false, tiktok: false,
-  });
+  const [testing, setTesting] = useState<Record<ChannelKey, boolean>>(
+    Object.fromEntries(CHANNELS.map((c) => [c.key, false])) as Record<ChannelKey, boolean>
+  );
+  const [testResults, setTestResults] = useState<Record<ChannelKey, TestResult | null>>(
+    Object.fromEntries(CHANNELS.map((c) => [c.key, null])) as Record<ChannelKey, TestResult | null>
+  );
+  const [saving, setSaving] = useState<Record<ChannelKey, boolean>>(
+    Object.fromEntries(CHANNELS.map((c) => [c.key, false])) as Record<ChannelKey, boolean>
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   const loadConfigs = useCallback(async () => {
@@ -133,7 +182,7 @@ export default function ChannelSettingsPage() {
         }
       }
       setForms(newForms);
-      setDirty({ telegram: new Set(), viber: new Set(), facebook: new Set(), instagram: new Set(), tiktok: new Set() });
+      setDirty(Object.fromEntries(CHANNELS.map((c) => [c.key, new Set<string>()])) as Record<ChannelKey, Set<string>>);
     }
     setIsLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps

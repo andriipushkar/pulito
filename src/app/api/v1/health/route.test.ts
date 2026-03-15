@@ -36,11 +36,11 @@ describe('GET /api/v1/health', () => {
     expect(body.status).toBe('healthy');
     expect(body.checks.database.status).toBe('ok');
     expect(body.checks.redis.status).toBe('ok');
-    expect(body.checks.database.latencyMs).toBeTypeOf('number');
     expect(body.timestamp).toBeDefined();
-    expect(body.uptime).toBeTypeOf('number');
-    expect(body.memory).toBeDefined();
-    expect(body.loadAvg).toBeInstanceOf(Array);
+    // Public health endpoint no longer exposes latency, memory, or loadAvg
+    expect(body.memory).toBeUndefined();
+    expect(body.loadAvg).toBeUndefined();
+    expect(body.uptime).toBeUndefined();
   });
 
   it('should return degraded when database is down', async () => {
@@ -52,7 +52,8 @@ describe('GET /api/v1/health', () => {
     expect(res.status).toBe(503);
     expect(body.status).toBe('degraded');
     expect(body.checks.database.status).toBe('error');
-    expect(body.checks.database.error).toBe('Connection refused');
+    // Error details no longer exposed publicly
+    expect(body.checks.database.error).toBeUndefined();
     expect(body.checks.redis.status).toBe('ok');
   });
 

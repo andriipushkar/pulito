@@ -8,7 +8,7 @@ const MIME_TYPES: Record<string, string> = {
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
+  // SVG removed — XSS vector via embedded JavaScript
   '.pdf': 'application/pdf',
 };
 
@@ -39,13 +39,20 @@ export async function GET(
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     const etag = `"${stat.mtimeMs.toString(36)}-${stat.size.toString(36)}"`;
 
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400, must-revalidate',
-        'ETag': etag,
-      },
-    });
+    const headers: Record<string, string> = {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=86400, must-revalidate',
+      'ETag': etag,
+      'X-Content-Type-Options': 'nosniff',
+    };
+
+    // Force download for potentially dangerous file types
+    if (ext === '.svg' || ext === '.html' || ext === '.htm') {
+      headers['Content-Disposition'] = `attachment; filename="${path.basename(filePath)}"`;
+      headers['Content-Type'] = 'application/octet-stream';
+    }
+
+    return new NextResponse(buffer, { headers });
   } catch {
     return new NextResponse('Not found', { status: 404 });
   }

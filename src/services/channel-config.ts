@@ -33,7 +33,12 @@ export interface TikTokConfig {
   openId: string;
 }
 
-export type ChannelType = 'telegram' | 'viber' | 'facebook' | 'instagram' | 'tiktok';
+export interface MarketplaceConfig {
+  enabled: boolean;
+  [key: string]: string | boolean | undefined;
+}
+
+export type ChannelType = 'telegram' | 'viber' | 'facebook' | 'instagram' | 'tiktok' | 'olx' | 'rozetka' | 'prom' | 'epicentrk';
 
 type ChannelConfigMap = {
   telegram: TelegramConfig;
@@ -41,6 +46,10 @@ type ChannelConfigMap = {
   facebook: FacebookConfig;
   instagram: InstagramConfig;
   tiktok: TikTokConfig;
+  olx: MarketplaceConfig;
+  rozetka: MarketplaceConfig;
+  prom: MarketplaceConfig;
+  epicentrk: MarketplaceConfig;
 };
 
 const DB_KEY_PREFIX = 'channel_';
@@ -82,7 +91,11 @@ function getEnvFallback(channel: ChannelType): ChannelConfigMap[typeof channel] 
       };
     }
     case 'tiktok':
-      return null; // No env fallback for TikTok
+    case 'olx':
+    case 'rozetka':
+    case 'prom':
+    case 'epicentrk':
+      return null; // No env fallback for these
     default:
       return null;
   }
@@ -108,7 +121,7 @@ export async function getChannelConfig<T extends ChannelType>(
 }
 
 export async function getAllChannelConfigs(): Promise<Record<ChannelType, ChannelConfigMap[ChannelType] | null>> {
-  const channels: ChannelType[] = ['telegram', 'viber', 'facebook', 'instagram', 'tiktok'];
+  const channels: ChannelType[] = ['telegram', 'viber', 'facebook', 'instagram', 'tiktok', 'olx', 'rozetka', 'prom', 'epicentrk'];
   const result = {} as Record<ChannelType, ChannelConfigMap[ChannelType] | null>;
 
   const settings = await prisma.siteSetting.findMany({

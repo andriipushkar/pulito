@@ -8,7 +8,7 @@ import {
 } from '@/services/channel-config';
 import { z } from 'zod';
 
-const CHANNELS: ChannelType[] = ['telegram', 'viber', 'facebook', 'instagram', 'tiktok'];
+const CHANNELS: ChannelType[] = ['telegram', 'viber', 'facebook', 'instagram', 'tiktok', 'olx', 'rozetka', 'prom', 'epicentrk'];
 
 const telegramSchema = z.object({
   enabled: z.boolean(),
@@ -42,12 +42,20 @@ const tiktokSchema = z.object({
   openId: z.string().min(1, 'Open ID обов\'язковий'),
 });
 
+const marketplaceSchema = z.object({
+  enabled: z.boolean(),
+}).passthrough(); // Allow any additional fields for marketplace configs
+
 const schemas: Record<ChannelType, z.ZodSchema> = {
   telegram: telegramSchema,
   viber: viberSchema,
   facebook: facebookSchema,
   instagram: instagramSchema,
   tiktok: tiktokSchema,
+  olx: marketplaceSchema,
+  rozetka: marketplaceSchema,
+  prom: marketplaceSchema,
+  epicentrk: marketplaceSchema,
 };
 
 export const GET = withRole('admin')(async () => {

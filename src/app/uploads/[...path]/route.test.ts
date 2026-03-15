@@ -74,7 +74,7 @@ describe('GET /uploads/[...path]', () => {
     expect(res.headers.get('Content-Type')).toBe('image/gif');
   });
 
-  it('returns correct content type for svg', async () => {
+  it('forces download for svg (XSS prevention)', async () => {
     mockStat.mockResolvedValue({ mtimeMs: 100, size: 10 });
     mockReadFile.mockResolvedValue(Buffer.from('<svg></svg>'));
 
@@ -83,7 +83,10 @@ describe('GET /uploads/[...path]', () => {
       { params: Promise.resolve({ path: ['test.svg'] }) }
     );
 
-    expect(res.headers.get('Content-Type')).toBe('image/svg+xml');
+    // SVG served as octet-stream with attachment to prevent XSS
+    expect(res.headers.get('Content-Type')).toBe('application/octet-stream');
+    expect(res.headers.get('Content-Disposition')).toContain('attachment');
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
   it('returns correct content type for pdf', async () => {

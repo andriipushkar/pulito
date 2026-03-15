@@ -18,13 +18,11 @@ const nextConfig: NextConfig = {
       loader: 'default',
       path: `${cdnUrl}/_next/image`,
     }),
-    // TODO: restrict hostname wildcard to specific domains (CDN, product image hosts, etc.)
-    // Using '**' allows any HTTPS host, which weakens image source control.
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' }, // Google avatars
+      { protocol: 'https', hostname: '*.cloudfront.net' }, // CDN
+      { protocol: 'https', hostname: '*.googleapis.com' }, // Google APIs
+      { protocol: 'http', hostname: 'localhost' }, // Dev
     ],
   },
   serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp'],
@@ -58,14 +56,19 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+              // unsafe-inline required for Next.js inline styles; unsafe-eval for dev HMR only
+              process.env.NODE_ENV === 'production'
+                ? "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com"
+                : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https:",
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://www.google-analytics.com https://api.telegram.org",
+              "connect-src 'self' https://www.google-analytics.com https://api.telegram.org https://api.novaposhta.ua",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
+              "object-src 'none'",
+              "upgrade-insecure-requests",
             ].join('; '),
           },
         ],

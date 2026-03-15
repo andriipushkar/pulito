@@ -95,6 +95,9 @@ export default function QuickView({ productId, onClose }: QuickViewProps) {
               <PriceDisplay
                 priceRetail={product.priceRetail}
                 priceRetailOld={product.priceRetailOld}
+                priceWholesale={product.priceWholesale}
+                priceWholesale2={product.priceWholesale2}
+                priceWholesale3={product.priceWholesale3}
                 size="lg"
               />
 

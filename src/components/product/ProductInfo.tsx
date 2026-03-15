@@ -57,6 +57,8 @@ export default function ProductInfo({ product }: ProductInfoProps) {
         <PriceDisplay
           priceRetail={product.priceRetail}
           priceWholesale={product.priceWholesale}
+          priceWholesale2={product.priceWholesale2}
+          priceWholesale3={product.priceWholesale3}
           priceRetailOld={product.priceRetailOld}
           size="lg"
         />

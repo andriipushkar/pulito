@@ -51,6 +51,12 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: 'Маркетплейси',
+    items: [
+      { href: '/admin/marketplaces', label: 'Маркетплейси', icon: '🏪' },
+    ],
+  },
+  {
     title: 'Налаштування',
     items: [
       { href: '/admin/settings', label: 'Загальні', icon: '⚙️' },
@@ -96,6 +102,7 @@ const PATH_LABELS: Record<string, string> = {
   '/admin/payment-settings': 'Платіжні системи',
   '/admin/delivery-settings': 'Служби доставки',
   '/admin/smtp-settings': 'Email / SMTP',
+  '/admin/marketplaces': 'Маркетплейси',
   '/admin/homepage': 'Головна сторінка',
   '/admin/banners': 'Банери',
   '/admin/themes': 'Теми',

@@ -1,6 +1,13 @@
+'use client';
+
+import { useAuth } from '@/hooks/useAuth';
+import { resolveWholesalePrice } from '@/lib/wholesale-price';
+
 interface PriceDisplayProps {
   priceRetail: string | number;
   priceWholesale?: string | number | null;
+  priceWholesale2?: string | number | null;
+  priceWholesale3?: string | number | null;
   priceRetailOld?: string | number | null;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
@@ -15,16 +22,56 @@ const sizeClasses = {
 export default function PriceDisplay({
   priceRetail,
   priceWholesale,
+  priceWholesale2,
+  priceWholesale3,
   priceRetailOld,
   size = 'md',
   className = '',
 }: PriceDisplayProps) {
+  const { user } = useAuth();
+
   const retail = Number(priceRetail);
   const old = priceRetailOld ? Number(priceRetailOld) : null;
-  const wholesale = priceWholesale ? Number(priceWholesale) : null;
+
+  // Determine the effective price for the current user
+  const wholesaleGroup = user?.wholesaleGroup ?? null;
+  const userWholesalePrice = resolveWholesalePrice(
+    { priceWholesale, priceWholesale2, priceWholesale3 },
+    wholesaleGroup
+  );
+
+  const isWholesaleUser = !!wholesaleGroup && userWholesalePrice !== null;
+  const effectivePrice = isWholesaleUser ? userWholesalePrice : retail;
+
   const hasDiscount = old && old > retail;
   const discountPercent = hasDiscount ? Math.round(((old - retail) / old) * 100) : 0;
 
+  // Wholesale user sees their group price as the main price
+  if (isWholesaleUser) {
+    const savings = retail - effectivePrice;
+    return (
+      <div className={`flex flex-wrap items-baseline gap-2 ${className}`}>
+        <span className={`font-bold ${sizeClasses[size].current} text-[var(--color-primary-dark)]`}>
+          {effectivePrice.toFixed(2)} ₴
+        </span>
+        <span className={`${sizeClasses[size].old} text-[var(--color-text-secondary)] line-through`}>
+          {retail.toFixed(2)} ₴
+        </span>
+        {savings > 0 && (
+          <span className="rounded-sm bg-[var(--color-primary)]/10 px-1.5 py-0.5 text-xs font-bold text-[var(--color-primary)]">
+            -{Math.round((savings / retail) * 100)}%
+          </span>
+        )}
+        <div className="flex w-full">
+          <span className="inline-flex items-center gap-1 rounded bg-[var(--color-primary)]/10 px-2 py-0.5 text-[10px] font-bold text-[var(--color-primary)]">
+            Опт {wholesaleGroup}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Regular user sees retail price
   return (
     <div className={`flex flex-wrap items-baseline gap-2 ${className}`}>
       <span className={`font-bold ${sizeClasses[size].current} ${hasDiscount ? 'text-[var(--color-discount)]' : 'text-[var(--color-text)]'}`}>
@@ -39,19 +86,6 @@ export default function PriceDisplay({
             -{discountPercent}%
           </span>
         </>
-      )}
-      {wholesale !== null && (
-        <div className="flex w-full flex-col gap-1 pt-1">
-          <span className={`${sizeClasses[size].old} inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)]/10 px-2.5 py-1 font-bold text-[var(--color-primary-dark)]`} title="Оптова ціна від 5 шт.">
-            <span className="rounded bg-[var(--color-primary)] px-1 py-0.5 text-[9px] font-bold uppercase leading-none text-white">Опт</span>
-            {wholesale.toFixed(2)} ₴
-          </span>
-          {retail > wholesale && (
-            <span className="text-[11px] text-[var(--color-in-stock)]">
-              Економія {(retail - wholesale).toFixed(0)} ₴ при купівлі оптом
-            </span>
-          )}
-        </div>
       )}
     </div>
   );
