@@ -1,18 +1,23 @@
-// Sentry server-side configuration
-// Only initializes if @sentry/nextjs is installed and SENTRY_DSN is set
+import * as Sentry from '@sentry/nextjs';
+
 const DSN = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 if (DSN) {
-  // @ts-ignore -- @sentry/nextjs is an optional dependency
-  import('@sentry/nextjs')
-    .then((Sentry: { init: (opts: Record<string, unknown>) => void }) => {
-      Sentry.init({
-        dsn: DSN,
-        tracesSampleRate: 0.1,
-        environment: process.env.NODE_ENV,
-      });
-    })
-    .catch(() => {});
+  Sentry.init({
+    dsn: DSN,
+    environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
+    tracesSampleRate: 0.1,
+    // Capture 100% of errors in payment flows
+    beforeSend(event) {
+      // Tag payment errors for alerting
+      const message = event.message || event.exception?.values?.[0]?.value || '';
+      if (message.includes('payment') || message.includes('liqpay') || message.includes('monobank') || message.includes('wayforpay')) {
+        event.tags = { ...event.tags, payment_error: 'true' };
+        event.level = 'fatal';
+      }
+      return event;
+    },
+  });
 }
 
 export {};

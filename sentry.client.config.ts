@@ -1,20 +1,15 @@
-// Sentry client-side configuration
-// Only initializes if @sentry/nextjs is installed and NEXT_PUBLIC_SENTRY_DSN is set
+import * as Sentry from '@sentry/nextjs';
+
 const DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 if (DSN) {
-  // @ts-ignore -- @sentry/nextjs is an optional dependency
-  import('@sentry/nextjs')
-    .then((Sentry: { init: (opts: Record<string, unknown>) => void }) => {
-      Sentry.init({
-        dsn: DSN,
-        tracesSampleRate: 0.1,
-        replaysSessionSampleRate: 0,
-        replaysOnErrorSampleRate: 1.0,
-        environment: process.env.NODE_ENV,
-      });
-    })
-    .catch(() => {});
+  Sentry.init({
+    dsn: DSN,
+    environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.NODE_ENV,
+    tracesSampleRate: 0.1,
+    replaysSessionSampleRate: 0.01,
+    replaysOnErrorSampleRate: 0.5,
+  });
 }
 
 export {};

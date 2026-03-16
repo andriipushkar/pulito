@@ -52,6 +52,8 @@ const envSchema = z.object({
   TYPESENSE_PORT: z.coerce.number().default(8108),
   TYPESENSE_API_KEY: z.string().default('ts-clean-dev-key'),
   TYPESENSE_PROTOCOL: z.enum(['http', 'https']).default('http'),
+  SENTRY_DSN: z.string().default(''),
+  SENTRY_ENVIRONMENT: z.string().default('production'),
   JWT_ALGORITHM: z.enum(['HS256', 'RS256']).default('HS256'),
   JWT_PRIVATE_KEY_PATH: z.string().default(''),
   JWT_PUBLIC_KEY_PATH: z.string().default(''),

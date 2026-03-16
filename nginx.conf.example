@@ -68,12 +68,18 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    # Uploads
+    # Uploads — block script execution, force safe content types
     location /uploads/ {
         proxy_pass http://localhost:3000;
         expires 30d;
         add_header Cache-Control "public, must-revalidate";
         add_header X-Content-Type-Options nosniff always;
+        add_header Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'none'; script-src 'none'" always;
+
+        # Block dangerous file types
+        location ~* \.(php|asp|aspx|jsp|cgi|sh|py|pl|exe|bat|cmd|html|htm|svg|js)$ {
+            return 403;
+        }
     }
 
     client_max_body_size 10m;

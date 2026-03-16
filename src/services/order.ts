@@ -412,6 +412,50 @@ export async function updateOrderStatus(
     });
   });
 
+  // Auto-create TTN when status changes to "shipped" (Nova Poshta only)
+  if (newStatus === 'shipped' && !updated.trackingNumber && updated.deliveryMethod === 'nova_poshta') {
+    import('@/services/nova-poshta').then(async (np) => {
+      try {
+        // Read Nova Poshta sender config from site settings
+        const settings = await prisma.siteSetting.findMany({
+          where: { key: { startsWith: 'delivery_nova_poshta_' } },
+        });
+        const config: Record<string, string> = {};
+        settings.forEach((s) => { config[s.key.replace('delivery_nova_poshta_', '')] = s.value; });
+        if (!config.api_key) return;
+
+        const result = await np.createInternetDocument({
+          senderRef: config.sender_ref || '',
+          senderAddressRef: config.sender_warehouse_ref || '',
+          senderContactRef: config.sender_ref || '',
+          senderPhone: config.sender_phone || '',
+          recipientName: updated.contactName,
+          recipientPhone: updated.contactPhone,
+          recipientCityRef: updated.deliveryCity || '',
+          recipientWarehouseRef: updated.deliveryWarehouseRef || undefined,
+          payerType: updated.paymentStatus === 'paid' ? 'Sender' : 'Recipient',
+          paymentMethod: updated.paymentStatus === 'paid' ? 'NonCash' : 'Cash',
+          cargoType: 'Parcel',
+          weight: Math.max(0.5, updated.items.reduce((sum: number, item: { quantity: number }) => sum + item.quantity * 0.3, 0)),
+          seatsAmount: 1,
+          description: `Замовлення #${updated.orderNumber}`,
+          cost: Number(updated.totalAmount),
+          serviceType: 'WarehouseWarehouse',
+        });
+
+        if (result.intDocNumber) {
+          await prisma.order.update({
+            where: { id: orderId },
+            data: { trackingNumber: result.intDocNumber },
+          });
+          console.log(`Auto-created TTN ${result.intDocNumber} for order #${updated.orderNumber}`);
+        }
+      } catch (err) {
+        console.error(`Auto-TTN failed for order #${updated.orderNumber}:`, err);
+      }
+    }).catch(() => {}); // Auto-TTN is best-effort, don't fail the status change
+  }
+
   // Notify client about status change via Telegram
   if (order.userId) {
     import('@/services/telegram')
