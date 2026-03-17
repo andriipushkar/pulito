@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import AdminErrorBoundary from '@/components/admin/ErrorBoundary';
 import CommandPalette from '@/components/admin/CommandPalette';
+import HelpPanel from '@/components/admin/HelpPanel';
 
 const NAV_SECTIONS = [
   {
@@ -441,6 +442,9 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               <span>Перейти до...</span>
               <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1 py-0.5 font-mono text-[10px]">Ctrl+K</kbd>
             </button>
+
+            {/* Help panel */}
+            <HelpPanel />
 
             {/* Notifications bell */}
             <div className="relative">
