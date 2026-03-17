@@ -335,7 +335,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-[var(--color-bg-secondary)]">
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-[var(--color-bg-secondary)]">
       <a
         href="#admin-main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-[var(--radius)] focus:bg-[var(--color-primary)] focus:px-4 focus:py-2 focus:text-white focus:shadow-lg"
@@ -367,41 +367,48 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-x-hidden">
-        <header className="flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 lg:px-6" role="banner">
+        <header className="flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3 lg:px-6" role="banner">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden"
+            className="shrink-0 lg:hidden"
             aria-label="Відкрити меню"
           >
-            <Menu size={24} />
+            <Menu size={22} />
           </button>
 
-          {/* Breadcrumbs */}
+          {/* Breadcrumbs — hidden on very small screens, truncated on mobile */}
           {breadcrumbs.length > 0 ? (
-            <nav aria-label="Breadcrumbs" className="flex items-center gap-1 text-sm">
-              <Link href="/admin" className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
+            <nav aria-label="Breadcrumbs" className="hidden min-w-0 items-center gap-1 text-sm sm:flex">
+              <Link href="/admin" className="shrink-0 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
                 Dashboard
               </Link>
               {breadcrumbs.filter(c => c.label !== 'Dashboard').map((crumb, i, arr) => (
                 <span key={i} className="flex items-center gap-1">
-                  <svg className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                   {crumb.href && i < arr.length - 1 ? (
-                    <Link href={crumb.href} className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
+                    <Link href={crumb.href} className="truncate text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
                       {crumb.label}
                     </Link>
                   ) : (
-                    <span className="font-medium text-[var(--color-text)]">{crumb.label}</span>
+                    <span className="truncate font-medium text-[var(--color-text)]">{crumb.label}</span>
                   )}
                 </span>
               ))}
             </nav>
           ) : (
-            <h1 className="text-lg font-semibold">Панель управління</h1>
+            <h1 className="text-base font-semibold sm:text-lg">Панель управління</h1>
           )}
 
-          <div className="ml-auto flex items-center gap-3">
+          {/* Mobile: show current page title */}
+          {breadcrumbs.length > 0 && (
+            <span className="truncate text-sm font-semibold sm:hidden">
+              {breadcrumbs[breadcrumbs.length - 1].label}
+            </span>
+          )}
+
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
             {/* Maintenance mode toggle */}
             <button
               onClick={toggleMaintenance}
@@ -461,7 +468,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 )}
               </button>
               {showNotifs && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
+                <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg sm:w-80">
                   <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2">
                     <span className="text-sm font-medium">Сповіщення</span>
                     {notifications.length > 0 && (
@@ -499,7 +506,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main id="admin-main-content" className="flex-1 p-4 lg:p-6">
+        <main id="admin-main-content" className="flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6">
           <AdminErrorBoundary>
             {children}
           </AdminErrorBoundary>

@@ -5,4 +5,4 @@
   В .env:
   JWT_ALGORITHM=RS256
   JWT_PRIVATE_KEY_PATH=./private.pem
-  JWT_PUBLIC_KEY_PATH=./public.pem
+  JWT_PUBLIC_KEY_PATH=./public.pempfdfynf; 

@@ -440,7 +440,7 @@ export default function HelpPanel() {
       {isOpen && (
         <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Довідка">
           <div className="absolute inset-0 bg-black/30" onClick={() => setIsOpen(false)} />
-          <aside className="absolute right-0 top-0 h-full w-full max-w-md overflow-y-auto bg-[var(--color-bg)] shadow-2xl">
+          <aside className="absolute right-0 top-0 h-full w-full overflow-y-auto bg-[var(--color-bg)] shadow-2xl sm:max-w-md">
             {/* Header */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg)] px-6 py-4">
               <div className="flex items-center gap-3">
