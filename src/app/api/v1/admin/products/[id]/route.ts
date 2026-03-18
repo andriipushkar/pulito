@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { updateProductSchema } from '@/validators/product';
 import { getProductById, updateProduct, deleteProduct, ProductError } from '@/services/product';
@@ -38,6 +39,17 @@ export const PUT = withRole('manager', 'admin')(
       }
 
       const product = await updateProduct(numId, parsed.data);
+
+      // On-demand revalidation: refresh cached product and catalog pages
+      try {
+        revalidatePath(`/product/${product.slug}`);
+        revalidatePath('/catalog');
+        revalidatePath('/');
+      } catch { /* revalidation is best-effort */ }
+
+      // Update Typesense index
+      import('@/services/typesense').then((ts) => ts.indexProduct(numId)).catch(() => {});
+
       return successResponse(product);
     } catch (error) {
       if (error instanceof ProductError) {

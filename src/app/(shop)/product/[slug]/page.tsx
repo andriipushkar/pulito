@@ -54,7 +54,12 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       title,
       description,
       url,
-      ...(image && { images: [{ url: image }] }),
+      images: [{
+        url: `${baseUrl}/api/og?title=${encodeURIComponent(product.name)}&price=${price}&oldPrice=${product.priceRetailOld ? Number(product.priceRetailOld) : ''}&category=${encodeURIComponent(product.category?.name || '')}&image=${image ? encodeURIComponent(`${baseUrl}${image}`) : ''}`,
+        width: 1200,
+        height: 630,
+        alt: product.name,
+      }],
       type: 'website',
       siteName: 'Порошок',
     },

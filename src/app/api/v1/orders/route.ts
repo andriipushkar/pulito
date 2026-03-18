@@ -129,6 +129,19 @@ export const POST = withOptionalAuth(async (request: NextRequest, { user }) => {
       if (idempotencyKey) {
         await setIdempotentResponse(idempotencyKey, JSON.stringify({ success: true, data: responseData }));
       }
+
+      // Server-side tracking (non-blocking)
+      import('@/services/server-tracking').then((tracking) =>
+        tracking.trackPurchase({
+          userId: user.id,
+          email: parsed.data.contactEmail,
+          phone: parsed.data.contactPhone,
+          orderId: order.orderNumber,
+          totalAmount: Number(order.totalAmount),
+          items: orderItems.map((i) => ({ id: String(i.productId), name: i.productName, price: i.price, quantity: i.quantity })),
+        })
+      ).catch(() => {});
+
       return successResponse(responseData, 201);
     } else {
       // Guest checkout — cart items in request body
