@@ -26,7 +26,7 @@ vi.mock('@/middleware/auth', () => ({
 }));
 
 vi.mock('@/config/env', () => ({
-  env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars' },
+  env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '' },
 }));
 
 import { GET, POST } from './route';

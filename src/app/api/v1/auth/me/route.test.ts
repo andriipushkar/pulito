@@ -6,6 +6,9 @@ vi.mock('@/config/env', () => ({
     JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
     JWT_ACCESS_TTL: '15m',
     JWT_REFRESH_TTL: '30d',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
   },
 }));
 
