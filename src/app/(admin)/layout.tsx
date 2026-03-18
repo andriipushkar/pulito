@@ -227,8 +227,8 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     );
   }
 
-  // Enforce 2FA for admin/manager accounts
-  if (!user.twoFactorEnabled) {
+  // Enforce 2FA for admin/manager accounts (except the setup page itself)
+  if (!user.twoFactorEnabled && pathname !== '/admin/setup-2fa') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[var(--color-bg-secondary)] to-[var(--color-bg)] p-8">
         <div className="w-full max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-8 text-center shadow-lg">
@@ -243,7 +243,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
             Це захищає ваш акаунт від несанкціонованого доступу.
           </p>
           <a
-            href="/account/security"
+            href="/admin/setup-2fa"
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-6 py-3 font-semibold text-white shadow-sm transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-md active:scale-[0.98]"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
