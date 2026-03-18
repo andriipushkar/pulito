@@ -302,11 +302,18 @@ export async function isAccessTokenBlacklisted(token: string): Promise<boolean> 
 export async function getUserById(id: number): Promise<AuthUser | null> {
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, email: true, role: true, wholesaleGroup: true },
+    select: { id: true, email: true, role: true, fullName: true, wholesaleGroup: true, twoFactorEnabled: true },
   });
 
   if (!user) return null;
-  return { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup };
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    fullName: user.fullName,
+    wholesaleGroup: user.wholesaleGroup,
+    twoFactorEnabled: user.twoFactorEnabled,
+  };
 }
 
 /**

@@ -227,6 +227,43 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     );
   }
 
+  // Enforce 2FA for admin/manager accounts
+  if (!user.twoFactorEnabled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[var(--color-bg-secondary)] to-[var(--color-bg)] p-8">
+        <div className="w-full max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-8 text-center shadow-lg">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100">
+            <svg className="h-8 w-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+          </div>
+          <h1 className="mb-2 text-2xl font-bold">Потрібна двофакторна автентифікація</h1>
+          <p className="mb-6 text-sm text-[var(--color-text-secondary)]">
+            Для доступу до адмін-панелі необхідно увімкнути двофакторну автентифікацію (2FA).
+            Це захищає ваш акаунт від несанкціонованого доступу.
+          </p>
+          <a
+            href="/account/security"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-6 py-3 font-semibold text-white shadow-sm transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-md active:scale-[0.98]"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+            </svg>
+            Увімкнути 2FA
+          </a>
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Вам знадобиться додаток Google Authenticator або Authy
+            </p>
+            <a href="/" className="inline-block text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]">
+              ← Повернутися на сайт
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname?.startsWith(href);
 

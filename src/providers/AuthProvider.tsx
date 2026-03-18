@@ -11,6 +11,7 @@ interface AuthUser {
   companyName?: string | null;
   wholesaleStatus?: string | null;
   wholesaleGroup?: number | null;
+  twoFactorEnabled?: boolean;
 }
 
 interface AuthContextValue {

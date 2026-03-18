@@ -20,7 +20,9 @@ export interface AuthUser {
   id: number;
   email: string;
   role: string;
+  fullName?: string;
   wholesaleGroup?: number | null;
+  twoFactorEnabled?: boolean;
 }
 
 export interface TokenPair {
