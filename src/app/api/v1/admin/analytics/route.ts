@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
+import { cacheGet, cacheSet, CACHE_TTL } from '@/services/cache';
 import { successResponse, errorResponse } from '@/utils/api-response';
 
 /** Helper: get period comparison dates */
@@ -25,7 +26,19 @@ export const GET = withRole('admin', 'manager')(
       const { searchParams } = new URL(request.url);
       const type = searchParams.get('type') || 'sales';
       const days = Number(searchParams.get('days')) || 30;
+
+      // Cache analytics for 15 minutes to reduce DB load
+      const cacheKey = `analytics:${type}:${days}`;
+      const cached = await cacheGet<unknown>(cacheKey);
+      if (cached) return successResponse(cached);
+
       const { currentFrom, prevFrom, prevTo } = getPeriods(days);
+
+      // Wrapper to cache result before returning
+      const cacheAndReturn = async (data: unknown) => {
+        await cacheSet(cacheKey, data, 900).catch(() => {}); // 15 min
+        return successResponse(data);
+      };
 
       switch (type) {
         case 'sales': {
@@ -57,7 +70,7 @@ export const GET = withRole('admin', 'manager')(
           const prevTotal = prevOrders.length;
           const prevAvg = prevTotal > 0 ? prevRevenue / prevTotal : 0;
 
-          return successResponse({
+          return cacheAndReturn({
             daily: Object.values(daily),
             summary: { totalRevenue, totalOrders, avgCheck },
             comparison: {
@@ -99,7 +112,7 @@ export const GET = withRole('admin', 'manager')(
             return { id: p.id, name: p.name, code: p.code, retail, wholesale, marginPct };
           });
 
-          return successResponse({ topProducts, zeroSales, margins });
+          return cacheAndReturn({ topProducts, zeroSales, margins });
         }
 
         case 'clients': {
@@ -162,7 +175,7 @@ export const GET = withRole('admin', 'manager')(
             avgCheck: s.orders > 0 ? Math.round(s.revenue / s.orders) : 0,
           }));
 
-          return successResponse({
+          return cacheAndReturn({
             newUsers, totalUsers, wholesalers, topClients: topClientsWithInfo,
             comparison: { newUsers: pctChange(newUsers, prevNewUsers) },
             wholesaleGroupStats,
@@ -207,7 +220,7 @@ export const GET = withRole('admin', 'manager')(
             heatmap[d.getDay()][d.getHours()]++;
           }
 
-          return successResponse({
+          return cacheAndReturn({
             statusCounts, deliveryCounts, paymentCounts,
             cancellationReasons, cancelRate, returnRate,
             heatmap,
@@ -219,7 +232,7 @@ export const GET = withRole('admin', 'manager')(
             where: { date: { gte: currentFrom } },
             orderBy: { date: 'asc' },
           });
-          return successResponse(funnelStats);
+          return cacheAndReturn(funnelStats);
         }
 
         case 'dashboard': {
@@ -275,7 +288,7 @@ export const GET = withRole('admin', 'manager')(
           const forecast7 = Math.round(avgDaily * 7);
           const forecast30 = Math.round(avgDaily * 30);
 
-          return successResponse({
+          return cacheAndReturn({
             kpi: {
               revenue: rev,
               revenueChange: revChange,
