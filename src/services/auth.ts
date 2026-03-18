@@ -131,6 +131,9 @@ export async function loginUser(data: {
 
   const tokens = await createTokenPair(user.id, user.email, user.role, data.ipAddress, data.deviceInfo);
 
+  // Log successful login
+  logLogin(user.id, data.ipAddress, data.deviceInfo, true).catch(() => {});
+
   return {
     requiresTwoFactor: false,
     user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
@@ -400,4 +403,54 @@ async function createTokenPair(
   });
 
   return { accessToken, refreshToken };
+}
+
+/**
+ * Log a login attempt to login_history table.
+ */
+async function logLogin(userId: number, ipAddress?: string, userAgent?: string, success = true) {
+  // Parse basic device info from user agent
+  let device: string | undefined;
+  let browser: string | undefined;
+  let os: string | undefined;
+
+  if (userAgent) {
+    if (/Mobile|Android|iPhone/i.test(userAgent)) device = 'mobile';
+    else if (/Tablet|iPad/i.test(userAgent)) device = 'tablet';
+    else device = 'desktop';
+
+    if (/Chrome/i.test(userAgent)) browser = 'Chrome';
+    else if (/Firefox/i.test(userAgent)) browser = 'Firefox';
+    else if (/Safari/i.test(userAgent)) browser = 'Safari';
+    else if (/Edge/i.test(userAgent)) browser = 'Edge';
+
+    if (/Windows/i.test(userAgent)) os = 'Windows';
+    else if (/Mac/i.test(userAgent)) os = 'macOS';
+    else if (/Linux/i.test(userAgent)) os = 'Linux';
+    else if (/Android/i.test(userAgent)) os = 'Android';
+    else if (/iPhone|iPad/i.test(userAgent)) os = 'iOS';
+  }
+
+  await prisma.loginHistory.create({
+    data: {
+      userId,
+      ipAddress: ipAddress || null,
+      userAgent: userAgent?.slice(0, 500) || null,
+      device,
+      browser,
+      os,
+      success,
+    },
+  });
+}
+
+/**
+ * Get login history for a user.
+ */
+export async function getLoginHistory(userId: number, limit = 20) {
+  return prisma.loginHistory.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
 }

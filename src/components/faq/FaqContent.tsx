@@ -37,7 +37,7 @@ export default function FaqContent({ groupedFaq }: FaqContentProps) {
     <Accordion>
       {items.map((item) => {
         const title = query
-          ? <span dangerouslySetInnerHTML={{ __html: highlightText(item.question, query) }} />
+          ? <span dangerouslySetInnerHTML={{ __html: highlightText(sanitizeHtml(item.question), query) }} />
           : item.question;
         const answerHtml = query
           ? highlightText(sanitizeHtml(item.answer), query)

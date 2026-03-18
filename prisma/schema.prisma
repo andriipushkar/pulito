@@ -111,11 +111,30 @@ model User {
   loyaltyTransactions   LoyaltyTransaction[]
   pushSubscriptions     PushSubscription[]
   reviews               Review[]
+  loginHistory          LoginHistory[]
 
   @@index([role])
   @@index([createdAt])
   @@index([wholesaleStatus])
   @@map("users")
+}
+
+model LoginHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  device    String?
+  browser   String?
+  os        String?
+  country   String?
+  city      String?
+  success   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("login_history")
 }
 
 // ─────────────────────────────────────

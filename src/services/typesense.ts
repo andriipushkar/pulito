@@ -45,10 +45,45 @@ export async function ensureCollection(): Promise<void> {
 }
 
 /**
+ * Configure search synonyms for typo tolerance and Ukrainian language variants.
+ */
+export async function configureSynonyms(): Promise<void> {
+  await ensureCollection();
+
+  const synonyms = [
+    { id: 'poroshok', synonyms: ['порошок', 'прашок', 'парашок', 'пральний засіб', 'засіб для прання'] },
+    { id: 'gel', synonyms: ['гель', 'гел', 'рідкий засіб', 'рідина'] },
+    { id: 'kapsuly', synonyms: ['капсули', 'капсулы', 'подушечки', 'таблетки для прання'] },
+    { id: 'konditsioner', synonyms: ['кондиціонер', 'ополіскувач', 'пом\'якшувач'] },
+    { id: 'plyamovyvidnyk', synonyms: ['плямовивідник', 'відбілювач', 'пятновыводитель'] },
+    { id: 'mylo', synonyms: ['мило', 'мыло', 'мильний засіб'] },
+    { id: 'shampun', synonyms: ['шампунь', 'шампун', 'шампуні'] },
+    { id: 'zubna', synonyms: ['зубна паста', 'зубна', 'паста для зубів'] },
+    { id: 'posud', synonyms: ['посуд', 'посуда', 'миття посуду', 'плин для посуду', 'засіб для посуду'] },
+    { id: 'chyshennya', synonyms: ['чищення', 'чистка', 'миючий засіб', 'засіб для чищення'] },
+    { id: 'fairy', synonyms: ['fairy', 'фейрі', 'фери'] },
+    { id: 'persil', synonyms: ['persil', 'персіл', 'персил'] },
+    { id: 'ariel', synonyms: ['ariel', 'аріель', 'аріел'] },
+    { id: 'tide', synonyms: ['tide', 'тайд', 'тайт'] },
+  ];
+
+  for (const syn of synonyms) {
+    try {
+      await client.collections(COLLECTION_NAME).synonyms().upsert(syn.id, {
+        synonyms: syn.synonyms,
+      });
+    } catch {
+      // Synonym may already exist
+    }
+  }
+}
+
+/**
  * Index all active products from DB into Typesense.
  */
 export async function indexAllProducts(): Promise<{ indexed: number }> {
   await ensureCollection();
+  await configureSynonyms();
 
   const products = await prisma.product.findMany({
     where: { isActive: true },
