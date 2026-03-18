@@ -13,6 +13,7 @@ export default function SecurityPage() {
   const [step, setStep] = useState<'idle' | 'setup' | 'verify' | 'done'>('idle');
   const [secret, setSecret] = useState('');
   const [otpauthUrl, setOtpauthUrl] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
   const [code, setCode] = useState('');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,10 +22,11 @@ export default function SecurityPage() {
 
   const handleSetup = async () => {
     setIsProcessing(true);
-    const res = await apiClient.post<{ secret: string; otpauthUrl: string }>('/api/v1/auth/2fa/setup');
+    const res = await apiClient.post<{ secret: string; otpauthUrl: string; qrDataUrl: string }>('/api/v1/auth/2fa/setup');
     if (res.success && res.data) {
       setSecret(res.data.secret);
       setOtpauthUrl(res.data.otpauthUrl);
+      setQrDataUrl(res.data.qrDataUrl);
       setStep('setup');
     } else {
       toast.error(res.error || 'Помилка налаштування');
@@ -104,10 +106,10 @@ export default function SecurityPage() {
                 {/* QR code via Google Charts API */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`}
+                  src={qrDataUrl}
                   alt="QR код для 2FA"
-                  width={200}
-                  height={200}
+                  width={250}
+                  height={250}
                 />
               </div>
               <p className="mb-1 text-xs text-[var(--color-text-secondary)]">Або введіть секрет вручну:</p>
