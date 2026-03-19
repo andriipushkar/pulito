@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
     serialize('oauth_access_token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/api/v1/auth/oauth-exchange',
+      sameSite: 'lax',
+      path: '/',
       maxAge: 0,
     })
   );

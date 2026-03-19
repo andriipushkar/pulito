@@ -55,14 +55,16 @@ export async function GET(request: NextRequest) {
     // Set refresh token cookie
     response.headers.append('Set-Cookie', serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl));
 
-    // Set short-lived access token in httpOnly cookie (consumed once by callback page)
+    // Set short-lived access token in httpOnly cookie (consumed once by callback page).
+    // sameSite must be 'lax' (not 'strict') because this cookie is set during a
+    // cross-origin redirect from Google → our site. 'strict' would block the cookie.
     response.headers.append(
       'Set-Cookie',
       serialize('oauth_access_token', tokens.accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/api/v1/auth/oauth-exchange',
+        sameSite: 'lax',
+        path: '/',
         maxAge: 60, // 1 minute — consumed immediately
       })
     );

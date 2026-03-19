@@ -67,6 +67,8 @@ export async function POST(request: NextRequest) {
     if (error instanceof AuthError) {
       return errorResponse(error.message, error.statusCode);
     }
+    const message = error instanceof Error ? error.message : 'Внутрішня помилка сервера';
+    console.error('[login] Unhandled error:', message, error);
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 }

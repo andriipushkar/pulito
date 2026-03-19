@@ -49,12 +49,29 @@ function getEffectiveHost(request: NextRequest): string | null {
   return request.headers.get('x-forwarded-host') || request.headers.get('host');
 }
 
-function checkCsrf(request: NextRequest): NextResponse | null {
-  // Skip CSRF checks entirely in development (Dev Tunnels, etc.)
-  if (process.env.NODE_ENV === 'development') {
-    return null;
+/** Build the set of trusted hosts: effective host + APP_URL host (for reverse proxies / tunnels). */
+function getTrustedHosts(request: NextRequest): Set<string> {
+  const hosts = new Set<string>();
+  const effectiveHost = getEffectiveHost(request);
+  if (effectiveHost) hosts.add(effectiveHost);
+
+  const appUrl = process.env.APP_URL;
+  if (appUrl) {
+    try {
+      hosts.add(new URL(appUrl).host);
+    } catch { /* ignore invalid APP_URL */ }
   }
 
+  // Always trust localhost variants in non-production
+  if (process.env.NODE_ENV !== 'production') {
+    hosts.add('localhost:3000');
+    hosts.add('localhost');
+  }
+
+  return hosts;
+}
+
+function checkCsrf(request: NextRequest): NextResponse | null {
   const { pathname } = request.nextUrl;
 
   // Only check mutating API requests
@@ -67,16 +84,16 @@ function checkCsrf(request: NextRequest): NextResponse | null {
     return null;
   }
 
-  const effectiveHost = getEffectiveHost(request);
+  const trustedHosts = getTrustedHosts(request);
 
-  // Check Origin header against the effective host
+  // Check Origin header against trusted hosts
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
 
   if (origin) {
     try {
       const originHost = new URL(origin).host;
-      if (originHost !== effectiveHost) {
+      if (!trustedHosts.has(originHost)) {
         return NextResponse.json({ error: 'CSRF check failed: origin mismatch' }, { status: 403 });
       }
     } catch {
@@ -85,7 +102,7 @@ function checkCsrf(request: NextRequest): NextResponse | null {
   } else if (referer) {
     try {
       const refererHost = new URL(referer).host;
-      if (refererHost !== effectiveHost) {
+      if (!trustedHosts.has(refererHost)) {
         return NextResponse.json({ error: 'CSRF check failed: referer mismatch' }, { status: 403 });
       }
     } catch {
@@ -159,7 +176,7 @@ export default async function middleware(request: NextRequest) {
   response.headers.set('X-Nonce', nonce);
   response.headers.set('Content-Security-Policy', [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com`,
+    `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https:",
     "font-src 'self' https://fonts.gstatic.com",

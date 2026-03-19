@@ -19,11 +19,14 @@ export default function AuthCallbackPage() {
       .then((data) => {
         if (data.success && data.data?.accessToken) {
           setAccessToken(data.data.accessToken);
+          router.replace('/');
+        } else {
+          // Token exchange failed — redirect to login with error
+          router.replace('/auth/login?error=oauth_exchange_failed');
         }
       })
-      .catch(() => {})
-      .finally(() => {
-        router.replace('/');
+      .catch(() => {
+        router.replace('/auth/login?error=oauth_exchange_failed');
       });
   }, [router]);
 
