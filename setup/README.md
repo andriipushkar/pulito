@@ -38,3 +38,9 @@
 | Файл | Сервіс |
 |------|--------|
 | [16-database-prisma.md](16-database-prisma.md) | Prisma: міграції, seed, PgBouncer |
+
+## Довідник
+
+| Файл | Що містить |
+|------|-----------|
+| [17-env-reference.md](17-env-reference.md) | Повний довідник всіх змінних .env з поясненнями |
