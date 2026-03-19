@@ -41,7 +41,7 @@ export async function GET(
 
     const headers: Record<string, string> = {
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=86400, must-revalidate',
+      'Cache-Control': 'public, max-age=31536000, immutable',
       'ETag': etag,
       'X-Content-Type-Options': 'nosniff',
     };

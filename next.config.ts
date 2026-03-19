@@ -36,6 +36,39 @@ const nextConfig: NextConfig = {
     const allowedOrigins = [appUrl, 'http://localhost:3000'];
 
     return [
+      // Static assets — long cache for Cloudflare CDN
+      {
+        source: '/images/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/uploads/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      // Fonts, SW, manifest — long cache
+      {
+        source: '/:path*.woff2',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        ],
+      },
+      // API — no cache (Cloudflare must not cache dynamic responses)
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'private, no-cache, no-store' },
+        ],
+      },
       // CORS for API routes — only allow own origin
       {
         source: '/api/:path*',
