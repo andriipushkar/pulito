@@ -66,14 +66,14 @@ export async function generatePriceList(options: PriceListOptions): Promise<stri
     new Date().toLocaleDateString('uk-UA'),
   );
 
-  // Table header
-  const colX = { code: 40, name: 110, category: 300, price: 420, stock: 500 };
+  // Table header — columns span full content width (515)
+  const M = PAGE.margin;
   const tableColumns = [
-    { label: 'Код', x: colX.code, width: 65 },
-    { label: 'Назва', x: colX.name, width: 185 },
-    { label: 'Категорія', x: colX.category, width: 115 },
-    { label: 'Ціна, грн', x: colX.price, width: 70, align: 'right' as const },
-    { label: 'Наявність', x: colX.stock, width: 50, align: 'right' as const },
+    { label: 'Код', x: M, width: 65 },
+    { label: 'Назва', x: M + 70, width: 210 },
+    { label: 'Категорія', x: M + 285, width: 100 },
+    { label: 'Ціна, грн', x: M + 390, width: 60, align: 'right' as const },
+    { label: 'Наявність', x: M + 455, width: 60, align: 'right' as const },
   ];
 
   const drawLocalTableHeader = () => {
@@ -95,11 +95,11 @@ export async function generatePriceList(options: PriceListOptions): Promise<stri
     const price = type === 'wholesale' ? Number(p.priceWholesale) : Number(p.priceRetail);
 
     drawTableRow(doc, [
-      { value: p.code, x: colX.code, width: 65 },
-      { value: p.name, x: colX.name, width: 185 },
-      { value: p.category?.name || '', x: colX.category, width: 115 },
-      { value: price.toFixed(2), x: colX.price, width: 70, align: 'right' },
-      { value: p.quantity > 0 ? `${p.quantity}` : 'Немає', x: colX.stock, width: 50, align: 'right' },
+      { value: p.code, x: tableColumns[0].x, width: tableColumns[0].width },
+      { value: p.name, x: tableColumns[1].x, width: tableColumns[1].width },
+      { value: p.category?.name || '', x: tableColumns[2].x, width: tableColumns[2].width },
+      { value: price.toFixed(2), x: tableColumns[3].x, width: tableColumns[3].width, align: 'right' },
+      { value: p.quantity > 0 ? `${p.quantity}` : 'Немає', x: tableColumns[4].x, width: tableColumns[4].width, align: 'right' },
     ], i, 16);
   }
 

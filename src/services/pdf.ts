@@ -80,13 +80,14 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
   if (order.deliveryAddress) drawInfoLine(doc, 'Адреса:', order.deliveryAddress);
   doc.moveDown(1);
 
-  // Items table
+  // Items table — columns span full content width (515)
+  const M = PAGE.margin;
   const colDefs = [
-    { label: 'Код', x: PAGE.margin + 5, width: 80 },
-    { label: 'Назва товару', x: PAGE.margin + 90, width: 200 },
-    { label: 'Ціна', x: PAGE.margin + 295, width: 65, align: 'right' as const },
-    { label: 'К-ть', x: PAGE.margin + 365, width: 40, align: 'center' as const },
-    { label: 'Сума', x: PAGE.margin + 410, width: 80, align: 'right' as const },
+    { label: 'Код', x: M, width: 70 },
+    { label: 'Назва товару', x: M + 75, width: 245 },
+    { label: 'Ціна', x: M + 325, width: 65, align: 'right' as const },
+    { label: 'К-ть', x: M + 395, width: 45, align: 'center' as const },
+    { label: 'Сума', x: M + 445, width: 70, align: 'right' as const },
   ];
 
   drawTableHeader(doc, colDefs);
@@ -244,15 +245,15 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
 
   doc.moveDown(1);
 
-  // Items table
+  // Items table — 7 columns spanning full 515px width
   const colDefs = [
-    { label: '№', x: PAGE.margin + 5, width: 25, align: 'center' as const },
-    { label: 'Код', x: PAGE.margin + 32, width: 75 },
-    { label: 'Назва товару', x: PAGE.margin + 112, width: 180 },
-    { label: 'Од.', x: PAGE.margin + 297, width: 30, align: 'center' as const },
-    { label: 'К-ть', x: PAGE.margin + 332, width: 35, align: 'center' as const },
-    { label: 'Ціна', x: PAGE.margin + 372, width: 55, align: 'right' as const },
-    { label: 'Сума', x: PAGE.margin + 432, width: 58, align: 'right' as const },
+    { label: '№', x: PAGE.margin, width: 25, align: 'center' as const },
+    { label: 'Код', x: PAGE.margin + 28, width: 65 },
+    { label: 'Назва товару', x: PAGE.margin + 98, width: 210 },
+    { label: 'Од.', x: PAGE.margin + 313, width: 30, align: 'center' as const },
+    { label: 'К-ть', x: PAGE.margin + 348, width: 40, align: 'center' as const },
+    { label: 'Ціна', x: PAGE.margin + 393, width: 55, align: 'right' as const },
+    { label: 'Сума', x: PAGE.margin + 453, width: 62, align: 'right' as const },
   ];
 
   drawTableHeader(doc, colDefs);
@@ -371,13 +372,13 @@ export async function generateCommercialOfferPdf(
   doc.text('Шановний клієнте, пропонуємо Вам наступні товари:');
   doc.moveDown(0.8);
 
-  // Items table
+  // Items table — 5 columns spanning full 515px width
   const colDefs = [
-    { label: '№', x: PAGE.margin + 5, width: 25, align: 'center' as const },
-    { label: 'Код', x: PAGE.margin + 32, width: 80 },
-    { label: 'Назва товару', x: PAGE.margin + 117, width: 230 },
-    { label: 'Ціна', x: PAGE.margin + 352, width: 75, align: 'right' as const },
-    { label: 'Од.', x: PAGE.margin + 432, width: 58, align: 'center' as const },
+    { label: '№', x: PAGE.margin, width: 25, align: 'center' as const },
+    { label: 'Код', x: PAGE.margin + 30, width: 75 },
+    { label: 'Назва товару', x: PAGE.margin + 110, width: 250 },
+    { label: 'Ціна', x: PAGE.margin + 365, width: 80, align: 'right' as const },
+    { label: 'Од.', x: PAGE.margin + 450, width: 65, align: 'center' as const },
   ];
 
   drawTableHeader(doc, colDefs);

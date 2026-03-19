@@ -113,12 +113,13 @@ async function renderStockReport(doc: PDFKit.PDFDocument, days: number, company:
   // Critical stock table
   drawSectionTitle(doc, 'Критичні залишки (< 14 днів)');
 
+  const M = PAGE.margin;
   const cols = [
-    { label: 'Код', x: 50, width: 80 },
-    { label: 'Назва', x: 135, width: 200 },
-    { label: 'Залишок', x: 340, width: 60, align: 'right' as const },
-    { label: 'Прод./день', x: 405, width: 65, align: 'right' as const },
-    { label: 'Днів до 0', x: 475, width: 65, align: 'right' as const },
+    { label: 'Код', x: M, width: 75 },
+    { label: 'Назва', x: M + 80, width: 230 },
+    { label: 'Залишок', x: M + 315, width: 60, align: 'right' as const },
+    { label: 'Прод./день', x: M + 380, width: 65, align: 'right' as const },
+    { label: 'Днів до 0', x: M + 450, width: 65, align: 'right' as const },
   ];
 
   drawTableHeader(doc, cols);
@@ -148,12 +149,13 @@ async function renderPriceReport(doc: PDFKit.PDFDocument, days: number, company:
 
   drawSectionTitle(doc, 'Останні зміни цін');
 
+  const M = PAGE.margin;
   const cols = [
-    { label: 'Код', x: 50, width: 70 },
-    { label: 'Назва', x: 125, width: 170 },
-    { label: 'Стара ціна', x: 300, width: 70, align: 'right' as const },
-    { label: 'Нова ціна', x: 375, width: 70, align: 'right' as const },
-    { label: 'Зміна %', x: 450, width: 90, align: 'right' as const },
+    { label: 'Код', x: M, width: 70 },
+    { label: 'Назва', x: M + 75, width: 200 },
+    { label: 'Стара ціна', x: M + 280, width: 70, align: 'right' as const },
+    { label: 'Нова ціна', x: M + 355, width: 70, align: 'right' as const },
+    { label: 'Зміна %', x: M + 430, width: 85, align: 'right' as const },
   ];
 
   drawTableHeader(doc, cols);
@@ -185,11 +187,12 @@ async function renderChannelsReport(doc: PDFKit.PDFDocument, days: number, compa
 
   drawSectionTitle(doc, 'UTM Sources');
 
+  const M = PAGE.margin;
   const cols = [
-    { label: 'UTM Source', x: 50, width: 150 },
-    { label: 'Замовлень', x: 210, width: 80, align: 'right' as const },
-    { label: 'Виручка', x: 300, width: 100, align: 'right' as const },
-    { label: 'Сер. чек', x: 410, width: 100, align: 'right' as const },
+    { label: 'UTM Source', x: M, width: 170 },
+    { label: 'Замовлень', x: M + 175, width: 90, align: 'right' as const },
+    { label: 'Виручка', x: M + 270, width: 120, align: 'right' as const },
+    { label: 'Сер. чек', x: M + 395, width: 120, align: 'right' as const },
   ];
 
   drawTableHeader(doc, cols);
@@ -209,10 +212,10 @@ async function renderChannelsReport(doc: PDFKit.PDFDocument, days: number, compa
   drawSectionTitle(doc, 'Конверсія по каналах');
 
   const convCols = [
-    { label: 'Канал', x: 50, width: 150 },
-    { label: 'Візити', x: 210, width: 80, align: 'right' as const },
-    { label: 'Конверсії', x: 300, width: 80, align: 'right' as const },
-    { label: 'Конверсія %', x: 390, width: 100, align: 'right' as const },
+    { label: 'Канал', x: M, width: 170 },
+    { label: 'Візити', x: M + 175, width: 100, align: 'right' as const },
+    { label: 'Конверсії', x: M + 280, width: 100, align: 'right' as const },
+    { label: 'Конверсія %', x: M + 385, width: 130, align: 'right' as const },
   ];
 
   drawTableHeader(doc, convCols);
@@ -237,13 +240,14 @@ async function renderGeographyReport(doc: PDFKit.PDFDocument, days: number, comp
   if (data.topCity) doc.text(`Топ-місто: ${data.topCity.city} (${data.topCity.ordersPercent}%)`);
   doc.moveDown(1);
 
+  const M = PAGE.margin;
   const cols = [
-    { label: 'Місто', x: 50, width: 140 },
-    { label: 'Замовлень', x: 195, width: 65, align: 'right' as const },
-    { label: '% зам.', x: 265, width: 55, align: 'right' as const },
-    { label: 'Виручка', x: 325, width: 80, align: 'right' as const },
-    { label: '% вируч.', x: 410, width: 55, align: 'right' as const },
-    { label: 'Сер. чек', x: 470, width: 70, align: 'right' as const },
+    { label: 'Місто', x: M, width: 130 },
+    { label: 'Замовлень', x: M + 135, width: 65, align: 'right' as const },
+    { label: '% зам.', x: M + 205, width: 55, align: 'right' as const },
+    { label: 'Виручка', x: M + 265, width: 90, align: 'right' as const },
+    { label: '% вируч.', x: M + 360, width: 60, align: 'right' as const },
+    { label: 'Сер. чек', x: M + 425, width: 90, align: 'right' as const },
   ];
 
   drawTableHeader(doc, cols);
@@ -280,13 +284,14 @@ async function renderLTVReport(doc: PDFKit.PDFDocument, days: number, company: C
 
   drawSectionTitle(doc, 'Топ клієнтів за LTV');
 
+  const M = PAGE.margin;
   const cols = [
-    { label: '#', x: 50, width: 20 },
-    { label: 'Клієнт', x: 75, width: 160 },
-    { label: 'Витрачено', x: 240, width: 75, align: 'right' as const },
-    { label: 'Замовл.', x: 320, width: 50, align: 'right' as const },
-    { label: 'Сер. чек', x: 375, width: 60, align: 'right' as const },
-    { label: 'Річний LTV', x: 440, width: 100, align: 'right' as const },
+    { label: '#', x: M, width: 25 },
+    { label: 'Клієнт', x: M + 30, width: 180 },
+    { label: 'Витрачено', x: M + 215, width: 80, align: 'right' as const },
+    { label: 'Замовл.', x: M + 300, width: 55, align: 'right' as const },
+    { label: 'Сер. чек', x: M + 360, width: 70, align: 'right' as const },
+    { label: 'Річний LTV', x: M + 435, width: 80, align: 'right' as const },
   ];
 
   drawTableHeader(doc, cols);
@@ -313,12 +318,13 @@ async function renderSegmentsReport(doc: PDFKit.PDFDocument, company: CompanyInf
   doc.text(`Всього клієнтів: ${data.totalCustomers} | Загальна виручка: ${data.totalRevenue} ₴`, PAGE.margin, doc.y);
   doc.moveDown(1);
 
+  const M = PAGE.margin;
   const cols = [
-    { label: 'Сегмент', x: 50, width: 120 },
-    { label: 'Клієнтів', x: 175, width: 65, align: 'right' as const },
-    { label: '% від загальної', x: 245, width: 85, align: 'right' as const },
-    { label: 'Виручка', x: 335, width: 80, align: 'right' as const },
-    { label: 'Сер. чек', x: 420, width: 80, align: 'right' as const },
+    { label: 'Сегмент', x: M, width: 140 },
+    { label: 'Клієнтів', x: M + 145, width: 75, align: 'right' as const },
+    { label: '% від загальної', x: M + 225, width: 90, align: 'right' as const },
+    { label: 'Виручка', x: M + 320, width: 95, align: 'right' as const },
+    { label: 'Сер. чек', x: M + 420, width: 95, align: 'right' as const },
   ];
 
   drawTableHeader(doc, cols);
