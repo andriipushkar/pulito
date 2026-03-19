@@ -271,6 +271,42 @@ The application can be checked at `GET /api/v1/health` (if implemented) or simpl
 - Nginx logs: `/var/log/nginx/`
 - PostgreSQL logs: `/var/log/postgresql/`
 
+### Log Rotation
+
+**Docker**: log rotation is configured in `docker-compose.yml` via `logging` options per service:
+- `app`: max 7 files x 50MB = **350MB max**
+- `postgres`: max 5 files x 20MB = **100MB max**
+- `redis`, `typesense`: max 3 files x 10MB = **30MB max** each
+
+Docker automatically rotates when a file reaches `max-size` and removes the oldest when `max-file` is exceeded.
+
+**PM2 (bare-metal)**: install `pm2-logrotate` and configure 7-day retention:
+
+```bash
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 50M
+pm2 set pm2-logrotate:retain 7
+pm2 set pm2-logrotate:compress true
+pm2 set pm2-logrotate:dateFormat YYYY-MM-DD
+pm2 set pm2-logrotate:rotateInterval '0 0 * * *'
+```
+
+**Nginx**: add logrotate config at `/etc/logrotate.d/nginx-clean`:
+
+```
+/var/log/nginx/clean_*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    postrotate
+        [ -f /var/run/nginx.pid ] && kill -USR1 $(cat /var/run/nginx.pid)
+    endscript
+}
+```
+
 ## Troubleshooting
 
 ### Database Connection Issues
