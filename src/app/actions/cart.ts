@@ -4,6 +4,7 @@ import { addToCart, clearCart, mergeCart } from '@/services/cart';
 import { addToCartSchema } from '@/validators/order';
 import { verifyAccessToken } from '@/services/token';
 import { isAccessTokenBlacklisted } from '@/services/auth';
+import { checkActionRateLimit, ACTION_LIMITS } from '@/lib/action-rate-limit';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 
@@ -26,6 +27,11 @@ export async function addToCartAction(
   _prevState: { success: boolean; error?: string },
   formData: FormData
 ): Promise<{ success: boolean; error?: string }> {
+  const rateLimitError = await checkActionRateLimit(ACTION_LIMITS.cart);
+  if (rateLimitError) {
+    return { success: false, error: rateLimitError };
+  }
+
   const user = await getAuthUser();
   if (!user) {
     return { success: false, error: 'Необхідно авторизуватися' };

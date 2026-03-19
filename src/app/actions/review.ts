@@ -4,6 +4,7 @@ import { createReview, markReviewHelpful } from '@/services/review';
 import { createReviewSchema } from '@/validators/review';
 import { verifyAccessToken } from '@/services/token';
 import { isAccessTokenBlacklisted } from '@/services/auth';
+import { checkActionRateLimit, ACTION_LIMITS } from '@/lib/action-rate-limit';
 import { cookies } from 'next/headers';
 
 async function getAuthUser() {
@@ -25,6 +26,11 @@ export async function submitReviewAction(
   _prevState: { success: boolean; error?: string },
   formData: FormData
 ): Promise<{ success: boolean; error?: string }> {
+  const rateLimitError = await checkActionRateLimit(ACTION_LIMITS.review);
+  if (rateLimitError) {
+    return { success: false, error: rateLimitError };
+  }
+
   const user = await getAuthUser();
   if (!user) {
     return { success: false, error: 'Необхідно авторизуватися' };

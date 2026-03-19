@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock dependencies before imports
+vi.mock('@/lib/action-rate-limit', () => ({
+  checkActionRateLimit: vi.fn().mockResolvedValue(null),
+  ACTION_LIMITS: { cart: { prefix: 'rl:action:cart:', max: 30, windowSec: 60 } },
+}));
+
 vi.mock('@/services/cart', () => ({
   addToCart: vi.fn(),
   clearCart: vi.fn(),

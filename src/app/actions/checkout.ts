@@ -9,6 +9,7 @@ import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/services/token';
 import { isAccessTokenBlacklisted } from '@/services/auth';
+import { checkActionRateLimit, ACTION_LIMITS } from '@/lib/action-rate-limit';
 import { cookies, headers } from 'next/headers';
 import { logger } from '@/lib/logger';
 
@@ -39,6 +40,12 @@ export async function checkoutAction(
   _prevState: CheckoutResult,
   formData: FormData
 ): Promise<CheckoutResult> {
+  // Rate limit: Server Actions bypass middleware, so we check here
+  const rateLimitError = await checkActionRateLimit(ACTION_LIMITS.checkout);
+  if (rateLimitError) {
+    return { success: false, error: rateLimitError };
+  }
+
   const user = await getAuthUser();
   if (!user) {
     return { success: false, error: 'Необхідно авторизуватися для оформлення замовлення' };

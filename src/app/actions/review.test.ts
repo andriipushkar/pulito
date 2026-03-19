@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('@/lib/action-rate-limit', () => ({
+  checkActionRateLimit: vi.fn().mockResolvedValue(null),
+  ACTION_LIMITS: { review: { prefix: 'rl:action:review:', max: 5, windowSec: 900 } },
+}));
+
 vi.mock('@/services/review', () => ({
   createReview: vi.fn(),
   markReviewHelpful: vi.fn(),

@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('@/lib/action-rate-limit', () => ({
+  checkActionRateLimit: vi.fn().mockResolvedValue(null),
+  ACTION_LIMITS: { checkout: { prefix: 'rl:action:checkout:', max: 5, windowSec: 60 } },
+}));
+
 vi.mock('@/services/order', () => ({
   createOrder: vi.fn(),
   OrderError: class extends Error {

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useEffect, useReducer, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useOptimistic, useReducer, useTransition, type ReactNode } from 'react';
 
 export interface CartItem {
   productId: number;
@@ -63,12 +63,15 @@ const STORAGE_KEY = 'clean-shop-cart';
 
 interface CartContextValue {
   items: CartItem[];
+  /** Optimistic item count — updates instantly before server confirms */
   itemCount: number;
   total: (role?: string) => number;
   addItem: (item: CartItem) => void;
   removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
+  /** True while a server action is in flight */
+  isPending: boolean;
 }
 
 export const CartContext = createContext<CartContextValue>({
@@ -79,10 +82,17 @@ export const CartContext = createContext<CartContextValue>({
   removeItem: () => {},
   updateQuantity: () => {},
   clearCart: () => {},
+  isPending: false,
 });
 
 export default function CartProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  const [isPending, startTransition] = useTransition();
+
+  // Optimistic count: user sees the updated number immediately
+  const [optimisticItemCount, setOptimisticItemCount] = useOptimistic(
+    state.items.reduce((sum, i) => sum + i.quantity, 0)
+  );
 
   useEffect(() => {
     try {
@@ -100,11 +110,16 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   }, [state.items]);
 
   const addItem = useCallback((item: CartItem) => {
-    dispatch({ type: 'ADD_ITEM', item });
-  }, []);
+    startTransition(() => {
+      setOptimisticItemCount((prev) => prev + item.quantity);
+      dispatch({ type: 'ADD_ITEM', item });
+    });
+  }, [setOptimisticItemCount]);
 
   const removeItem = useCallback((productId: number) => {
-    dispatch({ type: 'REMOVE_ITEM', productId });
+    startTransition(() => {
+      dispatch({ type: 'REMOVE_ITEM', productId });
+    });
   }, []);
 
   const updateQuantity = useCallback((productId: number, quantity: number) => {
@@ -112,8 +127,11 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearCart = useCallback(() => {
-    dispatch({ type: 'CLEAR' });
-  }, []);
+    startTransition(() => {
+      setOptimisticItemCount(0);
+      dispatch({ type: 'CLEAR' });
+    });
+  }, [setOptimisticItemCount]);
 
   const total = useCallback(
     (role?: string) =>
@@ -125,11 +143,18 @@ export default function CartProvider({ children }: { children: ReactNode }) {
     [state.items]
   );
 
-  const itemCount = state.items.reduce((sum, i) => sum + i.quantity, 0);
-
   return (
     <CartContext.Provider
-      value={{ items: state.items, itemCount, total, addItem, removeItem, updateQuantity, clearCart }}
+      value={{
+        items: state.items,
+        itemCount: optimisticItemCount,
+        total,
+        addItem,
+        removeItem,
+        updateQuantity,
+        clearCart,
+        isPending,
+      }}
     >
       {children}
     </CartContext.Provider>

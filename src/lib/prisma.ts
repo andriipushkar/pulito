@@ -7,7 +7,19 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient(): PrismaClient {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  // Pool size tuned for a cheap VPS (1-2 GB RAM).
+  // PgBouncer handles connection multiplexing in production;
+  // the app-side pool is kept small to avoid exhausting server memory.
+  const poolMax = Number(process.env.DATABASE_POOL_MAX) || 5;
+  const poolMin = Number(process.env.DATABASE_POOL_MIN) || 1;
+
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: poolMax,
+    min: poolMin,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000,
+  });
   const adapter = new PrismaPg(pool);
 
   return new PrismaClient({
