@@ -62,11 +62,11 @@ function getTrustedHosts(request: NextRequest): Set<string> {
     } catch { /* ignore invalid APP_URL */ }
   }
 
-  // Always trust localhost variants in non-production
-  if (process.env.NODE_ENV !== 'production') {
-    hosts.add('localhost:3000');
-    hosts.add('localhost');
-  }
+  // Trust localhost (server always accepts its own requests)
+  hosts.add('localhost:3000');
+  hosts.add('localhost');
+  hosts.add('127.0.0.1:3000');
+  hosts.add('127.0.0.1');
 
   return hosts;
 }
