@@ -21,6 +21,7 @@ env:
   APP_SECRET: ci-test-app-secret
 
 jobs:
+  # ─── Lint & Type Check ──────────────────────────────────────────────
   lint-typecheck:
     name: Lint & Type Check
     runs-on: ubuntu-latest
@@ -32,7 +33,18 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
 
       - run: npx prisma generate
 
@@ -42,6 +54,63 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+  # ─── Security Scan ──────────────────────────────────────────────────
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: NPM audit (production deps)
+        run: npm audit --production --audit-level=high || true
+
+      - name: NPM audit (all deps — informational)
+        run: npm audit --audit-level=critical || true
+
+      - name: Check for secrets in code
+        run: |
+          echo "Scanning for potential secrets in source code..."
+          PATTERNS=(
+            'AKIA[0-9A-Z]{16}'                    # AWS Access Key
+            'sk-[a-zA-Z0-9]{20,}'                 # OpenAI / Stripe secret key
+            'ghp_[a-zA-Z0-9]{36}'                 # GitHub personal access token
+            'glpat-[a-zA-Z0-9\-]{20,}'            # GitLab personal access token
+            'password\s*[:=]\s*["\x27][^"\x27]{8,}' # Hardcoded passwords
+          )
+          FOUND=0
+          for PATTERN in "${PATTERNS[@]}"; do
+            if grep -rEn "$PATTERN" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' \
+               --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git \
+               --exclude='package-lock.json' --exclude='*.test.*' --exclude='*.spec.*' . ; then
+              echo "::warning::Potential secret found matching pattern: $PATTERN"
+              FOUND=1
+            fi
+          done
+          if [ "$FOUND" -eq 1 ]; then
+            echo "::warning::Potential secrets detected — please review the matches above"
+          else
+            echo "No secrets detected."
+          fi
+
+  # ─── Unit Tests + Coverage ──────────────────────────────────────────
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -53,16 +122,50 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
 
       - run: npx prisma generate
-
-      - name: Run tests
-        run: npm test
 
       - name: Run tests with coverage
         run: npm run test:coverage
 
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 3
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "### Coverage Summary" >> "$GITHUB_STEP_SUMMARY"
+            node -e "
+              const s = require('./coverage/coverage-summary.json').total;
+              const fmt = (v) => v.pct + '%';
+              console.log('| Metric | Coverage |');
+              console.log('|--------|----------|');
+              console.log('| Statements | ' + fmt(s.statements) + ' |');
+              console.log('| Branches   | ' + fmt(s.branches) + ' |');
+              console.log('| Functions  | ' + fmt(s.functions) + ' |');
+              console.log('| Lines      | ' + fmt(s.lines) + ' |');
+            " >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ─── Build ──────────────────────────────────────────────────────────
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -75,12 +178,29 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
 
       - run: npx prisma generate
 
-      - name: Security audit
-        run: npm audit --production --audit-level=high || true
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-cache-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            nextjs-cache-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            nextjs-cache-${{ runner.os }}-
 
       - name: Build Next.js
         run: npm run build
@@ -90,8 +210,35 @@ jobs:
         with:
           name: nextjs-build
           path: .next
-          retention-days: 1
+          retention-days: 3
 
+  # ─── Docker Build Test ──────────────────────────────────────────────
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: clean-shop:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify Docker image
+        run: |
+          docker images clean-shop:ci-${{ github.sha }}
+          echo "Docker image built successfully"
+
+  # ─── E2E Tests ──────────────────────────────────────────────────────
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
@@ -129,7 +276,18 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
 
       - run: npx prisma generate
 
@@ -142,8 +300,20 @@ jobs:
           name: nextjs-build
           path: .next
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: cache-playwright
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright browsers
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps
+        if: steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Start server and run E2E tests
         run: |
@@ -151,18 +321,27 @@ jobs:
           npx wait-on http://localhost:3000 --timeout 30000
           npm run test:e2e -- --project=chromium
 
-      - name: Upload test results
+      - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report
-          retention-days: 7
+          retention-days: 3
 
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 3
+
+  # ─── Deploy to Staging ──────────────────────────────────────────────
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [build, e2e-tests]
+    needs: [build, e2e-tests, docker-build, security-scan]
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment: staging
     steps:
@@ -195,10 +374,52 @@ jobs:
           ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cd ${DEPLOY_PATH} && npm ci --production && npx prisma migrate deploy && pm2 restart clean-shop-staging || pm2 start npm --name clean-shop-staging -- start"
 
+      - name: Verify database backup works
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_USER }}
+          DEPLOY_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "pg_dump --version && echo 'pg_dump is available' && pg_dump \$DATABASE_URL --schema-only --no-owner > /dev/null 2>&1 && echo 'pg_dump schema test: OK' || echo '::warning::pg_dump schema test failed — check DATABASE_URL on staging'"
+
+      - name: Verify staging health
+        run: |
+          sleep 10
+          curl -sf "${{ secrets.STAGING_URL || 'http://localhost:3000' }}/api/v1/health" || echo "::warning::Health check failed"
+
+      - name: Notify Telegram (staging deploy)
+        if: always() && (secrets.TELEGRAM_BOT_TOKEN != '')
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram secrets not configured — skipping notification"
+            exit 0
+          fi
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            EMOJI="✅"
+          else
+            EMOJI="❌"
+          fi
+          MESSAGE="${EMOJI} *Staging Deploy ${STATUS}*
+          Branch: \`${{ github.ref_name }}\`
+          Commit: \`${{ github.sha }}\`
+          Author: ${{ github.actor }}
+          [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d parse_mode="Markdown" \
+            -d text="${MESSAGE}" || echo "::warning::Telegram notification failed"
+
+  # ─── Deploy to Production ───────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [build, e2e-tests]
+    needs: [build, e2e-tests, docker-build, security-scan]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
     steps:
@@ -230,3 +451,44 @@ jobs:
 
           ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cd ${DEPLOY_PATH} && npm ci --production && npx prisma migrate deploy && pm2 restart clean-shop || pm2 start npm --name clean-shop -- start"
+
+      - name: Verify database backup works
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+          DEPLOY_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "pg_dump --version && echo 'pg_dump is available' && pg_dump \$DATABASE_URL --schema-only --no-owner > /dev/null 2>&1 && echo 'pg_dump schema test: OK' || echo '::warning::pg_dump schema test failed — check DATABASE_URL on production'"
+
+      - name: Verify production health
+        run: |
+          sleep 10
+          curl -sf "${{ secrets.PRODUCTION_URL || 'http://localhost:3000' }}/api/v1/health" || echo "::warning::Health check failed"
+
+      - name: Notify Telegram (production deploy)
+        if: always() && (secrets.TELEGRAM_BOT_TOKEN != '')
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram secrets not configured — skipping notification"
+            exit 0
+          fi
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            EMOJI="✅"
+          else
+            EMOJI="❌"
+          fi
+          MESSAGE="${EMOJI} *Production Deploy ${STATUS}*
+          Branch: \`${{ github.ref_name }}\`
+          Commit: \`${{ github.sha }}\`
+          Author: ${{ github.actor }}
+          [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d parse_mode="Markdown" \
+            -d text="${MESSAGE}" || echo "::warning::Telegram notification failed"

@@ -1,5 +1,8 @@
 # Порошок — Інтернет-магазин побутової хімії
 
+![CI](https://github.com/smdshrek/clean/actions/workflows/ci.yml/badge.svg)
+![Daily Backup](https://github.com/smdshrek/clean/actions/workflows/backup.yml/badge.svg)
+
 Оптово-роздрібна платформа інтернет-магазину побутової хімії з повним циклом: каталог, замовлення, онлайн-оплата, доставка, CRM, аналітика.
 
 ## Стек технологій
