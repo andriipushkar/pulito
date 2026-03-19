@@ -24,7 +24,9 @@
 | `18-delivery.md` | Нова Пошта, Укрпошта, палетна: пошук, ТТН, розрахунок | Критичний |
 | `19-marketplaces.md` | OLX, Rozetka, Prom.ua, Epicentr K, Instagram | Високий |
 
-**Всього: 316 тест-кейсів у 19 файлах**
+| `20-pricing-notifications.md` | Ціноутворення, email-кампанії, i18n, Google Shopping, lifecycle, теми | Високий |
+
+**Всього: 351 тест-кейсів у 20 файлах**
 
 ## Тестове середовище
 
