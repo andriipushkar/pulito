@@ -17,6 +17,9 @@
 | `11-seo-performance.md` | SEO, sitemap, OG images, Web Vitals, кешування | Високий |
 | `12-security.md` | CSRF, rate limits, 2FA, upload санітизація, XSS | Високий |
 | `13-mobile.md` | Адаптивність, PWA, touch-взаємодія | Високий |
+| `14-error-cron.md` | Error pages (404/500), maintenance mode, health check, cron jobs | Середній |
+
+**Всього: 226 тест-кейсів у 14 файлах**
 
 ## Тестове середовище
 
