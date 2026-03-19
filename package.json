@@ -24,6 +24,13 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:visual": "playwright test e2e/visual-regression.spec.ts",
+    "test:e2e:visual:update": "playwright test e2e/visual-regression.spec.ts --update-snapshots",
+    "test:a11y": "playwright test e2e/accessibility.spec.ts",
+    "test:load:smoke": "k6 run load-tests/smoke.js",
+    "test:load": "k6 run load-tests/load.js",
+    "test:load:stress": "k6 run load-tests/stress.js",
+    "test:load:spike": "k6 run load-tests/spike.js",
     "docs:generate": "tsx scripts/generate-openapi.ts",
     "analyze": "ANALYZE=true next build"
   },
@@ -65,6 +72,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@eslint/eslintrc": "^3.3.3",
     "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.2",

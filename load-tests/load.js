@@ -1,62 +1,84 @@
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-
 /**
- * Load test — simulates normal traffic patterns.
- * Usage: k6 run load-tests/load.js
+ * Load Test — нормальне навантаження для $5-$10 VPS.
+ * Ramp up до 25 юзерів, тримати 3 хв, ramp down.
+ * Імітує реальний трафік інтернет-магазину.
+ *
+ * Запуск: k6 run load-tests/load.js
  */
+import http from 'k6/http';
+import { check, sleep, group } from 'k6';
+import { Rate, Trend } from 'k6/metrics';
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
+const BASE = __ENV.BASE_URL || 'http://localhost:3000';
+const XHR = { headers: { 'X-Requested-With': 'XMLHttpRequest' } };
+
+const errorRate = new Rate('errors');
+const homeDuration = new Trend('home_duration');
+const catalogDuration = new Trend('catalog_duration');
+const productDuration = new Trend('product_duration');
+const apiDuration = new Trend('api_duration');
 
 export const options = {
   stages: [
-    { duration: '30s', target: 20 },  // Ramp up to 20 users
-    { duration: '1m', target: 20 },   // Stay at 20 users
-    { duration: '30s', target: 50 },  // Ramp up to 50
-    { duration: '1m', target: 50 },   // Stay at 50
-    { duration: '30s', target: 0 },   // Ramp down
+    { duration: '30s', target: 5 },   // warm up
+    { duration: '30s', target: 15 },   // ramp up
+    { duration: '3m', target: 25 },    // sustain — peak for cheap VPS
+    { duration: '30s', target: 10 },   // ramp down
+    { duration: '30s', target: 0 },    // cool down
   ],
   thresholds: {
-    http_req_failed: ['rate<0.05'],    // <5% errors
-    http_req_duration: ['p(95)<3000'], // 95% under 3s
-    http_req_duration: ['p(99)<5000'], // 99% under 5s
+    http_req_duration: ['p(95)<2000', 'p(99)<4000'],
+    http_req_failed: ['rate<0.05'],
+    errors: ['rate<0.05'],
   },
 };
 
-// Simulate a typical browsing session
-export default function loadTest() {
-  // 1. Visit homepage
-  http.get(`${BASE_URL}/`);
-  sleep(Math.random() * 2 + 1);
-
-  // 2. Browse catalog
-  const page = Math.floor(Math.random() * 3) + 1;
-  const catalogRes = http.get(`${BASE_URL}/api/v1/products?page=${page}&limit=12`);
-  check(catalogRes, {
-    'catalog: status ok': (r) => r.status === 200,
+export default function () {
+  group('Browse Homepage', () => {
+    const r = http.get(`${BASE}/`);
+    homeDuration.add(r.timings.duration);
+    errorRate.add(r.status !== 200);
+    check(r, { 'home 200': (r) => r.status === 200 });
+    sleep(Math.random() * 3 + 1);
   });
-  sleep(Math.random() * 3 + 1);
 
-  // 3. View a product (simulate by hitting products endpoint)
-  const promoRes = http.get(`${BASE_URL}/api/v1/products/promo`);
-  check(promoRes, {
-    'promo: status ok': (r) => r.status === 200,
+  group('Browse Catalog', () => {
+    const r = http.get(`${BASE}/catalog`);
+    catalogDuration.add(r.timings.duration);
+    errorRate.add(r.status !== 200);
+    check(r, { 'catalog 200': (r) => r.status === 200 });
+    sleep(Math.random() * 2 + 1);
   });
-  sleep(Math.random() * 2 + 1);
 
-  // 4. Search
-  const queries = ['мийний', 'порошок', 'засіб', 'чистка', 'гель'];
-  const q = queries[Math.floor(Math.random() * queries.length)];
-  const searchRes = http.get(`${BASE_URL}/api/v1/products/search?q=${q}`);
-  check(searchRes, {
-    'search: status ok': (r) => r.status === 200,
+  group('Search Products', () => {
+    const r = http.get(`${BASE}/api/v1/products/search?q=порошок&limit=10`, XHR);
+    apiDuration.add(r.timings.duration);
+    errorRate.add(r.status !== 200);
+    check(r, { 'search 200': (r) => r.status === 200 });
+    sleep(Math.random() * 2 + 0.5);
   });
-  sleep(Math.random() * 2 + 1);
 
-  // 5. View categories
-  const catRes = http.get(`${BASE_URL}/api/v1/categories`);
-  check(catRes, {
-    'categories: status ok': (r) => r.status === 200,
+  group('Product Page', () => {
+    // Get first product slug from catalog
+    const list = http.get(`${BASE}/api/v1/products?page=1&limit=1`, XHR);
+    if (list.status === 200) {
+      try {
+        const slug = JSON.parse(list.body).data?.products?.[0]?.slug;
+        if (slug) {
+          const r = http.get(`${BASE}/product/${slug}`);
+          productDuration.add(r.timings.duration);
+          errorRate.add(r.status !== 200);
+          check(r, { 'product 200': (r) => r.status === 200 });
+        }
+      } catch (_) {}
+    }
+    sleep(Math.random() * 3 + 2);
   });
-  sleep(Math.random() * 1 + 0.5);
+
+  group('API Categories', () => {
+    const r = http.get(`${BASE}/api/v1/categories`, XHR);
+    apiDuration.add(r.timings.duration);
+    check(r, { 'categories 200': (r) => r.status === 200 });
+    sleep(Math.random() * 1 + 0.5);
+  });
 }

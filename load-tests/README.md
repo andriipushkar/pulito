@@ -1,16 +1,13 @@
-# Load Testing
+# Load / Stress тести
 
-Load tests for Clean Shop using [k6](https://k6.io/).
-
-## Install k6
+## Встановлення k6
 
 ```bash
 # Ubuntu/Debian
 sudo gpg -k
-sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D68
+sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
 echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-sudo apt-get update
-sudo apt-get install k6
+sudo apt-get update && sudo apt-get install k6
 
 # macOS
 brew install k6
@@ -19,35 +16,28 @@ brew install k6
 docker run --rm -i grafana/k6 run - <load-tests/smoke.js
 ```
 
-## Available tests
-
-| Script | Purpose | VUs | Duration |
-|--------|---------|-----|----------|
-| `smoke.js` | Quick health check | 1 | 10s |
-| `load.js` | Normal traffic simulation | 20-50 | ~4min |
-| `stress.js` | Find breaking point | 50-300 | ~8min |
-
-## Usage
+## Запуск
 
 ```bash
-# Smoke test (fast check)
+# Smoke test (швидка перевірка)
 k6 run load-tests/smoke.js
 
-# Load test (normal traffic)
+# Load test (нормальне навантаження)
 k6 run load-tests/load.js
 
-# Stress test (find limits)
+# Stress test (пікове навантаження)
 k6 run load-tests/stress.js
 
-# Custom base URL
-k6 run -e BASE_URL=https://staging.cleanshop.ua load-tests/load.js
+# Spike test (раптовий сплеск)
+k6 run load-tests/spike.js
 
-# With JSON output
-k6 run --out json=results.json load-tests/load.js
+# З кастомним URL
+k6 run -e BASE_URL=https://poroshok.com load-tests/load.js
 ```
 
-## Thresholds
+## Результати
 
-- **Smoke**: <1% errors, p95 < 2s
-- **Load**: <5% errors, p95 < 3s, p99 < 5s
-- **Stress**: <10% errors, p95 < 5s
+| Метрика | Добре | Прийнятно | Погано |
+|---------|-------|-----------|--------|
+| http_req_duration (p95) | < 500ms | < 1500ms | > 1500ms |
+| http_req_failed | 0% | < 1% | > 1% |
