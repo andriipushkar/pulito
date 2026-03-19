@@ -18,8 +18,13 @@
 | `12-security.md` | CSRF, rate limits, 2FA, upload санітизація, XSS | Високий |
 | `13-mobile.md` | Адаптивність, PWA, touch-взаємодія | Високий |
 | `14-error-cron.md` | Error pages (404/500), maintenance mode, health check, cron jobs | Середній |
+| `15-telegram-bot.md` | Telegram: команди, каталог, пошук, прив'язка, сповіщення | Високий |
+| `16-viber-bot.md` | Viber: меню, каталог, FAQ, прив'язка, трекінг | Високий |
+| `17-payments.md` | LiqPay, Monobank, WayForPay: повний цикл оплати | Критичний |
+| `18-delivery.md` | Нова Пошта, Укрпошта, палетна: пошук, ТТН, розрахунок | Критичний |
+| `19-marketplaces.md` | OLX, Rozetka, Prom.ua, Epicentr K, Instagram | Високий |
 
-**Всього: 226 тест-кейсів у 14 файлах**
+**Всього: 316 тест-кейсів у 19 файлах**
 
 ## Тестове середовище
 
