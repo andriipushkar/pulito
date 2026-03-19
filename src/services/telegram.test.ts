@@ -2269,7 +2269,9 @@ describe('handleTelegramUpdate - error in message handler', () => {
       },
     })).resolves.toBeUndefined();
 
-    expect(consoleSpy).toHaveBeenCalledWith('Telegram webhook error:', expect.any(Error));
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"message":"Telegram webhook error"')
+    );
     consoleSpy.mockRestore();
   });
 });

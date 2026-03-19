@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { verifyCallback } from '@/services/payment-providers/liqpay';
 import { handlePaymentCallback } from '@/services/payment';
 import { checkWebhookRateLimit } from '@/utils/webhook-security';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     return new Response('OK', { status: 200 });
   } catch (error) {
-    console.error('LiqPay webhook error:', error);
+    logger.error('LiqPay webhook error', { error: String(error) });
     return new Response('Error', { status: 200 }); // Return 200 to prevent retries
   }
 }

@@ -1,8 +1,22 @@
 type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
-const isDev = process.env.NODE_ENV === 'development';
+const LEVEL_PRIORITY: Record<LogLevel, number> = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  debug: 3,
+};
+
+const configuredLevel: LogLevel =
+  (process.env.LOG_LEVEL as LogLevel) || (process.env.NODE_ENV === 'development' ? 'debug' : 'info');
+
+function shouldLog(level: LogLevel): boolean {
+  return LEVEL_PRIORITY[level] <= LEVEL_PRIORITY[configuredLevel];
+}
 
 function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {
+  if (!shouldLog(level)) return;
+
   const entry = {
     level,
     message,
@@ -10,12 +24,14 @@ function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {
     ...meta,
   };
 
+  const json = JSON.stringify(entry);
+
   if (level === 'error') {
-    console.error(JSON.stringify(entry));
+    console.error(json);
   } else if (level === 'warn') {
-    console.warn(JSON.stringify(entry));
-  } else if (isDev || level === 'info') {
-    console.log(JSON.stringify(entry));
+    console.warn(json);
+  } else {
+    console.log(json);
   }
 }
 

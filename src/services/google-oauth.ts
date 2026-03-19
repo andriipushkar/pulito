@@ -1,6 +1,7 @@
 import { randomBytes, createHmac } from 'crypto';
 import { env } from '@/config/env';
 import { timingSafeCompare } from '@/utils/timing-safe';
+import { logger } from '@/lib/logger';
 
 export class GoogleOAuthError extends Error {
   constructor(
@@ -103,7 +104,7 @@ export async function exchangeCodeForTokens(code: string): Promise<GoogleTokenRe
   const data = await res.json();
 
   if (!res.ok || !data.access_token) {
-    console.error('Google token exchange failed:', data.error_description || data.error || 'Unknown error');
+    logger.error('Google token exchange failed', { error: data.error_description || data.error || 'Unknown error' });
     throw new GoogleOAuthError('Помилка автентифікації Google', 401);
   }
 
@@ -118,7 +119,7 @@ export async function getGoogleUserProfile(accessToken: string): Promise<GoogleU
   const data = await res.json();
 
   if (!res.ok || !data.id) {
-    console.error('Google user profile fetch failed:', data.error?.message || 'Unknown error');
+    logger.error('Google user profile fetch failed', { error: data.error?.message || 'Unknown error' });
     throw new GoogleOAuthError('Помилка отримання профілю Google', 401);
   }
 

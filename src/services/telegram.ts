@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -923,7 +924,7 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
       }
     }
   } catch (error) {
-    console.error('Telegram webhook error:', error);
+    logger.error('Telegram webhook error', { error: String(error) });
   }
 }
 

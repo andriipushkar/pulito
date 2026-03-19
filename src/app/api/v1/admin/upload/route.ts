@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { validateFileType } from '@/utils/file-validation';
+import { sanitizeImage } from '@/utils/image-sanitizer';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -35,10 +36,6 @@ export const POST = withRole('admin', 'manager')(
       const uploadDir = path.join(process.cwd(), 'uploads', folder);
       await fs.mkdir(uploadDir, { recursive: true });
 
-      const ext = file.name.split('.').pop() || 'jpg';
-      const filename = `${folder}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const filePath = path.join(uploadDir, filename);
-
       const buffer = Buffer.from(await file.arrayBuffer());
 
       const { valid } = await validateFileType(buffer, ALLOWED_TYPES);
@@ -46,7 +43,12 @@ export const POST = withRole('admin', 'manager')(
         return errorResponse('Вміст файлу не відповідає заявленому формату', 400);
       }
 
-      await fs.writeFile(filePath, buffer);
+      // Re-encode through sharp to strip EXIF/metadata and prevent polyglot attacks
+      const sanitized = await sanitizeImage(buffer);
+      const filename = `${folder}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+      const filePath = path.join(uploadDir, filename);
+
+      await fs.writeFile(filePath, sanitized);
 
       return successResponse({ path: `/uploads/${folder}/${filename}` });
     } catch {

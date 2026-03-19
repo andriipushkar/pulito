@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
+import { logger } from '@/lib/logger';
 import crypto from 'crypto';
 
 const AUTH_TOKEN = process.env.VIBER_AUTH_TOKEN || '';
@@ -719,6 +720,6 @@ export async function handleViberEvent(event: ViberEvent) {
       }
     }
   } catch (error) {
-    console.error('Viber event error:', error);
+    logger.error('Viber event error', { error: String(error) });
   }
 }

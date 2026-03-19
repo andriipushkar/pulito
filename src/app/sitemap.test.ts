@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     product: {
+      count: vi.fn().mockResolvedValue(1),
       findMany: vi.fn().mockResolvedValue([
         { slug: 'soap-1', updatedAt: new Date('2025-01-01') },
       ]),
@@ -75,5 +76,17 @@ describe('sitemap', () => {
     } finally {
       process.env.APP_URL = origUrl;
     }
+  });
+
+  it('chunks products for large catalogs', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    (prisma.product.count as ReturnType<typeof vi.fn>).mockResolvedValueOnce(12000);
+
+    // findMany will be called 3 times for products (3 chunks of 5000)
+    // plus once for categories, once for static pages
+    const result = await sitemap();
+    expect(Array.isArray(result)).toBe(true);
+    // The mock always returns [soap-1] for each findMany call
+    expect(result.length).toBeGreaterThanOrEqual(3); // at least 3 static pages
   });
 });

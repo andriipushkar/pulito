@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function logWebhook(data: {
   source: string;
@@ -21,7 +22,7 @@ export async function logWebhook(data: {
     });
   } catch {
     // Don't fail the webhook handler if logging fails
-    console.error('Failed to log webhook:', data.source, data.event);
+    logger.error('Failed to log webhook', { source: data.source, event: data.event });
   }
 }
 

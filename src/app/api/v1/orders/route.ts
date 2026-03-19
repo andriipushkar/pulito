@@ -8,6 +8,7 @@ import { checkoutSchema, guestCheckoutSchema, orderFilterSchema } from '@/valida
 import { successResponse, errorResponse, paginatedResponse } from '@/utils/api-response';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export const GET = withAuth(async (request: NextRequest, { user }) => {
   try {
@@ -119,7 +120,7 @@ export const POST = withOptionalAuth(async (request: NextRequest, { user }) => {
         } catch (error) {
           if (error instanceof LoyaltyError) {
             // Points were pre-validated, so this is unexpected — log but don't fail
-            console.error('Loyalty points spend failed after validation:', error.message);
+            logger.error('Loyalty points spend failed after validation', { userId: user.id, orderId: order.id, error: error.message });
           }
         }
       }

@@ -201,6 +201,46 @@ Automated daily backup (crontab):
 0 4 * * * find /backups/db -name "*.sql.gz" -mtime +30 -delete
 ```
 
+### Scheduled Cron Jobs
+
+All cron endpoints require `Authorization: Bearer $APP_SECRET` header.
+Heavy tasks are scheduled between 3:00-5:00 AM to minimize impact on users.
+
+```bash
+# === Night window (3:00–5:00) — heavy tasks ===
+0  3 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/db-backup
+0  3 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/precompute-analytics
+30 3 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/reindex-products
+0  4 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/seo-check
+
+# === Early morning (6:00) — daily reports ===
+0  6 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/analytics-digest
+
+# === Every hour — lightweight tasks ===
+0  * * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/cleanup-tokens
+0  * * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/auto-cancel
+0  * * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/notifications
+
+# === Every 15 min — time-sensitive ===
+*/15 * * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/auto-tracking
+*/15 * * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/analytics-alerts
+
+# === Every 6 hours ===
+0 */6 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/cleanup-carts
+0 */6 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/price-sync
+0 */6 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/sync-marketplace-prices
+
+# === Daily ===
+0 8 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/instagram-insights
+0 2 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/publish-scheduled
+
+# === Weekly ===
+0 7 * * 1 curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/weekly-report
+
+# === Monthly ===
+0 5 1 * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/instagram-token-refresh
+```
+
 ### Uploads Directory
 
 ```bash

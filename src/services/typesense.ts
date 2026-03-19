@@ -2,6 +2,7 @@ import Typesense from 'typesense';
 import type { CollectionCreateSchema } from 'typesense/lib/Typesense/Collections';
 import { env } from '@/config/env';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 const client = new Typesense.Client({
   nodes: [{
@@ -174,7 +175,7 @@ export async function indexProduct(productId: number): Promise<void> {
       imagePath: p.imagePath || '',
     });
   } catch (err) {
-    console.error(`Typesense index error for product ${productId}:`, err);
+    logger.error('Typesense index error', { productId, error: String(err) });
   }
 }
 
@@ -212,7 +213,7 @@ export async function searchProducts(query: string, options?: {
       page: result.page,
     };
   } catch (err) {
-    console.error('Typesense search error:', err);
+    logger.error('Typesense search error', { error: String(err) });
     return null; // Fallback to DB search
   }
 }

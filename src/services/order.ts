@@ -2,6 +2,7 @@ import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
 import { randomBytes } from 'crypto';
 import type { CheckoutInput, OrderFilterInput } from '@/validators/order';
+import { logger } from '@/lib/logger';
 
 export class OrderError extends Error {
   constructor(
@@ -448,10 +449,10 @@ export async function updateOrderStatus(
             where: { id: orderId },
             data: { trackingNumber: result.intDocNumber },
           });
-          console.log(`Auto-created TTN ${result.intDocNumber} for order #${updated.orderNumber}`);
+          logger.info('Auto-created TTN', { ttn: result.intDocNumber, orderNumber: updated.orderNumber });
         }
       } catch (err) {
-        console.error(`Auto-TTN failed for order #${updated.orderNumber}:`, err);
+        logger.error('Auto-TTN failed', { orderNumber: updated.orderNumber, error: String(err) });
       }
     }).catch(() => {}); // Auto-TTN is best-effort, don't fail the status change
   }

@@ -3,6 +3,7 @@ import { Prisma } from '@/../generated/prisma';
 import { publishImagePost, publishReelsPost, postFirstComment } from '@/services/instagram';
 import { publishTextPost, publishPhotoPost } from '@/services/facebook';
 import { getChannelConfig } from '@/services/channel-config';
+import { logger } from '@/lib/logger';
 
 export class PublicationError extends Error {
   constructor(
@@ -44,7 +45,7 @@ export async function createPublication(input: CreatePublicationInput, userId: n
       const { applyWatermark: addWatermark } = await import('@/services/watermark');
       imagePath = await addWatermark(imagePath);
     } catch (err) {
-      console.error('Watermark failed, using original:', err);
+      logger.error('Watermark failed, using original', { error: String(err) });
     }
   }
 
@@ -335,7 +336,7 @@ export async function publishNow(publicationId: number, targetChannels?: string[
         },
       });
     } catch (err) {
-      console.error(`${channel} publish error:`, err);
+      logger.error('Channel publish error', { channel, error: String(err) });
       await prisma.publicationChannel.update({
         where: { publicationId_channel: { publicationId, channel } },
         data: {
@@ -432,7 +433,7 @@ export async function syncPublicationAnalytics(publicationId: number) {
         });
       }
     } catch (err) {
-      console.error(`Analytics sync error for ${ch.channel}:`, err);
+      logger.error('Analytics sync error', { channel: ch.channel, error: String(err) });
     }
   }
 

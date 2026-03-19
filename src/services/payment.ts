@@ -2,6 +2,7 @@ import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { env } from '@/config/env';
+import { logger } from '@/lib/logger';
 import type { PaymentProvider, PaymentInitResult, PaymentCallbackResult } from '@/types/payment';
 import * as liqpay from './payment-providers/liqpay';
 import * as monobank from './payment-providers/monobank';
@@ -94,25 +95,27 @@ export async function handlePaymentCallback(
   const webhookKey = `webhook:${provider}:${transactionId}`;
   const wasSet = await redis.set(webhookKey, '1', 'EX', WEBHOOK_TTL_SECONDS, 'NX');
   if (!wasSet) {
-    console.log(`[payment] Duplicate webhook ignored: ${webhookKey}`);
+    logger.info('Duplicate webhook ignored', { provider, transactionId, orderId });
     return; // Already processed
   }
 
   // Amount validation: verify paid amount matches order total
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { totalAmount: true },
-  });
+    select: { totalAmount: true, orderNumber: true, userId: true },
+    });
 
   let effectiveStatus = status;
 
   if (status === 'success' && paidAmount != null && order) {
     const expectedAmount = Number(order.totalAmount);
     if (Math.abs(paidAmount - expectedAmount) > 0.01) {
-      console.warn(
-        `[payment] Amount mismatch for order ${orderId} via ${provider}: ` +
-        `paid ${paidAmount}, expected ${expectedAmount}. Treating as failure.`
-      );
+      logger.warn('Payment amount mismatch', {
+        orderId,
+        provider,
+        paidAmount,
+        expectedAmount,
+      });
       effectiveStatus = 'failure';
     }
   }
@@ -123,7 +126,7 @@ export async function handlePaymentCallback(
 
   // Prevent payment status downgrade: if already paid, ignore subsequent callbacks
   if (payment && payment.paymentStatus === 'paid') {
-    console.log(`[payment] Order ${orderId} already paid, ignoring callback`);
+    logger.info('Order already paid, ignoring callback', { orderId, provider });
     return;
   }
 
@@ -183,6 +186,47 @@ export async function handlePaymentCallback(
         },
       },
     });
+
+    // Server-side conversion tracking on confirmed payment (non-blocking).
+    // This ensures 100% of paid conversions are reported to ad platforms,
+    // even when browser-side tracking is blocked by ad blockers.
+    if (order) {
+      const orderWithItems = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          orderNumber: true,
+          totalAmount: true,
+          userId: true,
+          contactEmail: true,
+          contactPhone: true,
+          items: {
+            select: { productId: true, productName: true, priceAtOrder: true, quantity: true },
+          },
+        },
+      });
+
+      if (orderWithItems) {
+        import('@/services/server-tracking')
+          .then((tracking) =>
+            tracking.trackPurchase({
+              userId: orderWithItems.userId ?? undefined,
+              email: orderWithItems.contactEmail,
+              phone: orderWithItems.contactPhone,
+              orderId: orderWithItems.orderNumber,
+              totalAmount: Number(orderWithItems.totalAmount),
+              items: orderWithItems.items.map((i) => ({
+                id: String(i.productId),
+                name: i.productName,
+                price: Number(i.priceAtOrder),
+                quantity: i.quantity,
+              })),
+            })
+          )
+          .catch(() => {});
+      }
+    }
+
+    logger.info('Payment confirmed', { orderId, provider, transactionId });
   }
 
 }

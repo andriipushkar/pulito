@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { verifyCallback, createCallbackResponse } from '@/services/payment-providers/wayforpay';
 import { handlePaymentCallback } from '@/services/payment';
 import { checkWebhookRateLimit } from '@/utils/webhook-security';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('WayForPay webhook error:', error);
+    logger.error('WayForPay webhook error', { error: String(error) });
     // Return 200 with accept to prevent retries
     const responseBody = JSON.stringify({ status: 'accept' });
     return new Response(responseBody, {
