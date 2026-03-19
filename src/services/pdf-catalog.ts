@@ -3,7 +3,10 @@ import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
-import { getSettings } from '@/services/settings';
+import {
+  BRAND, FONT_REGULAR, FONT_BOLD, PAGE, setupDoc, drawHeader, drawDocTitle,
+  drawTableHeader as drawThemedTableHeader, drawTableRow, drawFooter, getCompanyInfo,
+} from '@/lib/pdf-theme';
 
 export class PdfCatalogError extends Error {
   constructor(
@@ -15,20 +18,13 @@ export class PdfCatalogError extends Error {
   }
 }
 
-const FONT_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
-
 interface PriceListOptions {
   type: 'retail' | 'wholesale';
   categoryId?: number;
 }
 
 export async function generatePriceList(options: PriceListOptions): Promise<string> {
-  const s = await getSettings();
-  const COMPANY = {
-    name: s.site_name,
-    description: s.company_description,
-    website: s.site_email.split('@')[1] || 'poroshok.ua',
-  };
+  const company = await getCompanyInfo();
   const { type, categoryId } = options;
 
   const where: Record<string, unknown> = { isActive: true };
@@ -55,61 +51,63 @@ export async function generatePriceList(options: PriceListOptions): Promise<stri
   const publicUrl = `/uploads/catalogs/${fileName}`;
 
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
-  doc.registerFont('Roboto', FONT_PATH);
-  doc.font('Roboto');
+  setupDoc(doc);
+  doc.font('Regular');
 
   const stream = createWriteStream(filePath);
   doc.pipe(stream);
 
   // Header
-  doc.fontSize(18).text(COMPANY.name, { align: 'center' });
-  doc.fontSize(10).text(COMPANY.website, { align: 'center' });
-  doc.moveDown(0.5);
-  doc
-    .fontSize(14)
-    .text(type === 'wholesale' ? 'Оптовий прайс-лист' : 'Роздрібний прайс-лист', { align: 'center' });
-  doc.fontSize(9).text(`Дата: ${new Date().toLocaleDateString('uk-UA')}`, { align: 'center' });
-  doc.moveDown(1);
+  drawHeader(doc, company);
+  drawDocTitle(
+    doc,
+    type === 'wholesale' ? 'Оптовий прайс-лист' : 'Роздрібний прайс-лист',
+    company.description,
+    new Date().toLocaleDateString('uk-UA'),
+  );
 
   // Table header
   const colX = { code: 40, name: 110, category: 300, price: 420, stock: 500 };
-  const drawTableHeader = (y: number) => {
-    doc.fontSize(8).fillColor('#444');
-    doc.text('Код', colX.code, y);
-    doc.text('Назва', colX.name, y);
-    doc.text('Категорія', colX.category, y);
-    doc.text('Ціна, грн', colX.price, y, { width: 70, align: 'right' });
-    doc.text('Наявність', colX.stock, y, { width: 50, align: 'right' });
-    doc.moveTo(40, y + 12).lineTo(555, y + 12).stroke('#ccc');
-    doc.fillColor('#000');
-    return y + 20;
+  const tableColumns = [
+    { label: 'Код', x: colX.code, width: 65 },
+    { label: 'Назва', x: colX.name, width: 185 },
+    { label: 'Категорія', x: colX.category, width: 115 },
+    { label: 'Ціна, грн', x: colX.price, width: 70, align: 'right' as const },
+    { label: 'Наявність', x: colX.stock, width: 50, align: 'right' as const },
+  ];
+
+  const drawLocalTableHeader = () => {
+    drawThemedTableHeader(doc, tableColumns);
   };
 
-  let y = drawTableHeader(doc.y);
+  drawLocalTableHeader();
 
-  for (const p of products) {
-    if (y > 760) {
+  for (let i = 0; i < products.length; i++) {
+    const p = products[i];
+
+    if (doc.y > 760) {
+      drawFooter(doc, company);
       doc.addPage();
-      y = drawTableHeader(40);
+      drawHeader(doc, company);
+      drawLocalTableHeader();
     }
 
     const price = type === 'wholesale' ? Number(p.priceWholesale) : Number(p.priceRetail);
 
-    doc.fontSize(7);
-    doc.text(p.code, colX.code, y, { width: 65 });
-    doc.text(p.name, colX.name, y, { width: 185 });
-    doc.text(p.category?.name || '', colX.category, y, { width: 115 });
-    doc.text(price.toFixed(2), colX.price, y, { width: 70, align: 'right' });
-    doc.text(p.quantity > 0 ? `${p.quantity}` : 'Немає', colX.stock, y, { width: 50, align: 'right' });
-
-    y += 16;
+    drawTableRow(doc, [
+      { value: p.code, x: colX.code, width: 65 },
+      { value: p.name, x: colX.name, width: 185 },
+      { value: p.category?.name || '', x: colX.category, width: 115 },
+      { value: price.toFixed(2), x: colX.price, width: 70, align: 'right' },
+      { value: p.quantity > 0 ? `${p.quantity}` : 'Немає', x: colX.stock, width: 50, align: 'right' },
+    ], i, 16);
   }
 
-  // Footer
+  // Footer info
   doc.moveDown(2);
-  doc.fontSize(8).fillColor('#666').text(`Загалом товарів: ${products.length}`, { align: 'center' });
-  doc.text(`${COMPANY.name} | ${COMPANY.website}`, { align: 'center' });
+  doc.fontSize(8).fillColor(BRAND.textSecondary).text(`Загалом товарів: ${products.length}`, { align: 'center' });
 
+  drawFooter(doc, company);
   doc.end();
 
   await new Promise<void>((resolve, reject) => {
@@ -126,12 +124,7 @@ interface IllustratedCatalogOptions {
 }
 
 export async function generateIllustratedCatalog(options: IllustratedCatalogOptions = {}): Promise<string> {
-  const s2 = await getSettings();
-  const COMPANY = {
-    name: s2.site_name,
-    description: s2.company_description,
-    website: s2.site_email.split('@')[1] || 'poroshok.ua',
-  };
+  const company = await getCompanyInfo();
   const { categoryId, promoOnly } = options;
 
   const where: Record<string, unknown> = { isActive: true };
@@ -160,33 +153,30 @@ export async function generateIllustratedCatalog(options: IllustratedCatalogOpti
   const publicUrl = `/uploads/catalogs/${fileName}`;
 
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
-  doc.registerFont('Roboto', FONT_PATH);
-  doc.font('Roboto');
+  setupDoc(doc);
+  doc.font('Regular');
 
   const stream = createWriteStream(filePath);
   doc.pipe(stream);
 
   // Title page
-  doc.fontSize(24).text(COMPANY.name, { align: 'center' });
-  doc.moveDown(0.5);
-  doc.fontSize(16).text('Каталог товарів', { align: 'center' });
-  doc.moveDown(0.3);
-  doc.fontSize(10).text(new Date().toLocaleDateString('uk-UA'), { align: 'center' });
-  doc.moveDown(0.5);
-  doc.fontSize(10).text(COMPANY.website, { align: 'center' });
+  drawHeader(doc, company, 'Каталог товарів');
+  drawDocTitle(doc, 'Каталог товарів', company.description, new Date().toLocaleDateString('uk-UA'));
 
   // Table of contents
   const categories = [...new Set(products.map((p) => p.category?.name || 'Без категорії'))];
+  drawFooter(doc, company);
   doc.addPage();
-  doc.fontSize(14).text('Зміст', { align: 'center' });
+  drawHeader(doc, company);
+  doc.font('Bold').fontSize(14).fillColor(BRAND.text).text('Зміст', { align: 'center' });
   doc.moveDown(1);
   categories.forEach((cat, i) => {
     const count = products.filter((p) => (p.category?.name || 'Без категорії') === cat).length;
-    doc.fontSize(10).text(`${i + 1}. ${cat} (${count} товарів)`);
+    doc.font('Regular').fontSize(10).fillColor(BRAND.text).text(`${i + 1}. ${cat} (${count} товарів)`);
     doc.moveDown(0.3);
   });
 
-  // Products by category - 4 per page
+  // Products by category - 5 per page
   let currentCategory = '';
   let itemsOnPage = 0;
 
@@ -194,36 +184,41 @@ export async function generateIllustratedCatalog(options: IllustratedCatalogOpti
     const cat = p.category?.name || 'Без категорії';
 
     if (cat !== currentCategory) {
+      drawFooter(doc, company);
       doc.addPage();
-      doc.fontSize(14).text(cat, { align: 'center' });
+      drawHeader(doc, company);
+      doc.font('Bold').fontSize(14).fillColor(BRAND.primaryDark).text(cat, { align: 'center' });
       doc.moveDown(1);
       currentCategory = cat;
       itemsOnPage = 0;
     }
 
     if (itemsOnPage >= 5) {
+      drawFooter(doc, company);
       doc.addPage();
-      doc.fontSize(12).text(cat, { align: 'center' });
+      drawHeader(doc, company);
+      doc.font('Bold').fontSize(12).fillColor(BRAND.primaryDark).text(cat, { align: 'center' });
       doc.moveDown(0.5);
       itemsOnPage = 0;
     }
 
     const y = doc.y;
 
-    doc.fontSize(10).text(`${p.code} — ${p.name}`, 40, y, { width: 400 });
-    doc.fontSize(9).fillColor('#666');
+    doc.font('Bold').fontSize(10).fillColor(BRAND.text).text(`${p.code} — ${p.name}`, 40, y, { width: 400 });
+    doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
     doc.text(`Роздріб: ${Number(p.priceRetail).toFixed(2)} грн | Опт: ${Number(p.priceWholesale).toFixed(2)} грн`, 40, y + 15);
     doc.text(`Наявність: ${p.quantity > 0 ? `${p.quantity} шт.` : 'Немає'}`, 40, y + 27);
     if (p.isPromo) {
-      doc.fillColor('#ef4444').text('АКЦІЯ', 480, y, { width: 70, align: 'right' });
+      doc.fillColor(BRAND.danger).text('АКЦІЯ', 480, y, { width: 70, align: 'right' });
     }
-    doc.fillColor('#000');
-    doc.moveTo(40, y + 42).lineTo(555, y + 42).stroke('#eee');
+    doc.fillColor(BRAND.text);
+    doc.moveTo(40, y + 42).lineTo(555, y + 42).stroke(BRAND.borderLight);
     doc.y = y + 50;
 
     itemsOnPage++;
   }
 
+  drawFooter(doc, company);
   doc.end();
 
   await new Promise<void>((resolve, reject) => {

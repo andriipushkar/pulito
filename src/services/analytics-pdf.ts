@@ -3,6 +3,22 @@ import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import { env } from '@/config/env';
 import {
+  BRAND,
+  FONT_REGULAR,
+  PAGE,
+  setupDoc,
+  drawHeader,
+  drawDocTitle,
+  drawSectionTitle,
+  drawTableHeader,
+  drawTableRow,
+  drawFooter,
+  drawKpiCard,
+  getCompanyInfo,
+  checkPageBreak,
+} from '@/lib/pdf-theme';
+import type { CompanyInfo } from '@/lib/pdf-theme';
+import {
   getStockAnalytics,
   getPriceAnalytics,
   getChannelAnalytics,
@@ -10,13 +26,6 @@ import {
   getCustomerLTV,
   getCustomerSegmentation,
 } from './analytics-reports';
-
-const FONT_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
-
-const COMPANY = {
-  name: 'Порошок',
-  description: 'Аналітичний звіт',
-};
 
 type ReportType = 'stock' | 'price' | 'channels' | 'geography' | 'ltv' | 'segments' | 'summary';
 
@@ -31,46 +40,55 @@ export async function generateAnalyticsPdf(reportType: ReportType, days: number 
   const filePath = path.join(reportsDir, fileName);
   const publicUrl = `/uploads/reports/${fileName}`;
 
-  const doc = new PDFDocument({ size: 'A4', margin: 50 });
-  doc.registerFont('Roboto', FONT_PATH);
-  doc.font('Roboto');
+  const doc = new PDFDocument({ size: 'A4', margin: PAGE.margin });
+  setupDoc(doc);
+  doc.font('Regular');
+
+  const company = await getCompanyInfo();
 
   const stream = createWriteStream(filePath);
   doc.pipe(stream);
 
   // Header
-  doc.fontSize(20).text(COMPANY.name, { align: 'center' });
-  doc.fontSize(10).text(COMPANY.description, { align: 'center' });
-  doc.moveDown(1);
+  drawHeader(doc, company, 'Аналітичний звіт');
 
   const dateRange = `Період: ${days} днів (до ${new Date().toLocaleDateString('uk-UA')})`;
-  doc.fontSize(10).text(dateRange, { align: 'center' });
-  doc.moveDown(1.5);
+  const reportTitles: Record<ReportType, string> = {
+    stock: 'Аналітика залишків',
+    price: 'Аналітика цін',
+    channels: 'Аналітика каналів',
+    geography: 'Географія замовлень',
+    ltv: 'Customer Lifetime Value',
+    segments: 'Сегментація клієнтів',
+    summary: 'Загальний звіт',
+  };
+  drawDocTitle(doc, reportTitles[reportType], 'Аналітичний звіт', dateRange);
 
   switch (reportType) {
     case 'stock':
-      await renderStockReport(doc, days);
+      await renderStockReport(doc, days, company);
       break;
     case 'price':
-      await renderPriceReport(doc, days);
+      await renderPriceReport(doc, days, company);
       break;
     case 'channels':
-      await renderChannelsReport(doc, days);
+      await renderChannelsReport(doc, days, company);
       break;
     case 'geography':
-      await renderGeographyReport(doc, days);
+      await renderGeographyReport(doc, days, company);
       break;
     case 'ltv':
-      await renderLTVReport(doc, days);
+      await renderLTVReport(doc, days, company);
       break;
     case 'segments':
-      await renderSegmentsReport(doc);
+      await renderSegmentsReport(doc, company);
       break;
     case 'summary':
-      await renderSummaryReport(doc, days);
+      await renderSummaryReport(doc, days, company);
       break;
   }
 
+  drawFooter(doc, company);
   doc.end();
 
   await new Promise<void>((resolve, reject) => {
@@ -81,198 +99,175 @@ export async function generateAnalyticsPdf(reportType: ReportType, days: number 
   return publicUrl;
 }
 
-function drawTableHeader(doc: PDFKit.PDFDocument, columns: { label: string; x: number; width: number; align?: string }[], y: number) {
-  doc.fontSize(8).fillColor('#444444');
-  for (const col of columns) {
-    doc.text(col.label, col.x, y, { width: col.width, align: (col.align as 'left' | 'right' | 'center') || 'left' });
-  }
-  doc.moveTo(50, y + 14).lineTo(545, y + 14).stroke('#cccccc');
-  doc.fillColor('#000000');
-  return y + 22;
-}
-
-function checkPage(doc: PDFKit.PDFDocument, y: number): number {
-  if (y > 720) {
-    doc.addPage();
-    return 50;
-  }
-  return y;
-}
-
-async function renderStockReport(doc: PDFKit.PDFDocument, days: number) {
+async function renderStockReport(doc: PDFKit.PDFDocument, days: number, company: CompanyInfo) {
   const data = await getStockAnalytics(days);
 
-  doc.fontSize(14).text('Аналітика залишків');
-  doc.moveDown(0.5);
-  doc.fontSize(10);
-  doc.text(`Активних товарів: ${data.summary.totalProducts}`);
+  drawSectionTitle(doc, 'Аналітика залишків');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
+  doc.text(`Активних товарів: ${data.summary.totalProducts}`, PAGE.margin, doc.y);
   doc.text(`Критичний запас: ${data.summary.criticalCount}`);
   doc.text(`Dead stock (60+ днів): ${data.summary.deadStockCount}`);
   doc.text(`Середня оборотність: ${data.summary.avgTurnover}`);
   doc.moveDown(1);
 
   // Critical stock table
-  doc.fontSize(12).text('Критичні залишки (< 14 днів)');
-  doc.moveDown(0.5);
+  drawSectionTitle(doc, 'Критичні залишки (< 14 днів)');
 
   const cols = [
     { label: 'Код', x: 50, width: 80 },
     { label: 'Назва', x: 135, width: 200 },
-    { label: 'Залишок', x: 340, width: 60, align: 'right' },
-    { label: 'Прод./день', x: 405, width: 65, align: 'right' },
-    { label: 'Днів до 0', x: 475, width: 65, align: 'right' },
+    { label: 'Залишок', x: 340, width: 60, align: 'right' as const },
+    { label: 'Прод./день', x: 405, width: 65, align: 'right' as const },
+    { label: 'Днів до 0', x: 475, width: 65, align: 'right' as const },
   ];
 
-  let y = drawTableHeader(doc, cols, doc.y);
+  drawTableHeader(doc, cols);
 
-  for (const item of data.criticalStock.slice(0, 30)) {
-    y = checkPage(doc, y);
-    doc.fontSize(7);
-    doc.text(item.code, cols[0].x, y, { width: cols[0].width });
-    doc.text(item.name.slice(0, 40), cols[1].x, y, { width: cols[1].width });
-    doc.text(String(item.quantity), cols[2].x, y, { width: cols[2].width, align: 'right' });
-    doc.text(String(item.avgDailySales), cols[3].x, y, { width: cols[3].width, align: 'right' });
-    doc.text(item.daysUntilOut !== null ? String(item.daysUntilOut) : '—', cols[4].x, y, { width: cols[4].width, align: 'right' });
-    y += 16;
+  for (let i = 0; i < Math.min(data.criticalStock.length, 30); i++) {
+    const item = data.criticalStock[i];
+    checkPageBreak(doc, company);
+    drawTableRow(doc, [
+      { value: item.code, x: cols[0].x, width: cols[0].width },
+      { value: item.name.slice(0, 40), x: cols[1].x, width: cols[1].width },
+      { value: String(item.quantity), x: cols[2].x, width: cols[2].width, align: 'right' },
+      { value: String(item.avgDailySales), x: cols[3].x, width: cols[3].width, align: 'right' },
+      { value: item.daysUntilOut !== null ? String(item.daysUntilOut) : '—', x: cols[4].x, width: cols[4].width, align: 'right' },
+    ], i);
   }
 }
 
-async function renderPriceReport(doc: PDFKit.PDFDocument, days: number) {
+async function renderPriceReport(doc: PDFKit.PDFDocument, days: number, company: CompanyInfo) {
   const data = await getPriceAnalytics(days);
 
-  doc.fontSize(14).text('Аналітика цін');
-  doc.moveDown(0.5);
-  doc.fontSize(10);
-  doc.text(`Змін цін: ${data.summary.totalChanges}`);
+  drawSectionTitle(doc, 'Аналітика цін');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
+  doc.text(`Змін цін: ${data.summary.totalChanges}`, PAGE.margin, doc.y);
   doc.text(`Підвищення: ${data.summary.priceIncreases} | Зниження: ${data.summary.priceDecreases}`);
   doc.text(`Середня зміна: ${data.summary.avgChangePercent}%`);
   doc.moveDown(1);
 
-  doc.fontSize(12).text('Останні зміни цін');
-  doc.moveDown(0.5);
+  drawSectionTitle(doc, 'Останні зміни цін');
 
   const cols = [
     { label: 'Код', x: 50, width: 70 },
     { label: 'Назва', x: 125, width: 170 },
-    { label: 'Стара ціна', x: 300, width: 70, align: 'right' },
-    { label: 'Нова ціна', x: 375, width: 70, align: 'right' },
-    { label: 'Зміна %', x: 450, width: 90, align: 'right' },
+    { label: 'Стара ціна', x: 300, width: 70, align: 'right' as const },
+    { label: 'Нова ціна', x: 375, width: 70, align: 'right' as const },
+    { label: 'Зміна %', x: 450, width: 90, align: 'right' as const },
   ];
 
-  let y = drawTableHeader(doc, cols, doc.y);
+  drawTableHeader(doc, cols);
 
-  for (const c of data.changes.slice(0, 40)) {
-    y = checkPage(doc, y);
-    doc.fontSize(7);
-    doc.text(c.product?.code || '', cols[0].x, y, { width: cols[0].width });
-    doc.text((c.product?.name || '').slice(0, 35), cols[1].x, y, { width: cols[1].width });
-    doc.text(`${c.priceRetailOld.toFixed(2)} ₴`, cols[2].x, y, { width: cols[2].width, align: 'right' });
-    doc.text(`${c.priceRetailNew.toFixed(2)} ₴`, cols[3].x, y, { width: cols[3].width, align: 'right' });
-    doc.text(`${c.changePercent > 0 ? '+' : ''}${c.changePercent}%`, cols[4].x, y, { width: cols[4].width, align: 'right' });
-    y += 16;
+  for (let i = 0; i < Math.min(data.changes.length, 40); i++) {
+    const c = data.changes[i];
+    checkPageBreak(doc, company);
+    drawTableRow(doc, [
+      { value: c.product?.code || '', x: cols[0].x, width: cols[0].width },
+      { value: (c.product?.name || '').slice(0, 35), x: cols[1].x, width: cols[1].width },
+      { value: `${c.priceRetailOld.toFixed(2)} ₴`, x: cols[2].x, width: cols[2].width, align: 'right' },
+      { value: `${c.priceRetailNew.toFixed(2)} ₴`, x: cols[3].x, width: cols[3].width, align: 'right' },
+      { value: `${c.changePercent > 0 ? '+' : ''}${c.changePercent}%`, x: cols[4].x, width: cols[4].width, align: 'right' },
+    ], i);
   }
 }
 
-async function renderChannelsReport(doc: PDFKit.PDFDocument, days: number) {
+async function renderChannelsReport(doc: PDFKit.PDFDocument, days: number, company: CompanyInfo) {
   const data = await getChannelAnalytics(days);
 
-  doc.fontSize(14).text('Аналітика каналів');
-  doc.moveDown(0.5);
+  drawSectionTitle(doc, 'Аналітика каналів');
 
-  doc.fontSize(12).text('За джерелом');
-  doc.moveDown(0.5);
-  doc.fontSize(10);
+  drawSectionTitle(doc, 'За джерелом');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
   for (const s of data.bySource) {
-    doc.text(`${s.source}: ${s.orders} замовлень, ${s.revenue.toFixed(0)} ₴`);
+    doc.text(`${s.source}: ${s.orders} замовлень, ${s.revenue.toFixed(0)} ₴`, PAGE.margin, doc.y);
   }
   doc.moveDown(1);
 
-  doc.fontSize(12).text('UTM Sources');
-  doc.moveDown(0.5);
+  drawSectionTitle(doc, 'UTM Sources');
 
   const cols = [
     { label: 'UTM Source', x: 50, width: 150 },
-    { label: 'Замовлень', x: 210, width: 80, align: 'right' },
-    { label: 'Виручка', x: 300, width: 100, align: 'right' },
-    { label: 'Сер. чек', x: 410, width: 100, align: 'right' },
+    { label: 'Замовлень', x: 210, width: 80, align: 'right' as const },
+    { label: 'Виручка', x: 300, width: 100, align: 'right' as const },
+    { label: 'Сер. чек', x: 410, width: 100, align: 'right' as const },
   ];
 
-  let y = drawTableHeader(doc, cols, doc.y);
+  drawTableHeader(doc, cols);
 
-  for (const row of data.byUtmSource) {
-    y = checkPage(doc, y);
-    doc.fontSize(7);
-    doc.text(row.utmSource || 'Без мітки', cols[0].x, y, { width: cols[0].width });
-    doc.text(String(row.orders), cols[1].x, y, { width: cols[1].width, align: 'right' });
-    doc.text(`${row.revenue.toFixed(0)} ₴`, cols[2].x, y, { width: cols[2].width, align: 'right' });
-    doc.text(`${row.orders > 0 ? (row.revenue / row.orders).toFixed(0) : 0} ₴`, cols[3].x, y, { width: cols[3].width, align: 'right' });
-    y += 16;
+  for (let i = 0; i < data.byUtmSource.length; i++) {
+    const row = data.byUtmSource[i];
+    checkPageBreak(doc, company);
+    drawTableRow(doc, [
+      { value: row.utmSource || 'Без мітки', x: cols[0].x, width: cols[0].width },
+      { value: String(row.orders), x: cols[1].x, width: cols[1].width, align: 'right' },
+      { value: `${row.revenue.toFixed(0)} ₴`, x: cols[2].x, width: cols[2].width, align: 'right' },
+      { value: `${row.orders > 0 ? (row.revenue / row.orders).toFixed(0) : 0} ₴`, x: cols[3].x, width: cols[3].width, align: 'right' },
+    ], i);
   }
 
   doc.moveDown(1);
-  doc.fontSize(12).text('Конверсія по каналах');
-  doc.moveDown(0.5);
+  drawSectionTitle(doc, 'Конверсія по каналах');
 
   const convCols = [
     { label: 'Канал', x: 50, width: 150 },
-    { label: 'Візити', x: 210, width: 80, align: 'right' },
-    { label: 'Конверсії', x: 300, width: 80, align: 'right' },
-    { label: 'Конверсія %', x: 390, width: 100, align: 'right' },
+    { label: 'Візити', x: 210, width: 80, align: 'right' as const },
+    { label: 'Конверсії', x: 300, width: 80, align: 'right' as const },
+    { label: 'Конверсія %', x: 390, width: 100, align: 'right' as const },
   ];
 
-  y = drawTableHeader(doc, convCols, doc.y);
-  for (const row of data.channelConversionRates) {
-    y = checkPage(doc, y);
-    doc.fontSize(7);
-    doc.text(row.source, convCols[0].x, y, { width: convCols[0].width });
-    doc.text(String(row.visits), convCols[1].x, y, { width: convCols[1].width, align: 'right' });
-    doc.text(String(row.conversions), convCols[2].x, y, { width: convCols[2].width, align: 'right' });
-    doc.text(`${row.conversionRate}%`, convCols[3].x, y, { width: convCols[3].width, align: 'right' });
-    y += 16;
+  drawTableHeader(doc, convCols);
+  for (let i = 0; i < data.channelConversionRates.length; i++) {
+    const row = data.channelConversionRates[i];
+    checkPageBreak(doc, company);
+    drawTableRow(doc, [
+      { value: row.source, x: convCols[0].x, width: convCols[0].width },
+      { value: String(row.visits), x: convCols[1].x, width: convCols[1].width, align: 'right' },
+      { value: String(row.conversions), x: convCols[2].x, width: convCols[2].width, align: 'right' },
+      { value: `${row.conversionRate}%`, x: convCols[3].x, width: convCols[3].width, align: 'right' },
+    ], i);
   }
 }
 
-async function renderGeographyReport(doc: PDFKit.PDFDocument, days: number) {
+async function renderGeographyReport(doc: PDFKit.PDFDocument, days: number, company: CompanyInfo) {
   const data = await getGeographyAnalytics(days);
 
-  doc.fontSize(14).text('Географія замовлень');
-  doc.moveDown(0.5);
-  doc.fontSize(10);
-  doc.text(`Міст: ${data.totalCities} | Замовлень: ${data.totalOrders} | Виручка: ${data.totalRevenue.toFixed(0)} ₴`);
+  drawSectionTitle(doc, 'Географія замовлень');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
+  doc.text(`Міст: ${data.totalCities} | Замовлень: ${data.totalOrders} | Виручка: ${data.totalRevenue.toFixed(0)} ₴`, PAGE.margin, doc.y);
   if (data.topCity) doc.text(`Топ-місто: ${data.topCity.city} (${data.topCity.ordersPercent}%)`);
   doc.moveDown(1);
 
   const cols = [
     { label: 'Місто', x: 50, width: 140 },
-    { label: 'Замовлень', x: 195, width: 65, align: 'right' },
-    { label: '% зам.', x: 265, width: 55, align: 'right' },
-    { label: 'Виручка', x: 325, width: 80, align: 'right' },
-    { label: '% вируч.', x: 410, width: 55, align: 'right' },
-    { label: 'Сер. чек', x: 470, width: 70, align: 'right' },
+    { label: 'Замовлень', x: 195, width: 65, align: 'right' as const },
+    { label: '% зам.', x: 265, width: 55, align: 'right' as const },
+    { label: 'Виручка', x: 325, width: 80, align: 'right' as const },
+    { label: '% вируч.', x: 410, width: 55, align: 'right' as const },
+    { label: 'Сер. чек', x: 470, width: 70, align: 'right' as const },
   ];
 
-  let y = drawTableHeader(doc, cols, doc.y);
+  drawTableHeader(doc, cols);
 
-  for (const city of data.cities.slice(0, 40)) {
-    y = checkPage(doc, y);
-    doc.fontSize(7);
-    doc.text(city.city, cols[0].x, y, { width: cols[0].width });
-    doc.text(String(city.orders), cols[1].x, y, { width: cols[1].width, align: 'right' });
-    doc.text(`${city.ordersPercent}%`, cols[2].x, y, { width: cols[2].width, align: 'right' });
-    doc.text(`${city.revenue.toFixed(0)} ₴`, cols[3].x, y, { width: cols[3].width, align: 'right' });
-    doc.text(`${city.revenuePercent}%`, cols[4].x, y, { width: cols[4].width, align: 'right' });
-    doc.text(`${city.avgCheck} ₴`, cols[5].x, y, { width: cols[5].width, align: 'right' });
-    y += 16;
+  for (let i = 0; i < Math.min(data.cities.length, 40); i++) {
+    const city = data.cities[i];
+    checkPageBreak(doc, company);
+    drawTableRow(doc, [
+      { value: city.city, x: cols[0].x, width: cols[0].width },
+      { value: String(city.orders), x: cols[1].x, width: cols[1].width, align: 'right' },
+      { value: `${city.ordersPercent}%`, x: cols[2].x, width: cols[2].width, align: 'right' },
+      { value: `${city.revenue.toFixed(0)} ₴`, x: cols[3].x, width: cols[3].width, align: 'right' },
+      { value: `${city.revenuePercent}%`, x: cols[4].x, width: cols[4].width, align: 'right' },
+      { value: `${city.avgCheck} ₴`, x: cols[5].x, width: cols[5].width, align: 'right' },
+    ], i);
   }
 }
 
-async function renderLTVReport(doc: PDFKit.PDFDocument, days: number) {
+async function renderLTVReport(doc: PDFKit.PDFDocument, days: number, company: CompanyInfo) {
   const data = await getCustomerLTV(days);
 
-  doc.fontSize(14).text('Customer Lifetime Value');
-  doc.moveDown(0.5);
-  doc.fontSize(10);
-  doc.text(`Клієнтів: ${data.summary.totalCustomers}`);
+  drawSectionTitle(doc, 'Customer Lifetime Value');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
+  doc.text(`Клієнтів: ${data.summary.totalCustomers}`, PAGE.margin, doc.y);
   doc.text(`Загальна виручка: ${data.summary.totalRevenue} ₴`);
   doc.text(`Середній LTV: ${data.summary.avgLTV} ₴ | Медіана: ${data.summary.medianLTV} ₴`);
   doc.moveDown(0.5);
@@ -283,101 +278,103 @@ async function renderLTVReport(doc: PDFKit.PDFDocument, days: number) {
   }
   doc.moveDown(1);
 
-  doc.fontSize(12).text('Топ клієнтів за LTV');
-  doc.moveDown(0.5);
+  drawSectionTitle(doc, 'Топ клієнтів за LTV');
 
   const cols = [
     { label: '#', x: 50, width: 20 },
     { label: 'Клієнт', x: 75, width: 160 },
-    { label: 'Витрачено', x: 240, width: 75, align: 'right' },
-    { label: 'Замовл.', x: 320, width: 50, align: 'right' },
-    { label: 'Сер. чек', x: 375, width: 60, align: 'right' },
-    { label: 'Річний LTV', x: 440, width: 100, align: 'right' },
+    { label: 'Витрачено', x: 240, width: 75, align: 'right' as const },
+    { label: 'Замовл.', x: 320, width: 50, align: 'right' as const },
+    { label: 'Сер. чек', x: 375, width: 60, align: 'right' as const },
+    { label: 'Річний LTV', x: 440, width: 100, align: 'right' as const },
   ];
 
-  let y = drawTableHeader(doc, cols, doc.y);
+  drawTableHeader(doc, cols);
 
   for (let i = 0; i < Math.min(data.topCustomers.length, 30); i++) {
     const c = data.topCustomers[i];
-    y = checkPage(doc, y);
-    doc.fontSize(7);
-    doc.text(String(i + 1), cols[0].x, y, { width: cols[0].width });
-    doc.text((c.fullName || c.email).slice(0, 30), cols[1].x, y, { width: cols[1].width });
-    doc.text(`${c.totalSpent.toFixed(0)} ₴`, cols[2].x, y, { width: cols[2].width, align: 'right' });
-    doc.text(String(c.orderCount), cols[3].x, y, { width: cols[3].width, align: 'right' });
-    doc.text(`${c.avgCheck} ₴`, cols[4].x, y, { width: cols[4].width, align: 'right' });
-    doc.text(`${c.projectedYearlyLTV} ₴`, cols[5].x, y, { width: cols[5].width, align: 'right' });
-    y += 16;
+    checkPageBreak(doc, company);
+    drawTableRow(doc, [
+      { value: String(i + 1), x: cols[0].x, width: cols[0].width },
+      { value: (c.fullName || c.email).slice(0, 30), x: cols[1].x, width: cols[1].width },
+      { value: `${c.totalSpent.toFixed(0)} ₴`, x: cols[2].x, width: cols[2].width, align: 'right' },
+      { value: String(c.orderCount), x: cols[3].x, width: cols[3].width, align: 'right' },
+      { value: `${c.avgCheck} ₴`, x: cols[4].x, width: cols[4].width, align: 'right' },
+      { value: `${c.projectedYearlyLTV} ₴`, x: cols[5].x, width: cols[5].width, align: 'right' },
+    ], i);
   }
 }
 
-async function renderSegmentsReport(doc: PDFKit.PDFDocument) {
+async function renderSegmentsReport(doc: PDFKit.PDFDocument, company: CompanyInfo) {
   const data = await getCustomerSegmentation();
 
-  doc.fontSize(14).text('Сегментація клієнтів');
-  doc.moveDown(0.5);
-  doc.fontSize(10);
-  doc.text(`Всього клієнтів: ${data.totalCustomers} | Загальна виручка: ${data.totalRevenue} ₴`);
+  drawSectionTitle(doc, 'Сегментація клієнтів');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
+  doc.text(`Всього клієнтів: ${data.totalCustomers} | Загальна виручка: ${data.totalRevenue} ₴`, PAGE.margin, doc.y);
   doc.moveDown(1);
 
   const cols = [
     { label: 'Сегмент', x: 50, width: 120 },
-    { label: 'Клієнтів', x: 175, width: 65, align: 'right' },
-    { label: '% від загальної', x: 245, width: 85, align: 'right' },
-    { label: 'Виручка', x: 335, width: 80, align: 'right' },
-    { label: 'Сер. чек', x: 420, width: 80, align: 'right' },
+    { label: 'Клієнтів', x: 175, width: 65, align: 'right' as const },
+    { label: '% від загальної', x: 245, width: 85, align: 'right' as const },
+    { label: 'Виручка', x: 335, width: 80, align: 'right' as const },
+    { label: 'Сер. чек', x: 420, width: 80, align: 'right' as const },
   ];
 
-  let y = drawTableHeader(doc, cols, doc.y);
+  drawTableHeader(doc, cols);
 
-  for (const seg of data.segments) {
-    y = checkPage(doc, y);
+  for (let i = 0; i < data.segments.length; i++) {
+    const seg = data.segments[i];
+    checkPageBreak(doc, company);
     const pct = data.totalCustomers > 0 ? ((seg.count / data.totalCustomers) * 100).toFixed(1) : '0';
-    doc.fontSize(8);
-    doc.text(seg.label, cols[0].x, y, { width: cols[0].width });
-    doc.text(String(seg.count), cols[1].x, y, { width: cols[1].width, align: 'right' });
-    doc.text(`${pct}%`, cols[2].x, y, { width: cols[2].width, align: 'right' });
-    doc.text(`${seg.revenue} ₴`, cols[3].x, y, { width: cols[3].width, align: 'right' });
-    doc.text(`${seg.avgCheck} ₴`, cols[4].x, y, { width: cols[4].width, align: 'right' });
-    y += 18;
+    drawTableRow(doc, [
+      { value: seg.label, x: cols[0].x, width: cols[0].width },
+      { value: String(seg.count), x: cols[1].x, width: cols[1].width, align: 'right' },
+      { value: `${pct}%`, x: cols[2].x, width: cols[2].width, align: 'right' },
+      { value: `${seg.revenue} ₴`, x: cols[3].x, width: cols[3].width, align: 'right' },
+      { value: `${seg.avgCheck} ₴`, x: cols[4].x, width: cols[4].width, align: 'right' },
+    ], i, 18);
   }
 }
 
-async function renderSummaryReport(doc: PDFKit.PDFDocument, days: number) {
-  doc.fontSize(14).text('Загальний звіт');
-  doc.moveDown(1);
-
+async function renderSummaryReport(doc: PDFKit.PDFDocument, days: number, company: CompanyInfo) {
   // Stock summary
   const stock = await getStockAnalytics(days);
-  doc.fontSize(12).text('Залишки');
-  doc.fontSize(10);
-  doc.text(`Активних товарів: ${stock.summary.totalProducts}`);
+  drawSectionTitle(doc, 'Залишки');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
+  doc.text(`Активних товарів: ${stock.summary.totalProducts}`, PAGE.margin, doc.y);
   doc.text(`Критичний запас: ${stock.summary.criticalCount}`);
   doc.text(`Dead stock: ${stock.summary.deadStockCount}`);
   doc.moveDown(1);
 
+  checkPageBreak(doc, company);
+
   // Geography summary
   const geo = await getGeographyAnalytics(days);
-  doc.fontSize(12).text('Географія');
-  doc.fontSize(10);
-  doc.text(`Міст: ${geo.totalCities} | Замовлень: ${geo.totalOrders} | Виручка: ${geo.totalRevenue.toFixed(0)} ₴`);
+  drawSectionTitle(doc, 'Географія');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
+  doc.text(`Міст: ${geo.totalCities} | Замовлень: ${geo.totalOrders} | Виручка: ${geo.totalRevenue.toFixed(0)} ₴`, PAGE.margin, doc.y);
   if (geo.topCity) doc.text(`Топ-місто: ${geo.topCity.city}`);
   doc.moveDown(1);
 
+  checkPageBreak(doc, company);
+
   // LTV summary
   const ltv = await getCustomerLTV(days);
-  doc.fontSize(12).text('Customer LTV');
-  doc.fontSize(10);
-  doc.text(`Клієнтів: ${ltv.summary.totalCustomers}`);
+  drawSectionTitle(doc, 'Customer LTV');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
+  doc.text(`Клієнтів: ${ltv.summary.totalCustomers}`, PAGE.margin, doc.y);
   doc.text(`Середній LTV: ${ltv.summary.avgLTV} ₴ | Медіана: ${ltv.summary.medianLTV} ₴`);
   doc.moveDown(1);
 
+  checkPageBreak(doc, company);
+
   // Segments summary
   const segs = await getCustomerSegmentation();
-  doc.fontSize(12).text('Сегменти');
-  doc.fontSize(10);
+  drawSectionTitle(doc, 'Сегменти');
+  doc.font('Regular').fontSize(10).fillColor(BRAND.text);
   for (const seg of segs.segments) {
     const pct = segs.totalCustomers > 0 ? ((seg.count / segs.totalCustomers) * 100).toFixed(1) : '0';
-    doc.text(`${seg.label}: ${seg.count} (${pct}%) — ${seg.revenue} ₴`);
+    doc.text(`${seg.label}: ${seg.count} (${pct}%) — ${seg.revenue} ₴`, PAGE.margin, doc.y);
   }
 }

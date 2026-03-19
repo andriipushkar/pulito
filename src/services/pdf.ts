@@ -3,7 +3,19 @@ import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
-import { getSettings } from '@/services/settings';
+import {
+  BRAND,
+  PAGE,
+  setupDoc,
+  getCompanyInfo,
+  drawHeader,
+  drawDocTitle,
+  drawSectionTitle,
+  drawInfoLine,
+  drawTableHeader,
+  drawTableRow,
+  drawFooter,
+} from '@/lib/pdf-theme';
 
 export class PdfError extends Error {
   constructor(
@@ -13,137 +25,6 @@ export class PdfError extends Error {
     super(message);
     this.name = 'PdfError';
   }
-}
-
-const FONT_REGULAR = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
-const FONT_BOLD = path.join(process.cwd(), 'src/assets/fonts/Roboto-Bold.ttf');
-
-// Brand colors matching the site
-const COLORS = {
-  primary: '#1E88E5',
-  primaryDark: '#1565C0',
-  text: '#212121',
-  textSecondary: '#757575',
-  border: '#E0E0E0',
-  bgLight: '#F5F5F5',
-  white: '#FFFFFF',
-  success: '#4CAF50',
-  accent: '#FF9800',
-};
-
-async function getCompanyInfo() {
-  const s = await getSettings();
-  return {
-    name: s.site_name,
-    description: s.company_description,
-    website: s.site_email.split('@')[1] || 'poroshok.ua',
-    phone: s.site_phone_display,
-  };
-}
-
-const PAGE_MARGIN = 50;
-const CONTENT_WIDTH = 495; // A4 width - 2*margin
-
-function setupDoc(doc: InstanceType<typeof PDFDocument>) {
-  doc.registerFont('Regular', FONT_REGULAR);
-  doc.registerFont('Bold', FONT_BOLD);
-}
-
-function drawHeader(doc: InstanceType<typeof PDFDocument>, COMPANY: { name: string; description: string; website: string; phone: string }) {
-  // Blue header bar
-  doc.rect(0, 0, 595.28, 80).fill(COLORS.primary);
-
-  // Company name
-  doc.font('Bold').fontSize(22).fillColor(COLORS.white);
-  doc.text(COMPANY.name, PAGE_MARGIN, 20, { width: CONTENT_WIDTH, align: 'left' });
-
-  // Description
-  doc.font('Regular').fontSize(9).fillColor(COLORS.white);
-  doc.text(COMPANY.description, PAGE_MARGIN, 46, { width: CONTENT_WIDTH, align: 'left' });
-  doc.text(COMPANY.website, PAGE_MARGIN, 58, { width: CONTENT_WIDTH, align: 'left' });
-
-  doc.y = 100;
-}
-
-function drawDocTitle(doc: InstanceType<typeof PDFDocument>, title: string, orderNumber: string, date: string) {
-  doc.font('Bold').fontSize(14).fillColor(COLORS.primaryDark);
-  doc.text(title, PAGE_MARGIN, doc.y, { width: CONTENT_WIDTH, align: 'left' });
-  doc.moveDown(0.3);
-
-  doc.font('Regular').fontSize(10).fillColor(COLORS.textSecondary);
-  doc.text(`${orderNumber}  |  ${date}`, { width: CONTENT_WIDTH, align: 'left' });
-  doc.moveDown(0.8);
-
-  // Divider line
-  doc.moveTo(PAGE_MARGIN, doc.y).lineTo(PAGE_MARGIN + CONTENT_WIDTH, doc.y).lineWidth(1).stroke(COLORS.primary);
-  doc.moveDown(0.8);
-}
-
-function drawSectionTitle(doc: InstanceType<typeof PDFDocument>, title: string) {
-  doc.font('Bold').fontSize(10).fillColor(COLORS.primaryDark);
-  doc.text(title);
-  doc.moveDown(0.3);
-}
-
-function drawInfoLine(doc: InstanceType<typeof PDFDocument>, label: string, value: string) {
-  const y = doc.y;
-  doc.font('Bold').fontSize(9).fillColor(COLORS.textSecondary);
-  doc.text(label, PAGE_MARGIN, y, { continued: true });
-  doc.font('Regular').fontSize(9).fillColor(COLORS.text);
-  doc.text(` ${value}`);
-}
-
-function drawTableHeader(
-  doc: InstanceType<typeof PDFDocument>,
-  columns: { label: string; x: number; width: number; align?: 'left' | 'right' | 'center' }[]
-) {
-  const y = doc.y;
-
-  // Header background
-  doc.rect(PAGE_MARGIN, y - 3, CONTENT_WIDTH, 18).fill(COLORS.primaryDark);
-
-  doc.font('Bold').fontSize(8).fillColor(COLORS.white);
-  for (const col of columns) {
-    doc.text(col.label, col.x, y, { width: col.width, align: col.align || 'left' });
-  }
-
-  doc.y = y + 20;
-  doc.fillColor(COLORS.text);
-}
-
-function drawTableRow(
-  doc: InstanceType<typeof PDFDocument>,
-  columns: { value: string; x: number; width: number; align?: 'left' | 'right' | 'center' }[],
-  rowIndex: number
-) {
-  const y = doc.y;
-
-  // Alternating row background
-  if (rowIndex % 2 === 0) {
-    doc.rect(PAGE_MARGIN, y - 2, CONTENT_WIDTH, 18).fill(COLORS.bgLight);
-  }
-
-  doc.font('Regular').fontSize(8).fillColor(COLORS.text);
-  for (const col of columns) {
-    doc.text(col.value, col.x, y, { width: col.width, align: col.align || 'left' });
-  }
-
-  doc.y = y + 18;
-}
-
-function drawFooter(doc: InstanceType<typeof PDFDocument>, COMPANY: { name: string; description: string; website: string; phone: string }) {
-  const bottomY = 780;
-
-  // Footer line
-  doc.moveTo(PAGE_MARGIN, bottomY).lineTo(PAGE_MARGIN + CONTENT_WIDTH, bottomY).lineWidth(0.5).stroke(COLORS.border);
-
-  doc.font('Regular').fontSize(7).fillColor(COLORS.textSecondary);
-  doc.text(
-    `${COMPANY.name} — ${COMPANY.description}  |  ${COMPANY.website}`,
-    PAGE_MARGIN,
-    bottomY + 6,
-    { width: CONTENT_WIDTH, align: 'center' }
-  );
 }
 
 /**
@@ -173,7 +54,7 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
   const filePath = path.join(invoicesDir, fileName);
   const publicUrl = `/uploads/invoices/${fileName}`;
 
-  const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN });
+  const doc = new PDFDocument({ size: 'A4', margin: PAGE.margin });
   setupDoc(doc);
 
   const stream = createWriteStream(filePath);
@@ -201,11 +82,11 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
 
   // Items table
   const colDefs = [
-    { label: 'Код', x: PAGE_MARGIN + 5, width: 80 },
-    { label: 'Назва товару', x: PAGE_MARGIN + 90, width: 200 },
-    { label: 'Ціна', x: PAGE_MARGIN + 295, width: 65, align: 'right' as const },
-    { label: 'К-ть', x: PAGE_MARGIN + 365, width: 40, align: 'center' as const },
-    { label: 'Сума', x: PAGE_MARGIN + 410, width: 80, align: 'right' as const },
+    { label: 'Код', x: PAGE.margin + 5, width: 80 },
+    { label: 'Назва товару', x: PAGE.margin + 90, width: 200 },
+    { label: 'Ціна', x: PAGE.margin + 295, width: 65, align: 'right' as const },
+    { label: 'К-ть', x: PAGE.margin + 365, width: 40, align: 'center' as const },
+    { label: 'Сума', x: PAGE.margin + 410, width: 80, align: 'right' as const },
   ];
 
   drawTableHeader(doc, colDefs);
@@ -232,23 +113,23 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
   doc.moveDown(0.5);
 
   // Bottom line under table
-  doc.moveTo(PAGE_MARGIN, doc.y).lineTo(PAGE_MARGIN + CONTENT_WIDTH, doc.y).lineWidth(0.5).stroke(COLORS.border);
+  doc.moveTo(PAGE.margin, doc.y).lineTo(PAGE.margin + PAGE.contentWidth, doc.y).lineWidth(0.5).stroke(BRAND.border);
   doc.moveDown(0.5);
 
   // Totals block — right-aligned
-  const totalsX = PAGE_MARGIN + 300;
+  const totalsX = PAGE.margin + 300;
   const totalsW = 195;
 
   const subtotal = order.items.reduce((sum, item) => sum + Number(item.subtotal), 0);
 
-  doc.font('Regular').fontSize(9).fillColor(COLORS.textSecondary);
+  doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
   doc.text(`Сума товарів:`, totalsX, doc.y, { width: totalsW - 80 });
-  doc.font('Regular').fontSize(9).fillColor(COLORS.text);
+  doc.font('Regular').fontSize(9).fillColor(BRAND.text);
   doc.text(`${subtotal.toFixed(2)} грн`, totalsX + totalsW - 80, doc.y - doc.currentLineHeight(), { width: 80, align: 'right' });
 
   if (Number(order.discountAmount) > 0) {
     doc.moveDown(0.2);
-    doc.font('Regular').fontSize(9).fillColor(COLORS.textSecondary);
+    doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
     doc.text(`Знижка:`, totalsX, doc.y, { width: totalsW - 80 });
     doc.font('Regular').fontSize(9).fillColor('#F44336');
     doc.text(`-${Number(order.discountAmount).toFixed(2)} грн`, totalsX + totalsW - 80, doc.y - doc.currentLineHeight(), { width: 80, align: 'right' });
@@ -256,9 +137,9 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
 
   if (Number(order.deliveryCost) > 0) {
     doc.moveDown(0.2);
-    doc.font('Regular').fontSize(9).fillColor(COLORS.textSecondary);
+    doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
     doc.text(`Доставка:`, totalsX, doc.y, { width: totalsW - 80 });
-    doc.font('Regular').fontSize(9).fillColor(COLORS.text);
+    doc.font('Regular').fontSize(9).fillColor(BRAND.text);
     doc.text(`${Number(order.deliveryCost).toFixed(2)} грн`, totalsX + totalsW - 80, doc.y - doc.currentLineHeight(), { width: 80, align: 'right' });
   }
 
@@ -266,8 +147,8 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
 
   // Total amount with background
   const totalY = doc.y;
-  doc.rect(totalsX - 5, totalY - 4, totalsW + 10, 22).fill(COLORS.primary);
-  doc.font('Bold').fontSize(11).fillColor(COLORS.white);
+  doc.rect(totalsX - 5, totalY - 4, totalsW + 10, 22).fill(BRAND.primary);
+  doc.font('Bold').fontSize(11).fillColor(BRAND.white);
   doc.text(`Всього: ${Number(order.totalAmount).toFixed(2)} грн`, totalsX, totalY, {
     width: totalsW,
     align: 'right',
@@ -318,7 +199,7 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
   const filePath = path.join(notesDir, fileName);
   const publicUrl = `/uploads/delivery-notes/${fileName}`;
 
-  const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN });
+  const doc = new PDFDocument({ size: 'A4', margin: PAGE.margin });
   setupDoc(doc);
 
   const stream = createWriteStream(filePath);
@@ -336,28 +217,28 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
   );
 
   // Two-column layout for Supplier and Client
-  const leftCol = PAGE_MARGIN;
-  const rightCol = PAGE_MARGIN + 250;
+  const leftCol = PAGE.margin;
+  const rightCol = PAGE.margin + 250;
 
   // Supplier
   drawSectionTitle(doc, 'Постачальник');
   const supplierStartY = doc.y;
-  doc.font('Regular').fontSize(9).fillColor(COLORS.text);
+  doc.font('Regular').fontSize(9).fillColor(BRAND.text);
   doc.text(`${COMPANY.name} — ${COMPANY.description}`, leftCol, doc.y, { width: 230 });
   doc.text(`Сайт: ${COMPANY.website}`, leftCol);
 
   // Client (same Y position)
-  doc.font('Bold').fontSize(10).fillColor(COLORS.primaryDark);
+  doc.font('Bold').fontSize(10).fillColor(BRAND.primaryDark);
   doc.text('Отримувач', rightCol, supplierStartY, { width: 230 });
   doc.moveDown(0.3);
-  doc.font('Regular').fontSize(9).fillColor(COLORS.text);
+  doc.font('Regular').fontSize(9).fillColor(BRAND.text);
   doc.text(`${order.contactName}`, rightCol, doc.y, { width: 230 });
   doc.text(`Тел: ${order.contactPhone}`, rightCol, doc.y, { width: 230 });
   if (order.contactEmail) doc.text(`Email: ${order.contactEmail}`, rightCol, doc.y, { width: 230 });
   if (order.deliveryCity) doc.text(`Місто: ${order.deliveryCity}`, rightCol, doc.y, { width: 230 });
   if (order.deliveryAddress) doc.text(`Адреса: ${order.deliveryAddress}`, rightCol, doc.y, { width: 230 });
   if (order.trackingNumber) {
-    doc.font('Bold').fontSize(9).fillColor(COLORS.accent);
+    doc.font('Bold').fontSize(9).fillColor(BRAND.accent);
     doc.text(`ТТН: ${order.trackingNumber}`, rightCol, doc.y, { width: 230 });
   }
 
@@ -365,13 +246,13 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
 
   // Items table
   const colDefs = [
-    { label: '№', x: PAGE_MARGIN + 5, width: 25, align: 'center' as const },
-    { label: 'Код', x: PAGE_MARGIN + 32, width: 75 },
-    { label: 'Назва товару', x: PAGE_MARGIN + 112, width: 180 },
-    { label: 'Од.', x: PAGE_MARGIN + 297, width: 30, align: 'center' as const },
-    { label: 'К-ть', x: PAGE_MARGIN + 332, width: 35, align: 'center' as const },
-    { label: 'Ціна', x: PAGE_MARGIN + 372, width: 55, align: 'right' as const },
-    { label: 'Сума', x: PAGE_MARGIN + 432, width: 58, align: 'right' as const },
+    { label: '№', x: PAGE.margin + 5, width: 25, align: 'center' as const },
+    { label: 'Код', x: PAGE.margin + 32, width: 75 },
+    { label: 'Назва товару', x: PAGE.margin + 112, width: 180 },
+    { label: 'Од.', x: PAGE.margin + 297, width: 30, align: 'center' as const },
+    { label: 'К-ть', x: PAGE.margin + 332, width: 35, align: 'center' as const },
+    { label: 'Ціна', x: PAGE.margin + 372, width: 55, align: 'right' as const },
+    { label: 'Сума', x: PAGE.margin + 432, width: 58, align: 'right' as const },
   ];
 
   drawTableHeader(doc, colDefs);
@@ -398,15 +279,15 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
   }
 
   doc.moveDown(0.5);
-  doc.moveTo(PAGE_MARGIN, doc.y).lineTo(PAGE_MARGIN + CONTENT_WIDTH, doc.y).lineWidth(0.5).stroke(COLORS.border);
+  doc.moveTo(PAGE.margin, doc.y).lineTo(PAGE.margin + PAGE.contentWidth, doc.y).lineWidth(0.5).stroke(BRAND.border);
   doc.moveDown(0.5);
 
   // Total with styled block
   const totalY = doc.y;
-  const totalsX = PAGE_MARGIN + 300;
+  const totalsX = PAGE.margin + 300;
   const totalsW = 195;
-  doc.rect(totalsX - 5, totalY - 4, totalsW + 10, 22).fill(COLORS.primary);
-  doc.font('Bold').fontSize(11).fillColor(COLORS.white);
+  doc.rect(totalsX - 5, totalY - 4, totalsW + 10, 22).fill(BRAND.primary);
+  doc.font('Bold').fontSize(11).fillColor(BRAND.white);
   doc.text(`Всього: ${Number(order.totalAmount).toFixed(2)} грн`, totalsX, totalY, {
     width: totalsW,
     align: 'right',
@@ -414,19 +295,19 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
 
   // Signatures section
   doc.y = totalY + 50;
-  doc.moveTo(PAGE_MARGIN, doc.y).lineTo(PAGE_MARGIN + CONTENT_WIDTH, doc.y).lineWidth(0.5).stroke(COLORS.border);
+  doc.moveTo(PAGE.margin, doc.y).lineTo(PAGE.margin + PAGE.contentWidth, doc.y).lineWidth(0.5).stroke(BRAND.border);
   doc.moveDown(1);
 
-  doc.font('Regular').fontSize(9).fillColor(COLORS.textSecondary);
+  doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
 
   const sigY = doc.y;
   // Left signature
-  doc.text('Відпустив:', PAGE_MARGIN, sigY);
-  doc.moveTo(PAGE_MARGIN + 60, sigY + 12).lineTo(PAGE_MARGIN + 200, sigY + 12).lineWidth(0.5).stroke(COLORS.border);
+  doc.text('Відпустив:', PAGE.margin, sigY);
+  doc.moveTo(PAGE.margin + 60, sigY + 12).lineTo(PAGE.margin + 200, sigY + 12).lineWidth(0.5).stroke(BRAND.border);
 
   // Right signature
   doc.text('Отримав:', rightCol, sigY);
-  doc.moveTo(rightCol + 55, sigY + 12).lineTo(rightCol + 200, sigY + 12).lineWidth(0.5).stroke(COLORS.border);
+  doc.moveTo(rightCol + 55, sigY + 12).lineTo(rightCol + 200, sigY + 12).lineWidth(0.5).stroke(BRAND.border);
 
   // Footer
   drawFooter(doc, COMPANY);
@@ -469,7 +350,7 @@ export async function generateCommercialOfferPdf(
   const filePath = path.join(offersDir, fileName);
   const publicUrl = `/uploads/offers/${fileName}`;
 
-  const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN });
+  const doc = new PDFDocument({ size: 'A4', margin: PAGE.margin });
   setupDoc(doc);
 
   const stream = createWriteStream(filePath);
@@ -486,17 +367,17 @@ export async function generateCommercialOfferPdf(
     new Date().toLocaleDateString('uk-UA')
   );
 
-  doc.font('Regular').fontSize(9).fillColor(COLORS.text);
+  doc.font('Regular').fontSize(9).fillColor(BRAND.text);
   doc.text('Шановний клієнте, пропонуємо Вам наступні товари:');
   doc.moveDown(0.8);
 
   // Items table
   const colDefs = [
-    { label: '№', x: PAGE_MARGIN + 5, width: 25, align: 'center' as const },
-    { label: 'Код', x: PAGE_MARGIN + 32, width: 80 },
-    { label: 'Назва товару', x: PAGE_MARGIN + 117, width: 230 },
-    { label: 'Ціна', x: PAGE_MARGIN + 352, width: 75, align: 'right' as const },
-    { label: 'Од.', x: PAGE_MARGIN + 432, width: 58, align: 'center' as const },
+    { label: '№', x: PAGE.margin + 5, width: 25, align: 'center' as const },
+    { label: 'Код', x: PAGE.margin + 32, width: 80 },
+    { label: 'Назва товару', x: PAGE.margin + 117, width: 230 },
+    { label: 'Ціна', x: PAGE.margin + 352, width: 75, align: 'right' as const },
+    { label: 'Од.', x: PAGE.margin + 432, width: 58, align: 'center' as const },
   ];
 
   drawTableHeader(doc, colDefs);
@@ -521,10 +402,10 @@ export async function generateCommercialOfferPdf(
   }
 
   doc.moveDown(0.5);
-  doc.moveTo(PAGE_MARGIN, doc.y).lineTo(PAGE_MARGIN + CONTENT_WIDTH, doc.y).lineWidth(0.5).stroke(COLORS.border);
+  doc.moveTo(PAGE.margin, doc.y).lineTo(PAGE.margin + PAGE.contentWidth, doc.y).lineWidth(0.5).stroke(BRAND.border);
   doc.moveDown(1);
 
-  doc.font('Regular').fontSize(8).fillColor(COLORS.textSecondary);
+  doc.font('Regular').fontSize(8).fillColor(BRAND.textSecondary);
   doc.text('Ціни вказані з ПДВ. Пропозиція дійсна протягом 14 днів.');
   doc.moveDown(0.3);
   doc.text(`Контакти: ${COMPANY.website}`);

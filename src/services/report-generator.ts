@@ -5,8 +5,7 @@ import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
 import type { Prisma } from '../../generated/prisma';
-
-const FONT_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
+import { BRAND, FONT_REGULAR, PAGE, setupDoc, drawHeader, drawDocTitle, drawFooter, getCompanyInfo } from '@/lib/pdf-theme';
 
 type TemplateKey =
   | 'sales_summary'
@@ -623,19 +622,21 @@ async function renderPdf(
   filePath: string
 ): Promise<void> {
   const doc = new PDFDocument({ size: 'A4', margin: 50, layout: 'landscape' });
-  doc.registerFont('Roboto', FONT_PATH);
-  doc.font('Roboto');
+  setupDoc(doc);
+  doc.font('Regular');
 
   const stream = createWriteStream(filePath);
   doc.pipe(stream);
 
+  const company = await getCompanyInfo();
+
   // Header
-  doc.fontSize(16).text(title, { align: 'center' });
-  doc.fontSize(9).text(`Згенеровано: ${new Date().toLocaleDateString('uk-UA')}`, { align: 'center' });
-  doc.moveDown(1);
+  drawHeader(doc, company);
+  drawDocTitle(doc, title, 'Аналітичний звіт', new Date().toLocaleDateString('uk-UA'));
 
   if (rows.length === 0) {
     doc.fontSize(12).text('Немає даних за обраний період', { align: 'center' });
+    drawFooter(doc, company);
     doc.end();
     await new Promise<void>((resolve, reject) => {
       stream.on('finish', resolve);
@@ -650,7 +651,7 @@ async function renderPdf(
   let y = doc.y;
 
   // Header row
-  doc.fontSize(8).fillColor('#444444');
+  doc.fontSize(8).fillColor(BRAND.primaryDark);
   for (const col of columns) {
     doc.text(col.label, currentX, y, {
       width: col.width,
@@ -659,18 +660,20 @@ async function renderPdf(
     currentX += col.width + 5;
   }
   y += 14;
-  doc.moveTo(startX, y).lineTo(startX + columns.reduce((s, c) => s + c.width + 5, 0), y).stroke('#cccccc');
+  doc.moveTo(startX, y).lineTo(startX + columns.reduce((s, c) => s + c.width + 5, 0), y).stroke(BRAND.border);
   y += 8;
-  doc.fillColor('#000000');
+  doc.fillColor(BRAND.text);
 
   // Data rows
   for (const row of rows) {
     if (y > 520) {
+      drawFooter(doc, company);
       doc.addPage();
-      y = 50;
+      drawHeader(doc, company);
+      y = doc.y;
       // Repeat header
       currentX = startX;
-      doc.fontSize(8).fillColor('#444444');
+      doc.fontSize(8).fillColor(BRAND.primaryDark);
       for (const col of columns) {
         doc.text(col.label, currentX, y, {
           width: col.width,
@@ -679,9 +682,9 @@ async function renderPdf(
         currentX += col.width + 5;
       }
       y += 14;
-      doc.moveTo(startX, y).lineTo(startX + columns.reduce((s, c) => s + c.width + 5, 0), y).stroke('#cccccc');
+      doc.moveTo(startX, y).lineTo(startX + columns.reduce((s, c) => s + c.width + 5, 0), y).stroke(BRAND.border);
       y += 8;
-      doc.fillColor('#000000');
+      doc.fillColor(BRAND.text);
     }
 
     currentX = startX;
@@ -697,6 +700,7 @@ async function renderPdf(
     y += 16;
   }
 
+  drawFooter(doc, company);
   doc.end();
 
   await new Promise<void>((resolve, reject) => {

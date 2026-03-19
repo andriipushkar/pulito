@@ -4,9 +4,8 @@ import fs from 'fs';
 import sharp from 'sharp';
 import { prisma } from '@/lib/prisma';
 import { getSettings } from '@/services/settings';
+import { BRAND, FONT_REGULAR, FONT_BOLD, getCompanyInfo } from '@/lib/pdf-theme';
 
-const FONT_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
-const FONT_BOLD_PATH = path.join(process.cwd(), 'src/assets/fonts/Roboto-Bold.ttf');
 const PUBLIC_DIR = path.join(process.cwd(), 'public');
 
 // A4 layout
@@ -17,21 +16,21 @@ const CW = PW - M * 2; // content width
 const IMG = 34;
 const ROW = 46;
 
-// Modern color palette
+// Color aliases — mapped from unified brand theme
 const C = {
-  accent: '#2563eb',      // vivid blue
-  accentSoft: '#eff3ff',  // very light blue bg
-  accentMid: '#dbeafe',   // light blue
-  dark: '#0f172a',        // almost black
-  text: '#334155',        // slate gray
-  sub: '#94a3b8',         // muted gray
-  line: '#e2e8f0',        // border gray
-  bgAlt: '#f8fafc',       // zebra alt
-  green: '#10b981',       // emerald
-  greenBg: '#ecfdf5',
-  red: '#ef4444',
-  redBg: '#fef2f2',
-  imgBg: '#f1f5f9',       // placeholder bg
+  accent: BRAND.primary,
+  accentSoft: BRAND.primaryLight,
+  accentMid: BRAND.primaryLight,
+  dark: BRAND.text,
+  text: BRAND.textSecondary,
+  sub: BRAND.textMuted,
+  line: BRAND.border,
+  bgAlt: BRAND.bgLight,
+  green: BRAND.success,
+  greenBg: BRAND.successBg,
+  red: BRAND.danger,
+  redBg: BRAND.dangerBg,
+  imgBg: BRAND.bgAlt,
 };
 
 export class PricelistError extends Error {
@@ -91,12 +90,13 @@ function roundedRect(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h
 // ── Main generator ──
 
 export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<Buffer> {
+  const info = await getCompanyInfo();
   const s = await getSettings();
   const COMPANY = {
-    name: s.site_name,
-    tagline: s.company_description,
-    website: s.site_email.split('@')[1] || 'poroshok.ua',
-    phone: s.site_phone_display,
+    name: info.name,
+    tagline: info.description,
+    website: info.website,
+    phone: info.phone,
     social: {
       telegram: s.social_telegram.replace('https://', ''),
       viber: s.social_viber.replace('viber://pa?chatURI=', ''),
@@ -125,10 +125,10 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
     grouped.get(cat)!.push(p);
   }
 
-  const hasBold = fs.existsSync(FONT_BOLD_PATH);
+  const hasBold = fs.existsSync(FONT_BOLD);
   const doc = new PDFDocument({ size: 'A4', margin: M, autoFirstPage: false });
-  doc.registerFont('R', FONT_PATH);
-  if (hasBold) doc.registerFont('B', FONT_BOLD_PATH);
+  doc.registerFont('R', FONT_REGULAR);
+  if (hasBold) doc.registerFont('B', FONT_BOLD);
   doc.font('R');
 
   const chunks: Buffer[] = [];
