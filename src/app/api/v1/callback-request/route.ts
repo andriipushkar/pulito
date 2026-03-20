@@ -1,10 +1,19 @@
 import { NextRequest } from 'next/server';
 import { callbackRequestSchema } from '@/validators/feedback';
 import { createFeedback } from '@/services/feedback';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
+
+// Stricter rate limit for public callback form: 3 requests per 15 minutes
+const CALLBACK_LIMIT = { ...RATE_LIMITS.sensitive, prefix: 'rl:callback:' };
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+    const rl = await checkRateLimit(ip, CALLBACK_LIMIT);
+    if (!rl.allowed) {
+      return errorResponse('Забагато запитів. Спробуйте через 15 хвилин.', 429);
+    }
     const body = await request.json();
     const parsed = callbackRequestSchema.safeParse(body);
 

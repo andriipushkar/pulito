@@ -6,13 +6,12 @@ const MAINTENANCE_ALLOWED_PATHS = ['/maintenance', '/admin', '/api/v1/admin', '/
 const CSRF_EXEMPT_PREFIXES = ['/api/webhooks/', '/api/v1/cron/', '/api/v1/metrics'];
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-// Redis-based sliding window rate limiter — safe for horizontal scaling (multiple instances).
-// Falls back to in-memory when Redis is unavailable.
-//
-// TODO: Implement tiered rate limiting:
-// - /api/v1/auth/login: 10 req/15min (brute force protection)
-// - /api/v1/admin/import/*: 5 req/min (heavy operations)
-// - /api/v1/products/search: 60 req/min
+// Global rate limiter (in-memory) — protects against DDoS/abuse.
+// Tiered per-endpoint rate limiting is handled by:
+// - /api/v1/auth/login: 5 req/15min (src/services/rate-limit.ts checkLoginRateLimit)
+// - /api/v1/callback-request: 3 req/15min (sensitive preset)
+// - /api/v1/subscribe: 3 req/15min (sensitive preset)
+// - Server Actions: checkout 5/min, cart 30/min, review 5/15min (src/lib/action-rate-limit.ts)
 const GLOBAL_RATE_LIMIT = 120; // requests per window
 const GLOBAL_RATE_WINDOW = 60; // seconds
 

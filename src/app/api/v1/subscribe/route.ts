@@ -1,10 +1,19 @@
 import { NextRequest } from 'next/server';
 import { subscribeSchema } from '@/validators/feedback';
 import { subscribe, confirmSubscription, unsubscribeByEmail, SubscriberError } from '@/services/subscriber';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
+
+// Stricter rate limit for newsletter: 3 per 15 min
+const SUBSCRIBE_LIMIT = { ...RATE_LIMITS.sensitive, prefix: 'rl:subscribe:' };
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+    const rl = await checkRateLimit(ip, SUBSCRIBE_LIMIT);
+    if (!rl.allowed) {
+      return errorResponse('Забагато запитів. Спробуйте пізніше.', 429);
+    }
     const body = await request.json();
     const parsed = subscribeSchema.safeParse(body);
 

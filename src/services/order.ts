@@ -244,12 +244,12 @@ export async function createOrder(
     });
   });
 
-  // Clear server cart for authenticated users
+  // Clear server cart for authenticated users (non-critical — outside transaction)
   if (userId) {
-    await prisma.cartItem.deleteMany({ where: { userId } });
+    prisma.cartItem.deleteMany({ where: { userId } }).catch(() => {});
   }
 
-  // Notify manager about new order via Telegram
+  // Notify manager about new order via Telegram (non-blocking)
   import('@/services/telegram')
     .then((mod) => mod.notifyManagerNewOrder(order))
     .catch(() => {});
