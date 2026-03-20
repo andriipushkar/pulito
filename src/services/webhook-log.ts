@@ -1,6 +1,41 @@
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
+// Fields that may contain sensitive data — mask before storing
+const SENSITIVE_KEYS = new Set([
+  'card_number', 'cardNumber', 'card_pan', 'cardPan', 'pan',
+  'cvv', 'cvv2', 'cvc', 'expiry', 'exp_month', 'exp_year',
+  'card_token', 'token', 'access_token', 'private_key', 'secret',
+  'password', 'signature', 'merchantSignature',
+]);
+
+/**
+ * Recursively mask sensitive fields in webhook payload before storing.
+ * Card numbers → "****1234", tokens/secrets → "***masked***"
+ */
+function sanitizePayload(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizePayload);
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    if (SENSITIVE_KEYS.has(key)) {
+      if (typeof value === 'string' && value.length > 4) {
+        // Show last 4 chars for card-like fields, mask the rest
+        result[key] = '****' + value.slice(-4);
+      } else {
+        result[key] = '***masked***';
+      }
+    } else if (typeof value === 'object' && value !== null) {
+      result[key] = sanitizePayload(value);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export async function logWebhook(data: {
   source: string;
   event: string;
@@ -10,18 +45,18 @@ export async function logWebhook(data: {
   durationMs?: number;
 }) {
   try {
+    const sanitized = data.payload ? sanitizePayload(JSON.parse(JSON.stringify(data.payload))) : undefined;
     await prisma.webhookLog.create({
       data: {
         source: data.source,
         event: data.event,
-        payload: data.payload ? JSON.parse(JSON.stringify(data.payload)) : undefined,
+        payload: sanitized as any,
         statusCode: data.statusCode,
         error: data.error,
         durationMs: data.durationMs,
       },
     });
   } catch {
-    // Don't fail the webhook handler if logging fails
     logger.error('Failed to log webhook', { source: data.source, event: data.event });
   }
 }

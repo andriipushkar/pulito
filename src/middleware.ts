@@ -127,6 +127,16 @@ function checkCsrf(request: NextRequest): NextResponse | null {
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Admin IP whitelist (optional). Set ADMIN_ALLOWED_IPS="1.2.3.4,5.6.7.8" to restrict admin access.
+  const adminAllowedIps = process.env.ADMIN_ALLOWED_IPS;
+  if (adminAllowedIps && pathname.startsWith('/admin')) {
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || '';
+    const allowedList = adminAllowedIps.split(',').map((ip) => ip.trim());
+    if (!allowedList.includes(clientIp)) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+  }
+
   // Maintenance mode check
   if (process.env.MAINTENANCE_MODE === 'true') {
     const isAllowed = MAINTENANCE_ALLOWED_PATHS.some((p) => pathname.startsWith(p));

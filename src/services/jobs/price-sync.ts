@@ -136,69 +136,73 @@ export async function syncPricesFromFile() {
   let updated = 0;
   let notFound = 0;
   let priceChanged = 0;
+  let errors = 0;
 
   for (const entry of entries) {
     if (!entry.code) continue;
 
-    const product = await prisma.product.findFirst({
-      where: { code: entry.code },
-      select: {
-        id: true,
-        priceRetail: true,
-        priceWholesale: true,
-        priceWholesale2: true,
-        priceWholesale3: true,
-      },
-    });
-
-    if (!product) {
-      notFound++;
-      continue;
-    }
-
-    const data: Record<string, unknown> = {};
-    const oldRetail = Number(product.priceRetail);
-
-    if (entry.priceRetail !== undefined) {
-      // Save old price for discount display
-      if (oldRetail !== entry.priceRetail) {
-        data.priceRetailOld = oldRetail;
-        priceChanged++;
-      }
-      data.priceRetail = entry.priceRetail;
-    }
-    if (entry.priceWholesale !== undefined) {
-      const oldW = Number(product.priceWholesale || 0);
-      if (oldW !== entry.priceWholesale) data.priceWholesaleOld = oldW || null;
-      data.priceWholesale = entry.priceWholesale;
-    }
-    if (entry.priceWholesale2 !== undefined) data.priceWholesale2 = entry.priceWholesale2;
-    if (entry.priceWholesale3 !== undefined) data.priceWholesale3 = entry.priceWholesale3;
-
-    if (Object.keys(data).length > 0) {
-      await prisma.product.update({
-        where: { id: product.id },
-        data,
+    try {
+      const product = await prisma.product.findFirst({
+        where: { code: entry.code },
+        select: {
+          id: true,
+          priceRetail: true,
+          priceWholesale: true,
+          priceWholesale2: true,
+          priceWholesale3: true,
+        },
       });
 
-      // Log price change
-      if (priceChanged > 0 || entry.priceWholesale !== undefined) {
-        await prisma.priceHistory.create({
-          data: {
-            productId: product.id,
-            priceRetailOld: String(oldRetail),
-            priceRetailNew: entry.priceRetail ? String(entry.priceRetail) : null,
-            priceWholesaleOld: product.priceWholesale ? String(product.priceWholesale) : null,
-            priceWholesaleNew: entry.priceWholesale ? String(entry.priceWholesale) : null,
-            priceWholesale2Old: product.priceWholesale2 ? String(product.priceWholesale2) : null,
-            priceWholesale2New: entry.priceWholesale2 ? String(entry.priceWholesale2) : null,
-            priceWholesale3Old: product.priceWholesale3 ? String(product.priceWholesale3) : null,
-            priceWholesale3New: entry.priceWholesale3 ? String(entry.priceWholesale3) : null,
-          },
-        });
+      if (!product) {
+        notFound++;
+        continue;
       }
 
-      updated++;
+      const data: Record<string, unknown> = {};
+      const oldRetail = Number(product.priceRetail);
+
+      if (entry.priceRetail !== undefined) {
+        if (oldRetail !== entry.priceRetail) {
+          data.priceRetailOld = oldRetail;
+          priceChanged++;
+        }
+        data.priceRetail = entry.priceRetail;
+      }
+      if (entry.priceWholesale !== undefined) {
+        const oldW = Number(product.priceWholesale || 0);
+        if (oldW !== entry.priceWholesale) data.priceWholesaleOld = oldW || null;
+        data.priceWholesale = entry.priceWholesale;
+      }
+      if (entry.priceWholesale2 !== undefined) data.priceWholesale2 = entry.priceWholesale2;
+      if (entry.priceWholesale3 !== undefined) data.priceWholesale3 = entry.priceWholesale3;
+
+      if (Object.keys(data).length > 0) {
+        await prisma.product.update({
+          where: { id: product.id },
+          data,
+        });
+
+        if (priceChanged > 0 || entry.priceWholesale !== undefined) {
+          await prisma.priceHistory.create({
+            data: {
+              productId: product.id,
+              priceRetailOld: String(oldRetail),
+              priceRetailNew: entry.priceRetail ? String(entry.priceRetail) : null,
+              priceWholesaleOld: product.priceWholesale ? String(product.priceWholesale) : null,
+              priceWholesaleNew: entry.priceWholesale ? String(entry.priceWholesale) : null,
+              priceWholesale2Old: product.priceWholesale2 ? String(product.priceWholesale2) : null,
+              priceWholesale2New: entry.priceWholesale2 ? String(entry.priceWholesale2) : null,
+              priceWholesale3Old: product.priceWholesale3 ? String(product.priceWholesale3) : null,
+              priceWholesale3New: entry.priceWholesale3 ? String(entry.priceWholesale3) : null,
+            },
+          });
+        }
+
+        updated++;
+      }
+    } catch {
+      // Skip this entry — don't break the entire batch
+      errors++;
     }
   }
 
@@ -206,7 +210,7 @@ export async function syncPricesFromFile() {
   const archiveName = `processed_${Date.now()}_${priceFiles[0]}`;
   await fs.rename(latestFile, path.join(PRICE_FILE_DIR, archiveName));
 
-  return { updated, notFound, priceChanged, total: entries.length };
+  return { updated, notFound, priceChanged, errors, total: entries.length };
 }
 
 export { parsePriceCsv, parsePriceXlsx };
