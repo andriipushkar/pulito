@@ -1180,6 +1180,7 @@ model ImportLog {
 
   @@index([managerId])
   @@index([status])
+  @@index([completedAt(sort: Desc)])
   @@map("import_log")
 }
 

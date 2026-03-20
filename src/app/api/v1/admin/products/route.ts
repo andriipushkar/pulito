@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { createProductSchema } from '@/validators/product';
 import { createProduct, ProductError } from '@/services/product';
@@ -90,6 +91,13 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
     }
 
     const product = await createProduct(parsed.data);
+
+    // Revalidate catalog pages so new product appears
+    try { revalidatePath('/catalog'); revalidatePath('/'); } catch { /* best-effort */ }
+
+    // Index in Typesense
+    import('@/services/typesense').then((ts) => ts.indexProduct(product.id)).catch(() => {});
+
     return successResponse(product, 201);
   } catch (error) {
     if (error instanceof ProductError) {

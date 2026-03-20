@@ -67,6 +67,10 @@ export const DELETE = withRole('manager', 'admin')(
       const numId = Number(id);
       if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
       await deleteProduct(numId);
+
+      // Revalidate pages after product deactivation
+      try { revalidatePath('/catalog'); revalidatePath('/'); } catch { /* best-effort */ }
+
       return successResponse({ message: 'Товар деактивовано' });
     } catch (error) {
       if (error instanceof ProductError) {

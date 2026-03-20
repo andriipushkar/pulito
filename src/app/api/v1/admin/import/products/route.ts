@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { importProducts, ImportError } from '@/services/import';
 import { successResponse, errorResponse } from '@/utils/api-response';
@@ -24,6 +25,15 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const result = await importProducts(buffer, file.name, user.id);
+
+    // Revalidate all cached pages after bulk import
+    try {
+      revalidatePath('/catalog');
+      revalidatePath('/');
+    } catch { /* best-effort */ }
+
+    // Trigger full Typesense reindex after import
+    import('@/services/typesense').then((ts) => ts.indexAllProducts()).catch(() => {});
 
     return successResponse(result, 200);
   } catch (error) {
