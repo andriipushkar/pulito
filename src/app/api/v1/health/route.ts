@@ -35,6 +35,22 @@ export async function GET() {
     checks.redis = { status: 'error', error: err instanceof Error ? err.message : 'Unknown' };
   }
 
+  // Typesense check
+  try {
+    const tsHost = process.env.TYPESENSE_HOST || 'localhost';
+    const tsPort = process.env.TYPESENSE_PORT || '8108';
+    const tsProto = process.env.TYPESENSE_PROTOCOL || 'http';
+    const { latencyMs } = await measureLatency(() =>
+      fetch(`${tsProto}://${tsHost}:${tsPort}/health`, { signal: AbortSignal.timeout(3000) }).then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r;
+      })
+    );
+    checks.typesense = { status: 'ok', latencyMs };
+  } catch (err) {
+    checks.typesense = { status: 'error', error: err instanceof Error ? err.message : 'Unknown' };
+  }
+
   // Disk space check
   try {
     const stats = await fs.statfs(process.cwd());

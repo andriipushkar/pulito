@@ -19,6 +19,10 @@ vi.mock('@/lib/redis', () => ({
   redis: mockRedis,
 }));
 
+// Mock fetch for Typesense health check
+const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+vi.stubGlobal('fetch', mockFetch);
+
 import { GET } from './route';
 
 describe('GET /api/v1/health', () => {

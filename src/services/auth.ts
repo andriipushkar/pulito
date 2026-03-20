@@ -292,9 +292,15 @@ export async function logoutUser(accessToken: string, refreshToken?: string): Pr
  * @returns true, якщо токен заблоковано
  */
 export async function isAccessTokenBlacklisted(token: string): Promise<boolean> {
-  const hash = hashToken(token);
-  const result = await redis.get(`${BLACKLIST_PREFIX}${hash}`);
-  return result !== null;
+  try {
+    const hash = hashToken(token);
+    const result = await redis.get(`${BLACKLIST_PREFIX}${hash}`);
+    return result !== null;
+  } catch {
+    // If Redis is down, allow the request rather than blocking all users.
+    // The token is still validated by JWT signature — blacklist is an extra layer.
+    return false;
+  }
 }
 
 /**

@@ -20,16 +20,22 @@ export class RateLimitError extends Error {
  * Throws RateLimitError if blocked.
  */
 export async function checkLoginRateLimit(ip: string, email: string): Promise<void> {
-  const key = `${LOGIN_PREFIX}${ip}:${email.toLowerCase()}`;
-  const current = await redis.get(key);
+  try {
+    const key = `${LOGIN_PREFIX}${ip}:${email.toLowerCase()}`;
+    const current = await redis.get(key);
 
-  if (current && Number(current) >= MAX_ATTEMPTS) {
-    const ttl = await redis.ttl(key);
-    throw new RateLimitError(
-      `Забагато спроб входу. Спробуйте через ${Math.ceil(ttl / 60)} хвилин.`,
-      429,
-      ttl > 0 ? ttl : BLOCK_DURATION
-    );
+    if (current && Number(current) >= MAX_ATTEMPTS) {
+      const ttl = await redis.ttl(key);
+      throw new RateLimitError(
+        `Забагато спроб входу. Спробуйте через ${Math.ceil(ttl / 60)} хвилин.`,
+        429,
+        ttl > 0 ? ttl : BLOCK_DURATION
+      );
+    }
+  } catch (error) {
+    // Re-throw rate limit errors, but swallow Redis connection failures
+    if (error instanceof RateLimitError) throw error;
+    // Redis down — allow request (JWT validation still protects against invalid credentials)
   }
 }
 
@@ -37,10 +43,14 @@ export async function checkLoginRateLimit(ip: string, email: string): Promise<vo
  * Record a failed login attempt.
  */
 export async function recordFailedLogin(ip: string, email: string): Promise<void> {
-  const key = `${LOGIN_PREFIX}${ip}:${email.toLowerCase()}`;
-  const count = await redis.incr(key);
-  if (count === 1) {
-    await redis.expire(key, BLOCK_DURATION);
+  try {
+    const key = `${LOGIN_PREFIX}${ip}:${email.toLowerCase()}`;
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, BLOCK_DURATION);
+    }
+  } catch {
+    // Redis down — skip recording (non-critical)
   }
 }
 
@@ -87,22 +97,23 @@ export async function checkRateLimit(
   ip: string,
   config: RateLimitConfig
 ): Promise<RateLimitResult> {
+  let results;
   const key = `${config.prefix}${ip}`;
   const now = Date.now();
   const windowMs = config.windowSec * 1000;
 
-  // Use a Redis pipeline for atomicity
-  const pipeline = redis.pipeline();
-  // Remove expired entries
-  pipeline.zremrangebyscore(key, 0, now - windowMs);
-  // Add current request
-  pipeline.zadd(key, now, `${now}:${Math.random().toString(36).slice(2, 8)}`);
-  // Count requests in window
-  pipeline.zcard(key);
-  // Set expiry on the key
-  pipeline.expire(key, config.windowSec);
-
-  const results = await pipeline.exec();
+  try {
+    // Use a Redis pipeline for atomicity
+    const pipeline = redis.pipeline();
+    pipeline.zremrangebyscore(key, 0, now - windowMs);
+    pipeline.zadd(key, now, `${now}:${Math.random().toString(36).slice(2, 8)}`);
+    pipeline.zcard(key);
+    pipeline.expire(key, config.windowSec);
+    results = await pipeline.exec();
+  } catch {
+    // Redis down — allow request (graceful degradation)
+    return { allowed: true, remaining: config.max, retryAfter: 0 };
+  }
 
   const count = (results?.[2]?.[1] as number) || 0;
   const allowed = count <= config.max;

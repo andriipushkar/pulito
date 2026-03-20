@@ -4,6 +4,7 @@ import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
 import { validateFileType } from '@/utils/file-validation';
+import { uploadFile, deleteFile, isCloudStorageEnabled } from '@/lib/storage';
 
 const WATERMARK_TEXT = process.env.WATERMARK_TEXT || 'poroshok.com';
 const WATERMARK_ENABLED = process.env.WATERMARK_ENABLED !== 'false'; // enabled by default
@@ -77,9 +78,15 @@ export async function processProductImage(
   const timestamp = Date.now();
   const baseName = `${product.code}_${timestamp}`;
 
-  // Save original
-  const originalPath = path.join(imageDir, `${baseName}_original${getExtension(mimeType)}`);
-  await fs.writeFile(originalPath, fileBuffer);
+  // Save original — uses R2 cloud storage when configured, local fallback otherwise
+  const originalFilenameOnDisk = `${baseName}_original${getExtension(mimeType)}`;
+  const originalPath = path.join(imageDir, originalFilenameOnDisk);
+  if (isCloudStorageEnabled()) {
+    const storageKey = `products/${product.code.toLowerCase()}/${originalFilenameOnDisk}`;
+    await uploadFile(storageKey, fileBuffer, mimeType);
+  } else {
+    await fs.writeFile(originalPath, fileBuffer);
+  }
 
   // Generate resized variants as WebP (with watermark on full & medium)
   const variants = await Promise.all(
@@ -100,6 +107,7 @@ export async function processProductImage(
       }
 
       // Apply watermark to full and medium sizes
+      let variantBuffer: Buffer;
       if (WATERMARK_ENABLED && (key === 'full' || key === 'medium')) {
         const resizedBuffer = await pipeline.toBuffer();
         const resizedMeta = await sharp(resizedBuffer).metadata();
@@ -114,11 +122,19 @@ export async function processProductImage(
             <text x="${w - pad}" y="${h - pad}" text-anchor="end" class="wm">${WATERMARK_TEXT}</text>
           </svg>`;
 
-        await sharp(resizedBuffer)
+        variantBuffer = await sharp(resizedBuffer)
           .composite([{ input: Buffer.from(svgWatermark), gravity: 'southeast' }])
-          .toFile(filePath);
+          .toBuffer();
       } else {
-        await pipeline.toFile(filePath);
+        variantBuffer = await pipeline.toBuffer();
+      }
+
+      // Save variant to cloud storage or local disk
+      if (isCloudStorageEnabled()) {
+        const storageKey = `products/${product.code.toLowerCase()}/${filename}`;
+        await uploadFile(storageKey, variantBuffer, 'image/webp');
+      } else {
+        await fs.writeFile(filePath, variantBuffer);
       }
 
       return { key, path: getRelativePath(filePath) };

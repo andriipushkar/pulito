@@ -6,12 +6,15 @@ const MAINTENANCE_ALLOWED_PATHS = ['/maintenance', '/admin', '/api/v1/admin', '/
 const CSRF_EXEMPT_PREFIXES = ['/api/webhooks/', '/api/v1/cron/', '/api/v1/metrics'];
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-// Global rate limiter (in-memory) — protects against DDoS/abuse.
-// Tiered per-endpoint rate limiting is handled by:
-// - /api/v1/auth/login: 5 req/15min (src/services/rate-limit.ts checkLoginRateLimit)
+// Global rate limiter (in-memory per instance) — first line of defense.
+// Edge Runtime cannot use ioredis, so this is intentionally in-memory.
+// For multi-instance: use Cloudflare Rate Limiting or nginx limit_req as primary.
+//
+// Per-endpoint Redis-based rate limiting (cluster-safe):
+// - /api/v1/auth/login: 5 req/15min (src/services/rate-limit.ts)
 // - /api/v1/callback-request: 3 req/15min (sensitive preset)
 // - /api/v1/subscribe: 3 req/15min (sensitive preset)
-// - Server Actions: checkout 5/min, cart 30/min, review 5/15min (src/lib/action-rate-limit.ts)
+// - Server Actions: checkout 5/min, cart 30/min, review 5/15min
 const GLOBAL_RATE_LIMIT = 120; // requests per window
 const GLOBAL_RATE_WINDOW = 60; // seconds
 
@@ -160,6 +163,11 @@ export default async function middleware(request: NextRequest) {
   if (csrfError) return csrfError;
 
   const response = NextResponse.next();
+
+  // Request correlation ID — allows tracing requests across logs
+  const requestId = crypto.randomUUID();
+  response.headers.set('X-Request-Id', requestId);
+  request.headers.set('x-request-id', requestId);
 
   // Security headers
   response.headers.set('X-Content-Type-Options', 'nosniff');
