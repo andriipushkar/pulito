@@ -34,11 +34,18 @@ export const POST = withRole('admin', 'manager')(async (_request, { user }) => {
       color: { dark: '#000000', light: '#ffffff' },
     });
 
-    // Store secret (not yet enabled)
+    // Store secret (not yet enabled) with a 30-minute cleanup timer.
+    // If the user abandons setup, the unverified secret will be cleared
+    // automatically — preventing indefinite persistence of unused secrets.
     await prisma.user.update({
       where: { id: user.id },
       data: { twoFactorSecret: secret, twoFactorEnabled: false },
     });
+
+    // Set a 30-minute TTL — if not verified, clear the secret
+    const { redis } = await import('@/lib/redis');
+    const ttlKey = `2fa_setup_ttl:${user.id}`;
+    await redis.set(ttlKey, secret, 'EX', 1800); // 30 minutes
 
     return successResponse({ secret, otpauthUrl, qrDataUrl });
   } catch {

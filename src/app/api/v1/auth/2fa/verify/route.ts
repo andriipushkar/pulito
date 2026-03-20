@@ -54,6 +54,18 @@ export const POST = withRole('admin', 'manager')(async (request, { user }) => {
       return errorResponse('Спочатку виконайте налаштування 2FA через /2fa/setup', 400);
     }
 
+    // Verify the setup hasn't expired (30-minute window)
+    const ttlKey = `2fa_setup_ttl:${user.id}`;
+    const storedSecret = await redis.get(ttlKey);
+    if (!storedSecret) {
+      // TTL expired — clear the unverified secret
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { twoFactorSecret: null },
+      });
+      return errorResponse('Час налаштування 2FA вичерпано (30 хв). Почніть заново.', 400);
+    }
+
     if (!verifyTOTP(dbUser.twoFactorSecret, parsed.data.code)) {
       return errorResponse('Невірний код. Спробуйте ще раз.', 400);
     }
