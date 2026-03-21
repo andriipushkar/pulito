@@ -23,6 +23,21 @@ export function verifyViberSignature(body: string, signature: string): boolean {
   return hash === signature;
 }
 
+/**
+ * Unlink a user who blocked/unsubscribed from the Viber bot.
+ */
+async function handleBotBlocked(viberId: string) {
+  try {
+    await prisma.user.updateMany({
+      where: { viberUserId: viberId },
+      data: { viberUserId: null },
+    });
+    logger.info(`Viber bot blocked by ${viberId} — unlinked`);
+  } catch {
+    // best-effort cleanup
+  }
+}
+
 async function sendTextMessage(receiverId: string, text: string, keyboard?: unknown) {
   const body: Record<string, unknown> = {
     receiver: receiverId,
@@ -32,11 +47,21 @@ async function sendTextMessage(receiverId: string, text: string, keyboard?: unkn
   };
   if (keyboard) body.keyboard = keyboard;
 
-  await fetch(`${API_URL}/send_message`, {
+  const res = await fetch(`${API_URL}/send_message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Viber-Auth-Token': AUTH_TOKEN },
     body: JSON.stringify(body),
   });
+
+  // Viber returns status 0 for success; "notSubscribed" means user blocked the bot
+  try {
+    const data = await res.json();
+    if (data.status === 6 /* notSubscribed */ || data.status === 5 /* receiverNotRegistered */) {
+      await handleBotBlocked(receiverId);
+    }
+  } catch {
+    // ignore parse errors
+  }
 }
 
 async function findLinkedUser(viberId: string) {
@@ -649,6 +674,11 @@ export async function handleViberEvent(event: ViberEvent) {
   try {
     if (event.event === 'subscribed' && event.user) {
       await handleSubscribed(event.user.id, event.user.name);
+      return;
+    }
+
+    if (event.event === 'unsubscribed' && event.user_id) {
+      await handleBotBlocked(event.user_id);
       return;
     }
 

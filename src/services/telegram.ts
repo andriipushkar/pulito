@@ -33,11 +33,26 @@ interface TelegramUpdate {
   inline_query?: TelegramInlineQuery;
 }
 
+/**
+ * Unlink a blocked user's Telegram chat so we stop sending messages.
+ */
+async function handleBotBlocked(chatId: number) {
+  try {
+    await prisma.user.updateMany({
+      where: { telegramChatId: BigInt(chatId) },
+      data: { telegramChatId: null },
+    });
+    logger.info(`Telegram bot blocked by chat ${chatId} — unlinked`);
+  } catch {
+    // best-effort cleanup
+  }
+}
+
 async function sendMessage(chatId: number, text: string, options?: {
   parse_mode?: string;
   reply_markup?: unknown;
 }) {
-  await fetch(`${API_BASE}/sendMessage`, {
+  const res = await fetch(`${API_BASE}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -47,6 +62,10 @@ async function sendMessage(chatId: number, text: string, options?: {
       reply_markup: options?.reply_markup,
     }),
   });
+
+  if (res.status === 403) {
+    await handleBotBlocked(chatId);
+  }
 }
 
 async function sendPhoto(chatId: number, photoUrl: string, caption: string, options?: {
