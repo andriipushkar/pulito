@@ -34,6 +34,7 @@ export async function generatePriceList(options: PriceListOptions): Promise<stri
     where,
     include: { category: { select: { name: true } } },
     orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
+    take: 5000,
   });
 
   if (products.length === 0) {

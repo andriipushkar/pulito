@@ -624,9 +624,14 @@ model UserNotification {
   isRead           Boolean          @default(false) @map("is_read")
   createdAt        DateTime         @default(now()) @map("created_at")
   readAt           DateTime?        @map("read_at")
+  dispatched       Boolean          @default(false)
+  retryCount       Int              @default(0) @map("retry_count")
+  nextRetryAt      DateTime?        @map("next_retry_at")
+  lastError        String?          @map("last_error")
 
   @@index([userId])
   @@index([createdAt])
+  @@index([dispatched, nextRetryAt])
   @@map("user_notifications")
 }
 

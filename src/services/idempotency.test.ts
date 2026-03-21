@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/redis', () => ({
-  redis: { get: vi.fn(), setex: vi.fn() },
+  redis: { get: vi.fn(), set: vi.fn(), setex: vi.fn() },
 }));
 
 import { redis } from '@/lib/redis';
-import { getIdempotentResponse, setIdempotentResponse } from './idempotency';
+import { getIdempotentResponse, setIdempotentResponse, updateIdempotentResponse } from './idempotency';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -32,11 +32,30 @@ describe('getIdempotentResponse', () => {
 });
 
 describe('setIdempotentResponse', () => {
-  it('stores with TTL of 86400', async () => {
+  it('stores with NX flag and returns true on success', async () => {
+    vi.mocked(redis.set).mockResolvedValue('OK' as any);
+
+    const result = await setIdempotentResponse('abc-123', '{"ok":true}');
+
+    expect(result).toBe(true);
+    expect(redis.set).toHaveBeenCalledWith('idem:abc-123', '{"ok":true}', 'EX', 86400, 'NX');
+  });
+
+  it('returns false when key already exists', async () => {
+    vi.mocked(redis.set).mockResolvedValue(null as any);
+
+    const result = await setIdempotentResponse('abc-123', '{"ok":true}');
+
+    expect(result).toBe(false);
+  });
+});
+
+describe('updateIdempotentResponse', () => {
+  it('overwrites existing key with TTL', async () => {
     vi.mocked(redis.setex).mockResolvedValue('OK' as any);
 
-    await setIdempotentResponse('abc-123', '{"ok":true}');
+    await updateIdempotentResponse('abc-123', '{"updated":true}');
 
-    expect(redis.setex).toHaveBeenCalledWith('idem:abc-123', 86400, '{"ok":true}');
+    expect(redis.setex).toHaveBeenCalledWith('idem:abc-123', 86400, '{"updated":true}');
   });
 });
