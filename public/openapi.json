@@ -226,6 +226,4691 @@
     }
   },
   "paths": {
+    "/admin/analytics": {
+      "get": {
+        "tags": [
+          "Admin",
+          "Analytics"
+        ],
+        "summary": "Аналітика",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sales",
+                "products",
+                "clients",
+                "orders"
+              ]
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Дані аналітики залежно від типу"
+          }
+        }
+      }
+    },
+    "/admin/analytics/abc": {
+      "get": {
+        "tags": [
+          "Admin",
+          "Analytics"
+        ],
+        "summary": "ABC-аналіз товарів",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Класифікація товарів"
+          }
+        }
+      }
+    },
+    "/admin/analytics/alerts": {
+      "get": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Список alerts",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Створити alerts",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/alerts/{id}": {
+      "put": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Оновити alerts",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Видалити alerts",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/analytics/channels": {
+      "get": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Список channels",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/churn": {
+      "get": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Список churn",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/cohorts": {
+      "get": {
+        "tags": [
+          "Admin",
+          "Analytics"
+        ],
+        "summary": "Когортний аналіз",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retention когорт"
+          }
+        }
+      }
+    },
+    "/admin/analytics/export-pdf": {
+      "post": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Створити export pdf",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/funnel": {
+      "get": {
+        "tags": [
+          "Admin",
+          "Analytics"
+        ],
+        "summary": "Воронка конверсії",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Дані воронки"
+          }
+        }
+      }
+    },
+    "/admin/analytics/geography": {
+      "get": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Список geography",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/ltv": {
+      "get": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Список ltv",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/performance": {
+      "get": {
+        "tags": [
+          "Admin",
+          "Analytics"
+        ],
+        "summary": "Performance метрики",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Web Vitals агреговані дані"
+          }
+        }
+      }
+    },
+    "/admin/analytics/price": {
+      "get": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Список price",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/rfm": {
+      "get": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Список rfm",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/segments": {
+      "get": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Список segments",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/stock": {
+      "get": {
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Список stock",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/audit-log": {
+      "get": {
+        "tags": [
+          "Admin Audit Log"
+        ],
+        "summary": "Список audit log",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/badges": {
+      "get": {
+        "tags": [
+          "Admin Badges"
+        ],
+        "summary": "Список badges",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Badges"
+        ],
+        "summary": "Створити badges",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/badges/{id}": {
+      "put": {
+        "tags": [
+          "Admin Badges"
+        ],
+        "summary": "Оновити badges",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Badges"
+        ],
+        "summary": "Видалити badges",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/banners": {
+      "get": {
+        "tags": [
+          "Admin Banners"
+        ],
+        "summary": "Список banners",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Banners"
+        ],
+        "summary": "Створити banners",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/banners/reorder": {
+      "put": {
+        "tags": [
+          "Admin Banners"
+        ],
+        "summary": "Оновити reorder",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/banners/{id}": {
+      "put": {
+        "tags": [
+          "Admin Banners"
+        ],
+        "summary": "Оновити banners",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Banners"
+        ],
+        "summary": "Видалити banners",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/banners/{id}/upload": {
+      "post": {
+        "tags": [
+          "Admin Banners"
+        ],
+        "summary": "Створити upload",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/bot-replies": {
+      "get": {
+        "tags": [
+          "Admin Bot Replies"
+        ],
+        "summary": "Список bot replies",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Bot Replies"
+        ],
+        "summary": "Створити bot replies",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/bot-replies/{id}": {
+      "put": {
+        "tags": [
+          "Admin Bot Replies"
+        ],
+        "summary": "Оновити bot replies",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Bot Replies"
+        ],
+        "summary": "Видалити bot replies",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/bot-settings/schedule": {
+      "get": {
+        "tags": [
+          "Admin Bot Settings"
+        ],
+        "summary": "Список schedule",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Bot Settings"
+        ],
+        "summary": "Оновити schedule",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/bot-welcome": {
+      "get": {
+        "tags": [
+          "Admin Bot Welcome"
+        ],
+        "summary": "Список bot welcome",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Bot Welcome"
+        ],
+        "summary": "Створити bot welcome",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Bot Welcome"
+        ],
+        "summary": "Оновити bot welcome",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/catalog-pdf": {
+      "post": {
+        "tags": [
+          "Admin Catalog Pdf"
+        ],
+        "summary": "Створити catalog pdf",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/categories": {
+      "get": {
+        "tags": [
+          "Admin Categories"
+        ],
+        "summary": "Список categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Categories"
+        ],
+        "summary": "Створити categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/categories/{id}": {
+      "get": {
+        "tags": [
+          "Admin Categories"
+        ],
+        "summary": "Отримати categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Categories"
+        ],
+        "summary": "Оновити categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Categories"
+        ],
+        "summary": "Видалити categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/categories/{id}/merge": {
+      "post": {
+        "tags": [
+          "Admin Categories"
+        ],
+        "summary": "Створити merge",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/channel-settings": {
+      "get": {
+        "tags": [
+          "Admin Channel Settings"
+        ],
+        "summary": "Список channel settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Channel Settings"
+        ],
+        "summary": "Оновити channel settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/channel-settings/test": {
+      "post": {
+        "tags": [
+          "Admin Channel Settings"
+        ],
+        "summary": "Створити test",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/channels": {
+      "get": {
+        "tags": [
+          "Admin Channels"
+        ],
+        "summary": "Список channels",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/commercial-offer": {
+      "post": {
+        "tags": [
+          "Admin Commercial Offer"
+        ],
+        "summary": "Створити commercial offer",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/coupons": {
+      "get": {
+        "tags": [
+          "Admin Coupons"
+        ],
+        "summary": "Список coupons",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Coupons"
+        ],
+        "summary": "Створити coupons",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/coupons/{id}": {
+      "patch": {
+        "tags": [
+          "Admin Coupons"
+        ],
+        "summary": "Оновити coupons",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Coupons"
+        ],
+        "summary": "Видалити coupons",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/dashboard/settings": {
+      "get": {
+        "tags": [
+          "Admin Dashboard"
+        ],
+        "summary": "Список settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Dashboard"
+        ],
+        "summary": "Оновити settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/dashboard/stats": {
+      "get": {
+        "tags": [
+          "Admin Dashboard"
+        ],
+        "summary": "Список stats",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/delivery-settings": {
+      "get": {
+        "tags": [
+          "Admin Delivery Settings"
+        ],
+        "summary": "Список delivery settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Delivery Settings"
+        ],
+        "summary": "Оновити delivery settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/delivery-settings/test": {
+      "post": {
+        "tags": [
+          "Admin Delivery Settings"
+        ],
+        "summary": "Створити test",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/docs/user-manual": {
+      "post": {
+        "tags": [
+          "Admin Docs"
+        ],
+        "summary": "Створити user manual",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/email-templates": {
+      "get": {
+        "tags": [
+          "Admin Email Templates"
+        ],
+        "summary": "Список email templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Email Templates"
+        ],
+        "summary": "Створити email templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/email-templates/{id}": {
+      "get": {
+        "tags": [
+          "Admin Email Templates"
+        ],
+        "summary": "Отримати email templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Email Templates"
+        ],
+        "summary": "Оновити email templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Email Templates"
+        ],
+        "summary": "Видалити email templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/email-templates/{id}/test": {
+      "post": {
+        "tags": [
+          "Admin Email Templates"
+        ],
+        "summary": "Створити test",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/export": {
+      "get": {
+        "tags": [
+          "Admin Export"
+        ],
+        "summary": "Список export",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/faq": {
+      "get": {
+        "tags": [
+          "Admin Faq"
+        ],
+        "summary": "Список faq",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Faq"
+        ],
+        "summary": "Створити faq",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/faq/{id}": {
+      "put": {
+        "tags": [
+          "Admin Faq"
+        ],
+        "summary": "Оновити faq",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Faq"
+        ],
+        "summary": "Видалити faq",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/feedback": {
+      "get": {
+        "tags": [
+          "Admin Feedback"
+        ],
+        "summary": "Список feedback",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/feedback/{id}": {
+      "put": {
+        "tags": [
+          "Admin Feedback"
+        ],
+        "summary": "Оновити feedback",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/homepage-blocks": {
+      "get": {
+        "tags": [
+          "Admin Homepage Blocks"
+        ],
+        "summary": "Список homepage blocks",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Homepage Blocks"
+        ],
+        "summary": "Оновити homepage blocks",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/import/images": {
+      "post": {
+        "tags": [
+          "Admin Import"
+        ],
+        "summary": "Створити images",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/import/logs": {
+      "get": {
+        "tags": [
+          "Admin Import"
+        ],
+        "summary": "Список logs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/import/logs/{id}": {
+      "get": {
+        "tags": [
+          "Admin Import"
+        ],
+        "summary": "Отримати logs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/import/preview": {
+      "post": {
+        "tags": [
+          "Admin Import"
+        ],
+        "summary": "Створити preview",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/import/products": {
+      "post": {
+        "tags": [
+          "Admin Import"
+        ],
+        "summary": "Створити products",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/jobs/cart-abandonment": {
+      "post": {
+        "tags": [
+          "Admin Jobs"
+        ],
+        "summary": "Створити cart abandonment",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/jobs/digest": {
+      "post": {
+        "tags": [
+          "Admin Jobs"
+        ],
+        "summary": "Створити digest",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/loyalty/adjust": {
+      "post": {
+        "tags": [
+          "Admin",
+          "Loyalty"
+        ],
+        "summary": "Ручне нарахування/списання балів",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "manual_add",
+                      "manual_deduct"
+                    ]
+                  },
+                  "points": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "userId",
+                  "type",
+                  "points",
+                  "description"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Баланс оновлено"
+          }
+        }
+      }
+    },
+    "/admin/loyalty/settings": {
+      "get": {
+        "tags": [
+          "Admin",
+          "Loyalty"
+        ],
+        "summary": "Налаштування рівнів лояльності",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список рівнів"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin",
+          "Loyalty"
+        ],
+        "summary": "Оновити рівні лояльності",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Оновлено"
+          }
+        }
+      }
+    },
+    "/admin/maintenance": {
+      "get": {
+        "tags": [
+          "Admin Maintenance"
+        ],
+        "summary": "Список maintenance",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Maintenance"
+        ],
+        "summary": "Оновити maintenance",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/marketplaces/messages": {
+      "get": {
+        "tags": [
+          "Admin Marketplaces"
+        ],
+        "summary": "Список messages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/marketplaces/sync-prices": {
+      "post": {
+        "tags": [
+          "Admin Marketplaces"
+        ],
+        "summary": "Створити sync prices",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/marketplaces/{id}": {
+      "put": {
+        "tags": [
+          "Admin Marketplaces"
+        ],
+        "summary": "Оновити marketplaces",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Marketplaces"
+        ],
+        "summary": "Видалити marketplaces",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/moderation/logs": {
+      "get": {
+        "tags": [
+          "Admin Moderation"
+        ],
+        "summary": "Список logs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Admin Moderation"
+        ],
+        "summary": "Оновити logs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/moderation/rules": {
+      "get": {
+        "tags": [
+          "Admin Moderation"
+        ],
+        "summary": "Список rules",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Moderation"
+        ],
+        "summary": "Створити rules",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/moderation/rules/{id}": {
+      "get": {
+        "tags": [
+          "Admin Moderation"
+        ],
+        "summary": "Отримати rules",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Moderation"
+        ],
+        "summary": "Оновити rules",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Moderation"
+        ],
+        "summary": "Видалити rules",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/notifications/stream": {
+      "get": {
+        "tags": [
+          "Admin Notifications"
+        ],
+        "summary": "Список stream",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/orders": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Список всіх замовлень",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Пагінований список замовлень"
+          }
+        }
+      }
+    },
+    "/admin/orders/export": {
+      "post": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Створити export",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/orders/labels": {
+      "post": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Створити labels",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/orders/{id}": {
+      "get": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Отримати orders",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Оновити orders",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/orders/{id}/comment": {
+      "put": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Оновити comment",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/orders/{id}/delivery-note": {
+      "post": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Створити delivery note",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/orders/{id}/invoice": {
+      "post": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Створити invoice",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/orders/{id}/items": {
+      "put": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Оновити items",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/orders/{id}/send-product-photo": {
+      "post": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Створити send product photo",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/orders/{id}/status": {
+      "put": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Оновити статус замовлення",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "new_order",
+                      "processing",
+                      "confirmed",
+                      "paid",
+                      "shipped",
+                      "completed",
+                      "cancelled",
+                      "returned"
+                    ]
+                  },
+                  "comment": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Статус оновлено"
+          }
+        }
+      }
+    },
+    "/admin/orders/{id}/ttn": {
+      "post": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Створити ttn",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Orders"
+        ],
+        "summary": "Оновити ttn",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/pages": {
+      "get": {
+        "tags": [
+          "Admin Pages"
+        ],
+        "summary": "Список pages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Pages"
+        ],
+        "summary": "Створити pages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/pages/{id}": {
+      "put": {
+        "tags": [
+          "Admin Pages"
+        ],
+        "summary": "Оновити pages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Pages"
+        ],
+        "summary": "Видалити pages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/payment-settings": {
+      "get": {
+        "tags": [
+          "Admin Payment Settings"
+        ],
+        "summary": "Список payment settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Payment Settings"
+        ],
+        "summary": "Оновити payment settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/payment-settings/test": {
+      "post": {
+        "tags": [
+          "Admin Payment Settings"
+        ],
+        "summary": "Створити test",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/personal-prices": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Список персональних цін",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Пагінований список"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Створити персональну ціну",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Створено"
+          }
+        }
+      }
+    },
+    "/admin/personal-prices/{id}": {
+      "get": {
+        "tags": [
+          "Admin Personal Prices"
+        ],
+        "summary": "Отримати personal prices",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Personal Prices"
+        ],
+        "summary": "Оновити personal prices",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Personal Prices"
+        ],
+        "summary": "Видалити personal prices",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/products": {
+      "get": {
+        "tags": [
+          "Admin Products"
+        ],
+        "summary": "Список products",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Products"
+        ],
+        "summary": "Створити products",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/products/bulk": {
+      "post": {
+        "tags": [
+          "Admin Products"
+        ],
+        "summary": "Створити bulk",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/products/{id}": {
+      "get": {
+        "tags": [
+          "Admin Products"
+        ],
+        "summary": "Отримати products",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Products"
+        ],
+        "summary": "Оновити products",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Products"
+        ],
+        "summary": "Видалити products",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/products/{id}/images": {
+      "post": {
+        "tags": [
+          "Admin Products"
+        ],
+        "summary": "Створити images",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/products/{id}/images/{imageId}": {
+      "delete": {
+        "tags": [
+          "Admin Products"
+        ],
+        "summary": "Видалити images",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/products/{id}/price-history": {
+      "get": {
+        "tags": [
+          "Admin Products"
+        ],
+        "summary": "Отримати price history",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/publications": {
+      "get": {
+        "tags": [
+          "Admin Publications"
+        ],
+        "summary": "Список publications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Publications"
+        ],
+        "summary": "Створити publications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/publications/{id}": {
+      "put": {
+        "tags": [
+          "Admin Publications"
+        ],
+        "summary": "Оновити publications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Publications"
+        ],
+        "summary": "Видалити publications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/publications/{id}/analytics": {
+      "post": {
+        "tags": [
+          "Admin Publications"
+        ],
+        "summary": "Створити analytics",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/publications/{id}/publish": {
+      "post": {
+        "tags": [
+          "Admin Publications"
+        ],
+        "summary": "Створити publish",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/publications/{id}/retry": {
+      "post": {
+        "tags": [
+          "Admin Publications"
+        ],
+        "summary": "Створити retry",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/referrals": {
+      "get": {
+        "tags": [
+          "Admin",
+          "Referrals"
+        ],
+        "summary": "Список рефералів",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Пагінований список"
+          }
+        }
+      }
+    },
+    "/admin/referrals/{id}/bonus": {
+      "post": {
+        "tags": [
+          "Admin Referrals"
+        ],
+        "summary": "Створити bonus",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/reports/generate": {
+      "post": {
+        "tags": [
+          "Admin Reports"
+        ],
+        "summary": "Створити generate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/returns": {
+      "get": {
+        "tags": [
+          "Admin Returns"
+        ],
+        "summary": "Список returns",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/returns/{id}": {
+      "patch": {
+        "tags": [
+          "Admin Returns"
+        ],
+        "summary": "Оновити returns",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/revalidate": {
+      "post": {
+        "tags": [
+          "Admin Revalidate"
+        ],
+        "summary": "Створити revalidate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/reviews": {
+      "get": {
+        "tags": [
+          "Admin Reviews"
+        ],
+        "summary": "Список reviews",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/reviews/{id}": {
+      "patch": {
+        "tags": [
+          "Admin Reviews"
+        ],
+        "summary": "Оновити reviews",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Reviews"
+        ],
+        "summary": "Видалити reviews",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/seo-templates": {
+      "get": {
+        "tags": [
+          "Admin Seo Templates"
+        ],
+        "summary": "Список seo templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Seo Templates"
+        ],
+        "summary": "Створити seo templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/seo-templates/generate": {
+      "post": {
+        "tags": [
+          "Admin Seo Templates"
+        ],
+        "summary": "Створити generate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/seo-templates/{id}": {
+      "put": {
+        "tags": [
+          "Admin Seo Templates"
+        ],
+        "summary": "Оновити seo templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Seo Templates"
+        ],
+        "summary": "Видалити seo templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/seo/broken-links": {
+      "get": {
+        "tags": [
+          "Admin Seo"
+        ],
+        "summary": "Список broken links",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/settings": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Налаштування сайту",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Key-value налаштувань"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Оновити налаштування",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Оновлено"
+          }
+        }
+      }
+    },
+    "/admin/settings/pallet-delivery": {
+      "get": {
+        "tags": [
+          "Admin",
+          "Delivery"
+        ],
+        "summary": "Конфіг палетної доставки",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Конфіг"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin",
+          "Delivery"
+        ],
+        "summary": "Оновити конфіг палетної доставки",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "minWeightKg": {
+                    "default": 100,
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "maxWeightKg": {
+                    "default": 5000,
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "basePrice": {
+                    "default": 1500,
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "pricePerKg": {
+                    "default": 3,
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "regions": {
+                    "default": [],
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "multiplier": {
+                          "default": 1,
+                          "type": "number",
+                          "minimum": 0.1,
+                          "maximum": 10
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ]
+                    }
+                  },
+                  "freeDeliveryThreshold": {
+                    "default": 0,
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "estimatedDays": {
+                    "default": "3-5",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Оновлено"
+          }
+        }
+      }
+    },
+    "/admin/smtp-settings": {
+      "get": {
+        "tags": [
+          "Admin Smtp Settings"
+        ],
+        "summary": "Список smtp settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Smtp Settings"
+        ],
+        "summary": "Оновити smtp settings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/smtp-settings/test": {
+      "post": {
+        "tags": [
+          "Admin Smtp Settings"
+        ],
+        "summary": "Створити test",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/themes": {
+      "get": {
+        "tags": [
+          "Admin Themes"
+        ],
+        "summary": "Список themes",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Themes"
+        ],
+        "summary": "Створити themes",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/themes/{id}": {
+      "put": {
+        "tags": [
+          "Admin Themes"
+        ],
+        "summary": "Оновити themes",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/themes/{id}/activate": {
+      "put": {
+        "tags": [
+          "Admin Themes"
+        ],
+        "summary": "Оновити activate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/ukrposhta/shipment": {
+      "post": {
+        "tags": [
+          "Admin Ukrposhta"
+        ],
+        "summary": "Створити shipment",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/upload": {
+      "post": {
+        "tags": [
+          "Admin Upload"
+        ],
+        "summary": "Створити upload",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "Admin Users"
+        ],
+        "summary": "Список users",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}": {
+      "get": {
+        "tags": [
+          "Admin Users"
+        ],
+        "summary": "Отримати users",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Users"
+        ],
+        "summary": "Оновити users",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}/wholesale": {
+      "put": {
+        "tags": [
+          "Admin Users"
+        ],
+        "summary": "Оновити wholesale",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/webhook-logs": {
+      "get": {
+        "tags": [
+          "Admin Webhook Logs"
+        ],
+        "summary": "Список webhook logs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/wholesale-rules": {
+      "get": {
+        "tags": [
+          "Admin Wholesale Rules"
+        ],
+        "summary": "Список wholesale rules",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Wholesale Rules"
+        ],
+        "summary": "Створити wholesale rules",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/wholesale-rules/{id}": {
+      "put": {
+        "tags": [
+          "Admin Wholesale Rules"
+        ],
+        "summary": "Оновити wholesale rules",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Wholesale Rules"
+        ],
+        "summary": "Видалити wholesale rules",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/auth/2fa/disable": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Створити disable",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/2fa/setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Створити setup",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/2fa/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Створити verify",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/2fa/verify-login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Створити verify login",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Створити forgot password",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/google": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Список google",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/google/callback": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Список callback",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Логін",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Успішний логін",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokens"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Невірні облікові дані"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Вихід",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успішний вихід"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Список me",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/oauth-exchange": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Створити oauth exchange",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Оновити токен",
+        "responses": {
+          "200": {
+            "description": "Нові токени"
+          },
+          "401": {
+            "description": "Невалідний refresh token"
+          }
+        }
+      }
+    },
     "/auth/register": {
       "post": {
         "tags": [
@@ -308,167 +4993,80 @@
         }
       }
     },
-    "/auth/login": {
+    "/auth/reset-password": {
       "post": {
         "tags": [
           "Auth"
         ],
-        "summary": "Логін",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-                "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email",
-                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
-                  },
-                  "password": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": [
-                  "email",
-                  "password"
-                ]
-              }
-            }
-          }
-        },
+        "summary": "Створити reset password",
         "responses": {
           "200": {
-            "description": "Успішний логін",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthTokens"
-                }
-              }
-            }
+            "description": "OK"
           },
           "401": {
-            "description": "Невірні облікові дані"
+            "description": "Unauthorized"
           }
         }
       }
     },
-    "/auth/refresh": {
+    "/auth/verify-email": {
       "post": {
         "tags": [
           "Auth"
         ],
-        "summary": "Оновити токен",
+        "summary": "Створити verify email",
         "responses": {
           "200": {
-            "description": "Нові токени"
+            "description": "OK"
           },
           "401": {
-            "description": "Невалідний refresh token"
+            "description": "Unauthorized"
           }
         }
-      }
-    },
-    "/auth/logout": {
-      "post": {
+      },
+      "put": {
         "tags": [
           "Auth"
         ],
-        "summary": "Вихід",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Оновити verify email",
         "responses": {
           "200": {
-            "description": "Успішний вихід"
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
     },
-    "/products": {
+    "/banners": {
       "get": {
         "tags": [
-          "Products"
+          "Banners"
         ],
-        "summary": "Список товарів",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          },
-          {
-            "name": "categoryId",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "name",
-                "price",
-                "newest"
-              ]
-            }
-          }
-        ],
+        "summary": "Список banners",
         "responses": {
           "200": {
-            "description": "Список товарів з пагінацією"
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
     },
-    "/products/{slug}": {
-      "get": {
+    "/callback-request": {
+      "post": {
         "tags": [
-          "Products"
+          "Callback Request"
         ],
-        "summary": "Товар за slug",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "summary": "Створити callback request",
         "responses": {
           "200": {
-            "description": "Деталі товару"
+            "description": "OK"
           },
-          "404": {
-            "description": "Товар не знайдено"
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
@@ -487,6 +5085,48 @@
         "responses": {
           "200": {
             "description": "Вміст кошика"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Створити cart",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Оновити cart",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Видалити cart",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
@@ -526,6 +5166,1174 @@
         "responses": {
           "200": {
             "description": "Товар додано"
+          }
+        }
+      }
+    },
+    "/cart/{productId}": {
+      "put": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Оновити cart",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Видалити cart",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Список categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/categories/{slug}": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Отримати categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/cookie-consent": {
+      "post": {
+        "tags": [
+          "Cookie Consent"
+        ],
+        "summary": "Створити cookie consent",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/coupons/validate": {
+      "post": {
+        "tags": [
+          "Coupons"
+        ],
+        "summary": "Створити validate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/delivery/cities": {
+      "get": {
+        "tags": [
+          "Delivery"
+        ],
+        "summary": "Список cities",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/delivery/estimate": {
+      "get": {
+        "tags": [
+          "Delivery"
+        ],
+        "summary": "Список estimate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/delivery/pallet/calculate": {
+      "post": {
+        "tags": [
+          "Delivery"
+        ],
+        "summary": "Розрахунок вартості палетної доставки",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "weightKg": {
+                    "type": "number",
+                    "minimum": 1
+                  },
+                  "region": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "weightKg"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Вартість доставки"
+          }
+        }
+      }
+    },
+    "/delivery/tracking": {
+      "get": {
+        "tags": [
+          "Delivery"
+        ],
+        "summary": "Трекінг посилки",
+        "parameters": [
+          {
+            "name": "trackingNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "nova_poshta",
+                "ukrposhta"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Статус посилки"
+          }
+        }
+      }
+    },
+    "/delivery/warehouses": {
+      "get": {
+        "tags": [
+          "Delivery"
+        ],
+        "summary": "Список warehouses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/faq": {
+      "get": {
+        "tags": [
+          "Faq"
+        ],
+        "summary": "Список faq",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/faq/search": {
+      "get": {
+        "tags": [
+          "Faq"
+        ],
+        "summary": "Список search",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/faq/{id}/click": {
+      "post": {
+        "tags": [
+          "Faq"
+        ],
+        "summary": "Створити click",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/feedback": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Створити feedback",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Список health",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Профіль поточного користувача",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Дані профілю"
+          }
+        }
+      }
+    },
+    "/me/account": {
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Видалити account",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/account/google": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список google",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Видалити google",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/addresses": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список addresses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити addresses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/addresses/{id}": {
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Оновити addresses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Видалити addresses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/me/export": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список export",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/login-history": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список login history",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/loyalty": {
+      "get": {
+        "tags": [
+          "Profile",
+          "Loyalty"
+        ],
+        "summary": "Лояльність — дашборд",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Баланс балів, рівень, транзакції"
+          }
+        }
+      }
+    },
+    "/me/loyalty/transactions": {
+      "get": {
+        "tags": [
+          "Profile",
+          "Loyalty"
+        ],
+        "summary": "Історія транзакцій лояльності",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Пагінований список транзакцій"
+          }
+        }
+      }
+    },
+    "/me/notes": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список notes",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити notes",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/notification-preferences": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список notification preferences",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Оновити notification preferences",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/notifications": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список notifications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Оновити notifications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/notifications/count": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список count",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/notifications/{id}/read": {
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Оновити read",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/me/recently-viewed": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список recently viewed",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити recently viewed",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Видалити recently viewed",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/referral": {
+      "get": {
+        "tags": [
+          "Profile",
+          "Referrals"
+        ],
+        "summary": "Реферальна інформація",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Реферальний код, посилання, статистика"
+          }
+        }
+      }
+    },
+    "/me/returns": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список returns",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити returns",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/search-history": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список search history",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити search history",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Видалити search history",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/telegram-link": {
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити telegram link",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/wholesale-request": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список wholesale request",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити wholesale request",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/wishlists": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список wishlists",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити wishlists",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Видалити wishlists",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/wishlists/count": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список count",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/wishlists/{id}": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Отримати wishlists",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Оновити wishlists",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Видалити wishlists",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/me/wishlists/{id}/items": {
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити items",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/me/wishlists/{id}/items/{productId}": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Отримати items",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити items",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Видалити items",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/metrics": {
+      "post": {
+        "tags": [
+          "Metrics"
+        ],
+        "summary": "Відправити Web Vitals метрики",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "route": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -667,6 +6475,22 @@
         }
       }
     },
+    "/orders/frequent-products": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Список frequent products",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/orders/{id}": {
       "get": {
         "tags": [
@@ -696,6 +6520,32 @@
             "description": "Замовлення не знайдено"
           }
         }
+      }
+    },
+    "/orders/{id}/invoice": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Створити invoice",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
       }
     },
     "/orders/{id}/pay": {
@@ -762,6 +6612,589 @@
         }
       }
     },
+    "/orders/{id}/qr": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Отримати qr",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/orders/{id}/reorder": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Створити reorder",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/orders/{id}/status": {
+      "put": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Оновити status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/pages": {
+      "get": {
+        "tags": [
+          "Pages"
+        ],
+        "summary": "Список pages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/pages/{slug}": {
+      "get": {
+        "tags": [
+          "Pages"
+        ],
+        "summary": "Отримати pages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/ping": {
+      "get": {
+        "tags": [
+          "Ping"
+        ],
+        "summary": "Список ping",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/pricelist": {
+      "get": {
+        "tags": [
+          "Pricelist"
+        ],
+        "summary": "Список pricelist",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Список товарів",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "categoryId",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "price",
+                "newest"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список товарів з пагінацією"
+          }
+        }
+      }
+    },
+    "/products/by-ids": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Список by ids",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/products/instant-search": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Список instant search",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/products/new": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Список new",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/products/popular": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Список popular",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/products/promo": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Список promo",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/products/search": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Список search",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/products/{slug}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Товар за slug",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Деталі товару"
+          },
+          "404": {
+            "description": "Товар не знайдено"
+          }
+        }
+      }
+    },
+    "/products/{slug}/price-history": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Отримати price history",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/products/{slug}/recommendations": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Отримати recommendations",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/products/{slug}/reviews": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Отримати reviews",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Створити reviews",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/publications": {
+      "get": {
+        "tags": [
+          "Publications"
+        ],
+        "summary": "Список publications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/push/subscribe": {
+      "get": {
+        "tags": [
+          "Push"
+        ],
+        "summary": "Список subscribe",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Push"
+        ],
+        "summary": "Створити subscribe",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/push/unsubscribe": {
+      "post": {
+        "tags": [
+          "Push"
+        ],
+        "summary": "Створити unsubscribe",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/quick-order": {
+      "post": {
+        "tags": [
+          "Quick Order"
+        ],
+        "summary": "Створити quick order",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/reviews/{id}/helpful": {
+      "post": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Створити helpful",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/subscribe": {
+      "get": {
+        "tags": [
+          "Subscribe"
+        ],
+        "summary": "Список subscribe",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Subscribe"
+        ],
+        "summary": "Створити subscribe",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/theme": {
+      "get": {
+        "tags": [
+          "Theme"
+        ],
+        "summary": "Список theme",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/webhooks/liqpay": {
       "post": {
         "tags": [
@@ -788,708 +7221,18 @@
         }
       }
     },
-    "/me": {
+    "/wholesale-rules": {
       "get": {
         "tags": [
-          "Profile"
+          "Wholesale Rules"
         ],
-        "summary": "Профіль поточного користувача",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Дані профілю"
-          }
-        }
-      }
-    },
-    "/me/referral": {
-      "get": {
-        "tags": [
-          "Profile",
-          "Referrals"
-        ],
-        "summary": "Реферальна інформація",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Реферальний код, посилання, статистика"
-          }
-        }
-      }
-    },
-    "/me/loyalty": {
-      "get": {
-        "tags": [
-          "Profile",
-          "Loyalty"
-        ],
-        "summary": "Лояльність — дашборд",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Баланс балів, рівень, транзакції"
-          }
-        }
-      }
-    },
-    "/me/loyalty/transactions": {
-      "get": {
-        "tags": [
-          "Profile",
-          "Loyalty"
-        ],
-        "summary": "Історія транзакцій лояльності",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Пагінований список транзакцій"
-          }
-        }
-      }
-    },
-    "/delivery/tracking": {
-      "get": {
-        "tags": [
-          "Delivery"
-        ],
-        "summary": "Трекінг посилки",
-        "parameters": [
-          {
-            "name": "trackingNumber",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "provider",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "nova_poshta",
-                "ukrposhta"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Статус посилки"
-          }
-        }
-      }
-    },
-    "/delivery/pallet/calculate": {
-      "post": {
-        "tags": [
-          "Delivery"
-        ],
-        "summary": "Розрахунок вартості палетної доставки",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-                "properties": {
-                  "weightKg": {
-                    "type": "number",
-                    "minimum": 1
-                  },
-                  "region": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "weightKg"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Вартість доставки"
-          }
-        }
-      }
-    },
-    "/metrics": {
-      "post": {
-        "tags": [
-          "Metrics"
-        ],
-        "summary": "Відправити Web Vitals метрики",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "value": {
-                    "type": "number"
-                  },
-                  "route": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
+        "summary": "Список wholesale rules",
         "responses": {
           "200": {
             "description": "OK"
-          }
-        }
-      }
-    },
-    "/admin/orders": {
-      "get": {
-        "tags": [
-          "Admin"
-        ],
-        "summary": "Список всіх замовлень",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
           },
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "dateFrom",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "dateTo",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Пагінований список замовлень"
-          }
-        }
-      }
-    },
-    "/admin/orders/{id}/status": {
-      "put": {
-        "tags": [
-          "Admin"
-        ],
-        "summary": "Оновити статус замовлення",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "new_order",
-                      "processing",
-                      "confirmed",
-                      "paid",
-                      "shipped",
-                      "completed",
-                      "cancelled",
-                      "returned"
-                    ]
-                  },
-                  "comment": {
-                    "type": "string",
-                    "maxLength": 500
-                  }
-                },
-                "required": [
-                  "status"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Статус оновлено"
-          }
-        }
-      }
-    },
-    "/admin/analytics": {
-      "get": {
-        "tags": [
-          "Admin",
-          "Analytics"
-        ],
-        "summary": "Аналітика",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "type",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "sales",
-                "products",
-                "clients",
-                "orders"
-              ]
-            }
-          },
-          {
-            "name": "days",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 30
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Дані аналітики залежно від типу"
-          }
-        }
-      }
-    },
-    "/admin/analytics/performance": {
-      "get": {
-        "tags": [
-          "Admin",
-          "Analytics"
-        ],
-        "summary": "Performance метрики",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Web Vitals агреговані дані"
-          }
-        }
-      }
-    },
-    "/admin/analytics/funnel": {
-      "get": {
-        "tags": [
-          "Admin",
-          "Analytics"
-        ],
-        "summary": "Воронка конверсії",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Дані воронки"
-          }
-        }
-      }
-    },
-    "/admin/analytics/cohorts": {
-      "get": {
-        "tags": [
-          "Admin",
-          "Analytics"
-        ],
-        "summary": "Когортний аналіз",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Retention когорт"
-          }
-        }
-      }
-    },
-    "/admin/analytics/abc": {
-      "get": {
-        "tags": [
-          "Admin",
-          "Analytics"
-        ],
-        "summary": "ABC-аналіз товарів",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Класифікація товарів"
-          }
-        }
-      }
-    },
-    "/admin/personal-prices": {
-      "get": {
-        "tags": [
-          "Admin"
-        ],
-        "summary": "Список персональних цін",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Пагінований список"
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Admin"
-        ],
-        "summary": "Створити персональну ціну",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Створено"
-          }
-        }
-      }
-    },
-    "/admin/referrals": {
-      "get": {
-        "tags": [
-          "Admin",
-          "Referrals"
-        ],
-        "summary": "Список рефералів",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Пагінований список"
-          }
-        }
-      }
-    },
-    "/admin/loyalty/settings": {
-      "get": {
-        "tags": [
-          "Admin",
-          "Loyalty"
-        ],
-        "summary": "Налаштування рівнів лояльності",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Список рівнів"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Admin",
-          "Loyalty"
-        ],
-        "summary": "Оновити рівні лояльності",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Оновлено"
-          }
-        }
-      }
-    },
-    "/admin/loyalty/adjust": {
-      "post": {
-        "tags": [
-          "Admin",
-          "Loyalty"
-        ],
-        "summary": "Ручне нарахування/списання балів",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-                "properties": {
-                  "userId": {
-                    "type": "integer",
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "manual_add",
-                      "manual_deduct"
-                    ]
-                  },
-                  "points": {
-                    "type": "integer",
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991
-                  },
-                  "description": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 500
-                  }
-                },
-                "required": [
-                  "userId",
-                  "type",
-                  "points",
-                  "description"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Баланс оновлено"
-          }
-        }
-      }
-    },
-    "/admin/settings": {
-      "get": {
-        "tags": [
-          "Admin"
-        ],
-        "summary": "Налаштування сайту",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Key-value налаштувань"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Admin"
-        ],
-        "summary": "Оновити налаштування",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Оновлено"
-          }
-        }
-      }
-    },
-    "/admin/settings/pallet-delivery": {
-      "get": {
-        "tags": [
-          "Admin",
-          "Delivery"
-        ],
-        "summary": "Конфіг палетної доставки",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Конфіг"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Admin",
-          "Delivery"
-        ],
-        "summary": "Оновити конфіг палетної доставки",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-                "properties": {
-                  "enabled": {
-                    "default": true,
-                    "type": "boolean"
-                  },
-                  "minWeightKg": {
-                    "default": 100,
-                    "type": "number",
-                    "minimum": 0
-                  },
-                  "maxWeightKg": {
-                    "default": 5000,
-                    "type": "number",
-                    "minimum": 0
-                  },
-                  "basePrice": {
-                    "default": 1500,
-                    "type": "number",
-                    "minimum": 0
-                  },
-                  "pricePerKg": {
-                    "default": 3,
-                    "type": "number",
-                    "minimum": 0
-                  },
-                  "regions": {
-                    "default": [],
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "name": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "multiplier": {
-                          "default": 1,
-                          "type": "number",
-                          "minimum": 0.1,
-                          "maximum": 10
-                        }
-                      },
-                      "required": [
-                        "name"
-                      ]
-                    }
-                  },
-                  "freeDeliveryThreshold": {
-                    "default": 0,
-                    "type": "number",
-                    "minimum": 0
-                  },
-                  "estimatedDays": {
-                    "default": "3-5",
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Оновлено"
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
@@ -1547,6 +7290,266 @@
     {
       "name": "Admin",
       "description": "Адміністрування"
+    },
+    {
+      "name": "Admin Analytics",
+      "description": "Admin Analytics"
+    },
+    {
+      "name": "Admin Audit Log",
+      "description": "Admin Audit Log"
+    },
+    {
+      "name": "Admin Badges",
+      "description": "Admin Badges"
+    },
+    {
+      "name": "Admin Banners",
+      "description": "Admin Banners"
+    },
+    {
+      "name": "Admin Bot Replies",
+      "description": "Admin Bot Replies"
+    },
+    {
+      "name": "Admin Bot Settings",
+      "description": "Admin Bot Settings"
+    },
+    {
+      "name": "Admin Bot Welcome",
+      "description": "Admin Bot Welcome"
+    },
+    {
+      "name": "Admin Catalog Pdf",
+      "description": "Admin Catalog Pdf"
+    },
+    {
+      "name": "Admin Categories",
+      "description": "Admin Categories"
+    },
+    {
+      "name": "Admin Channel Settings",
+      "description": "Admin Channel Settings"
+    },
+    {
+      "name": "Admin Channels",
+      "description": "Admin Channels"
+    },
+    {
+      "name": "Admin Commercial Offer",
+      "description": "Admin Commercial Offer"
+    },
+    {
+      "name": "Admin Coupons",
+      "description": "Admin Coupons"
+    },
+    {
+      "name": "Admin Dashboard",
+      "description": "Admin Dashboard"
+    },
+    {
+      "name": "Admin Delivery Settings",
+      "description": "Admin Delivery Settings"
+    },
+    {
+      "name": "Admin Docs",
+      "description": "Admin Docs"
+    },
+    {
+      "name": "Admin Email Templates",
+      "description": "Admin Email Templates"
+    },
+    {
+      "name": "Admin Export",
+      "description": "Admin Export"
+    },
+    {
+      "name": "Admin Faq",
+      "description": "Admin Faq"
+    },
+    {
+      "name": "Admin Feedback",
+      "description": "Admin Feedback"
+    },
+    {
+      "name": "Admin Homepage Blocks",
+      "description": "Admin Homepage Blocks"
+    },
+    {
+      "name": "Admin Import",
+      "description": "Admin Import"
+    },
+    {
+      "name": "Admin Jobs",
+      "description": "Admin Jobs"
+    },
+    {
+      "name": "Admin Maintenance",
+      "description": "Admin Maintenance"
+    },
+    {
+      "name": "Admin Marketplaces",
+      "description": "Admin Marketplaces"
+    },
+    {
+      "name": "Admin Moderation",
+      "description": "Admin Moderation"
+    },
+    {
+      "name": "Admin Notifications",
+      "description": "Admin Notifications"
+    },
+    {
+      "name": "Admin Orders",
+      "description": "Admin Orders"
+    },
+    {
+      "name": "Admin Pages",
+      "description": "Admin Pages"
+    },
+    {
+      "name": "Admin Payment Settings",
+      "description": "Admin Payment Settings"
+    },
+    {
+      "name": "Admin Personal Prices",
+      "description": "Admin Personal Prices"
+    },
+    {
+      "name": "Admin Products",
+      "description": "Admin Products"
+    },
+    {
+      "name": "Admin Publications",
+      "description": "Admin Publications"
+    },
+    {
+      "name": "Admin Referrals",
+      "description": "Admin Referrals"
+    },
+    {
+      "name": "Admin Reports",
+      "description": "Admin Reports"
+    },
+    {
+      "name": "Admin Returns",
+      "description": "Admin Returns"
+    },
+    {
+      "name": "Admin Revalidate",
+      "description": "Admin Revalidate"
+    },
+    {
+      "name": "Admin Reviews",
+      "description": "Admin Reviews"
+    },
+    {
+      "name": "Admin Seo",
+      "description": "Admin Seo"
+    },
+    {
+      "name": "Admin Seo Templates",
+      "description": "Admin Seo Templates"
+    },
+    {
+      "name": "Admin Smtp Settings",
+      "description": "Admin Smtp Settings"
+    },
+    {
+      "name": "Admin Themes",
+      "description": "Admin Themes"
+    },
+    {
+      "name": "Admin Ukrposhta",
+      "description": "Admin Ukrposhta"
+    },
+    {
+      "name": "Admin Upload",
+      "description": "Admin Upload"
+    },
+    {
+      "name": "Admin Users",
+      "description": "Admin Users"
+    },
+    {
+      "name": "Admin Webhook Logs",
+      "description": "Admin Webhook Logs"
+    },
+    {
+      "name": "Admin Wholesale Rules",
+      "description": "Admin Wholesale Rules"
+    },
+    {
+      "name": "Banners",
+      "description": "Banners"
+    },
+    {
+      "name": "Callback Request",
+      "description": "Callback Request"
+    },
+    {
+      "name": "Categories",
+      "description": "Categories"
+    },
+    {
+      "name": "Cookie Consent",
+      "description": "Cookie Consent"
+    },
+    {
+      "name": "Coupons",
+      "description": "Coupons"
+    },
+    {
+      "name": "Faq",
+      "description": "Faq"
+    },
+    {
+      "name": "Feedback",
+      "description": "Feedback"
+    },
+    {
+      "name": "Health",
+      "description": "Health"
+    },
+    {
+      "name": "Pages",
+      "description": "Pages"
+    },
+    {
+      "name": "Ping",
+      "description": "Ping"
+    },
+    {
+      "name": "Pricelist",
+      "description": "Pricelist"
+    },
+    {
+      "name": "Publications",
+      "description": "Publications"
+    },
+    {
+      "name": "Push",
+      "description": "Push"
+    },
+    {
+      "name": "Quick Order",
+      "description": "Quick Order"
+    },
+    {
+      "name": "Reviews",
+      "description": "Reviews"
+    },
+    {
+      "name": "Subscribe",
+      "description": "Subscribe"
+    },
+    {
+      "name": "Theme",
+      "description": "Theme"
+    },
+    {
+      "name": "Wholesale Rules",
+      "description": "Wholesale Rules"
     }
   ]
 }
