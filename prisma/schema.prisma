@@ -134,6 +134,7 @@ model LoginHistory {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId, createdAt(sort: Desc)])
+  @@index([createdAt])
   @@map("login_history")
 }
 
@@ -151,6 +152,7 @@ model Category {
   seoDescription String?    @map("seo_description")
   sortOrder      Int        @default(0) @map("sort_order")
   isVisible      Boolean    @default(true) @map("is_visible")
+  deletedAt      DateTime?  @map("deleted_at")
   parentId       Int?       @map("parent_id")
   parent         Category?  @relation("CategoryTree", fields: [parentId], references: [id])
   children       Category[] @relation("CategoryTree")
@@ -187,6 +189,7 @@ model Product {
   promoStartDate    DateTime? @map("promo_start_date")
   promoEndDate      DateTime? @map("promo_end_date")
   isActive          Boolean   @default(true) @map("is_active")
+  deletedAt         DateTime? @map("deleted_at")
   imagePath         String?   @map("image_path")
   sortOrder         Int       @default(0) @map("sort_order")
   viewsCount        Int       @default(0) @map("views_count")
@@ -1489,6 +1492,7 @@ model WebhookLog {
   durationMs  Int?     @map("duration_ms")
 
   @@index([source, processedAt(sort: Desc)])
+  @@index([processedAt])
   @@map("webhook_logs")
 }
 

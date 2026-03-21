@@ -687,10 +687,10 @@ export async function deleteProduct(id: number) {
     throw new ProductError('Товар не знайдено', 404);
   }
 
-  // Soft delete - deactivate
+  // Soft delete - deactivate and mark deletion timestamp
   await prisma.product.update({
     where: { id },
-    data: { isActive: false },
+    data: { isActive: false, deletedAt: new Date() },
   });
   await cacheInvalidate('products:*');
 }

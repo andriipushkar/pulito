@@ -1,5 +1,41 @@
 import { getChannelConfig, type MarketplaceConfig } from '@/services/channel-config';
 
+// ── Exponential Backoff for rate-limited APIs ──
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  { maxRetries = 3, baseDelayMs = 1000 }: { maxRetries?: number; baseDelayMs?: number } = {}
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      // Only retry on rate limits (429) or server errors (5xx)
+      const isRetryable =
+        err instanceof Error &&
+        (err.message.includes('429') || err.message.includes('5'));
+      if (!isRetryable || attempt === maxRetries) break;
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Wraps a fetch call with rate-limit awareness.
+ * Throws on 429/5xx so withRetry can catch and back off.
+ */
+async function fetchWithRateLimit(url: string, init: RequestInit): Promise<Response> {
+  const res = await fetch(url, init);
+  if (res.status === 429 || res.status >= 500) {
+    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  }
+  return res;
+}
+
 export interface MarketplaceListingData {
   title: string;
   description: string;
@@ -227,7 +263,7 @@ export async function updateMarketplaceListing(
       if (data.description) body.description = data.description.slice(0, 9000);
       if (data.price) body.params = [{ key: 'price', value: { amount: Math.round(data.price * 100), currency: 'UAH' } }];
       if (data.images?.length) body.images = data.images.slice(0, 8).map((url) => ({ url: url.startsWith('http') ? url : `${appUrl}${url}` }));
-      const res = await fetch(`https://www.olx.ua/api/partner/adverts/${externalId}`, {
+      const res = await fetchWithRateLimit(`https://www.olx.ua/api/partner/adverts/${externalId}`, {
         method: 'PUT', headers: { Authorization: `Bearer ${config.accessToken}`, 'Content-Type': 'application/json', Version: '2.0' },
         body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
       });
@@ -241,7 +277,7 @@ export async function updateMarketplaceListing(
       if (data.description) body.description = data.description;
       if (data.price) body.price = data.price;
       if (data.quantity !== undefined) body.quantity = data.quantity;
-      const res = await fetch(`https://api-seller.rozetka.com.ua/items/${externalId}`, {
+      const res = await fetchWithRateLimit(`https://api-seller.rozetka.com.ua/items/${externalId}`, {
         method: 'PUT', headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
       });
@@ -255,7 +291,7 @@ export async function updateMarketplaceListing(
       if (data.description) body.description = data.description;
       if (data.price) body.price = data.price;
       if (data.quantity !== undefined) body.quantity = data.quantity;
-      const res = await fetch('https://my.prom.ua/api/v1/products/edit', {
+      const res = await fetchWithRateLimit('https://my.prom.ua/api/v1/products/edit', {
         method: 'POST', headers: { Authorization: `Bearer ${config.apiToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
       });
@@ -269,7 +305,7 @@ export async function updateMarketplaceListing(
       if (data.description) body.description = data.description;
       if (data.price) body.price = data.price;
       if (data.quantity !== undefined) body.stock = data.quantity;
-      const res = await fetch(`https://marketplace.epicentrk.ua/api/v1/products/${externalId}`, {
+      const res = await fetchWithRateLimit(`https://marketplace.epicentrk.ua/api/v1/products/${externalId}`, {
         method: 'PUT', headers: { 'X-Api-Key': String(config.apiKey), 'Content-Type': 'application/json' },
         body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
       });
@@ -418,12 +454,19 @@ export async function syncMarketplacePrices(
   let failed = 0;
 
   for (const listing of listings) {
-    const result = await updateMarketplaceListing(channel, listing.externalId, {
-      price: listing.price,
-      quantity: listing.quantity,
-    }, appUrl);
-    if (result.status === 'published') updated++;
-    else failed++;
+    try {
+      const result = await withRetry(
+        () => updateMarketplaceListing(channel, listing.externalId, {
+          price: listing.price,
+          quantity: listing.quantity,
+        }, appUrl),
+        { maxRetries: 3, baseDelayMs: 1000 }
+      );
+      if (result.status === 'published') updated++;
+      else failed++;
+    } catch {
+      failed++;
+    }
   }
 
   return { updated, failed };

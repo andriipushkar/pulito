@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { createSlug } from '@/utils/slug';
 import { cacheInvalidate } from '@/services/cache';
@@ -584,9 +585,11 @@ export async function importProducts(
       },
     });
 
-    // Invalidate product & category cache after import
+    // Invalidate Redis cache + Next.js page cache after import
     await cacheInvalidate('products:*');
     await cacheInvalidate('categories:*');
+    revalidatePath('/catalog', 'layout');
+    revalidatePath('/', 'layout');
 
     return {
       importLogId: importLog.id,

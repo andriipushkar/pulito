@@ -22,7 +22,9 @@ export async function getCategories(options?: {
   const cached = await cacheGet<CategoryListItem[]>(cacheKey);
   if (cached) return cached;
 
-  const where = options?.includeHidden ? {} : { isVisible: true };
+  const where = options?.includeHidden
+    ? { deletedAt: null }
+    : { isVisible: true, deletedAt: null };
 
   const result = await prisma.category.findMany({
     where,
@@ -218,7 +220,11 @@ export async function deleteCategory(id: number) {
     );
   }
 
-  await prisma.category.delete({ where: { id } });
+  // Soft delete — preserve for historical order references
+  await prisma.category.update({
+    where: { id },
+    data: { deletedAt: new Date(), isVisible: false },
+  });
   await cacheInvalidate('categories:*');
 }
 
