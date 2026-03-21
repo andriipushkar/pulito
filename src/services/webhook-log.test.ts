@@ -32,6 +32,29 @@ describe('logWebhook', () => {
     });
   });
 
+  it('masks PII fields (email, phone) in payload', async () => {
+    mockPrisma.webhookLog.create.mockResolvedValue({ id: 1 });
+    await logWebhook({
+      source: 'liqpay',
+      event: 'payment',
+      payload: {
+        order_id: '123',
+        email: 'user@example.com',
+        phone: '+380501234567',
+        sender_phone: '+380671112233',
+        customer_email: 'customer@test.com',
+        card_number: '4111111111111111',
+      },
+    });
+    const call = mockPrisma.webhookLog.create.mock.calls[0][0];
+    expect(call.data.payload.email).toBe('***masked***');
+    expect(call.data.payload.phone).toBe('****4567');
+    expect(call.data.payload.sender_phone).toBe('****2233');
+    expect(call.data.payload.customer_email).toBe('***masked***');
+    expect(call.data.payload.card_number).toBe('****1111');
+    expect(call.data.payload.order_id).toBe('123');
+  });
+
   it('handles DB error gracefully', async () => {
     mockPrisma.webhookLog.create.mockRejectedValue(new Error('DB error'));
     await logWebhook({ source: 'monobank', event: 'payment', statusCode: 500, error: 'fail' });

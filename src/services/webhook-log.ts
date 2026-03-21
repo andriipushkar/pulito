@@ -2,11 +2,23 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 // Fields that may contain sensitive data — mask before storing
+// Covers PCI DSS (card data), GDPR (PII), and auth credentials
 const SENSITIVE_KEYS = new Set([
+  // Card / PCI DSS
   'card_number', 'cardNumber', 'card_pan', 'cardPan', 'pan',
   'cvv', 'cvv2', 'cvc', 'expiry', 'exp_month', 'exp_year',
+  // Auth tokens & secrets
   'card_token', 'token', 'access_token', 'private_key', 'secret',
   'password', 'signature', 'merchantSignature',
+  // PII / GDPR
+  'email', 'phone', 'sender_phone', 'receiver_phone',
+  'sender_email', 'customer_email', 'customer_phone',
+]);
+
+// Keys where we show last 4 chars (card numbers, phones)
+const LAST4_KEYS = new Set([
+  'card_number', 'cardNumber', 'card_pan', 'cardPan', 'pan',
+  'phone', 'sender_phone', 'receiver_phone', 'customer_phone',
 ]);
 
 /**
@@ -21,8 +33,8 @@ function sanitizePayload(obj: unknown): unknown {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
     if (SENSITIVE_KEYS.has(key)) {
-      if (typeof value === 'string' && value.length > 4) {
-        // Show last 4 chars for card-like fields, mask the rest
+      if (typeof value === 'string' && value.length > 4 && LAST4_KEYS.has(key)) {
+        // Show last 4 chars for card/phone fields
         result[key] = '****' + value.slice(-4);
       } else {
         result[key] = '***masked***';

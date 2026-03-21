@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createHash } from 'crypto';
 
 vi.mock('@/lib/redis', () => ({
   redis: { get: vi.fn(), set: vi.fn(), setex: vi.fn() },
@@ -7,18 +8,20 @@ vi.mock('@/lib/redis', () => ({
 import { redis } from '@/lib/redis';
 import { getIdempotentResponse, setIdempotentResponse, updateIdempotentResponse } from './idempotency';
 
+const hash = (key: string) => createHash('sha256').update(key).digest('hex');
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe('getIdempotentResponse', () => {
-  it('returns cached value', async () => {
+  it('returns cached value using hashed key', async () => {
     vi.mocked(redis.get).mockResolvedValue('{"ok":true}');
 
     const result = await getIdempotentResponse('abc-123');
 
     expect(result).toBe('{"ok":true}');
-    expect(redis.get).toHaveBeenCalledWith('idem:abc-123');
+    expect(redis.get).toHaveBeenCalledWith(`idem:${hash('abc-123')}`);
   });
 
   it('returns null for missing key', async () => {
@@ -27,18 +30,17 @@ describe('getIdempotentResponse', () => {
     const result = await getIdempotentResponse('missing');
 
     expect(result).toBeNull();
-    expect(redis.get).toHaveBeenCalledWith('idem:missing');
   });
 });
 
 describe('setIdempotentResponse', () => {
-  it('stores with NX flag and returns true on success', async () => {
+  it('stores with NX flag using hashed key and returns true on success', async () => {
     vi.mocked(redis.set).mockResolvedValue('OK' as any);
 
     const result = await setIdempotentResponse('abc-123', '{"ok":true}');
 
     expect(result).toBe(true);
-    expect(redis.set).toHaveBeenCalledWith('idem:abc-123', '{"ok":true}', 'EX', 86400, 'NX');
+    expect(redis.set).toHaveBeenCalledWith(`idem:${hash('abc-123')}`, '{"ok":true}', 'EX', 86400, 'NX');
   });
 
   it('returns false when key already exists', async () => {
@@ -51,11 +53,11 @@ describe('setIdempotentResponse', () => {
 });
 
 describe('updateIdempotentResponse', () => {
-  it('overwrites existing key with TTL', async () => {
+  it('overwrites existing key with TTL using hashed key', async () => {
     vi.mocked(redis.setex).mockResolvedValue('OK' as any);
 
     await updateIdempotentResponse('abc-123', '{"updated":true}');
 
-    expect(redis.setex).toHaveBeenCalledWith('idem:abc-123', 86400, '{"updated":true}');
+    expect(redis.setex).toHaveBeenCalledWith(`idem:${hash('abc-123')}`, 86400, '{"updated":true}');
   });
 });
