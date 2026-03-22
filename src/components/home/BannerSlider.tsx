@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, useRef } from 'react';
+import useSWR from 'swr';
 import useEmblaCarousel from 'embla-carousel-react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from '@/components/icons';
@@ -83,39 +84,37 @@ const fallbackBanners: Banner[] = [
   },
 ];
 
+const bannerFetcher = (url: string) => {
+  const genericTitles = ['новий банер', 'new banner', 'тестовий банер', 'test banner'];
+  return fetch(url, { cache: 'no-store' })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      if (data?.data) {
+        if (data.data.length === 0) return [];
+        const meaningful = data.data.filter(
+          (b: Banner) =>
+            b.imageDesktop ||
+            (b.title && !genericTitles.includes(b.title.trim().toLowerCase()))
+        );
+        return meaningful.length ? meaningful : [];
+      }
+      return null;
+    });
+};
+
 export default function BannerSlider() {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [banners, setBanners] = useState<Banner[] | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  useEffect(() => {
-    const genericTitles = ['новий банер', 'new banner', 'тестовий банер', 'test banner'];
-    fetch('/api/v1/banners', { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.data) {
-          if (data.data.length === 0) {
-            setBanners([]);
-          } else {
-            const meaningful = data.data.filter(
-              (b: Banner) =>
-                b.imageDesktop ||
-                (b.title && !genericTitles.includes(b.title.trim().toLowerCase()))
-            );
-            setBanners(meaningful.length ? meaningful : []);
-          }
-        } else {
-          // API failed — show fallback
-          setBanners(fallbackBanners);
-        }
-      })
-      .catch(() => {
-        setBanners(fallbackBanners);
-      });
-  }, []);
+  const { data: fetchedBanners } = useSWR<Banner[] | null>('/api/v1/banners', bannerFetcher, {
+    fallbackData: null,
+    onError: () => { /* handled via fallback below */ },
+  });
+
+  const banners = fetchedBanners ?? fallbackBanners;
 
   const scrollPrev = useCallback(() => {
     emblaApi?.scrollPrev();

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import useSWR from 'swr';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Heart, Cart, User } from '@/components/icons';
@@ -27,32 +28,28 @@ const IconGrid = () => (
   </svg>
 );
 
+const notificationFetcher = async (url: string) => {
+  const res = await apiClient.get<{ count: number }>(url);
+  if (res.success && res.data) return res.data.count;
+  return 0;
+};
+
 export default function MobileBottomNav({ categories }: MobileBottomNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [visible, setVisible] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
   const pathname = usePathname();
   const { itemCount } = useCart();
   const { wishlistCount } = useWishlist();
   const { user } = useAuth();
   const lastScrollY = useRef(0);
 
+  const { data: unreadCount = 0 } = useSWR(
+    user ? '/api/v1/me/notifications/count' : null,
+    notificationFetcher,
+    { refreshInterval: 60000 },
+  );
+
   const isActive = (path: string) => pathname === path;
-
-  // Fetch notification count
-  const fetchNotificationCount = useCallback(async () => {
-    if (!user) return;
-    try {
-      const res = await apiClient.get<{ count: number }>('/api/v1/me/notifications/count');
-      if (res.success && res.data) setUnreadCount(res.data.count);
-    } catch { /* silently fail */ }
-  }, [user]);
-
-  useEffect(() => {
-    fetchNotificationCount();
-    const interval = setInterval(fetchNotificationCount, 60000);
-    return () => clearInterval(interval);
-  }, [fetchNotificationCount]);
 
   // Hide on scroll down, show on scroll up
   useEffect(() => {

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import useSWR from 'swr';
+import { fetcher } from '@/lib/swr';
 import ChallengeCard from './ChallengeCard';
 
 interface Challenge {
@@ -23,25 +24,8 @@ interface Streak {
 }
 
 export default function LoyaltyDashboard() {
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [streak, setStreak] = useState<Streak | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const { signal } = controller;
-
-    fetch('/api/v1/me/loyalty/challenges', { signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => { if (data?.data) setChallenges(data.data); })
-      .catch(() => {});
-
-    fetch('/api/v1/me/loyalty/streak', { signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => { if (data?.data) setStreak(data.data); })
-      .catch(() => {});
-
-    return () => controller.abort();
-  }, []);
+  const { data: challenges } = useSWR<Challenge[]>('/api/v1/me/loyalty/challenges', fetcher);
+  const { data: streak } = useSWR<Streak>('/api/v1/me/loyalty/streak', fetcher);
 
   return (
     <div className="space-y-6">
@@ -71,7 +55,7 @@ export default function LoyaltyDashboard() {
       )}
 
       {/* Challenges Section */}
-      {challenges.length > 0 && (
+      {challenges && challenges.length > 0 && (
         <div>
           <h3 className="mb-3 text-lg font-bold text-[var(--color-text)]">Активні челенджі</h3>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -82,7 +66,7 @@ export default function LoyaltyDashboard() {
         </div>
       )}
 
-      {challenges.length === 0 && !streak && (
+      {(!challenges || challenges.length === 0) && !streak && (
         <p className="text-center text-[var(--color-text-secondary)]">
           Наразі немає активних челенджів
         </p>
