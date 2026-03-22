@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 
 // ISR: revalidate catalog every 60 seconds
@@ -8,8 +9,11 @@ import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
 import EmptyState from '@/components/ui/EmptyState';
+import Skeleton from '@/components/ui/Skeleton';
 import ProductCard from '@/components/product/ProductCard';
+import ProductCardSkeleton from '@/components/product/ProductCardSkeleton';
 import CatalogClient from './CatalogClient';
+import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import { getProducts } from '@/services/product';
 import { getCategories, getCategoryBySlug } from '@/services/category';
 import { prisma } from '@/lib/prisma';
@@ -138,6 +142,10 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     }),
   } : null;
 
+  const breadcrumbJsonLdItems = breadcrumbs
+    .filter((b) => b.href)
+    .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }));
+
   return (
     <Container className="py-6">
       {collectionJsonLd && (
@@ -146,39 +154,58 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
         />
       )}
+      <BreadcrumbJsonLd items={breadcrumbJsonLdItems} />
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       <h1 className="mb-6 text-2xl font-bold">
         {categoryData?.name || (search ? `Результати пошуку: "${search}"` : 'Каталог товарів')}
       </h1>
 
-      <CatalogClient total={total} categories={categories}>
-        {products.length === 0 ? (
-          <EmptyState
-            icon={<Search size={48} />}
-            title="Товарів не знайдено"
-            description="Спробуйте змінити параметри фільтрації або пошуку"
-            actionLabel="Скинути фільтри"
-            actionHref="/catalog"
-          />
-        ) : (
-          <>
-            <div className="grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+      <Suspense fallback={
+        <div>
+          <Skeleton className="mb-4 h-10 w-full" />
+          <div className="mt-4 flex gap-6">
+            <div className="hidden w-64 shrink-0 lg:block">
+              <Skeleton className="h-[400px] w-full rounded-[var(--radius)]" />
             </div>
-
-            <Pagination
-              currentPage={page}
-              totalPages={totalPages}
-              baseUrl="/catalog"
-              searchParams={currentSearchParams}
-              className="mt-8"
+            <div className="min-w-0 flex-1">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <ProductCardSkeleton key={i} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      }>
+        <CatalogClient total={total} categories={categories}>
+          {products.length === 0 ? (
+            <EmptyState
+              icon={<Search size={48} />}
+              title="Товарів не знайдено"
+              description="Спробуйте змінити параметри фільтрації або пошуку"
+              actionLabel="Скинути фільтри"
+              actionHref="/catalog"
             />
-          </>
-        )}
-      </CatalogClient>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                {products.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                baseUrl="/catalog"
+                searchParams={currentSearchParams}
+                className="mt-8"
+              />
+            </>
+          )}
+        </CatalogClient>
+      </Suspense>
     </Container>
   );
 }

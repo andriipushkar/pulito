@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { notFound, redirect } from 'next/navigation';
 import Container from '@/components/ui/Container';
@@ -10,6 +11,11 @@ import ProductJsonLd from '@/components/product/ProductJsonLd';
 import ProductCarousel from '@/components/product/ProductCarousel';
 import RecentlyViewedTracker from '@/components/product/RecentlyViewedTracker';
 import FloatingBuyBar from '@/components/product/FloatingBuyBar';
+import ProductCarouselSkeleton from '@/components/ui/ProductCarouselSkeleton';
+import ReviewSectionSkeleton from '@/components/ui/ReviewSectionSkeleton';
+import Skeleton from '@/components/ui/Skeleton';
+import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
+import ReviewAggregateJsonLd from '@/components/seo/ReviewAggregateJsonLd';
 import { getProductBySlug, getProducts } from '@/services/product';
 import { getProductRatingStats } from '@/services/review';
 import { prisma } from '@/lib/prisma';
@@ -113,9 +119,23 @@ export default async function ProductPage({ params }: ProductPageProps) {
     { label: product.name },
   ];
 
+  const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+  const breadcrumbJsonLdItems = breadcrumbs
+    .filter((b) => b.href)
+    .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }));
+
   return (
     <Container className="py-6">
       <ProductJsonLd product={product} ratingStats={ratingStats} />
+      <BreadcrumbJsonLd items={breadcrumbJsonLdItems} />
+      {ratingStats && ratingStats.count > 0 && (
+        <ReviewAggregateJsonLd
+          productName={product.name}
+          productUrl={`${baseUrl}/product/${slug}`}
+          ratingValue={ratingStats.average}
+          reviewCount={ratingStats.count}
+        />
+      )}
       <RecentlyViewedTracker productId={product.id} />
 
       <Breadcrumbs items={breadcrumbs} className="mb-6" />
@@ -129,18 +149,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <ProductTabs content={product.content} />
       </div>
 
-      <ReviewSection productId={product.id} />
+      <Suspense fallback={<ReviewSectionSkeleton />}>
+        <ReviewSection productId={product.id} />
+      </Suspense>
 
-      <PriceHistoryChart productSlug={slug} />
+      <Suspense fallback={<Skeleton className="mt-10 h-[300px] w-full rounded-2xl" />}>
+        <PriceHistoryChart productSlug={slug} />
+      </Suspense>
 
-      <BoughtTogetherSection productId={product.id} />
+      <Suspense fallback={<ProductCarouselSkeleton />}>
+        <BoughtTogetherSection productId={product.id} />
+      </Suspense>
 
       {relatedProducts.length > 0 && (
-        <ProductCarousel
-          title="Схожі товари"
-          products={relatedProducts}
-          viewAllHref={product.category ? `/catalog?category=${product.category.slug}` : '/catalog'}
-        />
+        <Suspense fallback={<ProductCarouselSkeleton />}>
+          <ProductCarousel
+            title="Схожі товари"
+            products={relatedProducts}
+            viewAllHref={product.category ? `/catalog?category=${product.category.slug}` : '/catalog'}
+          />
+        </Suspense>
       )}
 
       <RecentlyViewedSection />

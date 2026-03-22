@@ -10,6 +10,7 @@ import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import BlogContent from '@/components/blog/BlogContent';
 import BlogJsonLd from '@/components/blog/BlogJsonLd';
 import RelatedPosts from '@/components/blog/RelatedPosts';
+import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import { getPostBySlug, getRelatedPosts } from '@/services/blog';
 
 const baseUrl = process.env.APP_URL || 'http://localhost:3000';
@@ -97,6 +98,11 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   return (
     <Container className="py-6">
+      <BreadcrumbJsonLd
+        items={breadcrumbs
+          .filter((b) => b.href)
+          .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }))}
+      />
       <BlogJsonLd
         title={post.seoTitle || post.title}
         description={post.seoDescription || post.excerpt || ''}

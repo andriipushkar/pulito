@@ -5,6 +5,7 @@ import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Badge from '@/components/ui/Badge';
 import BundlePriceSummary from '@/components/bundle/BundlePriceSummary';
+import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import AddBundleToCartButton from './AddBundleToCartButton';
 import { getBundleBySlug, calculateBundlePrice } from '@/services/bundle';
 
@@ -52,6 +53,11 @@ export default async function BundleDetailPage({ params }: BundleDetailPageProps
 
   return (
     <Container className="py-6">
+      <BreadcrumbJsonLd
+        items={breadcrumbs
+          .filter((b) => b.href)
+          .map((b) => ({ name: b.label, url: `${process.env.APP_URL || 'http://localhost:3000'}${b.href}` }))}
+      />
       <Breadcrumbs items={breadcrumbs} className="mb-6" />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_380px]">

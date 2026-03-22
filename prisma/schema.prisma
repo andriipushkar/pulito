@@ -1873,3 +1873,20 @@ model MarketplaceListing {
   @@index([productId])
   @@map("marketplace_listings")
 }
+
+// ─────────────────────────────────────
+// Feature Flags (фічефлаги)
+// ─────────────────────────────────────
+model FeatureFlag {
+  id             Int      @id @default(autoincrement())
+  key            String   @unique
+  description    String?
+  isEnabled      Boolean  @default(false) @map("is_enabled")
+  rolloutPercent Int      @default(100) @map("rollout_percent") // 0-100
+  targetRoles    String[] @default([]) @map("target_roles") // empty = all roles
+  targetUserIds  Int[]    @default([]) @map("target_user_ids")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("feature_flags")
+}

@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Container from '@/components/ui/Container';
 import AnimateOnScroll from '@/components/ui/AnimateOnScroll';
 import BannerSlider from '@/components/home/BannerSlider';
 import CategoryGrid from '@/components/home/CategoryGrid';
 import ProductCarousel from '@/components/product/ProductCarousel';
+import ProductCarouselSkeleton from '@/components/ui/ProductCarouselSkeleton';
+import Skeleton from '@/components/ui/Skeleton';
+import SearchActionJsonLd from '@/components/seo/SearchActionJsonLd';
 
 export const metadata: Metadata = {
   title: 'Головна',
@@ -56,30 +60,48 @@ export default async function HomePage() {
   const enabledBlocks = blocks.filter((b) => b.enabled);
 
   const blockComponents: Record<string, React.ReactNode> = {
-    banner_slider: <BannerSlider />,
-    categories: categories.length > 0 ? <CategoryGrid categories={categories} /> : null,
+    banner_slider: (
+      <Suspense fallback={<Skeleton className="aspect-[5/2] w-full rounded-3xl" />}>
+        <BannerSlider />
+      </Suspense>
+    ),
+    categories: categories.length > 0 ? (
+      <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-2xl" />}>
+        <CategoryGrid categories={categories} />
+      </Suspense>
+    ) : null,
     promo_products: promoProducts.length > 0 ? (
-      <ProductCarousel
-        title="Акційні товари"
-        products={promoProducts}
-        viewAllHref="/catalog?promo=true"
-      />
+      <Suspense fallback={<ProductCarouselSkeleton />}>
+        <ProductCarousel
+          title="Акційні товари"
+          products={promoProducts}
+          viewAllHref="/catalog?promo=true"
+        />
+      </Suspense>
     ) : null,
     new_products: newProducts.length > 0 ? (
-      <ProductCarousel
-        title="Новинки"
-        products={newProducts}
-        viewAllHref="/catalog?sort=newest"
-      />
+      <Suspense fallback={<ProductCarouselSkeleton />}>
+        <ProductCarousel
+          title="Новинки"
+          products={newProducts}
+          viewAllHref="/catalog?sort=newest"
+        />
+      </Suspense>
     ) : null,
     popular_products: popularProducts.length > 0 ? (
-      <ProductCarousel
-        title="Хіти продажів"
-        products={popularProducts}
-        viewAllHref="/catalog?sort=popular"
-      />
+      <Suspense fallback={<ProductCarouselSkeleton />}>
+        <ProductCarousel
+          title="Хіти продажів"
+          products={popularProducts}
+          viewAllHref="/catalog?sort=popular"
+        />
+      </Suspense>
     ) : null,
-    brands: <BrandLogos />,
+    brands: (
+      <Suspense fallback={<Skeleton className="h-[100px] w-full rounded-2xl" />}>
+        <BrandLogos />
+      </Suspense>
+    ),
     seo_text: (
       <section>
         <div className="rounded-2xl border border-[var(--color-border)]/40 bg-gradient-to-br from-[var(--color-primary-50)]/60 to-white p-5 sm:p-6 lg:p-8">
@@ -101,6 +123,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
+      <SearchActionJsonLd />
       <div className="space-y-6 sm:space-y-8 lg:space-y-8">
       {enabledBlocks
         .filter((block) => blockComponents[block.key] != null)

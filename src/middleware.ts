@@ -1,50 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkApiRateLimit } from '@/middleware/api-rate-limit';
+import { getRouteLimit } from '@/middleware/rate-limit-config';
 
 const MAINTENANCE_ALLOWED_PATHS = ['/maintenance', '/admin', '/api/v1/admin', '/api/v1/auth'];
 
 // Paths exempt from CSRF checks (webhooks receive external POST, cron uses Bearer auth, metrics uses sendBeacon)
 const CSRF_EXEMPT_PREFIXES = ['/api/webhooks/', '/api/v1/cron/', '/api/v1/metrics'];
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-
-// Global rate limiter (in-memory per instance) — first line of defense.
-// Edge Runtime cannot use ioredis, so this is intentionally in-memory.
-// For multi-instance: use Cloudflare Rate Limiting or nginx limit_req as primary.
-//
-// Per-endpoint Redis-based rate limiting (cluster-safe):
-// - /api/v1/auth/login: 5 req/15min (src/services/rate-limit.ts)
-// - /api/v1/callback-request: 3 req/15min (sensitive preset)
-// - /api/v1/subscribe: 3 req/15min (sensitive preset)
-// - Server Actions: checkout 5/min, cart 30/min, review 5/15min
-const GLOBAL_RATE_LIMIT = 120; // requests per window
-const GLOBAL_RATE_WINDOW = 60; // seconds
-
-// In-memory fallback for when Redis is unreachable
-const ipRequestCounts = new Map<string, { count: number; resetAt: number }>();
-
-// In-memory sliding window rate limiter.
-// Note: ioredis cannot run in Edge Runtime (Next.js middleware),
-// so we use in-memory rate limiting here. For multi-instance deployments,
-// move rate limiting to a Node.js API route or reverse proxy.
-function checkGlobalRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = ipRequestCounts.get(ip);
-
-  if (!entry || now >= entry.resetAt) {
-    ipRequestCounts.set(ip, { count: 1, resetAt: now + GLOBAL_RATE_WINDOW * 1000 });
-    return true;
-  }
-
-  entry.count++;
-
-  // Periodic cleanup
-  if (ipRequestCounts.size > 10000) {
-    for (const [k, v] of ipRequestCounts) {
-      if (now >= v.resetAt) ipRequestCounts.delete(k);
-    }
-  }
-
-  return entry.count <= GLOBAL_RATE_LIMIT;
-}
 
 /** Resolve the effective host, preferring X-Forwarded-Host for reverse-proxy setups. */
 function getEffectiveHost(request: NextRequest): string | null {
@@ -145,22 +107,31 @@ export default async function middleware(request: NextRequest) {
     }
   }
 
-  // Global rate limiting for API routes (Redis-based, safe for multi-instance)
+  // Per-route rate limiting for API routes (in-memory per instance).
+  // Edge Runtime cannot use ioredis, so this is intentionally in-memory.
+  // For multi-instance: use Cloudflare Rate Limiting or nginx limit_req as primary.
+  //
+  // Per-endpoint Redis-based rate limiting (cluster-safe) also applies in route handlers:
+  // - /api/v1/auth/login: 5 req/15min (src/services/rate-limit.ts)
+  // - /api/v1/callback-request: 3 req/15min (sensitive preset)
+  // - /api/v1/subscribe: 3 req/15min (sensitive preset)
+  // - Server Actions: checkout 5/min, cart 30/min, review 5/15min
   if (pathname.startsWith('/api')) {
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       request.headers.get('x-real-ip') ||
       'unknown';
 
-    const allowed = checkGlobalRateLimit(ip);
-    if (!allowed) {
+    const rateResult = await checkApiRateLimit(pathname, ip);
+    if (!rateResult.allowed) {
+      const routeLimit = getRouteLimit(pathname);
       return NextResponse.json(
         { success: false, error: 'Забагато запитів. Спробуйте пізніше.' },
         {
           status: 429,
           headers: {
-            'Retry-After': '60',
-            'X-RateLimit-Limit': String(GLOBAL_RATE_LIMIT),
+            'Retry-After': String(routeLimit.window),
+            'X-RateLimit-Limit': String(routeLimit.max),
             'X-RateLimit-Remaining': '0',
           },
         }
@@ -187,6 +158,10 @@ export default async function middleware(request: NextRequest) {
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  response.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
+  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  response.headers.set('X-DNS-Prefetch-Control', 'on');
+  response.headers.set('X-Download-Options', 'noopen');
 
   // CSP with per-request nonce — replaces unsafe-inline for scripts
   const nonce = crypto.randomUUID().replace(/-/g, '');

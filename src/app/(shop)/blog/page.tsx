@@ -8,6 +8,7 @@ import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
 import BlogCard from '@/components/blog/BlogCard';
+import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import { getPublishedPosts, getCategories } from '@/services/blog';
 
 const baseUrl = process.env.APP_URL || 'http://localhost:3000';
@@ -89,6 +90,11 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
         />
       )}
+      <BreadcrumbJsonLd
+        items={breadcrumbs
+          .filter((b) => b.href)
+          .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }))}
+      />
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       <h1 className="mb-6 text-2xl font-bold">Блог</h1>
