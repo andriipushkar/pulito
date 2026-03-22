@@ -7,7 +7,6 @@ const mockTransaction = vi.fn();
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: { findMany: (...args: unknown[]) => mockUserFindMany(...args) },
-    loyaltyTransaction: { findFirst: (...args: unknown[]) => mockLoyaltyTransactionFindFirst(...args) },
     loyaltyAccount: { update: vi.fn() },
     loyaltyTransaction: { findFirst: (...args: unknown[]) => mockLoyaltyTransactionFindFirst(...args), create: vi.fn() },
     $transaction: (...args: unknown[]) => mockTransaction(...args),
