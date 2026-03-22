@@ -112,6 +112,12 @@ model User {
   pushSubscriptions     PushSubscription[]
   reviews               Review[]
   loginHistory          LoginHistory[]
+  subscriptions         Subscription[]
+  loyaltyStreaks        LoyaltyStreak?
+  challengeProgress     LoyaltyChallengeProgress[]
+  birthday              DateTime?
+  creditLimit           Decimal?         @map("credit_limit") @db.Decimal(10, 2)
+  creditUsed            Decimal?         @default(0) @map("credit_used") @db.Decimal(10, 2)
 
   @@index([role])
   @@index([createdAt])
@@ -214,7 +220,11 @@ model Product {
   publications    Publication[]           @relation("PublicationProduct")
   wholesaleRules  WholesaleRule[]
   clientEvents    ClientEvent[]
-  reviews         Review[]
+  reviews              Review[]
+  subscriptionItems    SubscriptionItem[]
+  bundleItems          BundleItem[]
+  warehouseStock       WarehouseStock[]
+  marketplaceListings  MarketplaceListing[]
 
   @@index([categoryId])
   @@index([isActive, isPromo])
@@ -1601,4 +1611,265 @@ model ReturnRequest {
   @@index([userId])
   @@index([status])
   @@map("return_requests")
+}
+
+// ─────────────────────────────────────
+// Subscriptions (Subscribe & Save)
+// ─────────────────────────────────────
+enum SubscriptionFrequency {
+  weekly
+  biweekly
+  monthly
+  bimonthly
+}
+
+enum SubscriptionStatus {
+  active
+  paused
+  cancelled
+}
+
+model Subscription {
+  id              Int                   @id @default(autoincrement())
+  userId          Int                   @map("user_id")
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frequency       SubscriptionFrequency
+  status          SubscriptionStatus    @default(active)
+  nextDeliveryAt  DateTime              @map("next_delivery_at")
+  discountPercent Decimal               @default(5) @map("discount_percent") @db.Decimal(5, 2)
+  lastOrderId     Int?                  @map("last_order_id")
+  pausedAt        DateTime?             @map("paused_at")
+  cancelledAt     DateTime?             @map("cancelled_at")
+  deliveryMethod  String?               @map("delivery_method")
+  deliveryCity    String?               @map("delivery_city")
+  deliveryAddress String?               @map("delivery_address")
+  paymentMethod   String?               @map("payment_method")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  items SubscriptionItem[]
+
+  @@index([userId])
+  @@index([status, nextDeliveryAt])
+  @@map("subscriptions")
+}
+
+model SubscriptionItem {
+  id             Int          @id @default(autoincrement())
+  subscriptionId Int          @map("subscription_id")
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  productId      Int          @map("product_id")
+  product        Product      @relation(fields: [productId], references: [id])
+  quantity       Int
+
+  @@unique([subscriptionId, productId])
+  @@map("subscription_items")
+}
+
+// ─────────────────────────────────────
+// Bundles (Конструктор комплектів)
+// ─────────────────────────────────────
+enum BundleType {
+  curated
+  custom
+}
+
+model Bundle {
+  id              Int        @id @default(autoincrement())
+  name            String
+  slug            String     @unique
+  description     String?
+  bundleType      BundleType @default(curated) @map("bundle_type")
+  discountPercent Decimal    @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  fixedPrice      Decimal?   @map("fixed_price") @db.Decimal(10, 2)
+  imagePath       String?    @map("image_path")
+  isActive        Boolean    @default(true) @map("is_active")
+  sortOrder       Int        @default(0) @map("sort_order")
+  createdBy       Int?       @map("created_by")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  items BundleItem[]
+
+  @@map("bundles")
+}
+
+model BundleItem {
+  id        Int     @id @default(autoincrement())
+  bundleId  Int     @map("bundle_id")
+  bundle    Bundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId Int     @map("product_id")
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+  sortOrder Int     @default(0) @map("sort_order")
+
+  @@unique([bundleId, productId])
+  @@map("bundle_items")
+}
+
+// ─────────────────────────────────────
+// Blog (Блог з SEO)
+// ─────────────────────────────────────
+model BlogCategory {
+  id             Int        @id @default(autoincrement())
+  name           String
+  slug           String     @unique
+  description    String?
+  seoTitle       String?    @map("seo_title")
+  seoDescription String?    @map("seo_description")
+  sortOrder      Int        @default(0) @map("sort_order")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  posts BlogPost[]
+
+  @@map("blog_categories")
+}
+
+model BlogPost {
+  id             Int           @id @default(autoincrement())
+  title          String
+  slug           String        @unique
+  excerpt        String?       @db.VarChar(500)
+  content        String
+  coverImage     String?       @map("cover_image")
+  categoryId     Int?          @map("category_id")
+  category       BlogCategory? @relation(fields: [categoryId], references: [id])
+  tags           String[]      @default([])
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  isPublished    Boolean       @default(false) @map("is_published")
+  publishedAt    DateTime?     @map("published_at")
+  viewsCount     Int           @default(0) @map("views_count")
+  authorId       Int           @map("author_id")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@index([isPublished, publishedAt(sort: Desc)])
+  @@index([categoryId])
+  @@map("blog_posts")
+}
+
+// ─────────────────────────────────────
+// Loyalty Gamification
+// ─────────────────────────────────────
+model LoyaltyChallenge {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  type        String   // order_count, order_amount, review, referral, streak
+  target      Int
+  reward      Int      // bonus points
+  isActive    Boolean  @default(true) @map("is_active")
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  progress LoyaltyChallengeProgress[]
+
+  @@map("loyalty_challenges")
+}
+
+model LoyaltyChallengeProgress {
+  id           Int              @id @default(autoincrement())
+  userId       Int              @map("user_id")
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId  Int              @map("challenge_id")
+  challenge    LoyaltyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  currentValue Int              @default(0) @map("current_value")
+  completedAt  DateTime?        @map("completed_at")
+  rewardedAt   DateTime?        @map("rewarded_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  @@unique([userId, challengeId])
+  @@map("loyalty_challenge_progress")
+}
+
+model LoyaltyStreak {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @unique @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentStreak Int       @default(0) @map("current_streak")
+  longestStreak Int       @default(0) @map("longest_streak")
+  lastOrderDate DateTime? @map("last_order_date")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("loyalty_streaks")
+}
+
+// ─────────────────────────────────────
+// Multi-Warehouse (Мульти-склад)
+// ─────────────────────────────────────
+model Warehouse {
+  id        Int              @id @default(autoincrement())
+  name      String
+  code      String           @unique
+  city      String
+  address   String?
+  latitude  Decimal?         @db.Decimal(10, 7)
+  longitude Decimal?         @db.Decimal(10, 7)
+  isActive  Boolean          @default(true) @map("is_active")
+  isDefault Boolean          @default(false) @map("is_default")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  stock WarehouseStock[]
+
+  @@map("warehouses")
+}
+
+model WarehouseStock {
+  id          Int       @id @default(autoincrement())
+  warehouseId Int       @map("warehouse_id")
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  productId   Int       @map("product_id")
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity    Int       @default(0)
+  reserved    Int       @default(0)
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([warehouseId, productId])
+  @@index([productId])
+  @@map("warehouse_stock")
+}
+
+// ─────────────────────────────────────
+// Marketplace Integrations (Rozetka, Prom.ua)
+// ─────────────────────────────────────
+model MarketplaceConnection {
+  id         Int      @id @default(autoincrement())
+  platform   String   @unique // rozetka, prom
+  apiKey     String?  @map("api_key")
+  apiSecret  String?  @map("api_secret")
+  shopId     String?  @map("shop_id")
+  isActive   Boolean  @default(false) @map("is_active")
+  lastSyncAt DateTime? @map("last_sync_at")
+  config     Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  listings MarketplaceListing[]
+
+  @@map("marketplace_connections")
+}
+
+model MarketplaceListing {
+  id           Int                   @id @default(autoincrement())
+  connectionId Int                   @map("connection_id")
+  connection   MarketplaceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  productId    Int                   @map("product_id")
+  product      Product               @relation(fields: [productId], references: [id])
+  externalId   String?               @map("external_id")
+  status       String                @default("draft") // draft, active, paused, error
+  externalUrl  String?               @map("external_url")
+  lastError    String?               @map("last_error")
+  syncedAt     DateTime?             @map("synced_at")
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
+
+  @@unique([connectionId, productId])
+  @@index([productId])
+  @@map("marketplace_listings")
 }
