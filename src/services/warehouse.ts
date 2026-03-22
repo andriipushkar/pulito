@@ -181,3 +181,53 @@ export async function getTotalStock(productId: number): Promise<number> {
 
   return result._sum.quantity ?? 0;
 }
+
+/**
+ * Auto-route order to the best warehouse based on delivery city and stock availability.
+ * Returns the warehouse that can fulfill all items, preferring:
+ * 1. Warehouse in the same city as delivery
+ * 2. Default warehouse
+ * 3. Any warehouse with sufficient stock
+ */
+export async function routeOrderToWarehouse(
+  deliveryCity: string | null,
+  items: { productId: number; quantity: number }[]
+): Promise<{ warehouseId: number; warehouseName: string } | null> {
+  const warehouses = await prisma.warehouse.findMany({
+    where: { isActive: true },
+    include: {
+      stock: {
+        where: { productId: { in: items.map((i) => i.productId) } },
+      },
+    },
+    orderBy: [{ isDefault: 'desc' }],
+  });
+
+  if (warehouses.length === 0) return null;
+
+  // Score each warehouse
+  const scored = warehouses.map((wh) => {
+    const stockMap = new Map(wh.stock.map((s) => [s.productId, s.quantity - s.reserved]));
+
+    // Check if warehouse can fulfill all items
+    const canFulfill = items.every((item) => (stockMap.get(item.productId) || 0) >= item.quantity);
+
+    // City match bonus
+    const cityMatch = deliveryCity && wh.city.toLowerCase() === deliveryCity.toLowerCase();
+
+    return {
+      warehouseId: wh.id,
+      warehouseName: wh.name,
+      canFulfill,
+      score: (canFulfill ? 100 : 0) + (cityMatch ? 50 : 0) + (wh.isDefault ? 10 : 0),
+    };
+  });
+
+  // Sort by score descending
+  scored.sort((a, b) => b.score - a.score);
+
+  const best = scored[0];
+  if (!best || best.score === 0) return null;
+
+  return { warehouseId: best.warehouseId, warehouseName: best.warehouseName };
+}

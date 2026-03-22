@@ -27,15 +27,20 @@ export default function LoyaltyDashboard() {
   const [streak, setStreak] = useState<Streak | null>(null);
 
   useEffect(() => {
-    fetch('/api/v1/me/loyalty/challenges')
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    fetch('/api/v1/me/loyalty/challenges', { signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data?.data) setChallenges(data.data); })
       .catch(() => {});
 
-    fetch('/api/v1/me/loyalty/streak')
+    fetch('/api/v1/me/loyalty/streak', { signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data?.data) setStreak(data.data); })
       .catch(() => {});
+
+    return () => controller.abort();
   }, []);
 
   return (

@@ -181,53 +181,54 @@ export async function importOrdersFromMarketplace(
     try {
       const externalOrderId = String(order.id);
 
-      // Check if order already imported
-      const existing = await prisma.order.findFirst({
-        where: { externalId: externalOrderId, source: platform },
-      });
+      // Atomic check-and-import to prevent duplicate orders from concurrent syncs
+      const result = await prisma.$transaction(async (tx) => {
+        const existing = await tx.order.findFirst({
+          where: { externalId: externalOrderId, source: platform },
+        });
 
-      if (existing) {
-        skipped++;
-        continue;
-      }
+        if (existing) return 'skipped' as const;
 
-      // Map order data to local format
-      const orderItems = 'items' in order
-        ? (order.items as { name: string; quantity: number; price: number | string }[])
-        : (order as { products?: { name: string; quantity: number; price: number | string }[] }).products || [];
+        const orderItems = 'items' in order
+          ? (order.items as { name: string; quantity: number; price: number | string }[])
+          : (order as { products?: { name: string; quantity: number; price: number | string }[] }).products || [];
 
-      const totalAmount = orderItems.reduce(
-        (sum, item) => sum + Number(item.price) * item.quantity,
-        0
-      );
+        const totalAmount = orderItems.reduce(
+          (sum, item) => sum + Number(item.price) * item.quantity,
+          0
+        );
 
-      const buyerName = 'buyer' in order
-        ? (order.buyer as { name: string }).name
-        : `${(order as { client_first_name?: string }).client_first_name || ''} ${(order as { client_last_name?: string }).client_last_name || ''}`.trim();
+        const buyerName = 'buyer' in order
+          ? (order.buyer as { name: string }).name
+          : `${(order as { client_first_name?: string }).client_first_name || ''} ${(order as { client_last_name?: string }).client_last_name || ''}`.trim();
 
-      const buyerPhone = 'buyer' in order
-        ? (order.buyer as { phone: string }).phone
-        : (order as { phone?: string }).phone || '';
+        const buyerPhone = 'buyer' in order
+          ? (order.buyer as { phone: string }).phone
+          : (order as { phone?: string }).phone || '';
 
-      await prisma.order.create({
-        data: {
-          externalId: externalOrderId,
-          source: platform,
-          status: 'new',
-          totalAmount,
-          customerName: buyerName || 'Покупець',
-          customerPhone: buyerPhone,
-          items: {
-            create: orderItems.map((item) => ({
-              productName: item.name,
-              quantity: item.quantity,
-              price: Number(item.price),
-            })),
+        await tx.order.create({
+          data: {
+            externalId: externalOrderId,
+            source: platform,
+            status: 'new',
+            totalAmount,
+            customerName: buyerName || 'Покупець',
+            customerPhone: buyerPhone,
+            items: {
+              create: orderItems.map((item) => ({
+                productName: item.name,
+                quantity: item.quantity,
+                price: Number(item.price),
+              })),
+            },
           },
-        },
+        });
+
+        return 'imported' as const;
       });
 
-      imported++;
+      if (result === 'skipped') skipped++;
+      else imported++;
     } catch (error) {
       console.error(`[MarketplaceSync] Помилка імпорту замовлення ${order.id} з ${platform}:`, error);
       failed++;

@@ -68,10 +68,11 @@ export async function processSubscriptionOrders() {
         continue;
       }
 
-      // Calculate discount
-      const discountPercent = Number(subscription.discountPercent);
+      // Calculate discount (use integer math to avoid Decimal precision loss)
+      const discountPercent = Number(subscription.discountPercent || 0);
       const itemsTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const discountAmount = Math.round(itemsTotal * discountPercent) / 100;
+      const discountAmount = Math.round(itemsTotal * discountPercent * 100) / 10000;
+      const roundedDiscount = Math.round(discountAmount * 100) / 100;
 
       const checkout = {
         contactName: subscription.user.fullName,
@@ -86,12 +87,12 @@ export async function processSubscriptionOrders() {
       const order = await createOrder(subscription.userId, checkout, cartItems, 'retail');
 
       // Apply subscription discount
-      if (discountAmount > 0) {
+      if (roundedDiscount > 0) {
         await prisma.order.update({
           where: { id: order.id },
           data: {
-            discountAmount,
-            totalAmount: Math.max(0, itemsTotal - discountAmount),
+            discountAmount: roundedDiscount,
+            totalAmount: Math.max(0, Math.round((itemsTotal - roundedDiscount) * 100) / 100),
           },
         });
       }

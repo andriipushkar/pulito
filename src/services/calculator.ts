@@ -1,5 +1,32 @@
 import { prisma } from '@/lib/prisma';
 
+/**
+ * Category slugs for calculator recommendations.
+ * These are loaded from settings if available, falling back to defaults.
+ * Admin can override via settings key 'calculator_categories'.
+ */
+async function getCategoryMappings(): Promise<Record<string, string>> {
+  try {
+    const setting = await prisma.setting.findUnique({
+      where: { key: 'calculator_categories' },
+    });
+    if (setting?.value) {
+      return JSON.parse(setting.value);
+    }
+  } catch {
+    // fall through to defaults
+  }
+  return DEFAULT_CATEGORY_SLUGS;
+}
+
+const DEFAULT_CATEGORY_SLUGS: Record<string, string> = {
+  detergent: 'pralni-poroshky',
+  conditioner: 'kondytsionery',
+  dishes: 'mytya-posudu',
+  cleaning: 'prybyrannya',
+  bathroom: 'vannaya-tualet',
+};
+
 interface CalculatorInput {
   familySize: number;   // 1-8
   washLoadsPerWeek: number; // 1-14
@@ -52,10 +79,14 @@ const CATEGORY_USAGE: Record<string, (input: CalculatorInput) => number> = {
 export async function calculateNeeds(input: CalculatorInput): Promise<CalculatorResult> {
   const { familySize, washLoadsPerWeek, cleaningFrequency } = input;
 
+  // Load configurable category mappings
+  const categoryMap = await getCategoryMappings();
+  const slugsToSearch = Object.values(categoryMap);
+
   // Get one representative product per relevant category
   const categories = await prisma.category.findMany({
     where: {
-      slug: { in: Object.keys(CATEGORY_USAGE) },
+      slug: { in: slugsToSearch },
       deletedAt: null,
     },
     select: { id: true, name: true, slug: true },
