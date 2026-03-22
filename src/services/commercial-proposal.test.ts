@@ -1,30 +1,41 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockEnd = vi.fn();
-const mockPipe = vi.fn();
-const mockFont = vi.fn().mockReturnThis();
-const mockFontSize = vi.fn().mockReturnThis();
-const mockFillColor = vi.fn().mockReturnThis();
-const mockText = vi.fn().mockReturnThis();
-const mockMoveDown = vi.fn().mockReturnThis();
-const mockAddPage = vi.fn().mockReturnThis();
+const {
+  mockEnd, mockPipe, mockFont, mockFontSize, mockFillColor,
+  mockText, mockMoveDown, mockAddPage, mockStreamOn, mockCreateWriteStream,
+  MockPDFDocument,
+} = vi.hoisted(() => {
+  const mockEnd = vi.fn();
+  const mockPipe = vi.fn();
+  const mockFont = vi.fn().mockReturnThis();
+  const mockFontSize = vi.fn().mockReturnThis();
+  const mockFillColor = vi.fn().mockReturnThis();
+  const mockText = vi.fn().mockReturnThis();
+  const mockMoveDown = vi.fn().mockReturnThis();
+  const mockAddPage = vi.fn().mockReturnThis();
+  const mockStreamOn = vi.fn();
+  const mockCreateWriteStream = vi.fn().mockReturnValue({ on: vi.fn() });
+  class MockPDFDocument {
+    pipe = mockPipe;
+    font = mockFont;
+    fontSize = mockFontSize;
+    fillColor = mockFillColor;
+    text = mockText;
+    moveDown = mockMoveDown;
+    addPage = mockAddPage;
+    end = mockEnd;
+    y = 100;
+  }
+  return {
+    mockEnd, mockPipe, mockFont, mockFontSize, mockFillColor,
+    mockText, mockMoveDown, mockAddPage, mockStreamOn, mockCreateWriteStream,
+    MockPDFDocument,
+  };
+});
 
 vi.mock('pdfkit', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    pipe: mockPipe,
-    font: mockFont,
-    fontSize: mockFontSize,
-    fillColor: mockFillColor,
-    text: mockText,
-    moveDown: mockMoveDown,
-    addPage: mockAddPage,
-    end: mockEnd,
-    y: 100,
-  })),
+  default: MockPDFDocument,
 }));
-
-const mockStreamOn = vi.fn();
-const mockCreateWriteStream = vi.fn().mockReturnValue({ on: mockStreamOn });
 
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>();
@@ -61,7 +72,9 @@ import { generateCommercialProposal } from './commercial-proposal';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Make stream.on('finish', resolve) fire immediately
+  mockCreateWriteStream.mockReturnValue({
+    on: mockStreamOn,
+  });
   mockStreamOn.mockImplementation((event: string, cb: () => void) => {
     if (event === 'finish') cb();
   });
