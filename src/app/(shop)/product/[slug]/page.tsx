@@ -128,12 +128,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
     <Container className="py-6">
       <ProductJsonLd product={product} ratingStats={ratingStats} />
       <BreadcrumbJsonLd items={breadcrumbJsonLdItems} />
-      {ratingStats && ratingStats.count > 0 && (
+      {ratingStats && ratingStats.totalReviews > 0 && (
         <ReviewAggregateJsonLd
           productName={product.name}
           productUrl={`${baseUrl}/product/${slug}`}
-          ratingValue={ratingStats.average}
-          reviewCount={ratingStats.count}
+          ratingValue={ratingStats.averageRating}
+          reviewCount={ratingStats.totalReviews}
         />
       )}
       <RecentlyViewedTracker productId={product.id} />
