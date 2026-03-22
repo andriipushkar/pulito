@@ -18,6 +18,12 @@ vi.mock('@/lib/prisma', () => ({
         { slug: 'about', updatedAt: new Date('2025-01-03') },
       ]),
     },
+    blogPost: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    bundle: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -27,8 +33,8 @@ describe('sitemap', () => {
   it('returns an array containing static and dynamic pages', async () => {
     const result = await sitemap();
     expect(Array.isArray(result)).toBe(true);
-    // 3 static + 1 product + 1 category + 1 content = 6
-    expect(result.length).toBe(6);
+    // 6 static + 1 product + 1 category + 1 content + 0 blog + 0 bundles = 9
+    expect(result.length).toBe(9);
   });
 
   it('includes product URLs with correct format', async () => {

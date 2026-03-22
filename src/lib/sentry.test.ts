@@ -45,7 +45,7 @@ describe('sentry (with DSN)', () => {
     const { captureException } = await import('./sentry');
     const error = new Error('test error');
     await captureException(error);
-    expect(mockCaptureException).toHaveBeenCalledWith(error);
+    expect(mockCaptureException).toHaveBeenCalledWith(error, undefined);
   });
 
   it('captureMessage calls sentry when DSN is set', async () => {

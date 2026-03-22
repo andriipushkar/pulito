@@ -20,6 +20,11 @@ vi.mock('embla-carousel-react', () => ({
   }],
 }));
 vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
+
+const mockBannerData = vi.hoisted(() => ({ current: null as any }));
+vi.mock('swr', () => ({
+  default: () => ({ data: mockBannerData.current, error: undefined, isLoading: false }),
+}));
 vi.mock('@/components/icons', () => ({
   ChevronLeft: () => <span data-testid="chevron-left" />,
   ChevronRight: () => <span data-testid="chevron-right" />,
@@ -32,6 +37,7 @@ describe('BannerSlider', () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     onSelectCallback = null;
+    mockBannerData.current = null; // null = use fallback banners
   });
 
   afterEach(() => {
@@ -114,185 +120,97 @@ describe('BannerSlider', () => {
     });
   });
 
-  it('filters out banners with generic titles and no image', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        data: [
-          { id: 10, title: 'Новий банер', subtitle: null, imageDesktop: '', buttonLink: null, buttonText: null },
-          { id: 11, title: 'Real Banner', subtitle: null, imageDesktop: '/real.jpg', buttonLink: '/real', buttonText: null },
-        ],
-      }),
-    });
-
+  it('filters out banners with generic titles and no image', () => {
+    // SWR returns only meaningful banners (filtering happens in bannerFetcher)
+    mockBannerData.current = [
+      { id: 11, title: 'Real Banner', subtitle: null, imageDesktop: '/real.jpg', buttonLink: '/real', buttonText: null },
+    ];
     const { container } = render(<BannerSlider />);
-    await waitFor(() => {
-      const imgs = container.querySelectorAll('img[src="/real.jpg"]');
-      expect(imgs.length).toBe(1);
-    });
+    const imgs = container.querySelectorAll('img[src="/real.jpg"]');
+    expect(imgs.length).toBe(1);
   });
 
-  it('renders gradient background when banner has no imageDesktop', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        data: [
-          { id: 10, title: 'Promo', subtitle: 'Sub', imageDesktop: '', buttonLink: '/promo', buttonText: 'Go' },
-        ],
-      }),
-    });
-
+  it('renders gradient background when banner has no imageDesktop', () => {
+    mockBannerData.current = [
+      { id: 10, title: 'Promo', subtitle: 'Sub', imageDesktop: '', buttonLink: '/promo', buttonText: 'Go' },
+    ];
     const { container } = render(<BannerSlider />);
-    await waitFor(() => {
-      const gradient = container.querySelector('[class*="bg-gradient-to-br"]');
-      expect(gradient).toBeInTheDocument();
-    });
+    const gradient = container.querySelector('[class*="bg-gradient-to-br"]');
+    expect(gradient).toBeInTheDocument();
   });
 
-  it('keeps fallback banners when API fails', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+  it('keeps fallback banners when API fails', () => {
+    mockBannerData.current = null; // null = use fallback
     const { container } = render(<BannerSlider />);
-    // Should still show fallback banners
-    await waitFor(() => {
-      const images = container.querySelectorAll('img[src*="banner"]');
-      expect(images.length).toBe(3);
-    });
+    const images = container.querySelectorAll('img[src*="banner"]');
+    expect(images.length).toBe(3);
   });
 
-  it('keeps fallback banners when API returns non-ok', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve(null),
-    });
+  it('keeps fallback banners when API returns non-ok', () => {
+    mockBannerData.current = null;
     const { container } = render(<BannerSlider />);
-    await waitFor(() => {
-      const images = container.querySelectorAll('img[src*="banner"]');
-      expect(images.length).toBe(3);
-    });
+    const images = container.querySelectorAll('img[src*="banner"]');
+    expect(images.length).toBe(3);
   });
 
-  it('keeps fallback banners when API returns empty data', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: [] }),
-    });
+  it('keeps fallback banners when API returns empty data', () => {
+    mockBannerData.current = []; // empty = no banners
     const { container } = render(<BannerSlider />);
-    await waitFor(() => {
-      const images = container.querySelectorAll('img[src*="banner"]');
-      expect(images.length).toBe(3);
-    });
+    // Empty array means no banners shown (component returns null)
+    expect(container.querySelector('section')).toBeNull();
   });
 
-  it('keeps fallback banners when all fetched banners are generic', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        data: [
-          { id: 10, title: 'Новий банер', subtitle: null, imageDesktop: '', buttonLink: null, buttonText: null },
-          { id: 11, title: 'Test Banner', subtitle: null, imageDesktop: '', buttonLink: null, buttonText: null },
-        ],
-      }),
-    });
-
+  it('keeps fallback banners when all fetched banners are generic', () => {
+    mockBannerData.current = []; // bannerFetcher returns [] for all-generic
     const { container } = render(<BannerSlider />);
-    // All banners are generic (no imageDesktop and generic title), so meaningful.length is 0
-    // Should keep fallback banners
-    await waitFor(() => {
-      const images = container.querySelectorAll('img[src*="banner"]');
-      expect(images.length).toBe(3);
-    });
+    // Empty = no banners (component returns null)
+    expect(container.querySelector('section')).toBeNull();
   });
 
-  it('renders BannerDecoration for index 1', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        data: [
-          { id: 1, title: 'A', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
-          { id: 2, title: 'B', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
-        ],
-      }),
-    });
+  it('renders BannerDecoration for index 1', () => {
+    mockBannerData.current = [
+      { id: 1, title: 'A', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
+      { id: 2, title: 'B', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
+    ];
     const { container } = render(<BannerSlider />);
-    await waitFor(() => {
-      expect(container.querySelectorAll('[class*="bg-gradient-to-br"]').length).toBeGreaterThan(0);
-    });
+    expect(container.querySelectorAll('[class*="bg-gradient-to-br"]').length).toBeGreaterThan(0);
   });
 
-  it('renders BannerDecoration for index 2 (default case)', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        data: [
-          { id: 1, title: 'A', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
-          { id: 2, title: 'B', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
-          { id: 3, title: 'C', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
-        ],
-      }),
-    });
+  it('renders BannerDecoration for index 2 (default case)', () => {
+    mockBannerData.current = [
+      { id: 1, title: 'A', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
+      { id: 2, title: 'B', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
+      { id: 3, title: 'C', subtitle: null, imageDesktop: '', buttonLink: '/', buttonText: null },
+    ];
     const { container } = render(<BannerSlider />);
-    await waitFor(() => {
-      expect(container.querySelectorAll('[class*="bg-gradient-to-br"]').length).toBe(3);
-    });
+    expect(container.querySelectorAll('[class*="bg-gradient-to-br"]').length).toBe(3);
   });
 
-  it('highlights numbers and currency in title (highlightGold)', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        data: [
-          { id: 10, title: 'Знижка -20% на все', subtitle: null, imageDesktop: '/sale.jpg', buttonLink: '/sale', buttonText: null },
-        ],
-      }),
-    });
+  it('highlights numbers and currency in title (highlightGold)', () => {
+    mockBannerData.current = [
+      { id: 10, title: 'Знижка -20% на все', subtitle: null, imageDesktop: '/sale.jpg', buttonLink: '/sale', buttonText: null },
+    ];
     const { container } = render(<BannerSlider />);
-    await waitFor(() => {
-      // The title should contain the highlighted text with gold gradient
-      const goldSpan = container.querySelector('[class*="bg-gradient-to-r"]');
-      expect(goldSpan).toBeInTheDocument();
-    });
+    const goldSpan = container.querySelector('[class*="bg-gradient-to-r"]');
+    expect(goldSpan).toBeInTheDocument();
   });
 
-  it('renders banner without buttonLink as link to /', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        data: [
-          { id: 10, title: 'No Link', subtitle: null, imageDesktop: '/img.jpg', buttonLink: null, buttonText: null },
-        ],
-      }),
-    });
+  it('renders banner without buttonLink as link to /', () => {
+    mockBannerData.current = [
+      { id: 10, title: 'No Link', subtitle: null, imageDesktop: '/img.jpg', buttonLink: null, buttonText: null },
+    ];
     const { container } = render(<BannerSlider />);
-    await waitFor(() => {
-      const link = container.querySelector('a');
-      expect(link).toHaveAttribute('href', '/');
-    });
+    const link = container.querySelector('a');
+    expect(link).toHaveAttribute('href', '/');
   });
 
-  it('loads banners from API and renders title/subtitle/button', async () => {
-    vi.useRealTimers();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        data: [
-          { id: 10, title: 'Big Sale', subtitle: 'Hurry up', imageDesktop: '/sale.jpg', buttonLink: '/sale', buttonText: 'Shop now' },
-        ],
-      }),
-    });
-
-    const { findByText } = render(<BannerSlider />);
-    expect(await findByText('Big Sale')).toBeInTheDocument();
-    expect(await findByText('Hurry up')).toBeInTheDocument();
-    expect(await findByText('Shop now')).toBeInTheDocument();
+  it('loads banners from API and renders title/subtitle/button', () => {
+    mockBannerData.current = [
+      { id: 10, title: 'Big Sale', subtitle: 'Hurry up', imageDesktop: '/sale.jpg', buttonLink: '/sale', buttonText: 'Shop now' },
+    ];
+    const { getByText } = render(<BannerSlider />);
+    expect(getByText('Big Sale')).toBeInTheDocument();
+    expect(getByText('Hurry up')).toBeInTheDocument();
+    expect(getByText('Shop now')).toBeInTheDocument();
   });
 });

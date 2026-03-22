@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+const mockSwrData = vi.hoisted(() => ({ current: undefined as any }));
 const mockGet = vi.hoisted(() => vi.fn().mockResolvedValue({ success: false }));
 const mockUser = vi.hoisted(() => ({ current: null as any }));
 const mockItemCount = vi.hoisted(() => ({ current: 0 }));
@@ -17,6 +18,15 @@ vi.mock('@/hooks/useCart', () => ({ useCart: () => ({ itemCount: mockItemCount.c
 vi.mock('@/hooks/useWishlist', () => ({ useWishlist: () => ({ wishlistCount: mockWishlistCount.current }) }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: mockUser.current }) }));
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...args: any[]) => mockGet(...args) } }));
+vi.mock('swr', () => ({
+  default: (key: string | null) => {
+    if (!key) return { data: undefined, error: undefined, isLoading: false };
+    if (key.includes('notifications')) {
+      return { data: mockSwrData.current, error: undefined, isLoading: false };
+    }
+    return { data: undefined, error: undefined, isLoading: false };
+  },
+}));
 vi.mock('@/components/icons', () => ({
   Heart: () => <span data-testid="heart-icon">heart</span>,
   Cart: () => <span data-testid="cart-icon">cart</span>,
@@ -30,6 +40,7 @@ describe('MobileBottomNav', () => {
   beforeEach(() => {
     mockUser.current = null;
     mockItemCount.current = 0;
+    mockSwrData.current = undefined;
     mockWishlistCount.current = 0;
     mockPathname.current = '/';
     mockGet.mockResolvedValue({ success: false });
@@ -112,13 +123,12 @@ describe('MobileBottomNav', () => {
     expect(container.querySelector('.animate-cart-pulse')).toBeNull();
   });
 
-  it('fetches notification count when user is logged in', async () => {
+  it('fetches notification count when user is logged in', () => {
     mockUser.current = { id: 1, role: 'customer' };
-    mockGet.mockResolvedValue({ success: true, data: { count: 3 } });
-    render(<MobileBottomNav categories={[]} />);
-    await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledWith('/api/v1/me/notifications/count');
-    });
+    mockSwrData.current = 3;
+    const { container } = render(<MobileBottomNav categories={[]} />);
+    // SWR provides the notification count which is rendered as badge
+    expect(container.textContent).toContain('3');
   });
 
   it('does not fetch notifications when no user', () => {
@@ -127,22 +137,18 @@ describe('MobileBottomNav', () => {
     expect(mockGet).not.toHaveBeenCalled();
   });
 
-  it('shows unread notification badge on profile', async () => {
+  it('shows unread notification badge on profile', () => {
     mockUser.current = { id: 1, role: 'customer' };
-    mockGet.mockResolvedValue({ success: true, data: { count: 5 } });
+    mockSwrData.current = 5;
     const { container } = render(<MobileBottomNav categories={[]} />);
-    await waitFor(() => {
-      expect(container.textContent).toContain('5');
-    });
+    expect(container.textContent).toContain('5');
   });
 
-  it('shows 9+ when unread count exceeds 9', async () => {
+  it('shows 9+ when unread count exceeds 9', () => {
     mockUser.current = { id: 1, role: 'customer' };
-    mockGet.mockResolvedValue({ success: true, data: { count: 15 } });
+    mockSwrData.current = 15;
     const { container } = render(<MobileBottomNav categories={[]} />);
-    await waitFor(() => {
-      expect(container.textContent).toContain('9+');
-    });
+    expect(container.textContent).toContain('9+');
   });
 
   it('opens mobile menu on catalog button click', () => {
@@ -192,14 +198,11 @@ describe('MobileBottomNav', () => {
     expect(nav.className).toContain('translate-y-0');
   });
 
-  it('handles notification fetch failure gracefully', async () => {
+  it('handles notification fetch failure gracefully', () => {
     mockUser.current = { id: 1, role: 'customer' };
-    mockGet.mockRejectedValue(new Error('Network error'));
+    mockSwrData.current = undefined; // SWR returns undefined = error/loading
     const { container } = render(<MobileBottomNav categories={[]} />);
-    await waitFor(() => {
-      expect(mockGet).toHaveBeenCalled();
-    });
-    // Should not crash
+    // Should not crash, nav still renders
     expect(container.querySelector('nav')).toBeInTheDocument();
   });
 });
