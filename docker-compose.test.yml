@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  test-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: clean_shop_test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+    ports:
+      - '5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-ONLY', 'pg_isready', '-U', 'test']
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  test-redis:
+    image: redis:7-alpine
+    ports:
+      - '6381:6379'
+    tmpfs:
+      - /data

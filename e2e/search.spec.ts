@@ -47,6 +47,26 @@ test.describe('Search Flow', () => {
     }
   });
 
+  test('should submit search via Enter key', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const searchInput = page.locator('input[placeholder*="Пошук"], input[name="search"], input[type="search"]').first();
+    if (!await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      test.skip();
+      return;
+    }
+
+    await searchInput.fill('Persil');
+    await searchInput.press('Enter');
+    await page.waitForLoadState('networkidle');
+
+    // Should navigate to results — either /catalog?search= or similar
+    const url = page.url();
+    const hasSearchParam = url.includes('search=') || url.includes('q=') || url.includes('/catalog');
+    expect(hasSearchParam).toBeTruthy();
+  });
+
   test('should show "not found" for gibberish search', async ({ page }) => {
     await page.goto('/catalog?search=zxcvbnmasdfgh');
     await page.waitForLoadState('networkidle');

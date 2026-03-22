@@ -27,6 +27,7 @@
     "test:e2e:visual": "playwright test e2e/visual-regression.spec.ts",
     "test:e2e:visual:update": "playwright test e2e/visual-regression.spec.ts --update-snapshots",
     "test:a11y": "playwright test e2e/accessibility.spec.ts",
+    "test:integration": "docker compose -f docker-compose.test.yml up -d --wait && vitest run --config test/integration/vitest.config.ts; docker compose -f docker-compose.test.yml down",
     "test:load:smoke": "k6 run load-tests/smoke.js",
     "test:load": "k6 run load-tests/load.js",
     "test:load:stress": "k6 run load-tests/stress.js",
