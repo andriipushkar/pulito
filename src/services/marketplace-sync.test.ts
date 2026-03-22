@@ -1,11 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const { mockClient, MockClientClass, mockTxOrder } = vi.hoisted(() => {
+  const mockClient = {
+    createProduct: vi.fn(),
+    updateProduct: vi.fn(),
+    updateStock: vi.fn(),
+    getOrders: vi.fn(),
+  };
+  class MockClientClass {
+    createProduct = mockClient.createProduct;
+    updateProduct = mockClient.updateProduct;
+    updateStock = mockClient.updateStock;
+    getOrders = mockClient.getOrders;
+  }
+  const mockTxOrder = {
+    findFirst: vi.fn(),
+    create: vi.fn(),
+  };
+  return { mockClient, MockClientClass, mockTxOrder };
+});
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     product: { findMany: vi.fn() },
     publicationChannel: { findMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     order: { findFirst: vi.fn(), create: vi.fn() },
     setting: { upsert: vi.fn(), findMany: vi.fn() },
+    $transaction: vi.fn((fn: (tx: unknown) => unknown) =>
+      fn({ order: mockTxOrder })
+    ),
   },
 }));
 
@@ -14,17 +37,15 @@ vi.mock('@/services/channel-config', () => ({
 }));
 
 vi.mock('./marketplace-rozetka', () => ({
-  RozetkaClient: vi.fn(),
+  RozetkaClient: MockClientClass,
 }));
 
 vi.mock('./marketplace-prom', () => ({
-  PromClient: vi.fn(),
+  PromClient: MockClientClass,
 }));
 
 import { prisma } from '@/lib/prisma';
 import { getChannelConfig } from '@/services/channel-config';
-import { RozetkaClient } from './marketplace-rozetka';
-import { PromClient } from './marketplace-prom';
 import {
   syncProductsToMarketplace,
   syncStockToMarketplace,
@@ -45,17 +66,10 @@ const mockPrisma = prisma as unknown as {
 
 const mockGetChannelConfig = getChannelConfig as unknown as ReturnType<typeof vi.fn>;
 
-const mockClient = {
-  createProduct: vi.fn(),
-  updateProduct: vi.fn(),
-  updateStock: vi.fn(),
-  getOrders: vi.fn(),
-};
-
 beforeEach(() => {
   vi.clearAllMocks();
-  (RozetkaClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockClient);
-  (PromClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockClient);
+  mockTxOrder.findFirst.mockResolvedValue(null);
+  mockTxOrder.create.mockResolvedValue({ id: 1 });
 });
 
 describe('syncProductsToMarketplace', () => {
@@ -270,15 +284,15 @@ describe('importOrdersFromMarketplace', () => {
         items: [{ name: 'Widget', quantity: 2, price: 250 }],
       },
     ]);
-    mockPrisma.order.findFirst.mockResolvedValue(null);
-    mockPrisma.order.create.mockResolvedValue({ id: 1 });
+    mockTxOrder.findFirst.mockResolvedValue(null);
+    mockTxOrder.create.mockResolvedValue({ id: 1 });
     mockPrisma.setting.upsert.mockResolvedValue({});
 
     const result = await importOrdersFromMarketplace('rozetka');
 
     expect(result).toEqual({ imported: 1, skipped: 0, failed: 0 });
-    expect(mockPrisma.order.create).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.order.create).toHaveBeenCalledWith(
+    expect(mockTxOrder.create).toHaveBeenCalledTimes(1);
+    expect(mockTxOrder.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           externalId: '100',
@@ -303,13 +317,13 @@ describe('importOrdersFromMarketplace', () => {
         items: [{ name: 'Gadget', quantity: 1, price: 300 }],
       },
     ]);
-    mockPrisma.order.findFirst.mockResolvedValue({ id: 5, externalId: '200' });
+    mockTxOrder.findFirst.mockResolvedValue({ id: 5, externalId: '200' });
     mockPrisma.setting.upsert.mockResolvedValue({});
 
     const result = await importOrdersFromMarketplace('rozetka');
 
     expect(result).toEqual({ imported: 0, skipped: 1, failed: 0 });
-    expect(mockPrisma.order.create).not.toHaveBeenCalled();
+    expect(mockTxOrder.create).not.toHaveBeenCalled();
   });
 
   it('should handle parse errors gracefully', async () => {
@@ -323,8 +337,8 @@ describe('importOrdersFromMarketplace', () => {
         items: [{ name: 'Item', quantity: 1, price: 100 }],
       },
     ]);
-    mockPrisma.order.findFirst.mockResolvedValue(null);
-    mockPrisma.order.create.mockRejectedValue(new Error('DB constraint'));
+    mockTxOrder.findFirst.mockResolvedValue(null);
+    mockTxOrder.create.mockRejectedValue(new Error('DB constraint'));
     mockPrisma.setting.upsert.mockResolvedValue({});
 
     const result = await importOrdersFromMarketplace('rozetka');
