@@ -1,6 +1,9 @@
 'use client';
 
 import { createContext, useCallback, useEffect, useOptimistic, useReducer, useTransition, type ReactNode } from 'react';
+import useSWR, { mutate as globalMutate } from 'swr';
+import { useAuth } from '@/hooks/useAuth';
+import { fetcher } from '@/lib/swr';
 
 export interface CartItem {
   productId: number;
@@ -60,6 +63,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 }
 
 const STORAGE_KEY = 'clean-shop-cart';
+const CART_API_KEY = '/api/v1/cart';
 
 interface CartContextValue {
   items: CartItem[];
@@ -86,52 +90,86 @@ export const CartContext = createContext<CartContextValue>({
 });
 
 export default function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [state, dispatch] = useReducer(cartReducer, { items: [] });
   const [isPending, startTransition] = useTransition();
+
+  // SWR for authenticated users — fetch cart from server
+  const { data: serverCart } = useSWR<CartItem[]>(
+    user ? CART_API_KEY : null,
+    fetcher,
+    { revalidateOnFocus: true, dedupingInterval: 5000 }
+  );
+
+  // Sync server cart data into local state when it arrives
+  useEffect(() => {
+    if (serverCart && Array.isArray(serverCart)) {
+      dispatch({ type: 'SET_ITEMS', items: serverCart });
+    }
+  }, [serverCart]);
 
   // Optimistic count: user sees the updated number immediately
   const [optimisticItemCount, setOptimisticItemCount] = useOptimistic(
     state.items.reduce((sum, i) => sum + i.quantity, 0)
   );
 
+  // Load from localStorage for anonymous users
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        dispatch({ type: 'SET_ITEMS', items: JSON.parse(saved) });
-      }
-    } catch {}
-  }, []);
+    if (!user) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          dispatch({ type: 'SET_ITEMS', items: JSON.parse(saved) });
+        }
+      } catch {}
+    }
+  }, [user]);
 
+  // Persist to localStorage for anonymous users
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
-    } catch {}
-  }, [state.items]);
+    if (!user) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
+      } catch {}
+    }
+  }, [state.items, user]);
 
   const addItem = useCallback((item: CartItem) => {
     startTransition(() => {
       setOptimisticItemCount((prev) => prev + item.quantity);
       dispatch({ type: 'ADD_ITEM', item });
     });
-  }, [setOptimisticItemCount]);
+    if (user) {
+      // Optimistically update SWR cache, then revalidate
+      globalMutate(CART_API_KEY);
+    }
+  }, [setOptimisticItemCount, user]);
 
   const removeItem = useCallback((productId: number) => {
     startTransition(() => {
       dispatch({ type: 'REMOVE_ITEM', productId });
     });
-  }, []);
+    if (user) {
+      globalMutate(CART_API_KEY);
+    }
+  }, [user]);
 
   const updateQuantity = useCallback((productId: number, quantity: number) => {
     dispatch({ type: 'UPDATE_QUANTITY', productId, quantity });
-  }, []);
+    if (user) {
+      globalMutate(CART_API_KEY);
+    }
+  }, [user]);
 
   const clearCart = useCallback(() => {
     startTransition(() => {
       setOptimisticItemCount(0);
       dispatch({ type: 'CLEAR' });
     });
-  }, [setOptimisticItemCount]);
+    if (user) {
+      globalMutate(CART_API_KEY);
+    }
+  }, [setOptimisticItemCount, user]);
 
   const total = useCallback(
     (role?: string) =>

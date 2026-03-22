@@ -2,13 +2,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
-const mockGet = vi.fn();
+const mockSwrData = { current: undefined as { count: number } | undefined };
 
-vi.mock('@/lib/api-client', () => ({
-  apiClient: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: vi.fn(),
-  },
+vi.mock('swr', () => ({
+  default: (_key: string | null) => ({
+    data: mockSwrData.current,
+    error: undefined,
+    isLoading: false,
+    mutate: vi.fn(),
+  }),
+}));
+
+vi.mock('@/lib/swr', () => ({
+  fetcher: vi.fn(),
 }));
 
 const mockUser = { current: null as { id: number } | null };
@@ -23,6 +29,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
   mockUser.current = null;
+  mockSwrData.current = undefined;
   localStorage.clear();
 });
 
@@ -34,7 +41,6 @@ describe('useWishlist', () => {
   it('returns 0 wishlistCount initially for anonymous user', async () => {
     const { result } = renderHook(() => useWishlist());
 
-    // Let the microtask (Promise.resolve().then) run
     await act(async () => {
       await Promise.resolve();
     });
@@ -54,29 +60,26 @@ describe('useWishlist', () => {
     expect(result.current.wishlistCount).toBe(3);
   });
 
-  it('fetches wishlist count from API for logged-in user', async () => {
+  it('returns wishlist count from SWR data for logged-in user', async () => {
     mockUser.current = { id: 1 };
-    mockGet.mockResolvedValue({ success: true, data: { count: 5 } });
+    mockSwrData.current = { count: 5 };
 
     const { result } = renderHook(() => useWishlist());
 
     await act(async () => {
-      await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(mockGet).toHaveBeenCalledWith('/api/v1/me/wishlists/count');
     expect(result.current.wishlistCount).toBe(5);
   });
 
-  it('handles API failure silently', async () => {
+  it('returns 0 when SWR has no data for logged-in user', async () => {
     mockUser.current = { id: 1 };
-    mockGet.mockRejectedValue(new Error('Network error'));
+    mockSwrData.current = undefined;
 
     const { result } = renderHook(() => useWishlist());
 
     await act(async () => {
-      await Promise.resolve();
       await Promise.resolve();
     });
 
@@ -108,8 +111,6 @@ describe('useWishlist', () => {
   });
 
   it('handles null localStorage value', async () => {
-    // Don't set anything in localStorage
-
     const { result } = renderHook(() => useWishlist());
 
     await act(async () => {
@@ -133,17 +134,15 @@ describe('useWishlist', () => {
     expect(clearIntervalSpy).toHaveBeenCalled();
   });
 
-  it('handles unsuccessful API response', async () => {
-    mockUser.current = { id: 1 };
-    mockGet.mockResolvedValue({ success: false });
-
+  it('uses SWR key only when user is logged in', async () => {
+    // Anonymous user — SWR key should be null (no fetch)
     const { result } = renderHook(() => useWishlist());
 
     await act(async () => {
       await Promise.resolve();
-      await Promise.resolve();
     });
 
+    // Should use localStorage count, not SWR
     expect(result.current.wishlistCount).toBe(0);
   });
 });

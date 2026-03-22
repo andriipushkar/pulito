@@ -267,5 +267,29 @@
     "rights": "Усі права захищені",
     "privacy": "Політика конфіденційності",
     "terms": "Умови використання"
+  },
+  "featureFlags": {
+    "title": "Feature flags",
+    "key": "Ключ",
+    "enabled": "Увімкнено",
+    "disabled": "Вимкнено",
+    "rollout": "Відсоток розгортання",
+    "create": "Створити",
+    "delete": "Видалити"
+  },
+  "warehouse": {
+    "title": "Склади",
+    "code": "Код",
+    "city": "Місто",
+    "stock": "Залишки",
+    "default": "За замовчуванням",
+    "addWarehouse": "Додати склад"
+  },
+  "marketplace": {
+    "title": "Маркетплейси",
+    "connected": "Підключено",
+    "disconnected": "Відключено",
+    "lastSync": "Остання синхронізація",
+    "syncNow": "Синхронізувати"
   }
 }

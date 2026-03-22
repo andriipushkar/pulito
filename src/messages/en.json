@@ -267,5 +267,29 @@
     "rights": "All rights reserved",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service"
+  },
+  "featureFlags": {
+    "title": "Feature Flags",
+    "key": "Key",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "rollout": "Rollout Percentage",
+    "create": "Create",
+    "delete": "Delete"
+  },
+  "warehouse": {
+    "title": "Warehouses",
+    "code": "Code",
+    "city": "City",
+    "stock": "Stock",
+    "default": "Default",
+    "addWarehouse": "Add Warehouse"
+  },
+  "marketplace": {
+    "title": "Marketplaces",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "lastSync": "Last Sync",
+    "syncNow": "Sync Now"
   }
 }

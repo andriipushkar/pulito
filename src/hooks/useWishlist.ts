@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import useSWR from 'swr';
 import { useAuth } from '@/hooks/useAuth';
-import { apiClient } from '@/lib/api-client';
+import { fetcher } from '@/lib/swr';
 
 const LOCAL_STORAGE_KEY = 'clean-shop-wishlist';
 
@@ -20,28 +21,37 @@ function getLocalWishlistCount(): number {
 
 export function useWishlist() {
   const { user } = useAuth();
-  const [wishlistCount, setWishlistCount] = useState(0);
+  const [localCount, setLocalCount] = useState(0);
 
-  const fetchWishlistCount = useCallback(async () => {
-    if (user) {
-      try {
-        const res = await apiClient.get<{ count: number }>('/api/v1/me/wishlists/count');
-        if (res.success && res.data) {
-          setWishlistCount(res.data.count);
-        }
-      } catch {
-        // silently fail
-      }
-    } else {
-      setWishlistCount(getLocalWishlistCount());
+  // SWR for authenticated users
+  const { data } = useSWR<{ count: number }>(
+    user ? '/api/v1/me/wishlists/count' : null,
+    fetcher,
+    { refreshInterval: 60000, revalidateOnFocus: true, dedupingInterval: 10000 }
+  );
+
+  // Sync local count for anonymous users
+  useEffect(() => {
+    if (!user) {
+      setLocalCount(getLocalWishlistCount());
+    }
+  }, [user]);
+
+  // Listen for storage changes (e.g. from another tab or wishlist toggle)
+  const refreshLocal = useCallback(() => {
+    if (!user) {
+      setLocalCount(getLocalWishlistCount());
     }
   }, [user]);
 
   useEffect(() => {
-    const interval = setInterval(fetchWishlistCount, 60000);
-    Promise.resolve().then(fetchWishlistCount);
-    return () => clearInterval(interval);
-  }, [fetchWishlistCount]);
+    if (!user) {
+      const interval = setInterval(refreshLocal, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [user, refreshLocal]);
+
+  const wishlistCount = user ? (data?.count ?? 0) : localCount;
 
   return { wishlistCount };
 }
