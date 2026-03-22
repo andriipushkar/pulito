@@ -86,26 +86,35 @@ const fallbackBanners: Banner[] = [
 export default function BannerSlider() {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [banners, setBanners] = useState<Banner[]>(fallbackBanners);
+  const [banners, setBanners] = useState<Banner[] | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   useEffect(() => {
     const genericTitles = ['новий банер', 'new banner', 'тестовий банер', 'test banner'];
-    fetch('/api/v1/banners')
+    fetch('/api/v1/banners', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.data?.length) {
-          const meaningful = data.data.filter(
-            (b: Banner) =>
-              b.imageDesktop ||
-              (b.title && !genericTitles.includes(b.title.trim().toLowerCase()))
-          );
-          if (meaningful.length) setBanners(meaningful);
+        if (data?.data) {
+          if (data.data.length === 0) {
+            setBanners([]);
+          } else {
+            const meaningful = data.data.filter(
+              (b: Banner) =>
+                b.imageDesktop ||
+                (b.title && !genericTitles.includes(b.title.trim().toLowerCase()))
+            );
+            setBanners(meaningful.length ? meaningful : []);
+          }
+        } else {
+          // API failed — show fallback
+          setBanners(fallbackBanners);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setBanners(fallbackBanners);
+      });
   }, []);
 
   const scrollPrev = useCallback(() => {
@@ -142,7 +151,7 @@ export default function BannerSlider() {
     };
   }, [emblaApi, isPaused, selectedIndex]);
 
-  if (!banners.length) return null;
+  if (!banners || !banners.length) return null;
 
   return (
     <section

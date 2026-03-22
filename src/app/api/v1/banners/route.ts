@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const banners = await prisma.banner.findMany({

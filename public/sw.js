@@ -1,6 +1,6 @@
-const CACHE_NAME = 'clean-shop-v2';
-const DYNAMIC_CACHE = 'clean-shop-dynamic-v1';
-const API_CACHE = 'clean-shop-api-v1';
+const CACHE_NAME = 'clean-shop-v3';
+const DYNAMIC_CACHE = 'clean-shop-dynamic-v2';
+const API_CACHE = 'clean-shop-api-v2';
 
 const PRECACHE_URLS = ['/', '/offline', '/catalog', '/cart', '/comparison'];
 
@@ -66,7 +66,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip other API/mutation requests
+  // Skip other API requests (banners, auth, admin, cron, webhooks, etc.)
   if (url.pathname.startsWith('/api/')) {
     return;
   }
