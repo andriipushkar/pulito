@@ -907,6 +907,235 @@
         ]
       }
     },
+    "/admin/blog": {
+      "get": {
+        "tags": [
+          "Admin Blog"
+        ],
+        "summary": "Список blog",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Blog"
+        ],
+        "summary": "Створити blog",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/blog/categories": {
+      "get": {
+        "tags": [
+          "Admin Blog"
+        ],
+        "summary": "Список categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Blog"
+        ],
+        "summary": "Створити categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/blog/categories/{id}": {
+      "patch": {
+        "tags": [
+          "Admin Blog"
+        ],
+        "summary": "Оновити categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Blog"
+        ],
+        "summary": "Видалити categories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/blog/{id}": {
+      "get": {
+        "tags": [
+          "Admin Blog"
+        ],
+        "summary": "Отримати blog",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Admin Blog"
+        ],
+        "summary": "Оновити blog",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Blog"
+        ],
+        "summary": "Видалити blog",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
     "/admin/bot-replies": {
       "get": {
         "tags": [
@@ -1102,6 +1331,135 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/bundles": {
+      "get": {
+        "tags": [
+          "Admin Bundles"
+        ],
+        "summary": "Список bundles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Bundles"
+        ],
+        "summary": "Створити bundles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/bundles/{id}": {
+      "get": {
+        "tags": [
+          "Admin Bundles"
+        ],
+        "summary": "Отримати bundles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Admin Bundles"
+        ],
+        "summary": "Оновити bundles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Bundles"
+        ],
+        "summary": "Видалити bundles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
           }
         ]
       }
@@ -2222,6 +2580,46 @@
         }
       }
     },
+    "/admin/loyalty/challenges": {
+      "get": {
+        "tags": [
+          "Admin Loyalty"
+        ],
+        "summary": "Список challenges",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Loyalty"
+        ],
+        "summary": "Створити challenges",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/admin/loyalty/settings": {
       "get": {
         "tags": [
@@ -2283,6 +2681,27 @@
           "Admin Maintenance"
         ],
         "summary": "Оновити maintenance",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/marketplaces": {
+      "get": {
+        "tags": [
+          "Admin Marketplaces"
+        ],
+        "summary": "Список marketplaces",
         "responses": {
           "200": {
             "description": "OK"
@@ -2391,6 +2810,95 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/marketplaces/{platform}": {
+      "get": {
+        "tags": [
+          "Admin Marketplaces"
+        ],
+        "summary": "Отримати marketplaces",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Marketplaces"
+        ],
+        "summary": "Створити marketplaces",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Admin Marketplaces"
+        ],
+        "summary": "Оновити marketplaces",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
             "in": "path",
             "required": true,
             "schema": {
@@ -4308,6 +4816,27 @@
         ]
       }
     },
+    "/admin/subscriptions": {
+      "get": {
+        "tags": [
+          "Admin Subscriptions"
+        ],
+        "summary": "Список subscriptions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/admin/themes": {
       "get": {
         "tags": [
@@ -4539,6 +5068,195 @@
           "Admin Users"
         ],
         "summary": "Оновити wholesale",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/warehouses": {
+      "get": {
+        "tags": [
+          "Admin Warehouses"
+        ],
+        "summary": "Список warehouses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Warehouses"
+        ],
+        "summary": "Створити warehouses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/warehouses/{id}": {
+      "get": {
+        "tags": [
+          "Admin Warehouses"
+        ],
+        "summary": "Отримати warehouses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Admin Warehouses"
+        ],
+        "summary": "Оновити warehouses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Warehouses"
+        ],
+        "summary": "Видалити warehouses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/warehouses/{id}/stock": {
+      "get": {
+        "tags": [
+          "Admin Warehouses"
+        ],
+        "summary": "Отримати stock",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Admin Warehouses"
+        ],
+        "summary": "Оновити stock",
         "responses": {
           "200": {
             "description": "OK"
@@ -5045,6 +5763,132 @@
           "Banners"
         ],
         "summary": "Список banners",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/blog": {
+      "get": {
+        "tags": [
+          "Blog"
+        ],
+        "summary": "Список blog",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/blog/{slug}": {
+      "get": {
+        "tags": [
+          "Blog"
+        ],
+        "summary": "Отримати blog",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/bundles": {
+      "get": {
+        "tags": [
+          "Bundles"
+        ],
+        "summary": "Список bundles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/bundles/{slug}": {
+      "get": {
+        "tags": [
+          "Bundles"
+        ],
+        "summary": "Отримати bundles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/bundles/{slug}/add-to-cart": {
+      "post": {
+        "tags": [
+          "Bundles"
+        ],
+        "summary": "Створити add to cart",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/calculator": {
+      "get": {
+        "tags": [
+          "Calculator"
+        ],
+        "summary": "Список calculator",
         "responses": {
           "200": {
             "description": "OK"
@@ -5697,6 +6541,38 @@
         }
       }
     },
+    "/me/loyalty/challenges": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список challenges",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/loyalty/streak": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список streak",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/me/loyalty/transactions": {
       "get": {
         "tags": [
@@ -5999,6 +6875,110 @@
             "description": "Unauthorized"
           }
         }
+      }
+    },
+    "/me/subscriptions": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Список subscriptions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Створити subscriptions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/subscriptions/{id}": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Отримати subscriptions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Оновити subscriptions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Видалити subscriptions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
       }
     },
     "/me/telegram-link": {
@@ -7149,6 +8129,32 @@
         ]
       }
     },
+    "/reviews/{id}/images": {
+      "post": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Створити images",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
     "/subscribe": {
       "get": {
         "tags": [
@@ -7236,6 +8242,38 @@
           }
         }
       }
+    },
+    "/wholesale/bulk-order": {
+      "post": {
+        "tags": [
+          "Wholesale"
+        ],
+        "summary": "Створити bulk order",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/wholesale/commercial-proposal": {
+      "post": {
+        "tags": [
+          "Wholesale"
+        ],
+        "summary": "Створити commercial proposal",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -7308,6 +8346,10 @@
       "description": "Admin Banners"
     },
     {
+      "name": "Admin Blog",
+      "description": "Admin Blog"
+    },
+    {
       "name": "Admin Bot Replies",
       "description": "Admin Bot Replies"
     },
@@ -7318,6 +8360,10 @@
     {
       "name": "Admin Bot Welcome",
       "description": "Admin Bot Welcome"
+    },
+    {
+      "name": "Admin Bundles",
+      "description": "Admin Bundles"
     },
     {
       "name": "Admin Catalog Pdf",
@@ -7382,6 +8428,10 @@
     {
       "name": "Admin Jobs",
       "description": "Admin Jobs"
+    },
+    {
+      "name": "Admin Loyalty",
+      "description": "Admin Loyalty"
     },
     {
       "name": "Admin Maintenance",
@@ -7456,6 +8506,10 @@
       "description": "Admin Smtp Settings"
     },
     {
+      "name": "Admin Subscriptions",
+      "description": "Admin Subscriptions"
+    },
+    {
       "name": "Admin Themes",
       "description": "Admin Themes"
     },
@@ -7472,6 +8526,10 @@
       "description": "Admin Users"
     },
     {
+      "name": "Admin Warehouses",
+      "description": "Admin Warehouses"
+    },
+    {
       "name": "Admin Webhook Logs",
       "description": "Admin Webhook Logs"
     },
@@ -7482,6 +8540,18 @@
     {
       "name": "Banners",
       "description": "Banners"
+    },
+    {
+      "name": "Blog",
+      "description": "Blog"
+    },
+    {
+      "name": "Bundles",
+      "description": "Bundles"
+    },
+    {
+      "name": "Calculator",
+      "description": "Calculator"
     },
     {
       "name": "Callback Request",
@@ -7546,6 +8616,10 @@
     {
       "name": "Theme",
       "description": "Theme"
+    },
+    {
+      "name": "Wholesale",
+      "description": "Wholesale"
     },
     {
       "name": "Wholesale Rules",
