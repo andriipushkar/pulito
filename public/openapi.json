@@ -2272,6 +2272,106 @@
         ]
       }
     },
+    "/admin/feature-flags": {
+      "get": {
+        "tags": [
+          "Admin Feature Flags"
+        ],
+        "summary": "Список feature flags",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin Feature Flags"
+        ],
+        "summary": "Створити feature flags",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/feature-flags/{key}": {
+      "patch": {
+        "tags": [
+          "Admin Feature Flags"
+        ],
+        "summary": "Оновити feature flags",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Admin Feature Flags"
+        ],
+        "summary": "Видалити feature flags",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
     "/admin/feedback": {
       "get": {
         "tags": [
@@ -6314,6 +6414,22 @@
         ]
       }
     },
+    "/feature-flags/check": {
+      "get": {
+        "tags": [
+          "Feature Flags"
+        ],
+        "summary": "Список check",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/feedback": {
       "post": {
         "tags": [
@@ -8414,6 +8530,10 @@
       "description": "Admin Faq"
     },
     {
+      "name": "Admin Feature Flags",
+      "description": "Admin Feature Flags"
+    },
+    {
       "name": "Admin Feedback",
       "description": "Admin Feedback"
     },
@@ -8572,6 +8692,10 @@
     {
       "name": "Faq",
       "description": "Faq"
+    },
+    {
+      "name": "Feature Flags",
+      "description": "Feature Flags"
     },
     {
       "name": "Feedback",
