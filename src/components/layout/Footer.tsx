@@ -37,7 +37,9 @@ const catalogLinks = [
   { href: '/catalog', label: 'Всі товари' },
   { href: '/catalog?promo=true', label: 'Акції' },
   { href: '/catalog?sort=newest', label: 'Новинки' },
-  { href: '/catalog?sort=popular', label: 'Популярне' },
+  { href: '/bundles', label: 'Комплекти' },
+  { href: '/blog', label: 'Блог' },
+  { href: '/calculator', label: 'Калькулятор' },
 ];
 
 export default function Footer() {

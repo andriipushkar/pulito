@@ -17,6 +17,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: baseUrl, changeFrequency: 'daily', priority: 1 },
     { url: `${baseUrl}/catalog`, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/blog`, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${baseUrl}/bundles`, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${baseUrl}/calculator`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${baseUrl}/faq`, changeFrequency: 'weekly', priority: 0.5 },
   ];
 
@@ -67,7 +70,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  return [...staticPages, ...allProductPages, ...categoryPages, ...contentPages];
+  // Blog posts
+  const blogPosts = await prisma.blogPost.findMany({
+    where: { isPublished: true },
+    select: { slug: true, updatedAt: true },
+    orderBy: { publishedAt: 'desc' },
+  });
+
+  const blogPages: MetadataRoute.Sitemap = blogPosts.map((p) => ({
+    url: `${baseUrl}/blog/${p.slug}`,
+    lastModified: p.updatedAt,
+    changeFrequency: 'weekly' as const,
+    priority: 0.6,
+  }));
+
+  // Bundles
+  const bundles = await prisma.bundle.findMany({
+    where: { isActive: true },
+    select: { slug: true, updatedAt: true },
+  });
+
+  const bundlePages: MetadataRoute.Sitemap = bundles.map((b) => ({
+    url: `${baseUrl}/bundles/${b.slug}`,
+    lastModified: b.updatedAt,
+    changeFrequency: 'weekly' as const,
+    priority: 0.6,
+  }));
+
+  return [...staticPages, ...allProductPages, ...categoryPages, ...contentPages, ...blogPages, ...bundlePages];
 }
 
 /**

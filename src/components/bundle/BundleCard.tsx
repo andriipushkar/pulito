@@ -2,6 +2,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Badge from '@/components/ui/Badge';
 
+interface BundlePricing {
+  originalPrice: number;
+  finalPrice: number;
+  savings: number;
+}
+
 interface BundleCardProps {
   bundle: {
     id: number;
@@ -9,13 +15,9 @@ interface BundleCardProps {
     slug: string;
     description?: string | null;
     imagePath?: string | null;
-    discountPercent: number;
-    items: { id: number }[];
-    pricing: {
-      originalPrice: number;
-      finalPrice: number;
-      savings: number;
-    };
+    items: { id: number; [key: string]: unknown }[];
+    pricing: BundlePricing;
+    [key: string]: unknown;
   };
 }
 
