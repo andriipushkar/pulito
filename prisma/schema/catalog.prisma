@@ -20,8 +20,9 @@ model Category {
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
-  products     Product[]
-  publications Publication[] @relation("PublicationCategory")
+  products        Product[]
+  publications    Publication[] @relation("PublicationCategory")
+  volumeDiscounts VolumeDiscount[]
 
   @@map("categories")
 }

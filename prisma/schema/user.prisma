@@ -103,6 +103,11 @@ model User {
   birthday              DateTime?
   creditLimit           Decimal?         @map("credit_limit") @db.Decimal(10, 2)
   creditUsed            Decimal?         @default(0) @map("credit_used") @db.Decimal(10, 2)
+  chatRooms             ChatRoom[]
+  agentChatRooms        ChatRoom[]       @relation("AgentChatRooms")
+  campaignLogs          CampaignLog[]
+  purchasePredictions   PurchasePrediction[]
+  tenantUsers           TenantUser[]
 
   @@index([role])
   @@index([createdAt])

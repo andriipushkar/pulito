@@ -79,10 +79,11 @@ model Order {
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
 
-  items         OrderItem[]
-  statusHistory OrderStatusHistory[]
-  payment       Payment?
-  delivery      Delivery?
+  items              OrderItem[]
+  statusHistory      OrderStatusHistory[]
+  payment            Payment?
+  delivery           Delivery?
+  marketplaceReturns MarketplaceReturn[]
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])

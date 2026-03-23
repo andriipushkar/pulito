@@ -24,6 +24,25 @@ interface RozetkaProduct {
   article: string;
 }
 
+export interface RozetkaReturn {
+  id: number;
+  order_id: number;
+  status: string;
+  reason: string;
+  quantity: number;
+  refund_amount: number;
+  created: string;
+}
+
+interface RozetkaReturnsResponse {
+  success: boolean;
+  content?: {
+    returns: RozetkaReturn[];
+    total: number;
+  };
+  errors?: { message: string }[];
+}
+
 interface RozetkaOrdersResponse {
   success: boolean;
   content?: {
@@ -206,6 +225,20 @@ export class RozetkaClient {
       return data.content?.orders || [];
     } catch (error) {
       console.error('[Rozetka] getOrders error:', error);
+      return [];
+    }
+  }
+
+  async getReturns(dateFrom?: string): Promise<RozetkaReturn[]> {
+    try {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('date_from', dateFrom);
+      const query = params.toString() ? `?${params.toString()}` : '';
+
+      const data = await this.request<RozetkaReturnsResponse>(`returns/search${query}`);
+      return data.content?.returns || [];
+    } catch (error) {
+      console.error('[Rozetka] getReturns error:', error);
       return [];
     }
   }

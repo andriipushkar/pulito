@@ -16,6 +16,7 @@ import {
   drawTableRow,
   drawFooter,
 } from '@/lib/pdf-theme';
+import { generateReorderQR } from '@/services/qr-code';
 
 export class PdfError extends Error {
   constructor(
@@ -154,6 +155,18 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
     width: totalsW,
     align: 'right',
   });
+
+  // Reorder QR code — bottom-right area
+  try {
+    const qrBuffer = await generateReorderQR(orderId);
+    const qrX = PAGE.margin + PAGE.contentWidth - 80;
+    const qrY = totalY + 30;
+    doc.image(qrBuffer, qrX, qrY, { width: 80 });
+    doc.font('Regular').fontSize(7).fillColor(BRAND.textSecondary);
+    doc.text('Сканувати для повторного замовлення', qrX - 20, qrY + 83, { width: 120, align: 'center' });
+  } catch {
+    // QR generation failure should not block invoice creation
+  }
 
   // Footer
   drawFooter(doc, COMPANY);

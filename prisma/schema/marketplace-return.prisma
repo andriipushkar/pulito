@@ -1,0 +1,29 @@
+// ─────────────────────────────────────
+// Marketplace Returns (Повернення з маркетплейсів)
+// ─────────────────────────────────────
+enum MarketplaceReturnStatus {
+  pending
+  approved
+  rejected
+  completed
+}
+
+model MarketplaceReturn {
+  id               Int                     @id @default(autoincrement())
+  connectionId     Int                     @map("connection_id")
+  connection       MarketplaceConnection   @relation(fields: [connectionId], references: [id])
+  externalReturnId String                  @map("external_return_id")
+  orderId          Int?                    @map("order_id")
+  order            Order?                  @relation(fields: [orderId], references: [id])
+  reason           String?
+  status           MarketplaceReturnStatus @default(pending)
+  quantity         Int                     @default(1)
+  refundAmount     Float?                  @map("refund_amount")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+
+  @@unique([connectionId, externalReturnId])
+  @@index([orderId])
+  @@index([status])
+  @@map("marketplace_returns")
+}

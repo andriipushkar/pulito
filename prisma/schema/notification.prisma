@@ -100,7 +100,8 @@ model EmailTemplate {
   updatedBy   Int?                   @map("updated_by")
   createdAt   DateTime               @default(now()) @map("created_at")
   updatedAt   DateTime               @updatedAt @map("updated_at")
-  versions    EmailTemplateVersion[]
+  versions      EmailTemplateVersion[]
+  campaignRules CampaignRule[]
 
   @@map("email_templates")
 }

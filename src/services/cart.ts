@@ -74,11 +74,32 @@ export async function getCartWithPersonalPrices(userId: number) {
         personalPrice = Math.round(Number(product.priceRetail) * (1 - effective.discountPercent / 100) * 100) / 100;
       }
 
-      return { ...item, personalPrice };
+      return { ...item, personalPrice, categoryId };
     })
   );
 
-  return withPrices;
+  // Apply volume discounts
+  const { applyVolumeDiscounts } = await import('@/services/volume-pricing');
+  const volumeDiscountItems = withPrices.map((item) => ({
+    productId: item.product.id,
+    categoryId: item.categoryId,
+    quantity: item.quantity,
+    price: item.personalPrice ?? Number(item.product.priceRetail),
+  }));
+
+  const volumeResults = await applyVolumeDiscounts(volumeDiscountItems);
+
+  const withVolumeDiscounts = withPrices.map((item, index) => {
+    const vd = volumeResults[index];
+    return {
+      ...item,
+      volumeDiscount: vd.discountPercent > 0
+        ? { discountedPrice: vd.discountedPrice, discountPercent: vd.discountPercent }
+        : null,
+    };
+  });
+
+  return withVolumeDiscounts;
 }
 
 /**

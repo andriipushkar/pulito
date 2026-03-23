@@ -51,6 +51,8 @@ model Product {
   bundleItems          BundleItem[]
   warehouseStock       WarehouseStock[]
   marketplaceListings  MarketplaceListing[]
+  volumeDiscounts      VolumeDiscount[]
+  purchasePredictions  PurchasePrediction[]
 
   @@index([categoryId])
   @@index([isActive, isPromo])
@@ -139,6 +141,7 @@ enum RecommendationType {
   bought_together
   similar
   manual
+  collaborative
 }
 
 model ProductRecommendation {

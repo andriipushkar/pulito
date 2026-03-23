@@ -1,24 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockPrismaClient } from '@/test/prisma-mock';
-import { getRecommendations, buildBoughtTogetherRecommendations } from './recommendation';
+import {
+  getRecommendations,
+  buildBoughtTogetherRecommendations,
+  buildCollaborativeRecommendations,
+  getPersonalizedRecommendations,
+} from './recommendation';
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    productRecommendation: {
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
+vi.mock('@/lib/prisma', () => {
+  const mockRec = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+  };
+  const mockProduct = {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+  };
+  const mockOrder = {
+    findMany: vi.fn(),
+  };
+  return {
+    prisma: {
+      productRecommendation: mockRec,
+      product: mockProduct,
+      order: mockOrder,
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        // Pass the same mocks as the transaction client
+        return fn({
+          productRecommendation: mockRec,
+          product: mockProduct,
+          order: mockOrder,
+        });
+      }),
     },
-    product: {
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
-    },
-    order: {
-      findMany: vi.fn(),
-    },
-  },
-}));
+  };
+});
 
 vi.mock('@/lib/redis', () => ({
   redis: {
@@ -191,5 +210,136 @@ describe('buildBoughtTogetherRecommendations', () => {
     mockPrisma.order.findMany.mockResolvedValue([] as never);
     const count = await buildBoughtTogetherRecommendations();
     expect(count).toBe(0);
+  });
+});
+
+describe('buildCollaborativeRecommendations', () => {
+  it('should calculate correct Jaccard scores', async () => {
+    // User 1 bought products 1, 2
+    // User 2 bought products 1, 2, 3
+    // User 3 bought products 2, 3
+    // Jaccard(1,2) = |{u1,u2}| / |{u1,u2,u3}| = 2/3 ≈ 0.667
+    // Jaccard(1,3) = |{u2}| / |{u1,u2,u3}| = 1/3 ≈ 0.333
+    // Jaccard(2,3) = |{u2,u3}| / |{u1,u2,u3}| = 2/3 ≈ 0.667
+    mockPrisma.order.findMany.mockResolvedValue([
+      { userId: 1, items: [{ productId: 1 }, { productId: 2 }] },
+      { userId: 2, items: [{ productId: 1 }, { productId: 2 }, { productId: 3 }] },
+      { userId: 3, items: [{ productId: 2 }, { productId: 3 }] },
+    ] as never);
+    mockPrisma.productRecommendation.deleteMany.mockResolvedValue({ count: 0 } as never);
+    mockPrisma.productRecommendation.create.mockResolvedValue({} as never);
+
+    const count = await buildCollaborativeRecommendations();
+
+    // 3 pairs × 2 directions = 6 recs
+    expect(count).toBe(6);
+    expect(mockPrisma.productRecommendation.create).toHaveBeenCalledTimes(6);
+
+    // Verify one of the Jaccard scores (product 1 → product 2, score ≈ 0.667)
+    const calls = mockPrisma.productRecommendation.create.mock.calls;
+    const rec12 = calls.find(
+      (c: unknown[]) =>
+        (c[0] as { data: { productId: number; recommendedProductId: number } }).data.productId === 1 &&
+        (c[0] as { data: { productId: number; recommendedProductId: number } }).data.recommendedProductId === 2
+    );
+    expect(rec12).toBeDefined();
+    const score = (rec12![0] as { data: { score: number } }).data.score;
+    expect(score).toBeCloseTo(2 / 3, 5);
+  });
+
+  it('should filter out pairs below minScore threshold', async () => {
+    // User 1 bought products 1, 2
+    // User 2 bought product 1 only
+    // User 3 bought product 2 only
+    // Jaccard(1,2) = |{u1}| / |{u1,u2,u3}| = 1/3 ≈ 0.333
+    mockPrisma.order.findMany.mockResolvedValue([
+      { userId: 1, items: [{ productId: 1 }, { productId: 2 }] },
+      { userId: 2, items: [{ productId: 1 }] },
+      { userId: 3, items: [{ productId: 2 }] },
+    ] as never);
+    mockPrisma.productRecommendation.deleteMany.mockResolvedValue({ count: 0 } as never);
+    mockPrisma.productRecommendation.create.mockResolvedValue({} as never);
+
+    // With high minScore, pair should be filtered
+    const count = await buildCollaborativeRecommendations({ minScore: 0.5 });
+    expect(count).toBe(0);
+  });
+
+  it('should handle empty orders', async () => {
+    mockPrisma.order.findMany.mockResolvedValue([] as never);
+    mockPrisma.productRecommendation.deleteMany.mockResolvedValue({ count: 0 } as never);
+
+    const count = await buildCollaborativeRecommendations();
+    expect(count).toBe(0);
+  });
+});
+
+describe('getPersonalizedRecommendations', () => {
+  it('should return products user has not bought', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    // User bought product 1
+    mockPrisma.order.findMany.mockResolvedValueOnce([
+      { items: [{ productId: 1 }] },
+    ] as never);
+    // Collaborative recs for product 1
+    mockPrisma.productRecommendation.findMany.mockResolvedValueOnce([
+      { recommendedProduct: mockProduct(2) },
+      { recommendedProduct: mockProduct(3) },
+    ] as never);
+
+    const result = await getPersonalizedRecommendations(1, 2);
+    expect(result).toHaveLength(2);
+    expect(result.every((p) => p.id !== 1)).toBe(true);
+    expect(result.map((p) => p.id)).toEqual([2, 3]);
+  });
+
+  it('should fall back to popular products when no purchase history', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    // User has no orders
+    mockPrisma.order.findMany.mockResolvedValueOnce([] as never);
+    // Fallback popular products
+    mockPrisma.product.findMany.mockResolvedValueOnce([
+      mockProduct(10),
+      mockProduct(11),
+    ] as never);
+
+    const result = await getPersonalizedRecommendations(1, 2);
+    expect(result).toHaveLength(2);
+    expect(result.map((p) => p.id)).toEqual([10, 11]);
+  });
+
+  it('should return cached results when available', async () => {
+    const cached = [mockProduct(5), mockProduct(6)];
+    mockRedis.get.mockResolvedValue(JSON.stringify(cached));
+
+    const result = await getPersonalizedRecommendations(1);
+    expect(result).toEqual(cached);
+    expect(mockPrisma.order.findMany).not.toHaveBeenCalled();
+  });
+
+  it('should combine collaborative + bought_together + fallback', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    // User bought product 1
+    mockPrisma.order.findMany.mockResolvedValueOnce([
+      { items: [{ productId: 1 }] },
+    ] as never);
+    // Collaborative returns 1 result
+    mockPrisma.productRecommendation.findMany.mockResolvedValueOnce([
+      { recommendedProduct: mockProduct(2) },
+    ] as never);
+    // Bought_together returns 1 result
+    mockPrisma.productRecommendation.findMany.mockResolvedValueOnce([
+      { recommendedProduct: mockProduct(3) },
+    ] as never);
+    // Similar returns 0
+    mockPrisma.productRecommendation.findMany.mockResolvedValueOnce([] as never);
+    // Fallback popular
+    mockPrisma.product.findMany.mockResolvedValueOnce([
+      mockProduct(4),
+    ] as never);
+
+    const result = await getPersonalizedRecommendations(1, 4);
+    expect(result).toHaveLength(3);
+    expect(result.map((p) => p.id)).toEqual([2, 3, 4]);
   });
 });

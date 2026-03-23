@@ -280,6 +280,89 @@ export async function getConnectionStatus(
   };
 }
 
+export async function syncReturns(): Promise<{ synced: number }> {
+  let synced = 0;
+
+  const connections = await prisma.marketplaceConnection.findMany({
+    where: { isActive: true },
+  });
+
+  const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  for (const connection of connections) {
+    try {
+      const platform = connection.platform as Platform;
+      const config = await getChannelConfig(platform) as MarketplaceConfig | null;
+      if (!config?.enabled) continue;
+
+      const client = getClient(platform, config);
+      const returns = await client.getReturns(dateFrom);
+
+      for (const ret of returns) {
+        const externalReturnId = String(ret.id);
+        const externalOrderId = String(
+          'order_id' in ret ? ret.order_id : ''
+        );
+
+        // Try to find matching local order
+        const localOrder = externalOrderId
+          ? await prisma.order.findFirst({
+              where: { externalId: externalOrderId, source: platform },
+              select: { id: true },
+            })
+          : null;
+
+        await prisma.marketplaceReturn.upsert({
+          where: {
+            connectionId_externalReturnId: {
+              connectionId: connection.id,
+              externalReturnId,
+            },
+          },
+          update: {
+            reason: ret.reason || null,
+            status: mapReturnStatus(ret.status),
+            quantity: ret.quantity || 1,
+            refundAmount: ret.refund_amount || null,
+          },
+          create: {
+            connectionId: connection.id,
+            externalReturnId,
+            orderId: localOrder?.id || null,
+            reason: ret.reason || null,
+            status: mapReturnStatus(ret.status),
+            quantity: ret.quantity || 1,
+            refundAmount: ret.refund_amount || null,
+          },
+        });
+
+        synced++;
+      }
+
+      await updateLastSyncTime(platform, 'returns');
+    } catch (error) {
+      console.error(`[MarketplaceSync] Помилка синхронізації повернень для ${connection.platform}:`, error);
+    }
+  }
+
+  return { synced };
+}
+
+function mapReturnStatus(externalStatus: string): 'pending' | 'approved' | 'rejected' | 'completed' {
+  const statusMap: Record<string, 'pending' | 'approved' | 'rejected' | 'completed'> = {
+    pending: 'pending',
+    new: 'pending',
+    approved: 'approved',
+    accepted: 'approved',
+    rejected: 'rejected',
+    declined: 'rejected',
+    completed: 'completed',
+    refunded: 'completed',
+    closed: 'completed',
+  };
+  return statusMap[externalStatus.toLowerCase()] || 'pending';
+}
+
 async function updateLastSyncTime(platform: string, type: string) {
   const key = `marketplace_sync_${platform}_${type}`;
   const value = new Date().toISOString();

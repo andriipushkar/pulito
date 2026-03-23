@@ -33,3 +33,9 @@ export async function generatePaymentQR(orderId: number, amount: number): Promis
   const text = `${env.APP_URL}/payment/${orderId}?amount=${amount}`;
   return generateQRCode(text);
 }
+
+/** Generate QR code that links to reorder page */
+export async function generateReorderQR(orderId: number): Promise<Buffer> {
+  const url = `${env.APP_URL}/reorder/${orderId}`;
+  return generateQRCode(url);
+}

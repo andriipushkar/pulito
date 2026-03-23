@@ -9,6 +9,16 @@ interface PromProduct {
   sku: string;
 }
 
+export interface PromReturn {
+  id: number;
+  order_id: number;
+  status: string;
+  reason: string;
+  quantity: number;
+  refund_amount: number;
+  date_created: string;
+}
+
 interface PromOrder {
   id: number;
   status: string;
@@ -144,6 +154,20 @@ export class PromClient {
       return data.orders || [];
     } catch (error) {
       console.error('[Prom] getOrders error:', error);
+      return [];
+    }
+  }
+
+  async getReturns(dateFrom?: string): Promise<PromReturn[]> {
+    try {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('date_from', dateFrom);
+      const query = params.toString() ? `?${params.toString()}` : '';
+
+      const data = await this.request<{ returns: PromReturn[] }>(`returns/list${query}`);
+      return data.returns || [];
+    } catch (error) {
+      console.error('[Prom] getReturns error:', error);
       return [];
     }
   }
