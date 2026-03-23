@@ -8,19 +8,19 @@
 | `02-catalog-search.md` | Каталог, фільтри, пошук, картка товару | 44 | Критичний |
 | `03-cart-checkout.md` | Кошик, оформлення, оплата, доставка | 64 | Критичний |
 | `04-user-account.md` | Особистий кабінет, замовлення, адреси, налаштування | 83 | Високий |
-| `05-loyalty-referral.md` | Лояльність, бали, реферальна програма, вішлісти | 12 | Високий |
+| `05-loyalty-referral.md` | Лояльність, бали, реферальна програма, вішлісти | 20 | Високий |
 | `06-admin-orders.md` | Адмін: замовлення, статуси, документи, експорт | 43 | Критичний |
 | `07-admin-products.md` | Адмін: товари, імпорт, категорії, зображення | 56 | Критичний |
 | `08-admin-analytics.md` | Адмін: аналітика, звіти, PDF, дашборд | 43 | Високий |
 | `09-admin-content.md` | Адмін: сторінки, банери, FAQ, email-шаблони | 50 | Середній |
 | `10-admin-settings.md` | Адмін: налаштування, оплата, доставка, боти | 55 | Середній |
-| `11-seo-performance.md` | SEO, sitemap, OG images, Web Vitals, кешування | 13 | Високий |
-| `12-security.md` | CSRF, rate limits, 2FA, upload санітизація, XSS | 13 | Високий |
+| `11-seo-performance.md` | SEO, sitemap, OG images, Web Vitals, кешування | 20 | Високий |
+| `12-security.md` | CSRF, rate limits, 2FA, upload санітизація, XSS | 25 | Високий |
 | `13-mobile.md` | Адаптивність, PWA, touch-взаємодія | 10 | Високий |
 | `14-error-cron.md` | Error pages (404/500), maintenance mode, health check, cron jobs | 9 | Середній |
 | `15-telegram-bot.md` | Telegram: команди, каталог, пошук, прив'язка, сповіщення | 20 | Високий |
 | `16-viber-bot.md` | Viber: меню, каталог, FAQ, прив'язка, трекінг | 19 | Високий |
-| `17-payments.md` | LiqPay, Monobank, WayForPay: повний цикл оплати | 14 | Критичний |
+| `17-payments.md` | LiqPay, Monobank, WayForPay: повний цикл оплати | 24 | Критичний |
 | `18-delivery.md` | Нова Пошта, Укрпошта, палетна: пошук, ТТН, розрахунок | 17 | Критичний |
 | `19-marketplaces.md` | OLX, Rozetka, Prom.ua, Epicentr K, Instagram | 20 | Високий |
 | `20-pricing-notifications.md` | Ціноутворення, email-кампанії, i18n, Google Shopping, lifecycle, теми | 20 | Високий |
@@ -35,7 +35,7 @@
 | `29-admin-responsive-desktop.md` | Адмін responsive: всі 63 сторінки на 1280/1440/1920px | 57 | Високий |
 | `30-admin-responsive-mobile.md` | Адмін responsive: всі 63 сторінки на 375/390/768px | 50 | Високий |
 
-**Всього: 1140 тест-кейсів у 30 файлах**
+**Всього: 1177 тест-кейсів у 30 файлах**
 
 Останнє оновлення: 2026-03-23
 
