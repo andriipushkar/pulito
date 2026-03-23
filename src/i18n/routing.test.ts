@@ -12,6 +12,8 @@ describe('i18n/routing', () => {
     expect(routing).toHaveProperty('defaultLocale', 'uk');
     expect((routing as unknown as { locales: string[] }).locales).toContain('uk');
     expect((routing as unknown as { locales: string[] }).locales).toContain('en');
+    expect((routing as unknown as { locales: string[] }).locales).toContain('pl');
+    expect((routing as unknown as { locales: string[] }).locales).toContain('ro');
   });
 
   it('uses as-needed locale prefix', () => {

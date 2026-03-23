@@ -10,7 +10,7 @@ vi.mock('next-intl/navigation', () => ({
 }));
 
 vi.mock('./routing', () => ({
-  routing: { locales: ['uk', 'en'], defaultLocale: 'uk' },
+  routing: { locales: ['uk', 'en', 'pl', 'ro'], defaultLocale: 'uk' },
 }));
 
 import { Link, redirect, usePathname, useRouter } from './navigation';

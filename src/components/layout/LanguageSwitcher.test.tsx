@@ -13,7 +13,7 @@ vi.mock('@/i18n/navigation', () => ({
   usePathname: () => '/some-page',
 }));
 vi.mock('@/i18n/routing', () => ({
-  routing: { locales: ['uk', 'en'], defaultLocale: 'uk' },
+  routing: { locales: ['uk', 'en', 'pl', 'ro'], defaultLocale: 'uk' },
 }));
 
 import LanguageSwitcher from './LanguageSwitcher';

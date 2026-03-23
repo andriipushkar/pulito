@@ -1,0 +1,48 @@
+// ─────────────────────────────────────
+// Multi-Tenant Architecture (SaaS)
+// ─────────────────────────────────────
+enum TenantPlan {
+  free
+  basic
+  pro
+  enterprise
+}
+
+model Tenant {
+  id                    Int          @id @default(autoincrement())
+  name                  String
+  slug                  String       @unique
+  domain                String?      @unique
+  domainVerified        Boolean      @default(false) @map("domain_verified")
+  domainVerificationToken String?    @map("domain_verification_token")
+  logoUrl               String?      @map("logo_url")
+  primaryColor          String?      @map("primary_color") @default("#3b82f6")
+  plan                  TenantPlan   @default(free)
+  isActive              Boolean      @default(true) @map("is_active")
+  settings              Json?
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  users                 TenantUser[]
+  billing               TenantBilling?
+
+  @@map("tenants")
+}
+
+enum TenantUserRole {
+  owner
+  admin
+  member
+}
+
+model TenantUser {
+  id        Int            @id @default(autoincrement())
+  tenantId  Int            @map("tenant_id")
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    Int            @map("user_id")
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      TenantUserRole @default(member)
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@unique([tenantId, userId])
+  @@map("tenant_users")
+}

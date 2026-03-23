@@ -6,7 +6,7 @@ vi.mock('next-intl/server', () => ({
 
 vi.mock('./routing', () => ({
   routing: {
-    locales: ['uk', 'en'],
+    locales: ['uk', 'en', 'pl', 'ro'],
     defaultLocale: 'uk',
   },
 }));

@@ -1,0 +1,58 @@
+// ─────────────────────────────────────
+// Integration — 1C/BAS API sync
+// ─────────────────────────────────────
+
+enum IntegrationType {
+  one_c
+  bas
+}
+
+enum SyncDirection {
+  import_sync @map("import")
+  export_sync @map("export")
+}
+
+enum SyncEntityType {
+  product
+  order
+  stock
+  price
+}
+
+enum SyncStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+model IntegrationSync {
+  id             Int             @id @default(autoincrement())
+  type           IntegrationType
+  direction      SyncDirection
+  entityType     SyncEntityType  @map("entity_type")
+  status         SyncStatus      @default(pending)
+  itemsTotal     Int             @default(0) @map("items_total")
+  itemsProcessed Int             @default(0) @map("items_processed")
+  itemsFailed    Int             @default(0) @map("items_failed")
+  errorLog       Json?           @map("error_log")
+  startedAt      DateTime?       @map("started_at")
+  completedAt    DateTime?       @map("completed_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  @@map("integration_syncs")
+}
+
+model ApiKey {
+  id          Int       @id @default(autoincrement())
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  prefix      String    // first 8 chars for identification
+  permissions Json      // { products: true, orders: true, stock: true, prices: true }
+  isActive    Boolean   @default(true) @map("is_active")
+  lastUsedAt  DateTime? @map("last_used_at")
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("api_keys")
+}

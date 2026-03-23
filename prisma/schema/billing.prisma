@@ -1,0 +1,76 @@
+// ─────────────────────────────────────
+// Billing & Plans (SaaS)
+// ─────────────────────────────────────
+model Plan {
+  id            Int       @id @default(autoincrement())
+  name          String
+  slug          String    @unique
+  priceMonthly  Float     @map("price_monthly")
+  priceYearly   Float     @map("price_yearly")
+  features      Json      // { maxProducts: 100, maxOrders: 500, ... }
+  maxProducts   Int       @default(100) @map("max_products")
+  maxOrders     Int       @default(500) @map("max_orders")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  billings      TenantBilling[]
+
+  @@map("plans")
+}
+
+enum BillingStatus {
+  trial
+  active
+  past_due
+  cancelled
+}
+
+model TenantBilling {
+  id                 Int           @id @default(autoincrement())
+  tenantId           Int           @unique @map("tenant_id")
+  tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId             Int           @map("plan_id")
+  plan               Plan          @relation(fields: [planId], references: [id])
+  status             BillingStatus @default(trial)
+  currentPeriodStart DateTime      @map("current_period_start")
+  currentPeriodEnd   DateTime      @map("current_period_end")
+  trialEndsAt        DateTime?     @map("trial_ends_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  invoices           BillingInvoice[]
+
+  @@map("tenant_billings")
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  overdue
+}
+
+model BillingInvoice {
+  id          Int           @id @default(autoincrement())
+  billingId   Int           @map("billing_id")
+  billing     TenantBilling @relation(fields: [billingId], references: [id])
+  amount      Float
+  currency    String        @default("UAH")
+  status      InvoiceStatus @default(draft)
+  periodStart DateTime      @map("period_start")
+  periodEnd   DateTime      @map("period_end")
+  paidAt      DateTime?     @map("paid_at")
+  pdfUrl      String?       @map("pdf_url")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@map("billing_invoices")
+}
+
+model UsageRecord {
+  id         Int      @id @default(autoincrement())
+  tenantId   Int      @map("tenant_id")
+  metric     String   // products, orders, storage_mb
+  value      Float
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  @@map("usage_records")
+}
