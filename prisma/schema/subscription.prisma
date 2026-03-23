@@ -1,0 +1,52 @@
+// ─────────────────────────────────────
+// Subscriptions (Subscribe & Save)
+// ─────────────────────────────────────
+enum SubscriptionFrequency {
+  weekly
+  biweekly
+  monthly
+  bimonthly
+}
+
+enum SubscriptionStatus {
+  active
+  paused
+  cancelled
+}
+
+model Subscription {
+  id              Int                   @id @default(autoincrement())
+  userId          Int                   @map("user_id")
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frequency       SubscriptionFrequency
+  status          SubscriptionStatus    @default(active)
+  nextDeliveryAt  DateTime              @map("next_delivery_at")
+  discountPercent Decimal               @default(5) @map("discount_percent") @db.Decimal(5, 2)
+  lastOrderId     Int?                  @map("last_order_id")
+  pausedAt        DateTime?             @map("paused_at")
+  cancelledAt     DateTime?             @map("cancelled_at")
+  deliveryMethod  String?               @map("delivery_method")
+  deliveryCity    String?               @map("delivery_city")
+  deliveryAddress String?               @map("delivery_address")
+  paymentMethod   String?               @map("payment_method")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  items SubscriptionItem[]
+
+  @@index([userId])
+  @@index([status, nextDeliveryAt])
+  @@map("subscriptions")
+}
+
+model SubscriptionItem {
+  id             Int          @id @default(autoincrement())
+  subscriptionId Int          @map("subscription_id")
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  productId      Int          @map("product_id")
+  product        Product      @relation(fields: [productId], references: [id])
+  quantity       Int
+
+  @@unique([subscriptionId, productId])
+  @@map("subscription_items")
+}

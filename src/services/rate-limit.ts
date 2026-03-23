@@ -81,6 +81,28 @@ export const RATE_LIMITS = {
   api: { prefix: 'rl:api:', max: 60, windowSec: 60 } satisfies RateLimitConfig,
   /** Sensitive operations (password reset, etc.): 3 per 15 min */
   sensitive: { prefix: 'rl:sens:', max: 3, windowSec: 900 } satisfies RateLimitConfig,
+  /** Product search: 30 requests per minute */
+  search: { prefix: 'rl:search:', max: 30, windowSec: 60 } satisfies RateLimitConfig,
+  /** Instant search (autocomplete): 60 requests per minute */
+  instantSearch: { prefix: 'rl:isearch:', max: 60, windowSec: 60 } satisfies RateLimitConfig,
+  /** Cart operations: 30 requests per minute */
+  cart: { prefix: 'rl:cart:', max: 30, windowSec: 60 } satisfies RateLimitConfig,
+  /** Order operations: 10 requests per minute */
+  orders: { prefix: 'rl:orders:', max: 10, windowSec: 60 } satisfies RateLimitConfig,
+  /** Admin panel: 60 requests per minute */
+  admin: { prefix: 'rl:admin:', max: 60, windowSec: 60 } satisfies RateLimitConfig,
+  /** Cron jobs: 5 requests per minute */
+  cron: { prefix: 'rl:cron:', max: 5, windowSec: 60 } satisfies RateLimitConfig,
+  /** Reviews: 5 per 15 minutes */
+  reviews: { prefix: 'rl:reviews:', max: 5, windowSec: 900 } satisfies RateLimitConfig,
+  /** Wholesale: 10 per minute */
+  wholesale: { prefix: 'rl:wholesale:', max: 10, windowSec: 60 } satisfies RateLimitConfig,
+  /** Subscriptions: 10 per minute */
+  subscriptions: { prefix: 'rl:subs:', max: 10, windowSec: 60 } satisfies RateLimitConfig,
+  /** Blog/content: 60 per minute */
+  content: { prefix: 'rl:content:', max: 60, windowSec: 60 } satisfies RateLimitConfig,
+  /** Calculator: 20 per minute */
+  calculator: { prefix: 'rl:calc:', max: 20, windowSec: 60 } satisfies RateLimitConfig,
 };
 
 export interface RateLimitResult {

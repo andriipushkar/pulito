@@ -166,7 +166,10 @@ export default async function middleware(request: NextRequest) {
   // CSP with per-request nonce — replaces unsafe-inline for scripts
   const nonce = crypto.randomUUID().replace(/-/g, '');
   response.headers.set('X-Nonce', nonce);
-  response.headers.set('Content-Security-Policy', [
+
+  const cspReportUri = process.env.SENTRY_CSP_REPORT_URI;
+
+  const cspDirectives = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
@@ -178,7 +181,21 @@ export default async function middleware(request: NextRequest) {
     "form-action 'self'",
     "object-src 'none'",
     "upgrade-insecure-requests",
-  ].join('; '));
+  ];
+
+  if (cspReportUri) {
+    cspDirectives.push(`report-uri ${cspReportUri}`);
+    cspDirectives.push("report-to csp-endpoint");
+
+    // Report-To header (newer API, works alongside report-uri for backward compatibility)
+    response.headers.set('Report-To', JSON.stringify({
+      group: 'csp-endpoint',
+      max_age: 10886400,
+      endpoints: [{ url: cspReportUri }],
+    }));
+  }
+
+  response.headers.set('Content-Security-Policy', cspDirectives.join('; '));
 
   return response;
 }

@@ -1,0 +1,247 @@
+// ─────────────────────────────────────
+// 23.1 Users (Користувачі)
+// ─────────────────────────────────────
+enum UserRole {
+  client
+  wholesaler
+  manager
+  admin
+}
+
+enum WholesaleStatus {
+  none
+  pending
+  approved
+  rejected
+}
+
+enum OwnershipType {
+  fop
+  tov
+  pp
+  other
+}
+
+enum TaxSystem {
+  with_vat
+  without_vat
+}
+
+model User {
+  id                    Int              @id @default(autoincrement())
+  email                 String           @unique
+  passwordHash          String?          @map("password_hash")
+  fullName              String           @map("full_name")
+  phone                 String?
+  role                  UserRole         @default(client)
+  companyName           String?          @map("company_name")
+  edrpou                String?
+  legalAddress          String?          @map("legal_address")
+  bankIban              String?          @map("bank_iban")
+  bankName              String?          @map("bank_name")
+  bankMfo               String?          @map("bank_mfo")
+  ownershipType         OwnershipType?   @map("ownership_type")
+  taxSystem             TaxSystem?       @map("tax_system")
+  contactPersonName     String?          @map("contact_person_name")
+  contactPersonPhone    String?          @map("contact_person_phone")
+  wholesaleStatus       WholesaleStatus  @default(none) @map("wholesale_status")
+  wholesaleRequestDate  DateTime?        @map("wholesale_request_date")
+  wholesaleApprovedDate DateTime?        @map("wholesale_approved_date")
+  wholesaleGroup        Int?             @map("wholesale_group")
+  wholesaleMonthlyVol   String?          @map("wholesale_monthly_volume")
+  assignedManagerId     Int?             @map("assigned_manager_id")
+  assignedManager       User?            @relation("ManagerToClient", fields: [assignedManagerId], references: [id])
+  managedClients        User[]           @relation("ManagerToClient")
+  referralCode          String?          @unique @map("referral_code")
+  notificationPrefs     Json?            @map("notification_preferences")
+  googleId              String?          @unique @map("google_id")
+  telegramChatId        BigInt?          @map("telegram_chat_id")
+  viberUserId           String?          @map("viber_user_id")
+  avatarUrl             String?          @map("avatar_url")
+  twoFactorEnabled      Boolean          @default(false) @map("two_factor_enabled")
+  twoFactorSecret       String?          @map("two_factor_secret")
+  twoFactorBackupCodes  String[]         @default([]) @map("two_factor_backup_codes")
+  isVerified            Boolean          @default(false) @map("is_verified")
+  isBlocked             Boolean          @default(false) @map("is_blocked")
+  blockedAt             DateTime?        @map("blocked_at")
+  blockedReason         String?          @map("blocked_reason")
+  adminNote             String?          @map("admin_note")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+
+  orders              Order[]
+  cartItems           CartItem[]
+  wishlists           Wishlist[]
+  notifications       UserNotification[]
+  addresses           UserAddress[]
+  refreshTokens       RefreshToken[]
+  recentlyViewed      RecentlyViewed[]
+  searchHistory       SearchHistory[]
+  productNotes        ProductNote[]
+  auditLogs           AuditLog[]
+  importLogs          ImportLog[]
+  personalPricesUser  PersonalPrice[]    @relation("PersonalPriceUser")
+  personalPricesAdmin PersonalPrice[]    @relation("PersonalPriceCreator")
+  referralsMade       Referral[]         @relation("Referrer")
+  referralsReceived   Referral[]         @relation("Referred")
+  clientEvents        ClientEvent[]
+  publications        Publication[]
+  feedbackProcessed   Feedback[]         @relation("FeedbackProcessor")
+  paymentsConfirmed   Payment[]          @relation("PaymentConfirmer")
+  deliveriesCreated   Delivery[]
+  dashboardSettings     DashboardSettings?
+  reportTemplates       ReportTemplate[]
+  analyticsAlerts       AnalyticsAlert[]
+  loyaltyAccount        LoyaltyAccount?
+  loyaltyTransactions   LoyaltyTransaction[]
+  pushSubscriptions     PushSubscription[]
+  reviews               Review[]
+  loginHistory          LoginHistory[]
+  subscriptions         Subscription[]
+  loyaltyStreaks        LoyaltyStreak?
+  challengeProgress     LoyaltyChallengeProgress[]
+  birthday              DateTime?
+  creditLimit           Decimal?         @map("credit_limit") @db.Decimal(10, 2)
+  creditUsed            Decimal?         @default(0) @map("credit_used") @db.Decimal(10, 2)
+
+  @@index([role])
+  @@index([createdAt])
+  @@index([wholesaleStatus])
+  @@map("users")
+}
+
+model LoginHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  device    String?
+  browser   String?
+  os        String?
+  country   String?
+  city      String?
+  success   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([createdAt])
+  @@map("login_history")
+}
+
+// ─────────────────────────────────────
+// 23.34 User_Addresses
+// ─────────────────────────────────────
+model UserAddress {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String?
+  city       String
+  street     String?
+  building   String?
+  apartment  String?
+  postalCode String?  @map("postal_code")
+  isDefault  Boolean  @default(false) @map("is_default")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("user_addresses")
+}
+
+// ─────────────────────────────────────
+// 23.49 Refresh_Tokens
+// ─────────────────────────────────────
+model RefreshToken {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @map("user_id")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique @map("token_hash")
+  deviceInfo String?   @map("device_info") @db.VarChar(500)
+  ipAddress  String?   @map("ip_address")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────
+// 23.47 Search_History
+// ─────────────────────────────────────
+model SearchHistory {
+  id               Int      @id @default(autoincrement())
+  userId           Int?     @map("user_id")
+  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  query            String   @db.VarChar(255)
+  resultsCount     Int      @default(0) @map("results_count")
+  clickedProductId Int?     @map("clicked_product_id")
+  clickedProduct   Product? @relation(fields: [clickedProductId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([query])
+  @@map("search_history")
+}
+
+// ─────────────────────────────────────
+// 23.40 Recently_Viewed
+// ─────────────────────────────────────
+model RecentlyViewed {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int      @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  @@unique([userId, productId])
+  @@index([userId, viewedAt])
+  @@index([productId, viewedAt])
+  @@map("recently_viewed")
+}
+
+// ─────────────────────────────────────
+// 23.37 Product_Notes
+// ─────────────────────────────────────
+model ProductNote {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int      @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  noteText  String   @map("note_text") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, productId])
+  @@map("product_notes")
+}
+
+// ─────────────────────────────────────
+// 23.36 Referrals
+// ─────────────────────────────────────
+enum ReferralStatus {
+  registered
+  first_order
+  bonus_granted
+}
+
+model Referral {
+  id             Int            @id @default(autoincrement())
+  referrerUserId Int            @map("referrer_user_id")
+  referrer       User           @relation("Referrer", fields: [referrerUserId], references: [id])
+  referredUserId Int            @map("referred_user_id")
+  referred       User           @relation("Referred", fields: [referredUserId], references: [id])
+  referralCode   String         @map("referral_code")
+  status         ReferralStatus @default(registered)
+  bonusType      String?        @map("bonus_type")
+  bonusValue     Decimal?       @map("bonus_value") @db.Decimal(10, 2)
+  bonusOrderId   Int?           @map("bonus_order_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  convertedAt    DateTime?      @map("converted_at")
+
+  @@map("referrals")
+}

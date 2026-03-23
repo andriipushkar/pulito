@@ -1,0 +1,65 @@
+// ─────────────────────────────────────
+// Moderation & Bot Auto-Replies
+// ─────────────────────────────────────
+model ModerationRule {
+  id        Int             @id @default(autoincrement())
+  platform  String
+  ruleType  String          @map("rule_type")
+  config    Json
+  action    String
+  isActive  Boolean         @default(true) @map("is_active")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  logs      ModerationLog[]
+
+  @@map("moderation_rules")
+}
+
+model ModerationLog {
+  id              Int             @id @default(autoincrement())
+  platform        String
+  userPlatformId  String          @map("user_platform_id")
+  userName        String?         @map("user_name")
+  ruleId          Int?            @map("rule_id")
+  rule            ModerationRule? @relation(fields: [ruleId], references: [id])
+  originalMessage String?         @map("original_message")
+  actionTaken     String          @map("action_taken")
+  isFalsePositive Boolean         @default(false) @map("is_false_positive")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@map("moderation_log")
+}
+
+model BotAutoReply {
+  id            Int      @id @default(autoincrement())
+  platform      String
+  triggerType   String   @map("trigger_type")
+  triggerText   String?  @map("trigger_text")
+  responseText  String   @map("response_text")
+  responseImage String?  @map("response_image")
+  buttons       Json?
+  priority      Int      @default(0)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("bot_auto_replies")
+}
+
+model BotWelcomeMessage {
+  id           Int      @id @default(autoincrement())
+  platform     String
+  variant      String   @default("A")
+  messageText  String   @map("message_text")
+  messageImage String?  @map("message_image")
+  buttons      Json?
+  promoCode    String?  @map("promo_code")
+  promoLink    String?  @map("promo_link")
+  impressions  Int      @default(0)
+  conversions  Int      @default(0)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("bot_welcome_messages")
+}

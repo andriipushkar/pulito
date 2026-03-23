@@ -1,0 +1,119 @@
+// ─────────────────────────────────────
+// 23.33 User_Notifications
+// ─────────────────────────────────────
+enum NotificationType {
+  order_status
+  price_change
+  back_in_stock
+  promo
+  system_notification @map("system")
+}
+
+model UserNotification {
+  id               Int              @id @default(autoincrement())
+  userId           Int              @map("user_id")
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationType NotificationType @map("notification_type")
+  title            String
+  message          String
+  link             String?
+  isRead           Boolean          @default(false) @map("is_read")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  readAt           DateTime?        @map("read_at")
+  dispatched       Boolean          @default(false)
+  retryCount       Int              @default(0) @map("retry_count")
+  nextRetryAt      DateTime?        @map("next_retry_at")
+  lastError        String?          @map("last_error")
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([dispatched, nextRetryAt])
+  @@map("user_notifications")
+}
+
+// ─────────────────────────────────────
+// Push Subscriptions (PWA)
+// ─────────────────────────────────────
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// ─────────────────────────────────────
+// 23.50 Notification_Queue
+// ─────────────────────────────────────
+enum NotificationChannel {
+  email
+  telegram
+  viber
+  instagram
+  push
+}
+
+enum QueueStatus {
+  pending_queue    @map("pending")
+  processing_queue @map("processing")
+  sent
+  failed_queue     @map("failed")
+}
+
+model NotificationQueue {
+  id           Int                 @id @default(autoincrement())
+  channel      NotificationChannel
+  recipient    String
+  subject      String?
+  bodyTemplate String              @map("body_template")
+  bodyParams   Json?               @map("body_params")
+  status       QueueStatus         @default(pending_queue)
+  attempts     Int                 @default(0)
+  maxAttempts  Int                 @default(3) @map("max_attempts")
+  errorMessage String?             @map("error_message")
+  scheduledAt  DateTime?           @map("scheduled_at")
+  sentAt       DateTime?           @map("sent_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  @@index([status, scheduledAt])
+  @@index([channel, status])
+  @@map("notification_queue")
+}
+
+// ─────────────────────────────────────
+// 23.31-32 Email_Templates
+// ─────────────────────────────────────
+model EmailTemplate {
+  id          Int                    @id @default(autoincrement())
+  templateKey String                 @unique @map("template_key")
+  subject     String
+  bodyHtml    String                 @map("body_html")
+  bodyText    String?                @map("body_text")
+  version     Int                    @default(1)
+  isActive    Boolean                @default(true) @map("is_active")
+  isMarketing Boolean                @default(false) @map("is_marketing")
+  updatedBy   Int?                   @map("updated_by")
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+  versions    EmailTemplateVersion[]
+
+  @@map("email_templates")
+}
+
+model EmailTemplateVersion {
+  id         Int           @id @default(autoincrement())
+  templateId Int           @map("template_id")
+  template   EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version    Int
+  subject    String
+  bodyHtml   String        @map("body_html")
+  createdBy  Int?          @map("created_by")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  @@map("email_template_versions")
+}

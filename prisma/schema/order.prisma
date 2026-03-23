@@ -1,0 +1,333 @@
+// ─────────────────────────────────────
+// 23.4 Orders (Замовлення)
+// ─────────────────────────────────────
+enum OrderStatus {
+  new_order @map("new")
+  processing
+  confirmed
+  paid
+  shipped
+  completed
+  cancelled
+  returned
+}
+
+enum ClientType {
+  retail
+  wholesale
+}
+
+enum DeliveryMethod {
+  nova_poshta
+  ukrposhta
+  pickup
+  pallet
+}
+
+enum PaymentMethod {
+  cod
+  bank_transfer
+  online
+  card_prepay
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  partial
+  refunded
+}
+
+enum OrderSource {
+  web
+  telegram_bot
+  viber_bot
+}
+
+model Order {
+  id                   Int            @id @default(autoincrement())
+  userId               Int?           @map("user_id")
+  user                 User?          @relation(fields: [userId], references: [id])
+  orderNumber          String         @unique @map("order_number")
+  status               OrderStatus    @default(new_order)
+  clientType           ClientType     @map("client_type")
+  totalAmount          Decimal        @map("total_amount") @db.Decimal(10, 2)
+  discountAmount       Decimal        @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  deliveryCost         Decimal        @default(0) @map("delivery_cost") @db.Decimal(10, 2)
+  itemsCount           Int            @map("items_count")
+  contactName          String         @map("contact_name")
+  contactPhone         String         @map("contact_phone")
+  contactEmail         String         @map("contact_email")
+  deliveryMethod       DeliveryMethod @map("delivery_method")
+  deliveryCity         String?        @map("delivery_city")
+  deliveryWarehouseRef String?        @map("delivery_warehouse_ref")
+  deliveryAddress      String?        @map("delivery_address")
+  trackingNumber       String?        @map("tracking_number")
+  paymentMethod        PaymentMethod  @map("payment_method")
+  paymentStatus        PaymentStatus  @default(pending) @map("payment_status")
+  comment              String?
+  managerComment       String?        @map("manager_comment")
+  cancelledReason      String?        @map("cancelled_reason")
+  cancelledBy          String?        @map("cancelled_by")
+  assignedManagerId    Int?           @map("assigned_manager_id")
+  source               OrderSource    @default(web)
+  utmSource            String?        @map("utm_source")
+  utmMedium            String?        @map("utm_medium")
+  utmCampaign          String?        @map("utm_campaign")
+  ipAddress            String?        @map("ip_address")
+  userAgent            String?        @map("user_agent")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  payment       Payment?
+  delivery      Delivery?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@index([status, createdAt])
+  @@index([paymentStatus])
+  @@map("orders")
+}
+
+// ─────────────────────────────────────
+// 23.5 Order_Items
+// ─────────────────────────────────────
+model OrderItem {
+  id           Int      @id @default(autoincrement())
+  orderId      Int      @map("order_id")
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    Int?     @map("product_id")
+  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productCode  String   @map("product_code")
+  productName  String   @map("product_name")
+  priceAtOrder Decimal  @map("price_at_order") @db.Decimal(10, 2)
+  quantity     Int
+  subtotal     Decimal  @db.Decimal(10, 2)
+  isPromo      Boolean  @default(false) @map("is_promo")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// ─────────────────────────────────────
+// 23.51 Order_Status_History
+// ─────────────────────────────────────
+enum ChangeSource {
+  manager
+  client_action @map("client")
+  system
+  cron
+}
+
+model OrderStatusHistory {
+  id           Int          @id @default(autoincrement())
+  orderId      Int          @map("order_id")
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  oldStatus    String?      @map("old_status")
+  newStatus    String       @map("new_status")
+  changedBy    Int?         @map("changed_by")
+  changeSource ChangeSource @map("change_source")
+  comment      String?
+  ipAddress    String?      @map("ip_address")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@index([orderId, createdAt])
+  @@index([newStatus])
+  @@map("order_status_history")
+}
+
+// ─────────────────────────────────────
+// 23.38 Payments
+// ─────────────────────────────────────
+model Payment {
+  id              Int           @id @default(autoincrement())
+  orderId         Int           @unique @map("order_id")
+  order           Order         @relation(fields: [orderId], references: [id])
+  paymentMethod   PaymentMethod @map("payment_method")
+  paymentStatus   PaymentStatus @map("payment_status") @default(pending)
+  amount          Decimal       @db.Decimal(10, 2)
+  paidAt          DateTime?     @map("paid_at")
+  confirmedBy     Int?          @map("confirmed_by")
+  confirmer       User?         @relation("PaymentConfirmer", fields: [confirmedBy], references: [id])
+  transactionId   String?       @map("transaction_id")
+  invoicePdfUrl   String?       @map("invoice_pdf_url")
+  receiptUrl      String?       @map("receipt_url")
+  notes           String?
+  paymentProvider String?       @map("payment_provider") // 'liqpay' | 'monobank'
+  callbackData    Json?         @map("callback_data")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@map("payments")
+}
+
+// ─────────────────────────────────────
+// 23.39 Deliveries
+// ─────────────────────────────────────
+enum DeliveryStatus {
+  pending_delivery  @map("pending")
+  shipped_delivery  @map("shipped")
+  in_transit
+  delivered
+  returned_delivery @map("returned")
+}
+
+model Delivery {
+  id                    Int            @id @default(autoincrement())
+  orderId               Int            @unique @map("order_id")
+  order                 Order          @relation(fields: [orderId], references: [id])
+  deliveryMethod        DeliveryMethod @map("delivery_method")
+  deliveryStatus        DeliveryStatus @default(pending_delivery) @map("delivery_status")
+  city                  String?
+  warehouseRef          String?        @map("warehouse_ref")
+  addressText           String?        @map("address_text")
+  trackingNumber        String?        @map("tracking_number")
+  trackingUrl           String?        @map("tracking_url")
+  estimatedDeliveryDate DateTime?      @map("estimated_delivery_date")
+  actualDeliveryDate    DateTime?      @map("actual_delivery_date")
+  deliveryCost          Decimal        @default(0) @map("delivery_cost") @db.Decimal(10, 2)
+  weightKg              Decimal?       @map("weight_kg") @db.Decimal(6, 2)
+  createdBy             Int?           @map("created_by")
+  creator               User?          @relation(fields: [createdBy], references: [id])
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  @@map("deliveries")
+}
+
+// ─────────────────────────────────────
+// 23.42 Cart_Items
+// ─────────────────────────────────────
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int      @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  addedAt   DateTime @default(now()) @map("added_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, productId])
+  @@map("cart_items")
+}
+
+// ─────────────────────────────────────
+// 23.8-9 Wishlists
+// ─────────────────────────────────────
+model Wishlist {
+  id        Int            @id @default(autoincrement())
+  userId    Int            @map("user_id")
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  items     WishlistItem[]
+
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         Int      @id @default(autoincrement())
+  wishlistId Int      @map("wishlist_id")
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productId  Int      @map("product_id")
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  addedAt    DateTime @default(now()) @map("added_at")
+
+  @@unique([wishlistId, productId])
+  @@map("wishlist_items")
+}
+
+// ─────────────────────────────────────
+// Coupons & Promo Codes (Купони та промокоди)
+// ─────────────────────────────────────
+enum CouponType {
+  percent
+  fixed_amount
+  free_delivery
+}
+
+model Coupon {
+  id                Int        @id @default(autoincrement())
+  code              String     @unique
+  description       String?
+  type              CouponType
+  value             Decimal    @db.Decimal(10, 2) // percent value or fixed amount
+  minOrderAmount    Decimal?   @map("min_order_amount") @db.Decimal(10, 2)
+  maxDiscount       Decimal?   @map("max_discount") @db.Decimal(10, 2) // cap for percent coupons
+  usageLimit        Int?       @map("usage_limit")      // total uses allowed
+  usageLimitPerUser Int?       @map("usage_limit_per_user")
+  usedCount         Int        @default(0) @map("used_count")
+  validFrom         DateTime?  @map("valid_from")
+  validUntil        DateTime?  @map("valid_until")
+  isActive          Boolean    @default(true) @map("is_active")
+  createdBy         Int?       @map("created_by")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  redemptions CouponRedemption[]
+
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id        Int      @id @default(autoincrement())
+  couponId  Int      @map("coupon_id")
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  userId    Int?     @map("user_id")
+  orderId   Int?     @map("order_id")
+  discount  Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([couponId])
+  @@index([userId])
+  @@map("coupon_redemptions")
+}
+
+// ─────────────────────────────────────
+// Returns / RMA (Повернення)
+// ─────────────────────────────────────
+enum ReturnStatus {
+  requested
+  approved
+  rejected
+  received
+  refunded
+}
+
+enum ReturnReason {
+  defective
+  wrong_item
+  not_as_described
+  changed_mind
+  damaged_delivery
+  other
+}
+
+model ReturnRequest {
+  id             Int          @id @default(autoincrement())
+  orderId        Int          @map("order_id")
+  userId         Int          @map("user_id")
+  status         ReturnStatus @default(requested)
+  reason         ReturnReason
+  description    String?      @db.VarChar(2000)
+  items          Json         // Array of { orderItemId, productName, quantity, amount }
+  totalAmount    Decimal      @map("total_amount") @db.Decimal(10, 2)
+  trackingNumber String?      @map("tracking_number")
+  adminComment   String?      @map("admin_comment") @db.VarChar(1000)
+  processedBy    Int?         @map("processed_by")
+  processedAt    DateTime?    @map("processed_at")
+  refundedAt     DateTime?    @map("refunded_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@map("return_requests")
+}

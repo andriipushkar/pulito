@@ -2,8 +2,10 @@ import { NextRequest } from 'next/server';
 import { productFilterSchema } from '@/validators/product';
 import { getProducts } from '@/services/product';
 import { paginatedResponse, errorResponse } from '@/utils/api-response';
+import { createApiHandler } from '@/lib/api-handler';
+import { RATE_LIMITS } from '@/services/rate-limit';
 
-export async function GET(request: NextRequest) {
+export const GET = createApiHandler(RATE_LIMITS.api, async function GET(request: NextRequest) {
   try {
     const sp = request.nextUrl.searchParams;
     const raw = {
@@ -29,4 +31,4 @@ export async function GET(request: NextRequest) {
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }
-}
+});

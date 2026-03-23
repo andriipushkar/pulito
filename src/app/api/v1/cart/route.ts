@@ -4,17 +4,19 @@ import { getCartWithPersonalPrices, addToCart, clearCart, mergeCart } from '@/se
 import { CartError } from '@/services/cart';
 import { addToCartSchema } from '@/validators/order';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { createApiHandler } from '@/lib/api-handler';
+import { RATE_LIMITS } from '@/services/rate-limit';
 
-export const GET = withAuth(async (_request: NextRequest, { user }) => {
+export const GET = createApiHandler(RATE_LIMITS.cart, withAuth(async (_request: NextRequest, { user }) => {
   try {
     const items = await getCartWithPersonalPrices(user.id);
     return successResponse(items);
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }
-});
+}));
 
-export const POST = withAuth(async (request: NextRequest, { user }) => {
+export const POST = createApiHandler(RATE_LIMITS.cart, withAuth(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = addToCartSchema.safeParse(body);
@@ -29,18 +31,18 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
     }
     return errorResponse('Внутрішня помилка сервера', 500);
   }
-});
+}));
 
-export const DELETE = withAuth(async (_request: NextRequest, { user }) => {
+export const DELETE = createApiHandler(RATE_LIMITS.cart, withAuth(async (_request: NextRequest, { user }) => {
   try {
     await clearCart(user.id);
     return successResponse({ message: 'Кошик очищено' });
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }
-});
+}));
 
-export const PUT = withAuth(async (request: NextRequest, { user }) => {
+export const PUT = createApiHandler(RATE_LIMITS.cart, withAuth(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     if (Array.isArray(body.items)) {
@@ -51,4 +53,4 @@ export const PUT = withAuth(async (request: NextRequest, { user }) => {
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }
-});
+}));

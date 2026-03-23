@@ -1,0 +1,226 @@
+// ─────────────────────────────────────
+// 23.18 Audit_Log
+// ─────────────────────────────────────
+enum AuditActionType {
+  login
+  logout
+  role_change
+  import_action @map("import")
+  order_status_change
+  publication_create
+  theme_change
+  page_edit
+  rule_change
+  data_delete
+  user_block
+  user_unblock
+  user_edit
+  password_reset
+  wholesale_approve
+  wholesale_reject
+}
+
+model AuditLog {
+  id         Int             @id @default(autoincrement())
+  userId     Int?            @map("user_id")
+  user       User?           @relation(fields: [userId], references: [id])
+  actionType AuditActionType @map("action_type")
+  entityType String          @map("entity_type")
+  entityId   Int?            @map("entity_id")
+  details    Json?
+  ipAddress  String?         @map("ip_address")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  @@index([actionType])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+// ─────────────────────────────────────
+// 23.48 Import_Log
+// ─────────────────────────────────────
+enum ImportStatus {
+  pending_import    @map("pending")
+  processing_import @map("processing")
+  completed_import  @map("completed")
+  failed_import     @map("failed")
+}
+
+model ImportLog {
+  id            Int          @id @default(autoincrement())
+  managerId     Int          @map("manager_id")
+  manager       User         @relation(fields: [managerId], references: [id])
+  filename      String
+  fileSizeBytes Int?         @map("file_size_bytes")
+  status        ImportStatus @default(pending_import)
+  totalRows     Int          @default(0) @map("total_rows")
+  createdCount  Int          @default(0) @map("created_count")
+  updatedCount  Int          @default(0) @map("updated_count")
+  skippedCount  Int          @default(0) @map("skipped_count")
+  errorCount    Int          @default(0) @map("error_count")
+  errorsJson    Json?        @map("errors_json")
+  startedAt     DateTime?    @map("started_at")
+  completedAt   DateTime?    @map("completed_at")
+  durationMs    Int?         @map("duration_ms")
+
+  @@index([managerId])
+  @@index([status])
+  @@index([completedAt(sort: Desc)])
+  @@map("import_log")
+}
+
+// ─────────────────────────────────────
+// 23.19-27 Dashboard tables
+// ─────────────────────────────────────
+model DashboardSettings {
+  id                     Int      @id @default(autoincrement())
+  userId                 Int      @unique @map("user_id")
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layout                 Json?
+  lowStockThreshold      Int      @default(10) @map("low_stock_threshold")
+  refreshIntervalSeconds Int      @default(60) @map("refresh_interval_seconds")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("dashboard_settings")
+}
+
+model ReportTemplate {
+  id            Int      @id @default(autoincrement())
+  name          String
+  createdBy     Int      @map("created_by")
+  creator       User     @relation(fields: [createdBy], references: [id])
+  reportType    String   @map("report_type")
+  filters       Json?
+  metrics       Json?
+  schedule      String?
+  scheduleEmail String?  @map("schedule_email")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("report_templates")
+}
+
+model AnalyticsAlert {
+  id                   Int       @id @default(autoincrement())
+  createdBy            Int       @map("created_by")
+  creator              User      @relation(fields: [createdBy], references: [id])
+  alertType            String    @map("alert_type")
+  condition            Json
+  notificationChannels String    @map("notification_channels")
+  isActive             Boolean   @default(true) @map("is_active")
+  lastTriggeredAt      DateTime? @map("last_triggered_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  @@map("analytics_alerts")
+}
+
+// ─────────────────────────────────────
+// 23.44-45 Analytics
+// ─────────────────────────────────────
+model ClientEvent {
+  id        Int      @id @default(autoincrement())
+  eventType String   @map("event_type")
+  userId    Int?     @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId String?  @map("session_id")
+  productId Int?     @map("product_id")
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  orderId   Int?     @map("order_id")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([eventType, createdAt])
+  @@index([userId, createdAt])
+  @@index([sessionId])
+  @@map("client_events")
+}
+
+model DailyFunnelStats {
+  id              Int      @id @default(autoincrement())
+  date            DateTime @db.Date
+  deviceType      String?  @map("device_type")
+  trafficSource   String?  @map("traffic_source")
+  pageViews       Int      @default(0) @map("page_views")
+  productViews    Int      @default(0) @map("product_views")
+  addToCartCount  Int      @default(0) @map("add_to_cart_count")
+  cartViews       Int      @default(0) @map("cart_views")
+  checkoutStarts  Int      @default(0) @map("checkout_starts")
+  ordersCompleted Int      @default(0) @map("orders_completed")
+  totalRevenue    Decimal  @default(0) @map("total_revenue") @db.Decimal(12, 2)
+  uniqueVisitors  Int      @default(0) @map("unique_visitors")
+
+  @@index([date])
+  @@index([date, deviceType])
+  @@map("daily_funnel_stats")
+}
+
+model ChannelVisit {
+  id               Int      @id @default(autoincrement())
+  source           String
+  utmCampaign      String?  @map("utm_campaign")
+  utmMedium        String?  @map("utm_medium")
+  utmSource        String?  @map("utm_source")
+  landingPage      String?  @map("landing_page")
+  userId           Int?     @map("user_id")
+  sessionId        String?  @map("session_id")
+  convertedToOrder Boolean  @default(false) @map("converted_to_order")
+  orderId          Int?     @map("order_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("channel_visits")
+}
+
+model ChannelStats {
+  id               Int      @id @default(autoincrement())
+  platform         String
+  channelType      String   @map("channel_type")
+  subscribersCount Int      @default(0) @map("subscribers_count")
+  newSubscribers   Int      @default(0) @map("new_subscribers")
+  unsubscribes     Int      @default(0)
+  messagesCount    Int      @default(0) @map("messages_count")
+  reach            Int?
+  engagementRate   Decimal? @map("engagement_rate") @db.Decimal(5, 2)
+  recordedAt       DateTime @default(now()) @map("recorded_at")
+
+  @@map("channel_stats")
+}
+
+// ─────────────────────────────────────
+// Webhook Logs
+// ─────────────────────────────────────
+model WebhookLog {
+  id          Int      @id @default(autoincrement())
+  source      String   // telegram, viber, monobank, liqpay, wayforpay
+  event       String   // message, callback, payment, etc.
+  payload     Json?
+  statusCode  Int?     @map("status_code")
+  error       String?
+  processedAt DateTime @default(now()) @map("processed_at")
+  durationMs  Int?     @map("duration_ms")
+
+  @@index([source, processedAt(sort: Desc)])
+  @@index([processedAt])
+  @@map("webhook_logs")
+}
+
+// ─────────────────────────────────────
+// Performance Metrics (Web Vitals)
+// ─────────────────────────────────────
+model PerformanceMetric {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date
+  route       String
+  metric      String   // 'LCP', 'CLS', 'FID', 'TTFB', 'INP'
+  p50         Float
+  p75         Float
+  p90         Float
+  sampleCount Int      @default(0) @map("sample_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([date, route, metric])
+  @@map("performance_metrics")
+}

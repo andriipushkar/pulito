@@ -1,0 +1,14 @@
+// ============================================
+// Clean Shop — Prisma Database Schema
+// Інтернет-магазин побутової хімії
+// Відповідає ТЗ розділ 23
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

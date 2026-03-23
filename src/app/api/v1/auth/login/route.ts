@@ -8,8 +8,10 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { serializeRefreshTokenCookie } from '@/utils/cookies';
 import { getClientIp, getDeviceInfo } from '@/utils/request';
 import { env } from '@/config/env';
+import { createApiHandler } from '@/lib/api-handler';
+import { RATE_LIMITS } from '@/services/rate-limit';
 
-export async function POST(request: NextRequest) {
+export const POST = createApiHandler(RATE_LIMITS.auth, async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsed = loginSchema.safeParse(body);
@@ -71,4 +73,4 @@ export async function POST(request: NextRequest) {
     console.error('[login] Unhandled error:', message, error);
     return errorResponse('Внутрішня помилка сервера', 500);
   }
-}
+});

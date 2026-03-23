@@ -9,8 +9,10 @@ import { successResponse, errorResponse, paginatedResponse } from '@/utils/api-r
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { createApiHandler } from '@/lib/api-handler';
+import { RATE_LIMITS } from '@/services/rate-limit';
 
-export const GET = withAuth(async (request: NextRequest, { user }) => {
+export const GET = createApiHandler(RATE_LIMITS.orders, withAuth(async (request: NextRequest, { user }) => {
   try {
     const params = Object.fromEntries(request.nextUrl.searchParams);
     const parsed = orderFilterSchema.safeParse(params);
@@ -23,9 +25,9 @@ export const GET = withAuth(async (request: NextRequest, { user }) => {
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }
-});
+}));
 
-export const POST = withOptionalAuth(async (request: NextRequest, { user }) => {
+export const POST = createApiHandler(RATE_LIMITS.orders, withOptionalAuth(async (request: NextRequest, { user }) => {
   try {
     // Idempotency key support
     const idempotencyKey = request.headers.get('x-idempotency-key');
@@ -194,4 +196,4 @@ export const POST = withOptionalAuth(async (request: NextRequest, { user }) => {
     }
     return errorResponse('Внутрішня помилка сервера', 500);
   }
-});
+}));

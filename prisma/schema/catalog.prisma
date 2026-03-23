@@ -1,0 +1,238 @@
+// ─────────────────────────────────────
+// 23.30 Categories (Категорії)
+// ─────────────────────────────────────
+model Category {
+  id             Int        @id @default(autoincrement())
+  name           String
+  slug           String     @unique
+  iconPath       String?    @map("icon_path")
+  coverImage     String?    @map("cover_image")
+  description    String?
+  seoTitle       String?    @map("seo_title")
+  seoDescription String?    @map("seo_description")
+  sortOrder      Int        @default(0) @map("sort_order")
+  isVisible      Boolean    @default(true) @map("is_visible")
+  deletedAt      DateTime?  @map("deleted_at")
+  parentId       Int?       @map("parent_id")
+  parent         Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children       Category[] @relation("CategoryTree")
+  mergedFrom     Json?      @map("merged_from")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  products     Product[]
+  publications Publication[] @relation("PublicationCategory")
+
+  @@map("categories")
+}
+
+// ─────────────────────────────────────
+// 23.29 Banners
+// ─────────────────────────────────────
+model Banner {
+  id           Int      @id @default(autoincrement())
+  title        String?
+  subtitle     String?
+  imageDesktop String   @map("image_desktop")
+  imageMobile  String?  @map("image_mobile")
+  buttonText   String?  @map("button_text")
+  buttonLink   String?  @map("button_link")
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdBy    Int?     @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("banners")
+}
+
+// ─────────────────────────────────────
+// 23.11 Static_Pages
+// ─────────────────────────────────────
+model StaticPage {
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique
+  title          String
+  content        String
+  seoTitle       String?  @map("seo_title")
+  seoDescription String?  @map("seo_description")
+  isPublished    Boolean  @default(true) @map("is_published")
+  sortOrder      Int      @default(0) @map("sort_order")
+  updatedBy      Int?     @map("updated_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("static_pages")
+}
+
+// ─────────────────────────────────────
+// 23.12 FAQ_Items
+// ─────────────────────────────────────
+model FaqItem {
+  id          Int      @id @default(autoincrement())
+  category    String
+  question    String
+  answer      String
+  sortOrder   Int      @default(0) @map("sort_order")
+  isPublished Boolean  @default(true) @map("is_published")
+  clickCount  Int      @default(0) @map("click_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([category, sortOrder])
+  @@index([isPublished])
+  @@map("faq_items")
+}
+
+// ─────────────────────────────────────
+// 23.7 Themes
+// ─────────────────────────────────────
+model Theme {
+  id               Int       @id @default(autoincrement())
+  folderName       String    @unique @map("folder_name")
+  displayName      String    @map("display_name")
+  description      String?
+  version          String?
+  author           String?
+  previewImagePath String?   @map("preview_image_path")
+  isActive         Boolean   @default(false) @map("is_active")
+  customSettings   Json?     @map("custom_settings")
+  installedAt      DateTime  @default(now()) @map("installed_at")
+  activatedAt      DateTime? @map("activated_at")
+
+  @@map("themes")
+}
+
+// ─────────────────────────────────────
+// 23.28 Site_Settings
+// ─────────────────────────────────────
+model SiteSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  updatedBy Int?     @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// ─────────────────────────────────────
+// Feature Flags (фічефлаги)
+// ─────────────────────────────────────
+model FeatureFlag {
+  id             Int      @id @default(autoincrement())
+  key            String   @unique
+  description    String?
+  isEnabled      Boolean  @default(false) @map("is_enabled")
+  rolloutPercent Int      @default(100) @map("rollout_percent") // 0-100
+  targetRoles    String[] @default([]) @map("target_roles") // empty = all roles
+  targetUserIds  Int[]    @default([]) @map("target_user_ids")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("feature_flags")
+}
+
+// ─────────────────────────────────────
+// 23.41 SEO_Templates
+// ─────────────────────────────────────
+model SeoTemplate {
+  id                  Int      @id @default(autoincrement())
+  entityType          String   @map("entity_type")
+  scope               String
+  categoryId          Int?     @map("category_id")
+  titleTemplate       String   @map("title_template")
+  descriptionTemplate String   @map("description_template")
+  altTemplate         String?  @map("alt_template")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityType, scope, categoryId])
+  @@map("seo_templates")
+}
+
+// ─────────────────────────────────────
+// Slug Redirects (SEO 301 redirects for changed slugs)
+// ─────────────────────────────────────
+model SlugRedirect {
+  id        Int      @id @default(autoincrement())
+  oldSlug   String   @unique @map("old_slug")
+  newSlug   String   @map("new_slug")
+  type      String   @default("product")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("slug_redirects")
+}
+
+// ─────────────────────────────────────
+// 23.14 Cookie_Consents
+// ─────────────────────────────────────
+model CookieConsent {
+  id                Int      @id @default(autoincrement())
+  userId            Int?     @map("user_id")
+  sessionId         String   @map("session_id")
+  analyticsAccepted Boolean  @default(false) @map("analytics_accepted")
+  marketingAccepted Boolean  @default(false) @map("marketing_accepted")
+  consentDate       DateTime @default(now()) @map("consent_date")
+  ipAddress         String?  @map("ip_address")
+
+  @@map("cookie_consents")
+}
+
+// ─────────────────────────────────────
+// 23.10 Feedback
+// ─────────────────────────────────────
+enum FeedbackType {
+  form
+  callback
+}
+
+enum FeedbackStatus {
+  new_feedback @map("new")
+  processed
+  rejected
+}
+
+model Feedback {
+  id          Int            @id @default(autoincrement())
+  name        String
+  email       String?
+  phone       String?
+  subject     String?
+  message     String
+  type        FeedbackType   @default(form)
+  status      FeedbackStatus @default(new_feedback)
+  processedBy Int?           @map("processed_by")
+  processor   User?          @relation("FeedbackProcessor", fields: [processedBy], references: [id])
+  processedAt DateTime?      @map("processed_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  @@map("feedback")
+}
+
+// ─────────────────────────────────────
+// 23.43 Subscribers
+// ─────────────────────────────────────
+enum SubscriberStatus {
+  pending_sub  @map("pending")
+  confirmed
+  unsubscribed
+}
+
+model Subscriber {
+  id                Int              @id @default(autoincrement())
+  email             String           @unique
+  status            SubscriberStatus @default(pending_sub)
+  confirmationToken String?          @map("confirmation_token")
+  confirmedAt       DateTime?        @map("confirmed_at")
+  unsubscribedAt    DateTime?        @map("unsubscribed_at")
+  source            String?
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  @@map("subscribers")
+}
+
+// ─────────────────────────────────────
+// Category Images (placeholder for CategoryImage)
+// ─────────────────────────────────────

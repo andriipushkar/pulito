@@ -1,0 +1,89 @@
+// ─────────────────────────────────────
+// Loyalty Program
+// ─────────────────────────────────────
+model LoyaltyAccount {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points     Int      @default(0)
+  totalSpent Decimal  @default(0) @map("total_spent") @db.Decimal(12, 2)
+  level      String   @default("bronze")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyTransaction {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // 'earn' | 'spend' | 'manual_add' | 'manual_deduct' | 'expire'
+  points      Int
+  orderId     Int?     @map("order_id")
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("loyalty_transactions")
+}
+
+model LoyaltyLevel {
+  id               Int     @id @default(autoincrement())
+  name             String  @unique
+  minSpent         Decimal @map("min_spent") @db.Decimal(12, 2)
+  pointsMultiplier Float   @default(1.0) @map("points_multiplier")
+  discountPercent  Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  benefits         Json?
+  sortOrder        Int     @default(0) @map("sort_order")
+
+  @@map("loyalty_levels")
+}
+
+// ─────────────────────────────────────
+// Loyalty Gamification
+// ─────────────────────────────────────
+model LoyaltyChallenge {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  type        String   // order_count, order_amount, review, referral, streak
+  target      Int
+  reward      Int      // bonus points
+  isActive    Boolean  @default(true) @map("is_active")
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  progress LoyaltyChallengeProgress[]
+
+  @@map("loyalty_challenges")
+}
+
+model LoyaltyChallengeProgress {
+  id           Int              @id @default(autoincrement())
+  userId       Int              @map("user_id")
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId  Int              @map("challenge_id")
+  challenge    LoyaltyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  currentValue Int              @default(0) @map("current_value")
+  completedAt  DateTime?        @map("completed_at")
+  rewardedAt   DateTime?        @map("rewarded_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  @@unique([userId, challengeId])
+  @@map("loyalty_challenge_progress")
+}
+
+model LoyaltyStreak {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @unique @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentStreak Int       @default(0) @map("current_streak")
+  longestStreak Int       @default(0) @map("longest_streak")
+  lastOrderDate DateTime? @map("last_order_date")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("loyalty_streaks")
+}

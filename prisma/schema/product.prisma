@@ -1,0 +1,218 @@
+// ─────────────────────────────────────
+// 23.2 Products (Товари)
+// ─────────────────────────────────────
+model Product {
+  id                Int       @id @default(autoincrement())
+  code              String    @unique
+  name              String    @db.VarChar(255)
+  slug              String    @unique @db.VarChar(255)
+  categoryId        Int?      @map("category_id")
+  category          Category? @relation(fields: [categoryId], references: [id])
+  priceRetail       Decimal   @map("price_retail") @db.Decimal(10, 2)
+  priceWholesale    Decimal?  @map("price_wholesale") @db.Decimal(10, 2)
+  priceWholesale2   Decimal?  @map("price_wholesale_2") @db.Decimal(10, 2)
+  priceWholesale3   Decimal?  @map("price_wholesale_3") @db.Decimal(10, 2)
+  priceRetailOld    Decimal?  @map("price_retail_old") @db.Decimal(10, 2)
+  priceWholesaleOld Decimal?  @map("price_wholesale_old") @db.Decimal(10, 2)
+  priceWholesaleOld2 Decimal? @map("price_wholesale_old_2") @db.Decimal(10, 2)
+  priceWholesaleOld3 Decimal? @map("price_wholesale_old_3") @db.Decimal(10, 2)
+  quantity          Int       @default(0)
+  isPromo           Boolean   @default(false) @map("is_promo")
+  promoStartDate    DateTime? @map("promo_start_date")
+  promoEndDate      DateTime? @map("promo_end_date")
+  isActive          Boolean   @default(true) @map("is_active")
+  deletedAt         DateTime? @map("deleted_at")
+  imagePath         String?   @map("image_path")
+  sortOrder         Int       @default(0) @map("sort_order")
+  viewsCount        Int       @default(0) @map("views_count")
+  ordersCount       Int       @default(0) @map("orders_count")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  searchVector      Unsupported("tsvector")?  @map("search_vector")
+
+  content         ProductContent?
+  images          ProductImage[]
+  badges          ProductBadge[]
+  orderItems      OrderItem[]
+  cartItems       CartItem[]
+  wishlistItems   WishlistItem[]
+  recentlyViewed  RecentlyViewed[]
+  priceHistory    PriceHistory[]
+  productNotes    ProductNote[]
+  searchClicks    SearchHistory[]
+  recommendations ProductRecommendation[] @relation("RecommendedFrom")
+  recommendedBy   ProductRecommendation[] @relation("RecommendedTo")
+  personalPrices  PersonalPrice[]
+  publications    Publication[]           @relation("PublicationProduct")
+  wholesaleRules  WholesaleRule[]
+  clientEvents    ClientEvent[]
+  reviews              Review[]
+  subscriptionItems    SubscriptionItem[]
+  bundleItems          BundleItem[]
+  warehouseStock       WarehouseStock[]
+  marketplaceListings  MarketplaceListing[]
+
+  @@index([categoryId])
+  @@index([isActive, isPromo])
+  @@index([priceRetail])
+  @@index([createdAt(sort: Desc)])
+  @@map("products")
+}
+
+// ─────────────────────────────────────
+// 23.3 Product_Content (Контент товарів)
+// ─────────────────────────────────────
+model ProductContent {
+  id                Int      @id @default(autoincrement())
+  productId         Int      @unique @map("product_id")
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  shortDescription  String?  @map("short_description") @db.VarChar(200)
+  fullDescription   String?  @map("full_description")
+  specifications    String?
+  usageInstructions String?  @map("usage_instructions")
+  videoUrl          String?  @map("video_url")
+  seoTitle          String?  @map("seo_title")
+  seoDescription    String?  @map("seo_description")
+  isFilled          Boolean  @default(false) @map("is_filled")
+  filledBy          Int?     @map("filled_by")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("product_content")
+}
+
+// ─────────────────────────────────────
+// 23.46 Product_Images
+// ─────────────────────────────────────
+model ProductImage {
+  id               Int      @id @default(autoincrement())
+  productId        Int      @map("product_id")
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  originalFilename String?  @map("original_filename")
+  pathOriginal     String?  @map("path_original")
+  pathFull         String?  @map("path_full")
+  pathMedium       String?  @map("path_medium")
+  pathThumbnail    String?  @map("path_thumbnail")
+  pathBlur         String?  @map("path_blur")
+  format           String?
+  sizeBytes        Int?     @map("size_bytes")
+  width            Int?
+  height           Int?
+  sortOrder        Int      @default(0) @map("sort_order")
+  altText          String?  @map("alt_text")
+  isMain           Boolean  @default(false) @map("is_main")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([productId, sortOrder])
+  @@map("product_images")
+}
+
+// ─────────────────────────────────────
+// 23.16 Product_Badges
+// ─────────────────────────────────────
+enum BadgeType {
+  promo
+  new_arrival
+  hit
+  eco
+  custom
+}
+
+model ProductBadge {
+  id          Int       @id @default(autoincrement())
+  productId   Int       @map("product_id")
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  badgeType   BadgeType @map("badge_type")
+  customText  String?   @map("custom_text")
+  customColor String?   @map("custom_color")
+  priority    Int       @default(0)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("product_badges")
+}
+
+// ─────────────────────────────────────
+// 23.17 Product_Recommendations
+// ─────────────────────────────────────
+enum RecommendationType {
+  bought_together
+  similar
+  manual
+}
+
+model ProductRecommendation {
+  id                   Int                @id @default(autoincrement())
+  productId            Int                @map("product_id")
+  product              Product            @relation("RecommendedFrom", fields: [productId], references: [id], onDelete: Cascade)
+  recommendedProductId Int                @map("recommended_product_id")
+  recommendedProduct   Product            @relation("RecommendedTo", fields: [recommendedProductId], references: [id], onDelete: Cascade)
+  recommendationType   RecommendationType @map("recommendation_type")
+  score                Float              @default(0)
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  @@map("product_recommendations")
+}
+
+// ─────────────────────────────────────
+// 23.15 Price_History
+// ─────────────────────────────────────
+model PriceHistory {
+  id                Int      @id @default(autoincrement())
+  productId         Int      @map("product_id")
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  priceRetailOld    Decimal? @map("price_retail_old") @db.Decimal(10, 2)
+  priceRetailNew    Decimal? @map("price_retail_new") @db.Decimal(10, 2)
+  priceWholesaleOld  Decimal? @map("price_wholesale_old") @db.Decimal(10, 2)
+  priceWholesaleNew  Decimal? @map("price_wholesale_new") @db.Decimal(10, 2)
+  priceWholesale2Old Decimal? @map("price_wholesale_2_old") @db.Decimal(10, 2)
+  priceWholesale2New Decimal? @map("price_wholesale_2_new") @db.Decimal(10, 2)
+  priceWholesale3Old Decimal? @map("price_wholesale_3_old") @db.Decimal(10, 2)
+  priceWholesale3New Decimal? @map("price_wholesale_3_new") @db.Decimal(10, 2)
+  changedAt          DateTime @default(now()) @map("changed_at")
+  importId          Int?     @map("import_id")
+
+  @@map("price_history")
+}
+
+// ─────────────────────────────────────
+// Bundles (Конструктор комплектів)
+// ─────────────────────────────────────
+enum BundleType {
+  curated
+  custom
+}
+
+model Bundle {
+  id              Int        @id @default(autoincrement())
+  name            String
+  slug            String     @unique
+  description     String?
+  bundleType      BundleType @default(curated) @map("bundle_type")
+  discountPercent Decimal    @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  fixedPrice      Decimal?   @map("fixed_price") @db.Decimal(10, 2)
+  imagePath       String?    @map("image_path")
+  isActive        Boolean    @default(true) @map("is_active")
+  sortOrder       Int        @default(0) @map("sort_order")
+  createdBy       Int?       @map("created_by")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  items BundleItem[]
+
+  @@map("bundles")
+}
+
+model BundleItem {
+  id        Int     @id @default(autoincrement())
+  bundleId  Int     @map("bundle_id")
+  bundle    Bundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId Int     @map("product_id")
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+  sortOrder Int     @default(0) @map("sort_order")
+
+  @@unique([bundleId, productId])
+  @@map("bundle_items")
+}

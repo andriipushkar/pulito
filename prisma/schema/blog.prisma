@@ -1,0 +1,43 @@
+// ─────────────────────────────────────
+// Blog (Блог з SEO)
+// ─────────────────────────────────────
+model BlogCategory {
+  id             Int        @id @default(autoincrement())
+  name           String
+  slug           String     @unique
+  description    String?
+  seoTitle       String?    @map("seo_title")
+  seoDescription String?    @map("seo_description")
+  sortOrder      Int        @default(0) @map("sort_order")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  posts BlogPost[]
+
+  @@map("blog_categories")
+}
+
+model BlogPost {
+  id             Int           @id @default(autoincrement())
+  title          String
+  slug           String        @unique
+  excerpt        String?       @db.VarChar(500)
+  content        String
+  coverImage     String?       @map("cover_image")
+  categoryId     Int?          @map("category_id")
+  category       BlogCategory? @relation(fields: [categoryId], references: [id])
+  tags           String[]      @default([])
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  isPublished    Boolean       @default(false) @map("is_published")
+  publishedAt    DateTime?     @map("published_at")
+  viewsCount     Int           @default(0) @map("views_count")
+  authorId       Int           @map("author_id")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@index([isPublished, publishedAt(sort: Desc)])
+  @@index([categoryId])
+  @@map("blog_posts")
+}
