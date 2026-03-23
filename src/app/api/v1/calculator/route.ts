@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
-import { calculateNeeds } from '@/services/calculator';
+import { calculateNeeds, calculateRoomNeeds, type RoomConfig, type RoomType } from '@/services/calculator';
 import { successResponse, errorResponse } from '@/utils/api-response';
+
+const VALID_ROOM_TYPES: RoomType[] = ['kitchen', 'bathroom', 'bedroom', 'living_room', 'hallway', 'office'];
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +15,30 @@ export async function GET(request: NextRequest) {
       : 'weekly') as 'daily' | 'weekly' | 'biweekly';
 
     const result = await calculateNeeds({ familySize, washLoadsPerWeek, cleaningFrequency });
+    return successResponse(result);
+  } catch {
+    return errorResponse('Помилка розрахунку', 500);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const rawRooms: unknown[] = Array.isArray(body.rooms) ? body.rooms : [];
+
+    const rooms: RoomConfig[] = rawRooms
+      .filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null)
+      .map((r) => ({
+        type: (VALID_ROOM_TYPES.includes(r.type as RoomType) ? r.type : 'living_room') as RoomType,
+        area: Math.min(200, Math.max(1, Number(r.area) || 15)),
+        count: Math.min(10, Math.max(1, Number(r.count) || 1)),
+      }));
+
+    if (rooms.length === 0) {
+      return errorResponse('Потрібно вказати хоча б одну кімнату', 400);
+    }
+
+    const result = await calculateRoomNeeds(rooms);
     return successResponse(result);
   } catch {
     return errorResponse('Помилка розрахунку', 500);

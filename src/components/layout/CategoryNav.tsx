@@ -1,23 +1,33 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import Container from '@/components/ui/Container';
-import { ChevronDown, ChevronRight } from '@/components/icons';
+import MegaMenuPanel from '@/components/layout/MegaMenuPanel';
+import { ChevronDown } from '@/components/icons';
 import type { CategoryListItem } from '@/types/category';
+import type { CategoryWithChildren } from '@/types/category';
 
 interface CategoryNavProps {
   categories: CategoryListItem[];
   shrink?: boolean;
 }
 
-/** Return the number of grid columns based on the child count and whether there is a cover image. */
-function getColumnCount(childCount: number, hasCover: boolean): number {
-  const maxCols = hasCover ? 3 : 4;
-  if (childCount <= 4) return Math.min(2, maxCols);
-  if (childCount <= 8) return Math.min(3, maxCols);
-  return maxCols;
+/** Build a tree of CategoryWithChildren from the flat list (supports 3 levels). */
+function buildTree(categories: CategoryListItem[]): CategoryWithChildren[] {
+  const map = new Map<number, CategoryWithChildren>();
+  for (const c of categories) {
+    map.set(c.id, { ...c, children: [] });
+  }
+  const roots: CategoryWithChildren[] = [];
+  for (const node of map.values()) {
+    if (node.parentId && map.has(node.parentId)) {
+      map.get(node.parentId)!.children.push(node);
+    } else if (!node.parentId) {
+      roots.push(node);
+    }
+  }
+  return roots;
 }
 
 export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
@@ -26,15 +36,14 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navRef = useRef<HTMLElement>(null);
 
-  const parents = categories
-    .filter((c) => !c.parentId)
-    .sort((a, b) => {
-      // Categories with sortOrder > 0 come first (manually ordered), then alphabetical
-      if (a.sortOrder && !b.sortOrder) return -1;
-      if (!a.sortOrder && b.sortOrder) return 1;
-      if (a.sortOrder && b.sortOrder) return a.sortOrder - b.sortOrder;
-      return a.name.localeCompare(b.name, 'uk');
-    });
+  const tree = buildTree(categories);
+  const parents = tree.sort((a, b) => {
+    // Categories with sortOrder > 0 come first (manually ordered), then alphabetical
+    if (a.sortOrder && !b.sortOrder) return -1;
+    if (!a.sortOrder && b.sortOrder) return 1;
+    if (a.sortOrder && b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.name.localeCompare(b.name, 'uk');
+  });
   // Show all parents — limited to 8 by backend
   const visibleParents = parents;
 
@@ -106,8 +115,7 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
           )}
 
           {visibleParents.map((cat) => {
-            const children = categories.filter((c) => c.parentId === cat.id);
-            const hasChildren = children.length > 0;
+            const hasChildren = cat.children.length > 0;
             const isOpen = openId === cat.id;
 
             return (
@@ -146,72 +154,7 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
                     onMouseLeave={closeMenu}
                   >
                     <Container>
-                      <div className="rounded-b-[var(--radius)] border border-t-0 border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-lg)]">
-                        <div className="flex">
-                          {/* ---- Subcategories grid ---- */}
-                          <div className={`flex-1 p-6 ${cat.coverImage ? 'pr-0' : ''}`}>
-                            <div
-                              className="grid gap-x-8 gap-y-1"
-                              style={{
-                                gridTemplateColumns: `repeat(${getColumnCount(children.length, !!cat.coverImage)}, minmax(0, 1fr))`,
-                              }}
-                            >
-                              {children.map((child) => (
-                                <Link
-                                  key={child.id}
-                                  href={`/catalog?category=${child.slug}`}
-                                  className="group flex items-center gap-2 rounded-[var(--radius)] px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-secondary)]"
-                                >
-                                  <ChevronRight
-                                    size={14}
-                                    className="shrink-0 text-[var(--color-text-secondary)] opacity-0 transition-opacity group-hover:opacity-100"
-                                  />
-                                  <span className="transition-colors group-hover:text-[var(--color-primary)]">
-                                    {child.name}
-                                  </span>
-                                  <span className="ml-auto text-xs text-[var(--color-text-secondary)]">
-                                    {child._count.products}
-                                  </span>
-                                </Link>
-                              ))}
-                            </div>
-
-                            {/* ---- "View all" link ---- */}
-                            <div className="mt-4 border-t border-[var(--color-border)] pt-4">
-                              <Link
-                                href={`/catalog?category=${cat.slug}`}
-                                className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-primary)] transition-colors hover:underline"
-                              >
-                                Дивитись все
-                                <ChevronRight size={14} />
-                              </Link>
-                            </div>
-                          </div>
-
-                          {/* ---- Cover image (if available) ---- */}
-                          {cat.coverImage && (
-                            <div className="relative hidden w-64 shrink-0 overflow-hidden rounded-br-[var(--radius)] xl:block">
-                              <Image
-                                src={cat.coverImage}
-                                alt={cat.name}
-                                fill
-                                sizes="256px"
-                                className="object-cover"
-                              />
-                              {/* Gradient overlay for text readability */}
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                              <div className="absolute inset-x-0 bottom-0 p-4">
-                                <p className="text-lg font-semibold text-white">{cat.name}</p>
-                                {cat.description && (
-                                  <p className="mt-1 line-clamp-2 text-sm text-white/80">
-                                    {cat.description}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <MegaMenuPanel category={cat} onClose={() => { setVisible(false); setTimeout(() => setOpenId(null), 200); }} />
                     </Container>
                   </div>
                 )}

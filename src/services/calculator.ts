@@ -76,6 +76,174 @@ const CATEGORY_USAGE: Record<string, (input: CalculatorInput) => number> = {
  * Calculate household cleaning product needs based on family parameters.
  * Returns product recommendations with quantities and costs.
  */
+// ─── Room-based calculation ─────────────────────────────────────────
+
+export type RoomType = 'kitchen' | 'bathroom' | 'bedroom' | 'living_room' | 'hallway' | 'office';
+
+export interface RoomConfig {
+  type: RoomType;
+  area: number; // square meters
+  count: number;
+}
+
+export interface RoomProductRecommendation {
+  productId: number;
+  name: string;
+  code: string;
+  slug: string;
+  imagePath: string | null;
+  priceRetail: number;
+  quantityPerMonth: number;
+  totalCost: number;
+  category: string;
+}
+
+export interface RoomResult {
+  roomType: RoomType;
+  roomLabel: string;
+  count: number;
+  area: number;
+  products: RoomProductRecommendation[];
+  monthlyCost: number;
+}
+
+export interface RoomCalculatorResult {
+  rooms: RoomResult[];
+  totalMonthly: number;
+}
+
+const ROOM_LABELS: Record<RoomType, string> = {
+  kitchen: 'Кухня',
+  bathroom: 'Ванна кімната',
+  bedroom: 'Спальня',
+  living_room: 'Вітальня',
+  hallway: 'Коридор',
+  office: 'Кабінет',
+};
+
+/**
+ * Maps each room type to the category slugs of products needed for it.
+ */
+const ROOM_CATEGORY_SLUGS: Record<RoomType, string[]> = {
+  kitchen: ['mytya-posudu', 'prybyrannya', 'servetky'],
+  bathroom: ['vannaya-tualet', 'dezinfektsiya', 'osvizhuvachy'],
+  bedroom: ['pralni-poroshky', 'pralni-zasoby', 'kondytsionery'],
+  living_room: ['prybyrannya', 'pylosoosni', 'osvizhuvachy'],
+  hallway: ['prybyrannya'],
+  office: ['prybyrannya', 'servetky', 'rushnyky'],
+};
+
+/**
+ * Estimate monthly product units needed based on room area (per m2).
+ * Returns at least 1 unit per room-category pair.
+ */
+function estimateMonthlyQuantity(area: number, count: number): number {
+  // ~0.05 units per m2 per month, minimum 1, multiplied by room count
+  return Math.max(1, Math.ceil(area * 0.05)) * count;
+}
+
+/**
+ * Calculate cleaning product needs per room.
+ * Returns per-room breakdown with recommended products and monthly costs.
+ */
+export async function calculateRoomNeeds(rooms: RoomConfig[]): Promise<RoomCalculatorResult> {
+  if (rooms.length === 0) {
+    return { rooms: [], totalMonthly: 0 };
+  }
+
+  // Collect all unique category slugs we need
+  const allSlugs = new Set<string>();
+  for (const room of rooms) {
+    const slugs = ROOM_CATEGORY_SLUGS[room.type] ?? [];
+    for (const s of slugs) allSlugs.add(s);
+  }
+
+  // Fetch categories in one query
+  const categories = await prisma.category.findMany({
+    where: {
+      slug: { in: [...allSlugs] },
+      deletedAt: null,
+    },
+    select: { id: true, name: true, slug: true },
+  });
+
+  const catBySlug = new Map(categories.map((c) => [c.slug, c]));
+
+  // Pre-fetch one product per category
+  const productByCategory = new Map<string, {
+    id: number; name: string; code: string; slug: string; imagePath: string | null; priceRetail: unknown;
+  }>();
+
+  for (const cat of categories) {
+    const product = await prisma.product.findFirst({
+      where: {
+        categoryId: cat.id,
+        isActive: true,
+        deletedAt: null,
+        quantity: { gt: 0 },
+      },
+      orderBy: { ordersCount: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        slug: true,
+        imagePath: true,
+        priceRetail: true,
+      },
+    });
+    if (product) {
+      productByCategory.set(cat.slug, product);
+    }
+  }
+
+  const roomResults: RoomResult[] = [];
+
+  for (const room of rooms) {
+    const slugs = ROOM_CATEGORY_SLUGS[room.type] ?? [];
+    const products: RoomProductRecommendation[] = [];
+
+    for (const slug of slugs) {
+      const cat = catBySlug.get(slug);
+      const product = productByCategory.get(slug);
+      if (!cat || !product) continue;
+
+      const qty = estimateMonthlyQuantity(room.area, room.count);
+      const price = Number(product.priceRetail);
+      products.push({
+        productId: product.id,
+        name: product.name,
+        code: product.code,
+        slug: product.slug,
+        imagePath: product.imagePath,
+        priceRetail: price,
+        quantityPerMonth: qty,
+        totalCost: Math.round(price * qty * 100) / 100,
+        category: cat.name,
+      });
+    }
+
+    const monthlyCost = Math.round(products.reduce((s, p) => s + p.totalCost, 0) * 100) / 100;
+
+    roomResults.push({
+      roomType: room.type,
+      roomLabel: ROOM_LABELS[room.type],
+      count: room.count,
+      area: room.area,
+      products,
+      monthlyCost,
+    });
+  }
+
+  const totalMonthly = Math.round(roomResults.reduce((s, r) => s + r.monthlyCost, 0) * 100) / 100;
+
+  return { rooms: roomResults, totalMonthly };
+}
+
+/**
+ * Calculate household cleaning product needs based on family parameters.
+ * Returns product recommendations with quantities and costs.
+ */
 export async function calculateNeeds(input: CalculatorInput): Promise<CalculatorResult> {
   const { familySize, washLoadsPerWeek, cleaningFrequency } = input;
 

@@ -61,8 +61,8 @@ describe('FilterSidebar', () => {
   it('renders price section with sliders and inputs', () => {
     const { container } = render(<FilterSidebar categories={[]} />);
     expect(container.textContent).toContain('Ціна, ₴');
-    const rangeInputs = container.querySelectorAll('input[type="range"]');
-    expect(rangeInputs).toHaveLength(2);
+    const sliderThumbs = container.querySelectorAll('[role="slider"]');
+    expect(sliderThumbs).toHaveLength(2);
     const numberInputs = container.querySelectorAll('input[type="number"]');
     expect(numberInputs).toHaveLength(2);
   });
@@ -91,67 +91,52 @@ describe('FilterSidebar', () => {
     expect(checkbox.checked).toBe(false);
   });
 
-  it('handles min price slider change', () => {
+  it('handles min price number input change', () => {
     const { container } = render(<FilterSidebar categories={[]} />);
-    const rangeInputs = container.querySelectorAll('input[type="range"]');
-    const minSlider = rangeInputs[0] as HTMLInputElement;
-    fireEvent.change(minSlider, { target: { value: '500' } });
-    // The number input should reflect the change
     const numberInputs = container.querySelectorAll('input[type="number"]');
     const minInput = numberInputs[0] as HTMLInputElement;
+    fireEvent.change(minInput, { target: { value: '500' } });
     expect(minInput.value).toBe('500');
   });
 
-  it('handles max price slider change', () => {
+  it('handles max price number input change', () => {
     const { container } = render(<FilterSidebar categories={[]} />);
-    const rangeInputs = container.querySelectorAll('input[type="range"]');
-    const maxSlider = rangeInputs[1] as HTMLInputElement;
-    fireEvent.change(maxSlider, { target: { value: '8000' } });
     const numberInputs = container.querySelectorAll('input[type="number"]');
     const maxInput = numberInputs[1] as HTMLInputElement;
+    fireEvent.change(maxInput, { target: { value: '8000' } });
     expect(maxInput.value).toBe('8000');
   });
 
-  it('clamps min slider to not exceed max', () => {
+  it('clamps min input to not exceed max via slider keyboard', () => {
     const { container } = render(<FilterSidebar categories={[]} />);
-    const rangeInputs = container.querySelectorAll('input[type="range"]');
-    // Default max is 10000, set min to something higher - it should be clamped
-    fireEvent.change(rangeInputs[0], { target: { value: '15000' } });
     const numberInputs = container.querySelectorAll('input[type="number"]');
-    // Since sliderMax defaults to 10000, min should be clamped to 10000
+    // Set min to something higher than default max (10000) - it should be clamped
+    fireEvent.change(numberInputs[0], { target: { value: '15000' } });
+    // Since max defaults to 10000, min should be clamped to 10000
     expect((numberInputs[0] as HTMLInputElement).value).toBe('10000');
   });
 
-  it('clamps max slider to not go below min', () => {
+  it('clamps max input to not go below min', () => {
     const { container } = render(<FilterSidebar categories={[]} />);
-    const rangeInputs = container.querySelectorAll('input[type="range"]');
-    // First set min to 3000
-    fireEvent.change(rangeInputs[0], { target: { value: '3000' } });
-    // Then set max to 1000 - should be clamped to 3000
-    fireEvent.change(rangeInputs[1], { target: { value: '1000' } });
     const numberInputs = container.querySelectorAll('input[type="number"]');
+    // First set min to 3000
+    fireEvent.change(numberInputs[0], { target: { value: '3000' } });
+    // Then set max to 1000 - should be clamped to 3000
+    fireEvent.change(numberInputs[1], { target: { value: '1000' } });
     expect((numberInputs[1] as HTMLInputElement).value).toBe('3000');
   });
 
-  it('handleSliderMin resets to empty string when value equals PRICE_MIN_DEFAULT', () => {
+  it('number input shows empty when value equals PRICE_MIN_DEFAULT', () => {
     const { container } = render(<FilterSidebar categories={[]} />);
-    const rangeInputs = container.querySelectorAll('input[type="range"]');
-    // Set to non-zero first
-    fireEvent.change(rangeInputs[0], { target: { value: '500' } });
-    // Set back to 0 (PRICE_MIN_DEFAULT)
-    fireEvent.change(rangeInputs[0], { target: { value: '0' } });
     const numberInputs = container.querySelectorAll('input[type="number"]');
+    // Default min is 0 = PRICE_MIN_DEFAULT, so input should be empty
     expect((numberInputs[0] as HTMLInputElement).value).toBe('');
   });
 
-  it('handleSliderMax resets to empty string when value equals PRICE_MAX_DEFAULT', () => {
+  it('number input shows empty when value equals PRICE_MAX_DEFAULT', () => {
     const { container } = render(<FilterSidebar categories={[]} />);
-    const rangeInputs = container.querySelectorAll('input[type="range"]');
-    // Set max to non-default
-    fireEvent.change(rangeInputs[1], { target: { value: '5000' } });
-    // Set back to 10000 (PRICE_MAX_DEFAULT)
-    fireEvent.change(rangeInputs[1], { target: { value: '10000' } });
     const numberInputs = container.querySelectorAll('input[type="number"]');
+    // Default max is 10000 = PRICE_MAX_DEFAULT, so input should be empty
     expect((numberInputs[1] as HTMLInputElement).value).toBe('');
   });
 

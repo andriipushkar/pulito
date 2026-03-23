@@ -3,28 +3,41 @@
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { CategoryListItem } from '@/types/category';
+import DualRangeSlider from '@/components/ui/DualRangeSlider';
+import FilterChips, { type FilterChip } from '@/components/catalog/FilterChips';
+
+export interface BrandOption {
+  slug: string;
+  name: string;
+  count?: number;
+}
 
 interface FilterSidebarProps {
   categories: CategoryListItem[];
+  brands?: BrandOption[];
 }
 
-export default function FilterSidebar({ categories }: FilterSidebarProps) {
+export default function FilterSidebar({ categories, brands = [] }: FilterSidebarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const PRICE_MIN_DEFAULT = 0;
   const PRICE_MAX_DEFAULT = 10000;
+  const PRICE_STEP = 50;
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     searchParams.get('category')?.split(',').filter(Boolean) || [],
   );
-  const [priceMin, setPriceMin] = useState(searchParams.get('price_min') || '');
-  const [priceMax, setPriceMax] = useState(searchParams.get('price_max') || '');
+
+  const initialMin = Number(searchParams.get('price_min')) || PRICE_MIN_DEFAULT;
+  const initialMax = Number(searchParams.get('price_max')) || PRICE_MAX_DEFAULT;
+  const [priceRange, setPriceRange] = useState<[number, number]>([initialMin, initialMax]);
+
+  const [selectedBrands, setSelectedBrands] = useState<string[]>(
+    searchParams.get('brand')?.split(',').filter(Boolean) || [],
+  );
   const [promo, setPromo] = useState(searchParams.get('promo') === 'true');
   const [inStock, setInStock] = useState(searchParams.get('in_stock') === 'true');
-
-  const sliderMin = Number(priceMin) || PRICE_MIN_DEFAULT;
-  const sliderMax = Number(priceMax) || PRICE_MAX_DEFAULT;
 
   const handleCategoryToggle = (slug: string) => {
     setSelectedCategories((prev) =>
@@ -32,21 +45,18 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
     );
   };
 
-  const handleSliderMin = (value: number) => {
-    const clamped = Math.min(value, sliderMax);
-    setPriceMin(clamped === PRICE_MIN_DEFAULT ? '' : String(clamped));
-  };
-
-  const handleSliderMax = (value: number) => {
-    const clamped = Math.max(value, sliderMin);
-    setPriceMax(clamped === PRICE_MAX_DEFAULT ? '' : String(clamped));
+  const handleBrandToggle = (slug: string) => {
+    setSelectedBrands((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
+    );
   };
 
   const applyFilters = () => {
     const params = new URLSearchParams();
     if (selectedCategories.length > 0) params.set('category', selectedCategories.join(','));
-    if (priceMin) params.set('price_min', priceMin);
-    if (priceMax) params.set('price_max', priceMax);
+    if (priceRange[0] !== PRICE_MIN_DEFAULT) params.set('price_min', String(priceRange[0]));
+    if (priceRange[1] !== PRICE_MAX_DEFAULT) params.set('price_max', String(priceRange[1]));
+    if (selectedBrands.length > 0) params.set('brand', selectedBrands.join(','));
     if (promo) params.set('promo', 'true');
     if (inStock) params.set('in_stock', 'true');
     const search = searchParams.get('search');
@@ -58,11 +68,46 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
 
   const resetFilters = () => {
     setSelectedCategories([]);
-    setPriceMin('');
-    setPriceMax('');
+    setPriceRange([PRICE_MIN_DEFAULT, PRICE_MAX_DEFAULT]);
+    setSelectedBrands([]);
     setPromo(false);
     setInStock(false);
     router.push('/catalog');
+  };
+
+  // Build active filter chips
+  const activeChips = useMemo(() => {
+    const chips: FilterChip[] = [];
+    if (priceRange[0] !== PRICE_MIN_DEFAULT) {
+      chips.push({ key: 'price_min', label: 'Ціна від', value: `${priceRange[0]} ₴` });
+    }
+    if (priceRange[1] !== PRICE_MAX_DEFAULT) {
+      chips.push({ key: 'price_max', label: 'Ціна до', value: `${priceRange[1]} ₴` });
+    }
+    for (const slug of selectedCategories) {
+      const cat = categories.find((c) => c.slug === slug);
+      chips.push({ key: `category_${slug}`, label: 'Категорія', value: cat?.name || slug });
+    }
+    for (const slug of selectedBrands) {
+      const brand = brands.find((b) => b.slug === slug);
+      chips.push({ key: `brand_${slug}`, label: 'Бренд', value: brand?.name || slug });
+    }
+    if (promo) chips.push({ key: 'promo', label: 'Фільтр', value: 'Акційні' });
+    if (inStock) chips.push({ key: 'in_stock', label: 'Фільтр', value: 'В наявності' });
+    return chips;
+  }, [priceRange, selectedCategories, selectedBrands, promo, inStock, categories, brands]);
+
+  const handleChipRemove = (key: string) => {
+    if (key === 'price_min') setPriceRange([PRICE_MIN_DEFAULT, priceRange[1]]);
+    else if (key === 'price_max') setPriceRange([priceRange[0], PRICE_MAX_DEFAULT]);
+    else if (key.startsWith('category_')) {
+      const slug = key.replace('category_', '');
+      setSelectedCategories((prev) => prev.filter((s) => s !== slug));
+    } else if (key.startsWith('brand_')) {
+      const slug = key.replace('brand_', '');
+      setSelectedBrands((prev) => prev.filter((s) => s !== slug));
+    } else if (key === 'promo') setPromo(false);
+    else if (key === 'in_stock') setInStock(false);
   };
 
   const parents = categories.filter((c) => !c.parentId);
@@ -78,7 +123,6 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
   }, [categories]);
 
   const [expandedParents, setExpandedParents] = useState<Set<number>>(() => {
-    // Auto-expand parents whose children are selected
     const expanded = new Set<number>();
     for (const parent of parents) {
       const children = childrenByParent[parent.id] || [];
@@ -89,9 +133,12 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
     return expanded;
   });
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [showAllBrands, setShowAllBrands] = useState(false);
 
   const MAX_VISIBLE_PARENTS = 8;
+  const MAX_VISIBLE_BRANDS = 8;
   const displayParents = showAllCategories ? parents : parents.slice(0, MAX_VISIBLE_PARENTS);
+  const displayBrands = showAllBrands ? brands : brands.slice(0, MAX_VISIBLE_BRANDS);
 
   const toggleExpand = (id: number) => {
     setExpandedParents((prev) => {
@@ -103,6 +150,10 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
 
   return (
     <div className="flex flex-col gap-6 rounded-lg bg-white p-5 shadow-[var(--shadow)]">
+      {/* Active Filter Chips */}
+      <FilterChips filters={activeChips} onRemove={handleChipRemove} onClearAll={resetFilters} />
+
+      {/* Categories */}
       <div>
         <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">Категорії</h3>
         <div className="flex flex-col gap-0.5">
@@ -168,49 +219,29 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
         </div>
       </div>
 
+      {/* Price Range */}
       <div>
         <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">Ціна, ₴</h3>
-
-        {/* Dual-handle range slider */}
-        <div className="relative mb-4 h-6">
-          <div className="pointer-events-none absolute top-1/2 h-1 w-full -translate-y-1/2 rounded bg-[var(--color-border)]">
-            <div
-              className="absolute h-full rounded bg-[var(--color-primary)]"
-              style={{
-                left: `${(sliderMin / PRICE_MAX_DEFAULT) * 100}%`,
-                right: `${100 - (sliderMax / PRICE_MAX_DEFAULT) * 100}%`,
-              }}
-            />
-          </div>
-          <input
-            type="range"
-            min={PRICE_MIN_DEFAULT}
-            max={PRICE_MAX_DEFAULT}
-            step={50}
-            value={sliderMin}
-            onChange={(e) => handleSliderMin(Number(e.target.value))}
-            className="pointer-events-none absolute top-0 h-full w-full appearance-none bg-transparent [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[var(--color-primary)] [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[var(--color-primary)] [&::-webkit-slider-thumb]:bg-white"
-          />
-          <input
-            type="range"
-            min={PRICE_MIN_DEFAULT}
-            max={PRICE_MAX_DEFAULT}
-            step={50}
-            value={sliderMax}
-            onChange={(e) => handleSliderMax(Number(e.target.value))}
-            className="pointer-events-none absolute top-0 h-full w-full appearance-none bg-transparent [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[var(--color-primary)] [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[var(--color-primary)] [&::-webkit-slider-thumb]:bg-white"
-          />
-        </div>
-
+        <DualRangeSlider
+          min={PRICE_MIN_DEFAULT}
+          max={PRICE_MAX_DEFAULT}
+          value={priceRange}
+          onChange={setPriceRange}
+          step={PRICE_STEP}
+          formatLabel={(v) => `${v} ₴`}
+        />
         {/* Manual number inputs */}
-        <div className="flex items-center gap-2">
+        <div className="mt-3 flex items-center gap-2">
           <input
             type="number"
             placeholder="Від"
             min={PRICE_MIN_DEFAULT}
             max={PRICE_MAX_DEFAULT}
-            value={priceMin}
-            onChange={(e) => setPriceMin(e.target.value)}
+            value={priceRange[0] === PRICE_MIN_DEFAULT ? '' : priceRange[0]}
+            onChange={(e) => {
+              const v = Number(e.target.value) || PRICE_MIN_DEFAULT;
+              setPriceRange([Math.min(v, priceRange[1]), priceRange[1]]);
+            }}
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
           />
           <span className="text-[var(--color-text-secondary)]">—</span>
@@ -219,13 +250,52 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
             placeholder="До"
             min={PRICE_MIN_DEFAULT}
             max={PRICE_MAX_DEFAULT}
-            value={priceMax}
-            onChange={(e) => setPriceMax(e.target.value)}
+            value={priceRange[1] === PRICE_MAX_DEFAULT ? '' : priceRange[1]}
+            onChange={(e) => {
+              const v = Number(e.target.value) || PRICE_MAX_DEFAULT;
+              setPriceRange([priceRange[0], Math.max(v, priceRange[0])]);
+            }}
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
           />
         </div>
       </div>
 
+      {/* Brand Multi-Select */}
+      {brands.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">Бренд</h3>
+          <div className="flex flex-col gap-0.5">
+            {displayBrands.map((brand) => (
+              <label
+                key={brand.slug}
+                className="flex cursor-pointer items-center gap-2.5 rounded-[var(--radius)] px-2 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-secondary)]"
+              >
+                <input
+                  type="checkbox"
+                  value={brand.slug}
+                  checked={selectedBrands.includes(brand.slug)}
+                  onChange={() => handleBrandToggle(brand.slug)}
+                  className="h-4 w-4 rounded border-[var(--color-border)] accent-[var(--color-primary)]"
+                />
+                <span className="flex-1 font-medium text-[var(--color-text)]">{brand.name}</span>
+                {brand.count !== undefined && (
+                  <span className="text-xs text-[var(--color-text-secondary)]">{brand.count}</span>
+                )}
+              </label>
+            ))}
+            {brands.length > MAX_VISIBLE_BRANDS && (
+              <button
+                onClick={() => setShowAllBrands(!showAllBrands)}
+                className="mt-1 px-2 text-left text-xs font-medium text-[var(--color-primary)] hover:underline"
+              >
+                {showAllBrands ? 'Показати менше' : `Показати ще ${brands.length - MAX_VISIBLE_BRANDS}...`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Checkboxes */}
       <div className="flex flex-col gap-1">
         <label className="flex cursor-pointer items-center gap-2.5 rounded-[var(--radius)] px-2 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-secondary)]">
           <input
@@ -247,6 +317,7 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
         </label>
       </div>
 
+      {/* Action Buttons */}
       <div className="flex gap-2">
         <button
           onClick={applyFilters}

@@ -14,3 +14,6 @@ export interface CategoryListItem {
 export interface CategoryTreeNode extends CategoryListItem {
   children: CategoryTreeNode[];
 }
+
+/** A top-level category with its direct children, each of which may have grandchildren. */
+export type CategoryWithChildren = CategoryTreeNode;

@@ -1,0 +1,50 @@
+// -----------------------------------------
+// Chat (Live Chat Support)
+// -----------------------------------------
+enum ChatRoomStatus {
+  open
+  assigned
+  resolved
+  closed
+}
+
+enum ChatSenderType {
+  customer
+  agent
+  system
+}
+
+model ChatRoom {
+  id              Int            @id @default(autoincrement())
+  userId          Int            @map("user_id")
+  user            User           @relation(fields: [userId], references: [id])
+  assignedAgentId Int?           @map("assigned_agent_id")
+  assignedAgent   User?          @relation("AgentChatRooms", fields: [assignedAgentId], references: [id])
+  status          ChatRoomStatus @default(open)
+  subject         String?
+  lastMessageAt   DateTime?      @map("last_message_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  messages        ChatMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([assignedAgentId])
+  @@index([lastMessageAt(sort: Desc)])
+  @@map("chat_rooms")
+}
+
+model ChatMessage {
+  id            Int            @id @default(autoincrement())
+  roomId        Int            @map("room_id")
+  room          ChatRoom       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  senderType    ChatSenderType @map("sender_type")
+  senderId      Int?           @map("sender_id")
+  content       String
+  attachmentUrl String?        @map("attachment_url")
+  isRead        Boolean        @default(false) @map("is_read")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  @@index([roomId, createdAt])
+  @@map("chat_messages")
+}

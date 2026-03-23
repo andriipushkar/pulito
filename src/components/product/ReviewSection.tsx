@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { getAccessToken } from '@/lib/api-client';
+import ReviewImageGallery from './ReviewImageGallery';
+import ReviewImageUpload from './ReviewImageUpload';
 
 interface ReviewUser {
   id: number;
@@ -19,6 +21,7 @@ interface Review {
   cons: string | null;
   isVerifiedPurchase: boolean;
   helpfulCount: number;
+  images: string[] | null;
   adminReply: string | null;
   adminReplyAt: string | null;
   createdAt: string;
@@ -130,6 +133,7 @@ export default function ReviewSection({ productId }: ReviewSectionProps) {
   const [formComment, setFormComment] = useState('');
   const [formPros, setFormPros] = useState('');
   const [formCons, setFormCons] = useState('');
+  const [formImages, setFormImages] = useState<string[]>([]);
 
   const limit = 10;
   const isLoggedIn = !!getAccessToken();
@@ -173,6 +177,7 @@ export default function ReviewSection({ productId }: ReviewSectionProps) {
         comment: formComment || undefined,
         pros: formPros || undefined,
         cons: formCons || undefined,
+        images: formImages.length > 0 ? formImages : undefined,
       });
 
       if (res.success) {
@@ -183,6 +188,7 @@ export default function ReviewSection({ productId }: ReviewSectionProps) {
         setFormComment('');
         setFormPros('');
         setFormCons('');
+        setFormImages([]);
         // Re-fetch after a short delay to let moderation pipeline process
         setTimeout(() => fetchReviews(), 500);
       } else {
@@ -376,6 +382,11 @@ export default function ReviewSection({ productId }: ReviewSectionProps) {
             </div>
           </div>
 
+          {/* Image upload */}
+          <div className="mb-4">
+            <ReviewImageUpload onChange={setFormImages} />
+          </div>
+
           <button
             type="submit"
             disabled={submitting}
@@ -467,6 +478,11 @@ export default function ReviewSection({ productId }: ReviewSectionProps) {
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Review images */}
+              {review.images && review.images.length > 0 && (
+                <ReviewImageGallery images={review.images} />
               )}
 
               {/* Admin reply */}

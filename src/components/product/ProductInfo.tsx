@@ -9,6 +9,7 @@ import { Heart, Cart } from '@/components/icons';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
+import SubscribeButton from './SubscribeButton';
 import type { ProductDetail } from '@/types/product';
 
 interface ProductInfoProps {
@@ -85,6 +86,15 @@ export default function ProductInfo({ product }: ProductInfoProps) {
             В кошик
           </button>
         </div>
+      )}
+
+      {/* Subscribe & Save */}
+      {inStock && (
+        <SubscribeButton
+          productId={product.id}
+          productName={product.name}
+          price={Number(product.priceRetail)}
+        />
       )}
 
       {/* Wishlist + share row */}

@@ -1,53 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/account/PageHeader';
 import SubscriptionCard from '@/components/account/SubscriptionCard';
-
-interface SubscriptionItem {
-  id: number;
-  quantity: number;
-  product: {
-    id: number;
-    name: string;
-    code?: string;
-    priceRetail: number | string;
-    imagePath?: string | null;
-  };
-}
-
-interface Subscription {
-  id: number;
-  frequency: string;
-  status: string;
-  nextDeliveryAt: string;
-  createdAt: string;
-  items: SubscriptionItem[];
-}
+import { useSubscriptions } from '@/hooks/useSubscription';
 
 export default function SubscriptionsPage() {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { subscriptions, isLoading, mutate } = useSubscriptions();
 
-  const fetchSubscriptions = () => {
-    setIsLoading(true);
-    apiClient
-      .get<Subscription[]>('/api/v1/me/subscriptions')
-      .then((res) => {
-        if (res.success && res.data) {
-          setSubscriptions(res.data);
-        }
-      })
-      .finally(() => setIsLoading(false));
-  };
-
-  useEffect(() => {
-    fetchSubscriptions();
-  }, []);
+  const activeCount = subscriptions.filter((s) => s.status === 'active').length;
+  const pausedCount = subscriptions.filter((s) => s.status === 'paused').length;
 
   return (
     <div>
@@ -90,13 +54,24 @@ export default function SubscriptionsPage() {
         />
       ) : (
         <>
-          <div className="mb-4 flex items-center gap-2">
+          {/* Summary badges */}
+          <div className="mb-4 flex flex-wrap items-center gap-3">
             <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-700">
               {subscriptions.length}
             </span>
             <span className="text-sm text-[var(--color-text-secondary)]">
               {subscriptions.length === 1 ? 'підписка' : subscriptions.length < 5 ? 'підписки' : 'підписок'}
             </span>
+            {activeCount > 0 && (
+              <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                {activeCount} {activeCount === 1 ? 'активна' : 'активних'}
+              </span>
+            )}
+            {pausedCount > 0 && (
+              <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-700">
+                {pausedCount} {pausedCount === 1 ? 'призупинена' : 'призупинених'}
+              </span>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
@@ -104,7 +79,7 @@ export default function SubscriptionsPage() {
               <SubscriptionCard
                 key={sub.id}
                 subscription={sub}
-                onUpdate={fetchSubscriptions}
+                onUpdate={() => mutate()}
               />
             ))}
           </div>
