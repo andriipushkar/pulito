@@ -110,7 +110,12 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         credentials: 'include',
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.data) {
+        // Auto-login after registration
+        setAccessToken(data.data.accessToken);
+        if (data.data.user) {
+          setUser(data.data.user);
+        }
         return { success: true };
       }
       return { success: false, error: data.error || 'Помилка реєстрації' };
