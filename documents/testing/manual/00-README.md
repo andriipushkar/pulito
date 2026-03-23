@@ -25,8 +25,18 @@
 | `19-marketplaces.md` | OLX, Rozetka, Prom.ua, Epicentr K, Instagram | Високий |
 
 | `20-pricing-notifications.md` | Ціноутворення, email-кампанії, i18n, Google Shopping, lifecycle, теми | Високий |
+| `21-desktop-responsive.md` | Десктоп: shop responsive 1280/1440/1920px | Високий |
+| `22-mobile-responsive.md` | Мобільна: shop responsive 375/390px | Високий |
+| `23-admin-billing-tenants.md` | Адмін: billing, plans, tenants, domains, верифікація | Високий |
+| `24-admin-blog-bundles.md` | Адмін: блог CRUD, категорії блогу, набори CRUD | Середній |
+| `25-admin-campaigns-chat.md` | Адмін: кампанії, планування, чат, повідомлення | Середній |
+| `26-admin-integrations.md` | Адмін: 1C інтеграція, feature flags, підписки | Високий |
+| `27-admin-warehouses-discounts.md` | Адмін: склади, залишки, обсягові знижки | Середній |
+| `28-shop-calculator-bundles-pages.md` | Shop: калькулятор, набори, статичні сторінки, reorder, GDPR | Високий |
+| `29-admin-responsive-desktop.md` | Адмін responsive: всі 63 сторінки на 1280/1440/1920px | Високий |
+| `30-admin-responsive-mobile.md` | Адмін responsive: всі 63 сторінки на 375/390/768px | Високий |
 
-**Всього: 597 тест-кейсів у 20 файлах**
+**Всього: ~877 тест-кейсів у 30 файлах**
 
 ## Тестове середовище
 
