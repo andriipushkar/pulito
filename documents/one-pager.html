@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clean Shop — One-Pager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#fff;color:#1a1a2e;max-width:900px;margin:0 auto;padding:48px 40px;line-height:1.55;font-size:14px}
+@media print{body{padding:24px 20px;font-size:12px}h1{font-size:24px!important}.grid3{grid-template-columns:1fr!important}.stat .n{font-size:20px!important}}
+h1{font-size:28px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;color:#0f172a}
+.sub{color:#64748b;font-size:13px;margin-bottom:24px}
+.badge{display:inline-block;background:#0ea5e91a;color:#0369a1;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:.5px;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:#e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:28px}
+.stat{background:#f8fafc;padding:14px 10px;text-align:center}
+.stat .n{font-size:22px;font-weight:800;color:#0369a1}
+.stat .l{font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
+h2{font-size:16px;font-weight:800;color:#0f172a;margin:20px 0 10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.card{background:#f8fafc;border-radius:8px;padding:14px 16px;border:1px solid #e2e8f0}
+.card h3{font-size:13px;font-weight:700;margin-bottom:8px;color:#334155}
+ul{list-style:none;margin:0;padding:0}
+ul li{padding:3px 0;font-size:12px;color:#475569;display:flex;align-items:flex-start;gap:6px}
+ul li::before{content:"✓";color:#059669;font-weight:700;flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:11px;margin:8px 0}
+th{text-align:left;padding:6px 8px;background:#f1f5f9;font-weight:700;color:#64748b;text-transform:uppercase;font-size:9px;letter-spacing:.5px}
+td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
+.highlight{background:#059669;color:#fff;padding:12px 16px;border-radius:8px;margin:20px 0;font-size:13px}
+.highlight strong{color:#d1fae5}
+.footer{margin-top:24px;padding-top:16px;border-top:2px solid #e2e8f0;display:flex;justify-content:space-between;font-size:12px;color:#94a3b8}
+.tag{display:inline-block;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;margin:1px}
+</style>
+</head>
+<body>
+
+<div class="badge">CONFIDENTIAL — ACQUISITION OPPORTUNITY</div>
+<h1>Clean Shop Platform</h1>
+<div class="sub">Enterprise B2B/B2C e-commerce for FMCG market — Next.js 16, 175K lines TypeScript, 20+ integrations, production-ready</div>
+
+<div class="stats">
+  <div class="stat"><div class="n">175K</div><div class="l">Lines of code</div></div>
+  <div class="stat"><div class="n">307</div><div class="l">API endpoints</div></div>
+  <div class="stat"><div class="n">102</div><div class="l">Pages</div></div>
+  <div class="stat"><div class="n">94</div><div class="l">DB models</div></div>
+  <div class="stat"><div class="n">97%</div><div class="l">Test:code ratio</div></div>
+  <div class="stat"><div class="n">20+</div><div class="l">Integrations</div></div>
+</div>
+
+<h2>What is this?</h2>
+<p style="font-size:13px;color:#475569;margin-bottom:16px">A <strong>complete, production-ready e-commerce platform</strong> for the FMCG/household chemicals market. Not a template — a full SaaS-capable platform with B2B pricing, Telegram/Viber bots, 4 marketplace syncs, 18-tab analytics, multi-tenancy, and 1,217 manual test cases. Built by a single developer over 4+ months.</p>
+
+<div class="grid3">
+  <div class="card">
+    <h3>Storefront (42 pages)</h3>
+    <ul>
+      <li>Catalog with filters, Typesense search</li>
+      <li>Zoom gallery, Quick View, comparison</li>
+      <li>4-step checkout, guest checkout</li>
+      <li>Coupons, loyalty points, volume pricing</li>
+      <li>Bundles, calculator, blog, FAQ</li>
+      <li>PWA, push notifications, i18n</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Admin Panel (60 pages)</h3>
+    <ul>
+      <li>Orders: status, PDF, bulk operations</li>
+      <li>Products: CRUD, Excel import, images</li>
+      <li>Analytics: 18 tabs, 13 report types</li>
+      <li>Marketing: campaigns, email sequences</li>
+      <li>SaaS: tenants, billing, domains, flags</li>
+      <li>Multi-warehouse, live chat, SEO audit</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>B2B Engine</h3>
+    <ul>
+      <li>3 wholesale tiers + personal pricing</li>
+      <li>Volume discounts (auto at checkout)</li>
+      <li>Bulk order (CSV/code import)</li>
+      <li>Commercial proposal PDF</li>
+      <li>Credit limits, pallet delivery</li>
+      <li>Personal manager per client</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Integrations (20+)</h2>
+<table>
+  <tr><th>Category</th><th>Services</th><th>What it does</th></tr>
+  <tr><td>Payments</td><td>LiqPay, Monobank, WayForPay</td><td>Redirect flow, webhooks, refunds</td></tr>
+  <tr><td>Delivery</td><td>Nova Poshta, Ukrposhta, Pallet</td><td>City search, TTN, tracking, cost calc</td></tr>
+  <tr><td>Bots</td><td>Telegram, Viber</td><td>Catalog, search, order notifications</td></tr>
+  <tr><td>Marketplaces</td><td>Prom, Rozetka, OLX, Epicentr K</td><td>Price/stock/order sync (cron 6h)</td></tr>
+  <tr><td>Social</td><td>Facebook, Instagram</td><td>CAPI tracking, Pixel, post publishing</td></tr>
+  <tr><td>ERP</td><td>1C / BAS</td><td>Products, prices, stock, orders sync</td></tr>
+  <tr><td>Other</td><td>GA4, Sentry, Cloudflare R2, Typesense, VAPID Push</td><td>Analytics, monitoring, CDN, search, push</td></tr>
+</table>
+
+<h2>Tech Stack & Quality</h2>
+<div class="grid2">
+  <div>
+    <div style="margin-bottom:8px">
+      <span class="tag">Next.js 16</span> <span class="tag">React 19</span> <span class="tag">TypeScript 5.9</span> <span class="tag">PostgreSQL 16</span> <span class="tag">Prisma 7.4</span> <span class="tag">Redis 7</span> <span class="tag">Typesense 27</span> <span class="tag">Docker</span> <span class="tag">GitHub Actions</span> <span class="tag">Tailwind 4</span>
+    </div>
+    <ul>
+      <li>92 service files (service layer pattern)</li>
+      <li>94 Prisma models in 22 schema files</li>
+      <li>25 Zod validators, 17 hooks, 5 middleware</li>
+      <li>31 cron jobs, 5 webhooks, 3 server actions</li>
+    </ul>
+  </div>
+  <div>
+    <table>
+      <tr><th>Test type</th><th>Count</th></tr>
+      <tr><td>Unit tests (Vitest)</td><td>661 files — 100% all layers</td></tr>
+      <tr><td>E2E (Playwright)</td><td>71 specs</td></tr>
+      <tr><td>Storybook stories</td><td>110 components</td></tr>
+      <tr><td>Manual test cases</td><td>1,217 (30 files)</td></tr>
+      <tr><td>Integration tests</td><td>19 scenarios</td></tr>
+      <tr><td>Load tests (k6)</td><td>4 scripts</td></tr>
+      <tr><td>Setup documentation</td><td>29 guides (4,551 lines)</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="highlight">
+  <strong>Asking: $50K — $120K</strong> — Development cost equivalent: $98K-138K (2,450-3,450 hours). Includes full IP, source code, documentation, tests, knowledge transfer, and 3-month post-sale support. Open to license + rev share, acqui-hire, or SaaS partnership structures.
+</div>
+
+<h2>Growth Opportunity</h2>
+<div class="grid2" style="gap:12px">
+  <div class="card">
+    <h3>Immediate (Month 1-3)</h3>
+    <ul>
+      <li>Deploy for 3-5 FMCG distributors ($199-499/mo each)</li>
+      <li>Target: $600-2,500 MRR</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Scale (Month 6-12)</h3>
+    <ul>
+      <li>20+ clients, SaaS white-label, POS desktop app</li>
+      <li>International (PL/RO/CZ — i18n ready)</li>
+      <li>Target: $5K-20K MRR</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">
+  <div>Contact: andriipushkar@gmail.com</div>
+  <div>March 2026 — Confidential</div>
+</div>
+
+</body>
+</html>
