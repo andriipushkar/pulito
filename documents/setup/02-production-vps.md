@@ -14,19 +14,73 @@
 
 Провайдери: Hetzner, DigitalOcean, Vultr, Hostinger.
 
+## Перед початком — DNS
+
+Перш ніж починати, направте домен на IP сервера:
+
+1. У DNS-панелі вашого домен-реєстратора (або Cloudflare) додайте:
+
+```
+yourdomain.com     A    YOUR_SERVER_IP
+www.yourdomain.com A    YOUR_SERVER_IP
+```
+
+2. Перевірте (може зайняти до 24 годин, зазвичай 5-15 хвилин):
+
+```bash
+dig +short yourdomain.com
+# Має показати YOUR_SERVER_IP
+```
+
+> Якщо використовуєте Cloudflare — спочатку вимкніть проксі (сірий значок), щоб Let's Encrypt міг видати сертифікат. Після налаштування SSL увімкніть назад.
+
 ## Крок 1 — Підключитись до сервера
 
 ```bash
 ssh root@YOUR_SERVER_IP
 ```
 
-## Крок 2 — Створити користувача
+### Налаштувати SSH-ключ (рекомендовано)
+
+На вашому **локальному** комп'ютері:
 
 ```bash
+# Згенерувати ключ (якщо ще немає)
+ssh-keygen -t ed25519 -C "deploy@clean-shop"
+
+# Скопіювати на сервер
+ssh-copy-id root@YOUR_SERVER_IP
+```
+
+Після цього вимкніть авторизацію по паролю:
+
+```bash
+sudo nano /etc/ssh/sshd_config
+# Знайдіть і змініть:
+# PasswordAuthentication no
+sudo systemctl restart sshd
+```
+
+## Крок 2 — Оновити систему та створити користувача
+
+```bash
+apt update && apt upgrade -y
 adduser deploy
 usermod -aG sudo deploy
 su - deploy
 ```
+
+### Swap-файл (для серверів з 1 GB RAM)
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+Перевірити: `free -h` — має показати 2G swap.
 
 ## Крок 3 — Встановити Node.js 20
 
@@ -144,7 +198,16 @@ npm run db:seed
 npm run build
 ```
 
-## Крок 12 — Запустити через PM2
+## Крок 12 — Підготувати директорію uploads
+
+```bash
+mkdir -p /var/www/clean-shop/uploads
+chmod 755 /var/www/clean-shop/uploads
+```
+
+> Якщо використовуєте Cloudflare R2 для файлів — цей крок можна пропустити. Дивіться змінні `R2_*` в [17-env-reference.md](17-env-reference.md).
+
+## Крок 13 — Запустити через PM2
 
 Створіть `ecosystem.config.js`:
 
@@ -184,7 +247,7 @@ pm2 status
 curl http://localhost:3000
 ```
 
-## Крок 13 — Налаштувати ротацію логів PM2
+## Крок 14 — Налаштувати ротацію логів PM2
 
 ```bash
 pm2 install pm2-logrotate
@@ -195,7 +258,7 @@ pm2 set pm2-logrotate:dateFormat YYYY-MM-DD
 pm2 set pm2-logrotate:rotateInterval '0 0 * * *'
 ```
 
-## Крок 14 — Налаштувати Nginx
+## Крок 15 — Налаштувати Nginx
 
 ```bash
 sudo nano /etc/nginx/sites-available/clean-shop
@@ -269,7 +332,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## Крок 15 — SSL-сертифікат (Let's Encrypt)
+## Крок 16 — SSL-сертифікат (Let's Encrypt)
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -287,7 +350,7 @@ Certbot автоматично:
 sudo certbot renew --dry-run
 ```
 
-## Крок 16 — Налаштувати Cron-задачі
+## Крок 17 — Налаштувати Cron-задачі
 
 ```bash
 crontab -e
@@ -326,11 +389,48 @@ crontab -e
 # === Щотижня (понеділок) ===
 0 7 * * 1 curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/weekly-report
 
+# === Кожні 30 хвилин — email та кампанії ===
+*/30 * * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/email-campaigns
+*/30 * * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/email-sequences
+*/30 * * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/campaigns
+
+# === Щогодини — підписки, маркетплейси, покинуті кошики ===
+0 * * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/process-subscriptions
+0 * * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/abandoned-carts
+0 * * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/sync-marketplace-orders
+0 * * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/sync-marketplace-stock
+
+# === Кожні 5 хвилин — health check ===
+*/5 * * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/health-check
+
+# === Щоденно — лояльність, бейджі, рекомендації, прогнози ===
+0 1 * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/loyalty-daily
+0 1 * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/auto-badges
+30 3 * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/build-recommendations
+0 4 * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/predictions
+0 2 * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/publications
+0 5 * * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/cleanup-soft-deleted
+
 # === Щомісяця (1-го числа) ===
 0 5 1 * * curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/instagram-token-refresh
 ```
 
-## Крок 17 — Налаштувати Firewall
+> **Логування cron:** Щоб бачити результати cron-задач, додайте логування в кінець кожного рядка:
+> `>> /var/log/clean-shop-cron.log 2>&1`
+>
+> Наприклад: `0 3 * * * curl -s ... http://localhost:3000/api/v1/cron/db-backup >> /var/log/clean-shop-cron.log 2>&1`
+
+### Початкова індексація Typesense
+
+Після першого деплою потрібно вручну проіндексувати товари:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer YOUR_APP_SECRET" http://localhost:3000/api/v1/cron/reindex-products
+```
+
+Перевірте що пошук працює — відкрийте сайт і спробуйте знайти товар.
+
+## Крок 18 — Налаштувати Firewall
 
 ```bash
 sudo ufw allow 22/tcp    # SSH
@@ -342,7 +442,7 @@ sudo ufw status
 
 > **Важливо:** Не відкривайте порти 5432, 6432, 6380, 8108 — вони повинні бути доступні тільки локально.
 
-## Крок 18 — Перевірити роботу
+## Крок 19 — Перевірити роботу
 
 ```bash
 # PM2 — додаток працює
@@ -416,3 +516,46 @@ echo "✅ Deploy complete!"
 chmod +x deploy.sh
 ./deploy.sh
 ```
+
+## Відкат (Rollback)
+
+Якщо після оновлення щось зламалось:
+
+```bash
+cd /var/www/clean-shop
+
+# Подивитись на який коміт відкочуватись
+git log --oneline -5
+
+# Відкотити до попереднього коміту
+git checkout HEAD~1
+
+# Перезібрати і перезапустити
+npm install
+npm run build
+pm2 reload clean-shop
+```
+
+> Якщо зламалась міграція БД — відновіть з бекапу: [11-backups.md](11-backups.md)
+
+## Що далі
+
+Після базового деплою налаштуйте інтеграції та інфраструктуру (за потреби):
+
+| Пріоритет | Що зробити | Гайд |
+|-----------|-----------|------|
+| Обов'язково | Платежі (LiqPay/Monobank) | [05-payment-providers.md](05-payment-providers.md) |
+| Обов'язково | Доставка (Нова Пошта) | [06-delivery-providers.md](06-delivery-providers.md) |
+| Обов'язково | Email (SMTP) | [07-email-smtp.md](07-email-smtp.md) |
+| Обов'язково | Бекапи | [11-backups.md](11-backups.md) |
+| Обов'язково | Моніторинг (Sentry) | [10-monitoring.md](10-monitoring.md) |
+| Обов'язково | JWT RS256 | [18-jwt-setup.md](18-jwt-setup.md) |
+| Рекомендовано | Cloudflare CDN | [cloudflare/setup-guide.md](cloudflare/setup-guide.md) |
+| Рекомендовано | Telegram бот | [03-telegram-bot.md](03-telegram-bot.md) |
+| Рекомендовано | Google OAuth | [08-google-oauth.md](08-google-oauth.md) |
+| Рекомендовано | SEO + Analytics | [12-seo-analytics.md](12-seo-analytics.md) |
+| Опціонально | Push-сповіщення | [13-push-notifications.md](13-push-notifications.md) |
+| Опціонально | Маркетплейси | [15-marketplaces.md](15-marketplaces.md) |
+| Опціонально | Instagram | [09-instagram.md](09-instagram.md) |
+
+Повний чекліст: [00-checklist.md](00-checklist.md)
