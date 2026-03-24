@@ -5,7 +5,7 @@ import type { Prisma } from '@/../generated/prisma';
 export class ExportError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'ExportError';
@@ -53,7 +53,8 @@ export async function exportOrders(params: ExportOrdersParams = {}) {
   const where: Prisma.OrderWhereInput = {};
   if (status) where.status = status as Prisma.EnumOrderStatusFilter;
   if (clientType) where.clientType = clientType as Prisma.EnumClientTypeFilter;
-  if (dateFrom) where.createdAt = { ...((where.createdAt as object) || {}), gte: new Date(dateFrom) };
+  if (dateFrom)
+    where.createdAt = { ...((where.createdAt as object) || {}), gte: new Date(dateFrom) };
   if (dateTo) where.createdAt = { ...((where.createdAt as object) || {}), lte: new Date(dateTo) };
 
   const orders = await prisma.order.findMany({
@@ -66,39 +67,52 @@ export async function exportOrders(params: ExportOrdersParams = {}) {
   });
 
   const STATUS_LABELS: Record<string, string> = {
-    new_order: 'Нове', processing: 'В обробці', confirmed: 'Підтверджене',
-    paid: 'Оплачене', shipped: 'Відправлене', completed: 'Виконане',
-    cancelled: 'Скасоване', returned: 'Повернення',
+    new_order: 'Нове',
+    processing: 'В обробці',
+    confirmed: 'Підтверджене',
+    paid: 'Оплачене',
+    shipped: 'Відправлене',
+    completed: 'Виконане',
+    cancelled: 'Скасоване',
+    returned: 'Повернення',
   };
   const PAYMENT_LABELS: Record<string, string> = {
-    cod: 'Накладений платіж', bank_transfer: 'На розрахунковий рахунок',
-    online: 'Онлайн-оплата', card_prepay: 'Передоплата на картку',
+    cod: 'Накладений платіж',
+    bank_transfer: 'На розрахунковий рахунок',
+    online: 'Онлайн-оплата',
+    card_prepay: 'Передоплата на картку',
   };
   const PAYMENT_STATUS: Record<string, string> = {
-    pending: 'Очікує оплати', paid: 'Оплачено', partial: 'Часткова оплата', refunded: 'Повернення коштів',
+    pending: 'Очікує оплати',
+    paid: 'Оплачено',
+    partial: 'Часткова оплата',
+    refunded: 'Повернення коштів',
   };
   const DELIVERY_LABELS: Record<string, string> = {
-    nova_poshta: 'Нова Пошта', ukrposhta: 'Укрпошта', pickup: 'Самовивіз', pallet: 'Палетна доставка',
+    nova_poshta: 'Нова Пошта',
+    ukrposhta: 'Укрпошта',
+    pickup: 'Самовивіз',
+    pallet: 'Палетна доставка',
   };
 
   const rows = orders.map((o) => ({
     '№ замовлення': o.orderNumber,
-    'Дата': o.createdAt.toLocaleDateString('uk-UA'),
-    'Клієнт': o.contactName,
-    'Телефон': o.contactPhone,
-    'Email': o.contactEmail || '',
-    'Тип': o.clientType === 'wholesale' ? 'Оптовий' : 'Роздрібний',
-    'Статус': STATUS_LABELS[o.status] || o.status,
-    'Оплата': PAYMENT_LABELS[o.paymentMethod] || o.paymentMethod,
+    Дата: o.createdAt.toLocaleDateString('uk-UA'),
+    Клієнт: o.contactName,
+    Телефон: o.contactPhone,
+    Email: o.contactEmail || '',
+    Тип: o.clientType === 'wholesale' ? 'Оптовий' : 'Роздрібний',
+    Статус: STATUS_LABELS[o.status] || o.status,
+    Оплата: PAYMENT_LABELS[o.paymentMethod] || o.paymentMethod,
     'Статус оплати': PAYMENT_STATUS[o.paymentStatus] || o.paymentStatus,
-    'Доставка': DELIVERY_LABELS[o.deliveryMethod] || o.deliveryMethod,
-    'ТТН': o.trackingNumber || '',
-    'Місто': o.deliveryCity || '',
+    Доставка: DELIVERY_LABELS[o.deliveryMethod] || o.deliveryMethod,
+    ТТН: o.trackingNumber || '',
+    Місто: o.deliveryCity || '',
     'Кількість товарів': o.itemsCount,
-    'Знижка': Number(o.discountAmount),
+    Знижка: Number(o.discountAmount),
     'Доставка (вартість)': Number(o.deliveryCost),
-    'Сума': Number(o.totalAmount),
-    'Коментар': o.comment || '',
+    Сума: Number(o.totalAmount),
+    Коментар: o.comment || '',
   }));
 
   const wb = XLSX.utils.book_new();
@@ -109,7 +123,10 @@ export async function exportOrders(params: ExportOrdersParams = {}) {
   return {
     buffer: toBuffer(wb, format),
     filename: `orders_${new Date().toISOString().slice(0, 10)}.${format}`,
-    contentType: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    contentType:
+      format === 'csv'
+        ? 'text/csv'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   };
 }
 
@@ -137,13 +154,13 @@ export async function exportClients(params: ExportClientsParams = {}) {
   });
 
   const rows = users.map((u) => ({
-    'ID': u.id,
-    'Email': u.email,
+    ID: u.id,
+    Email: u.email,
     "Ім'я": u.fullName || '',
-    'Телефон': u.phone || '',
-    'Компанія': u.companyName || '',
-    'ЄДРПОУ': u.edrpou || '',
-    'Роль': u.role,
+    Телефон: u.phone || '',
+    Компанія: u.companyName || '',
+    ЄДРПОУ: u.edrpou || '',
+    Роль: u.role,
     'Оптовий статус': u.wholesaleStatus || '',
     'Дата реєстрації': u.createdAt.toLocaleDateString('uk-UA'),
     'К-ть замовлень': u._count.orders,
@@ -157,7 +174,10 @@ export async function exportClients(params: ExportClientsParams = {}) {
   return {
     buffer: toBuffer(wb, format),
     filename: `clients_${new Date().toISOString().slice(0, 10)}.${format}`,
-    contentType: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    contentType:
+      format === 'csv'
+        ? 'text/csv'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   };
 }
 
@@ -173,16 +193,16 @@ export async function exportCatalog(params: { format?: 'xlsx' | 'csv' } = {}) {
   });
 
   const rows = products.map((p) => ({
-    'Код': p.code,
-    'Назва': p.name,
-    'Категорія': p.category?.name || '',
+    Код: p.code,
+    Назва: p.name,
+    Категорія: p.category?.name || '',
     'Роздрібна ціна': Number(p.priceRetail),
     'Ціна: Дрібний опт': p.priceWholesale != null ? Number(p.priceWholesale) : '',
     'Ціна: Середній опт': p.priceWholesale2 != null ? Number(p.priceWholesale2) : '',
     'Ціна: Великий опт': p.priceWholesale3 != null ? Number(p.priceWholesale3) : '',
-    'Залишок': p.quantity,
-    'Акція': p.isPromo ? 'Так' : 'Ні',
-    'Статус': p.isActive ? 'Активний' : 'Неактивний',
+    Залишок: p.quantity,
+    Акція: p.isPromo ? 'Так' : 'Ні',
+    Статус: p.isActive ? 'Активний' : 'Неактивний',
   }));
 
   const wb = XLSX.utils.book_new();
@@ -193,6 +213,93 @@ export async function exportCatalog(params: { format?: 'xlsx' | 'csv' } = {}) {
   return {
     buffer: toBuffer(wb, format),
     filename: `catalog_${new Date().toISOString().slice(0, 10)}.${format}`,
-    contentType: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    contentType:
+      format === 'csv'
+        ? 'text/csv'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  };
+}
+
+/**
+ * Export products with full details (content, SEO, images).
+ * Same format can be re-imported to create/update products.
+ * @param ids — optional array of product IDs; if empty, exports all active products
+ */
+export async function exportProductsFull(params: { ids?: number[]; format?: 'xlsx' | 'csv' } = {}) {
+  const { ids, format = 'xlsx' } = params;
+
+  const where = ids?.length ? { id: { in: ids } } : { isActive: true, deletedAt: null };
+
+  interface ProductWithRelations {
+    code: string;
+    name: string;
+    priceRetail: { toNumber?: () => number } | number;
+    priceWholesale: { toNumber?: () => number } | number | null;
+    priceWholesale2: { toNumber?: () => number } | number | null;
+    priceWholesale3: { toNumber?: () => number } | number | null;
+    quantity: number;
+    isPromo: boolean;
+    isActive: boolean;
+    category: { name: string } | null;
+    content: {
+      shortDescription: string | null;
+      description: string | null;
+      specifications: string | null;
+      seoTitle: string | null;
+      seoDescription: string | null;
+      seoKeywords: string | null;
+    } | null;
+    images: { pathOriginal: string | null }[];
+    badges: { badgeType: string }[];
+  }
+
+  const products = (await prisma.product.findMany({
+    where,
+    include: {
+      category: { select: { name: true } },
+      content: true,
+      images: { orderBy: { sortOrder: 'asc' }, select: { pathOriginal: true } },
+      badges: { select: { badgeType: true } },
+    },
+    orderBy: { name: 'asc' },
+  })) as unknown as ProductWithRelations[];
+
+  const rows = products.map((p) => ({
+    Код: p.code,
+    Назва: p.name,
+    Категорія: p.category?.name || '',
+    'Роздрібна ціна': Number(p.priceRetail),
+    'Ціна: Дрібний опт': p.priceWholesale != null ? Number(p.priceWholesale) : '',
+    'Ціна: Середній опт': p.priceWholesale2 != null ? Number(p.priceWholesale2) : '',
+    'Ціна: Великий опт': p.priceWholesale3 != null ? Number(p.priceWholesale3) : '',
+    Залишок: p.quantity,
+    Акція: p.isPromo ? 'Так' : 'Ні',
+    Статус: p.isActive ? 'Активний' : 'Неактивний',
+    'Короткий опис': p.content?.shortDescription || '',
+    Опис: p.content?.description || '',
+    Характеристики: p.content?.specifications || '',
+    'SEO заголовок': p.content?.seoTitle || '',
+    'SEO опис': p.content?.seoDescription || '',
+    'SEO ключові слова': p.content?.seoKeywords || '',
+    Зображення: p.images
+      .map((img) => img.pathOriginal)
+      .filter(Boolean)
+      .join('; '),
+    Бейджі: p.badges.map((b) => b.badgeType).join(', '),
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  autoFitColumns(ws, rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Товари');
+
+  const suffix = ids?.length === 1 ? `product_${ids[0]}` : 'products_full';
+  return {
+    buffer: toBuffer(wb, format),
+    filename: `${suffix}_${new Date().toISOString().slice(0, 10)}.${format}`,
+    contentType:
+      format === 'csv'
+        ? 'text/csv'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   };
 }

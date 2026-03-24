@@ -102,7 +102,7 @@ export default function AdminProductsPage() {
       params.set('page', '1');
       router.push(`/admin/products?${params}`);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
   // Load categories once
@@ -141,7 +141,9 @@ export default function AdminProductsPage() {
       .finally(() => setIsLoading(false));
   }, [page, limit, searchParams]);
 
-  useEffect(() => { loadProducts(); }, [loadProducts]);
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -194,7 +196,9 @@ export default function AdminProductsPage() {
           return;
         }
         const res = await apiClient.post('/api/v1/admin/products/bulk', {
-          action: 'change_category', productIds: ids, categoryId: Number(bulkCategoryId),
+          action: 'change_category',
+          productIds: ids,
+          categoryId: Number(bulkCategoryId),
         });
         if (res.success) {
           toast.success(`Категорію змінено для ${ids.length} товарів`);
@@ -205,7 +209,8 @@ export default function AdminProductsPage() {
         }
       } else if (bulkAction === 'export') {
         const res = await apiClient.post<{ url: string }>('/api/v1/admin/products/bulk', {
-          action: 'export', productIds: ids,
+          action: 'export',
+          productIds: ids,
         });
         if (res.success && res.data?.url) {
           window.open(res.data.url, '_blank');
@@ -215,7 +220,8 @@ export default function AdminProductsPage() {
         }
       } else {
         const res = await apiClient.post('/api/v1/admin/products/bulk', {
-          action: bulkAction, productIds: ids,
+          action: bulkAction,
+          productIds: ids,
         });
         if (res.success) {
           toast.success(`Оновлено ${ids.length} товарів`);
@@ -247,7 +253,8 @@ export default function AdminProductsPage() {
       if (stock) params.set('stock', stock);
 
       const res = await apiClient.post<{ url: string }>('/api/v1/admin/products/bulk', {
-        action: 'export_filtered', filters: Object.fromEntries(params),
+        action: 'export_filtered',
+        filters: Object.fromEntries(params),
       });
       if (res.success && res.data?.url) {
         window.open(res.data.url, '_blank');
@@ -261,7 +268,7 @@ export default function AdminProductsPage() {
   };
 
   const activeFilters = ['categoryId', 'isActive', 'stock', 'sort'].filter(
-    (k) => searchParams.get(k) && (k !== 'sort' || searchParams.get(k) !== 'id_desc')
+    (k) => searchParams.get(k) && (k !== 'sort' || searchParams.get(k) !== 'id_desc'),
   ).length;
 
   const categoryOptions = [
@@ -274,7 +281,12 @@ export default function AdminProductsPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-xl font-bold">Товари <span className="text-base font-normal text-[var(--color-text-secondary)]">({total})</span></h2>
+        <h2 className="text-xl font-bold">
+          Товари{' '}
+          <span className="text-base font-normal text-[var(--color-text-secondary)]">
+            ({total})
+          </span>
+        </h2>
         <div className="flex gap-2">
           <Input
             placeholder="Пошук за назвою або кодом..."
@@ -285,7 +297,16 @@ export default function AdminProductsPage() {
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             Фільтри{activeFilters > 0 ? ` (${activeFilters})` : ''}
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportAll} isLoading={isProcessing}>Експорт</Button>
+          <Button variant="outline" size="sm" onClick={handleExportAll} isLoading={isProcessing}>
+            Експорт
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open('/api/v1/admin/export?type=products_full', '_blank')}
+          >
+            Експорт повний
+          </Button>
         </div>
       </div>
 
@@ -294,19 +315,35 @@ export default function AdminProductsPage() {
         <div className="mb-4 grid gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-medium">Категорія</label>
-            <Select options={categoryOptions} value={searchParams.get('categoryId') || ''} onChange={(e) => updateFilter('categoryId', e.target.value)} />
+            <Select
+              options={categoryOptions}
+              value={searchParams.get('categoryId') || ''}
+              onChange={(e) => updateFilter('categoryId', e.target.value)}
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium">Статус</label>
-            <Select options={STATUS_OPTIONS} value={searchParams.get('isActive') || ''} onChange={(e) => updateFilter('isActive', e.target.value)} />
+            <Select
+              options={STATUS_OPTIONS}
+              value={searchParams.get('isActive') || ''}
+              onChange={(e) => updateFilter('isActive', e.target.value)}
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium">Залишок</label>
-            <Select options={STOCK_OPTIONS} value={searchParams.get('stock') || ''} onChange={(e) => updateFilter('stock', e.target.value)} />
+            <Select
+              options={STOCK_OPTIONS}
+              value={searchParams.get('stock') || ''}
+              onChange={(e) => updateFilter('stock', e.target.value)}
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium">Сортування</label>
-            <Select options={SORT_OPTIONS} value={searchParams.get('sort') || 'id_desc'} onChange={(e) => updateFilter('sort', e.target.value)} />
+            <Select
+              options={SORT_OPTIONS}
+              value={searchParams.get('sort') || 'id_desc'}
+              onChange={(e) => updateFilter('sort', e.target.value)}
+            />
           </div>
         </div>
       )}
@@ -317,7 +354,12 @@ export default function AdminProductsPage() {
           <span className="text-sm text-[var(--color-text-secondary)]">
             Обрано: <strong>{selected.size}</strong>
           </span>
-          <Select options={BULK_ACTIONS} value={bulkAction} onChange={(e) => setBulkAction(e.target.value)} className="w-52" />
+          <Select
+            options={BULK_ACTIONS}
+            value={bulkAction}
+            onChange={(e) => setBulkAction(e.target.value)}
+            className="w-52"
+          />
           {bulkAction === 'change_category' && (
             <select
               value={bulkCategoryId}
@@ -325,10 +367,19 @@ export default function AdminProductsPage() {
               className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
             >
               <option value="">Оберіть категорію...</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
           )}
-          <Button size="sm" onClick={handleBulkAction} isLoading={isProcessing} disabled={!bulkAction || selected.size === 0}>
+          <Button
+            size="sm"
+            onClick={handleBulkAction}
+            isLoading={isProcessing}
+            disabled={!bulkAction || selected.size === 0}
+          >
             Виконати
           </Button>
         </div>
@@ -343,7 +394,12 @@ export default function AdminProductsPage() {
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
                   <th className="px-3 py-3 text-left">
-                    <input type="checkbox" checked={selected.size === products.length && products.length > 0} onChange={toggleAll} className="accent-[var(--color-primary)]" />
+                    <input
+                      type="checkbox"
+                      checked={selected.size === products.length && products.length > 0}
+                      onChange={toggleAll}
+                      className="accent-[var(--color-primary)]"
+                    />
                   </th>
                   <th className="px-4 py-3 text-left font-medium">Товар</th>
                   <th className="px-4 py-3 text-left font-medium">Код</th>
@@ -361,44 +417,79 @@ export default function AdminProductsPage() {
                     className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${selected.has(p.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'}`}
                   >
                     <td className="px-3 py-3">
-                      <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="accent-[var(--color-primary)]" />
+                      <input
+                        type="checkbox"
+                        checked={selected.has(p.id)}
+                        onChange={() => toggleSelect(p.id)}
+                        className="accent-[var(--color-primary)]"
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
                           {p.imagePath ? (
-                            <Image src={p.imagePath} alt="" width={40} height={40} className="h-full w-full object-contain" />
+                            <Image
+                              src={p.imagePath}
+                              alt=""
+                              width={40}
+                              height={40}
+                              className="h-full w-full object-contain"
+                            />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">—</div>
+                            <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">
+                              —
+                            </div>
                           )}
                         </div>
-                        <Link href={`/admin/products/${p.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
+                        <Link
+                          href={`/admin/products/${p.id}`}
+                          className="font-medium text-[var(--color-primary)] hover:underline"
+                        >
                           {p.name}
                         </Link>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">{p.code}</td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{p.category?.name || '—'}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                      {p.category?.name || '—'}
+                    </td>
                     <td className="px-4 py-3 text-right">{Number(p.priceRetail).toFixed(2)} ₴</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={p.quantity === 0 ? 'font-medium text-[var(--color-danger)]' : p.quantity <= 5 ? 'text-amber-600' : ''}>
+                      <span
+                        className={
+                          p.quantity === 0
+                            ? 'font-medium text-[var(--color-danger)]'
+                            : p.quantity <= 5
+                              ? 'text-amber-600'
+                              : ''
+                        }
+                      >
                         {p.quantity}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center text-[var(--color-text-secondary)]">{p.ordersCount}</td>
+                    <td className="px-4 py-3 text-center text-[var(--color-text-secondary)]">
+                      {p.ordersCount}
+                    </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${p.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${p.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                      >
                         {p.isActive ? 'Активний' : 'Вимкнено'}
                       </span>
                       {p.isPromo && (
-                        <span className="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">Акція</span>
+                        <span className="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
+                          Акція
+                        </span>
                       )}
                     </td>
                   </tr>
                 ))}
                 {products.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                    <td
+                      colSpan={8}
+                      className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                    >
                       Товарів не знайдено
                     </td>
                   </tr>
@@ -413,7 +504,11 @@ export default function AdminProductsPage() {
               <PageSizeSelector value={limit} onChange={handlePageSizeChange} />
             </div>
             {total > limit && (
-              <Pagination currentPage={page} totalPages={Math.ceil(total / limit)} baseUrl="/admin/products" />
+              <Pagination
+                currentPage={page}
+                totalPages={Math.ceil(total / limit)}
+                baseUrl="/admin/products"
+              />
             )}
           </div>
         </>

@@ -59,10 +59,13 @@ export default function AdminProductDetailPage() {
   const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
   const { isUploading, progress, upload: uploadWithProgress } = useUploadProgress();
   const { errors, validateAll, clearError } = useFormValidation({
-    name: { required: 'Назва обов\'язкова', minLength: { value: 2, message: 'Мінімум 2 символи' } },
-    code: { required: 'Код обов\'язковий' },
-    priceRetail: { required: 'Ціна обов\'язкова', min: { value: 0.01, message: 'Ціна має бути > 0' } },
-    quantity: { min: { value: 0, message: 'Кількість не може бути від\'ємною' } },
+    name: { required: "Назва обов'язкова", minLength: { value: 2, message: 'Мінімум 2 символи' } },
+    code: { required: "Код обов'язковий" },
+    priceRetail: {
+      required: "Ціна обов'язкова",
+      min: { value: 0.01, message: 'Ціна має бути > 0' },
+    },
+    quantity: { min: { value: 0, message: "Кількість не може бути від'ємною" } },
     metaTitle: { maxLength: { value: 70, message: 'Максимум 70 символів' } },
     metaDescription: { maxLength: { value: 160, message: 'Максимум 160 символів' } },
   });
@@ -149,7 +152,10 @@ export default function AdminProductDetailPage() {
     }
 
     try {
-      const result = await uploadWithProgress(`/api/v1/admin/products/${id}/images`, formData) as { success?: boolean };
+      const result = (await uploadWithProgress(
+        `/api/v1/admin/products/${id}/images`,
+        formData,
+      )) as { success?: boolean };
       if (result?.success) {
         const updated = await apiClient.get<ProductDetail>(`/api/v1/admin/products/${id}`);
         if (updated.success && updated.data) setProduct(updated.data);
@@ -170,14 +176,20 @@ export default function AdminProductDetailPage() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   if (!product) {
     return (
       <div className="text-center">
         <p className="text-[var(--color-text-secondary)]">Товар не знайдено</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push('/admin/products')}>До списку</Button>
+        <Button variant="outline" className="mt-4" onClick={() => router.push('/admin/products')}>
+          До списку
+        </Button>
       </div>
     );
   }
@@ -185,9 +197,16 @@ export default function AdminProductDetailPage() {
   return (
     <div>
       <div className="mb-6">
-        <Link href="/admin/products" className="text-sm text-[var(--color-primary)] hover:underline">← Товари</Link>
+        <Link
+          href="/admin/products"
+          className="text-sm text-[var(--color-primary)] hover:underline"
+        >
+          ← Товари
+        </Link>
         <h2 className="mt-1 text-xl font-bold">{product.name}</h2>
-        <p className="text-sm text-[var(--color-text-secondary)]">ID: {product.id} | Код: {product.code}</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">
+          ID: {product.id} | Код: {product.code}
+        </p>
       </div>
 
       {/* Images */}
@@ -195,7 +214,10 @@ export default function AdminProductDetailPage() {
         <h3 className="mb-3 text-sm font-semibold">Зображення</h3>
         <div className="flex flex-wrap gap-3">
           {product.images.map((img) => (
-            <div key={img.id} className="group relative h-24 w-24 overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]">
+            <div
+              key={img.id}
+              className="group relative h-24 w-24 overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]"
+            >
               <Image src={img.pathMedium} alt="" fill sizes="96px" className="object-contain p-1" />
               <button
                 onClick={() => setDeleteImageId(img.id)}
@@ -205,8 +227,17 @@ export default function AdminProductDetailPage() {
               </button>
             </div>
           ))}
-          <label className={`flex h-24 w-24 cursor-pointer items-center justify-center rounded-[var(--radius)] border-2 border-dashed border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] ${isUploading ? 'pointer-events-none opacity-50' : ''}`}>
-            <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" disabled={isUploading} />
+          <label
+            className={`flex h-24 w-24 cursor-pointer items-center justify-center rounded-[var(--radius)] border-2 border-dashed border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+              className="hidden"
+              disabled={isUploading}
+            />
             <span className="text-2xl">{isUploading ? '⏳' : '+'}</span>
           </label>
         </div>
@@ -217,12 +248,46 @@ export default function AdminProductDetailPage() {
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <h3 className="mb-3 text-sm font-semibold">Основна інформація</h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Назва *" value={form.name as string} onChange={(e) => { updateField('name', e.target.value); clearError('name'); }} error={errors.name} />
-          <Input label="Код *" value={form.code as string} onChange={(e) => { updateField('code', e.target.value); clearError('code'); }} error={errors.code} />
-          <Input label="Slug" value={form.slug as string} onChange={(e) => updateField('slug', e.target.value)} />
-          <Input label="Штрихкод" value={form.barcode as string} onChange={(e) => updateField('barcode', e.target.value)} />
-          <Input label="ID категорії" type="number" value={form.categoryId as string} onChange={(e) => updateField('categoryId', e.target.value)} />
-          <Input label="Вага (кг)" type="number" value={form.weight as string} onChange={(e) => updateField('weight', e.target.value)} />
+          <Input
+            label="Назва *"
+            value={form.name as string}
+            onChange={(e) => {
+              updateField('name', e.target.value);
+              clearError('name');
+            }}
+            error={errors.name}
+          />
+          <Input
+            label="Код *"
+            value={form.code as string}
+            onChange={(e) => {
+              updateField('code', e.target.value);
+              clearError('code');
+            }}
+            error={errors.code}
+          />
+          <Input
+            label="Slug"
+            value={form.slug as string}
+            onChange={(e) => updateField('slug', e.target.value)}
+          />
+          <Input
+            label="Штрихкод"
+            value={form.barcode as string}
+            onChange={(e) => updateField('barcode', e.target.value)}
+          />
+          <Input
+            label="ID категорії"
+            type="number"
+            value={form.categoryId as string}
+            onChange={(e) => updateField('categoryId', e.target.value)}
+          />
+          <Input
+            label="Вага (кг)"
+            type="number"
+            value={form.weight as string}
+            onChange={(e) => updateField('weight', e.target.value)}
+          />
         </div>
       </div>
 
@@ -230,20 +295,68 @@ export default function AdminProductDetailPage() {
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <h3 className="mb-3 text-sm font-semibold">Ціни та наявність</h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Input label="Роздрібна ціна *" type="number" value={form.priceRetail as string} onChange={(e) => { updateField('priceRetail', e.target.value); clearError('priceRetail'); }} error={errors.priceRetail} />
-          <Input label="Стара ціна" type="number" value={form.priceRetailOld as string} onChange={(e) => updateField('priceRetailOld', e.target.value)} />
-          <Input label="Ціна: Дрібний опт" type="number" value={form.priceWholesale as string} onChange={(e) => updateField('priceWholesale', e.target.value)} />
-          <Input label="Ціна: Середній опт" type="number" value={form.priceWholesale2 as string} onChange={(e) => updateField('priceWholesale2', e.target.value)} />
-          <Input label="Ціна: Великий опт" type="number" value={form.priceWholesale3 as string} onChange={(e) => updateField('priceWholesale3', e.target.value)} />
-          <Input label="Кількість *" type="number" value={form.quantity as string} onChange={(e) => { updateField('quantity', e.target.value); clearError('quantity'); }} error={errors.quantity} />
+          <Input
+            label="Роздрібна ціна *"
+            type="number"
+            value={form.priceRetail as string}
+            onChange={(e) => {
+              updateField('priceRetail', e.target.value);
+              clearError('priceRetail');
+            }}
+            error={errors.priceRetail}
+          />
+          <Input
+            label="Стара ціна"
+            type="number"
+            value={form.priceRetailOld as string}
+            onChange={(e) => updateField('priceRetailOld', e.target.value)}
+          />
+          <Input
+            label="Ціна: Дрібний опт"
+            type="number"
+            value={form.priceWholesale as string}
+            onChange={(e) => updateField('priceWholesale', e.target.value)}
+          />
+          <Input
+            label="Ціна: Середній опт"
+            type="number"
+            value={form.priceWholesale2 as string}
+            onChange={(e) => updateField('priceWholesale2', e.target.value)}
+          />
+          <Input
+            label="Ціна: Великий опт"
+            type="number"
+            value={form.priceWholesale3 as string}
+            onChange={(e) => updateField('priceWholesale3', e.target.value)}
+          />
+          <Input
+            label="Кількість *"
+            type="number"
+            value={form.quantity as string}
+            onChange={(e) => {
+              updateField('quantity', e.target.value);
+              clearError('quantity');
+            }}
+            error={errors.quantity}
+          />
         </div>
         <div className="mt-4 flex gap-6">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.isActive as boolean} onChange={(e) => updateField('isActive', e.target.checked)} className="accent-[var(--color-primary)]" />
+            <input
+              type="checkbox"
+              checked={form.isActive as boolean}
+              onChange={(e) => updateField('isActive', e.target.checked)}
+              className="accent-[var(--color-primary)]"
+            />
             Активний
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.isPromo as boolean} onChange={(e) => updateField('isPromo', e.target.checked)} className="accent-[var(--color-primary)]" />
+            <input
+              type="checkbox"
+              checked={form.isPromo as boolean}
+              onChange={(e) => updateField('isPromo', e.target.checked)}
+              className="accent-[var(--color-primary)]"
+            />
             Акційний
           </label>
         </div>
@@ -252,7 +365,11 @@ export default function AdminProductDetailPage() {
       {/* Description */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <h3 className="mb-3 text-sm font-semibold">Опис</h3>
-        <WysiwygEditor value={form.descriptionHtml as string} onChange={(html) => updateField('descriptionHtml', html)} placeholder="Введіть опис товару..." />
+        <WysiwygEditor
+          value={form.descriptionHtml as string}
+          onChange={(html) => updateField('descriptionHtml', html)}
+          placeholder="Введіть опис товару..."
+        />
       </div>
 
       {/* Price History */}
@@ -263,38 +380,71 @@ export default function AdminProductDetailPage() {
         <h3 className="mb-3 text-sm font-semibold">SEO</h3>
         <div className="space-y-4">
           <div>
-            <Input label="Meta Title" value={form.metaTitle as string} onChange={(e) => { updateField('metaTitle', e.target.value); clearError('metaTitle'); }} error={errors.metaTitle} />
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{(form.metaTitle as string)?.length || 0}/70</p>
+            <Input
+              label="Meta Title"
+              value={form.metaTitle as string}
+              onChange={(e) => {
+                updateField('metaTitle', e.target.value);
+                clearError('metaTitle');
+              }}
+              error={errors.metaTitle}
+            />
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {(form.metaTitle as string)?.length || 0}/70
+            </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Meta Description</label>
             <textarea
               value={form.metaDescription as string}
-              onChange={(e) => { updateField('metaDescription', e.target.value); clearError('metaDescription'); }}
+              onChange={(e) => {
+                updateField('metaDescription', e.target.value);
+                clearError('metaDescription');
+              }}
               rows={3}
               className={`w-full rounded-[var(--radius)] border bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)] ${errors.metaDescription ? 'border-[var(--color-danger)]' : 'border-[var(--color-border)]'}`}
             />
-            {errors.metaDescription && <p className="mt-0.5 text-xs text-[var(--color-danger)]">{errors.metaDescription}</p>}
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{(form.metaDescription as string)?.length || 0}/160</p>
+            {errors.metaDescription && (
+              <p className="mt-0.5 text-xs text-[var(--color-danger)]">{errors.metaDescription}</p>
+            )}
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {(form.metaDescription as string)?.length || 0}/160
+            </p>
           </div>
         </div>
       </div>
 
       <div className="flex gap-3">
-        <Button onClick={handleSave} isLoading={isSaving}>Зберегти зміни</Button>
+        <Button onClick={handleSave} isLoading={isSaving}>
+          Зберегти зміни
+        </Button>
         <Button
           variant="outline"
           onClick={() => {
             const title = encodeURIComponent(`Новинка: ${product.name}`);
             const price = Number(product.priceRetail).toFixed(0);
-            const content = encodeURIComponent(`${product.name}\n\nЦіна: ${price} грн\nЗамовляйте прямо зараз!`);
+            const content = encodeURIComponent(
+              `${product.name}\n\nЦіна: ${price} грн\nЗамовляйте прямо зараз!`,
+            );
             const image = encodeURIComponent(product.imagePath || '');
-            router.push(`/admin/publications?prefill=product&title=${title}&content=${content}&image=${image}&productId=${product.id}`);
+            router.push(
+              `/admin/publications?prefill=product&title=${title}&content=${content}&image=${image}&productId=${product.id}`,
+            );
           }}
         >
           Опублікувати в соцмережі
         </Button>
-        <Button variant="outline" onClick={() => router.push('/admin/products')}>Скасувати</Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            window.open(`/api/v1/admin/export?type=products_full&ids=${product.id}`, '_blank');
+          }}
+        >
+          Експорт XLSX
+        </Button>
+        <Button variant="outline" onClick={() => router.push('/admin/products')}>
+          Скасувати
+        </Button>
       </div>
 
       <ConfirmDialog
@@ -313,24 +463,42 @@ function PriceHistorySection({ productId }: { productId: number }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
+  const handleOpen = useCallback(() => {
+    setIsOpen(true);
+    setIsLoading(true);
+  }, []);
+
   useEffect(() => {
     if (!isOpen) return;
-    setIsLoading(true);
+    let cancelled = false;
     apiClient
       .get<PriceHistoryEntry[]>(`/api/v1/admin/products/${productId}/price-history`)
-      .then((res) => { if (res.success && res.data) setHistory(res.data); })
-      .finally(() => setIsLoading(false));
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setHistory(res.data);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, productId]);
 
   const formatDate = (d: string) =>
-    new Date(d).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    new Date(d).toLocaleString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
-  const formatPrice = (v: string | null) => v ? `${Number(v).toFixed(2)} ₴` : '—';
+  const formatPrice = (v: string | null) => (v ? `${Number(v).toFixed(2)} ₴` : '—');
 
   return (
     <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => (isOpen ? setIsOpen(false) : handleOpen())}
         className="flex w-full items-center justify-between text-sm font-semibold"
       >
         <span>Історія цін</span>
@@ -340,7 +508,9 @@ function PriceHistorySection({ productId }: { productId: number }) {
       {isOpen && (
         <div className="mt-3">
           {isLoading ? (
-            <div className="flex justify-center py-4"><Spinner size="sm" /></div>
+            <div className="flex justify-center py-4">
+              <Spinner size="sm" />
+            </div>
           ) : history.length === 0 ? (
             <p className="text-sm text-[var(--color-text-secondary)]">Змін цін не зафіксовано</p>
           ) : (
@@ -360,9 +530,13 @@ function PriceHistorySection({ productId }: { productId: number }) {
                     <tr key={h.id} className="border-t border-[var(--color-border)]">
                       <td className="px-3 py-2">{formatDate(h.changedAt)}</td>
                       <td className="px-3 py-2 text-right">{formatPrice(h.priceRetailOld)}</td>
-                      <td className="px-3 py-2 text-right font-medium">{formatPrice(h.priceRetailNew)}</td>
+                      <td className="px-3 py-2 text-right font-medium">
+                        {formatPrice(h.priceRetailNew)}
+                      </td>
                       <td className="px-3 py-2 text-right">{formatPrice(h.priceWholesaleOld)}</td>
-                      <td className="px-3 py-2 text-right font-medium">{formatPrice(h.priceWholesaleNew)}</td>
+                      <td className="px-3 py-2 text-right font-medium">
+                        {formatPrice(h.priceWholesaleNew)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

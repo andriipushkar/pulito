@@ -7,7 +7,7 @@ import { cacheInvalidate } from '@/services/cache';
 export class ImportError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'ImportError';
@@ -103,49 +103,66 @@ async function downloadAndProcessImage(url: string, productId: number): Promise<
 // Column name mapping (Ukrainian → internal key)
 const COLUMN_MAP: Record<string, string> = {
   'код продукції': 'code',
-  'код': 'code',
-  'code': 'code',
-  'артикул': 'code',
-  'назва': 'name',
-  'найменування': 'name',
-  'name': 'name',
-  'категорія': 'category',
-  'category': 'category',
-  'кількість': 'quantity',
-  'залишок': 'quantity',
-  'quantity': 'quantity',
+  код: 'code',
+  code: 'code',
+  артикул: 'code',
+  назва: 'name',
+  найменування: 'name',
+  name: 'name',
+  категорія: 'category',
+  category: 'category',
+  кількість: 'quantity',
+  залишок: 'quantity',
+  quantity: 'quantity',
   'ціна роздріб': 'priceRetail',
   'роздрібна ціна': 'priceRetail',
   'ціна роздрібна': 'priceRetail',
-  'price_retail': 'priceRetail',
+  price_retail: 'priceRetail',
   'ціна, грн': 'priceRetail',
   'ціна грн': 'priceRetail',
-  'грн': 'priceRetail',
+  грн: 'priceRetail',
   'ціна опт': 'priceWholesale',
   'оптова ціна': 'priceWholesale',
   'ціна оптова': 'priceWholesale',
-  'price_wholesale': 'priceWholesale',
+  price_wholesale: 'priceWholesale',
   'ціна, євро': 'priceWholesale',
   'ціна євро': 'priceWholesale',
-  'євро': 'priceWholesale',
+  євро: 'priceWholesale',
   'ціна опт 2': 'priceWholesale2',
   'оптова ціна 2': 'priceWholesale2',
-  'price_wholesale_2': 'priceWholesale2',
+  price_wholesale_2: 'priceWholesale2',
   'опт група 2': 'priceWholesale2',
   'ціна опт 3': 'priceWholesale3',
   'оптова ціна 3': 'priceWholesale3',
-  'price_wholesale_3': 'priceWholesale3',
+  price_wholesale_3: 'priceWholesale3',
   'опт група 3': 'priceWholesale3',
-  'акція': 'isPromo',
-  'promo': 'isPromo',
-  'is_promo': 'isPromo',
-  'зображення': 'imageUrl',
-  'фото': 'imageUrl',
+  акція: 'isPromo',
+  promo: 'isPromo',
+  is_promo: 'isPromo',
+  зображення: 'imageUrl',
+  фото: 'imageUrl',
   'image url': 'imageUrl',
-  'imageurl': 'imageUrl',
-  'image': 'imageUrl',
+  imageurl: 'imageUrl',
+  image: 'imageUrl',
   'фото url': 'imageUrl',
   'посилання на фото': 'imageUrl',
+  // Content / SEO columns (for full round-trip export→import)
+  'короткий опис': 'shortDescription',
+  short_description: 'shortDescription',
+  'short description': 'shortDescription',
+  опис: 'description',
+  description: 'description',
+  характеристики: 'specifications',
+  specifications: 'specifications',
+  'seo заголовок': 'seoTitle',
+  seo_title: 'seoTitle',
+  'seo title': 'seoTitle',
+  'seo опис': 'seoDescription',
+  seo_description: 'seoDescription',
+  'seo description': 'seoDescription',
+  'seo ключові слова': 'seoKeywords',
+  seo_keywords: 'seoKeywords',
+  'seo keywords': 'seoKeywords',
 };
 
 function normalizeColumnName(name: string): string | null {
@@ -172,6 +189,25 @@ function parsePromo(value: unknown): boolean {
   if (value === null || value === undefined) return false;
   const str = String(value).trim().toLowerCase();
   return ['так', 'yes', 'true', '1', 'да'].includes(str);
+}
+
+function buildContentData(row: Record<string, unknown>): Record<string, string> | null {
+  const fields: Record<string, string> = {};
+  const shortDesc = String(row.shortDescription ?? '').trim();
+  const desc = String(row.description ?? '').trim();
+  const specs = String(row.specifications ?? '').trim();
+  const seoTitle = String(row.seoTitle ?? '').trim();
+  const seoDesc = String(row.seoDescription ?? '').trim();
+  const seoKeys = String(row.seoKeywords ?? '').trim();
+
+  if (shortDesc) fields.shortDescription = shortDesc;
+  if (desc) fields.description = desc;
+  if (specs) fields.specifications = specs;
+  if (seoTitle) fields.seoTitle = seoTitle;
+  if (seoDesc) fields.seoDescription = seoDesc;
+  if (seoKeys) fields.seoKeywords = seoKeys;
+
+  return Object.keys(fields).length > 0 ? fields : null;
 }
 
 export type ImportFormat = 'standard' | 'supplier';
@@ -206,7 +242,10 @@ function parseWorkbook(buffer: Buffer) {
   return { rawRows, sheet };
 }
 
-function buildColumnMapping(rawRows: ExcelRow[]): { columnMapping: Record<string, string>; mappedKeys: string[] } {
+function buildColumnMapping(rawRows: ExcelRow[]): {
+  columnMapping: Record<string, string>;
+  mappedKeys: string[];
+} {
   const headers = Object.keys(rawRows[0]);
   const columnMapping: Record<string, string> = {};
 
@@ -258,7 +297,7 @@ function parseRows(buffer: Buffer): ParseResult {
 
 function parseSupplierFormat(
   rawRows: ExcelRow[],
-  columnMapping: Record<string, string>
+  columnMapping: Record<string, string>,
 ): ParseResult {
   const rows: Record<string, unknown>[] = [];
   let currentCategory = '';
@@ -277,7 +316,11 @@ function parseSupplierFormat(
     const wholesalePrice = parsePrice(normalized.priceWholesale);
     const wholesalePrice2 = parsePrice(normalized.priceWholesale2);
     const wholesalePrice3 = parsePrice(normalized.priceWholesale3);
-    const hasAnyPrice = retailPrice !== null || wholesalePrice !== null || wholesalePrice2 !== null || wholesalePrice3 !== null;
+    const hasAnyPrice =
+      retailPrice !== null ||
+      wholesalePrice !== null ||
+      wholesalePrice2 !== null ||
+      wholesalePrice3 !== null;
 
     if (!hasAnyPrice) {
       // Row without prices = category separator
@@ -312,12 +355,10 @@ export function parsePreview(buffer: Buffer): {
   const hasCode = mappedKeys.includes('code');
   const hasName = mappedKeys.includes('name');
   const hasPrice = mappedKeys.includes('priceRetail') || mappedKeys.includes('priceWholesale');
-  const format: ImportFormat = (!hasCode && hasName && hasPrice) ? 'supplier' : 'standard';
+  const format: ImportFormat = !hasCode && hasName && hasPrice ? 'supplier' : 'standard';
 
   const headers = Object.keys(rawRows[0]);
-  const rows = rawRows.slice(0, 10).map((raw) =>
-    headers.map((h) => String(raw[h] ?? ''))
-  );
+  const rows = rawRows.slice(0, 10).map((raw) => headers.map((h) => String(raw[h] ?? '')));
 
   return { headers, rows, totalRows: rawRows.length, format };
 }
@@ -332,7 +373,7 @@ export function parsePreview(buffer: Buffer): {
 export async function importProducts(
   fileBuffer: Buffer,
   filename: string,
-  managerId: number
+  managerId: number,
 ): Promise<ImportResult> {
   const startTime = Date.now();
 
@@ -372,12 +413,17 @@ export async function importProducts(
         // Validate code
         const code = String(row.code ?? '').trim();
         if (!code) {
-          errors.push({ row: rowNum, field: 'code', message: 'Код продукції обов\'язковий' });
+          errors.push({ row: rowNum, field: 'code', message: "Код продукції обов'язковий" });
           skipped++;
           continue;
         }
         if (code.length > 50) {
-          errors.push({ row: rowNum, field: 'code', message: 'Код продукції занадто довгий (макс. 50)', value: code });
+          errors.push({
+            row: rowNum,
+            field: 'code',
+            message: 'Код продукції занадто довгий (макс. 50)',
+            value: code,
+          });
           skipped++;
           continue;
         }
@@ -385,7 +431,7 @@ export async function importProducts(
         // Validate name
         const name = String(row.name ?? '').trim();
         if (!name) {
-          errors.push({ row: rowNum, field: 'name', message: 'Назва товару обов\'язкова' });
+          errors.push({ row: rowNum, field: 'name', message: "Назва товару обов'язкова" });
           skipped++;
           continue;
         }
@@ -398,13 +444,23 @@ export async function importProducts(
 
         if (isSupplierFormat) {
           if (priceRetail === null && priceWholesale === null) {
-            errors.push({ row: rowNum, field: 'price', message: 'Немає жодної ціни', value: row.priceRetail });
+            errors.push({
+              row: rowNum,
+              field: 'price',
+              message: 'Немає жодної ціни',
+              value: row.priceRetail,
+            });
             skipped++;
             continue;
           }
         } else {
           if (priceRetail === null) {
-            errors.push({ row: rowNum, field: 'priceRetail', message: 'Невірна роздрібна ціна', value: row.priceRetail });
+            errors.push({
+              row: rowNum,
+              field: 'priceRetail',
+              message: 'Невірна роздрібна ціна',
+              value: row.priceRetail,
+            });
             skipped++;
             continue;
           }
@@ -514,6 +570,16 @@ export async function importProducts(
             data: updateData,
           });
 
+          // Upsert content fields if provided
+          const contentData = buildContentData(row);
+          if (contentData) {
+            await prisma.productContent.upsert({
+              where: { productId: existingProduct.id },
+              update: contentData,
+              create: { productId: existingProduct.id, ...contentData },
+            });
+          }
+
           // Download image if URL provided
           const imageUrl = String(row.imageUrl ?? '').trim();
           if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
@@ -546,6 +612,14 @@ export async function importProducts(
               isPromo,
             },
           });
+
+          // Create content if provided
+          const contentData = buildContentData(row);
+          if (contentData) {
+            await prisma.productContent.create({
+              data: { productId: newProduct.id, ...contentData },
+            });
+          }
 
           // Download image if URL provided
           const imageUrl = String(row.imageUrl ?? '').trim();
@@ -610,7 +684,13 @@ export async function importProducts(
       data: {
         status: 'failed_import',
         errorCount: 1,
-        errorsJson: [{ row: 0, field: 'file', message: error instanceof Error ? error.message : 'Помилка імпорту' }],
+        errorsJson: [
+          {
+            row: 0,
+            field: 'file',
+            message: error instanceof Error ? error.message : 'Помилка імпорту',
+          },
+        ],
         completedAt: new Date(),
         durationMs,
       },
