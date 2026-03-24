@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { apiClient } from '@/lib/api-client';
 import { Cart } from '@/components/icons';
 import { useCart } from '@/hooks/useCart';
@@ -93,10 +94,9 @@ export default function CartRecommendations({ cartProductIds }: CartRecommendati
               key={p.id}
               className="flex w-[160px] shrink-0 flex-col overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]"
             >
-              <Link href={`/product/${p.slug}`} className="block aspect-square bg-[var(--color-bg-secondary)]">
+              <Link href={`/product/${p.slug}`} className="relative block aspect-square bg-[var(--color-bg-secondary)]">
                 {image ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={image} alt={p.name} className="h-full w-full object-contain p-2" loading="lazy" />
+                  <Image src={image} alt={p.name} fill sizes="160px" className="object-contain p-2" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)] opacity-30">
                     <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">

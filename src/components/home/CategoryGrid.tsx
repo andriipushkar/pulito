@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { CategoryListItem } from '@/types/category';
 
 interface CategoryGridProps {
@@ -99,13 +100,14 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
                 href={`/catalog?category=${cat.slug}`}
                 className="flex w-[72px] shrink-0 flex-col items-center gap-1.5 active:scale-95"
               >
-                <div className={`flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[22px] ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] ring-2 ring-white transition-transform duration-200`}>
+                <div className={`relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[22px] ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] ring-2 ring-white transition-transform duration-200`}>
                   {cat.coverImage ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
+                    <Image
                       src={cat.coverImage}
                       alt={cat.name}
-                      className="h-full w-full object-cover"
+                      fill
+                      sizes="96px"
+                      className="object-cover"
                     />
                   ) : (
                     <CategoryIcon index={idx} />
@@ -131,13 +133,14 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
                 href={`/catalog?category=${cat.slug}`}
                 className="group flex w-[120px] shrink-0 flex-col items-center gap-2 transition-transform duration-200 hover:-translate-y-1 lg:w-[130px]"
               >
-                <div className={`flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-[22px] ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] ring-2 ring-white transition-transform duration-200 group-hover:scale-105 lg:h-[96px] lg:w-[96px]`}>
+                <div className={`relative flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-[22px] ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] ring-2 ring-white transition-transform duration-200 group-hover:scale-105 lg:h-[96px] lg:w-[96px]`}>
                   {cat.coverImage ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
+                    <Image
                       src={cat.coverImage}
                       alt={cat.name}
-                      className="h-full w-full object-cover"
+                      fill
+                      sizes="96px"
+                      className="object-cover"
                     />
                   ) : (
                     <CategoryIcon index={idx} />

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface Recommendation {
   productId: number;
@@ -42,10 +43,9 @@ function ProductRow({
 }) {
   return (
     <div className="flex items-center gap-4 rounded-xl border border-[var(--color-border)] bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--color-bg-light)]">
+      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--color-bg-light)]">
         {rec.imagePath ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={rec.imagePath} alt={rec.name} className="h-full w-full object-contain" />
+          <Image src={rec.imagePath} alt={rec.name} fill sizes="64px" className="object-contain" />
         ) : (
           <span className="text-2xl text-[var(--color-text-muted)]">📦</span>
         )}

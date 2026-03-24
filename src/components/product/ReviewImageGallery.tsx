@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 
 interface ReviewImageGalleryProps {
   images: string[];
@@ -57,12 +58,12 @@ export default function ReviewImageGallery({ images }: ReviewImageGalleryProps) 
             className="h-16 w-16 overflow-hidden rounded-lg border border-[var(--color-border)] transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
             aria-label={`Переглянути фото ${i + 1}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={url}
               alt={`Фото відгуку ${i + 1}`}
+              width={64}
+              height={64}
               className="h-full w-full object-cover"
-              loading="lazy"
             />
           </button>
         ))}
@@ -119,11 +120,13 @@ export default function ReviewImageGallery({ images }: ReviewImageGalleryProps) 
 
           {/* Image */}
           <div className="max-h-[90vh] max-w-[90vw]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={images[lightboxIndex!]}
               alt={`Фото відгуку ${lightboxIndex! + 1}`}
+              width={1200}
+              height={1200}
               className="max-h-[90vh] max-w-[90vw] object-contain"
+              style={{ width: 'auto', height: 'auto' }}
               data-testid="lightbox-image"
             />
           </div>

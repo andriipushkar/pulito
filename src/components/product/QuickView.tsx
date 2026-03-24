@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { useCart } from '@/hooks/useCart';
@@ -72,13 +73,14 @@ export default function QuickView({ productId, onClose }: QuickViewProps) {
         ) : product ? (
           <div className="flex gap-6">
             <div className="w-1/2 shrink-0">
-              <div className="aspect-square overflow-hidden rounded-[var(--radius)] bg-[var(--color-bg-secondary)]">
+              <div className="relative aspect-square overflow-hidden rounded-[var(--radius)] bg-[var(--color-bg-secondary)]">
                 {product.images[0]?.pathMedium || product.imagePath ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={product.images[0]?.pathMedium || product.imagePath || ''}
+                  <Image
+                    src={product.images[0]?.pathMedium || product.imagePath || '/placeholder.png'}
                     alt={product.name}
-                    className="h-full w-full object-contain p-2"
+                    fill
+                    sizes="(max-width: 768px) 50vw, 300px"
+                    className="object-contain p-2"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-4xl text-[var(--color-text-secondary)]">

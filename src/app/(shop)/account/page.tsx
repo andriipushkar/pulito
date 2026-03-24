@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
@@ -278,10 +279,9 @@ export default function AccountDashboard() {
                 key={fp.productId}
                 className="flex items-center gap-3 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] p-3 transition-colors hover:bg-[var(--color-bg-secondary)]/50"
               >
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--color-bg-secondary)]">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--color-bg-secondary)]">
                   {fp.imagePath ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={fp.imagePath} alt={fp.productName} className="h-full w-full object-contain" />
+                    <Image src={fp.imagePath} alt={fp.productName} fill sizes="48px" className="object-contain" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)] opacity-30">
                       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

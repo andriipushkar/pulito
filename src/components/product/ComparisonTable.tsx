@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useComparison } from '@/hooks/useComparison';
 import { useCart } from '@/hooks/useCart';
@@ -133,11 +134,11 @@ export default function ComparisonTable() {
                   <td key={product.id} className="border-b border-[var(--color-border)] p-3 text-center">
                     <Link href={`/product/${product.slug}`} className="inline-block">
                       {img ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
+                        <Image
                           src={img}
                           alt={product.name}
-                          loading="lazy"
+                          width={128}
+                          height={128}
                           className="mx-auto h-32 w-32 rounded-lg object-contain"
                         />
                       ) : (
@@ -289,11 +290,11 @@ export default function ComparisonTable() {
               <div className="flex items-start gap-3 p-3">
                 <Link href={`/product/${product.slug}`} className="shrink-0">
                   {img ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
+                    <Image
                       src={img}
                       alt={product.name}
-                      loading="lazy"
+                      width={80}
+                      height={80}
                       className="h-20 w-20 rounded-lg object-contain"
                     />
                   ) : (

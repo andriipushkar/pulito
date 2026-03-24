@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 export const revalidate = 300;
 
 import Link from 'next/link';
+import Image from 'next/image';
 import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
@@ -139,13 +140,13 @@ export default async function NewsPage({
                 className="overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] transition-shadow hover:shadow-[var(--shadow-md)]"
               >
                 {pub.imagePath && (
-                  <div className="aspect-video bg-[var(--color-bg-secondary)]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                  <div className="relative aspect-video bg-[var(--color-bg-secondary)]">
+                    <Image
                       src={pub.imagePath}
                       alt={pub.title}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover"
                     />
                   </div>
                 )}

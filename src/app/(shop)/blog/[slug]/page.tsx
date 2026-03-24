@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 
 // ISR: revalidate blog post every 5 minutes
@@ -150,12 +151,14 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
         {/* Cover image */}
         {post.coverImage && (
-          <div className="mb-8 overflow-hidden rounded-[var(--radius)]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+          <div className="relative mb-8 aspect-[2/1] overflow-hidden rounded-[var(--radius)]">
+            <Image
               src={post.coverImage}
               alt={post.title}
-              className="h-auto w-full object-cover"
+              fill
+              sizes="(max-width: 768px) 100vw, 720px"
+              className="object-cover"
+              priority
             />
           </div>
         )}

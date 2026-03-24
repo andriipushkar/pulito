@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
 import PriceDisplay from './PriceDisplay';
@@ -159,21 +160,21 @@ export default function ProductCard({ product }: ProductCardProps) {
                 className="absolute inset-0 h-full w-full scale-110 object-contain blur-lg"
               />
             )}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={mainImage}
               alt={product.name}
-              className={`h-full w-full object-contain transition-all duration-500 ${imageLoaded ? 'opacity-100' : 'opacity-0'} ${hovered && hoverImage ? 'scale-105 opacity-0' : 'group-hover:scale-105'}`}
-              loading="lazy"
+              fill
+              sizes="(max-width: 640px) 50vw, 25vw"
+              className={`object-contain transition-all duration-500 ${imageLoaded ? 'opacity-100' : 'opacity-0'} ${hovered && hoverImage ? 'scale-105 opacity-0' : 'group-hover:scale-105'}`}
               onLoad={() => setImageLoaded(true)}
             />
             {hoverImage && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              <Image
                 src={hoverImage}
                 alt={product.name}
-                className={`absolute inset-0 h-full w-full object-contain transition-all duration-500 ${hovered ? 'scale-105 opacity-100' : 'opacity-0'}`}
-                loading="lazy"
+                fill
+                sizes="(max-width: 640px) 50vw, 25vw"
+                className={`object-contain transition-all duration-500 ${hovered ? 'scale-105 opacity-100' : 'opacity-0'}`}
               />
             )}
           </>

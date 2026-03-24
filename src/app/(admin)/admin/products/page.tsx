@@ -13,6 +13,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import PageSizeSelector from '@/components/admin/PageSizeSelector';
 import { useDebounce } from '@/hooks/useDebounce';
+import Image from 'next/image';
 import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
 
 interface AdminProduct {
@@ -366,8 +367,7 @@ export default function AdminProductsPage() {
                       <div className="flex items-center gap-3">
                         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
                           {p.imagePath ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={p.imagePath} alt="" className="h-full w-full object-contain" />
+                            <Image src={p.imagePath} alt="" width={40} height={40} className="h-full w-full object-contain" />
                           ) : (
                             <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">—</div>
                           )}

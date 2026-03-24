@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/useAuth';
@@ -104,13 +105,15 @@ export default function SecurityPage() {
               <p className="mb-3 text-sm font-medium">1. Відскануйте QR-код у додатку Google Authenticator:</p>
               <div className="mb-3 flex justify-center rounded-lg bg-white p-4">
                 {/* QR code via Google Charts API */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={qrDataUrl}
-                  alt="QR код для 2FA"
-                  width={250}
-                  height={250}
-                />
+                {qrDataUrl && (
+                  <Image
+                    src={qrDataUrl}
+                    alt="QR код для 2FA"
+                    width={250}
+                    height={250}
+                    unoptimized
+                  />
+                )}
               </div>
               <p className="mb-1 text-xs text-[var(--color-text-secondary)]">Або введіть секрет вручну:</p>
               <code className="block break-all rounded bg-gray-100 px-3 py-2 text-xs font-mono">{secret}</code>

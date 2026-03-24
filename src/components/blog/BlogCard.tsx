@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import AnimateOnScroll from '@/components/ui/AnimateOnScroll';
 
 interface BlogCardProps {
@@ -41,12 +42,12 @@ export default function BlogCard({ post, index = 0 }: BlogCardProps) {
         <article className="flex h-full flex-col overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] transition-shadow hover:shadow-[var(--shadow-md)]">
           <div className="relative aspect-video bg-[var(--color-bg-secondary)]">
             {post.coverImage ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              <Image
                 src={post.coverImage}
                 alt={post.title}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                loading="lazy"
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[var(--color-text-secondary)]">

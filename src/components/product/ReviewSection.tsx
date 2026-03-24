@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { apiClient } from '@/lib/api-client';
 import { getAccessToken } from '@/lib/api-client';
 import ReviewImageGallery from './ReviewImageGallery';
@@ -425,10 +426,9 @@ export default function ReviewSection({ productId }: ReviewSectionProps) {
               <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-50)] text-sm font-semibold text-[var(--color-primary)]">
+                  <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-primary-50)] text-sm font-semibold text-[var(--color-primary)]">
                     {review.user.avatarUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={review.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                      <Image src={review.user.avatarUrl} alt="" fill sizes="36px" className="rounded-full object-cover" />
                     ) : (
                       review.user.fullName.charAt(0).toUpperCase()
                     )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { apiClient } from '@/lib/api-client';
 
 const MAX_IMAGES = 5;
@@ -152,10 +153,11 @@ export default function ReviewImageUpload({
               key={i}
               className="relative h-20 w-20 overflow-hidden rounded-lg border border-green-300"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={url}
                 alt={`Завантажено ${i + 1}`}
+                width={80}
+                height={80}
                 className="h-full w-full object-cover"
               />
               <div className="absolute inset-0 flex items-center justify-center bg-green-500/20">
@@ -189,10 +191,11 @@ export default function ReviewImageUpload({
               key={i}
               className="group relative h-20 w-20 overflow-hidden rounded-lg border border-[var(--color-border)]"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={p.preview}
                 alt={`Попередній перегляд ${i + 1}`}
+                width={80}
+                height={80}
                 className="h-full w-full object-cover"
               />
               <button

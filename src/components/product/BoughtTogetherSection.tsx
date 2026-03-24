@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { Cart } from '@/components/icons';
@@ -65,10 +66,9 @@ export default function BoughtTogetherSection({ productId }: BoughtTogetherSecti
               key={p.id}
               className="flex w-[150px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow)] transition-all hover:shadow-[var(--shadow-md)] hover:-translate-y-1 lg:w-auto"
             >
-              <Link href={`/product/${p.slug}`} className="block aspect-[4/3] bg-[var(--color-bg-secondary)]">
+              <Link href={`/product/${p.slug}`} className="relative block aspect-[4/3] bg-[var(--color-bg-secondary)]">
                 {image ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={image} alt={p.name} className="h-full w-full object-contain p-1.5" loading="lazy" />
+                  <Image src={image} alt={p.name} fill sizes="(max-width: 1024px) 150px, 16vw" className="object-contain p-1.5" />
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-gray-50 to-gray-100">
                     <svg className="h-10 w-10 text-gray-300" viewBox="0 0 64 64" fill="none">

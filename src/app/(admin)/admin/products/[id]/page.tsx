@@ -13,6 +13,7 @@ import WysiwygEditor from '@/components/admin/WysiwygEditor';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import UploadProgress from '@/components/ui/UploadProgress';
+import Image from 'next/image';
 
 interface PriceHistoryEntry {
   id: number;
@@ -195,8 +196,7 @@ export default function AdminProductDetailPage() {
         <div className="flex flex-wrap gap-3">
           {product.images.map((img) => (
             <div key={img.id} className="group relative h-24 w-24 overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.pathMedium} alt="" className="h-full w-full object-contain p-1" />
+              <Image src={img.pathMedium} alt="" fill sizes="96px" className="object-contain p-1" />
               <button
                 onClick={() => setDeleteImageId(img.id)}
                 className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100"

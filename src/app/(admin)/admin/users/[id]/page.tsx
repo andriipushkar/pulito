@@ -26,6 +26,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import Modal from '@/components/ui/Modal';
+import Image from 'next/image';
 
 const ROLE_OPTIONS = Object.entries(USER_ROLE_LABELS).map(([v, l]) => ({ value: v, label: l }));
 
@@ -636,7 +637,7 @@ export default function AdminUserDetailPage() {
               {wishlist.map((item) => (
                 <div key={item.id} className="flex gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
                   {item.product.imageUrl ? (
-                    <img src={item.product.imageUrl} alt="" className="h-16 w-16 rounded object-cover" />
+                    <Image src={item.product.imageUrl} alt="" width={64} height={64} className="h-16 w-16 rounded object-cover" />
                   ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">Фото</div>
                   )}
@@ -673,7 +674,7 @@ export default function AdminUserDetailPage() {
               {recentlyViewed.map((item) => (
                 <div key={item.id} className="flex gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
                   {item.product.imageUrl ? (
-                    <img src={item.product.imageUrl} alt="" className="h-16 w-16 rounded object-cover" />
+                    <Image src={item.product.imageUrl} alt="" width={64} height={64} className="h-16 w-16 rounded object-cover" />
                   ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">Фото</div>
                   )}

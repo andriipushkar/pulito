@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
 import { SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
 import { sanitizeHtml } from '@/utils/sanitize';
+import Image from 'next/image';
 
 interface ChannelResult {
   id: number;
@@ -552,7 +553,7 @@ export default function AdminPublicationsPage() {
                           className="flex flex-1 items-center gap-3 text-left"
                         >
                           {p.imagePath ? (
-                            <img src={p.imagePath} alt="" className="h-8 w-8 rounded object-cover" />
+                            <Image src={p.imagePath} alt="" width={32} height={32} className="h-8 w-8 rounded object-cover" />
                           ) : (
                             <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-border)] text-xs">📦</div>
                           )}
@@ -634,7 +635,7 @@ export default function AdminPublicationsPage() {
                 {imageUploading && <Spinner size="sm" />}
                 {form.imagePath && (
                   <div className="flex items-center gap-2">
-                    <img src={form.imagePath} alt="" className="h-10 w-10 rounded object-cover" />
+                    <Image src={form.imagePath} alt="" width={40} height={40} className="h-10 w-10 rounded object-cover" />
                     <button
                       type="button"
                       onClick={() => setForm((f) => ({ ...f, imagePath: '' }))}
@@ -689,7 +690,7 @@ export default function AdminPublicationsPage() {
                     <div className="mt-1 flex flex-wrap gap-2">
                       {additionalImages.map((img, i) => (
                         <div key={i} className="relative">
-                          <img src={img} alt="" className="h-12 w-12 rounded object-cover" />
+                          <Image src={img} alt="" width={48} height={48} className="h-12 w-12 rounded object-cover" />
                           <button
                             type="button"
                             onClick={() => setAdditionalImages((prev) => prev.filter((_, j) => j !== i))}

@@ -10,6 +10,7 @@ import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 import { Cart as CartIcon } from '@/components/icons';
+import Image from 'next/image';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
 import StepContacts from '@/components/checkout/StepContacts';
 import StepDelivery from '@/components/checkout/StepDelivery';
@@ -268,10 +269,9 @@ export default function CheckoutPage() {
             <div className="max-h-[280px] space-y-3 overflow-y-auto">
               {items.map((item) => (
                 <div key={item.productId} className="flex items-center gap-3">
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--color-bg-secondary)]">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--color-bg-secondary)]">
                     {item.imagePath ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={item.imagePath} alt={item.name} className="h-full w-full object-contain" />
+                      <Image src={item.imagePath} alt={item.name} fill sizes="48px" className="object-contain" />
                     ) : (
                       <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)]">
                         <CartIcon size={16} />

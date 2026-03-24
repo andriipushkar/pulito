@@ -1,35 +1,49 @@
-# Порошок — Інтернет-магазин побутової хімії
+# Порошок — Enterprise E-commerce Platform
 
 ![CI](https://github.com/smdshrek/clean/actions/workflows/ci.yml/badge.svg)
 ![Daily Backup](https://github.com/smdshrek/clean/actions/workflows/backup.yml/badge.svg)
 
-Оптово-роздрібна платформа інтернет-магазину побутової хімії з повним циклом: каталог, замовлення, онлайн-оплата, доставка, CRM, аналітика.
+Оптово-роздрібна платформа на Next.js 16 з multi-tenancy, SaaS billing, 20+ інтеграціями, B2B-ціноутворенням та повним тестовим покриттям.
+
+| Метрика | Значення |
+|---------|---------|
+| TypeScript | 175K рядків (strict mode) |
+| API endpoints | 307 |
+| Сторінки | 102 (42 магазин + 60 адмін) |
+| DB models | 94 (Prisma, 22 schema files) |
+| Test:Code ratio | 97% |
+| Документація | 26K рядків (88 файлів) |
 
 ## Стек технологій
 
-- **Framework:** Next.js 16 (App Router, Turbopack)
-- **Мова:** TypeScript 5.9
-- **UI:** React 19, Tailwind CSS 4
-- **База даних:** PostgreSQL 16 + Prisma ORM
-- **Кеш/Rate limiting:** Redis 7
-- **Аутентифікація:** JWT (httpOnly cookies) + Google OAuth + bcryptjs
+- **Framework:** Next.js 16 (App Router, RSC, Server Actions, ISR, Turbopack)
+- **UI:** React 19, TypeScript 5.9, Tailwind CSS 4
+- **БД:** PostgreSQL 16 + Prisma 7.4 + PgBouncer
+- **Кеш:** Redis 7 (cache, sessions, rate limiting, BullMQ queues)
+- **Пошук:** Typesense 27 (fulltext, typo tolerance, facets)
+- **Аутентифікація:** JWT RS256 (httpOnly cookies) + Google OAuth + 2FA (TOTP)
 - **Платежі:** LiqPay, Monobank, WayForPay
-- **Доставка:** Нова Пошта API, Укрпошта API, палетна доставка
-- **PDF:** PDFKit (рахунки, накладні, комерційні пропозиції, каталог)
-- **Email:** Nodemailer
-- **Push-сповіщення:** Web Push (VAPID)
-- **Боти:** Telegram Bot API, Viber Bot API
-- **Тестування:** Vitest (unit/integration, 400+ тестів), Playwright (E2E, 15 suites)
-- **CI/CD:** GitHub Actions → staging/production
-- **Інфраструктура:** Docker, Docker Compose, standalone output
+- **Доставка:** Нова Пошта, Укрпошта, палетна, самовивіз
+- **Боти:** Telegram Bot, Viber Bot
+- **Email:** Nodemailer (SMTP), campaigns, sequences, abandoned cart
+- **Push:** Web Push (VAPID, Service Worker)
+- **Маркетплейси:** Prom.ua, Rozetka, OLX, Epicentr K
+- **ERP:** 1С / BAS інтеграція
+- **Аналітика:** GA4 (Measurement Protocol), Facebook Pixel + CAPI
+- **Моніторинг:** Sentry + Axiom + UptimeRobot
+- **CDN/Storage:** Cloudflare, R2 (S3-compatible)
+- **PDF:** PDFKit (рахунки, накладні, каталог, комерційні пропозиції)
+- **Images:** Sharp (WebP, AVIF, watermark)
+- **Тестування:** Vitest (659 unit files), Playwright (61 E2E specs), k6 (load testing)
+- **CI/CD:** GitHub Actions (lint → test → build → e2e → deploy)
+- **Інфраструктура:** Docker, Docker Compose, PM2, Nginx
 
 ## Quick Start
 
 ### Передумови
 
 - Node.js >= 20
-- PostgreSQL >= 16
-- Redis >= 7
+- Docker + Docker Compose
 
 ### Встановлення
 
@@ -37,33 +51,27 @@
 git clone <repo-url> && cd clean
 npm install
 cp .env.example .env
-# Заповнити DATABASE_URL, REDIS_URL, JWT_SECRET та інші змінні
+# Заповнити DATABASE_URL, REDIS_URL, JWT_SECRET
 
-npm run docker:up        # PostgreSQL + Redis
-npm run db:generate      # Prisma-клієнт
-npm run db:migrate       # Міграції
-npm run db:seed          # Seed-дані
-npm run dev              # http://localhost:3000
+docker compose up -d          # PostgreSQL + PgBouncer + Redis + Typesense
+npm run db:generate            # Prisma Client
+npm run db:migrate             # Міграції
+npm run db:seed                # Seed-дані
+npm run dev                    # http://localhost:3000
 ```
 
-### Docker
-
-```bash
-docker compose up -d     # Все в Docker (app + PostgreSQL + Redis)
-npm run docker:up        # Тільки PostgreSQL + Redis
-npm run docker:down      # Зупинити
-```
+Детальна інструкція: [documents/setup/01-local-development.md](documents/setup/01-local-development.md)
 
 ## Скрипти
 
 | Скрипт | Опис |
 |--------|------|
 | `npm run dev` | Dev-сервер з Turbopack |
-| `npm run build` | Продакшн-білд |
-| `npm start` | Продакшн-сервер |
+| `npm run build` | Production-білд |
+| `npm start` | Production-сервер |
 | `npm run lint` | ESLint |
-| `npm test` | Unit/integration тести |
-| `npm run test:coverage` | Тести з покриттям (99/96/98/99%) |
+| `npm test` | Unit/integration тести (Vitest) |
+| `npm run test:coverage` | Тести з покриттям |
 | `npm run test:e2e` | E2E тести (Playwright) |
 | `npm run analyze` | Bundle analyzer |
 | `npm run db:migrate` | Prisma міграції |
@@ -74,122 +82,134 @@ npm run docker:down      # Зупинити
 ```
 src/
 ├── app/
-│   ├── (shop)/           # Магазин: каталог, товар, кошик, оформлення, кабінет
-│   ├── (admin)/          # Адмін-панель (31 сторінка)
-│   └── api/v1/           # REST API (70+ ендпоінтів)
-├── components/           # React-компоненти (UI, layout, product, checkout)
-├── services/             # Бізнес-логіка (замовлення, платежі, доставка, аналітика)
-├── validators/           # Zod-схеми валідації
-├── hooks/                # React-хуки (кошик, wishlist, порівняння, auth)
-├── middleware/            # Auth middleware (withAuth, withRole, withOptionalAuth)
-├── config/               # Environment validation (Zod)
+│   ├── (shop)/           # Магазин (42 сторінки)
+│   ├── (admin)/          # Адмін-панель (60 сторінок)
+│   └── api/v1/           # REST API (307 ендпоінтів)
+├── components/           # React-компоненти (138 файлів)
+├── services/             # Бізнес-логіка (92 сервіси)
+├── validators/           # Zod-схеми (25 валідаторів)
+├── hooks/                # React-хуки (17)
+├── middleware/            # Auth, rate limiting (5)
 ├── lib/                  # Prisma, Redis, API client
-└── utils/                # Допоміжні функції
+└── utils/                # Допоміжні функції (18)
 prisma/
-├── schema.prisma         # 30+ моделей
+├── schema/               # 22 schema files, 94 models
 └── migrations/           # Міграції
-e2e/                      # 15 Playwright test suites
+e2e/                      # 61 Playwright E2E specs
+documents/
+├── setup/                # 29 setup guides (4,500+ рядків)
+├── testing/              # 1,177 manual test cases (30 файлів)
+├── modules/              # Документація модулів (10 файлів)
+├── architecture/         # ADR, DB schema (8 файлів)
+└── project/              # Changelog, platform analysis
 ```
 
 ## Основні можливості
 
-### Магазин
-- Каталог з повнотекстовим пошуком (PostgreSQL tsvector)
-- Роздрібні та оптові ціни з персональним ціноутворенням і wholesale-групами
-- Кошик з об'єднанням після авторизації
-- Wishlist (множинні списки), порівняння товарів (до 4), історія переглядів
-- Відгуки та рейтинги (модерація, verified purchase, helpful votes)
-- Купони та промокоди (%, фіксовані, безкоштовна доставка)
-- Система повернень (RMA з 14-денним вікном)
+### Магазин (42 сторінки)
+- Каталог з fulltext search (Typesense), фільтрами, сортуванням
+- Картка товару: zoom/lightbox галерея, Quick View, floating buy bar
+- Рекомендації «З цим купують», порівняння до 4 товарів, нещодавно переглянуті
+- Бандли (набори зі знижкою), калькулятор витрат на прибирання
+- Кошик з real-time перерахунком, swipe-to-delete (mobile), mini-cart
+- 4-кроковий checkout + гостьовий checkout + купони + бонусні бали
+- Volume pricing — автоматична знижка при великих кількостях
 
-### Замовлення та оплата
-- 4-крокове оформлення (контакти → доставка → оплата → підтвердження)
-- **Онлайн-оплата:** LiqPay (SHA1), Monobank (RSA-SHA256), WayForPay (HMAC-MD5)
-- Оплата при отриманні, банківський переказ, передоплата на картку
-- Бонусна програма лояльності (списання балів при оформленні)
+### Особистий кабінет (19 сторінок)
+- Замовлення з timeline статусів, PDF рахунок, повторне замовлення
+- 2FA (TOTP + backup codes), історія входів
+- Лояльність: 4 рівні (Bronze→Platinum), стріки, челенджі
+- Реферальна програма, множинні вішлісти
+- Bulk order (Excel/CSV), підписки (Subscribe & Save)
+- Прогнози покупок, прайс-листи (PDF)
+- GDPR: self-delete акаунту + data export
 
-### Доставка
-- **Нова Пошта:** пошук міст/відділень, розрахунок вартості, створення ТТН, трекінг
-- **Укрпошта:** створення відправлень, PDF-накладна, трекінг
-- **Палетна доставка:** калькулятор по регіонах, конфігурація з адмінки
-- Самовивіз
+### B2B / Wholesale
+- 3 рівні оптових цін + персональне ціноутворення per-client
+- Volume pricing engine, bulk order (CSV import)
+- Комерційна пропозиція (PDF), кредитний ліміт
+- Палетна доставка, персональний менеджер
 
-### Адмін-панель (31 сторінка)
-- Dashboard з real-time статистикою та drag-and-drop віджетами
-- Аналітика: Revenue, AOV, конверсійна воронка, когорти, ABC-аналіз, RFM, LTV, churn prediction, географія, канали
-- Експорт: XLSX, CSV, PDF (13 шаблонів звітів + custom report builder)
-- Ролі: client, wholesaler, manager, admin
-- Audit log (15+ типів дій, фільтрація, CSV-експорт)
-- Управління: товари, категорії, бейджі, банери, сторінки, FAQ, публікації
-- Імпорт товарів з Excel з валідацією та логами
-- SEO-шаблони, теми оформлення (3 теми)
-- Модерація контенту, email-шаблони, персональні ціни
+### Адмін-панель (60 сторінок)
+- Замовлення: фільтри, статуси, bulk-операції, ТТН, PDF
+- Товари: CRUD, images (watermark, WebP/AVIF), drag-and-drop, Excel import
+- Аналітика (18 вкладок): KPI, ABC, RFM, когорти, LTV, churn, forecast
+- 13 типів звітів (PDF + Excel), алерти (Telegram/email)
+- Маркетинг: банери, CMS, FAQ, блог, email-кампанії, публікації
+- Multi-warehouse, audit log, live chat (WebSocket)
+- 3 теми оформлення, SEO-шаблони, SEO-аудит
 
-### Комунікації
-- **Telegram-бот:** каталог, пошук, замовлення, сповіщення
-- **Viber-бот:** сповіщення про замовлення та доставку
-- **Email:** верифікація, скидання пароля, сповіщення про замовлення
-- **Push-сповіщення:** Web Push через Service Worker
-- Мультиканальна черга сповіщень з налаштуваннями користувача
+### SaaS / Multi-tenancy
+- Tenant isolation, subdomain routing
+- 3 тарифних плани, інвойси, usage metering
+- Custom domains (DNS verify, auto SSL)
+- Feature flags, white-label, 3 themes
 
-### PWA та мобільний досвід
-- Service Worker з 3-рівневим кешуванням (static, dynamic pages, API)
-- Offline-режим (каталог, товари, кошик доступні офлайн)
-- Install Prompt (кастомний банер, 14-денний cooldown)
-- App shortcuts (каталог, кошик, замовлення, порівняння)
-- Mobile bottom nav з glass morphism та smart hide/show
-- Push notifications
+### 20+ інтеграцій
+
+| Категорія | Сервіси |
+|-----------|---------|
+| Оплата | LiqPay, Monobank, WayForPay |
+| Доставка | Нова Пошта, Укрпошта, палетна |
+| Боти | Telegram, Viber |
+| Соцмережі | Facebook, Instagram |
+| Маркетплейси | Prom.ua, Rozetka, OLX, Epicentr K |
+| ERP | 1С / BAS |
+| Analytics | GA4, Facebook Pixel + CAPI |
+| Monitoring | Sentry, Axiom, UptimeRobot |
+| CDN/Storage | Cloudflare, R2 |
+| Пошук | Typesense 27 |
+| Auth | Google OAuth 2.0 |
+| Push | Web Push (VAPID) |
+| Email | SMTP (transactional + campaigns + sequences) |
+| SEO | Search Console, Merchant Center, Shopping feed |
 
 ### Безпека
-- JWT: access (15 хв) + refresh (30 днів) з ротацією та reuse detection
-- Refresh tokens: httpOnly cookies, SHA256 hash в БД
-- Rate limiting: Redis-based sliding window (глобальний + per-route)
-- CSRF: Origin/Referer + X-Requested-With header
-- Google OAuth 2.0 з signed state (HMAC-SHA256)
-- Token blacklisting (Redis з TTL)
-- Security headers: HSTS (2 роки), CSP, X-Frame-Options: DENY
-- Input validation: Zod + DOMPurify (HTML sanitization)
+- JWT RS256 з ротацією + reuse detection
+- Rate limiting: Redis sliding window (глобальний + per-route)
+- CSRF (Origin + X-Requested-With), XSS (DOMPurify)
+- 12 security headers: CSP+nonce, HSTS, COEP, COOP
+- Idempotency (X-Idempotency-Key for orders)
+- Cookie consent (3 categories), GDPR compliance
 
-### SEO та маркетинг
-- Schema.org: Product (Brand, shipping, returns), Breadcrumb, FAQ, Organization, CollectionPage
-- Open Graph + Twitter Cards на всіх сторінках
-- Динамічний sitemap.xml, robots.txt, canonical URLs, hreflang (uk/en)
-- Google Shopping XML feed (`/feed/google-shopping`)
-- RSS feed (`/feed.xml`)
-- ISR: каталог (60с), товари (120с), FAQ/новини (300с)
-- SEO-шаблони з адмінки
+### PWA
+- Service Worker з 3-рівневим кешуванням
+- Offline-режим, install prompt, app shortcuts
+- Push notifications
 
-### Продуктивність
-- ISR (Incremental Static Regeneration) для каталогу та товарів
-- Lazy loading компонентів (20+ dynamic imports)
-- Redis-кешування (TTL tiers: 60с, 300с, 1ч, 24ч)
-- Bundle analyzer (`npm run analyze`)
-- CDN support (`CDN_URL` env)
-- WebP/AVIF images, font-display: swap, preconnect hints
-
-### Реферальна та бонусна програми
-- Реферальна програма (унікальні коди, бонуси за покупку реферала)
-- Бонусна програма лояльності (рівні, нарахування балів, списання при оформленні)
-
-### DevOps
-- **CI/CD:** GitHub Actions (lint → test → build → e2e → deploy staging → deploy production)
-- **Docker:** 3-stage Dockerfile, standalone output, non-root user
-- **Docker Compose:** app + PostgreSQL 16 + Redis 7 з healthchecks
-- **Health checks:** `/api/v1/health` (DB + Redis) + зовнішні сервіси (Нова Пошта, LiqPay, SMTP)
-- **Backup:** `scripts/backup.sh` (DB + uploads, 30-денна ротація)
-- **Моніторинг:** PM2, Web Vitals reporter
+### SEO
+- Schema.org (Product, FAQ, Organization, Breadcrumb)
+- Sitemap (chunked), robots.txt, canonical, hreflang (uk/en)
+- Google Shopping XML feed, RSS feed
+- OG + Twitter Cards, ISR
 
 ## Тестування
 
-- **400+ unit/integration тестів** (Vitest) — сервіси, API routes, компоненти, валідатори
-- **15 E2E suites** (Playwright) — auth, checkout, cart, catalog, admin, search
-- **Coverage thresholds:** 99% statements, 96% branches, 98% functions, 99% lines
-- **CI:** Автоматичний запуск на кожен push/PR
+| Тип | Кількість |
+|-----|-----------|
+| Unit test files (Vitest) | 659 |
+| E2E specs (Playwright) | 61 |
+| Manual test cases | 1,177 (30 файлів) |
+| Integration tests | 19 |
+| Load tests (k6) | 4 (smoke, load, stress, spike) |
+
+**100% automated coverage:** services (92/92), API routes (307/307), components (138/137), cron (31/31), validators (25/25), hooks (17/17), lib (18/18), middleware (5/5), providers (4/4).
+
+## Документація
+
+- **29 setup guides** — від local dev до production з усіма інтеграціями
+- **1,177 manual test cases** — покрокові інструкції з тестовими даними
+- **Повний .env reference** — 73 змінні з поясненнями
+- **Architecture docs** — ADR, DB schema, modules
+
+Дивіться: [documents/setup/README.md](documents/setup/README.md) | [documents/setup/00-checklist.md](documents/setup/00-checklist.md)
 
 ## Деплой
 
-Див. [DEPLOYMENT.md](./DEPLOYMENT.md) — PM2, Nginx, SSL, firewall, backup, моніторинг.
+Дивіться [documents/setup/02-production-vps.md](documents/setup/02-production-vps.md) — 19 кроків від SSH до працюючого production:
+
+DNS → SSH → Node.js → Docker → PM2 → Nginx → .env → DB → Build → SSL → Cron (31 задач) → Firewall → Verify
 
 ## Ліцензія
 
-Приватний проєкт.
+Proprietary. Дивіться [LICENSE](LICENSE).

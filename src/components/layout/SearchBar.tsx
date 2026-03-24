@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { apiClient } from '@/lib/api-client';
@@ -415,8 +416,7 @@ export default function SearchBar() {
                       onClick={() => setIsOpen(false)}
                     >
                       {product.imagePath ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={product.imagePath} alt={product.name} className="h-14 w-14 rounded-lg object-contain" />
+                        <Image src={product.imagePath} alt={product.name} width={56} height={56} className="rounded-lg object-contain" />
                       ) : (
                         <div className="h-14 w-14 rounded-lg bg-[var(--color-bg-secondary)]" />
                       )}
@@ -446,8 +446,7 @@ export default function SearchBar() {
                     onClick={() => setIsOpen(false)}
                   >
                     {product.imagePath ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={product.imagePath} alt={product.name} className="h-9 w-9 shrink-0 rounded-lg object-contain" />
+                      <Image src={product.imagePath} alt={product.name} width={36} height={36} className="shrink-0 rounded-lg object-contain" />
                     ) : (
                       <div className="h-9 w-9 shrink-0 rounded-lg bg-[var(--color-bg-secondary)]" />
                     )}
@@ -502,8 +501,7 @@ export default function SearchBar() {
                     onClick={() => setIsOpen(false)}
                   >
                     {product.imagePath ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={product.imagePath} alt={product.name} className="h-10 w-10 shrink-0 rounded-lg object-contain" />
+                      <Image src={product.imagePath} alt={product.name} width={40} height={40} className="shrink-0 rounded-lg object-contain" />
                     ) : (
                       <div className="h-10 w-10 shrink-0 rounded-lg bg-[var(--color-bg-secondary)]" />
                     )}

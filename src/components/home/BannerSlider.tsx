@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import useSWR from 'swr';
 import useEmblaCarousel from 'embla-carousel-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from '@/components/icons';
 
 interface Banner {
@@ -165,11 +166,13 @@ export default function BannerSlider() {
               <Link href={banner.buttonLink || '/'} className="relative block">
                 <div className="relative aspect-[5/2] overflow-hidden">
                   {banner.imageDesktop ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
+                    <Image
                       src={banner.imageDesktop}
                       alt={banner.title || ''}
-                      className="block h-full w-full object-cover"
+                      fill
+                      sizes="100vw"
+                      priority={idx === 0}
+                      className="object-cover"
                     />
                   ) : (
                     <div className={`absolute inset-0 bg-gradient-to-br ${bannerStyles[idx % bannerStyles.length]} overflow-hidden`}>

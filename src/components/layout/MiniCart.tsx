@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { Trash, Plus, Minus } from '@/components/icons';
@@ -58,8 +59,7 @@ export default function MiniCart({ onClose }: MiniCartProps) {
             {items.map((item) => (
               <div key={item.productId} className="flex items-center gap-3 border-b border-[var(--color-border)] py-2 last:border-0">
                 {item.imagePath ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={item.imagePath} alt={item.name} className="h-12 w-12 shrink-0 rounded object-contain bg-[var(--color-bg-secondary)]" />
+                  <Image src={item.imagePath} alt={item.name} width={48} height={48} className="shrink-0 rounded object-contain bg-[var(--color-bg-secondary)]" />
                 ) : (
                   <div className="h-12 w-12 shrink-0 rounded bg-[var(--color-bg-secondary)]" />
                 )}

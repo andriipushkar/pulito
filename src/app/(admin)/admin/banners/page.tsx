@@ -7,6 +7,7 @@ import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Trash, Check, Close } from '@/components/icons';
+import Image from 'next/image';
 
 interface Banner {
   id: number;
@@ -167,8 +168,7 @@ export default function AdminBannersPage() {
               {/* Thumbnail */}
               <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
                 {b.imageDesktop ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={b.imageDesktop} alt={b.title || 'Банер'} className="h-full w-full object-cover" />
+                  <Image src={b.imageDesktop} alt={b.title || 'Банер'} fill sizes="128px" className="object-cover" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-secondary)]">Немає зобр.</div>
                 )}

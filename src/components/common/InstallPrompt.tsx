@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -83,7 +84,7 @@ export default function InstallPrompt() {
     <div className="fixed inset-x-0 bottom-[76px] z-50 px-4 lg:bottom-4 lg:left-auto lg:right-4 lg:px-0">
       <div className="mx-auto max-w-sm animate-slide-up-fade rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4 shadow-xl">
         <div className="flex items-start gap-3">
-          <img
+          <Image
             src="/images/icon-192.png"
             alt="Порошок"
             width={48}

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
+import Image from 'next/image';
 import Modal from '@/components/ui/Modal';
 import { ChevronLeft, ChevronRight, Close } from '@/components/icons';
 import type { ProductImage } from '@/types/product';
@@ -77,10 +78,11 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
                   i === selectedIndex ? 'border-[var(--color-primary)] shadow-[var(--shadow-brand)]' : 'border-[var(--color-border)] hover:border-[var(--color-primary-light)]'
                 }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={img.pathThumbnail || img.pathMedium || ''}
+                <Image
+                  src={img.pathThumbnail || img.pathMedium || '/placeholder.png'}
                   alt={img.altText || `${productName} ${i + 1}`}
+                  width={64}
+                  height={64}
                   className="h-16 w-16 object-contain"
                 />
               </button>
@@ -99,22 +101,26 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
           >
             <div className="relative aspect-square">
               {currentImage?.pathBlur && !mainImageLoaded && (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
+                <Image
                   src={currentImage.pathBlur}
                   alt=""
                   aria-hidden="true"
-                  className="absolute inset-0 h-full w-full scale-110 object-contain blur-lg"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="scale-110 object-contain blur-lg"
                 />
               )}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={currentImage?.pathFull || currentImage?.pathMedium || ''}
-                alt={currentImage?.altText || productName}
-                className={`h-full w-full object-contain transition-all duration-200 ${mainImageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                style={zoomStyle}
-                onLoad={() => setLoadedIndex(selectedIndex)}
-              />
+              {(currentImage?.pathFull || currentImage?.pathMedium) && (
+                <Image
+                  src={currentImage.pathFull || currentImage.pathMedium || '/placeholder.png'}
+                  alt={currentImage?.altText || productName}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className={`object-contain transition-all duration-200 ${mainImageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                  style={zoomStyle}
+                  onLoad={() => setLoadedIndex(selectedIndex)}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -126,14 +132,16 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
           <div className="flex">
             {images.map((img, i) => (
               <div key={img.id} className="min-w-0 shrink-0 basis-full">
-                <div className="aspect-square bg-[var(--color-bg-secondary)]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img.pathFull || img.pathMedium || ''}
-                    alt={img.altText || `${productName} ${i + 1}`}
-                    className="h-full w-full object-contain"
-                    onClick={() => setLightboxOpen(true)}
-                  />
+                <div className="relative aspect-square bg-[var(--color-bg-secondary)]" onClick={() => setLightboxOpen(true)}>
+                  {(img.pathFull || img.pathMedium) && (
+                    <Image
+                      src={img.pathFull || img.pathMedium || '/placeholder.png'}
+                      alt={img.altText || `${productName} ${i + 1}`}
+                      fill
+                      sizes="100vw"
+                      className="object-contain"
+                    />
+                  )}
                 </div>
               </div>
             ))}
@@ -170,12 +178,16 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
           >
             <Close size={20} />
           </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={currentImage?.pathOriginal || currentImage?.pathFull || ''}
-            alt={currentImage?.altText || productName}
-            className="mx-auto max-h-[80vh] object-contain"
-          />
+          {(currentImage?.pathOriginal || currentImage?.pathFull) && (
+            <Image
+              src={currentImage.pathOriginal || currentImage.pathFull || '/placeholder.png'}
+              alt={currentImage?.altText || productName}
+              width={1200}
+              height={1200}
+              className="mx-auto max-h-[80vh] object-contain"
+              style={{ width: 'auto', height: 'auto' }}
+            />
+          )}
           {images.length > 1 && (
             <>
               <button
