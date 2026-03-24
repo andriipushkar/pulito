@@ -32,7 +32,12 @@ export default function ConversionFunnel({ days = 30 }: { days?: number }) {
       .finally(() => setIsLoading(false));
   }, [days]);
 
-  if (isLoading) return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   if (!data) return null;
 
   return (
@@ -44,8 +49,7 @@ export default function ConversionFunnel({ days = 30 }: { days?: number }) {
             <XAxis type="number" />
             <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 12 }} />
             <Tooltip
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              formatter={(value: any, _name: any, props: any) => [
+              formatter={(value, _name, props) => [
                 `${Number(value).toLocaleString()} (${(props.payload as FunnelStep).conversionFromFirst.toFixed(1)}% від першого кроку)`,
                 'Кількість',
               ]}
@@ -74,8 +78,12 @@ export default function ConversionFunnel({ days = 30 }: { days?: number }) {
               <tr key={i} className="border-t border-[var(--color-border)]">
                 <td className="px-4 py-2 text-xs">{step.name}</td>
                 <td className="px-4 py-2 text-right text-xs">{step.value.toLocaleString()}</td>
-                <td className="px-4 py-2 text-right text-xs">{step.conversionFromPrev.toFixed(1)}%</td>
-                <td className="px-4 py-2 text-right text-xs">{step.conversionFromFirst.toFixed(1)}%</td>
+                <td className="px-4 py-2 text-right text-xs">
+                  {step.conversionFromPrev.toFixed(1)}%
+                </td>
+                <td className="px-4 py-2 text-right text-xs">
+                  {step.conversionFromFirst.toFixed(1)}%
+                </td>
               </tr>
             ))}
           </tbody>

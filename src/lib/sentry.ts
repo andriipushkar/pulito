@@ -4,7 +4,10 @@ interface SentryLike {
   captureException: (error: unknown, context?: Record<string, unknown>) => void;
   captureMessage: (message: string) => void;
   setUser: (user: { id: string; email?: string } | null) => void;
-  startSpan?: (options: { name: string; op: string }, callback: (span: unknown) => unknown) => unknown;
+  startSpan?: (
+    options: { name: string; op: string },
+    callback: (span: unknown) => unknown,
+  ) => unknown;
   withScope?: (callback: (scope: unknown) => void) => void;
 }
 
@@ -49,11 +52,7 @@ export async function setUser(user: { id: string; email?: string } | null) {
  * Wrap a function in a Sentry performance span.
  * Falls back to direct execution if Sentry is not available.
  */
-export async function withSpan<T>(
-  name: string,
-  op: string,
-  fn: () => T | Promise<T>
-): Promise<T> {
+export async function withSpan<T>(name: string, op: string, fn: () => T | Promise<T>): Promise<T> {
   await ensureInit();
   if (sentryModule?.startSpan) {
     return sentryModule.startSpan({ name, op }, () => fn()) as T;
@@ -65,12 +64,14 @@ export async function withSpan<T>(
  * Wrap a function with Sentry scope for additional context.
  */
 export async function withSentryScope(
-  callback: (setTag: (key: string, value: string) => void) => void
+  callback: (setTag: (key: string, value: string) => void) => void,
 ): Promise<void> {
   await ensureInit();
   if (sentryModule?.withScope) {
-    sentryModule.withScope((scope: any) => {
-      callback((key: string, value: string) => scope.setTag(key, value));
+    sentryModule.withScope((scope: unknown) => {
+      callback((key: string, value: string) =>
+        (scope as { setTag: (k: string, v: string) => void }).setTag(key, value),
+      );
     });
   }
 }

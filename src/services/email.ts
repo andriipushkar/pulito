@@ -15,7 +15,7 @@ export class EmailError extends Error {
   constructor(
     message: string,
     public statusCode: number = 500,
-    public originalError?: unknown
+    public originalError?: unknown,
   ) {
     super(message);
     this.name = 'EmailError';
@@ -34,6 +34,7 @@ interface EmailOptions {
   html: string;
   text?: string;
   attachments?: Attachment[];
+  listUnsubscribe?: string;
 }
 
 function htmlToPlainText(html: string): string {
@@ -68,11 +69,7 @@ interface EmailResult {
   attempts: number;
 }
 
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3,
-  baseDelay = 1000
-): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 1000): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -104,6 +101,12 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
           content: a.content,
           contentType: a.contentType,
         })),
+        ...(options.listUnsubscribe && {
+          headers: {
+            'List-Unsubscribe': `<${options.listUnsubscribe}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          },
+        }),
       });
     });
 

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from './email';
 import { getCustomerSegmentation } from './analytics-reports';
+import { generateUnsubscribeToken } from './subscriber';
+import { env } from '@/config/env';
 import type { CampaignFrequency, CampaignRule } from '@prisma/client';
 
 // ──────────────────────────────────────────
@@ -154,9 +156,10 @@ export async function processCampaigns(): Promise<{ sent: number; skipped: numbe
 
     // Filter out users who already received this campaign (for "once" frequency)
     // For recurring, filter those who received it within the current frequency window
-    const sinceDate = rule.frequency === 'once'
-      ? new Date(0) // all time
-      : new Date(now.getTime() - FREQUENCY_MS[rule.frequency]);
+    const sinceDate =
+      rule.frequency === 'once'
+        ? new Date(0) // all time
+        : new Date(now.getTime() - FREQUENCY_MS[rule.frequency]);
 
     const alreadySent = await prisma.campaignLog.findMany({
       where: {
@@ -184,11 +187,18 @@ export async function processCampaigns(): Promise<{ sent: number; skipped: numbe
           .replace(/\{\{fullName\}\}/g, user.fullName || '')
           .replace(/\{\{email\}\}/g, user.email);
 
+        const unsubToken = generateUnsubscribeToken(user.email);
+        const unsubUrl = `${env.APP_URL}/unsubscribe?token=${unsubToken}`;
+        const htmlWithUnsub =
+          html +
+          `<div style="text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb"><a href="${unsubUrl}" style="color:#6b7280;font-size:12px">Відписатися від розсилки</a></div>`;
+
         await sendEmail({
           to: user.email,
           subject: rule.emailTemplate.subject,
-          html,
+          html: htmlWithUnsub,
           text: rule.emailTemplate.bodyText || undefined,
+          listUnsubscribe: unsubUrl,
         });
 
         await prisma.campaignLog.create({

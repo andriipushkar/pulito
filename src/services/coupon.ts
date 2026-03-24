@@ -36,13 +36,18 @@ export async function validateCoupon(code: string, userId?: number, orderAmount?
   }
 
   if (orderAmount && coupon.minOrderAmount && orderAmount < Number(coupon.minOrderAmount)) {
-    throw new CouponError(`Мінімальна сума замовлення для цього промокоду: ${coupon.minOrderAmount} грн`);
+    throw new CouponError(
+      `Мінімальна сума замовлення для цього промокоду: ${coupon.minOrderAmount} грн`,
+    );
   }
 
   return coupon;
 }
 
-export function calculateDiscount(coupon: { type: string; value: any; maxDiscount: any }, orderAmount: number): number {
+export function calculateDiscount(
+  coupon: { type: string; value: number | string; maxDiscount: number | string | null },
+  orderAmount: number,
+): number {
   const value = Number(coupon.value);
   if (coupon.type === 'percent') {
     const discount = (orderAmount * value) / 100;
@@ -56,7 +61,12 @@ export function calculateDiscount(coupon: { type: string; value: any; maxDiscoun
   return 0;
 }
 
-export async function redeemCoupon(couponId: number, userId: number | null, orderId: number, discount: number) {
+export async function redeemCoupon(
+  couponId: number,
+  userId: number | null,
+  orderId: number,
+  discount: number,
+) {
   await prisma.$transaction([
     prisma.couponRedemption.create({
       data: { couponId, userId, orderId, discount },
@@ -112,15 +122,18 @@ export async function createCoupon(data: {
   });
 }
 
-export async function updateCoupon(id: number, data: Partial<{
-  description: string;
-  isActive: boolean;
-  usageLimit: number;
-  usageLimitPerUser: number;
-  maxDiscount: number;
-  validFrom: string;
-  validUntil: string;
-}>) {
+export async function updateCoupon(
+  id: number,
+  data: Partial<{
+    description: string;
+    isActive: boolean;
+    usageLimit: number;
+    usageLimitPerUser: number;
+    maxDiscount: number;
+    validFrom: string;
+    validUntil: string;
+  }>,
+) {
   return prisma.coupon.update({
     where: { id },
     data: {

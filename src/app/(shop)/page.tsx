@@ -24,6 +24,7 @@ export const revalidate = 60;
 import { getCategories } from '@/services/category';
 import { getPromoProducts, getNewProducts, getPopularProducts } from '@/services/product';
 import { getHomepageBlocks } from '@/services/homepage';
+const USPBlock = dynamic(() => import('@/components/home/USPBlock'));
 
 const organizationJsonLd = {
   '@context': 'https://schema.org',
@@ -42,10 +43,7 @@ const organizationJsonLd = {
     contactType: 'customer service',
     availableLanguage: 'Ukrainian',
   },
-  sameAs: [
-    process.env.INSTAGRAM_PROFILE_URL,
-    process.env.TELEGRAM_CHANNEL_URL,
-  ].filter(Boolean),
+  sameAs: [process.env.INSTAGRAM_PROFILE_URL, process.env.TELEGRAM_CHANNEL_URL].filter(Boolean),
 };
 
 export default async function HomePage() {
@@ -57,6 +55,28 @@ export default async function HomePage() {
     getHomepageBlocks(),
   ]);
 
+  // Load CMS data for USP and SEO blocks from siteSetting
+  let uspItems: { icon: string; title: string; description: string }[] | undefined;
+  let seoTitle: string | undefined;
+  let seoText: string | undefined;
+  try {
+    const { prisma } = await import('@/lib/prisma');
+    const [uspSetting, seoSetting] = await Promise.all([
+      prisma.siteSetting.findUnique({ where: { key: 'homepage_usp_items' } }),
+      prisma.siteSetting.findUnique({ where: { key: 'homepage_seo_text' } }),
+    ]);
+    if (uspSetting) {
+      uspItems = JSON.parse(uspSetting.value);
+    }
+    if (seoSetting) {
+      const parsed = JSON.parse(seoSetting.value);
+      seoTitle = parsed.title;
+      seoText = parsed.text;
+    }
+  } catch {
+    // fall through to hardcoded defaults
+  }
+
   const enabledBlocks = blocks.filter((b) => b.enabled);
 
   const blockComponents: Record<string, React.ReactNode> = {
@@ -65,38 +85,47 @@ export default async function HomePage() {
         <BannerSlider />
       </Suspense>
     ),
-    categories: categories.length > 0 ? (
-      <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-2xl" />}>
-        <CategoryGrid categories={categories} />
+    usp: (
+      <Suspense fallback={<Skeleton className="h-[80px] w-full rounded-2xl" />}>
+        <USPBlock items={uspItems} />
       </Suspense>
-    ) : null,
-    promo_products: promoProducts.length > 0 ? (
-      <Suspense fallback={<ProductCarouselSkeleton />}>
-        <ProductCarousel
-          title="Акційні товари"
-          products={promoProducts}
-          viewAllHref="/catalog?promo=true"
-        />
-      </Suspense>
-    ) : null,
-    new_products: newProducts.length > 0 ? (
-      <Suspense fallback={<ProductCarouselSkeleton />}>
-        <ProductCarousel
-          title="Новинки"
-          products={newProducts}
-          viewAllHref="/catalog?sort=newest"
-        />
-      </Suspense>
-    ) : null,
-    popular_products: popularProducts.length > 0 ? (
-      <Suspense fallback={<ProductCarouselSkeleton />}>
-        <ProductCarousel
-          title="Хіти продажів"
-          products={popularProducts}
-          viewAllHref="/catalog?sort=popular"
-        />
-      </Suspense>
-    ) : null,
+    ),
+    categories:
+      categories.length > 0 ? (
+        <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-2xl" />}>
+          <CategoryGrid categories={categories} />
+        </Suspense>
+      ) : null,
+    promo_products:
+      promoProducts.length > 0 ? (
+        <Suspense fallback={<ProductCarouselSkeleton />}>
+          <ProductCarousel
+            title="Акційні товари"
+            products={promoProducts}
+            viewAllHref="/catalog?promo=true"
+          />
+        </Suspense>
+      ) : null,
+    new_products:
+      newProducts.length > 0 ? (
+        <Suspense fallback={<ProductCarouselSkeleton />}>
+          <ProductCarousel
+            title="Новинки"
+            products={newProducts}
+            viewAllHref="/catalog?sort=newest"
+          />
+        </Suspense>
+      ) : null,
+    popular_products:
+      popularProducts.length > 0 ? (
+        <Suspense fallback={<ProductCarouselSkeleton />}>
+          <ProductCarousel
+            title="Хіти продажів"
+            products={popularProducts}
+            viewAllHref="/catalog?sort=popular"
+          />
+        </Suspense>
+      ) : null,
     brands: (
       <Suspense fallback={<Skeleton className="h-[100px] w-full rounded-2xl" />}>
         <BrandLogos />
@@ -105,12 +134,12 @@ export default async function HomePage() {
     seo_text: (
       <section>
         <div className="rounded-2xl border border-[var(--color-border)]/40 bg-gradient-to-br from-[var(--color-primary-50)]/60 to-white p-5 sm:p-6 lg:p-8">
-          <h2 className="mb-2 text-base font-semibold tracking-tight text-[var(--color-text)] sm:text-lg lg:text-xl">Інтернет-магазин побутової хімії Порошок</h2>
+          <h2 className="mb-2 text-base font-semibold tracking-tight text-[var(--color-text)] sm:text-lg lg:text-xl">
+            {seoTitle || 'Інтернет-магазин побутової хімії Порошок'}
+          </h2>
           <p className="max-w-3xl text-[13px] leading-relaxed text-[var(--color-text-secondary)] sm:text-sm">
-            Ласкаво просимо до Порошок — вашого надійного постачальника побутової хімії в Україні.
-            Ми пропонуємо широкий асортимент засобів для прибирання, прання, миття посуду та догляду за домом
-            від провідних світових та вітчизняних виробників. Оптовим покупцям — спеціальні ціни та умови
-            співпраці. Швидка доставка по всій Україні.
+            {seoText ||
+              `Ласкаво просимо до Порошок — вашого надійного постачальника побутової хімії в Україні. Ми пропонуємо широкий асортимент засобів для прибирання, прання, миття посуду та догляду за домом від провідних світових та вітчизняних виробників. Оптовим покупцям — спеціальні ціни та умови співпраці. Швидка доставка по всій Україні.`}
           </p>
         </div>
       </section>
@@ -125,13 +154,13 @@ export default async function HomePage() {
       />
       <SearchActionJsonLd />
       <div className="space-y-6 sm:space-y-8 lg:space-y-8">
-      {enabledBlocks
-        .filter((block) => blockComponents[block.key] != null)
-        .map((block, index) => (
-          <AnimateOnScroll key={block.key} delay={index * 100}>
-            {blockComponents[block.key]}
-          </AnimateOnScroll>
-        ))}
+        {enabledBlocks
+          .filter((block) => blockComponents[block.key] != null)
+          .map((block, index) => (
+            <AnimateOnScroll key={block.key} delay={index * 100}>
+              {blockComponents[block.key]}
+            </AnimateOnScroll>
+          ))}
       </div>
 
       {/* Recently viewed — rendered separately, self-hiding when empty */}

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from './email';
 import { logger } from '@/lib/logger';
+import { generateUnsubscribeToken } from './subscriber';
 
 /**
  * Email automation sequences for customer lifecycle.
@@ -114,6 +115,8 @@ export async function processWinBack(): Promise<{ sent: number }> {
       if (alreadySent) continue;
 
       try {
+        const unsubToken = generateUnsubscribeToken(user.email);
+        const unsubUrl = `${appUrl}/unsubscribe?token=${unsubToken}`;
         await sendEmail({
           to: user.email,
           subject,
@@ -122,8 +125,10 @@ export async function processWinBack(): Promise<{ sent: number }> {
               <h2 style="color:#2563eb">${user.fullName}, ми сумуємо!</h2>
               <p>Ви давно не відвідували наш магазин. Повертайтесь і отримайте знижку <strong>${discount}</strong> на наступне замовлення!</p>
               <a href="${appUrl}/catalog?utm_source=email&utm_campaign=winback_${days}d" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Перейти до каталогу</a>
+              <div style="text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb"><a href="${unsubUrl}" style="color:#6b7280;font-size:12px">Відписатися від розсилки</a></div>
             </div>
           `,
+          listUnsubscribe: unsubUrl,
         });
 
         await prisma.userNotification.create({

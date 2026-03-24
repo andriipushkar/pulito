@@ -1,4 +1,5 @@
 import { buildCollaborativeRecommendations } from '@/services/recommendation';
+import { logger } from '@/lib/logger';
 
 /**
  * Cron job: build collaborative filtering recommendations.
@@ -13,9 +14,11 @@ export async function runBuildCollaborativeRecs(): Promise<{
   const created = await buildCollaborativeRecommendations();
   const durationMs = Date.now() - start;
 
-  console.log(
-    `[build-collaborative-recs] Створено ${created} рекомендацій за ${durationMs}ms`
-  );
+  logger.info(`[build-collaborative-recs] Створено ${created} рекомендацій за ${durationMs}ms`, {
+    job: 'build-collaborative-recs',
+    created,
+    durationMs,
+  });
 
   return { created, durationMs };
 }

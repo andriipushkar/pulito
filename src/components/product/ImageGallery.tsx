@@ -34,7 +34,9 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
   useEffect(() => {
     if (!mobileApi) return;
     mobileApi.on('select', onMobileSelect);
-    return () => { mobileApi.off('select', onMobileSelect); };
+    return () => {
+      mobileApi.off('select', onMobileSelect);
+    };
   }, [mobileApi, onMobileSelect]);
 
   const currentImage = images[selectedIndex];
@@ -68,14 +70,19 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
       <div className="hidden lg:flex lg:gap-3">
         {/* Vertical thumbnails */}
         {images.length > 1 && (
-          <div className="flex shrink-0 flex-col gap-2 overflow-y-auto" style={{ maxHeight: 'calc(100vw * 0.35)' }}>
+          <div
+            className="flex shrink-0 flex-col gap-2 overflow-y-auto"
+            style={{ maxHeight: 'calc(100vw * 0.35)' }}
+          >
             {images.map((img, i) => (
               <button
                 key={img.id}
                 onClick={() => setSelectedIndex(i)}
                 onMouseEnter={() => setSelectedIndex(i)}
                 className={`shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                  i === selectedIndex ? 'border-[var(--color-primary)] shadow-[var(--shadow-brand)]' : 'border-[var(--color-border)] hover:border-[var(--color-primary-light)]'
+                  i === selectedIndex
+                    ? 'border-[var(--color-primary)] shadow-[var(--shadow-brand)]'
+                    : 'border-[var(--color-border)] hover:border-[var(--color-primary-light)]'
                 }`}
               >
                 <Image
@@ -128,11 +135,27 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
 
       {/* Mobile */}
       <div className="lg:hidden">
-        <div className="relative overflow-hidden rounded-2xl border border-[var(--color-border)]" ref={mobileRef}>
+        <div
+          className="relative overflow-hidden rounded-2xl border border-[var(--color-border)]"
+          ref={mobileRef}
+        >
           <div className="flex">
             {images.map((img, i) => (
               <div key={img.id} className="min-w-0 shrink-0 basis-full">
-                <div className="relative aspect-square bg-[var(--color-bg-secondary)]" onClick={() => setLightboxOpen(true)}>
+                <div
+                  className="relative aspect-square bg-[var(--color-bg-secondary)]"
+                  onClick={() => setLightboxOpen(true)}
+                >
+                  {img.pathBlur && (
+                    <Image
+                      src={img.pathBlur}
+                      alt=""
+                      aria-hidden="true"
+                      fill
+                      sizes="100vw"
+                      className="scale-110 object-contain blur-lg"
+                    />
+                  )}
                   {(img.pathFull || img.pathMedium) && (
                     <Image
                       src={img.pathFull || img.pathMedium || '/placeholder.png'}
@@ -157,7 +180,9 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
                     key={i}
                     onClick={() => mobileApi?.scrollTo(i)}
                     className={`rounded-full transition-all ${
-                      i === mobileIndex ? 'h-2 w-6 bg-[var(--color-primary)]' : 'h-2 w-2 bg-white/60'
+                      i === mobileIndex
+                        ? 'h-2 w-6 bg-[var(--color-primary)]'
+                        : 'h-2 w-2 bg-white/60'
                     }`}
                     aria-label={`Зображення ${i + 1}`}
                   />
@@ -191,7 +216,9 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
           {images.length > 1 && (
             <>
               <button
-                onClick={() => setSelectedIndex((prev) => (prev - 1 + images.length) % images.length)}
+                onClick={() =>
+                  setSelectedIndex((prev) => (prev - 1 + images.length) % images.length)
+                }
                 className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-white shadow-[var(--shadow)] text-gray-700 p-2 transition-colors hover:bg-gray-50"
                 aria-label="Попередній"
               >
