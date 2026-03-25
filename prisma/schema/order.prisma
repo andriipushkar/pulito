@@ -78,6 +78,7 @@ model Order {
   userAgent            String?        @map("user_agent")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
+  deletedAt            DateTime?      @map("deleted_at")
 
   items              OrderItem[]
   statusHistory      OrderStatusHistory[]
@@ -89,6 +90,7 @@ model Order {
   @@index([status])
   @@index([status, createdAt])
   @@index([paymentStatus])
+  @@index([deletedAt])
   @@map("orders")
 }
 
@@ -162,7 +164,9 @@ model Payment {
   callbackData    Json?         @map("callback_data")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
 
+  @@index([deletedAt])
   @@map("payments")
 }
 

@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { refundPayment } from '@/services/payment';
+import { logger } from '@/lib/logger';
 
 export class ReturnError extends Error {
   statusCode: number;
@@ -28,7 +30,9 @@ export async function createReturnRequest(data: {
   }
 
   // Check 14-day return window
-  const daysSinceOrder = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+  const daysSinceOrder = Math.floor(
+    (Date.now() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60 * 24),
+  );
   if (daysSinceOrder > 14) {
     throw new ReturnError('Термін повернення (14 днів) минув');
   }
@@ -97,7 +101,7 @@ export async function processReturn(
   returnId: number,
   status: 'approved' | 'rejected',
   adminComment: string | undefined,
-  processedBy: number
+  processedBy: number,
 ) {
   const returnReq = await prisma.returnRequest.findUnique({ where: { id: returnId } });
   if (!returnReq) throw new ReturnError('Запит не знайдено', 404);
@@ -105,14 +109,35 @@ export async function processReturn(
     throw new ReturnError('Запит вже оброблено');
   }
 
-  return prisma.returnRequest.update({
-    where: { id: returnId },
-    data: {
-      status,
-      adminComment,
-      processedBy,
-      processedAt: new Date(),
-    },
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.returnRequest.update({
+      where: { id: returnId },
+      data: {
+        status,
+        adminComment,
+        processedBy,
+        processedAt: new Date(),
+      },
+    });
+
+    // Add status history to order when return is approved
+    if (status === 'approved') {
+      await tx.order.update({
+        where: { id: returnReq.orderId },
+        data: {
+          statusHistory: {
+            create: {
+              oldStatus: null,
+              newStatus: 'return_approved',
+              changeSource: 'admin',
+              comment: `Повернення #${returnId} схвалено`,
+            },
+          },
+        },
+      });
+    }
+
+    return updated;
   });
 }
 
@@ -124,6 +149,35 @@ export async function markReturnReceived(returnId: number) {
 }
 
 export async function markReturnRefunded(returnId: number) {
+  const returnReq = await prisma.returnRequest.findUnique({
+    where: { id: returnId },
+    select: {
+      id: true,
+      orderId: true,
+      totalAmount: true,
+      status: true,
+    },
+  });
+
+  if (!returnReq) throw new ReturnError('Запит не знайдено', 404);
+  if (returnReq.status !== 'received') {
+    throw new ReturnError('Повернення можливе лише для отриманих товарів');
+  }
+
+  const refundAmount = Number(returnReq.totalAmount);
+
+  // Process actual refund through payment provider
+  const refundResult = await refundPayment(returnReq.orderId, refundAmount);
+
+  if (!refundResult.success) {
+    logger.error('Refund failed for return request', {
+      returnId,
+      orderId: returnReq.orderId,
+      message: refundResult.message,
+    });
+    throw new ReturnError(refundResult.message || 'Не вдалося виконати повернення коштів');
+  }
+
   return prisma.returnRequest.update({
     where: { id: returnId },
     data: { status: 'refunded', refundedAt: new Date() },

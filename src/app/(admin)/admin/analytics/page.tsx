@@ -10,23 +10,83 @@ import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 
 // Lazy load heavy analytics components (recharts ~8MB)
-const PerformanceWidget = dynamic(() => import('@/components/admin/analytics/PerformanceWidget'), { ssr: false });
-const ConversionFunnel = dynamic(() => import('@/components/admin/analytics/ConversionFunnel'), { ssr: false });
-const CohortAnalysis = dynamic(() => import('@/components/admin/analytics/CohortAnalysis'), { ssr: false });
-const ABCAnalysis = dynamic(() => import('@/components/admin/analytics/ABCAnalysis'), { ssr: false });
-const AlertsConfig = dynamic(() => import('@/components/admin/analytics/AlertsConfig'), { ssr: false });
-const StockAnalytics = dynamic(() => import('@/components/admin/analytics/StockAnalytics'), { ssr: false });
-const PriceAnalytics = dynamic(() => import('@/components/admin/analytics/PriceAnalytics'), { ssr: false });
-const ChannelAnalytics = dynamic(() => import('@/components/admin/analytics/ChannelAnalytics'), { ssr: false });
-const GeographyAnalytics = dynamic(() => import('@/components/admin/analytics/GeographyAnalytics'), { ssr: false });
-const CustomerLTV = dynamic(() => import('@/components/admin/analytics/CustomerLTV'), { ssr: false });
-const CustomerSegmentation = dynamic(() => import('@/components/admin/analytics/CustomerSegmentation'), { ssr: false });
-const RFMAnalysis = dynamic(() => import('@/components/admin/analytics/RFMAnalysis'), { ssr: false });
-const ChurnPrediction = dynamic(() => import('@/components/admin/analytics/ChurnPrediction'), { ssr: false });
+const PerformanceWidget = dynamic(() => import('@/components/admin/analytics/PerformanceWidget'), {
+  ssr: false,
+});
+const ConversionFunnel = dynamic(() => import('@/components/admin/analytics/ConversionFunnel'), {
+  ssr: false,
+});
+const CohortAnalysis = dynamic(() => import('@/components/admin/analytics/CohortAnalysis'), {
+  ssr: false,
+});
+const ABCAnalysis = dynamic(() => import('@/components/admin/analytics/ABCAnalysis'), {
+  ssr: false,
+});
+const AlertsConfig = dynamic(() => import('@/components/admin/analytics/AlertsConfig'), {
+  ssr: false,
+});
+const StockAnalytics = dynamic(() => import('@/components/admin/analytics/StockAnalytics'), {
+  ssr: false,
+});
+const PriceAnalytics = dynamic(() => import('@/components/admin/analytics/PriceAnalytics'), {
+  ssr: false,
+});
+const ChannelAnalytics = dynamic(() => import('@/components/admin/analytics/ChannelAnalytics'), {
+  ssr: false,
+});
+const GeographyAnalytics = dynamic(
+  () => import('@/components/admin/analytics/GeographyAnalytics'),
+  { ssr: false },
+);
+const CustomerLTV = dynamic(() => import('@/components/admin/analytics/CustomerLTV'), {
+  ssr: false,
+});
+const CustomerSegmentation = dynamic(
+  () => import('@/components/admin/analytics/CustomerSegmentation'),
+  { ssr: false },
+);
+const RFMAnalysis = dynamic(() => import('@/components/admin/analytics/RFMAnalysis'), {
+  ssr: false,
+});
+const ChurnPrediction = dynamic(() => import('@/components/admin/analytics/ChurnPrediction'), {
+  ssr: false,
+});
 
-type AnalyticsTab = 'dashboard' | 'sales' | 'products' | 'clients' | 'orders' | 'performance' | 'funnel' | 'cohorts' | 'abc' | 'alerts' | 'stock' | 'price' | 'channels' | 'geography' | 'ltv' | 'segments' | 'rfm' | 'churn';
+type AnalyticsTab =
+  | 'dashboard'
+  | 'sales'
+  | 'products'
+  | 'clients'
+  | 'orders'
+  | 'performance'
+  | 'funnel'
+  | 'cohorts'
+  | 'abc'
+  | 'alerts'
+  | 'stock'
+  | 'price'
+  | 'channels'
+  | 'geography'
+  | 'ltv'
+  | 'segments'
+  | 'rfm'
+  | 'churn';
 
-const SELF_CONTAINED_TABS: AnalyticsTab[] = ['performance', 'funnel', 'cohorts', 'abc', 'alerts', 'stock', 'price', 'channels', 'geography', 'ltv', 'segments', 'rfm', 'churn'];
+const SELF_CONTAINED_TABS: AnalyticsTab[] = [
+  'performance',
+  'funnel',
+  'cohorts',
+  'abc',
+  'alerts',
+  'stock',
+  'price',
+  'channels',
+  'geography',
+  'ltv',
+  'segments',
+  'rfm',
+  'churn',
+];
 
 const DAY_NAMES = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
@@ -42,7 +102,10 @@ export default function AdminAnalyticsPage() {
     const reportType = pdfTabs.includes(tab) ? tab : 'summary';
     setIsExporting(true);
     try {
-      const res = await apiClient.post<{ url: string }>('/api/v1/admin/analytics/export-pdf', { reportType, days });
+      const res = await apiClient.post<{ url: string }>('/api/v1/admin/analytics/export-pdf', {
+        reportType,
+        days,
+      });
       if (res.success && res.data?.url) {
         window.open(res.data.url, '_blank');
       }
@@ -59,13 +122,31 @@ export default function AdminAnalyticsPage() {
 
     if (tab === 'sales' && Array.isArray((d as { daily?: unknown }).daily)) {
       const daily = (d as { daily: { date: string; revenue: number; count: number }[] }).daily;
-      csv = 'Дата,Виручка,Замовлень\n' + daily.map((r) => `${r.date},${r.revenue.toFixed(2)},${r.count}`).join('\n');
+      csv =
+        'Дата,Виручка,Замовлень\n' +
+        daily.map((r) => `${r.date},${r.revenue.toFixed(2)},${r.count}`).join('\n');
     } else if (tab === 'orders' && Array.isArray((d as { statusCounts?: unknown }).statusCounts)) {
       const sc = (d as { statusCounts: { status: string; _count: number }[] }).statusCounts;
       csv = 'Статус,Кількість\n' + sc.map((s) => `${s.status},${s._count}`).join('\n');
     } else if (tab === 'products' && Array.isArray((d as { topProducts?: unknown }).topProducts)) {
-      const tp = (d as { topProducts: { productCode: string; productName: string; _sum: { quantity: number; subtotal: number }; _count: number }[] }).topProducts;
-      csv = 'Код,Назва,Кількість,Сума,Замовлень\n' + tp.map((p) => `${p.productCode},"${p.productName}",${p._sum.quantity},${Number(p._sum.subtotal).toFixed(2)},${p._count}`).join('\n');
+      const tp = (
+        d as {
+          topProducts: {
+            productCode: string;
+            productName: string;
+            _sum: { quantity: number; subtotal: number };
+            _count: number;
+          }[];
+        }
+      ).topProducts;
+      csv =
+        'Код,Назва,Кількість,Сума,Замовлень\n' +
+        tp
+          .map(
+            (p) =>
+              `${p.productCode},"${p.productName}",${p._sum.quantity},${Number(p._sum.subtotal).toFixed(2)},${p._count}`,
+          )
+          .join('\n');
     } else {
       return;
     }
@@ -87,8 +168,11 @@ export default function AdminAnalyticsPage() {
     }
     setData(null);
     setIsLoading(true);
-    apiClient.get(`/api/v1/admin/analytics?type=${tab}&days=${days}`)
-      .then((res) => { if (res.success && res.data) setData(res.data); })
+    apiClient
+      .get(`/api/v1/admin/analytics?type=${tab}&days=${days}`)
+      .then((res) => {
+        if (res.success && res.data) setData(res.data);
+      })
       .catch(() => toast.error('Помилка завантаження аналітики'))
       .finally(() => setIsLoading(false));
   }, [tab, days]);
@@ -122,7 +206,9 @@ export default function AdminAnalyticsPage() {
         <h2 className="text-xl font-bold">Аналітика</h2>
         <div className="flex items-center gap-3">
           {canExportCsv && (
-            <Button size="sm" variant="outline" onClick={exportCsv}>CSV</Button>
+            <Button size="sm" variant="outline" onClick={exportCsv}>
+              CSV
+            </Button>
           )}
           <Button size="sm" variant="outline" onClick={exportPdf} disabled={isExporting}>
             {isExporting ? 'Експорт...' : 'PDF'}
@@ -130,6 +216,7 @@ export default function AdminAnalyticsPage() {
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
+            aria-label="Період аналітики"
             className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
           >
             <option value={7}>7 днів</option>
@@ -140,7 +227,10 @@ export default function AdminAnalyticsPage() {
       </div>
 
       <div className="mb-6 overflow-x-auto">
-        <div className="flex gap-1 rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-1" style={{ minWidth: 'max-content' }}>
+        <div
+          className="flex gap-1 rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-1"
+          style={{ minWidth: 'max-content' }}
+        >
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -154,7 +244,9 @@ export default function AdminAnalyticsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Spinner size="md" /></div>
+        <div className="flex justify-center py-12">
+          <Spinner size="md" />
+        </div>
       ) : (
         <div>
           {tab === 'dashboard' && <DashboardView data={data} />}
@@ -184,14 +276,36 @@ export default function AdminAnalyticsPage() {
 // ─── Change indicator ───
 function Change({ value, suffix = '%' }: { value: number | null; suffix?: string }) {
   if (value === null) return null;
-  const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-500' : 'text-[var(--color-text-secondary)]';
-  return <span className={`text-xs font-medium ${color}`}>{value > 0 ? '+' : ''}{value}{suffix}</span>;
+  const color =
+    value > 0
+      ? 'text-green-600'
+      : value < 0
+        ? 'text-red-500'
+        : 'text-[var(--color-text-secondary)]';
+  return (
+    <span className={`text-xs font-medium ${color}`}>
+      {value > 0 ? '+' : ''}
+      {value}
+      {suffix}
+    </span>
+  );
 }
 
 // ─── 1. Dashboard (KPI + Insights + Forecast) ───
 function DashboardView({ data }: { data: unknown }) {
   const d = data as {
-    kpi: { revenue: number; revenueChange: number | null; orders: number; ordersChange: number | null; avgCheck: number; avgCheckChange: number | null; newUsers: number; newUsersChange: number | null; pendingOrders: number; lowStockCount: number };
+    kpi: {
+      revenue: number;
+      revenueChange: number | null;
+      orders: number;
+      ordersChange: number | null;
+      avgCheck: number;
+      avgCheckChange: number | null;
+      newUsers: number;
+      newUsersChange: number | null;
+      pendingOrders: number;
+      lowStockCount: number;
+    };
     insights: string[];
     forecast: { avgDaily: number; forecast7: number; forecast30: number };
   } | null;
@@ -202,7 +316,11 @@ function DashboardView({ data }: { data: unknown }) {
     <div className="space-y-6">
       {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Виручка" value={`${kpi.revenue.toFixed(0)} грн`} change={kpi.revenueChange} />
+        <KpiCard
+          label="Виручка"
+          value={`${kpi.revenue.toFixed(0)} грн`}
+          change={kpi.revenueChange}
+        />
         <KpiCard label="Замовлень" value={kpi.orders} change={kpi.ordersChange} />
         <KpiCard label="Середній чек" value={`${kpi.avgCheck} грн`} change={kpi.avgCheckChange} />
         <KpiCard label="Нових користувачів" value={kpi.newUsers} change={kpi.newUsersChange} />
@@ -247,9 +365,21 @@ function DashboardView({ data }: { data: unknown }) {
   );
 }
 
-function KpiCard({ label, value, change, warn }: { label: string; value: string | number; change?: number | null; warn?: boolean }) {
+function KpiCard({
+  label,
+  value,
+  change,
+  warn,
+}: {
+  label: string;
+  value: string | number;
+  change?: number | null;
+  warn?: boolean;
+}) {
   return (
-    <div className={`rounded-[var(--radius)] border p-4 ${warn ? 'border-red-200 bg-red-50' : 'border-[var(--color-border)] bg-[var(--color-bg)]'}`}>
+    <div
+      className={`rounded-[var(--radius)] border p-4 ${warn ? 'border-red-200 bg-red-50' : 'border-[var(--color-border)] bg-[var(--color-bg)]'}`}
+    >
       <p className="text-xs text-[var(--color-text-secondary)]">{label}</p>
       <div className="mt-1 flex items-baseline gap-2">
         <p className={`text-2xl font-bold ${warn ? 'text-red-600' : ''}`}>{value}</p>
@@ -300,10 +430,22 @@ function SalesView({ data }: { data: unknown }) {
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <h3 className="mb-4 text-sm font-semibold">Продажі по дням</h3>
         {daily.length > 1 ? (
-          <svg viewBox={`0 0 ${daily.length * 30} 200`} className="h-48 w-full" preserveAspectRatio="none">
+          <svg
+            viewBox={`0 0 ${daily.length * 30} 200`}
+            className="h-48 w-full"
+            preserveAspectRatio="none"
+          >
             {/* Grid lines */}
             {[0, 50, 100, 150].map((y) => (
-              <line key={y} x1="0" y1={y} x2={daily.length * 30} y2={y} stroke="var(--color-border)" strokeWidth="0.5" />
+              <line
+                key={y}
+                x1="0"
+                y1={y}
+                x2={daily.length * 30}
+                y2={y}
+                stroke="var(--color-border)"
+                strokeWidth="0.5"
+              />
             ))}
             {/* Area */}
             <path
@@ -313,7 +455,9 @@ function SalesView({ data }: { data: unknown }) {
             />
             {/* Line */}
             <polyline
-              points={daily.map((d, i) => `${i * 30},${200 - (d.revenue / maxRevenue) * 180}`).join(' ')}
+              points={daily
+                .map((d, i) => `${i * 30},${200 - (d.revenue / maxRevenue) * 180}`)
+                .join(' ')}
               fill="none"
               stroke="var(--color-primary)"
               strokeWidth="2"
@@ -321,8 +465,15 @@ function SalesView({ data }: { data: unknown }) {
             {/* Dots */}
             {daily.map((d, i) => (
               <g key={d.date}>
-                <circle cx={i * 30} cy={200 - (d.revenue / maxRevenue) * 180} r="3" fill="var(--color-primary)" />
-                <title>{d.date}: {d.revenue.toFixed(0)} грн ({d.count} зам.)</title>
+                <circle
+                  cx={i * 30}
+                  cy={200 - (d.revenue / maxRevenue) * 180}
+                  r="3"
+                  fill="var(--color-primary)"
+                />
+                <title>
+                  {d.date}: {d.revenue.toFixed(0)} грн ({d.count} зам.)
+                </title>
               </g>
             ))}
           </svg>
@@ -330,7 +481,10 @@ function SalesView({ data }: { data: unknown }) {
           <div className="flex items-end gap-1" style={{ height: 200 }}>
             {daily.map((d) => (
               <div key={d.date} className="group relative flex-1">
-                <div className="w-full rounded-t bg-[var(--color-primary)]" style={{ height: `${(d.revenue / maxRevenue) * 100}%`, minHeight: 2 }} />
+                <div
+                  className="w-full rounded-t bg-[var(--color-primary)]"
+                  style={{ height: `${(d.revenue / maxRevenue) * 100}%`, minHeight: 2 }}
+                />
                 <div className="absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white group-hover:block">
                   {d.date}: {d.revenue.toFixed(0)} грн ({d.count} зам.)
                 </div>
@@ -346,16 +500,31 @@ function SalesView({ data }: { data: unknown }) {
 // ─── 3. Products (with margins) ───
 function ProductsView({ data }: { data: unknown }) {
   const d = data as {
-    topProducts: { productCode: string; productName: string; _sum: { quantity: number; subtotal: number }; _count: number }[];
+    topProducts: {
+      productCode: string;
+      productName: string;
+      _sum: { quantity: number; subtotal: number };
+      _count: number;
+    }[];
     zeroSales: number;
-    margins: { id: number; name: string; code: string; retail: number; wholesale: number; marginPct: number }[];
+    margins: {
+      id: number;
+      name: string;
+      code: string;
+      retail: number;
+      wholesale: number;
+      marginPct: number;
+    }[];
   } | null;
   if (!d?.topProducts) return null;
 
   return (
     <div>
       <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <p className="text-sm">Товарів без продажів за період: <strong className="text-[var(--color-danger)]">{d.zeroSales}</strong></p>
+        <p className="text-sm">
+          Товарів без продажів за період:{' '}
+          <strong className="text-[var(--color-danger)]">{d.zeroSales}</strong>
+        </p>
       </div>
 
       <h3 className="mb-3 text-sm font-semibold">Топ-20 товарів</h3>
@@ -376,7 +545,9 @@ function ProductsView({ data }: { data: unknown }) {
                 <td className="px-4 py-2 text-xs">{p.productCode}</td>
                 <td className="px-4 py-2 text-xs">{p.productName}</td>
                 <td className="px-4 py-2 text-right text-xs">{p._sum.quantity}</td>
-                <td className="px-4 py-2 text-right text-xs">{Number(p._sum.subtotal).toFixed(0)} грн</td>
+                <td className="px-4 py-2 text-right text-xs">
+                  {Number(p._sum.subtotal).toFixed(0)} грн
+                </td>
                 <td className="px-4 py-2 text-right text-xs">{p._count}</td>
               </tr>
             ))}
@@ -407,7 +578,15 @@ function ProductsView({ data }: { data: unknown }) {
                     <td className="px-4 py-2 text-right text-xs">{m.retail.toFixed(2)} грн</td>
                     <td className="px-4 py-2 text-right text-xs">{m.wholesale.toFixed(2)} грн</td>
                     <td className="px-4 py-2 text-right text-xs">
-                      <span className={m.marginPct < 20 ? 'text-red-500 font-bold' : m.marginPct > 40 ? 'text-green-600 font-bold' : ''}>
+                      <span
+                        className={
+                          m.marginPct < 20
+                            ? 'text-red-500 font-bold'
+                            : m.marginPct > 40
+                              ? 'text-green-600 font-bold'
+                              : ''
+                        }
+                      >
                         {m.marginPct}%
                       </span>
                     </td>
@@ -428,9 +607,19 @@ function ClientsView({ data }: { data: unknown }) {
     totalUsers: number;
     newUsers: number;
     wholesalers: number;
-    topClients: { _sum: { totalAmount: number }; _count: number; client: { fullName: string | null; email: string; companyName: string | null } | null }[];
+    topClients: {
+      _sum: { totalAmount: number };
+      _count: number;
+      client: { fullName: string | null; email: string; companyName: string | null } | null;
+    }[];
     comparison: { newUsers: number | null };
-    wholesaleGroupStats: { group: number; orders: number; revenue: number; customers: number; avgCheck: number }[];
+    wholesaleGroupStats: {
+      group: number;
+      orders: number;
+      revenue: number;
+      customers: number;
+      avgCheck: number;
+    }[];
   } | null;
   if (!d?.topClients) return null;
 
@@ -460,17 +649,36 @@ function ClientsView({ data }: { data: unknown }) {
           <h3 className="mb-3 text-sm font-semibold">Порівняння оптових груп</h3>
           <div className="grid gap-4 sm:grid-cols-3">
             {d.wholesaleGroupStats.map((gs) => (
-              <div key={gs.group} className={`rounded-[var(--radius)] border p-4 ${
-                gs.group === 1 ? 'border-blue-200 bg-blue-50' :
-                gs.group === 2 ? 'border-violet-200 bg-violet-50' :
-                'border-amber-200 bg-amber-50'
-              }`}>
-                <p className="text-sm font-semibold">{WHOLESALE_GROUP_LABELS[gs.group as WholesaleGroup]}</p>
+              <div
+                key={gs.group}
+                className={`rounded-[var(--radius)] border p-4 ${
+                  gs.group === 1
+                    ? 'border-blue-200 bg-blue-50'
+                    : gs.group === 2
+                      ? 'border-violet-200 bg-violet-50'
+                      : 'border-amber-200 bg-amber-50'
+                }`}
+              >
+                <p className="text-sm font-semibold">
+                  {WHOLESALE_GROUP_LABELS[gs.group as WholesaleGroup]}
+                </p>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between"><span>Клієнтів:</span><b>{gs.customers}</b></div>
-                  <div className="flex justify-between"><span>Замовлень:</span><b>{gs.orders}</b></div>
-                  <div className="flex justify-between"><span>Виручка:</span><b>{gs.revenue.toFixed(0)} грн</b></div>
-                  <div className="flex justify-between"><span>Середній чек:</span><b>{gs.avgCheck} грн</b></div>
+                  <div className="flex justify-between">
+                    <span>Клієнтів:</span>
+                    <b>{gs.customers}</b>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Замовлень:</span>
+                    <b>{gs.orders}</b>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Виручка:</span>
+                    <b>{gs.revenue.toFixed(0)} грн</b>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Середній чек:</span>
+                    <b>{gs.avgCheck} грн</b>
+                  </div>
                 </div>
               </div>
             ))}
@@ -481,11 +689,18 @@ function ClientsView({ data }: { data: unknown }) {
       <h3 className="mb-3 text-sm font-semibold">Топ клієнтів за сумою</h3>
       <div className="space-y-2">
         {d.topClients.map((c, i) => (
-          <div key={i} className="flex items-center gap-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+          <div
+            key={i}
+            className="flex items-center gap-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3"
+          >
             <span className="text-sm font-bold text-[var(--color-text-secondary)]">#{i + 1}</span>
             <div className="flex-1">
-              <p className="text-sm font-medium">{c.client?.fullName || c.client?.email || 'Невідомий'}</p>
-              {c.client?.companyName && <p className="text-xs text-[var(--color-text-secondary)]">{c.client.companyName}</p>}
+              <p className="text-sm font-medium">
+                {c.client?.fullName || c.client?.email || 'Невідомий'}
+              </p>
+              {c.client?.companyName && (
+                <p className="text-xs text-[var(--color-text-secondary)]">{c.client.companyName}</p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-sm font-semibold">{Number(c._sum.totalAmount).toFixed(0)} грн</p>
@@ -519,7 +734,10 @@ function OrdersView({ data }: { data: unknown }) {
         <h3 className="mb-3 text-sm font-semibold">За статусом</h3>
         <div className="flex flex-wrap gap-2">
           {d.statusCounts.map((s) => (
-            <div key={s.status} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
+            <div
+              key={s.status}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2"
+            >
               <p className="text-xs text-[var(--color-text-secondary)]">{s.status}</p>
               <p className="text-lg font-bold">{s._count}</p>
             </div>
@@ -545,7 +763,10 @@ function OrdersView({ data }: { data: unknown }) {
           <h3 className="mb-3 text-sm font-semibold">Причини скасувань та повернень</h3>
           <div className="space-y-1">
             {d.cancellationReasons.map((r, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2"
+              >
                 <span className="flex-1 text-sm">{r.reason}</span>
                 <span className="text-sm font-bold">{r.count}</span>
               </div>
@@ -564,21 +785,30 @@ function OrdersView({ data }: { data: unknown }) {
                 <tr>
                   <th className="px-1 py-0.5" />
                   {Array.from({ length: 24 }, (_, h) => (
-                    <th key={h} className="px-1 py-0.5 text-center text-[var(--color-text-secondary)]">{h}</th>
+                    <th
+                      key={h}
+                      className="px-1 py-0.5 text-center text-[var(--color-text-secondary)]"
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {d.heatmap.map((row, dayIdx) => (
                   <tr key={dayIdx}>
-                    <td className="pr-2 text-right font-medium text-[var(--color-text-secondary)]">{DAY_NAMES[dayIdx]}</td>
+                    <td className="pr-2 text-right font-medium text-[var(--color-text-secondary)]">
+                      {DAY_NAMES[dayIdx]}
+                    </td>
                     {row.map((val, h) => {
                       const intensity = val / maxHeat;
                       return (
                         <td key={h} className="p-0.5">
                           <div
                             className="h-5 w-5 rounded-sm"
-                            style={{ backgroundColor: `rgba(59, 130, 246, ${Math.max(intensity, 0.05)})` }}
+                            style={{
+                              backgroundColor: `rgba(59, 130, 246, ${Math.max(intensity, 0.05)})`,
+                            }}
                             title={`${DAY_NAMES[dayIdx]} ${h}:00 — ${val} замовлень`}
                           />
                         </td>
@@ -596,7 +826,10 @@ function OrdersView({ data }: { data: unknown }) {
         <h3 className="mb-3 text-sm font-semibold">За способом доставки</h3>
         <div className="flex flex-wrap gap-2">
           {d.deliveryCounts.map((dc) => (
-            <div key={dc.deliveryMethod} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
+            <div
+              key={dc.deliveryMethod}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2"
+            >
               <p className="text-xs text-[var(--color-text-secondary)]">{dc.deliveryMethod}</p>
               <p className="text-lg font-bold">{dc._count}</p>
             </div>
@@ -608,7 +841,10 @@ function OrdersView({ data }: { data: unknown }) {
         <h3 className="mb-3 text-sm font-semibold">За способом оплати</h3>
         <div className="flex flex-wrap gap-2">
           {d.paymentCounts.map((p) => (
-            <div key={p.paymentMethod} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
+            <div
+              key={p.paymentMethod}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2"
+            >
               <p className="text-xs text-[var(--color-text-secondary)]">{p.paymentMethod}</p>
               <p className="text-lg font-bold">{p._count}</p>
             </div>

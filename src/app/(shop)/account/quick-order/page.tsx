@@ -33,7 +33,10 @@ function parseCsvContent(text: string): string {
   const results: string[] = [];
   for (const line of lines) {
     // Split by comma or semicolon
-    const parts = line.split(/[,;]/).map((p) => p.trim()).filter(Boolean);
+    const parts = line
+      .split(/[,;]/)
+      .map((p) => p.trim())
+      .filter(Boolean);
     if (parts.length >= 2) {
       results.push(`${parts[0]}  ${parts[1]}`);
     } else if (parts.length === 1) {
@@ -154,9 +157,10 @@ export default function QuickOrderPage() {
   };
 
   const foundCount = results?.filter((r) => r.status === 'found').length || 0;
-  const totalSum = results
-    ?.filter((r) => r.status === 'found')
-    .reduce((s, r) => s + (r.priceWholesale || 0) * r.requestedQuantity, 0) || 0;
+  const totalSum =
+    results
+      ?.filter((r) => r.status === 'found')
+      .reduce((s, r) => s + (r.priceWholesale || 0) * r.requestedQuantity, 0) || 0;
 
   return (
     <div>
@@ -184,11 +188,22 @@ export default function QuickOrderPage() {
           onChange={handleFileChange}
           className="hidden"
         />
-        <svg className="mx-auto mb-2 h-8 w-8 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        <svg
+          className="mx-auto mb-2 h-8 w-8 text-[var(--color-text-secondary)]"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+          />
         </svg>
         <p className="text-sm text-[var(--color-text-secondary)]">
-          Перетягніть файл або <span className="text-[var(--color-primary)]">натисніть для вибору</span>
+          Перетягніть файл або{' '}
+          <span className="text-[var(--color-primary)]">натисніть для вибору</span>
         </p>
         <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
           Підтримується: .txt, .csv, .xlsx
@@ -199,17 +214,21 @@ export default function QuickOrderPage() {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder={`BH-001  24\nBH-015  12\nBH-042  48`}
+        aria-label="Список товарів для швидкого замовлення"
         rows={8}
         className="mb-4 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3 font-mono text-sm"
       />
 
-      <Button onClick={handleResolve} isLoading={isLoading}>Розпізнати товари</Button>
+      <Button onClick={handleResolve} isLoading={isLoading}>
+        Розпізнати товари
+      </Button>
 
       {results && (
         <div className="mt-6">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm">
-              Знайдено: <strong>{foundCount}</strong> з {results.length} | Сума: <strong>{totalSum.toFixed(0)} грн</strong>
+              Знайдено: <strong>{foundCount}</strong> з {results.length} | Сума:{' '}
+              <strong>{totalSum.toFixed(0)} грн</strong>
             </p>
             {foundCount > 0 && (
               <Button onClick={handleAddAll} variant={addedToCart ? 'secondary' : 'primary'}>
@@ -232,16 +251,37 @@ export default function QuickOrderPage() {
               </thead>
               <tbody>
                 {results.map((r, i) => (
-                  <tr key={i} className={`border-t border-[var(--color-border)] ${r.status === 'not_found' ? 'bg-red-50' : r.status === 'insufficient_stock' ? 'bg-yellow-50' : ''}`}>
+                  <tr
+                    key={i}
+                    className={`border-t border-[var(--color-border)] ${r.status === 'not_found' ? 'bg-red-50' : r.status === 'insufficient_stock' ? 'bg-yellow-50' : ''}`}
+                  >
                     <td className="px-4 py-2 font-mono text-xs">{r.code}</td>
                     <td className="px-4 py-2 text-xs">{r.productName || '—'}</td>
-                    <td className="px-4 py-2 text-right text-xs">{r.priceWholesale ? `${r.priceWholesale.toFixed(2)}` : '—'}</td>
+                    <td className="px-4 py-2 text-right text-xs">
+                      {r.priceWholesale ? `${r.priceWholesale.toFixed(2)}` : '—'}
+                    </td>
                     <td className="px-4 py-2 text-right text-xs">{r.requestedQuantity}</td>
-                    <td className="px-4 py-2 text-right text-xs">{r.priceWholesale ? `${(r.priceWholesale * r.requestedQuantity).toFixed(2)}` : '—'}</td>
+                    <td className="px-4 py-2 text-right text-xs">
+                      {r.priceWholesale
+                        ? `${(r.priceWholesale * r.requestedQuantity).toFixed(2)}`
+                        : '—'}
+                    </td>
                     <td className="px-4 py-2 text-center">
-                      {r.status === 'found' && <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">OK</span>}
-                      {r.status === 'not_found' && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">Не знайдено</span>}
-                      {r.status === 'insufficient_stock' && <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">Мало ({r.availableQuantity})</span>}
+                      {r.status === 'found' && (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                          OK
+                        </span>
+                      )}
+                      {r.status === 'not_found' && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
+                          Не знайдено
+                        </span>
+                      )}
+                      {r.status === 'insufficient_stock' && (
+                        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
+                          Мало ({r.availableQuantity})
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

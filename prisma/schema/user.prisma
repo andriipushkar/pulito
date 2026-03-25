@@ -109,9 +109,12 @@ model User {
   purchasePredictions   PurchasePrediction[]
   tenantUsers           TenantUser[]
 
+  deletedAt             DateTime?        @map("deleted_at")
+
   @@index([role])
   @@index([createdAt])
   @@index([wholesaleStatus])
+  @@index([deletedAt])
   @@map("users")
 }
 

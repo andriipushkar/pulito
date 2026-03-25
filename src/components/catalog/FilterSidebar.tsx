@@ -126,7 +126,10 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
     const expanded = new Set<number>();
     for (const parent of parents) {
       const children = childrenByParent[parent.id] || [];
-      if (children.some((c) => selectedCategories.includes(c.slug)) || selectedCategories.includes(parent.slug)) {
+      if (
+        children.some((c) => selectedCategories.includes(c.slug)) ||
+        selectedCategories.includes(parent.slug)
+      ) {
         expanded.add(parent.id);
       }
     }
@@ -143,7 +146,8 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
   const toggleExpand = (id: number) => {
     setExpandedParents((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -155,7 +159,9 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
 
       {/* Categories */}
       <div>
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">Категорії</h3>
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+          Категорії
+        </h3>
         <div className="flex flex-col gap-0.5">
           {displayParents.map((cat) => {
             const children = childrenByParent[cat.id] || [];
@@ -171,12 +177,20 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
                       className="shrink-0 rounded p-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
                       aria-label={isExpanded ? 'Згорнути' : 'Розгорнути'}
                     >
-                      <svg className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg
+                        className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
                   )}
-                  <label className={`flex flex-1 cursor-pointer items-center gap-2.5 rounded-[var(--radius)] px-2 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-secondary)] ${!hasChildren ? 'ml-5' : ''}`}>
+                  <label
+                    className={`flex flex-1 cursor-pointer items-center gap-2.5 rounded-[var(--radius)] px-2 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-secondary)] ${!hasChildren ? 'ml-5' : ''}`}
+                  >
                     <input
                       type="checkbox"
                       value={cat.slug}
@@ -185,13 +199,18 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
                       className="h-4 w-4 rounded border-[var(--color-border)] accent-[var(--color-primary)]"
                     />
                     <span className="flex-1 font-medium text-[var(--color-text)]">{cat.name}</span>
-                    <span className="text-xs text-[var(--color-text-secondary)]">{cat._count.products}</span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      {cat._count.products}
+                    </span>
                   </label>
                 </div>
                 {hasChildren && isExpanded && (
                   <div className="ml-5 border-l border-[var(--color-border)] pl-2">
                     {children.map((child) => (
-                      <label key={child.id} className="flex cursor-pointer items-center gap-2.5 rounded-[var(--radius)] px-2 py-1 text-sm transition-colors hover:bg-[var(--color-bg-secondary)]">
+                      <label
+                        key={child.id}
+                        className="flex cursor-pointer items-center gap-2.5 rounded-[var(--radius)] px-2 py-1 text-sm transition-colors hover:bg-[var(--color-bg-secondary)]"
+                      >
                         <input
                           type="checkbox"
                           value={child.slug}
@@ -200,7 +219,9 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
                           className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-[var(--color-primary)]"
                         />
                         <span className="flex-1 text-[var(--color-text)]">{child.name}</span>
-                        <span className="text-xs text-[var(--color-text-secondary)]">{child._count.products}</span>
+                        <span className="text-xs text-[var(--color-text-secondary)]">
+                          {child._count.products}
+                        </span>
                       </label>
                     ))}
                   </div>
@@ -213,7 +234,9 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
               onClick={() => setShowAllCategories(!showAllCategories)}
               className="mt-1 px-2 text-left text-xs font-medium text-[var(--color-primary)] hover:underline"
             >
-              {showAllCategories ? 'Показати менше' : `Показати ще ${parents.length - MAX_VISIBLE_PARENTS}...`}
+              {showAllCategories
+                ? 'Показати менше'
+                : `Показати ще ${parents.length - MAX_VISIBLE_PARENTS}...`}
             </button>
           )}
         </div>
@@ -221,7 +244,9 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
 
       {/* Price Range */}
       <div>
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">Ціна, ₴</h3>
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+          Ціна, ₴
+        </h3>
         <DualRangeSlider
           min={PRICE_MIN_DEFAULT}
           max={PRICE_MAX_DEFAULT}
@@ -235,6 +260,7 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
           <input
             type="number"
             placeholder="Від"
+            aria-label="Мінімальна ціна"
             min={PRICE_MIN_DEFAULT}
             max={PRICE_MAX_DEFAULT}
             value={priceRange[0] === PRICE_MIN_DEFAULT ? '' : priceRange[0]}
@@ -248,6 +274,7 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
           <input
             type="number"
             placeholder="До"
+            aria-label="Максимальна ціна"
             min={PRICE_MIN_DEFAULT}
             max={PRICE_MAX_DEFAULT}
             value={priceRange[1] === PRICE_MAX_DEFAULT ? '' : priceRange[1]}
@@ -263,7 +290,9 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
       {/* Brand Multi-Select */}
       {brands.length > 0 && (
         <div>
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">Бренд</h3>
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+            Бренд
+          </h3>
           <div className="flex flex-col gap-0.5">
             {displayBrands.map((brand) => (
               <label
@@ -288,7 +317,9 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
                 onClick={() => setShowAllBrands(!showAllBrands)}
                 className="mt-1 px-2 text-left text-xs font-medium text-[var(--color-primary)] hover:underline"
               >
-                {showAllBrands ? 'Показати менше' : `Показати ще ${brands.length - MAX_VISIBLE_BRANDS}...`}
+                {showAllBrands
+                  ? 'Показати менше'
+                  : `Показати ще ${brands.length - MAX_VISIBLE_BRANDS}...`}
               </button>
             )}
           </div>

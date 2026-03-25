@@ -1,13 +1,19 @@
 import crypto from 'crypto';
 import { env } from '@/config/env';
-import type { PaymentInitResult, PaymentCallbackResult, LiqPayDecodedData } from '@/types/payment';
+import { logger } from '@/lib/logger';
+import type {
+  PaymentInitResult,
+  PaymentCallbackResult,
+  RefundResult,
+  LiqPayDecodedData,
+} from '@/types/payment';
 
 const CHECKOUT_URL = 'https://www.liqpay.ua/api/3/checkout';
 
 export class LiqPayError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'LiqPayError';
@@ -25,7 +31,7 @@ export async function createPayment(
   amount: number,
   description: string,
   resultUrl: string,
-  serverUrl: string
+  serverUrl: string,
 ): Promise<PaymentInitResult> {
   const publicKey = env.LIQPAY_PUBLIC_KEY;
   if (!publicKey || !env.LIQPAY_PRIVATE_KEY) {
@@ -52,6 +58,49 @@ export async function createPayment(
   return { redirectUrl };
 }
 
+export async function refundPayment(orderId: number, amount: number): Promise<RefundResult> {
+  const publicKey = env.LIQPAY_PUBLIC_KEY;
+  const privateKey = env.LIQPAY_PRIVATE_KEY;
+  if (!publicKey || !privateKey) {
+    throw new LiqPayError('LiqPay keys not configured');
+  }
+
+  const params = {
+    public_key: publicKey,
+    version: 3,
+    action: 'refund',
+    amount,
+    currency: 'UAH',
+    order_id: `order_${orderId}`,
+  };
+
+  const data = Buffer.from(JSON.stringify(params)).toString('base64');
+  const signature = createSignature(data);
+
+  const res = await fetch('https://www.liqpay.ua/api/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `data=${encodeURIComponent(data)}&signature=${encodeURIComponent(signature)}`,
+  });
+
+  const responseData = await res.json();
+  logger.info('LiqPay refund response', { orderId, status: responseData.status });
+
+  if (responseData.status === 'reversed' || responseData.status === 'refund_wait') {
+    return {
+      success: true,
+      refundId: String(responseData.payment_id || ''),
+      status: responseData.status === 'reversed' ? 'refunded' : 'processing',
+    };
+  }
+
+  return {
+    success: false,
+    status: 'failed',
+    message: responseData.err_description || `LiqPay refund failed: ${responseData.status}`,
+  };
+}
+
 export function verifyCallback(data: string, signature: string): PaymentCallbackResult {
   const expectedSignature = createSignature(data);
 
@@ -59,9 +108,7 @@ export function verifyCallback(data: string, signature: string): PaymentCallback
     throw new LiqPayError('Invalid LiqPay signature', 403);
   }
 
-  const decoded: LiqPayDecodedData = JSON.parse(
-    Buffer.from(data, 'base64').toString('utf-8')
-  );
+  const decoded: LiqPayDecodedData = JSON.parse(Buffer.from(data, 'base64').toString('utf-8'));
 
   const orderIdStr = decoded.order_id.replace('order_', '');
   const orderId = parseInt(orderIdStr, 10);

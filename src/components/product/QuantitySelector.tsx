@@ -22,7 +22,9 @@ export default function QuantitySelector({
   };
 
   return (
-    <div className={`inline-flex items-center rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] ${className}`}>
+    <div
+      className={`inline-flex items-center rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] ${className}`}
+    >
       <button
         onClick={() => handleChange(value - 1)}
         disabled={value <= min}
@@ -37,6 +39,7 @@ export default function QuantitySelector({
         onChange={(e) => handleChange(Number(e.target.value) || min)}
         min={min}
         max={max}
+        aria-label="Кількість"
         className="h-12 w-14 border-x border-[var(--color-border)] bg-transparent text-center text-lg font-bold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <button

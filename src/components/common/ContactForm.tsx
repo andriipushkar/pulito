@@ -21,11 +21,18 @@ export default function ContactForm() {
       const res = await fetch('/api/v1/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone: cleanPhone(phone), subject, message, website: honeypot }),
+        body: JSON.stringify({
+          name,
+          email,
+          phone: cleanPhone(phone),
+          subject,
+          message,
+          website: honeypot,
+        }),
       });
 
       if (res.ok) {
-        toast.success('Повідомлення надіслано! Ми зв\'яжемося з вами найближчим часом.');
+        toast.success("Повідомлення надіслано! Ми зв'яжемося з вами найближчим часом.");
         setName('');
         setEmail('');
         setPhone('');
@@ -36,7 +43,7 @@ export default function ContactForm() {
         toast.error(data.error || 'Помилка при надсиланні');
       }
     } catch {
-      toast.error('Помилка з\'єднання. Спробуйте ще раз.');
+      toast.error("Помилка з'єднання. Спробуйте ще раз.");
     } finally {
       setLoading(false);
     }
@@ -47,12 +54,29 @@ export default function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <input type="text" placeholder="Ваше ім'я *" value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} />
-      <input type="email" placeholder="Email *" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClass} />
+      <input
+        type="text"
+        placeholder="Ваше ім'я *"
+        aria-label="Ваше ім'я"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        required
+        className={inputClass}
+      />
+      <input
+        type="email"
+        placeholder="Email *"
+        aria-label="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+        className={inputClass}
+      />
       <input
         type="tel"
         inputMode="numeric"
         placeholder="+38 (0XX) XXX-XX-XX"
+        aria-label="Номер телефону"
         value={phone}
         onChange={(e) => {
           const digits = e.target.value.replace(/\D/g, '');
@@ -61,7 +85,10 @@ export default function ContactForm() {
           else if (d.startsWith('38')) d = d.slice(2);
           if (d.length > 0 && d[0] !== '0') d = '0' + d;
           d = d.slice(0, 10);
-          if (!d) { setPhone(''); return; }
+          if (!d) {
+            setPhone('');
+            return;
+          }
           let fmt = `+38 (${d.slice(0, 3)}`;
           if (d.length > 3) fmt += `) ${d.slice(3, 6)}`;
           if (d.length > 6) fmt += `-${d.slice(6, 8)}`;
@@ -70,9 +97,17 @@ export default function ContactForm() {
         }}
         className={inputClass}
       />
-      <input type="text" placeholder="Тема" value={subject} onChange={(e) => setSubject(e.target.value)} className={inputClass} />
+      <input
+        type="text"
+        placeholder="Тема"
+        aria-label="Тема повідомлення"
+        value={subject}
+        onChange={(e) => setSubject(e.target.value)}
+        className={inputClass}
+      />
       <textarea
         placeholder="Повідомлення *"
+        aria-label="Повідомлення"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         required

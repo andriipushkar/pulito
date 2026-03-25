@@ -63,7 +63,11 @@ export default function AccountNotesPage() {
   }
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
@@ -77,12 +81,20 @@ export default function AccountNotesPage() {
       ) : (
         <div className="space-y-3">
           {notes.map((note) => (
-            <div key={note.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+            <div
+              key={note.id}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3"
+            >
               <div className="flex items-center justify-between">
-                <Link href={`/product/${note.product.slug}`} className="text-sm font-medium hover:text-[var(--color-primary)]">
+                <Link
+                  href={`/product/${note.product.slug}`}
+                  className="text-sm font-medium hover:text-[var(--color-primary)]"
+                >
                   {note.product.name}
                 </Link>
-                <span className="text-xs text-[var(--color-text-secondary)]">{note.product.code}</span>
+                <span className="text-xs text-[var(--color-text-secondary)]">
+                  {note.product.code}
+                </span>
               </div>
 
               {editingId === note.id ? (
@@ -92,6 +104,7 @@ export default function AccountNotesPage() {
                     onChange={(e) => setEditText(e.target.value)}
                     rows={3}
                     maxLength={500}
+                    aria-label="Текст нотатки"
                     className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
                     autoFocus
                   />
@@ -99,7 +112,14 @@ export default function AccountNotesPage() {
                     <Button size="sm" onClick={() => handleSaveEdit(note.id, note.product.id)}>
                       Зберегти
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => { setEditingId(null); setEditText(''); }}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditText('');
+                      }}
+                    >
                       Скасувати
                     </Button>
                   </div>

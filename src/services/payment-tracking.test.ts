@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
+vi.mock('@/lib/prisma', () => {
+  const prismaMock = {
     order: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -11,8 +11,15 @@ vi.mock('@/lib/prisma', () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
-  },
-}));
+    $transaction: vi.fn((input: unknown) => {
+      if (typeof input === 'function') {
+        return (input as (tx: typeof prismaMock) => Promise<unknown>)(prismaMock);
+      }
+      return Promise.resolve(input);
+    }),
+  };
+  return { prisma: prismaMock };
+});
 
 vi.mock('@/lib/redis', () => ({
   redis: {
@@ -59,15 +66,14 @@ describe('handlePaymentCallback - tracking', () => {
   it('fires server-side tracking on successful payment', async () => {
     (prisma.order.findUnique as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({ totalAmount: 500, orderNumber: 'ORD-100', userId: 1 }) // first call for amount validation
-      .mockResolvedValueOnce({ // second call for tracking data
+      .mockResolvedValueOnce({
+        // second call for tracking data
         orderNumber: 'ORD-100',
         totalAmount: 500,
         userId: 1,
         contactEmail: 'user@test.com',
         contactPhone: '+380991234567',
-        items: [
-          { productId: 1, productName: 'Product A', priceAtOrder: 250, quantity: 2 },
-        ],
+        items: [{ productId: 1, productName: 'Product A', priceAtOrder: 250, quantity: 2 }],
       });
     (prisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
@@ -89,7 +95,7 @@ describe('handlePaymentCallback - tracking', () => {
         orderId: 'ORD-100',
         totalAmount: 500,
         email: 'user@test.com',
-      })
+      }),
     );
   });
 
@@ -97,8 +103,11 @@ describe('handlePaymentCallback - tracking', () => {
     (prisma.order.findUnique as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({ totalAmount: 100, orderNumber: 'ORD-200', userId: 2 })
       .mockResolvedValueOnce({
-        orderNumber: 'ORD-200', totalAmount: 100, userId: 2,
-        contactEmail: 'a@b.com', contactPhone: '+380991111111',
+        orderNumber: 'ORD-200',
+        totalAmount: 100,
+        userId: 2,
+        contactEmail: 'a@b.com',
+        contactPhone: '+380991111111',
         items: [],
       });
     (prisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
@@ -115,13 +124,15 @@ describe('handlePaymentCallback - tracking', () => {
 
     expect(logger.info).toHaveBeenCalledWith(
       'Payment confirmed',
-      expect.objectContaining({ orderId: 2, provider: 'monobank' })
+      expect.objectContaining({ orderId: 2, provider: 'monobank' }),
     );
   });
 
   it('does not fire tracking on failed payment', async () => {
     (prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      totalAmount: 100, orderNumber: 'ORD-300', userId: 3,
+      totalAmount: 100,
+      orderNumber: 'ORD-300',
+      userId: 3,
     });
     (prisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
@@ -139,7 +150,9 @@ describe('handlePaymentCallback - tracking', () => {
 
   it('logs amount mismatch as warning', async () => {
     (prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      totalAmount: 500, orderNumber: 'ORD-400', userId: 4,
+      totalAmount: 500,
+      orderNumber: 'ORD-400',
+      userId: 4,
     });
     (prisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
@@ -154,7 +167,7 @@ describe('handlePaymentCallback - tracking', () => {
 
     expect(logger.warn).toHaveBeenCalledWith(
       'Payment amount mismatch',
-      expect.objectContaining({ paidAmount: 200, expectedAmount: 500 })
+      expect.objectContaining({ paidAmount: 200, expectedAmount: 500 }),
     );
   });
 
@@ -170,7 +183,7 @@ describe('handlePaymentCallback - tracking', () => {
 
     expect(logger.info).toHaveBeenCalledWith(
       'Duplicate webhook ignored',
-      expect.objectContaining({ transactionId: 'tx-dup' })
+      expect.objectContaining({ transactionId: 'tx-dup' }),
     );
     expect(prisma.order.findUnique).not.toHaveBeenCalled();
   });

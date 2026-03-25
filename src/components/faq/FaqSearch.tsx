@@ -50,9 +50,13 @@ export default function FaqSearch({ onResults, onQueryChange }: FaqSearchProps) 
         value={query}
         onChange={(e) => handleChange(e.target.value)}
         placeholder="Пошук у FAQ..."
+        aria-label="Пошук у FAQ"
         className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-3 pl-10 pr-4 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
       />
-      <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+      <Search
+        size={18}
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
+      />
       {isLoading && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />

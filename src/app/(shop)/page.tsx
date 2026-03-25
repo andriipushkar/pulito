@@ -23,7 +23,7 @@ const RecentlyViewedSection = dynamic(() => import('@/components/product/Recentl
 export const revalidate = 60;
 import { getCategories } from '@/services/category';
 import { getPromoProducts, getNewProducts, getPopularProducts } from '@/services/product';
-import { getHomepageBlocks } from '@/services/homepage';
+import { getHomepageBlocks, getUSPItems, getSeoText } from '@/services/homepage';
 const USPBlock = dynamic(() => import('@/components/home/USPBlock'));
 
 const organizationJsonLd = {
@@ -55,27 +55,8 @@ export default async function HomePage() {
     getHomepageBlocks(),
   ]);
 
-  // Load CMS data for USP and SEO blocks from siteSetting
-  let uspItems: { icon: string; title: string; description: string }[] | undefined;
-  let seoTitle: string | undefined;
-  let seoText: string | undefined;
-  try {
-    const { prisma } = await import('@/lib/prisma');
-    const [uspSetting, seoSetting] = await Promise.all([
-      prisma.siteSetting.findUnique({ where: { key: 'homepage_usp_items' } }),
-      prisma.siteSetting.findUnique({ where: { key: 'homepage_seo_text' } }),
-    ]);
-    if (uspSetting) {
-      uspItems = JSON.parse(uspSetting.value);
-    }
-    if (seoSetting) {
-      const parsed = JSON.parse(seoSetting.value);
-      seoTitle = parsed.title;
-      seoText = parsed.text;
-    }
-  } catch {
-    // fall through to hardcoded defaults
-  }
+  // Load CMS data for USP and SEO blocks
+  const [uspItems, seoText] = await Promise.all([getUSPItems(), getSeoText()]);
 
   const enabledBlocks = blocks.filter((b) => b.enabled);
 
@@ -135,7 +116,7 @@ export default async function HomePage() {
       <section>
         <div className="rounded-2xl border border-[var(--color-border)]/40 bg-gradient-to-br from-[var(--color-primary-50)]/60 to-white p-5 sm:p-6 lg:p-8">
           <h2 className="mb-2 text-base font-semibold tracking-tight text-[var(--color-text)] sm:text-lg lg:text-xl">
-            {seoTitle || 'Інтернет-магазин побутової хімії Порошок'}
+            Інтернет-магазин побутової хімії Порошок
           </h2>
           <p className="max-w-3xl text-[13px] leading-relaxed text-[var(--color-text-secondary)] sm:text-sm">
             {seoText ||

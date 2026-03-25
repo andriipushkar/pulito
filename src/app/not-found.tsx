@@ -1,6 +1,10 @@
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Search, Home } from '@/components/icons';
-import RecentlyViewedSection from '@/components/product/RecentlyViewedSection';
+
+const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'), {
+  ssr: false,
+});
 
 const popularCategories = [
   { name: 'Засоби для прання', href: '/catalog/zasoby-dlya-prannya' },
@@ -19,11 +23,15 @@ export default function NotFound() {
 
       <form action="/catalog" method="GET" className="mb-8 flex w-full max-w-md">
         <div className="relative flex-1">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
+          />
           <input
             type="text"
             name="search"
             placeholder="Пошук товарів..."
+            aria-label="Пошук товарів"
             className="w-full rounded-l-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-3 pl-10 pr-4 text-sm outline-none transition-colors focus:border-[var(--color-primary)]"
           />
         </div>

@@ -14,6 +14,13 @@ export interface PaymentCallbackResult {
   amount?: number;
 }
 
+export interface RefundResult {
+  success: boolean;
+  refundId?: string;
+  status: 'refunded' | 'processing' | 'failed';
+  message?: string;
+}
+
 export interface LiqPayCallbackData {
   data: string;
   signature: string;

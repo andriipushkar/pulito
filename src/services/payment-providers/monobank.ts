@@ -1,8 +1,10 @@
 import crypto from 'crypto';
 import { env } from '@/config/env';
+import { logger } from '@/lib/logger';
 import type {
   PaymentInitResult,
   PaymentCallbackResult,
+  RefundResult,
   MonobankCallbackData,
   MonobankInvoiceResponse,
 } from '@/types/payment';
@@ -13,7 +15,7 @@ const MONO_PUBKEY_URL = 'https://api.monobank.ua/api/merchant/pubkey';
 export class MonobankError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'MonobankError';
@@ -51,7 +53,7 @@ export async function createPayment(
   amount: number,
   description: string,
   redirectUrl: string,
-  webhookUrl: string
+  webhookUrl: string,
 ): Promise<PaymentInitResult> {
   const token = env.MONOBANK_TOKEN;
   if (!token) {
@@ -80,7 +82,7 @@ export async function createPayment(
     const error = await res.json().catch(() => ({}));
     throw new MonobankError(
       `Monobank API error: ${(error as { errText?: string }).errText || res.status}`,
-      res.status >= 500 ? 502 : res.status
+      res.status >= 500 ? 502 : res.status,
     );
   }
 
@@ -92,9 +94,49 @@ export async function createPayment(
   };
 }
 
+export async function refundPayment(invoiceId: string, amount: number): Promise<RefundResult> {
+  const token = env.MONOBANK_TOKEN;
+  if (!token) {
+    throw new MonobankError('Monobank token not configured');
+  }
+
+  const res = await fetch(`${API_BASE}/invoice/cancel`, {
+    method: 'POST',
+    headers: {
+      'X-Token': token,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      invoiceId,
+      extRef: invoiceId,
+      amount: Math.round(amount * 100), // kopecks
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    const errText = (error as { errText?: string }).errText || `HTTP ${res.status}`;
+    logger.error('Monobank refund failed', { invoiceId, error: errText });
+    return {
+      success: false,
+      status: 'failed',
+      message: `Monobank refund error: ${errText}`,
+    };
+  }
+
+  const data = await res.json();
+  logger.info('Monobank refund response', { invoiceId, status: data.status });
+
+  return {
+    success: true,
+    refundId: invoiceId,
+    status: data.status === 'reversed' ? 'refunded' : 'processing',
+  };
+}
+
 export async function verifyCallback(
   body: string,
-  xSignHeader: string
+  xSignHeader: string,
 ): Promise<PaymentCallbackResult> {
   const pubKey = await getMonoPubKey();
 
@@ -102,7 +144,7 @@ export async function verifyCallback(
     'SHA256',
     Buffer.from(body),
     pubKey,
-    Buffer.from(xSignHeader, 'base64')
+    Buffer.from(xSignHeader, 'base64'),
   );
 
   if (!isValid) {

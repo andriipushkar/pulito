@@ -1,6 +1,12 @@
 import crypto from 'crypto';
 import { env } from '@/config/env';
-import type { PaymentInitResult, PaymentCallbackResult, WayForPayCallbackData } from '@/types/payment';
+import { logger } from '@/lib/logger';
+import type {
+  PaymentInitResult,
+  PaymentCallbackResult,
+  RefundResult,
+  WayForPayCallbackData,
+} from '@/types/payment';
 
 const API_URL = 'https://secure.wayforpay.com/pay';
 const API_PURCHASE_URL = 'https://api.wayforpay.com/api';
@@ -8,7 +14,7 @@ const API_PURCHASE_URL = 'https://api.wayforpay.com/api';
 export class WayForPayError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'WayForPayError';
@@ -25,7 +31,7 @@ export async function createPayment(
   amount: number,
   description: string,
   resultUrl: string,
-  serviceUrl: string
+  serviceUrl: string,
 ): Promise<PaymentInitResult> {
   const merchantAccount = env.WAYFORPAY_MERCHANT_ACCOUNT;
   const secretKey = env.WAYFORPAY_SECRET_KEY;
@@ -88,15 +94,60 @@ export async function createPayment(
   const data = await res.json();
 
   if (data.reasonCode !== 1100) {
-    throw new WayForPayError(
-      data.reason || `WayForPay error: ${data.reasonCode}`,
-      400
-    );
+    throw new WayForPayError(data.reason || `WayForPay error: ${data.reasonCode}`, 400);
   }
 
   return {
     redirectUrl: data.invoiceUrl,
     paymentId: orderReference,
+  };
+}
+
+export async function refundPayment(
+  orderReference: string,
+  amount: number,
+  _transactionId: string,
+): Promise<RefundResult> {
+  const merchantAccount = env.WAYFORPAY_MERCHANT_ACCOUNT;
+  const secretKey = env.WAYFORPAY_SECRET_KEY;
+
+  if (!merchantAccount || !secretKey) {
+    throw new WayForPayError('WayForPay credentials not configured');
+  }
+
+  const signatureData = [merchantAccount, orderReference, String(amount), 'UAH'];
+  const signature = createSignature(signatureData);
+
+  const res = await fetch(API_PURCHASE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      transactionType: 'REFUND',
+      merchantAccount,
+      orderReference,
+      amount,
+      currency: 'UAH',
+      comment: 'Повернення коштів за товар',
+      merchantSignature: signature,
+      apiVersion: 1,
+    }),
+  });
+
+  const data = await res.json();
+  logger.info('WayForPay refund response', { orderReference, reasonCode: data.reasonCode });
+
+  if (data.reasonCode === 1100) {
+    return {
+      success: true,
+      refundId: String(data.transactionId || orderReference),
+      status: 'refunded',
+    };
+  }
+
+  return {
+    success: false,
+    status: 'failed',
+    message: data.reason || `WayForPay refund failed: code ${data.reasonCode}`,
   };
 }
 
@@ -155,7 +206,10 @@ export function verifyCallback(body: WayForPayCallbackData): PaymentCallbackResu
 /**
  * Generate response for WayForPay callback (must return specific JSON format)
  */
-export function createCallbackResponse(orderReference: string, status: 'accept' | 'refuse' = 'accept'): string {
+export function createCallbackResponse(
+  orderReference: string,
+  status: 'accept' | 'refuse' = 'accept',
+): string {
   const time = Math.floor(Date.now() / 1000);
   const signatureData = [orderReference, status, String(time)];
   const signature = createSignature(signatureData);

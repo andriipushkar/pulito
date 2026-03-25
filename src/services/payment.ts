@@ -3,7 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
-import type { PaymentProvider, PaymentInitResult, PaymentCallbackResult } from '@/types/payment';
+import type {
+  PaymentProvider,
+  PaymentInitResult,
+  PaymentCallbackResult,
+  RefundResult,
+} from '@/types/payment';
 import * as liqpay from './payment-providers/liqpay';
 import * as monobank from './payment-providers/monobank';
 import * as wayforpay from './payment-providers/wayforpay';
@@ -13,7 +18,7 @@ const WEBHOOK_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 export class PaymentError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'PaymentError';
@@ -22,7 +27,7 @@ export class PaymentError extends Error {
 
 export async function initiatePayment(
   orderId: number,
-  provider: PaymentProvider
+  provider: PaymentProvider,
 ): Promise<PaymentInitResult> {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -87,9 +92,16 @@ export async function initiatePayment(
 
 export async function handlePaymentCallback(
   provider: PaymentProvider,
-  callbackResult: PaymentCallbackResult
+  callbackResult: PaymentCallbackResult,
 ): Promise<void> {
-  const { orderId, status, transactionId, rawData, receiptUrl, amount: paidAmount } = callbackResult;
+  const {
+    orderId,
+    status,
+    transactionId,
+    rawData,
+    receiptUrl,
+    amount: paidAmount,
+  } = callbackResult;
 
   // Replay protection: atomic SET NX ensures only one thread processes each webhook
   const webhookKey = `webhook:${provider}:${transactionId}`;
@@ -103,7 +115,7 @@ export async function handlePaymentCallback(
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     select: { totalAmount: true, orderNumber: true, userId: true },
-    });
+  });
 
   let effectiveStatus = status;
 
@@ -142,54 +154,57 @@ export async function handlePaymentCallback(
     return 'pending';
   };
 
-  if (!payment) {
-    const amount = resolveAmount();
-    await prisma.payment.create({
-      data: {
-        orderId,
-        paymentMethod: 'online',
-        paymentStatus: mapStatus(effectiveStatus),
-        amount,
-        paymentProvider: provider,
-        transactionId,
-        callbackData: rawData as unknown as Prisma.InputJsonValue,
-        paidAt: effectiveStatus === 'success' ? new Date() : null,
-        receiptUrl: receiptUrl || null,
-      },
-    });
-  } else {
-    await prisma.payment.update({
-      where: { orderId },
-      data: {
-        paymentStatus: mapStatus(effectiveStatus),
-        transactionId,
-        callbackData: rawData as unknown as Prisma.InputJsonValue,
-        paidAt: effectiveStatus === 'success' ? new Date() : payment.paidAt,
-        receiptUrl: receiptUrl || payment.receiptUrl,
-      },
-    });
-  }
+  // Wrap payment + order updates in a transaction for data consistency
+  await prisma.$transaction(async (tx) => {
+    if (!payment) {
+      const amount = resolveAmount();
+      await tx.payment.create({
+        data: {
+          orderId,
+          paymentMethod: 'online',
+          paymentStatus: mapStatus(effectiveStatus),
+          amount,
+          paymentProvider: provider,
+          transactionId,
+          callbackData: rawData as unknown as Prisma.InputJsonValue,
+          paidAt: effectiveStatus === 'success' ? new Date() : null,
+          receiptUrl: receiptUrl || null,
+        },
+      });
+    } else {
+      await tx.payment.update({
+        where: { orderId },
+        data: {
+          paymentStatus: mapStatus(effectiveStatus),
+          transactionId,
+          callbackData: rawData as unknown as Prisma.InputJsonValue,
+          paidAt: effectiveStatus === 'success' ? new Date() : payment.paidAt,
+          receiptUrl: receiptUrl || payment.receiptUrl,
+        },
+      });
+    }
 
-  // Update order payment status
-  if (effectiveStatus === 'success') {
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        paymentStatus: 'paid',
-        statusHistory: {
-          create: {
-            oldStatus: null,
-            newStatus: 'paid',
-            changeSource: 'system',
-            comment: `Оплата підтверджена через ${provider}`,
+    // Update order payment status
+    if (effectiveStatus === 'success') {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          paymentStatus: 'paid',
+          statusHistory: {
+            create: {
+              oldStatus: null,
+              newStatus: 'paid',
+              changeSource: 'system',
+              comment: `Оплата підтверджена через ${provider}`,
+            },
           },
         },
-      },
-    });
+      });
+    }
+  });
 
-    // Server-side conversion tracking on confirmed payment (non-blocking).
-    // This ensures 100% of paid conversions are reported to ad platforms,
-    // even when browser-side tracking is blocked by ad blockers.
+  // Server-side conversion tracking on confirmed payment (non-blocking, outside transaction).
+  if (effectiveStatus === 'success') {
     if (order) {
       const orderWithItems = await prisma.order.findUnique({
         where: { id: orderId },
@@ -220,7 +235,7 @@ export async function handlePaymentCallback(
                 price: Number(i.priceAtOrder),
                 quantity: i.quantity,
               })),
-            })
+            }),
           )
           .catch(() => {});
       }
@@ -228,7 +243,88 @@ export async function handlePaymentCallback(
 
     logger.info('Payment confirmed', { orderId, provider, transactionId });
   }
+}
 
+export async function refundPayment(orderId: number, amount?: number): Promise<RefundResult> {
+  const payment = await prisma.payment.findUnique({
+    where: { orderId },
+    select: {
+      paymentStatus: true,
+      paymentProvider: true,
+      transactionId: true,
+      amount: true,
+      order: {
+        select: { orderNumber: true, totalAmount: true },
+      },
+    },
+  });
+
+  if (!payment) {
+    throw new PaymentError('Платіж не знайдено', 404);
+  }
+
+  if (payment.paymentStatus !== 'paid') {
+    throw new PaymentError('Повернення можливе тільки для оплачених замовлень', 400);
+  }
+
+  if (!payment.paymentProvider || !payment.transactionId) {
+    throw new PaymentError('Відсутні дані провайдера для повернення', 400);
+  }
+
+  const refundAmount = amount ?? Number(payment.amount);
+  const isPartial = refundAmount < Number(payment.amount);
+  const provider = payment.paymentProvider as PaymentProvider;
+
+  let result: RefundResult;
+
+  if (provider === 'liqpay') {
+    result = await liqpay.refundPayment(orderId, refundAmount);
+  } else if (provider === 'monobank') {
+    result = await monobank.refundPayment(payment.transactionId, refundAmount);
+  } else {
+    result = await wayforpay.refundPayment(
+      payment.transactionId,
+      refundAmount,
+      payment.transactionId,
+    );
+  }
+
+  if (result.success) {
+    const newPaymentStatus = isPartial ? 'partial' : 'refunded';
+
+    await prisma.$transaction([
+      prisma.payment.update({
+        where: { orderId },
+        data: { paymentStatus: newPaymentStatus as any },
+      }),
+      prisma.order.update({
+        where: { id: orderId },
+        data: {
+          paymentStatus: newPaymentStatus,
+          statusHistory: {
+            create: {
+              oldStatus: 'paid',
+              newStatus: newPaymentStatus,
+              changeSource: 'system',
+              comment: isPartial
+                ? `Часткове повернення ${refundAmount} грн через ${provider}`
+                : `Повне повернення ${refundAmount} грн через ${provider}`,
+            },
+          },
+        },
+      }),
+    ]);
+
+    logger.info('Refund processed', {
+      orderId,
+      provider,
+      amount: refundAmount,
+      isPartial,
+      refundId: result.refundId,
+    });
+  }
+
+  return result;
 }
 
 export async function getPaymentStatus(orderId: number) {
