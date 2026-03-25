@@ -2,9 +2,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Search, Home } from '@/components/icons';
 
-const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'), {
-  ssr: false,
-});
+const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'));
 
 const popularCategories = [
   { name: 'Засоби для прання', href: '/catalog/zasoby-dlya-prannya' },
