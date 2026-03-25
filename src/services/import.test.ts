@@ -1,11 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ImportError, importProducts, getImportLogs, getImportLogById, parsePreview } from './import';
+import {
+  ImportError,
+  importProducts,
+  getImportLogs,
+  getImportLogById,
+  parsePreview,
+} from './import';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    importLog: { create: vi.fn(), update: vi.fn(), findMany: vi.fn(), count: vi.fn(), findUnique: vi.fn() },
+    importLog: {
+      create: vi.fn(),
+      update: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
+      findUnique: vi.fn(),
+    },
     category: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     product: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    productContent: { create: vi.fn(), upsert: vi.fn() },
     priceHistory: { create: vi.fn() },
   },
 }));
@@ -21,6 +34,10 @@ vi.mock('./image', () => ({
 
 vi.mock('@/services/cache', () => ({
   cacheInvalidate: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
 }));
 
 vi.mock('@/utils/slug', () => ({
@@ -73,7 +90,7 @@ describe('getImportLogs', () => {
         orderBy: { id: 'desc' },
         skip: 0,
         take: 20,
-      })
+      }),
     );
   });
 
@@ -84,14 +101,19 @@ describe('getImportLogs', () => {
     await getImportLogs(2, 10);
 
     expect(mockPrisma.importLog.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 10, take: 10 })
+      expect.objectContaining({ skip: 10, take: 10 }),
     );
   });
 });
 
 describe('getImportLogById', () => {
   it('should return import log by id', async () => {
-    const mockLog = { id: 1, filename: 'test.xlsx', status: 'completed_import', manager: { id: 1, fullName: 'Admin', email: 'admin@test.com' } };
+    const mockLog = {
+      id: 1,
+      filename: 'test.xlsx',
+      status: 'completed_import',
+      manager: { id: 1, fullName: 'Admin', email: 'admin@test.com' },
+    };
     mockPrisma.importLog.findUnique.mockResolvedValue(mockLog as never);
 
     const result = await getImportLogById(1);
@@ -130,7 +152,7 @@ describe('importProducts', () => {
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(ImportError);
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
-      'Файл не містить даних'
+      'Файл не містить даних',
     );
   });
 
@@ -139,20 +161,22 @@ describe('importProducts', () => {
     mockXLSX.utils.sheet_to_json.mockReturnValue([] as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(ImportError);
-    await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
-      'Файл порожній'
-    );
+    await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow('Файл порожній');
   });
 
   it('should use supplier format when missing code column but has name and price', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Назва': 'Товар 1', 'Ціна роздріб': '100' },
+      { Назва: 'Товар 1', 'Ціна роздріб': '100' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
     mockPrisma.product.findFirst.mockResolvedValue(null);
-    mockPrisma.product.create.mockResolvedValue({ id: 1, code: 'tovar-1', name: 'Товар 1' } as never);
+    mockPrisma.product.create.mockResolvedValue({
+      id: 1,
+      code: 'tovar-1',
+      name: 'Товар 1',
+    } as never);
 
     const result = await importProducts(fileBuffer, filename, managerId);
 
@@ -163,11 +187,15 @@ describe('importProducts', () => {
   it('should create product successfully', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Мило рідке', 'Ціна роздріб': '125.50', 'Кількість': '10' },
+      { Код: 'P001', Назва: 'Мило рідке', 'Ціна роздріб': '125.50', Кількість: '10' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
-    mockPrisma.product.create.mockResolvedValue({ id: 1, code: 'P001', name: 'Мило рідке' } as never);
+    mockPrisma.product.create.mockResolvedValue({
+      id: 1,
+      code: 'P001',
+      name: 'Мило рідке',
+    } as never);
 
     const result = await importProducts(fileBuffer, filename, managerId);
 
@@ -187,7 +215,7 @@ describe('importProducts', () => {
   it('should update existing product when code exists', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Мило рідке', 'Ціна роздріб': '125.50' },
+      { Код: 'P001', Назва: 'Мило рідке', 'Ціна роздріб': '125.50' },
     ] as never);
 
     const existingProduct = {
@@ -217,7 +245,7 @@ describe('importProducts', () => {
   it('should track price history when retail price changes', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Мило рідке', 'Ціна роздріб': '150.00' },
+      { Код: 'P001', Назва: 'Мило рідке', 'Ціна роздріб': '150.00' },
     ] as never);
 
     const existingProduct = {
@@ -248,12 +276,16 @@ describe('importProducts', () => {
   it('should auto-create category when it does not exist', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Мило рідке', 'Ціна роздріб': '100', 'Категорія': 'Побутова хімія' },
+      { Код: 'P001', Назва: 'Мило рідке', 'Ціна роздріб': '100', Категорія: 'Побутова хімія' },
     ] as never);
 
     mockPrisma.category.findMany.mockResolvedValue([] as never);
     mockPrisma.category.findUnique.mockResolvedValue(null);
-    mockPrisma.category.create.mockResolvedValue({ id: 5, name: 'Побутова хімія', slug: 'pobutova-khimiia' } as never);
+    mockPrisma.category.create.mockResolvedValue({
+      id: 5,
+      name: 'Побутова хімія',
+      slug: 'pobutova-khimiia',
+    } as never);
     mockPrisma.product.findUnique.mockResolvedValue(null);
     mockPrisma.product.create.mockResolvedValue({ id: 1 } as never);
 
@@ -274,53 +306,49 @@ describe('importProducts', () => {
 
   it('should throw ImportError when sheet has more than 10000 rows', async () => {
     const bigArray = Array.from({ length: 10001 }, () => ({
-      'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100',
+      Код: 'P001',
+      Назва: 'Test',
+      'Ціна роздріб': '100',
     }));
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue(bigArray as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
-      'Максимальна кількість рядків: 10 000'
+      'Максимальна кількість рядків: 10 000',
     );
   });
 
   it('should throw ImportError when code column missing in standard format (no name either)', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Якесь поле': 'value' },
-    ] as never);
+    mockXLSX.utils.sheet_to_json.mockReturnValue([{ 'Якесь поле': 'value' }] as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
-      'Не знайдено колонку "Код продукції"'
+      'Не знайдено колонку "Код продукції"',
     );
   });
 
   it('should throw ImportError when name column missing in standard format', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Якесь поле': 'value' },
-    ] as never);
+    mockXLSX.utils.sheet_to_json.mockReturnValue([{ Код: 'P001', 'Якесь поле': 'value' }] as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
-      'Не знайдено колонку "Назва"'
+      'Не знайдено колонку "Назва"',
     );
   });
 
   it('should throw ImportError when retail price column missing in standard format', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test' },
-    ] as never);
+    mockXLSX.utils.sheet_to_json.mockReturnValue([{ Код: 'P001', Назва: 'Test' }] as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
-      'Не знайдено колонку "Ціна роздріб"'
+      'Не знайдено колонку "Ціна роздріб"',
     );
   });
 
   it('should skip rows with empty code', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': '', 'Назва': 'Test', 'Ціна роздріб': '100' },
+      { Код: '', Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
     const result = await importProducts(fileBuffer, filename, managerId);
@@ -332,7 +360,7 @@ describe('importProducts', () => {
   it('should skip rows with too-long code', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'A'.repeat(51), 'Назва': 'Test', 'Ціна роздріб': '100' },
+      { Код: 'A'.repeat(51), Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
     const result = await importProducts(fileBuffer, filename, managerId);
@@ -344,7 +372,7 @@ describe('importProducts', () => {
   it('should skip rows with empty name', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': '', 'Ціна роздріб': '100' },
+      { Код: 'P001', Назва: '', 'Ціна роздріб': '100' },
     ] as never);
 
     const result = await importProducts(fileBuffer, filename, managerId);
@@ -356,7 +384,7 @@ describe('importProducts', () => {
   it('should skip rows with invalid retail price in standard format', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': 'abc' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': 'abc' },
     ] as never);
 
     const result = await importProducts(fileBuffer, filename, managerId);
@@ -368,7 +396,7 @@ describe('importProducts', () => {
   it('should handle row processing error gracefully', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
     mockPrisma.product.findUnique.mockRejectedValueOnce(new Error('DB error'));
@@ -382,7 +410,7 @@ describe('importProducts', () => {
   it('should handle slug conflict for new product', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test Product', 'Ціна роздріб': '100' },
+      { Код: 'P001', Назва: 'Test Product', 'Ціна роздріб': '100' },
     ] as never);
 
     mockPrisma.product.findUnique
@@ -403,7 +431,7 @@ describe('importProducts', () => {
   it('should use existing category when found', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Категорія': 'Existing Category' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Категорія: 'Existing Category' },
     ] as never);
 
     mockPrisma.category.findMany.mockResolvedValue([
@@ -426,7 +454,7 @@ describe('importProducts', () => {
   it('should handle slug conflict for auto-created category', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Категорія': 'New Cat' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Категорія: 'New Cat' },
     ] as never);
 
     mockPrisma.category.findMany.mockResolvedValue([] as never);
@@ -450,12 +478,16 @@ describe('importProducts', () => {
   it('should update existing product slug when name changes', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'New Name', 'Ціна роздріб': '100' },
+      { Код: 'P001', Назва: 'New Name', 'Ціна роздріб': '100' },
     ] as never);
 
     const existingProduct = {
-      id: 10, code: 'P001', name: 'Old Name', slug: 'old-name',
-      priceRetail: 100, priceWholesale: null,
+      id: 10,
+      code: 'P001',
+      name: 'Old Name',
+      slug: 'old-name',
+      priceRetail: 100,
+      priceWholesale: null,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existingProduct as never);
     mockPrisma.product.findFirst.mockResolvedValue(null); // no slug conflict
@@ -475,12 +507,16 @@ describe('importProducts', () => {
   it('should handle wholesale price changes for existing product', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Ціна опт': '70' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', 'Ціна опт': '70' },
     ] as never);
 
     const existingProduct = {
-      id: 10, code: 'P001', name: 'Test', slug: 'test',
-      priceRetail: 100, priceWholesale: 80,
+      id: 10,
+      code: 'P001',
+      name: 'Test',
+      slug: 'test',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existingProduct as never);
     mockPrisma.product.update.mockResolvedValue({} as never);
@@ -500,15 +536,17 @@ describe('importProducts', () => {
   it('should update category when present on existing product update', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Категорія': 'Cat A' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Категорія: 'Cat A' },
     ] as never);
 
-    mockPrisma.category.findMany.mockResolvedValue([
-      { id: 5, name: 'Cat A' },
-    ] as never);
+    mockPrisma.category.findMany.mockResolvedValue([{ id: 5, name: 'Cat A' }] as never);
     const existingProduct = {
-      id: 10, code: 'P001', name: 'Test', slug: 'test',
-      priceRetail: 100, priceWholesale: null,
+      id: 10,
+      code: 'P001',
+      name: 'Test',
+      slug: 'test',
+      priceRetail: 100,
+      priceWholesale: null,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existingProduct as never);
     mockPrisma.product.update.mockResolvedValue({} as never);
@@ -527,7 +565,7 @@ describe('importProducts', () => {
   it('should handle promo column with various truthy values', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Promo Yes', 'Ціна роздріб': '100', 'Акція': 'Так' },
+      { Код: 'P001', Назва: 'Promo Yes', 'Ціна роздріб': '100', Акція: 'Так' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -546,7 +584,7 @@ describe('importProducts', () => {
   it('should handle negative price as null', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Neg Price', 'Ціна роздріб': '-100' },
+      { Код: 'P001', Назва: 'Neg Price', 'Ціна роздріб': '-100' },
     ] as never);
 
     const result = await importProducts(fileBuffer, filename, managerId);
@@ -558,14 +596,12 @@ describe('importProducts', () => {
   it('should handle supplier format with category separator rows', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Назва': 'Cleaning Products', 'Ціна роздріб': '' }, // category separator
-      { 'Назва': 'Soap', 'Ціна роздріб': '50' },
-      { 'Назва': '', 'Ціна роздріб': '' }, // empty row
+      { Назва: 'Cleaning Products', 'Ціна роздріб': '' }, // category separator
+      { Назва: 'Soap', 'Ціна роздріб': '50' },
+      { Назва: '', 'Ціна роздріб': '' }, // empty row
     ] as never);
 
-    mockPrisma.category.findMany.mockResolvedValue([
-      { id: 1, name: 'Cleaning Products' },
-    ] as never);
+    mockPrisma.category.findMany.mockResolvedValue([{ id: 1, name: 'Cleaning Products' }] as never);
     mockPrisma.product.findUnique.mockResolvedValue(null);
     mockPrisma.product.findFirst.mockResolvedValue(null);
     mockPrisma.product.create.mockResolvedValue({ id: 1 } as never);
@@ -583,13 +619,17 @@ describe('importProducts', () => {
   it('should find existing product by name in supplier format', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Назва': 'Existing Prod', 'Ціна роздріб': '50' },
+      { Назва: 'Existing Prod', 'Ціна роздріб': '50' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null); // code check
     mockPrisma.product.findFirst.mockResolvedValue({
-      id: 10, code: 'EP1', name: 'Existing Prod', slug: 'existing-prod',
-      priceRetail: 40, priceWholesale: null,
+      id: 10,
+      code: 'EP1',
+      name: 'Existing Prod',
+      slug: 'existing-prod',
+      priceRetail: 40,
+      priceWholesale: null,
     } as never);
     mockPrisma.product.update.mockResolvedValue({} as never);
 
@@ -601,7 +641,7 @@ describe('importProducts', () => {
   it('should handle supplier format with only wholesale price', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Назва': 'Wholesale Only', 'Ціна опт': '80' },
+      { Назва: 'Wholesale Only', 'Ціна опт': '80' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -622,7 +662,7 @@ describe('importProducts', () => {
   it('should skip supplier format rows with no price', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Назва': 'No Price Product', 'Ціна роздріб': '', 'Ціна опт': '' },
+      { Назва: 'No Price Product', 'Ціна роздріб': '', 'Ціна опт': '' },
     ] as never);
 
     const result = await importProducts(fileBuffer, filename, managerId);
@@ -634,14 +674,19 @@ describe('importProducts', () => {
   it('should handle image URL download for new product', async () => {
     const fetchImageMock = vi.fn().mockResolvedValue({
       ok: true,
-      headers: { get: (key: string) => key === 'content-type' ? 'image/jpeg' : null },
+      headers: { get: (key: string) => (key === 'content-type' ? 'image/jpeg' : null) },
       arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
     });
     vi.stubGlobal('fetch', fetchImageMock);
 
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'With Image', 'Ціна роздріб': '100', 'Зображення': 'https://example.com/img.jpg' },
+      {
+        Код: 'P001',
+        Назва: 'With Image',
+        'Ціна роздріб': '100',
+        Зображення: 'https://example.com/img.jpg',
+      },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -660,7 +705,7 @@ describe('importProducts', () => {
     });
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
-      'Помилка при обробці файлу'
+      'Помилка при обробці файлу',
     );
 
     // Should update import log with failed status
@@ -669,7 +714,7 @@ describe('importProducts', () => {
         data: expect.objectContaining({
           status: 'failed_import',
         }),
-      })
+      }),
     );
   });
 
@@ -682,12 +727,21 @@ describe('importProducts', () => {
   it('should handle image URL for existing product update', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'https://example.com/img.jpg' },
+      {
+        Код: 'P001',
+        Назва: 'Test',
+        'Ціна роздріб': '100',
+        Зображення: 'https://example.com/img.jpg',
+      },
     ] as never);
 
     const existingProduct = {
-      id: 10, code: 'P001', name: 'Test', slug: 'test',
-      priceRetail: 100, priceWholesale: null,
+      id: 10,
+      code: 'P001',
+      name: 'Test',
+      slug: 'test',
+      priceRetail: 100,
+      priceWholesale: null,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existingProduct as never);
     mockPrisma.product.update.mockResolvedValue({} as never);
@@ -704,7 +758,7 @@ describe('importProducts', () => {
   it('should skip image when URL is blocked (SSRF protection)', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'http://localhost/img.jpg' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Зображення: 'http://localhost/img.jpg' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -719,7 +773,7 @@ describe('importProducts', () => {
   it('should handle price with comma as decimal separator', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100,50' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100,50' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -738,7 +792,7 @@ describe('importProducts', () => {
   it('should handle negative quantity as 0', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Кількість': '-5' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Кількість: '-5' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -763,8 +817,8 @@ describe('parsePreview', () => {
   it('should return headers, rows preview, and detect standard format', () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100' },
-      { 'Код': 'P002', 'Назва': 'Test 2', 'Ціна роздріб': '200' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100' },
+      { Код: 'P002', Назва: 'Test 2', 'Ціна роздріб': '200' },
     ] as never);
 
     const result = parsePreview(Buffer.from('fake'));
@@ -778,7 +832,7 @@ describe('parsePreview', () => {
   it('should detect supplier format', () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Назва': 'Test', 'Ціна роздріб': '100' },
+      { Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
     const result = parsePreview(Buffer.from('fake'));
@@ -789,7 +843,9 @@ describe('parsePreview', () => {
   it('should limit preview to 10 rows', () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     const rows = Array.from({ length: 15 }, (_, i) => ({
-      'Код': `P${i}`, 'Назва': `Test ${i}`, 'Ціна роздріб': `${i * 10}`,
+      Код: `P${i}`,
+      Назва: `Test ${i}`,
+      'Ціна роздріб': `${i * 10}`,
     }));
     mockXLSX.utils.sheet_to_json.mockReturnValue(rows as never);
 
@@ -819,7 +875,7 @@ describe('importProducts - supplier format with both prices null (skip row)', ()
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     // Supplier format: has name + price columns but row has invalid prices
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Назва': 'Bad Price Item', 'Ціна роздріб': 'abc', 'Ціна опт': 'xyz' },
+      { Назва: 'Bad Price Item', 'Ціна роздріб': 'abc', 'Ціна опт': 'xyz' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -834,7 +890,7 @@ describe('importProducts - supplier format with both prices null (skip row)', ()
   it('should handle non-Error thrown in row processing', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
     mockPrisma.product.findUnique.mockRejectedValueOnce('string error');
@@ -854,7 +910,7 @@ describe('getImportLogs - default params', () => {
     await getImportLogs();
 
     expect(mockPrisma.importLog.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 0, take: 20 })
+      expect.objectContaining({ skip: 0, take: 20 }),
     );
   });
 });
@@ -870,15 +926,13 @@ describe('importProducts - isAllowedUrl edge cases', () => {
     mockPrisma.category.findMany.mockResolvedValue([] as never);
   });
 
-
-
   it('should fail image download for invalid URL (isAllowedUrl catch)', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'https://' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Зображення: 'https://' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -897,7 +951,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
 
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'http://10.0.0.1/img.jpg' },
+      { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Зображення: 'http://10.0.0.1/img.jpg' },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -913,7 +967,12 @@ describe('importProducts - isAllowedUrl edge cases', () => {
   it('should fail image download for 192.168.x.x private IP', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'http://192.168.1.1/img.jpg' },
+      {
+        Код: 'P001',
+        Назва: 'Test',
+        'Ціна роздріб': '100',
+        Зображення: 'http://192.168.1.1/img.jpg',
+      },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -926,7 +985,12 @@ describe('importProducts - isAllowedUrl edge cases', () => {
   it('should fail image download for .local domain', async () => {
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'http://server.local/img.jpg' },
+      {
+        Код: 'P001',
+        Назва: 'Test',
+        'Ціна роздріб': '100',
+        Зображення: 'http://server.local/img.jpg',
+      },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -942,7 +1006,12 @@ describe('importProducts - isAllowedUrl edge cases', () => {
 
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'https://example.com/img.jpg' },
+      {
+        Код: 'P001',
+        Назва: 'Test',
+        'Ціна роздріб': '100',
+        Зображення: 'https://example.com/img.jpg',
+      },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -962,7 +1031,12 @@ describe('importProducts - isAllowedUrl edge cases', () => {
 
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'https://example.com/img.jpg' },
+      {
+        Код: 'P001',
+        Назва: 'Test',
+        'Ціна роздріб': '100',
+        Зображення: 'https://example.com/img.jpg',
+      },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -983,7 +1057,12 @@ describe('importProducts - isAllowedUrl edge cases', () => {
 
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'https://example.com/img.jpg' },
+      {
+        Код: 'P001',
+        Назва: 'Test',
+        'Ціна роздріб': '100',
+        Зображення: 'https://example.com/img.jpg',
+      },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -1003,7 +1082,12 @@ describe('importProducts - isAllowedUrl edge cases', () => {
 
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'https://example.com/img.jpg' },
+      {
+        Код: 'P001',
+        Назва: 'Test',
+        'Ціна роздріб': '100',
+        Зображення: 'https://example.com/img.jpg',
+      },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -1019,7 +1103,12 @@ describe('importProducts - isAllowedUrl edge cases', () => {
 
     mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     mockXLSX.utils.sheet_to_json.mockReturnValue([
-      { 'Код': 'P001', 'Назва': 'Test', 'Ціна роздріб': '100', 'Зображення': 'https://example.com/img.jpg' },
+      {
+        Код: 'P001',
+        Назва: 'Test',
+        'Ціна роздріб': '100',
+        Зображення: 'https://example.com/img.jpg',
+      },
     ] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
@@ -1027,5 +1116,159 @@ describe('importProducts - isAllowedUrl edge cases', () => {
 
     const result = await importProducts(fileBuffer, filename, managerId);
     expect(result.imagesFailed).toBe(1);
+  });
+});
+
+describe('importProducts — content fields (round-trip)', () => {
+  const fileBuffer = Buffer.from('fake-excel');
+  const filename = 'products_full.xlsx';
+  const managerId = 1;
+
+  beforeEach(() => {
+    mockPrisma.importLog.create.mockResolvedValue({ id: 1 } as never);
+    mockPrisma.importLog.update.mockResolvedValue({} as never);
+    mockPrisma.category.findMany.mockResolvedValue([] as never);
+    mockPrisma.productContent.create.mockResolvedValue({} as never);
+    mockPrisma.productContent.upsert.mockResolvedValue({} as never);
+    mockPrisma.priceHistory.create.mockResolvedValue({} as never);
+  });
+
+  it('should create ProductContent when description columns are present', async () => {
+    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
+    mockXLSX.utils.sheet_to_json.mockReturnValue([
+      {
+        Код: 'P010',
+        Назва: 'Гель для прання',
+        'Ціна роздріб': '200',
+        'Короткий опис': 'Гель 1л',
+        Опис: '<p>Гель для прання кольорової білизни</p>',
+        Характеристики: "Об'єм: 1л",
+        'SEO заголовок': 'Гель для прання купити',
+        'SEO опис': 'Купити гель для прання за найкращою ціною',
+        'SEO ключові слова': 'гель, прання, кольорова',
+      },
+    ] as never);
+
+    mockPrisma.product.findUnique.mockResolvedValue(null);
+    mockPrisma.product.create.mockResolvedValue({ id: 10, code: 'P010' } as never);
+    mockPrisma.productContent.create.mockResolvedValue({} as never);
+
+    const result = await importProducts(fileBuffer, filename, managerId);
+
+    expect(result.created).toBe(1);
+    expect(mockPrisma.productContent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        productId: 10,
+        shortDescription: 'Гель 1л',
+        description: '<p>Гель для прання кольорової білизни</p>',
+        specifications: "Об'єм: 1л",
+        seoTitle: 'Гель для прання купити',
+        seoDescription: 'Купити гель для прання за найкращою ціною',
+        seoKeywords: 'гель, прання, кольорова',
+      }),
+    });
+  });
+
+  it('should upsert ProductContent when updating existing product', async () => {
+    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
+    mockXLSX.utils.sheet_to_json.mockReturnValue([
+      {
+        Код: 'P010',
+        Назва: 'Гель для прання',
+        'Ціна роздріб': '250',
+        Опис: '<p>Оновлений опис</p>',
+        'SEO заголовок': 'Новий SEO title',
+      },
+    ] as never);
+
+    mockPrisma.product.findUnique.mockResolvedValue({
+      id: 10,
+      code: 'P010',
+      name: 'Гель для прання',
+      priceRetail: 200,
+      priceWholesale: null,
+    } as never);
+    mockPrisma.product.update.mockResolvedValue({ id: 10 } as never);
+    mockPrisma.productContent.upsert.mockResolvedValue({} as never);
+
+    const result = await importProducts(fileBuffer, filename, managerId);
+
+    expect(result.updated).toBe(1);
+    expect(mockPrisma.productContent.upsert).toHaveBeenCalledWith({
+      where: { productId: 10 },
+      update: expect.objectContaining({
+        description: '<p>Оновлений опис</p>',
+        seoTitle: 'Новий SEO title',
+      }),
+      create: expect.objectContaining({
+        productId: 10,
+        description: '<p>Оновлений опис</p>',
+        seoTitle: 'Новий SEO title',
+      }),
+    });
+  });
+
+  it('should not create ProductContent when no content columns present', async () => {
+    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
+    mockXLSX.utils.sheet_to_json.mockReturnValue([
+      { Код: 'P011', Назва: 'Мило', 'Ціна роздріб': '30' },
+    ] as never);
+
+    mockPrisma.product.findUnique.mockResolvedValue(null);
+    mockPrisma.product.create.mockResolvedValue({ id: 11 } as never);
+
+    await importProducts(fileBuffer, filename, managerId);
+
+    expect(mockPrisma.productContent.create).not.toHaveBeenCalled();
+    expect(mockPrisma.productContent.upsert).not.toHaveBeenCalled();
+  });
+
+  it('should handle English column names for content fields', async () => {
+    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
+    mockXLSX.utils.sheet_to_json.mockReturnValue([
+      {
+        Код: 'P012',
+        Назва: 'Soap',
+        'Ціна роздріб': '50',
+        description: 'Full description text',
+        seo_title: 'Buy soap online',
+      },
+    ] as never);
+
+    mockPrisma.product.findUnique.mockResolvedValue(null);
+    mockPrisma.product.create.mockResolvedValue({ id: 12 } as never);
+    mockPrisma.productContent.create.mockResolvedValue({} as never);
+
+    await importProducts(fileBuffer, filename, managerId);
+
+    expect(mockPrisma.productContent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        productId: 12,
+        description: 'Full description text',
+        seoTitle: 'Buy soap online',
+      }),
+    });
+  });
+
+  it('should skip empty content fields', async () => {
+    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
+    mockXLSX.utils.sheet_to_json.mockReturnValue([
+      {
+        Код: 'P013',
+        Назва: 'Empty Content',
+        'Ціна роздріб': '10',
+        'Короткий опис': '',
+        Опис: '',
+        'SEO заголовок': '',
+      },
+    ] as never);
+
+    mockPrisma.product.findUnique.mockResolvedValue(null);
+    mockPrisma.product.create.mockResolvedValue({ id: 13 } as never);
+
+    await importProducts(fileBuffer, filename, managerId);
+
+    // All content fields are empty, so no ProductContent should be created
+    expect(mockPrisma.productContent.create).not.toHaveBeenCalled();
   });
 });

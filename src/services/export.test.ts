@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockPrismaClient } from '@/test/prisma-mock';
-import { ExportError, exportOrders, exportClients, exportCatalog } from './export';
+import {
+  ExportError,
+  exportOrders,
+  exportClients,
+  exportCatalog,
+  exportProductsFull,
+} from './export';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -308,5 +314,123 @@ describe('exportCatalog - csv content type', () => {
 
     const result = await exportCatalog({ format: 'csv' });
     expect(result.contentType).toBe('text/csv');
+  });
+});
+
+describe('exportProductsFull', () => {
+  const mockProductFull = {
+    code: 'P001',
+    name: 'Порошок для прання',
+    category: { name: 'Прання' },
+    priceRetail: 150,
+    priceWholesale: 120,
+    priceWholesale2: 110,
+    priceWholesale3: 100,
+    quantity: 50,
+    isPromo: false,
+    isActive: true,
+    content: {
+      shortDescription: 'Короткий опис товару',
+      description: '<p>Повний опис</p>',
+      specifications: 'Вага: 1кг',
+      seoTitle: 'SEO Title',
+      seoDescription: 'SEO Description',
+      seoKeywords: 'порошок, прання',
+    },
+    images: [{ pathOriginal: '/uploads/p001-1.jpg' }, { pathOriginal: '/uploads/p001-2.jpg' }],
+    badges: [{ badgeType: 'new_arrival' }, { badgeType: 'eco' }],
+  };
+
+  it('should return xlsx buffer with full product data', async () => {
+    mockPrisma.product.findMany.mockResolvedValue([mockProductFull] as never);
+
+    const result = await exportProductsFull();
+    expect(Buffer.isBuffer(result.buffer)).toBe(true);
+    expect(result.filename).toContain('products_full_');
+    expect(result.filename).toMatch('.xlsx');
+    expect(result.contentType).toContain('spreadsheet');
+  });
+
+  it('should export single product with correct filename', async () => {
+    mockPrisma.product.findMany.mockResolvedValue([mockProductFull] as never);
+
+    const result = await exportProductsFull({ ids: [42] });
+    expect(result.filename).toContain('product_42_');
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: [42] } },
+      }),
+    );
+  });
+
+  it('should export multiple selected products', async () => {
+    mockPrisma.product.findMany.mockResolvedValue([mockProductFull, mockProductFull] as never);
+
+    const result = await exportProductsFull({ ids: [1, 2, 3] });
+    expect(result.filename).toContain('products_full_');
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: [1, 2, 3] } },
+      }),
+    );
+  });
+
+  it('should export all active products when no ids provided', async () => {
+    mockPrisma.product.findMany.mockResolvedValue([] as never);
+
+    await exportProductsFull();
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { isActive: true, deletedAt: null },
+      }),
+    );
+  });
+
+  it('should support csv format', async () => {
+    mockPrisma.product.findMany.mockResolvedValue([] as never);
+
+    const result = await exportProductsFull({ format: 'csv' });
+    expect(result.filename).toMatch('.csv');
+    expect(result.contentType).toBe('text/csv');
+  });
+
+  it('should handle product without content', async () => {
+    mockPrisma.product.findMany.mockResolvedValue([
+      { ...mockProductFull, content: null, images: [], badges: [] },
+    ] as never);
+
+    const result = await exportProductsFull();
+    expect(Buffer.isBuffer(result.buffer)).toBe(true);
+  });
+
+  it('should join image paths with semicolons', async () => {
+    mockPrisma.product.findMany.mockResolvedValue([mockProductFull] as never);
+
+    const result = await exportProductsFull({ format: 'csv' });
+    const csv = result.buffer.toString('utf-8');
+    expect(csv).toContain('/uploads/p001-1.jpg; /uploads/p001-2.jpg');
+  });
+
+  it('should join badge types with commas', async () => {
+    mockPrisma.product.findMany.mockResolvedValue([mockProductFull] as never);
+
+    const result = await exportProductsFull({ format: 'csv' });
+    const csv = result.buffer.toString('utf-8');
+    expect(csv).toContain('new_arrival, eco');
+  });
+
+  it('should include content columns in xlsx', async () => {
+    mockPrisma.product.findMany.mockResolvedValue([mockProductFull] as never);
+
+    const result = await exportProductsFull();
+    expect(Buffer.isBuffer(result.buffer)).toBe(true);
+    // Verify it includes content-related headers by checking CSV representation
+    const csvResult = await exportProductsFull({ format: 'csv' });
+    const csv = csvResult.buffer.toString('utf-8');
+    expect(csv).toContain('Короткий опис');
+    expect(csv).toContain('SEO заголовок');
+    expect(csv).toContain('Характеристики');
+    expect(csv).toContain('Зображення');
+    expect(csv).toContain('Бейджі');
   });
 });

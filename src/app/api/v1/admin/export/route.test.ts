@@ -1,19 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
+}));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/export', () => ({
   exportOrders: vi.fn(),
   exportClients: vi.fn(),
   exportCatalog: vi.fn(),
-  ExportError: class ExportError extends Error { statusCode = 400; },
+  exportProductsFull: vi.fn(),
+  ExportError: class ExportError extends Error {
+    statusCode = 400;
+  },
 }));
 
 import { GET } from './route';
-import { exportOrders, exportClients, exportCatalog } from '@/services/export';
+import { exportOrders, exportClients, exportCatalog, exportProductsFull } from '@/services/export';
 
 describe('GET /api/v1/admin/export', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('exports orders on success', async () => {
     vi.mocked(exportOrders).mockResolvedValue({
@@ -79,5 +99,41 @@ describe('GET /api/v1/admin/export', () => {
     const req = new Request('http://localhost/api/v1/admin/export?type=orders');
     const res = await GET(req as any);
     expect(res.status).toBe(500);
+  });
+
+  it('exports products_full on success', async () => {
+    vi.mocked(exportProductsFull).mockResolvedValue({
+      buffer: new ArrayBuffer(8) as any,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      filename: 'products_full.xlsx',
+    });
+    const req = new Request('http://localhost/api/v1/admin/export?type=products_full');
+    const res = await GET(req as any);
+    expect(res.status).toBe(200);
+    expect(vi.mocked(exportProductsFull)).toHaveBeenCalledWith({ ids: undefined, format: 'xlsx' });
+  });
+
+  it('passes ids param to exportProductsFull', async () => {
+    vi.mocked(exportProductsFull).mockResolvedValue({
+      buffer: new ArrayBuffer(8) as any,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      filename: 'product_42.xlsx',
+    });
+    const req = new Request('http://localhost/api/v1/admin/export?type=products_full&ids=42,55');
+    const res = await GET(req as any);
+    expect(res.status).toBe(200);
+    expect(vi.mocked(exportProductsFull)).toHaveBeenCalledWith({ ids: [42, 55], format: 'xlsx' });
+  });
+
+  it('supports csv format for products_full', async () => {
+    vi.mocked(exportProductsFull).mockResolvedValue({
+      buffer: new ArrayBuffer(8) as any,
+      contentType: 'text/csv',
+      filename: 'products_full.csv',
+    });
+    const req = new Request('http://localhost/api/v1/admin/export?type=products_full&format=csv');
+    const res = await GET(req as any);
+    expect(res.status).toBe(200);
+    expect(vi.mocked(exportProductsFull)).toHaveBeenCalledWith({ ids: undefined, format: 'csv' });
   });
 });
