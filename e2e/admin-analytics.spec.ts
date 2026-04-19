@@ -8,7 +8,7 @@ test.describe('Admin Analytics Dashboard', () => {
 
   test('should access admin analytics page', async ({ page }) => {
     await page.goto('/admin/analytics');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin');
     await expect(page.locator('body')).toBeVisible();
@@ -16,7 +16,7 @@ test.describe('Admin Analytics Dashboard', () => {
 
   test('should render analytics dashboard', async ({ page }) => {
     await page.goto('/admin/analytics');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const pageTitle = page.locator('h1, h2');
     await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });
@@ -24,7 +24,7 @@ test.describe('Admin Analytics Dashboard', () => {
 
   test('should not show error state', async ({ page }) => {
     await page.goto('/admin/analytics');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Page should not show a 500 or error boundary
     const errorBoundary = page.locator('[data-testid="error-boundary"], .error-boundary');

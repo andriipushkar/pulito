@@ -7,7 +7,7 @@ test.describe('Payment Flow', () => {
 
     // Add product to cart
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const addToCartBtn = page
       .locator('button:has-text("Купити"), button:has-text("В кошик")')
@@ -19,13 +19,16 @@ test.describe('Payment Flow', () => {
 
     // Go to checkout
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for payment method options
     const paymentOptions = page.locator(
-      'input[name="paymentMethod"], [data-testid="payment-method"], text=/оплат|payment/i'
+      'input[name="paymentMethod"], [data-testid="payment-method"], text=/оплат|payment/i',
     );
-    const hasPayment = await paymentOptions.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const hasPayment = await paymentOptions
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     await expect(page.locator('body')).toBeVisible();
   });
@@ -35,23 +38,21 @@ test.describe('Payment Flow', () => {
 
     // Add product
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const addBtn = page
-      .locator('button:has-text("Купити"), button:has-text("В кошик")')
-      .first();
+    const addBtn = page.locator('button:has-text("Купити"), button:has-text("В кошик")').first();
     if (await addBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await addBtn.click();
       await page.waitForTimeout(500);
     }
 
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Select online payment
     const onlinePayment = page
       .locator(
-        'input[value="online"], label:has-text("Онлайн"), label:has-text("Картою"), [data-testid="payment-online"]'
+        'input[value="online"], label:has-text("Онлайн"), label:has-text("Картою"), [data-testid="payment-online"]',
       )
       .first();
 
@@ -60,10 +61,11 @@ test.describe('Payment Flow', () => {
       await page.waitForTimeout(500);
 
       // Verify that online payment info is shown
-      const paymentInfo = page.locator(
-        'text=/LiqPay|Monobank|картк|card|онлайн/i'
-      );
-      const hasInfo = await paymentInfo.first().isVisible({ timeout: 3000 }).catch(() => false);
+      const paymentInfo = page.locator('text=/LiqPay|Monobank|картк|card|онлайн/i');
+      const hasInfo = await paymentInfo
+        .first()
+        .isVisible({ timeout: 3000 })
+        .catch(() => false);
 
       await expect(page.locator('body')).toBeVisible();
     }
@@ -74,23 +76,19 @@ test.describe('Payment Flow', () => {
 
     // Add product
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const addBtn = page
-      .locator('button:has-text("Купити"), button:has-text("В кошик")')
-      .first();
+    const addBtn = page.locator('button:has-text("Купити"), button:has-text("В кошик")').first();
     if (await addBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await addBtn.click();
       await page.waitForTimeout(500);
     }
 
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Fill checkout form
-    const nameInput = page
-      .locator('input[name="contactName"], input[name="name"]')
-      .first();
+    const nameInput = page.locator('input[name="contactName"], input[name="name"]').first();
     const phoneInput = page
       .locator('input[name="contactPhone"], input[name="phone"], input[type="tel"]')
       .first();
@@ -104,9 +102,7 @@ test.describe('Payment Flow', () => {
 
     // Select online payment
     const onlinePayment = page
-      .locator(
-        'input[value="online"], label:has-text("Онлайн"), label:has-text("Картою")'
-      )
+      .locator('input[value="online"], label:has-text("Онлайн"), label:has-text("Картою")')
       .first();
 
     if (await onlinePayment.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -117,7 +113,7 @@ test.describe('Payment Flow', () => {
     // Submit order
     const submitBtn = page
       .locator(
-        'button:has-text("Оформити"), button:has-text("Замовити"), button:has-text("Підтвердити"), button[type="submit"]'
+        'button:has-text("Оформити"), button:has-text("Замовити"), button:has-text("Підтвердити"), button[type="submit"]',
       )
       .first();
 
@@ -149,24 +145,30 @@ test.describe('Payment Flow', () => {
 
   test('should show COD payment option', async ({ page }) => {
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const codOption = page.locator(
-      'input[value="cod"], label:has-text("Накладений платіж"), label:has-text("При отриманні"), text=/накладений/i'
+      'input[value="cod"], label:has-text("Накладений платіж"), label:has-text("При отриманні"), text=/накладений/i',
     );
-    const hasCod = await codOption.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const hasCod = await codOption
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     await expect(page.locator('body')).toBeVisible();
   });
 
   test('should show bank transfer option', async ({ page }) => {
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const bankOption = page.locator(
-      'input[value="bank_transfer"], label:has-text("Банківський переказ"), label:has-text("На рахунок"), text=/банківськ/i'
+      'input[value="bank_transfer"], label:has-text("Банківський переказ"), label:has-text("На рахунок"), text=/банківськ/i',
     );
-    const hasBank = await bankOption.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const hasBank = await bankOption
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     await expect(page.locator('body')).toBeVisible();
   });

@@ -8,7 +8,7 @@ test.describe('Admin Feature Flags', () => {
 
   test('should access feature flags page', async ({ page }) => {
     await page.goto('/admin/feature-flags');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin/feature-flags');
 
@@ -18,7 +18,7 @@ test.describe('Admin Feature Flags', () => {
 
   test('should display feature flags heading', async ({ page }) => {
     await page.goto('/admin/feature-flags');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const heading = page.locator('h1, h2');
     await expect(heading.first()).toBeVisible({ timeout: 5000 });
@@ -26,14 +26,17 @@ test.describe('Admin Feature Flags', () => {
 
   test('should display feature flags list or empty state', async ({ page }) => {
     await page.goto('/admin/feature-flags');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const table = page.locator('table');
     const list = page.locator('[class*="grid"], [class*="list"]');
     const emptyState = page.locator('text=/Немає прапорців|Прапорці відсутні|No feature flags/i');
 
     const hasTable = await table.isVisible({ timeout: 5000 }).catch(() => false);
-    const hasList = await list.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasList = await list
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
     const hasEmpty = await emptyState.isVisible({ timeout: 3000 }).catch(() => false);
 
     // At least the page should render
@@ -42,16 +45,27 @@ test.describe('Admin Feature Flags', () => {
 
   test('should have create form or button', async ({ page }) => {
     await page.goto('/admin/feature-flags');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for create form (inline) or add button
     const createForm = page.locator('form');
     const addButton = page.locator('button', { hasText: /Додати|Створити|Create/i });
-    const nameInput = page.locator('input[name="name"], input[placeholder*="Назва"], input[placeholder*="name"]');
+    const nameInput = page.locator(
+      'input[name="name"], input[placeholder*="Назва"], input[placeholder*="name"]',
+    );
 
-    const hasForm = await createForm.first().isVisible({ timeout: 5000 }).catch(() => false);
-    const hasButton = await addButton.first().isVisible({ timeout: 3000 }).catch(() => false);
-    const hasInput = await nameInput.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasForm = await createForm
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    const hasButton = await addButton
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
+    const hasInput = await nameInput
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
 
     expect(hasForm || hasButton || hasInput).toBeTruthy();
   });

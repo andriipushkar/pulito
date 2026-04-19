@@ -3,11 +3,11 @@ import { test, expect } from '@playwright/test';
 test.describe('Mega Menu', () => {
   test('should show subcategories on hover over a category', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // The category nav is hidden on mobile; ensure desktop viewport
     const categoryNav = page.locator('nav[aria-label="Категорії"]');
-    if (!await categoryNav.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await categoryNav.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -52,10 +52,10 @@ test.describe('Mega Menu', () => {
 
   test('should close mega-menu when moving mouse away', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const categoryNav = page.locator('nav[aria-label="Категорії"]');
-    if (!await categoryNav.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await categoryNav.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -92,10 +92,10 @@ test.describe('Mega Menu', () => {
 
   test('should close mega-menu on Escape key', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const categoryNav = page.locator('nav[aria-label="Категорії"]');
-    if (!await categoryNav.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await categoryNav.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -113,7 +113,7 @@ test.describe('Mega Menu', () => {
     }
 
     const megaMenu = page.locator('[data-testid="mega-menu-panel"]');
-    if (!await megaMenu.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (!(await megaMenu.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip();
       return;
     }

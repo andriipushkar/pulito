@@ -9,7 +9,7 @@ test.describe('Account Finance', () => {
 
   test('should load financial dashboard', async ({ page }) => {
     await page.goto('/account/finance');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const dashboard = page.locator('main, [data-testid="finance-dashboard"], .finance, .dashboard');
     await expect(dashboard.first()).toBeVisible({ timeout: 10000 });
@@ -17,7 +17,7 @@ test.describe('Account Finance', () => {
 
   test('should display metrics cards', async ({ page }) => {
     await page.goto('/account/finance');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const cards = page.locator(
       '[data-testid="metric-card"], .metric-card, .stat-card, .card, [class*="card"]',
@@ -39,7 +39,7 @@ test.describe('Account Finance', () => {
 
   test('should render chart or graph element', async ({ page }) => {
     await page.goto('/account/finance');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const chart = page
       .locator('canvas, svg, [data-testid="chart"], .chart, .recharts-wrapper, [class*="chart"]')
@@ -55,7 +55,7 @@ test.describe('Account Finance', () => {
   test('should restrict access for unauthenticated users', async ({ page }) => {
     await logout(page);
     await page.goto('/account/finance');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should redirect to login or show unauthorized
     const isRedirected = page.url().includes('/auth/login') || page.url().includes('/login');
@@ -67,7 +67,7 @@ test.describe('Account Finance', () => {
 
   test('should show date range or period selector if available', async ({ page }) => {
     await page.goto('/account/finance');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const periodSelector = page
       .locator(

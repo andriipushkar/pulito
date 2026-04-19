@@ -9,7 +9,7 @@ test.describe('Volume Pricing', () => {
 
     test('should access admin volume discounts page', async ({ page }) => {
       await page.goto('/admin/volume-discounts');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       expect(page.url()).toContain('/admin/volume-discounts');
 
@@ -20,7 +20,7 @@ test.describe('Volume Pricing', () => {
 
     test('should display volume discounts table or empty state', async ({ page }) => {
       await page.goto('/admin/volume-discounts');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Should have a table or empty state
       const table = page.locator('table');
@@ -34,7 +34,7 @@ test.describe('Volume Pricing', () => {
 
     test('should have create button', async ({ page }) => {
       await page.goto('/admin/volume-discounts');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const addButton = page.locator('button:has-text("Додати знижку")');
       await expect(addButton).toBeVisible({ timeout: 5000 });
@@ -45,11 +45,14 @@ test.describe('Volume Pricing', () => {
     test('should show volume discount badge on product with discount', async ({ page }) => {
       // Navigate to catalog / products page
       await page.goto('/');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for volume discount badge anywhere on the page
       const badge = page.locator('[data-testid="volume-discount-badge"]');
-      const hasBadge = await badge.first().isVisible({ timeout: 5000 }).catch(() => false);
+      const hasBadge = await badge
+        .first()
+        .isVisible({ timeout: 5000 })
+        .catch(() => false);
 
       // Badge may or may not be present depending on data - just verify page loads
       expect(typeof hasBadge).toBe('boolean');

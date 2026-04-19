@@ -4,23 +4,23 @@ import { loginViaUI, TEST_USERS } from './helpers/auth';
 test.describe('Pricelist Download', () => {
   test('should navigate to pricelist page', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for pricelist link in navigation or footer
     const pricelistLink = page
       .locator(
-        'a:has-text("Прайс"), a:has-text("прайс"), a[href*="pricelist"], a[href*="price-list"]'
+        'a:has-text("Прайс"), a:has-text("прайс"), a[href*="pricelist"], a[href*="price-list"]',
       )
       .first();
 
     if (await pricelistLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await pricelistLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       await expect(page.locator('body')).toBeVisible();
     } else {
       // Try direct navigation
       await page.goto('/pricelist');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       await expect(page.locator('body')).toBeVisible();
     }
   });
@@ -30,12 +30,12 @@ test.describe('Pricelist Download', () => {
 
     // Try direct pricelist page
     await page.goto('/pricelist');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for download button
     const downloadBtn = page
       .locator(
-        'a:has-text("Завантажити"), button:has-text("Завантажити"), a:has-text("Скачати"), a[href*="download"], [data-testid="download-pricelist"]'
+        'a:has-text("Завантажити"), button:has-text("Завантажити"), a:has-text("Скачати"), a[href*="download"], [data-testid="download-pricelist"]',
       )
       .first();
 
@@ -55,7 +55,7 @@ test.describe('Pricelist Download', () => {
           filename.endsWith('.xlsx') ||
             filename.endsWith('.xls') ||
             filename.endsWith('.csv') ||
-            filename.endsWith('.pdf')
+            filename.endsWith('.pdf'),
         ).toBeTruthy();
       }
     }
@@ -69,7 +69,7 @@ test.describe('Pricelist Download', () => {
     await loginViaUI(page, TEST_USERS.admin.email, TEST_USERS.admin.password);
 
     await page.goto('/pricelist');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should see pricelist content (not 403)
     await expect(page.locator('body')).toBeVisible();

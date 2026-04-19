@@ -5,7 +5,7 @@ test.describe('Notifications', () => {
   test.describe('Notification bell in header', () => {
     test('should not show notification bell for unauthenticated users', async ({ page }) => {
       await page.goto('/');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // The bell icon link should not be visible when not logged in
       const bellLink = page.locator('a[href="/account/notifications"]');
@@ -17,7 +17,7 @@ test.describe('Notifications', () => {
       await loginViaUI(page, TEST_USERS.client.email, TEST_USERS.client.password);
 
       await page.goto('/');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // The bell link should be visible (at least on desktop)
       const bellLink = page.locator('a[href="/account/notifications"]');
@@ -34,16 +34,16 @@ test.describe('Notifications', () => {
       await loginViaUI(page, TEST_USERS.client.email, TEST_USERS.client.password);
 
       await page.goto('/');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const bellLink = page.locator('a[href="/account/notifications"]');
-      if (!await bellLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+      if (!(await bellLink.isVisible({ timeout: 5000 }).catch(() => false))) {
         test.skip();
         return;
       }
 
       await bellLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       expect(page.url()).toContain('/account/notifications');
     });
@@ -56,7 +56,7 @@ test.describe('Notifications', () => {
 
     test('should load notifications page', async ({ page }) => {
       await page.goto('/account/notifications');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Should show either notification list or empty state
       const main = page.locator('main');
@@ -65,7 +65,7 @@ test.describe('Notifications', () => {
 
     test('should show notification heading or empty state', async ({ page }) => {
       await page.goto('/account/notifications');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Either "Сповіщення" heading or empty state should appear
       const heading = page.locator('h2', { hasText: /Сповіщення/i });
@@ -79,10 +79,10 @@ test.describe('Notifications', () => {
 
     test('should display unread count badge when notifications exist', async ({ page }) => {
       await page.goto('/account/notifications');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const heading = page.locator('h2', { hasText: /Сповіщення/i });
-      if (!await heading.isVisible({ timeout: 5000 }).catch(() => false)) {
+      if (!(await heading.isVisible({ timeout: 5000 }).catch(() => false))) {
         // No notifications -- empty state
         test.skip();
         return;
@@ -96,9 +96,11 @@ test.describe('Notifications', () => {
       await expect(page.locator('body')).toBeVisible();
     });
 
-    test('should show "mark all as read" button when unread notifications exist', async ({ page }) => {
+    test('should show "mark all as read" button when unread notifications exist', async ({
+      page,
+    }) => {
       await page.goto('/account/notifications');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const markAllButton = page.locator('button', { hasText: /Позначити всі як прочитані/i });
       const _hasButton = await markAllButton.isVisible({ timeout: 3000 }).catch(() => false);
@@ -109,7 +111,7 @@ test.describe('Notifications', () => {
 
     test('should display notification items with title, message, and date', async ({ page }) => {
       await page.goto('/account/notifications');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for notification items
       const notificationItems = page.locator('.space-y-2 > a, .space-y-2 > div').filter({

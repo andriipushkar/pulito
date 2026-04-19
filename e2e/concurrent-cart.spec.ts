@@ -17,7 +17,7 @@ test.describe('Concurrent Cart Operations', () => {
 
       // Context 1: Navigate to catalog and add a product
       await page1.goto('/catalog');
-      await page1.waitForLoadState('networkidle');
+      await page1.waitForLoadState('domcontentloaded');
 
       const addToCartBtn1 = page1
         .locator('button:has-text("Купити"), button:has-text("В кошик")')
@@ -30,7 +30,7 @@ test.describe('Concurrent Cart Operations', () => {
 
       // Context 2: Navigate to catalog and add a different product
       await page2.goto('/catalog');
-      await page2.waitForLoadState('networkidle');
+      await page2.waitForLoadState('domcontentloaded');
 
       // Try to add the second product (if available)
       const productCards = page2.locator('[data-testid="product-card"], .product-card, article');
@@ -58,20 +58,20 @@ test.describe('Concurrent Cart Operations', () => {
 
       // Context 1: Check cart reflects items
       await page1.goto('/cart');
-      await page1.waitForLoadState('networkidle');
+      await page1.waitForLoadState('domcontentloaded');
       await expect(page1.locator('body')).toBeVisible();
 
       // Context 2: Check cart reflects items
       await page2.goto('/cart');
-      await page2.waitForLoadState('networkidle');
+      await page2.waitForLoadState('domcontentloaded');
       await expect(page2.locator('body')).toBeVisible();
 
       // Both carts should be visible and functional
       const cart1Items = page1.locator(
-        '[data-testid="cart-item"], .cart-item, tr, [class*="cart-product"]'
+        '[data-testid="cart-item"], .cart-item, tr, [class*="cart-product"]',
       );
       const cart2Items = page2.locator(
-        '[data-testid="cart-item"], .cart-item, tr, [class*="cart-product"]'
+        '[data-testid="cart-item"], .cart-item, tr, [class*="cart-product"]',
       );
 
       // At least the cart pages load
@@ -92,11 +92,9 @@ test.describe('Concurrent Cart Operations', () => {
 
       // Add a product
       await page.goto('/catalog');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
-      const addBtn = page
-        .locator('button:has-text("Купити"), button:has-text("В кошик")')
-        .first();
+      const addBtn = page.locator('button:has-text("Купити"), button:has-text("В кошик")').first();
       if (await addBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
         await addBtn.click();
         await page.waitForTimeout(500);
@@ -104,12 +102,10 @@ test.describe('Concurrent Cart Operations', () => {
 
       // Go to cart
       await page.goto('/cart');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Try to update quantity
-      const quantityInput = page
-        .locator('input[type="number"], input[name="quantity"]')
-        .first();
+      const quantityInput = page.locator('input[type="number"], input[name="quantity"]').first();
 
       if (await quantityInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         await quantityInput.fill('5');
@@ -136,10 +132,10 @@ test.describe('Concurrent Cart Operations', () => {
 
       // Open catalog in both tabs (same context = shared cookies)
       await page1.goto('/catalog');
-      await page1.waitForLoadState('networkidle');
+      await page1.waitForLoadState('domcontentloaded');
 
       await page2.goto('/catalog');
-      await page2.waitForLoadState('networkidle');
+      await page2.waitForLoadState('domcontentloaded');
 
       // Add same product from both tabs simultaneously
       const addBtn1 = page1
@@ -162,7 +158,7 @@ test.describe('Concurrent Cart Operations', () => {
 
       // Check cart — should not have duplicate entries, just increased quantity
       await page1.goto('/cart');
-      await page1.waitForLoadState('networkidle');
+      await page1.waitForLoadState('domcontentloaded');
       await expect(page1.locator('body')).toBeVisible();
     } finally {
       await context.close();

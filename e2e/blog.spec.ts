@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Blog', () => {
   test('blog listing page loads', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const main = page.locator('main');
     await expect(main).toBeVisible();
@@ -15,7 +15,7 @@ test.describe('Blog', () => {
 
   test('should display blog posts', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Blog posts should be visible as links or article cards
     const postLinks = page.locator('a[href*="/blog/"]');
@@ -33,16 +33,16 @@ test.describe('Blog', () => {
 
   test('should navigate to blog post detail page', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const postLink = page.locator('a[href*="/blog/"]').first();
-    if (!await postLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await postLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await postLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // URL should contain /blog/ with a slug
     expect(page.url()).toMatch(/\/blog\/.+/);
@@ -58,15 +58,17 @@ test.describe('Blog', () => {
 
   test('should navigate to category filter and update URL', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for category filter links or select
-    const categoryLink = page.locator('a[href*="/blog?category"], a[href*="/blog/?category"]').first();
+    const categoryLink = page
+      .locator('a[href*="/blog?category"], a[href*="/blog/?category"]')
+      .first();
     const categorySelect = page.locator('select').first();
 
     if (await categoryLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await categoryLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       expect(page.url()).toContain('category');
     } else if (await categorySelect.isVisible({ timeout: 3000 }).catch(() => false)) {
       const options = categorySelect.locator('option');
@@ -83,20 +85,25 @@ test.describe('Blog', () => {
 
   test('should have breadcrumbs on blog post', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const postLink = page.locator('a[href*="/blog/"]').first();
-    if (!await postLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await postLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await postLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for breadcrumb navigation
-    const breadcrumb = page.locator('nav[aria-label*="breadcrumb"], nav[aria-label*="Breadcrumb"], [class*="breadcrumb"], ol > li > a[href="/blog"]');
-    const hasBreadcrumb = await breadcrumb.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const breadcrumb = page.locator(
+      'nav[aria-label*="breadcrumb"], nav[aria-label*="Breadcrumb"], [class*="breadcrumb"], ol > li > a[href="/blog"]',
+    );
+    const hasBreadcrumb = await breadcrumb
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
 
     // Breadcrumbs are expected but not blocking
     if (hasBreadcrumb) {
@@ -108,7 +115,7 @@ test.describe('Blog', () => {
 
   test('should have meta tags on blog page', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Check title exists
     const title = await page.title();

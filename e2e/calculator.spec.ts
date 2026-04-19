@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Calculator', () => {
   test('calculator page loads with step 1 form', async ({ page }) => {
     await page.goto('/calculator');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const heading = page.locator('h1');
     await expect(heading).toBeVisible({ timeout: 5000 });
@@ -14,9 +14,11 @@ test.describe('Calculator', () => {
     await expect(step1).toBeVisible({ timeout: 5000 });
   });
 
-  test('step 1: should have family size slider and cleaning frequency options', async ({ page }) => {
+  test('step 1: should have family size slider and cleaning frequency options', async ({
+    page,
+  }) => {
     await page.goto('/calculator');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Family size slider
     const slider = page.locator('input[type="range"]').first();
@@ -30,7 +32,7 @@ test.describe('Calculator', () => {
 
   test('should navigate from step 1 to step 2 (room selection)', async ({ page }) => {
     await page.goto('/calculator');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Fill step 1 — adjust family size
     const slider = page.locator('input[type="range"]').first();
@@ -55,7 +57,7 @@ test.describe('Calculator', () => {
 
   test('should select rooms and see configuration inputs', async ({ page }) => {
     await page.goto('/calculator');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Move to step 2
     const submitButton = page.locator('button[type="submit"]', { hasText: /Розрахувати/i });
@@ -78,7 +80,7 @@ test.describe('Calculator', () => {
 
   test('full flow: step 1 → step 2 → step 3 results', async ({ page }) => {
     await page.goto('/calculator');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Step 1: fill household info
     const slider = page.locator('input[type="range"]').first();
@@ -110,7 +112,7 @@ test.describe('Calculator', () => {
 
   test('should navigate back from step 2 to step 1', async ({ page }) => {
     await page.goto('/calculator');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Go to step 2
     const submitButton = page.locator('button[type="submit"]', { hasText: /Розрахувати/i });
@@ -129,7 +131,7 @@ test.describe('Calculator', () => {
 
   test('should show "Додати все в кошик" button in results', async ({ page }) => {
     await page.goto('/calculator');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Navigate to step 3
     const submitButton = page.locator('button[type="submit"]', { hasText: /Розрахувати/i });

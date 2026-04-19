@@ -4,7 +4,7 @@ import { loginViaUI, TEST_USERS } from './helpers/auth';
 test.describe('Account Notes', () => {
   test('requires authentication', async ({ page }) => {
     await page.goto('/account/notes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should redirect to login or show the page
     await expect(page).toHaveURL(/login|notes/);
@@ -17,7 +17,7 @@ test.describe('Account Notes', () => {
 
     test('should load notes page', async ({ page }) => {
       await page.goto('/account/notes');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const main = page.locator('main');
       await expect(main).toBeVisible({ timeout: 5000 });
@@ -29,7 +29,7 @@ test.describe('Account Notes', () => {
 
     test('should display notes list or empty state', async ({ page }) => {
       await page.goto('/account/notes');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Either notes are listed or an empty state is shown
       const noteItems = page
@@ -53,7 +53,7 @@ test.describe('Account Notes', () => {
 
     test('should have create note button or form', async ({ page }) => {
       await page.goto('/account/notes');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for a create/add note button or form
       const addButton = page
@@ -79,7 +79,7 @@ test.describe('Account Notes', () => {
 
     test('should link notes to products when available', async ({ page }) => {
       await page.goto('/account/notes');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // If notes exist, check for product links
       const productLinks = page.locator('a[href*="/product/"]');
@@ -96,7 +96,7 @@ test.describe('Account Notes', () => {
 
     test('should handle note deletion gracefully', async ({ page }) => {
       await page.goto('/account/notes');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for a delete button on existing notes
       const deleteButton = page

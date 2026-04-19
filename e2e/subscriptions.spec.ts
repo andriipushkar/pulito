@@ -4,7 +4,7 @@ import { loginViaUI, TEST_USERS } from './helpers/auth';
 test.describe('Subscriptions', () => {
   test('requires authentication', async ({ page }) => {
     await page.goto('/account/subscriptions');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should either redirect to login or show the subscriptions page
     await expect(page).toHaveURL(/login|subscriptions/);
@@ -17,7 +17,7 @@ test.describe('Subscriptions', () => {
 
     test('should load subscriptions page with title', async ({ page }) => {
       await page.goto('/account/subscriptions');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const main = page.locator('main');
       await expect(main).toBeVisible({ timeout: 5000 });
@@ -29,14 +29,17 @@ test.describe('Subscriptions', () => {
 
     test('should show subscriptions or empty state', async ({ page }) => {
       await page.goto('/account/subscriptions');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Either subscription list or empty state
       const emptyState = page.locator('text=/Немає підписок|Підписки відсутні|У вас немає/i');
       const subscriptionItems = page.locator('a[href*="/subscription"], [class*="subscription"]');
 
       const hasEmpty = await emptyState.isVisible({ timeout: 5000 }).catch(() => false);
-      const hasItems = await subscriptionItems.first().isVisible({ timeout: 3000 }).catch(() => false);
+      const hasItems = await subscriptionItems
+        .first()
+        .isVisible({ timeout: 3000 })
+        .catch(() => false);
 
       // At least one should be visible
       expect(hasEmpty || hasItems).toBeTruthy();

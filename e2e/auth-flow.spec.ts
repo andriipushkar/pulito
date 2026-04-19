@@ -4,7 +4,7 @@ import { loginViaUI, logout, TEST_USERS } from './helpers/auth';
 test.describe('Full Auth Flow', () => {
   test('should register a new user', async ({ page }) => {
     await page.goto('/auth/register');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const emailInput = page.locator('input[type="email"]');
     const passwordInput = page.locator('input[type="password"]').first();
@@ -29,7 +29,9 @@ test.describe('Full Auth Flow', () => {
     const successMsg = page.locator('text=/успішно|Вітаємо|підтвердження/i');
     const redirected = !isOnRegister;
 
-    expect(redirected || await successMsg.isVisible({ timeout: 3000 }).catch(() => false)).toBeTruthy();
+    expect(
+      redirected || (await successMsg.isVisible({ timeout: 3000 }).catch(() => false)),
+    ).toBeTruthy();
   });
 
   test('should login with valid credentials', async ({ page }) => {
@@ -49,7 +51,9 @@ test.describe('Full Auth Flow', () => {
     // Should stay on login page or show error
     const isOnLogin = page.url().includes('/auth/login');
     const errorMsg = page.locator('text=/помилк|невірн|incorrect|invalid/i');
-    expect(isOnLogin || await errorMsg.isVisible({ timeout: 3000 }).catch(() => false)).toBeTruthy();
+    expect(
+      isOnLogin || (await errorMsg.isVisible({ timeout: 3000 }).catch(() => false)),
+    ).toBeTruthy();
   });
 
   test('should access profile when logged in', async ({ page }) => {
@@ -57,19 +61,23 @@ test.describe('Full Auth Flow', () => {
 
     // Navigate to profile/account page
     await page.goto('/account');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should show account page (not redirect to login)
     const profileContent = page.locator('text=/профіль|акаунт|account|Тестовий Клієнт/i');
     const isOnAccount = page.url().includes('/account');
-    expect(isOnAccount || await profileContent.isVisible({ timeout: 5000 }).catch(() => false)).toBeTruthy();
+    expect(
+      isOnAccount || (await profileContent.isVisible({ timeout: 5000 }).catch(() => false)),
+    ).toBeTruthy();
   });
 
   test('should logout successfully', async ({ page }) => {
     await loginViaUI(page, TEST_USERS.client.email, TEST_USERS.client.password);
 
     // Find and click logout button/link
-    const logoutBtn = page.locator('button:has-text("Вийти"), a:has-text("Вийти"), [data-testid="logout"]').first();
+    const logoutBtn = page
+      .locator('button:has-text("Вийти"), a:has-text("Вийти"), [data-testid="logout"]')
+      .first();
     if (await logoutBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await logoutBtn.click();
       await page.waitForTimeout(1000);
@@ -80,7 +88,7 @@ test.describe('Full Auth Flow', () => {
 
     // Navigate to protected page — should redirect to login
     await page.goto('/account');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     // Should be on login page or show login prompt
     await expect(page.locator('body')).toBeVisible();
   });

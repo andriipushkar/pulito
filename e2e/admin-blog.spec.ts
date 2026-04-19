@@ -8,7 +8,7 @@ test.describe('Admin Blog Management', () => {
 
   test('should access admin blog page', async ({ page }) => {
     await page.goto('/admin/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin/blog');
 
@@ -19,7 +19,7 @@ test.describe('Admin Blog Management', () => {
 
   test('should display blog posts table or list', async ({ page }) => {
     await page.goto('/admin/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should have a table or list of blog posts
     const table = page.locator('table');
@@ -27,7 +27,10 @@ test.describe('Admin Blog Management', () => {
     const emptyState = page.locator('text=/Немає статей|Поки що немає/i');
 
     const hasTable = await table.isVisible({ timeout: 5000 }).catch(() => false);
-    const hasList = await list.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasList = await list
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
     const hasEmpty = await emptyState.isVisible({ timeout: 3000 }).catch(() => false);
 
     expect(hasTable || hasList || hasEmpty).toBeTruthy();
@@ -35,7 +38,7 @@ test.describe('Admin Blog Management', () => {
 
   test('should navigate to new blog post form', async ({ page }) => {
     await page.goto('/admin/blog/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin/blog/new');
 
@@ -46,15 +49,23 @@ test.describe('Admin Blog Management', () => {
 
   test('should have form fields on new blog post page', async ({ page }) => {
     await page.goto('/admin/blog/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for title input
-    const titleInput = page.locator('input[name="title"], input[placeholder*="Назва"], input[placeholder*="Заголовок"]');
-    const hasTitleInput = await titleInput.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const titleInput = page.locator(
+      'input[name="title"], input[placeholder*="Назва"], input[placeholder*="Заголовок"]',
+    );
+    const hasTitleInput = await titleInput
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     // Look for content editor (textarea or rich text editor)
     const contentArea = page.locator('textarea, [contenteditable="true"], [class*="editor"]');
-    const hasContentArea = await contentArea.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasContentArea = await contentArea
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
 
     // At least the title field should be present
     expect(hasTitleInput || hasContentArea).toBeTruthy();
@@ -62,11 +73,16 @@ test.describe('Admin Blog Management', () => {
 
   test('should have create/add button on blog listing', async ({ page }) => {
     await page.goto('/admin/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for create/add button or link
-    const addButton = page.locator('a[href*="/admin/blog/new"], button:has-text("Додати"), button:has-text("Створити"), a:has-text("Нова стаття")');
-    const hasAddButton = await addButton.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const addButton = page.locator(
+      'a[href*="/admin/blog/new"], button:has-text("Додати"), button:has-text("Створити"), a:has-text("Нова стаття")',
+    );
+    const hasAddButton = await addButton
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
     expect(hasAddButton).toBeTruthy();
   });
 });

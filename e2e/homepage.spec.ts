@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Homepage', () => {
   test('should load and display store name', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/Clean Shop/i);
+    await expect(page).toHaveTitle(/Pulito/i);
   });
 
   test('should return 200 status', async ({ page }) => {
@@ -19,19 +19,27 @@ test.describe('Homepage', () => {
 
   test('should have banner slider or hero content visible', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for banner/slider/hero section
-    const banner = page.locator('[data-testid="banner"], [class*="banner"], [class*="slider"], [class*="hero"], .swiper, section').first();
+    const banner = page
+      .locator(
+        '[data-testid="banner"], [class*="banner"], [class*="slider"], [class*="hero"], .swiper, section',
+      )
+      .first();
     await expect(banner).toBeVisible({ timeout: 5000 });
   });
 
   test('should display category grid', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Categories are typically rendered as a grid of links
-    const categorySection = page.locator('a[href*="/catalog?category"], a[href*="/catalog?cat"], [data-testid="category"], [class*="category"]').first();
+    const categorySection = page
+      .locator(
+        'a[href*="/catalog?category"], a[href*="/catalog?cat"], [data-testid="category"], [class*="category"]',
+      )
+      .first();
     const hasCategories = await categorySection.isVisible({ timeout: 5000 }).catch(() => false);
 
     // Category grid is expected but data-dependent
@@ -43,7 +51,7 @@ test.describe('Homepage', () => {
 
   test('should render product carousels', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Product carousels typically contain product cards or links to products
     const productLinks = page.locator('a[href*="/product/"]');
@@ -70,7 +78,7 @@ test.describe('Homepage', () => {
 
   test('should have working footer links', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const footer = page.locator('footer');
     const footerLink = footer.locator('a[href]').first();

@@ -8,7 +8,7 @@ test.describe('Admin Bundles Management', () => {
 
   test('should access admin bundles page', async ({ page }) => {
     await page.goto('/admin/bundles');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin/bundles');
 
@@ -19,7 +19,7 @@ test.describe('Admin Bundles Management', () => {
 
   test('should display bundles table or list', async ({ page }) => {
     await page.goto('/admin/bundles');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should have a table, grid, or empty state
     const table = page.locator('table');
@@ -27,7 +27,10 @@ test.describe('Admin Bundles Management', () => {
     const emptyState = page.locator('text=/Немає комплектів|Комплекти відсутні/i');
 
     const hasTable = await table.isVisible({ timeout: 5000 }).catch(() => false);
-    const hasList = await list.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasList = await list
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
     const hasEmpty = await emptyState.isVisible({ timeout: 3000 }).catch(() => false);
 
     expect(hasTable || hasList || hasEmpty).toBeTruthy();
@@ -35,11 +38,16 @@ test.describe('Admin Bundles Management', () => {
 
   test('should have create button', async ({ page }) => {
     await page.goto('/admin/bundles');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for create/add button
-    const addButton = page.locator('a[href*="/admin/bundles/new"], button:has-text("Додати"), button:has-text("Створити"), a:has-text("Новий комплект")');
-    const hasAddButton = await addButton.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const addButton = page.locator(
+      'a[href*="/admin/bundles/new"], button:has-text("Додати"), button:has-text("Створити"), a:has-text("Новий комплект")',
+    );
+    const hasAddButton = await addButton
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
     expect(hasAddButton).toBeTruthy();
   });
 });

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('SEO — Homepage', () => {
   test('should have Organization JSON-LD', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const jsonLd = page.locator('script[type="application/ld+json"]');
     const count = await jsonLd.count();
@@ -13,7 +13,11 @@ test.describe('SEO — Homepage', () => {
     let hasOrganization = false;
     for (let i = 0; i < count; i++) {
       const content = await jsonLd.nth(i).textContent();
-      if (content?.includes('Organization') || content?.includes('WebSite') || content?.includes('Store')) {
+      if (
+        content?.includes('Organization') ||
+        content?.includes('WebSite') ||
+        content?.includes('Store')
+      ) {
         hasOrganization = true;
         break;
       }
@@ -50,16 +54,16 @@ test.describe('SEO — Homepage', () => {
 test.describe('SEO — Product Page', () => {
   test('should have Product JSON-LD', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
-    if (!await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const jsonLd = page.locator('script[type="application/ld+json"]');
     const count = await jsonLd.count();
@@ -81,16 +85,16 @@ test.describe('SEO — Product Page', () => {
 
   test('should have product meta title', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
-    if (!await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const title = await page.title();
     expect(title).toBeTruthy();
@@ -101,7 +105,7 @@ test.describe('SEO — Product Page', () => {
 test.describe('SEO — Blog Page', () => {
   test('should have proper meta tags on blog listing', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const title = await page.title();
     expect(title).toBeTruthy();
@@ -117,16 +121,16 @@ test.describe('SEO — Blog Page', () => {
 
   test('should have meta tags on blog post detail', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const postLink = page.locator('a[href*="/blog/"]').first();
-    if (!await postLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await postLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await postLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const title = await page.title();
     expect(title).toBeTruthy();

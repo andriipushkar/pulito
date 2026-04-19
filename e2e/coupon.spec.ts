@@ -7,7 +7,7 @@ test.describe('Coupon at Checkout', () => {
 
     // Add a product to cart
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const addToCartBtn = page
       .locator('button:has-text("Купити"), button:has-text("В кошик")')
@@ -19,12 +19,12 @@ test.describe('Coupon at Checkout', () => {
 
     // Go to checkout
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for coupon input
     const couponInput = page
       .locator(
-        'input[name="coupon"], input[name="promoCode"], input[placeholder*="промокод"], input[placeholder*="купон"], input[placeholder*="Промокод"]'
+        'input[name="coupon"], input[name="promoCode"], input[placeholder*="промокод"], input[placeholder*="купон"], input[placeholder*="Промокод"]',
       )
       .first();
 
@@ -34,7 +34,7 @@ test.describe('Coupon at Checkout', () => {
       // Apply coupon
       const applyBtn = page
         .locator(
-          'button:has-text("Застосувати"), button:has-text("Застосовати"), button:has-text("Застосувати промокод"), [data-testid="apply-coupon"]'
+          'button:has-text("Застосувати"), button:has-text("Застосовати"), button:has-text("Застосувати промокод"), [data-testid="apply-coupon"]',
         )
         .first();
 
@@ -46,8 +46,14 @@ test.describe('Coupon at Checkout', () => {
         const discountLine = page.locator('text=/знижк|discount|промокод|купон/i');
         const errorMsg = page.locator('text=/невірн|не знайден|недійсн|expired/i');
 
-        const hasDiscount = await discountLine.first().isVisible({ timeout: 3000 }).catch(() => false);
-        const hasError = await errorMsg.first().isVisible({ timeout: 3000 }).catch(() => false);
+        const hasDiscount = await discountLine
+          .first()
+          .isVisible({ timeout: 3000 })
+          .catch(() => false);
+        const hasError = await errorMsg
+          .first()
+          .isVisible({ timeout: 3000 })
+          .catch(() => false);
 
         // Either the coupon is applied or there's a message
         expect(hasDiscount || hasError).toBeTruthy();
@@ -62,11 +68,11 @@ test.describe('Coupon at Checkout', () => {
     await loginViaUI(page, TEST_USERS.client.email, TEST_USERS.client.password);
 
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const couponInput = page
       .locator(
-        'input[name="coupon"], input[name="promoCode"], input[placeholder*="промокод"], input[placeholder*="купон"]'
+        'input[name="coupon"], input[name="promoCode"], input[placeholder*="промокод"], input[placeholder*="купон"]',
       )
       .first();
 
@@ -89,7 +95,7 @@ test.describe('Coupon at Checkout', () => {
 
   test('should display cart total on checkout page', async ({ page }) => {
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Checkout should show pricing info
     const priceElement = page.locator('text=/₴/').first();

@@ -48,10 +48,12 @@ async function checkA11y(page: any, pageName: string) {
 
   // Only fail on serious/critical violations
   const critical = results.violations.filter(
-    (v) => v.impact === 'critical' || v.impact === 'serious'
+    (v) => v.impact === 'critical' || v.impact === 'serious',
   );
 
-  expect(critical, `${pageName}: ${critical.length} serious/critical a11y violations`).toHaveLength(0);
+  expect(critical, `${pageName}: ${critical.length} serious/critical a11y violations`).toHaveLength(
+    0,
+  );
 }
 
 test.describe('Accessibility — Public Pages', () => {
@@ -59,48 +61,48 @@ test.describe('Accessibility — Public Pages', () => {
 
   test('Homepage', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Homepage');
   });
 
   test('Catalog', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Catalog');
   });
 
   test('Product page', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     const link = page.locator('a[href^="/product/"]').first();
     if (await link.isVisible()) {
       await link.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       await checkA11y(page, 'Product');
     }
   });
 
   test('Cart (empty)', async ({ page }) => {
     await page.goto('/cart');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Cart');
   });
 
   test('FAQ', async ({ page }) => {
     await page.goto('/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'FAQ');
   });
 
   test('Contacts', async ({ page }) => {
     await page.goto('/contacts');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Contacts');
   });
 
   test('News', async ({ page }) => {
     await page.goto('/news');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'News');
   });
 });
@@ -108,19 +110,19 @@ test.describe('Accessibility — Public Pages', () => {
 test.describe('Accessibility — Auth Pages', () => {
   test('Login', async ({ page }) => {
     await page.goto('/auth/login');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Login');
   });
 
   test('Register', async ({ page }) => {
     await page.goto('/auth/register');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Register');
   });
 
   test('Forgot password', async ({ page }) => {
     await page.goto('/auth/forgot-password');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Forgot Password');
   });
 });
@@ -130,19 +132,19 @@ test.describe('Accessibility — Mobile', () => {
 
   test('Homepage mobile', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Homepage Mobile');
   });
 
   test('Catalog mobile', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Catalog Mobile');
   });
 
   test('Login mobile', async ({ page }) => {
     await page.goto('/auth/login');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await checkA11y(page, 'Login Mobile');
   });
 });
@@ -150,7 +152,7 @@ test.describe('Accessibility — Mobile', () => {
 test.describe('Accessibility — Keyboard Navigation', () => {
   test('Tab through header', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Tab to skip-to-content link
     await page.keyboard.press('Tab');
@@ -161,20 +163,21 @@ test.describe('Accessibility — Keyboard Navigation', () => {
 
   test('Tab through login form', async ({ page }) => {
     await page.goto('/auth/login');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Tab to email field
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
-    const emailFocused = await page.evaluate(() =>
-      document.activeElement?.getAttribute('type') === 'email' ||
-      document.activeElement?.getAttribute('name') === 'email'
+    const emailFocused = await page.evaluate(
+      () =>
+        document.activeElement?.getAttribute('type') === 'email' ||
+        document.activeElement?.getAttribute('name') === 'email',
     );
 
     // Tab to password
     await page.keyboard.press('Tab');
-    const passwordFocused = await page.evaluate(() =>
-      document.activeElement?.getAttribute('type') === 'password'
+    const passwordFocused = await page.evaluate(
+      () => document.activeElement?.getAttribute('type') === 'password',
     );
 
     // At least one form field should be reachable by Tab
@@ -183,7 +186,7 @@ test.describe('Accessibility — Keyboard Navigation', () => {
 
   test('Escape closes modals', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click search to open dropdown
     const searchInput = page.locator('input[placeholder*="Пошук"]').first();

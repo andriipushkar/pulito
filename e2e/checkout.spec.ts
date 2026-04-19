@@ -5,16 +5,20 @@ test.describe('Checkout Flow', () => {
   test('should search for a product, add to cart, and proceed to checkout', async ({ page }) => {
     // 1. Go to homepage
     await page.goto('/');
-    await expect(page).toHaveTitle(/Clean Shop/i);
+    await expect(page).toHaveTitle(/Pulito/i);
 
     // 2. Search for a product
-    const searchInput = page.locator('input[placeholder*="Пошук"], input[name="search"], input[type="search"]').first();
+    const searchInput = page
+      .locator('input[placeholder*="Пошук"], input[name="search"], input[type="search"]')
+      .first();
     if (await searchInput.isVisible()) {
       await searchInput.fill('Fairy');
       await page.waitForTimeout(600); // Wait for debounce
 
       // Check autocomplete results appear
-      const autocompleteResult = page.locator('[data-testid="search-result"], [role="listbox"] li, .search-results a').first();
+      const autocompleteResult = page
+        .locator('[data-testid="search-result"], [role="listbox"] li, .search-results a')
+        .first();
       if (await autocompleteResult.isVisible({ timeout: 3000 }).catch(() => false)) {
         await autocompleteResult.click();
       } else {
@@ -26,10 +30,12 @@ test.describe('Checkout Flow', () => {
     }
 
     // 3. Should see product page or listing
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // 4. Find and click "Add to Cart" button
-    const addToCartBtn = page.locator('button:has-text("Купити"), button:has-text("В кошик"), button:has-text("Додати")').first();
+    const addToCartBtn = page
+      .locator('button:has-text("Купити"), button:has-text("В кошик"), button:has-text("Додати")')
+      .first();
     if (await addToCartBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await addToCartBtn.click();
       await page.waitForTimeout(500);
@@ -37,7 +43,7 @@ test.describe('Checkout Flow', () => {
 
     // 5. Go to cart
     await page.goto('/cart');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // 6. Cart page should load
     await expect(page.locator('body')).toBeVisible();
@@ -45,10 +51,14 @@ test.describe('Checkout Flow', () => {
 
   test('should require login or contact info for checkout', async ({ page }) => {
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Checkout should either redirect to login or show contact form
-    const hasContactForm = await page.locator('input[name="contactName"], input[name="contactPhone"]').first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasContactForm = await page
+      .locator('input[name="contactName"], input[name="contactPhone"]')
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
     const redirectedToLogin = page.url().includes('/auth/login');
 
     expect(hasContactForm || redirectedToLogin).toBeTruthy();
@@ -60,11 +70,15 @@ test.describe('Checkout Flow', () => {
 
     // Add a product via catalog
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const productCard = page.locator('[data-testid="product-card"], .product-card, article').first();
+    const productCard = page
+      .locator('[data-testid="product-card"], .product-card, article')
+      .first();
     if (await productCard.isVisible({ timeout: 5000 }).catch(() => false)) {
-      const addBtn = productCard.locator('button:has-text("Купити"), button:has-text("В кошик")').first();
+      const addBtn = productCard
+        .locator('button:has-text("Купити"), button:has-text("В кошик")')
+        .first();
       if (await addBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
         await addBtn.click();
         await page.waitForTimeout(500);
@@ -73,7 +87,7 @@ test.describe('Checkout Flow', () => {
 
     // Go to checkout
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should see checkout form
     await expect(page.locator('body')).toBeVisible();

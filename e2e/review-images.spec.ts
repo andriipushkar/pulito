@@ -3,16 +3,16 @@ import { test, expect } from '@playwright/test';
 test.describe('Review Images', () => {
   test('should navigate to product page and check for review section', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
-    if (!await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/product/');
 
     // Check that review section exists
@@ -22,16 +22,16 @@ test.describe('Review Images', () => {
 
   test('should display review images if present', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
-    if (!await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for review image gallery thumbnails
     const gallery = page.locator('[data-testid="review-image-gallery"]').first();
@@ -52,16 +52,16 @@ test.describe('Review Images', () => {
 
   test('should open gallery lightbox on image click', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
-    if (!await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const gallery = page.locator('[data-testid="review-image-gallery"]').first();
     const galleryVisible = await gallery.isVisible({ timeout: 3000 }).catch(() => false);

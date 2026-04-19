@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Static Pages', () => {
   test('should load delivery page', async ({ page }) => {
     await page.goto('/pages/delivery');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const main = page.locator('main');
     await expect(main).toBeVisible({ timeout: 5000 });
@@ -15,7 +15,7 @@ test.describe('Static Pages', () => {
 
   test('should load about page', async ({ page }) => {
     await page.goto('/pages/about');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const main = page.locator('main');
     await expect(main).toBeVisible({ timeout: 5000 });
@@ -27,7 +27,7 @@ test.describe('Static Pages', () => {
 
   test('should render page content', async ({ page }) => {
     await page.goto('/pages/delivery');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Page should have meaningful text content
     const content = page.locator('main');
@@ -39,7 +39,7 @@ test.describe('Static Pages', () => {
 
   test('should display breadcrumbs on static page', async ({ page }) => {
     await page.goto('/pages/delivery');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for breadcrumb navigation
     const breadcrumb = page.locator(
@@ -60,7 +60,7 @@ test.describe('Static Pages', () => {
 
   test('should have SEO metadata', async ({ page }) => {
     await page.goto('/pages/delivery');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Check page title exists
     const title = await page.title();

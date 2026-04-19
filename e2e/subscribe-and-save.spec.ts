@@ -4,7 +4,7 @@ test.describe('Subscribe & Save', () => {
   test('should show subscribe button on product page', async ({ page }) => {
     // Navigate to catalog and find a product
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click the first product link to go to a product detail page
     const productLink = page.locator('a[href*="/product/"]').first();
@@ -13,7 +13,7 @@ test.describe('Subscribe & Save', () => {
       return;
     }
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Verify the subscribe button is visible
     const subscribeButton = page.locator('[data-subscribe-button]');
@@ -28,7 +28,7 @@ test.describe('Subscribe & Save', () => {
 
   test('should show frequency options when subscribe button is clicked', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
     if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -36,7 +36,7 @@ test.describe('Subscribe & Save', () => {
       return;
     }
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const subscribeButton = page.locator('[data-subscribe-button]');
     if (!(await subscribeButton.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -51,7 +51,9 @@ test.describe('Subscribe & Save', () => {
     const frequencyDropdown = page.locator('[data-frequency-dropdown]');
 
     const hasLoginPrompt = await loginPrompt.isVisible({ timeout: 3000 }).catch(() => false);
-    const hasFrequencyDropdown = await frequencyDropdown.isVisible({ timeout: 3000 }).catch(() => false);
+    const hasFrequencyDropdown = await frequencyDropdown
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
 
     // One of these should be visible
     expect(hasLoginPrompt || hasFrequencyDropdown).toBeTruthy();
@@ -67,7 +69,7 @@ test.describe('Subscribe & Save', () => {
 
   test('should show login prompt for unauthenticated users', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
     if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -75,7 +77,7 @@ test.describe('Subscribe & Save', () => {
       return;
     }
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const subscribeButton = page.locator('[data-subscribe-button]');
     if (!(await subscribeButton.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -97,7 +99,7 @@ test.describe('Subscribe & Save', () => {
 
   test('should show discounted price in dropdown', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
     if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -105,7 +107,7 @@ test.describe('Subscribe & Save', () => {
       return;
     }
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const subscribeButton = page.locator('[data-subscribe-button]');
     if (!(await subscribeButton.isVisible({ timeout: 5000 }).catch(() => false))) {

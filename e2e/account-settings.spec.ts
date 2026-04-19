@@ -9,7 +9,7 @@ test.describe('Account Settings', () => {
 
   test('should load settings page with profile form', async ({ page }) => {
     await page.goto('/account/settings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const form = page.locator('form, [data-testid="profile-form"], .profile-form');
     const nameInput = page
@@ -27,7 +27,7 @@ test.describe('Account Settings', () => {
 
   test('should allow editing name and phone', async ({ page }) => {
     await page.goto('/account/settings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const nameInput = page
       .locator('input[name*="name"], input[name*="fullName"], input[name*="firstName"]')
@@ -48,7 +48,7 @@ test.describe('Account Settings', () => {
 
   test('should display password change form', async ({ page }) => {
     await page.goto('/account/settings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const passwordSection = page
       .locator('input[type="password"], [data-testid="password-section"], h2, h3')
@@ -78,7 +78,7 @@ test.describe('Account Settings', () => {
 
   test('should show error for invalid current password', async ({ page }) => {
     await page.goto('/account/settings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const currentPasswordInput = page
       .locator('input[name*="current"], input[name*="old"], input[placeholder*="поточн"]')
@@ -103,7 +103,7 @@ test.describe('Account Settings', () => {
         .first();
       if (await submitButton.isVisible().catch(() => false)) {
         await submitButton.click();
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
 
         // Should show an error message
         const error = page.locator('.error, [role="alert"], .text-red-500, .toast-error').first();
@@ -116,7 +116,7 @@ test.describe('Account Settings', () => {
 
   test('should prevent saving empty required fields', async ({ page }) => {
     await page.goto('/account/settings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const nameInput = page
       .locator('input[name*="name"], input[name*="fullName"], input[name*="firstName"]')

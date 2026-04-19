@@ -5,12 +5,12 @@ test.describe('Mobile Responsive Checkout', () => {
 
   test('should display mobile-friendly homepage', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should show hamburger menu or mobile nav
     const hamburger = page
       .locator(
-        'button[aria-label*="menu"], button[aria-label*="Menu"], [data-testid="mobile-menu"], button:has([class*="hamburger"]), button:has([class*="burger"])'
+        'button[aria-label*="menu"], button[aria-label*="Menu"], [data-testid="mobile-menu"], button:has([class*="hamburger"]), button:has([class*="burger"])',
       )
       .first();
     const mobileNav = page.locator('[class*="mobile"], [class*="drawer"]').first();
@@ -24,7 +24,7 @@ test.describe('Mobile Responsive Checkout', () => {
 
   test('should navigate catalog on mobile viewport', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Products should be visible (single column or adapted layout)
     const productCard = page
@@ -43,7 +43,7 @@ test.describe('Mobile Responsive Checkout', () => {
 
   test('should add product to cart on mobile', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const addToCartBtn = page
       .locator('button:has-text("Купити"), button:has-text("В кошик")')
@@ -67,7 +67,7 @@ test.describe('Mobile Responsive Checkout', () => {
   test('should complete checkout flow on mobile', async ({ page }) => {
     // Add product
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const addToCartBtn = page
       .locator('button:has-text("Купити"), button:has-text("В кошик")')
@@ -79,12 +79,12 @@ test.describe('Mobile Responsive Checkout', () => {
 
     // Navigate to cart
     await page.goto('/cart');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('body')).toBeVisible();
 
     // Navigate to checkout
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Checkout form should be visible and usable on mobile
     const formInputs = page.locator('input[type="text"], input[type="email"], input[type="tel"]');
@@ -106,7 +106,7 @@ test.describe('Mobile Responsive Checkout', () => {
 
   test('should have touch-friendly buttons on mobile', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const buttons = page.locator('button:visible');
     const count = await buttons.count();
@@ -122,11 +122,11 @@ test.describe('Mobile Responsive Checkout', () => {
 
   test('should open mobile menu and navigate', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const hamburger = page
       .locator(
-        'button[aria-label*="menu"], button[aria-label*="Menu"], [data-testid="mobile-menu"]'
+        'button[aria-label*="menu"], button[aria-label*="Menu"], [data-testid="mobile-menu"]',
       )
       .first();
 
@@ -136,9 +136,7 @@ test.describe('Mobile Responsive Checkout', () => {
 
       // Mobile menu should open
       const menuContent = page
-        .locator(
-          'nav[class*="mobile"], [class*="drawer"], [class*="sidebar"], [role="dialog"]'
-        )
+        .locator('nav[class*="mobile"], [class*="drawer"], [class*="sidebar"], [role="dialog"]')
         .first();
       const hasMenu = await menuContent.isVisible({ timeout: 3000 }).catch(() => false);
 
@@ -148,7 +146,7 @@ test.describe('Mobile Responsive Checkout', () => {
         .first();
       if (await catalogLink.isVisible({ timeout: 3000 }).catch(() => false)) {
         await catalogLink.click();
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         expect(page.url()).toContain('/catalog');
       }
     }

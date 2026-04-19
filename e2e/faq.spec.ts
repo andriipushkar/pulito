@@ -11,7 +11,7 @@ test.describe('FAQ page', () => {
 
   test('should display page heading', async ({ page }) => {
     await page.goto('/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const heading = page.locator('h1');
     await expect(heading).toBeVisible({ timeout: 5000 });
@@ -19,10 +19,12 @@ test.describe('FAQ page', () => {
 
   test('should display FAQ items', async ({ page }) => {
     await page.goto('/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // FAQ items are typically in details/summary, accordion, or clickable divs
-    const faqItems = page.locator('details, [data-testid="faq-item"], [class*="accordion"], button[aria-expanded]');
+    const faqItems = page.locator(
+      'details, [data-testid="faq-item"], [class*="accordion"], button[aria-expanded]',
+    );
     const count = await faqItems.count();
 
     if (count > 0) {
@@ -34,12 +36,16 @@ test.describe('FAQ page', () => {
 
   test('should expand FAQ item on click', async ({ page }) => {
     await page.goto('/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Try details/summary first
-    const detailsItem = page.locator('details summary, [data-testid="faq-item"] button, [class*="accordion"] button, button[aria-expanded]').first();
+    const detailsItem = page
+      .locator(
+        'details summary, [data-testid="faq-item"] button, [class*="accordion"] button, button[aria-expanded]',
+      )
+      .first();
 
-    if (!await detailsItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await detailsItem.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -49,7 +55,9 @@ test.describe('FAQ page', () => {
 
     // After click, content should be visible
     // For <details>, the [open] attribute is set
-    const expandedContent = page.locator('details[open], [aria-expanded="true"], [class*="expanded"]').first();
+    const expandedContent = page
+      .locator('details[open], [aria-expanded="true"], [class*="expanded"]')
+      .first();
     const isExpanded = await expandedContent.isVisible({ timeout: 3000 }).catch(() => false);
 
     if (isExpanded) {
@@ -61,11 +69,15 @@ test.describe('FAQ page', () => {
 
   test('should collapse FAQ item on second click', async ({ page }) => {
     await page.goto('/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const detailsItem = page.locator('details summary, [data-testid="faq-item"] button, [class*="accordion"] button, button[aria-expanded]').first();
+    const detailsItem = page
+      .locator(
+        'details summary, [data-testid="faq-item"] button, [class*="accordion"] button, button[aria-expanded]',
+      )
+      .first();
 
-    if (!await detailsItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await detailsItem.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -104,6 +116,6 @@ test.describe('SEO endpoints', () => {
     const response = await request.get('/manifest.webmanifest');
     expect(response.status()).toBe(200);
     const json = await response.json();
-    expect(json.name).toContain('Clean Shop');
+    expect(json.name).toContain('Pulito');
   });
 });

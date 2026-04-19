@@ -5,12 +5,15 @@ test.describe('Error Pages', () => {
     const response = await page.goto('/this-page-does-not-exist-404-test');
 
     // Should show 404 content or custom error page
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const notFoundContent = page.locator(
-      'text=/404|не знайдено|not found|сторінку не знайдено|Page not found/i'
+      'text=/404|не знайдено|not found|сторінку не знайдено|Page not found/i',
     );
-    const hasNotFound = await notFoundContent.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const hasNotFound = await notFoundContent
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     // Page should at least render (custom 404 or Next.js default)
     await expect(page.locator('body')).toBeVisible();
@@ -25,19 +28,20 @@ test.describe('Error Pages', () => {
 
   test('should display 404 for non-existent product', async ({ page }) => {
     await page.goto('/product/this-product-does-not-exist-99999');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const notFoundContent = page.locator(
-      'text=/404|не знайдено|not found|товар не знайдено/i'
-    );
-    const hasNotFound = await notFoundContent.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const notFoundContent = page.locator('text=/404|не знайдено|not found|товар не знайдено/i');
+    const hasNotFound = await notFoundContent
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     await expect(page.locator('body')).toBeVisible();
   });
 
   test('should display 404 for non-existent category', async ({ page }) => {
     await page.goto('/catalog/non-existent-category-slug');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('body')).toBeVisible();
   });
@@ -45,7 +49,7 @@ test.describe('Error Pages', () => {
   test('should handle graceful error for broken API calls', async ({ page }) => {
     // Navigate to a page that makes API calls
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // The page should render even if some API calls fail
     await expect(page.locator('body')).toBeVisible();
@@ -59,7 +63,7 @@ test.describe('Error Pages', () => {
     });
 
     await page.goto('/catalog?page=99999');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Page should still be visible (graceful handling)
     await expect(page.locator('body')).toBeVisible();
@@ -68,24 +72,30 @@ test.describe('Error Pages', () => {
   test('should redirect unauthorized admin access', async ({ page }) => {
     // Try accessing admin pages without being logged in
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should redirect to login or show unauthorized
     const isOnLogin = page.url().includes('/auth/login');
     const isOnAdmin = page.url().includes('/admin');
     const unauthorizedMsg = page.locator('text=/unauthorized|заборонено|403|доступ/i');
-    const hasUnauthorized = await unauthorizedMsg.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasUnauthorized = await unauthorizedMsg
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
 
     expect(isOnLogin || hasUnauthorized || isOnAdmin).toBeTruthy();
   });
 
   test('should show custom error page layout', async ({ page }) => {
     await page.goto('/this-does-not-exist-test');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Custom error pages should still show navigation
     const nav = page.locator('nav, header');
-    const hasNav = await nav.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const hasNav = await nav
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     // At minimum the page should render
     await expect(page.locator('body')).toBeVisible();

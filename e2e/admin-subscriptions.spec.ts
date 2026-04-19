@@ -8,7 +8,7 @@ test.describe('Admin Subscriptions Page', () => {
 
   test('should access admin subscriptions page', async ({ page }) => {
     await page.goto('/admin/subscriptions');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin');
     await expect(page.locator('body')).toBeVisible();
@@ -16,7 +16,7 @@ test.describe('Admin Subscriptions Page', () => {
 
   test('should render subscriptions content', async ({ page }) => {
     await page.goto('/admin/subscriptions');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const pageTitle = page.locator('h1, h2');
     await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });

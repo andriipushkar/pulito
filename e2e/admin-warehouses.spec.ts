@@ -8,7 +8,7 @@ test.describe('Admin Warehouses Management', () => {
 
   test('should access admin warehouses page', async ({ page }) => {
     await page.goto('/admin/warehouses');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin/warehouses');
 
@@ -19,7 +19,7 @@ test.describe('Admin Warehouses Management', () => {
 
   test('should display warehouses table or list', async ({ page }) => {
     await page.goto('/admin/warehouses');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should have a table, list, or empty state
     const table = page.locator('table');
@@ -27,7 +27,10 @@ test.describe('Admin Warehouses Management', () => {
     const emptyState = page.locator('text=/Немає складів|Склади відсутні/i');
 
     const hasTable = await table.isVisible({ timeout: 5000 }).catch(() => false);
-    const hasList = await list.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasList = await list
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
     const hasEmpty = await emptyState.isVisible({ timeout: 3000 }).catch(() => false);
 
     expect(hasTable || hasList || hasEmpty).toBeTruthy();
@@ -35,7 +38,7 @@ test.describe('Admin Warehouses Management', () => {
 
   test('should show warehouse details or rows', async ({ page }) => {
     await page.goto('/admin/warehouses');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Table rows or cards should exist
     const tableRows = page.locator('table tbody tr');

@@ -8,7 +8,7 @@ test.describe('Admin Users Management', () => {
 
   test('should access admin users page', async ({ page }) => {
     await page.goto('/admin/users');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin');
     await expect(page.locator('body')).toBeVisible();
@@ -16,7 +16,7 @@ test.describe('Admin Users Management', () => {
 
   test('should display users table', async ({ page }) => {
     await page.goto('/admin/users');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const pageTitle = page.locator('h1, h2');
     await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });
@@ -24,7 +24,7 @@ test.describe('Admin Users Management', () => {
 
   test('should show user rows', async ({ page }) => {
     await page.goto('/admin/users');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const table = page.locator('table, [data-testid="users-list"]');
     const hasTable = await table.isVisible({ timeout: 5000 }).catch(() => false);

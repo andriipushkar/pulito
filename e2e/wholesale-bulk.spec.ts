@@ -4,7 +4,7 @@ import { loginViaUI, TEST_USERS } from './helpers/auth';
 test.describe('Wholesale Bulk Order', () => {
   test('requires authentication', async ({ page }) => {
     await page.goto('/account/wholesale/bulk-order');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should either redirect to login or show the page
     await expect(page).toHaveURL(/login|bulk-order/);
@@ -17,7 +17,7 @@ test.describe('Wholesale Bulk Order', () => {
 
     test('should load bulk order page', async ({ page }) => {
       await page.goto('/account/wholesale/bulk-order');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const main = page.locator('main');
       await expect(main).toBeVisible({ timeout: 5000 });
@@ -25,28 +25,34 @@ test.describe('Wholesale Bulk Order', () => {
 
     test('should have textarea for article codes', async ({ page }) => {
       await page.goto('/account/wholesale/bulk-order');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const textarea = page.locator('textarea');
-      const hasTextarea = await textarea.first().isVisible({ timeout: 5000 }).catch(() => false);
+      const hasTextarea = await textarea
+        .first()
+        .isVisible({ timeout: 5000 })
+        .catch(() => false);
       expect(hasTextarea).toBeTruthy();
     });
 
     test('should have calculate button', async ({ page }) => {
       await page.goto('/account/wholesale/bulk-order');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const button = page.locator('button', { hasText: /Розрахувати|Порахувати|Знайти/i });
-      const hasButton = await button.first().isVisible({ timeout: 5000 }).catch(() => false);
+      const hasButton = await button
+        .first()
+        .isVisible({ timeout: 5000 })
+        .catch(() => false);
       expect(hasButton).toBeTruthy();
     });
 
     test('should type article codes and click calculate', async ({ page }) => {
       await page.goto('/account/wholesale/bulk-order');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const textarea = page.locator('textarea').first();
-      if (!await textarea.isVisible({ timeout: 5000 }).catch(() => false)) {
+      if (!(await textarea.isVisible({ timeout: 5000 }).catch(() => false))) {
         test.skip();
         return;
       }
@@ -54,7 +60,9 @@ test.describe('Wholesale Bulk Order', () => {
       // Type sample article codes
       await textarea.fill('ART-001 2\nART-002 3');
 
-      const calculateButton = page.locator('button', { hasText: /Розрахувати|Порахувати|Знайти/i }).first();
+      const calculateButton = page
+        .locator('button', { hasText: /Розрахувати|Порахувати|Знайти/i })
+        .first();
       if (await calculateButton.isVisible({ timeout: 3000 }).catch(() => false)) {
         await calculateButton.click();
         await page.waitForTimeout(1000);

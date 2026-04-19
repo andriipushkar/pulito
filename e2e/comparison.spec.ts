@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Comparison', () => {
   test('should load comparison page', async ({ page }) => {
     await page.goto('/comparison');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const main = page.locator('main');
     await expect(main).toBeVisible({ timeout: 5000 });
@@ -11,7 +11,7 @@ test.describe('Comparison', () => {
 
   test('should show empty state when no products to compare', async ({ page }) => {
     await page.goto('/comparison');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // With no products added, should show an empty state
     const emptyState = page.locator(
@@ -37,7 +37,7 @@ test.describe('Comparison', () => {
   test('should display ComparisonTable component when products are present', async ({ page }) => {
     // First add a product to comparison via catalog
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const compareButton = page
       .locator(
@@ -49,7 +49,7 @@ test.describe('Comparison', () => {
     if (!hasCompareBtn) {
       // If no compare button found, just verify comparison page loads
       await page.goto('/comparison');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       await expect(page.locator('main')).toBeVisible({ timeout: 5000 });
       return;
     }
@@ -58,7 +58,7 @@ test.describe('Comparison', () => {
     await page.waitForTimeout(500);
 
     await page.goto('/comparison');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const main = page.locator('main');
     await expect(main).toBeVisible({ timeout: 5000 });
@@ -77,7 +77,7 @@ test.describe('Comparison', () => {
 
   test('should display breadcrumbs on comparison page', async ({ page }) => {
     await page.goto('/comparison');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for breadcrumb navigation
     const breadcrumb = page.locator(
@@ -98,7 +98,7 @@ test.describe('Comparison', () => {
 
   test('should have SEO metadata', async ({ page }) => {
     await page.goto('/comparison');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Check page title exists
     const title = await page.title();

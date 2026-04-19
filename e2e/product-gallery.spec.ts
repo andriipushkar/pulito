@@ -5,15 +5,15 @@ test.describe('Product Image Gallery', () => {
   async function goToProductWithImages(page: import('@playwright/test').Page) {
     // Navigate to catalog to find a product
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click the first product link
     const productLink = page.locator('a[href*="/product/"]').first();
-    if (!await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       return false;
     }
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Verify we're on a product page
     return page.url().includes('/product/');
@@ -91,7 +91,9 @@ test.describe('Product Image Gallery', () => {
     await page.waitForTimeout(300);
 
     // The selected thumbnail should now have the primary border
-    const _selectedBorder = secondThumbnailButton.locator('[class*="border-[var(--color-primary)]"]');
+    const _selectedBorder = secondThumbnailButton.locator(
+      '[class*="border-[var(--color-primary)]"]',
+    );
     // Or check that the button class changed
     const buttonClass = await secondThumbnailButton.getAttribute('class');
     expect(buttonClass).toContain('border-');
@@ -112,7 +114,7 @@ test.describe('Product Image Gallery', () => {
 
     // Click on the main image container (cursor-zoom-in)
     const mainImageContainer = page.locator('.cursor-zoom-in').first();
-    if (!await mainImageContainer.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (!(await mainImageContainer.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -144,7 +146,7 @@ test.describe('Product Image Gallery', () => {
 
     // Open lightbox
     const mainImageContainer = page.locator('.cursor-zoom-in').first();
-    if (!await mainImageContainer.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (!(await mainImageContainer.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -184,7 +186,7 @@ test.describe('Product Image Gallery', () => {
 
     // Open lightbox
     const mainImageContainer = page.locator('.cursor-zoom-in').first();
-    if (!await mainImageContainer.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (!(await mainImageContainer.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -227,17 +229,17 @@ test.describe('Product Image Gallery', () => {
     // Try to navigate to a product directly -- if the product has no images,
     // the gallery should show a placeholder
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Just check that a product page loads without errors
     const productLink = page.locator('a[href*="/product/"]').first();
-    if (!await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await productLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Page should have loaded without errors
     const pageTitle = page.locator('h1');

@@ -3,9 +3,11 @@ import { test, expect } from '@playwright/test';
 test.describe('Navigation — Header Links', () => {
   test('should navigate to catalog from header', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const catalogLink = page.locator('header a[href="/catalog"], header a[href*="/catalog"]').first();
+    const catalogLink = page
+      .locator('header a[href="/catalog"], header a[href*="/catalog"]')
+      .first();
     if (await catalogLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await catalogLink.click();
       await expect(page).toHaveURL(/\/catalog/);
@@ -14,7 +16,7 @@ test.describe('Navigation — Header Links', () => {
 
   test('should navigate to FAQ from header', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const faqLink = page.locator('header a[href="/faq"], a[href="/faq"]').first();
     if (await faqLink.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -25,7 +27,7 @@ test.describe('Navigation — Header Links', () => {
 
   test('should navigate to contacts from header', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const contactsLink = page.locator('header a[href="/contacts"], a[href="/contacts"]').first();
     if (await contactsLink.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -38,7 +40,7 @@ test.describe('Navigation — Header Links', () => {
 test.describe('Navigation — Footer Links', () => {
   test('should have footer links that point to valid pages', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const footer = page.locator('footer');
     await expect(footer).toBeVisible();
@@ -52,7 +54,7 @@ test.describe('Navigation — Footer Links', () => {
     const href = await firstLink.getAttribute('href');
     if (href) {
       await firstLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       expect(page.url()).toContain(href);
     }
   });
@@ -63,11 +65,15 @@ test.describe('Navigation — Mobile Menu', () => {
 
   test('should open mobile menu', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for hamburger / menu button
-    const menuButton = page.locator('button[aria-label*="меню"], button[aria-label*="Menu"], button[aria-label*="menu"], [data-testid="mobile-menu"], header button').first();
-    if (!await menuButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const menuButton = page
+      .locator(
+        'button[aria-label*="меню"], button[aria-label*="Menu"], button[aria-label*="menu"], [data-testid="mobile-menu"], header button',
+      )
+      .first();
+    if (!(await menuButton.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -76,16 +82,22 @@ test.describe('Navigation — Mobile Menu', () => {
     await page.waitForTimeout(300);
 
     // Menu drawer or overlay should appear
-    const menuDrawer = page.locator('nav, [role="dialog"], [class*="drawer"], [class*="menu"]').first();
+    const menuDrawer = page
+      .locator('nav, [role="dialog"], [class*="drawer"], [class*="menu"]')
+      .first();
     await expect(menuDrawer).toBeVisible({ timeout: 3000 });
   });
 
   test('should have bottom navigation tabs on mobile', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Bottom nav is typically a fixed bar at the bottom
-    const bottomNav = page.locator('[data-testid="bottom-nav"], nav[class*="bottom"], nav[class*="fixed"], [class*="bottom-nav"]').first();
+    const bottomNav = page
+      .locator(
+        '[data-testid="bottom-nav"], nav[class*="bottom"], nav[class*="fixed"], [class*="bottom-nav"]',
+      )
+      .first();
     const hasBottomNav = await bottomNav.isVisible({ timeout: 3000 }).catch(() => false);
 
     if (hasBottomNav) {
@@ -100,10 +112,12 @@ test.describe('Navigation — Mobile Menu', () => {
 
   test('should navigate via bottom nav tabs', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const bottomNav = page.locator('[data-testid="bottom-nav"], nav[class*="bottom"], [class*="bottom-nav"]').first();
-    if (!await bottomNav.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const bottomNav = page
+      .locator('[data-testid="bottom-nav"], nav[class*="bottom"], [class*="bottom-nav"]')
+      .first();
+    if (!(await bottomNav.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip();
       return;
     }

@@ -3,18 +3,22 @@ import { test, expect } from '@playwright/test';
 test.describe('Authentication', () => {
   test('should load login page', async ({ page }) => {
     await page.goto('/auth/login');
-    await expect(page.locator('input[type="email"]')).toBeVisible();
-    await expect(page.locator('input[type="password"]')).toBeVisible();
+    await expect(page.locator('input#email')).toBeVisible();
+    await expect(page.locator('input[type="password"]').first()).toBeVisible();
   });
 
   test('should load register page', async ({ page }) => {
     await page.goto('/auth/register');
-    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator('input#email')).toBeVisible();
   });
 
   test('should show validation errors on empty login submit', async ({ page }) => {
     await page.goto('/auth/login');
-    const submitButton = page.locator('button[type="submit"]');
+    // Scope to the login form to avoid matching the newsletter subscribe button in the footer.
+    const submitButton = page
+      .locator('form')
+      .getByRole('button', { name: /увійти|login/i })
+      .first();
     if (await submitButton.isVisible()) {
       await submitButton.click();
       // Should show some error state (stay on page or show error messages)
@@ -33,6 +37,6 @@ test.describe('Authentication', () => {
 
   test('should load forgot password page', async ({ page }) => {
     await page.goto('/auth/forgot-password');
-    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator('input[type="email"]').first()).toBeVisible();
   });
 });

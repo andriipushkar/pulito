@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Bundles', () => {
   test('bundles listing page loads', async ({ page }) => {
     await page.goto('/bundles');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const main = page.locator('main');
     await expect(main).toBeVisible();
@@ -11,7 +11,7 @@ test.describe('Bundles', () => {
 
   test('should display bundles or empty state', async ({ page }) => {
     await page.goto('/bundles');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for bundle cards/links
     const bundleLinks = page.locator('a[href*="/bundles/"]');
@@ -30,16 +30,16 @@ test.describe('Bundles', () => {
 
   test('should navigate to bundle detail page with products and price', async ({ page }) => {
     await page.goto('/bundles');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const bundleLink = page.locator('a[href*="/bundles/"]').first();
-    if (!await bundleLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await bundleLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await bundleLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // URL should contain /bundles/ with a slug or ID
     expect(page.url()).toMatch(/\/bundles\/.+/);
@@ -56,20 +56,25 @@ test.describe('Bundles', () => {
 
   test('should have "Додати комплект у кошик" button on detail page', async ({ page }) => {
     await page.goto('/bundles');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const bundleLink = page.locator('a[href*="/bundles/"]').first();
-    if (!await bundleLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await bundleLink.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await bundleLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for add-to-cart button for the bundle
-    const addButton = page.locator('button', { hasText: /Додати комплект у кошик|Додати в кошик|Купити/i });
-    const hasButton = await addButton.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const addButton = page.locator('button', {
+      hasText: /Додати комплект у кошик|Додати в кошик|Купити/i,
+    });
+    const hasButton = await addButton
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
     expect(hasButton).toBeTruthy();
   });
 });

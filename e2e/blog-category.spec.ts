@@ -4,7 +4,7 @@ test.describe('Blog Category', () => {
   test('should load blog category page', async ({ page }) => {
     // First visit blog to find a category
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const categoryLink = page.locator('a[href*="/blog/category/"]').first();
     const hasCategoryLink = await categoryLink.isVisible({ timeout: 5000 }).catch(() => false);
@@ -16,7 +16,7 @@ test.describe('Blog Category', () => {
 
     const href = await categoryLink.getAttribute('href');
     await page.goto(href!);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const main = page.locator('main');
     await expect(main).toBeVisible({ timeout: 5000 });
@@ -28,7 +28,7 @@ test.describe('Blog Category', () => {
 
   test('should display blog posts in category', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const categoryLink = page.locator('a[href*="/blog/category/"]').first();
     if (!(await categoryLink.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -38,7 +38,7 @@ test.describe('Blog Category', () => {
 
     const href = await categoryLink.getAttribute('href');
     await page.goto(href!);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Posts should be listed or empty state shown
     const postLinks = page.locator('a[href*="/blog/"]').filter({ hasNotText: /categor/i });
@@ -58,7 +58,7 @@ test.describe('Blog Category', () => {
 
   test('should have working blog card links', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const categoryLink = page.locator('a[href*="/blog/category/"]').first();
     if (!(await categoryLink.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -68,7 +68,7 @@ test.describe('Blog Category', () => {
 
     const href = await categoryLink.getAttribute('href');
     await page.goto(href!);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find a post link that is not a category link
     const postLink = page
@@ -81,7 +81,7 @@ test.describe('Blog Category', () => {
     }
 
     await postLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should navigate to a blog post detail page
     expect(page.url()).toMatch(/\/blog\/.+/);
@@ -92,7 +92,7 @@ test.describe('Blog Category', () => {
 
   test('should handle pagination on category page', async ({ page }) => {
     await page.goto('/blog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const categoryLink = page.locator('a[href*="/blog/category/"]').first();
     if (!(await categoryLink.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -102,7 +102,7 @@ test.describe('Blog Category', () => {
 
     const href = await categoryLink.getAttribute('href');
     await page.goto(href!);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for pagination controls
     const pagination = page.locator(
@@ -124,7 +124,7 @@ test.describe('Blog Category', () => {
   test('should show appropriate message for empty category', async ({ page }) => {
     // Navigate to a potentially empty category via query
     await page.goto('/blog/category/non-existent-category-slug');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should show empty state, 404, or redirect
     const body = page.locator('body');

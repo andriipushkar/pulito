@@ -8,7 +8,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should access admin banners page', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin/banners');
 
@@ -20,7 +20,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should create a new banner via add button', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Count existing banners
     const bannersBefore = page.locator('[draggable="true"]');
@@ -42,11 +42,11 @@ test.describe('Admin Banners Management', () => {
 
   test('should open inline edit form when clicking edit button', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find first edit button
     const editButton = page.locator('button', { hasText: /Редагувати/i }).first();
-    if (!await editButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await editButton.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -69,11 +69,11 @@ test.describe('Admin Banners Management', () => {
 
   test('should edit banner inline and save', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find first edit button
     const editButton = page.locator('button', { hasText: /Редагувати/i }).first();
-    if (!await editButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await editButton.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -86,7 +86,10 @@ test.describe('Admin Banners Management', () => {
     await titleInput.fill(`E2E Banner ${Date.now()}`);
 
     // Click save (Check icon button)
-    const saveButton = page.locator('button:has(svg)').filter({ has: page.locator('[class*="text-white"]') }).first();
+    const saveButton = page
+      .locator('button:has(svg)')
+      .filter({ has: page.locator('[class*="text-white"]') })
+      .first();
     if (await saveButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await saveButton.click();
       await page.waitForTimeout(1000);
@@ -99,11 +102,11 @@ test.describe('Admin Banners Management', () => {
 
   test('should toggle active status', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find active/inactive toggle button
     const toggleButton = page.locator('button', { hasText: /Активний|Вимкнено/i }).first();
-    if (!await toggleButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await toggleButton.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -127,17 +130,27 @@ test.describe('Admin Banners Management', () => {
 
   test('should handle delete with confirmation dialog', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find delete button (Trash icon)
-    const _deleteButton = page.locator('button').filter({ has: page.locator('[class*="text-[var(--color-danger)]"]') }).first();
-    const _trashButton = page.locator('button[class*="danger"], button.text-\\[var\\(--color-danger\\)\\]').first();
+    const _deleteButton = page
+      .locator('button')
+      .filter({ has: page.locator('[class*="text-[var(--color-danger)]"]') })
+      .first();
+    const _trashButton = page
+      .locator('button[class*="danger"], button.text-\\[var\\(--color-danger\\)\\]')
+      .first();
 
     // Try to find any delete button
     const _btn = page.locator('button').filter({ hasText: '' }).last();
     const allButtons = page.locator('[class*="danger"]');
 
-    if (!await allButtons.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (
+      !(await allButtons
+        .first()
+        .isVisible({ timeout: 3000 })
+        .catch(() => false))
+    ) {
       // Try the last button in each banner row (the trash button)
       test.skip();
       return;
@@ -154,12 +167,15 @@ test.describe('Admin Banners Management', () => {
 
   test('should show empty state when no banners exist', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Either banners or empty state should be visible
     const banners = page.locator('[draggable="true"]');
     const emptyState = page.locator('text=/Банерів немає/i');
-    const hasBanners = await banners.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasBanners = await banners
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
     const hasEmpty = await emptyState.isVisible({ timeout: 2000 }).catch(() => false);
 
     // At least one of these should be true
@@ -168,10 +184,10 @@ test.describe('Admin Banners Management', () => {
 
   test('should display banner thumbnails', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const bannerItems = page.locator('[draggable="true"]');
-    if (await bannerItems.count() === 0) {
+    if ((await bannerItems.count()) === 0) {
       test.skip();
       return;
     }

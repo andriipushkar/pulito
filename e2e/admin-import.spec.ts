@@ -8,7 +8,7 @@ test.describe('Admin Product Import', () => {
 
   test('should access admin import page', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin');
 
@@ -18,7 +18,7 @@ test.describe('Admin Product Import', () => {
 
   test('should display import form with file upload', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for file upload input
     const fileInput = page.locator('input[type="file"]').first();
@@ -35,17 +35,18 @@ test.describe('Admin Product Import', () => {
 
   test('should show import history', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for import history table or list
     const historyTable = page.locator('table');
     const historyList = page.locator('[data-testid="import-history"], [class*="history"]');
-    const emptyState = page.locator(
-      'text=/Немає імпортів|Історія імпорту порожня|No imports/i'
-    );
+    const emptyState = page.locator('text=/Немає імпортів|Історія імпорту порожня|No imports/i');
 
     const hasTable = await historyTable.isVisible({ timeout: 5000 }).catch(() => false);
-    const hasList = await historyList.first().isVisible({ timeout: 3000 }).catch(() => false);
+    const hasList = await historyList
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
     const hasEmpty = await emptyState.isVisible({ timeout: 3000 }).catch(() => false);
 
     // Page should render correctly
@@ -54,7 +55,7 @@ test.describe('Admin Product Import', () => {
 
   test('should upload a product file', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const fileInput = page.locator('input[type="file"]').first();
 
@@ -74,7 +75,7 @@ test.describe('Admin Product Import', () => {
       // Look for upload/import button
       const importBtn = page
         .locator(
-          'button:has-text("Імпортувати"), button:has-text("Завантажити"), button:has-text("Почати імпорт"), button[type="submit"]'
+          'button:has-text("Імпортувати"), button:has-text("Завантажити"), button:has-text("Почати імпорт"), button[type="submit"]',
         )
         .first();
 
@@ -83,10 +84,11 @@ test.describe('Admin Product Import', () => {
         await page.waitForTimeout(3000);
 
         // Should show progress or result
-        const result = page.locator(
-          'text=/завершено|completed|успішно|створено|оновлено|помилк/i'
-        );
-        const hasResult = await result.first().isVisible({ timeout: 10000 }).catch(() => false);
+        const result = page.locator('text=/завершено|completed|успішно|створено|оновлено|помилк/i');
+        const hasResult = await result
+          .first()
+          .isVisible({ timeout: 10000 })
+          .catch(() => false);
 
         await expect(page.locator('body')).toBeVisible();
       }
@@ -95,7 +97,7 @@ test.describe('Admin Product Import', () => {
 
   test('should show import validation errors for bad file', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const fileInput = page.locator('input[type="file"]').first();
 
@@ -114,7 +116,7 @@ test.describe('Admin Product Import', () => {
 
       const importBtn = page
         .locator(
-          'button:has-text("Імпортувати"), button:has-text("Завантажити"), button[type="submit"]'
+          'button:has-text("Імпортувати"), button:has-text("Завантажити"), button[type="submit"]',
         )
         .first();
 
@@ -123,10 +125,11 @@ test.describe('Admin Product Import', () => {
         await page.waitForTimeout(2000);
 
         // Should show validation error
-        const errorMsg = page.locator(
-          'text=/помилк|error|невірний формат|invalid/i'
-        );
-        const hasError = await errorMsg.first().isVisible({ timeout: 5000 }).catch(() => false);
+        const errorMsg = page.locator('text=/помилк|error|невірний формат|invalid/i');
+        const hasError = await errorMsg
+          .first()
+          .isVisible({ timeout: 5000 })
+          .catch(() => false);
 
         await expect(page.locator('body')).toBeVisible();
       }

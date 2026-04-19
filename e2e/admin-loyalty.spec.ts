@@ -8,7 +8,7 @@ test.describe('Admin Loyalty Challenges Page', () => {
 
   test('should access admin loyalty challenges page', async ({ page }) => {
     await page.goto('/admin/loyalty/challenges');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin');
     await expect(page.locator('body')).toBeVisible();
@@ -16,7 +16,7 @@ test.describe('Admin Loyalty Challenges Page', () => {
 
   test('should render loyalty challenges content', async ({ page }) => {
     await page.goto('/admin/loyalty/challenges');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const pageTitle = page.locator('h1, h2');
     await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });

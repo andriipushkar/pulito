@@ -3,23 +3,23 @@ import { test, expect } from '@playwright/test';
 test.describe('Quick Order (without registration)', () => {
   test('should fill quick order form and submit', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find a product and navigate to it
     const productLink = page.locator('a[href*="/product/"]').first();
     if (await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await productLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
     } else {
       // Fallback: go to catalog and add from listing
       await page.goto('/catalog');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
     }
 
     // Click "Buy in 1 click" or "Quick order" button
     const quickOrderBtn = page
       .locator(
-        'button:has-text("Купити в 1 клік"), button:has-text("Швидке замовлення"), button:has-text("Замовити"), [data-testid="quick-order"]'
+        'button:has-text("Купити в 1 клік"), button:has-text("Швидке замовлення"), button:has-text("Замовити"), [data-testid="quick-order"]',
       )
       .first();
 
@@ -44,7 +44,9 @@ test.describe('Quick Order (without registration)', () => {
 
       // Submit the form
       const submitBtn = page
-        .locator('button[type="submit"], button:has-text("Замовити"), button:has-text("Відправити")')
+        .locator(
+          'button[type="submit"], button:has-text("Замовити"), button:has-text("Відправити")',
+        )
         .first();
       if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         await submitBtn.click();
@@ -67,23 +69,23 @@ test.describe('Quick Order (without registration)', () => {
         await page.waitForTimeout(500);
       }
       await page.goto('/checkout');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       await expect(page.locator('body')).toBeVisible();
     }
   });
 
   test('should show validation for empty quick order form', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
     if (await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await productLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const quickOrderBtn = page
         .locator(
-          'button:has-text("Купити в 1 клік"), button:has-text("Швидке замовлення"), [data-testid="quick-order"]'
+          'button:has-text("Купити в 1 клік"), button:has-text("Швидке замовлення"), [data-testid="quick-order"]',
         )
         .first();
 

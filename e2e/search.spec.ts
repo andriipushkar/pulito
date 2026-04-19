@@ -3,19 +3,23 @@ import { test, expect } from '@playwright/test';
 test.describe('Search Flow', () => {
   test('should have a search input on the homepage', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const searchInput = page.locator('input[placeholder*="Пошук"], input[name="search"], input[type="search"]').first();
+    const searchInput = page
+      .locator('input[placeholder*="Пошук"], input[name="search"], input[type="search"]')
+      .first();
     const hasSearch = await searchInput.isVisible({ timeout: 5000 }).catch(() => false);
     expect(hasSearch).toBeTruthy();
   });
 
   test('should show autocomplete results when typing', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const searchInput = page.locator('input[placeholder*="Пошук"], input[name="search"], input[type="search"]').first();
-    if (!await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const searchInput = page
+      .locator('input[placeholder*="Пошук"], input[name="search"], input[type="search"]')
+      .first();
+    if (!(await searchInput.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -24,7 +28,9 @@ test.describe('Search Flow', () => {
     await page.waitForTimeout(700); // Debounce delay
 
     // Autocomplete dropdown should appear
-    const autocomplete = page.locator('[data-testid="search-results"], [role="listbox"], .search-dropdown, .autocomplete').first();
+    const autocomplete = page
+      .locator('[data-testid="search-results"], [role="listbox"], .search-dropdown, .autocomplete')
+      .first();
     const hasAutocomplete = await autocomplete.isVisible({ timeout: 3000 }).catch(() => false);
 
     // At minimum, API should be called (check network)
@@ -33,7 +39,7 @@ test.describe('Search Flow', () => {
 
   test('should navigate to search results page', async ({ page }) => {
     await page.goto('/catalog?search=Fairy');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should show products matching search
     const products = page.locator('[data-testid="product-card"], .product-card, article').first();
@@ -49,27 +55,30 @@ test.describe('Search Flow', () => {
 
   test('should submit search via Enter key', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    const searchInput = page.locator('input[placeholder*="Пошук"], input[name="search"], input[type="search"]').first();
-    if (!await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const searchInput = page
+      .locator('input[placeholder*="Пошук"], input[name="search"], input[type="search"]')
+      .first();
+    if (!(await searchInput.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip();
       return;
     }
 
     await searchInput.fill('Persil');
     await searchInput.press('Enter');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should navigate to results — either /catalog?search= or similar
     const url = page.url();
-    const hasSearchParam = url.includes('search=') || url.includes('q=') || url.includes('/catalog');
+    const hasSearchParam =
+      url.includes('search=') || url.includes('q=') || url.includes('/catalog');
     expect(hasSearchParam).toBeTruthy();
   });
 
   test('should show "not found" for gibberish search', async ({ page }) => {
     await page.goto('/catalog?search=zxcvbnmasdfgh');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should show empty state or "nothing found" message
     const noResults = page.locator('text=/нічого|не знайдено|not found|порожн/i').first();
@@ -84,12 +93,12 @@ test.describe('Search Flow', () => {
 
   test('should navigate to product from search results', async ({ page }) => {
     await page.goto('/catalog?search=Persil');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
     if (await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await productLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Should be on product detail page
       expect(page.url()).toContain('/product/');

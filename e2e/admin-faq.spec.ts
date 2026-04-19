@@ -8,7 +8,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should access admin FAQ page', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin/faq');
 
@@ -20,7 +20,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should display create FAQ form when clicking add button', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click "Додати питання" button
     const addButton = page.locator('button', { hasText: /Додати питання/i });
@@ -40,7 +40,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should create a new FAQ item', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Open create form
     const addButton = page.locator('button', { hasText: /Додати питання/i });
@@ -69,11 +69,11 @@ test.describe('Admin FAQ Management', () => {
 
   test('should open inline edit form when clicking edit button', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find the first edit button
     const editButton = page.locator('button', { hasText: /Редагувати/i }).first();
-    if (!await editButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await editButton.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -90,11 +90,11 @@ test.describe('Admin FAQ Management', () => {
 
   test('should toggle published status', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find a publish toggle button
     const toggleButton = page.locator('button', { hasText: /Опубл\.|Чернетка/i }).first();
-    if (!await toggleButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await toggleButton.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }
@@ -119,11 +119,11 @@ test.describe('Admin FAQ Management', () => {
 
   test('should filter by category when multiple categories exist', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for category filter select
     const filterSelect = page.locator('select').first();
-    if (!await filterSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (!(await filterSelect.isVisible({ timeout: 3000 }).catch(() => false))) {
       // Only one category or no items -- skip
       test.skip();
       return;
@@ -148,11 +148,11 @@ test.describe('Admin FAQ Management', () => {
 
   test('should handle delete with confirmation dialog', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find delete button
     const deleteButton = page.locator('button[title="Видалити"]').first();
-    if (!await deleteButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (!(await deleteButton.isVisible({ timeout: 5000 }).catch(() => false))) {
       test.skip();
       return;
     }

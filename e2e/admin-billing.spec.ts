@@ -8,7 +8,7 @@ test.describe('Admin Billing Page', () => {
 
   test('should access admin billing page', async ({ page }) => {
     await page.goto('/admin/billing');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin');
     await expect(page.locator('body')).toBeVisible();
@@ -16,7 +16,7 @@ test.describe('Admin Billing Page', () => {
 
   test('should display billing page title', async ({ page }) => {
     await page.goto('/admin/billing');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const pageTitle = page.locator('h1, h2');
     await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });
@@ -24,7 +24,7 @@ test.describe('Admin Billing Page', () => {
 
   test('should navigate to plans page', async ({ page }) => {
     await page.goto('/admin/billing/plans');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin/billing/plans');
     await expect(page.locator('body')).toBeVisible();

@@ -9,7 +9,7 @@ test.describe('Account Security', () => {
 
   test('should load security page with 2FA section', async ({ page }) => {
     await page.goto('/account/security');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const twoFactorSection = page
       .locator('[data-testid="2fa-section"], .two-factor, h2, h3, p')
@@ -28,7 +28,7 @@ test.describe('Account Security', () => {
 
   test('should display login history table', async ({ page }) => {
     await page.goto('/account/security');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const historyTable = page
       .locator('table, [data-testid="login-history"], .login-history, .sessions')
@@ -51,7 +51,7 @@ test.describe('Account Security', () => {
 
   test('should show 2FA setup button when not enabled', async ({ page }) => {
     await page.goto('/account/security');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const setupButton = page
       .locator('button, a')
@@ -77,7 +77,7 @@ test.describe('Account Security', () => {
   test('should restrict access for unauthenticated users', async ({ page }) => {
     await logout(page);
     await page.goto('/account/security');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should redirect to login or show unauthorized
     const isRedirected = page.url().includes('/auth/login') || page.url().includes('/login');

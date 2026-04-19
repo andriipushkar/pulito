@@ -8,7 +8,7 @@ test.describe('Admin Settings Page', () => {
 
   test('should access admin settings page', async ({ page }) => {
     await page.goto('/admin/settings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin');
     await expect(page.locator('body')).toBeVisible();
@@ -16,7 +16,7 @@ test.describe('Admin Settings Page', () => {
 
   test('should render settings form', async ({ page }) => {
     await page.goto('/admin/settings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const pageTitle = page.locator('h1, h2');
     await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });
