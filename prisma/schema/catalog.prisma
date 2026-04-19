@@ -21,7 +21,7 @@ model Category {
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
   products        Product[]
-  publications    Publication[] @relation("PublicationCategory")
+  publications    Publication[]    @relation("PublicationCategory")
   volumeDiscounts VolumeDiscount[]
 
   @@map("categories")

@@ -28,46 +28,46 @@ enum TaxSystem {
 }
 
 model User {
-  id                    Int              @id @default(autoincrement())
-  email                 String           @unique
-  passwordHash          String?          @map("password_hash")
-  fullName              String           @map("full_name")
+  id                    Int             @id @default(autoincrement())
+  email                 String          @unique
+  passwordHash          String?         @map("password_hash")
+  fullName              String          @map("full_name")
   phone                 String?
-  role                  UserRole         @default(client)
-  companyName           String?          @map("company_name")
+  role                  UserRole        @default(client)
+  companyName           String?         @map("company_name")
   edrpou                String?
-  legalAddress          String?          @map("legal_address")
-  bankIban              String?          @map("bank_iban")
-  bankName              String?          @map("bank_name")
-  bankMfo               String?          @map("bank_mfo")
-  ownershipType         OwnershipType?   @map("ownership_type")
-  taxSystem             TaxSystem?       @map("tax_system")
-  contactPersonName     String?          @map("contact_person_name")
-  contactPersonPhone    String?          @map("contact_person_phone")
-  wholesaleStatus       WholesaleStatus  @default(none) @map("wholesale_status")
-  wholesaleRequestDate  DateTime?        @map("wholesale_request_date")
-  wholesaleApprovedDate DateTime?        @map("wholesale_approved_date")
-  wholesaleGroup        Int?             @map("wholesale_group")
-  wholesaleMonthlyVol   String?          @map("wholesale_monthly_volume")
-  assignedManagerId     Int?             @map("assigned_manager_id")
-  assignedManager       User?            @relation("ManagerToClient", fields: [assignedManagerId], references: [id])
-  managedClients        User[]           @relation("ManagerToClient")
-  referralCode          String?          @unique @map("referral_code")
-  notificationPrefs     Json?            @map("notification_preferences")
-  googleId              String?          @unique @map("google_id")
-  telegramChatId        BigInt?          @map("telegram_chat_id")
-  viberUserId           String?          @map("viber_user_id")
-  avatarUrl             String?          @map("avatar_url")
-  twoFactorEnabled      Boolean          @default(false) @map("two_factor_enabled")
-  twoFactorSecret       String?          @map("two_factor_secret")
-  twoFactorBackupCodes  String[]         @default([]) @map("two_factor_backup_codes")
-  isVerified            Boolean          @default(false) @map("is_verified")
-  isBlocked             Boolean          @default(false) @map("is_blocked")
-  blockedAt             DateTime?        @map("blocked_at")
-  blockedReason         String?          @map("blocked_reason")
-  adminNote             String?          @map("admin_note")
-  createdAt             DateTime         @default(now()) @map("created_at")
-  updatedAt             DateTime         @updatedAt @map("updated_at")
+  legalAddress          String?         @map("legal_address")
+  bankIban              String?         @map("bank_iban")
+  bankName              String?         @map("bank_name")
+  bankMfo               String?         @map("bank_mfo")
+  ownershipType         OwnershipType?  @map("ownership_type")
+  taxSystem             TaxSystem?      @map("tax_system")
+  contactPersonName     String?         @map("contact_person_name")
+  contactPersonPhone    String?         @map("contact_person_phone")
+  wholesaleStatus       WholesaleStatus @default(none) @map("wholesale_status")
+  wholesaleRequestDate  DateTime?       @map("wholesale_request_date")
+  wholesaleApprovedDate DateTime?       @map("wholesale_approved_date")
+  wholesaleGroup        Int?            @map("wholesale_group")
+  wholesaleMonthlyVol   String?         @map("wholesale_monthly_volume")
+  assignedManagerId     Int?            @map("assigned_manager_id")
+  assignedManager       User?           @relation("ManagerToClient", fields: [assignedManagerId], references: [id])
+  managedClients        User[]          @relation("ManagerToClient")
+  referralCode          String?         @unique @map("referral_code")
+  notificationPrefs     Json?           @map("notification_preferences")
+  googleId              String?         @unique @map("google_id")
+  telegramChatId        BigInt?         @map("telegram_chat_id")
+  viberUserId           String?         @map("viber_user_id")
+  avatarUrl             String?         @map("avatar_url")
+  twoFactorEnabled      Boolean         @default(false) @map("two_factor_enabled")
+  twoFactorSecret       String?         @map("two_factor_secret")
+  twoFactorBackupCodes  String[]        @default([]) @map("two_factor_backup_codes")
+  isVerified            Boolean         @default(false) @map("is_verified")
+  isBlocked             Boolean         @default(false) @map("is_blocked")
+  blockedAt             DateTime?       @map("blocked_at")
+  blockedReason         String?         @map("blocked_reason")
+  adminNote             String?         @map("admin_note")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
 
   orders              Order[]
   cartItems           CartItem[]
@@ -80,36 +80,36 @@ model User {
   productNotes        ProductNote[]
   auditLogs           AuditLog[]
   importLogs          ImportLog[]
-  personalPricesUser  PersonalPrice[]    @relation("PersonalPriceUser")
-  personalPricesAdmin PersonalPrice[]    @relation("PersonalPriceCreator")
-  referralsMade       Referral[]         @relation("Referrer")
-  referralsReceived   Referral[]         @relation("Referred")
+  personalPricesUser  PersonalPrice[]            @relation("PersonalPriceUser")
+  personalPricesAdmin PersonalPrice[]            @relation("PersonalPriceCreator")
+  referralsMade       Referral[]                 @relation("Referrer")
+  referralsReceived   Referral[]                 @relation("Referred")
   clientEvents        ClientEvent[]
   publications        Publication[]
-  feedbackProcessed   Feedback[]         @relation("FeedbackProcessor")
-  paymentsConfirmed   Payment[]          @relation("PaymentConfirmer")
+  feedbackProcessed   Feedback[]                 @relation("FeedbackProcessor")
+  paymentsConfirmed   Payment[]                  @relation("PaymentConfirmer")
   deliveriesCreated   Delivery[]
-  dashboardSettings     DashboardSettings?
-  reportTemplates       ReportTemplate[]
-  analyticsAlerts       AnalyticsAlert[]
-  loyaltyAccount        LoyaltyAccount?
-  loyaltyTransactions   LoyaltyTransaction[]
-  pushSubscriptions     PushSubscription[]
-  reviews               Review[]
-  loginHistory          LoginHistory[]
-  subscriptions         Subscription[]
-  loyaltyStreaks        LoyaltyStreak?
-  challengeProgress     LoyaltyChallengeProgress[]
-  birthday              DateTime?
-  creditLimit           Decimal?         @map("credit_limit") @db.Decimal(10, 2)
-  creditUsed            Decimal?         @default(0) @map("credit_used") @db.Decimal(10, 2)
-  chatRooms             ChatRoom[]
-  agentChatRooms        ChatRoom[]       @relation("AgentChatRooms")
-  campaignLogs          CampaignLog[]
-  purchasePredictions   PurchasePrediction[]
-  tenantUsers           TenantUser[]
+  dashboardSettings   DashboardSettings?
+  reportTemplates     ReportTemplate[]
+  analyticsAlerts     AnalyticsAlert[]
+  loyaltyAccount      LoyaltyAccount?
+  loyaltyTransactions LoyaltyTransaction[]
+  pushSubscriptions   PushSubscription[]
+  reviews             Review[]
+  loginHistory        LoginHistory[]
+  subscriptions       Subscription[]
+  loyaltyStreaks      LoyaltyStreak?
+  challengeProgress   LoyaltyChallengeProgress[]
+  birthday            DateTime?
+  creditLimit         Decimal?                   @map("credit_limit") @db.Decimal(10, 2)
+  creditUsed          Decimal?                   @default(0) @map("credit_used") @db.Decimal(10, 2)
+  chatRooms           ChatRoom[]
+  agentChatRooms      ChatRoom[]                 @relation("AgentChatRooms")
+  campaignLogs        CampaignLog[]
+  purchasePredictions PurchasePrediction[]
+  tenantUsers         TenantUser[]
 
-  deletedAt             DateTime?        @map("deleted_at")
+  deletedAt DateTime? @map("deleted_at")
 
   @@index([role])
   @@index([createdAt])

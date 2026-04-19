@@ -47,8 +47,8 @@ model ApiKey {
   id          Int       @id @default(autoincrement())
   name        String
   keyHash     String    @unique @map("key_hash")
-  prefix      String    // first 8 chars for identification
-  permissions Json      // { products: true, orders: true, stock: true, prices: true }
+  prefix      String // first 8 chars for identification
+  permissions Json // { products: true, orders: true, stock: true, prices: true }
   isActive    Boolean   @default(true) @map("is_active")
   lastUsedAt  DateTime? @map("last_used_at")
   expiresAt   DateTime? @map("expires_at")

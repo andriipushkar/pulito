@@ -8,24 +8,24 @@ enum ReviewStatus {
 }
 
 model Review {
-  id        Int          @id @default(autoincrement())
-  productId Int          @map("product_id")
-  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
-  userId    Int          @map("user_id")
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rating    Int          // 1-5
-  title     String?      @db.VarChar(200)
-  comment   String?      @db.VarChar(2000)
-  pros      String?      @db.VarChar(500)
-  cons      String?      @db.VarChar(500)
-  status    ReviewStatus @default(pending)
-  isVerifiedPurchase Boolean @default(false) @map("is_verified_purchase")
-  helpfulCount   Int     @default(0) @map("helpful_count")
-  images         Json?    // Array of image paths: ["/uploads/reviews/1.jpg", ...]
-  adminReply     String? @map("admin_reply") @db.VarChar(1000)
-  adminReplyAt   DateTime? @map("admin_reply_at")
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
+  id                 Int          @id @default(autoincrement())
+  productId          Int          @map("product_id")
+  product            Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId             Int          @map("user_id")
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating             Int // 1-5
+  title              String?      @db.VarChar(200)
+  comment            String?      @db.VarChar(2000)
+  pros               String?      @db.VarChar(500)
+  cons               String?      @db.VarChar(500)
+  status             ReviewStatus @default(pending)
+  isVerifiedPurchase Boolean      @default(false) @map("is_verified_purchase")
+  helpfulCount       Int          @default(0) @map("helpful_count")
+  images             Json? // Array of image paths: ["/uploads/reviews/1.jpg", ...]
+  adminReply         String?      @map("admin_reply") @db.VarChar(1000)
+  adminReplyAt       DateTime?    @map("admin_reply_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
 
   @@unique([productId, userId])
   @@index([productId, status])

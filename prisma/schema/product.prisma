@@ -2,57 +2,57 @@
 // 23.2 Products (Товари)
 // ─────────────────────────────────────
 model Product {
-  id                Int       @id @default(autoincrement())
-  code              String    @unique
-  name              String    @db.VarChar(255)
-  slug              String    @unique @db.VarChar(255)
-  categoryId        Int?      @map("category_id")
-  category          Category? @relation(fields: [categoryId], references: [id])
-  priceRetail       Decimal   @map("price_retail") @db.Decimal(10, 2)
-  priceWholesale    Decimal?  @map("price_wholesale") @db.Decimal(10, 2)
-  priceWholesale2   Decimal?  @map("price_wholesale_2") @db.Decimal(10, 2)
-  priceWholesale3   Decimal?  @map("price_wholesale_3") @db.Decimal(10, 2)
-  priceRetailOld    Decimal?  @map("price_retail_old") @db.Decimal(10, 2)
-  priceWholesaleOld Decimal?  @map("price_wholesale_old") @db.Decimal(10, 2)
-  priceWholesaleOld2 Decimal? @map("price_wholesale_old_2") @db.Decimal(10, 2)
-  priceWholesaleOld3 Decimal? @map("price_wholesale_old_3") @db.Decimal(10, 2)
-  quantity          Int       @default(0)
-  isPromo           Boolean   @default(false) @map("is_promo")
-  promoStartDate    DateTime? @map("promo_start_date")
-  promoEndDate      DateTime? @map("promo_end_date")
-  isActive          Boolean   @default(true) @map("is_active")
-  deletedAt         DateTime? @map("deleted_at")
-  imagePath         String?   @map("image_path")
-  sortOrder         Int       @default(0) @map("sort_order")
-  viewsCount        Int       @default(0) @map("views_count")
-  ordersCount       Int       @default(0) @map("orders_count")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-  searchVector      Unsupported("tsvector")?  @map("search_vector")
+  id                 Int                      @id @default(autoincrement())
+  code               String                   @unique
+  name               String                   @db.VarChar(255)
+  slug               String                   @unique @db.VarChar(255)
+  categoryId         Int?                     @map("category_id")
+  category           Category?                @relation(fields: [categoryId], references: [id])
+  priceRetail        Decimal                  @map("price_retail") @db.Decimal(10, 2)
+  priceWholesale     Decimal?                 @map("price_wholesale") @db.Decimal(10, 2)
+  priceWholesale2    Decimal?                 @map("price_wholesale_2") @db.Decimal(10, 2)
+  priceWholesale3    Decimal?                 @map("price_wholesale_3") @db.Decimal(10, 2)
+  priceRetailOld     Decimal?                 @map("price_retail_old") @db.Decimal(10, 2)
+  priceWholesaleOld  Decimal?                 @map("price_wholesale_old") @db.Decimal(10, 2)
+  priceWholesaleOld2 Decimal?                 @map("price_wholesale_old_2") @db.Decimal(10, 2)
+  priceWholesaleOld3 Decimal?                 @map("price_wholesale_old_3") @db.Decimal(10, 2)
+  quantity           Int                      @default(0)
+  isPromo            Boolean                  @default(false) @map("is_promo")
+  promoStartDate     DateTime?                @map("promo_start_date")
+  promoEndDate       DateTime?                @map("promo_end_date")
+  isActive           Boolean                  @default(true) @map("is_active")
+  deletedAt          DateTime?                @map("deleted_at")
+  imagePath          String?                  @map("image_path")
+  sortOrder          Int                      @default(0) @map("sort_order")
+  viewsCount         Int                      @default(0) @map("views_count")
+  ordersCount        Int                      @default(0) @map("orders_count")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  searchVector       Unsupported("tsvector")? @map("search_vector")
 
-  content         ProductContent?
-  images          ProductImage[]
-  badges          ProductBadge[]
-  orderItems      OrderItem[]
-  cartItems       CartItem[]
-  wishlistItems   WishlistItem[]
-  recentlyViewed  RecentlyViewed[]
-  priceHistory    PriceHistory[]
-  productNotes    ProductNote[]
-  searchClicks    SearchHistory[]
-  recommendations ProductRecommendation[] @relation("RecommendedFrom")
-  recommendedBy   ProductRecommendation[] @relation("RecommendedTo")
-  personalPrices  PersonalPrice[]
-  publications    Publication[]           @relation("PublicationProduct")
-  wholesaleRules  WholesaleRule[]
-  clientEvents    ClientEvent[]
-  reviews              Review[]
-  subscriptionItems    SubscriptionItem[]
-  bundleItems          BundleItem[]
-  warehouseStock       WarehouseStock[]
-  marketplaceListings  MarketplaceListing[]
-  volumeDiscounts      VolumeDiscount[]
-  purchasePredictions  PurchasePrediction[]
+  content             ProductContent?
+  images              ProductImage[]
+  badges              ProductBadge[]
+  orderItems          OrderItem[]
+  cartItems           CartItem[]
+  wishlistItems       WishlistItem[]
+  recentlyViewed      RecentlyViewed[]
+  priceHistory        PriceHistory[]
+  productNotes        ProductNote[]
+  searchClicks        SearchHistory[]
+  recommendations     ProductRecommendation[] @relation("RecommendedFrom")
+  recommendedBy       ProductRecommendation[] @relation("RecommendedTo")
+  personalPrices      PersonalPrice[]
+  publications        Publication[]           @relation("PublicationProduct")
+  wholesaleRules      WholesaleRule[]
+  clientEvents        ClientEvent[]
+  reviews             Review[]
+  subscriptionItems   SubscriptionItem[]
+  bundleItems         BundleItem[]
+  warehouseStock      WarehouseStock[]
+  marketplaceListings MarketplaceListing[]
+  volumeDiscounts     VolumeDiscount[]
+  purchasePredictions PurchasePrediction[]
 
   @@index([categoryId])
   @@index([isActive, isPromo])
@@ -162,11 +162,11 @@ model ProductRecommendation {
 // 23.15 Price_History
 // ─────────────────────────────────────
 model PriceHistory {
-  id                Int      @id @default(autoincrement())
-  productId         Int      @map("product_id")
-  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  priceRetailOld    Decimal? @map("price_retail_old") @db.Decimal(10, 2)
-  priceRetailNew    Decimal? @map("price_retail_new") @db.Decimal(10, 2)
+  id                 Int      @id @default(autoincrement())
+  productId          Int      @map("product_id")
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  priceRetailOld     Decimal? @map("price_retail_old") @db.Decimal(10, 2)
+  priceRetailNew     Decimal? @map("price_retail_new") @db.Decimal(10, 2)
   priceWholesaleOld  Decimal? @map("price_wholesale_old") @db.Decimal(10, 2)
   priceWholesaleNew  Decimal? @map("price_wholesale_new") @db.Decimal(10, 2)
   priceWholesale2Old Decimal? @map("price_wholesale_2_old") @db.Decimal(10, 2)
@@ -174,7 +174,7 @@ model PriceHistory {
   priceWholesale3Old Decimal? @map("price_wholesale_3_old") @db.Decimal(10, 2)
   priceWholesale3New Decimal? @map("price_wholesale_3_new") @db.Decimal(10, 2)
   changedAt          DateTime @default(now()) @map("changed_at")
-  importId          Int?     @map("import_id")
+  importId           Int?     @map("import_id")
 
   @@map("price_history")
 }

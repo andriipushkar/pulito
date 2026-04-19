@@ -2,15 +2,15 @@
 // Blog (Блог з SEO)
 // ─────────────────────────────────────
 model BlogCategory {
-  id             Int        @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   name           String
-  slug           String     @unique
+  slug           String   @unique
   description    String?
-  seoTitle       String?    @map("seo_title")
-  seoDescription String?    @map("seo_description")
-  sortOrder      Int        @default(0) @map("sort_order")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
+  seoTitle       String?  @map("seo_title")
+  seoDescription String?  @map("seo_description")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   posts BlogPost[]
 

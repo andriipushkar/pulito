@@ -9,28 +9,28 @@ enum CampaignFrequency {
 }
 
 model CampaignRule {
-  id              Int                @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   name            String
-  rfmSegment      String             @map("rfm_segment")
-  emailTemplateId Int                @map("email_template_id")
-  emailTemplate   EmailTemplate      @relation(fields: [emailTemplateId], references: [id])
-  frequency       CampaignFrequency  @default(once)
-  isActive        Boolean            @default(true) @map("is_active")
-  lastRunAt       DateTime?          @map("last_run_at")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
+  rfmSegment      String            @map("rfm_segment")
+  emailTemplateId Int               @map("email_template_id")
+  emailTemplate   EmailTemplate     @relation(fields: [emailTemplateId], references: [id])
+  frequency       CampaignFrequency @default(once)
+  isActive        Boolean           @default(true) @map("is_active")
+  lastRunAt       DateTime?         @map("last_run_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
   logs            CampaignLog[]
 
   @@map("campaign_rules")
 }
 
 model CampaignLog {
-  id       Int          @id @default(autoincrement())
-  ruleId   Int          @map("rule_id")
-  rule     CampaignRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  userId   Int          @map("user_id")
-  user     User         @relation(fields: [userId], references: [id])
-  sentAt   DateTime     @default(now()) @map("sent_at")
+  id     Int          @id @default(autoincrement())
+  ruleId Int          @map("rule_id")
+  rule   CampaignRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  userId Int          @map("user_id")
+  user   User         @relation(fields: [userId], references: [id])
+  sentAt DateTime     @default(now()) @map("sent_at")
 
   @@unique([ruleId, userId, sentAt])
   @@map("campaign_logs")

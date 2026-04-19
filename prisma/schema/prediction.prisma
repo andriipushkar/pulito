@@ -2,17 +2,17 @@
 // Purchase Predictions (Прогнози покупок)
 // ─────────────────────────────────────
 model PurchasePrediction {
-  id                Int       @id @default(autoincrement())
-  userId            Int       @map("user_id")
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId         Int       @map("product_id")
-  product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  avgIntervalDays   Float     @map("avg_interval_days")
-  predictedNextDate DateTime  @map("predicted_next_date")
-  confidence        Float     @default(0) // 0-1 scale, higher = more data points
-  notificationSent  Boolean   @default(false) @map("notification_sent")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  id                Int      @id @default(autoincrement())
+  userId            Int      @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId         Int      @map("product_id")
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  avgIntervalDays   Float    @map("avg_interval_days")
+  predictedNextDate DateTime @map("predicted_next_date")
+  confidence        Float    @default(0) // 0-1 scale, higher = more data points
+  notificationSent  Boolean  @default(false) @map("notification_sent")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@unique([userId, productId])
   @@map("purchase_predictions")

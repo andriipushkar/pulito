@@ -5,7 +5,7 @@ enum AuditActionType {
   login
   logout
   role_change
-  import_action @map("import")
+  import_action       @map("import")
   order_status_change
   publication_create
   theme_change
@@ -194,8 +194,8 @@ model ChannelStats {
 // ─────────────────────────────────────
 model WebhookLog {
   id          Int      @id @default(autoincrement())
-  source      String   // telegram, viber, monobank, liqpay, wayforpay
-  event       String   // message, callback, payment, etc.
+  source      String // telegram, viber, monobank, liqpay, wayforpay
+  event       String // message, callback, payment, etc.
   payload     Json?
   statusCode  Int?     @map("status_code")
   error       String?
@@ -214,7 +214,7 @@ model PerformanceMetric {
   id          Int      @id @default(autoincrement())
   date        DateTime @db.Date
   route       String
-  metric      String   // 'LCP', 'CLS', 'FID', 'TTFB', 'INP'
+  metric      String // 'LCP', 'CLS', 'FID', 'TTFB', 'INP'
   p50         Float
   p75         Float
   p90         Float

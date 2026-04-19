@@ -18,7 +18,7 @@ model LoyaltyTransaction {
   id          Int      @id @default(autoincrement())
   userId      Int      @map("user_id")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        String   // 'earn' | 'spend' | 'manual_add' | 'manual_deduct' | 'expire'
+  type        String // 'earn' | 'spend' | 'manual_add' | 'manual_deduct' | 'expire'
   points      Int
   orderId     Int?     @map("order_id")
   description String
@@ -44,16 +44,16 @@ model LoyaltyLevel {
 // Loyalty Gamification
 // ─────────────────────────────────────
 model LoyaltyChallenge {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   name        String
   description String
-  type        String   // order_count, order_amount, review, referral, streak
+  type        String // order_count, order_amount, review, referral, streak
   target      Int
-  reward      Int      // bonus points
-  isActive    Boolean  @default(true) @map("is_active")
+  reward      Int // bonus points
+  isActive    Boolean   @default(true) @map("is_active")
   startDate   DateTime? @map("start_date")
   endDate     DateTime? @map("end_date")
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
 
   progress LoyaltyChallengeProgress[]
 
