@@ -14,30 +14,70 @@ export async function resetDatabase() {
  * Faster than a full schema push between individual test files.
  */
 export async function cleanDatabase() {
-  // Delete in reverse-dependency order
+  // Delete in reverse-dependency order. Any table with FKs pointing at users,
+  // products, or orders must be purged before its target, otherwise the
+  // deleteMany hits foreign-key constraint violations.
   await prisma.$transaction([
+    // Loyalty / gamification
     prisma.loyaltyChallengeProgress.deleteMany(),
     prisma.loyaltyChallenge.deleteMany(),
     prisma.loyaltyStreak.deleteMany(),
     prisma.loyaltyTransaction.deleteMany(),
     prisma.loyaltyAccount.deleteMany(),
     prisma.loyaltyLevel.deleteMany(),
+    // Orders and their dependents
     prisma.orderStatusHistory.deleteMany(),
     prisma.orderItem.deleteMany(),
     prisma.payment.deleteMany(),
     prisma.delivery.deleteMany(),
+    prisma.marketplaceReturn.deleteMany(),
+    prisma.returnRequest.deleteMany(),
     prisma.order.deleteMany(),
+    // Subscriptions / cart / wishlists / reviews
     prisma.subscriptionItem.deleteMany(),
     prisma.subscription.deleteMany(),
     prisma.cartItem.deleteMany(),
+    prisma.wishlistItem.deleteMany(),
+    prisma.wishlist.deleteMany(),
+    prisma.recentlyViewed.deleteMany(),
+    prisma.review.deleteMany(),
+    // Blog
     prisma.blogPost.deleteMany(),
     prisma.blogCategory.deleteMany(),
+    // Bundles
+    prisma.bundleItem.deleteMany(),
+    prisma.bundle.deleteMany(),
+    // Pricing / marketplace
+    prisma.personalPrice.deleteMany(),
+    prisma.volumeDiscount.deleteMany(),
+    prisma.wholesaleRule.deleteMany(),
     prisma.marketplaceListing.deleteMany(),
     prisma.marketplaceConnection.deleteMany(),
+    prisma.publicationChannel.deleteMany(),
+    prisma.publication.deleteMany(),
+    // Referrals & campaigns
+    prisma.campaignLog.deleteMany(),
+    prisma.campaignRule.deleteMany(),
+    prisma.referral.deleteMany(),
+    // Logs / notifications / sessions tied to users
+    prisma.importLog.deleteMany(),
+    prisma.auditLog.deleteMany(),
+    prisma.userNotification.deleteMany(),
+    prisma.loginHistory.deleteMany(),
+    prisma.refreshToken.deleteMany(),
+    prisma.userAddress.deleteMany(),
+    prisma.tenantUser.deleteMany(),
+    // Product-related
+    prisma.productImage.deleteMany(),
+    prisma.productContent.deleteMany(),
+    prisma.productBadge.deleteMany(),
     prisma.product.deleteMany(),
     prisma.category.deleteMany(),
+    // Users last
     prisma.user.deleteMany(),
+    prisma.tenant.deleteMany(),
     prisma.siteSetting.deleteMany(),
+    prisma.emailTemplate.deleteMany(),
   ]);
 }
 

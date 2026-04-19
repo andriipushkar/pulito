@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   test-db:
     image: postgres:16-alpine
@@ -11,7 +10,7 @@ services:
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-ONLY', 'pg_isready', '-U', 'test']
+      test: ['CMD', 'pg_isready', '-U', 'test']
       interval: 2s
       timeout: 5s
       retries: 10
