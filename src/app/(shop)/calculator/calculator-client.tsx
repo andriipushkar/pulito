@@ -62,7 +62,7 @@ export default function CalculatorClient() {
       setHouseholdData(data);
       setStep(2);
     },
-    []
+    [],
   );
 
   const handleCalculate = useCallback(async () => {
@@ -86,7 +86,10 @@ export default function CalculatorClient() {
       if (rooms.length > 0) {
         const res = await fetch('/api/v1/calculator', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
           body: JSON.stringify({ rooms }),
         });
         if (res.ok) {
@@ -138,7 +141,7 @@ export default function CalculatorClient() {
   // Determine total monthly for display
   const totalMonthly = roomResult
     ? roomResult.totalMonthly + (legacyResult?.totalMonthly ?? 0)
-    : legacyResult?.totalMonthly ?? 0;
+    : (legacyResult?.totalMonthly ?? 0);
 
   return (
     <div className="space-y-6">
@@ -158,7 +161,11 @@ export default function CalculatorClient() {
             >
               {s}
             </div>
-            {s < 3 && <div className={`h-0.5 w-8 ${s < step ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-border)]'}`} />}
+            {s < 3 && (
+              <div
+                className={`h-0.5 w-8 ${s < step ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-border)]'}`}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -166,7 +173,9 @@ export default function CalculatorClient() {
       {/* Step 1: Household info */}
       {step === 1 && (
         <div data-testid="step-1">
-          <h2 className="mb-4 text-lg font-bold text-[var(--color-text)]">Крок 1: Інформація про домогосподарство</h2>
+          <h2 className="mb-4 text-lg font-bold text-[var(--color-text)]">
+            Крок 1: Інформація про домогосподарство
+          </h2>
           <CalculatorForm onCalculate={handleHouseholdSubmit} isLoading={false} />
         </div>
       )}
@@ -174,7 +183,9 @@ export default function CalculatorClient() {
       {/* Step 2: Room selection */}
       {step === 2 && (
         <div data-testid="step-2">
-          <h2 className="mb-4 text-lg font-bold text-[var(--color-text)]">Крок 2: Оберіть кімнати</h2>
+          <h2 className="mb-4 text-lg font-bold text-[var(--color-text)]">
+            Крок 2: Оберіть кімнати
+          </h2>
           <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm">
             <RoomSelector rooms={rooms} onChange={setRooms} />
           </div>

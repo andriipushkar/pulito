@@ -21,17 +21,15 @@ test.describe('Admin Product Import', () => {
     await page.goto('/admin/import');
     await waitForLoaded(page);
 
-    // Look for file upload input
-    const fileInput = page.locator('input[type="file"]').first();
-    const uploadArea = page
-      .locator('[data-testid="file-upload"], [class*="upload"], [class*="dropzone"]')
-      .first();
+    // file input is typically hidden behind a styled <label>; check existence not visibility
+    const fileInputCount = await page.locator('input[type="file"]').count();
+    const hasLabel = await page
+      .locator('label:has-text("Оберіть"), label:has-text("Upload"), label:has-text("Завантаж")')
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
 
-    const hasFileInput = await fileInput.isVisible({ timeout: 5000 }).catch(() => false);
-    const hasUploadArea = await uploadArea.isVisible({ timeout: 3000 }).catch(() => false);
-
-    // At least one upload mechanism should exist
-    expect(hasFileInput || hasUploadArea).toBeTruthy();
+    expect(fileInputCount > 0 || hasLabel).toBeTruthy();
   });
 
   test('should show import history', async ({ page }) => {

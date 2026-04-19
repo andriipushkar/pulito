@@ -63,10 +63,9 @@ test.describe('Wholesale Flow', () => {
   });
 
   test('should show delivery options', async ({ page }) => {
-    await page.goto('/delivery');
+    await page.goto('/pages/delivery');
     await page.waitForLoadState('domcontentloaded');
 
-    // Should mention delivery methods
     const deliveryContent = page.locator('text=/Нова Пошта|Укрпошта|доставк/i');
     const hasDeliveryInfo = await deliveryContent
       .first()

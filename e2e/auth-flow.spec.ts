@@ -8,25 +8,27 @@ test.describe('Full Auth Flow', () => {
 
     const emailInput = page.locator('input[type="email"]').first();
     const passwordInput = page.locator('input[type="password"]').first();
-    const nameInput = page.locator('input[name="fullName"], input[name="name"]').first();
+    // Register form uses label-based ids (see src/components/ui/Input.tsx).
+    const nameInput = page.getByLabel(/ПІБ/i).first();
 
     await expect(emailInput).toBeVisible();
 
-    // Fill with unique email
     const uniqueEmail = `test-${Date.now()}@e2e-test.ua`;
-    await emailInput.fill(uniqueEmail);
-    await passwordInput.fill('TestPassword123!');
-    if (await nameInput.isVisible()) {
+    if (await nameInput.isVisible().catch(() => false)) {
       await nameInput.fill('E2E Тестовий Користувач');
     }
+    await emailInput.fill(uniqueEmail);
+    await passwordInput.fill('TestPassword123!');
 
-    // Submit
     await page.locator('button[type="submit"]').first().click();
-    await page.waitForTimeout(2000);
+    // Successful registration redirects to /auth/login?registered=true
+    await page
+      .waitForURL((u) => !u.pathname.endsWith('/auth/register'), { timeout: 10000 })
+      .catch(() => {});
 
-    // Should redirect or show success
-    const isOnRegister = page.url().includes('/auth/register');
-    const successMsg = page.locator('text=/успішно|Вітаємо|підтвердження/i');
+    const isOnRegister =
+      page.url().includes('/auth/register') && !page.url().includes('registered=');
+    const successMsg = page.locator('text=/успішно|Вітаємо|підтвердження|registered/i');
     const redirected = !isOnRegister;
 
     expect(

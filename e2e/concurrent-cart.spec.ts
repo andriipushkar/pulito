@@ -75,8 +75,8 @@ test.describe('Concurrent Cart Operations', () => {
       );
 
       // At least the cart pages load
-      await expect(page1.locator('main, body')).toBeVisible();
-      await expect(page2.locator('main, body')).toBeVisible();
+      await expect(page1.locator('body')).toBeVisible();
+      await expect(page2.locator('body')).toBeVisible();
     } finally {
       await context1.close();
       await context2.close();

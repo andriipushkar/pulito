@@ -53,15 +53,22 @@ test.describe('Checkout Flow', () => {
     await page.goto('/checkout');
     await page.waitForLoadState('domcontentloaded');
 
-    // Checkout should either redirect to login or show contact form
+    // Checkout with empty cart redirects to /cart; otherwise shows contact form
+    // (and unauthenticated users may be bounced to /auth/login).
     const hasContactForm = await page
-      .locator('input[name="contactName"], input[name="contactPhone"]')
+      .getByLabel(/Ім'я|Прізвище|Телефон/i)
       .first()
       .isVisible({ timeout: 3000 })
       .catch(() => false);
-    const redirectedToLogin = page.url().includes('/auth/login');
+    const redirectedLogin = page.url().includes('/auth/login');
+    const redirectedCart = page.url().includes('/cart');
+    const hasEmptyCart = await page
+      .locator('text=/Кошик порожній|додайте товар/i')
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
 
-    expect(hasContactForm || redirectedToLogin).toBeTruthy();
+    expect(hasContactForm || redirectedLogin || redirectedCart || hasEmptyCart).toBeTruthy();
   });
 
   test('authenticated user can proceed through checkout', async ({ page }) => {

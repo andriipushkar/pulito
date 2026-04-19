@@ -23,7 +23,9 @@ test.describe('Blog', () => {
 
     if (postCount === 0) {
       // Empty state is acceptable
-      const emptyState = page.locator('text=/Немає статей|Поки що немає/i');
+      const emptyState = page.locator(
+        'text=/Немає статей|Поки що немає|немає опублікованих|немає статей/i',
+      );
       const hasEmpty = await emptyState.isVisible({ timeout: 3000 }).catch(() => false);
       expect(hasEmpty).toBeTruthy();
     } else {

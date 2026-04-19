@@ -7,16 +7,17 @@ test.describe('Review Images', () => {
     await waitForLoaded(page);
 
     const productLink = page.locator('a[href*="/product/"]').first();
-    if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
+    const href = await productLink.getAttribute('href').catch(() => null);
+    if (!href) {
       test.skip();
       return;
     }
 
-    await productLink.click();
+    // Direct navigation avoids quick-view overlays on click.
+    await page.goto(href);
     await waitForLoaded(page);
     expect(page.url()).toContain('/product/');
 
-    // Check that review section exists
     const reviewSection = page.locator('text=Відгуки');
     await expect(reviewSection.first()).toBeVisible({ timeout: 5000 });
   });
