@@ -90,7 +90,7 @@ export default function Footer() {
 
           <div className="mt-6 grid grid-cols-2 gap-4">
             <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/70">
                 Покупцям
               </h3>
               <ul className="flex flex-col gap-1.5">
@@ -104,7 +104,7 @@ export default function Footer() {
               </ul>
             </div>
             <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/70">
                 Каталог
               </h3>
               <ul className="flex flex-col gap-1.5">
@@ -117,7 +117,7 @@ export default function Footer() {
                 ))}
               </ul>
               <div className="mt-4">
-                <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+                <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/70">
                   Контакти
                 </h3>
                 <a
@@ -126,7 +126,7 @@ export default function Footer() {
                 >
                   {settings.site_phone_display}
                 </a>
-                <p className="text-[11px] text-white/40">{settings.working_hours}</p>
+                <p className="text-[11px] text-white/70">{settings.working_hours}</p>
               </div>
             </div>
           </div>
@@ -152,7 +152,7 @@ export default function Footer() {
             <p className="mt-2 text-xs leading-relaxed text-white/50">
               {settings.company_description}
             </p>
-            <h4 className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+            <h4 className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wider text-white/70">
               Ми в соцмережах
             </h4>
             <div className="flex gap-2">
@@ -172,7 +172,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/70">
               Покупцям
             </h3>
             <ul className="flex flex-col gap-1.5">
@@ -187,7 +187,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/70">
               Каталог
             </h3>
             <ul className="flex flex-col gap-1.5">
@@ -202,7 +202,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/70">
               Контакти
             </h3>
             <a
@@ -211,7 +211,7 @@ export default function Footer() {
             >
               {settings.site_phone_display}
             </a>
-            <p className="mt-1 text-xs text-white/40">{settings.working_hours}</p>
+            <p className="mt-1 text-xs text-white/70">{settings.working_hours}</p>
             <a
               href={`mailto:${settings.site_email}`}
               className="mt-1.5 block text-xs transition-colors hover:text-white"
@@ -221,7 +221,7 @@ export default function Footer() {
           </div>
 
           <div className="ml-auto w-[220px] shrink-0">
-            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/70">
               Підписка
             </h3>
             <p className="mb-2 text-xs text-white/50">Знижки та новини на вашу пошту</p>
@@ -234,7 +234,7 @@ export default function Footer() {
       <div className="border-t border-white/10">
         <Container className="flex flex-col items-center gap-3 py-4 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-2">
-            <span className="mr-1 text-[11px] text-white/30">Приймаємо:</span>
+            <span className="mr-1 text-[11px] text-white/60">Приймаємо:</span>
             {[
               { name: 'VISA', bg: 'bg-[#1A1F71]' },
               { name: 'MC', bg: 'bg-[#EB001B]' },
@@ -249,7 +249,7 @@ export default function Footer() {
               </span>
             ))}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-white/30">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-white/60">
             <span>
               &copy; {new Date().getFullYear()} {settings.site_name}. Всі права захищені.
             </span>

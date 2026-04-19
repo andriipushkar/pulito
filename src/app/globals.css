@@ -2,29 +2,30 @@
 
 /* Тема за замовчуванням: «Modern Ecommerce» */
 @theme {
-  --color-primary: #1E88E5;
-  --color-primary-light: #42A5F5;
-  --color-primary-dark: #1565C0;
-  --color-primary-50: #E3F2FD;
-  --color-primary-100: #BBDEFB;
-  --color-secondary: #FFC107;
-  --color-accent: #FF9800;
-  --color-danger: #F44336;
-  --color-warning: #FF9800;
-  --color-success: #4CAF50;
-  --color-info: #1E88E5;
+  /* Primary darkened from #1E88E5 to meet WCAG AA contrast (4.5:1 on white). */
+  --color-primary: #1565c0;
+  --color-primary-light: #1e88e5;
+  --color-primary-dark: #0d47a1;
+  --color-primary-50: #e3f2fd;
+  --color-primary-100: #bbdefb;
+  --color-secondary: #ffc107;
+  --color-accent: #ff9800;
+  --color-danger: #d32f2f;
+  --color-warning: #ff9800;
+  --color-success: #388e3c;
+  --color-info: #1565c0;
 
   --color-bg: #ffffff;
-  --color-bg-secondary: #F5F5F5;
+  --color-bg-secondary: #f5f5f5;
   --color-bg-overlay: rgba(0, 0, 0, 0.5);
   --color-text: #212121;
   --color-text-secondary: #757575;
-  --color-border: #E0E0E0;
+  --color-border: #e0e0e0;
 
-  --color-discount: #F44336;
-  --color-in-stock: #4CAF50;
-  --color-out-of-stock: #9E9E9E;
-  --color-cta: #1E88E5;
+  --color-discount: #f44336;
+  --color-in-stock: #4caf50;
+  --color-out-of-stock: #9e9e9e;
+  --color-cta: #1565c0;
 
   --radius: 0.75rem;
   --radius-lg: 1rem;
@@ -43,11 +44,11 @@
   --transition-smooth: 250ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  --color-gradient-primary: linear-gradient(135deg, #1E88E5, #0D47A1);
+  --color-gradient-primary: linear-gradient(135deg, #1e88e5, #0d47a1);
 
-  --color-gold: #C9A84C;
-  --color-gold-light: #E8D48B;
-  --color-gold-dark: #A68A3E;
+  --color-gold: #c9a84c;
+  --color-gold-light: #e8d48b;
+  --color-gold-dark: #a68a3e;
   --shadow-gold: 0 4px 14px rgba(201, 168, 76, 0.3);
 }
 
@@ -62,7 +63,11 @@
   body {
     color: var(--color-text);
     background: var(--color-bg);
-    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+    font-family:
+      var(--font-sans),
+      system-ui,
+      -apple-system,
+      sans-serif;
     line-height: 1.6;
   }
 
@@ -127,8 +132,12 @@
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slide-up-fade {
@@ -143,33 +152,60 @@
 }
 
 @keyframes slide-in-left {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 @keyframes slide-up-sheet {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 @keyframes fade-overlay {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes count-up {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes progress-bar {
-  from { width: 0%; }
-  to { width: 100%; }
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
 }
 
 @keyframes cart-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
 }
 
 @utility scrollbar-hide {
@@ -217,14 +253,30 @@
   .stagger-children > * {
     animation: slide-up-fade 0.4s ease-out both;
   }
-  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-  .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
-  .stagger-children > *:nth-child(3) { animation-delay: 100ms; }
-  .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
-  .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
-  .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
-  .stagger-children > *:nth-child(7) { animation-delay: 300ms; }
-  .stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+  .stagger-children > *:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .stagger-children > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .stagger-children > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .stagger-children > *:nth-child(4) {
+    animation-delay: 150ms;
+  }
+  .stagger-children > *:nth-child(5) {
+    animation-delay: 200ms;
+  }
+  .stagger-children > *:nth-child(6) {
+    animation-delay: 250ms;
+  }
+  .stagger-children > *:nth-child(7) {
+    animation-delay: 300ms;
+  }
+  .stagger-children > *:nth-child(8) {
+    animation-delay: 350ms;
+  }
 
   .glass {
     background: rgba(255, 255, 255, 0.7);
@@ -251,21 +303,35 @@
   .prose {
     line-height: 1.75;
   }
-  .prose h1, .prose h2, .prose h3, .prose h4 {
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4 {
     margin-top: 1.5em;
     margin-bottom: 0.5em;
     font-weight: 700;
     line-height: 1.3;
   }
-  .prose h1 { font-size: 2em; }
-  .prose h2 { font-size: 1.5em; }
-  .prose h3 { font-size: 1.25em; }
-  .prose p { margin-bottom: 1em; }
-  .prose ul, .prose ol {
+  .prose h1 {
+    font-size: 2em;
+  }
+  .prose h2 {
+    font-size: 1.5em;
+  }
+  .prose h3 {
+    font-size: 1.25em;
+  }
+  .prose p {
+    margin-bottom: 1em;
+  }
+  .prose ul,
+  .prose ol {
     margin-bottom: 1em;
     padding-left: 1.5em;
   }
-  .prose li { margin-bottom: 0.25em; }
+  .prose li {
+    margin-bottom: 0.25em;
+  }
   .prose a {
     color: var(--color-primary);
     text-decoration: underline;
@@ -279,7 +345,8 @@
     border-collapse: collapse;
     margin-bottom: 1em;
   }
-  .prose th, .prose td {
+  .prose th,
+  .prose td {
     border: 1px solid var(--color-border);
     padding: 0.5em 0.75em;
     text-align: left;
@@ -299,7 +366,9 @@
     line-height: 1.4;
   }
 
-  header, footer, nav,
+  header,
+  footer,
+  nav,
   .no-print,
   [data-no-print],
   button:not(.print-visible) {
@@ -327,7 +396,8 @@
     page-break-inside: avoid;
   }
 
-  th, td {
+  th,
+  td {
     border: 1px solid #333;
     padding: 4pt 8pt;
     text-align: left;
@@ -340,9 +410,15 @@
     print-color-adjust: exact;
   }
 
-  h1 { font-size: 18pt; }
-  h2 { font-size: 14pt; }
-  h3 { font-size: 12pt; }
+  h1 {
+    font-size: 18pt;
+  }
+  h2 {
+    font-size: 14pt;
+  }
+  h3 {
+    font-size: 12pt;
+  }
 
   .order-summary,
   .invoice-details {
