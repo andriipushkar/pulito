@@ -9,22 +9,42 @@ const mockApiPost = vi.hoisted(() => vi.fn().mockResolvedValue({ success: true }
 const mockApiDelete = vi.hoisted(() => vi.fn().mockResolvedValue({ success: true }));
 const mockUser = vi.hoisted(() => ({ value: null as any }));
 
-vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
+vi.mock('next/link', () => ({
+  default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
 vi.mock('next/dynamic', () => {
-  const { useState, useEffect } = require('react');
+  const { useState, useEffect } = require('react') as typeof import('react');
   return {
     default: (loader: () => Promise<any>) => {
       return function DynamicWrapper(props: any) {
-        const [Comp, setComp] = (useState as any)(null);
-        useEffect(() => { loader().then((mod: any) => setComp(() => mod.default || mod)); }, []);
+        const [Comp, setComp] = useState<React.ComponentType<unknown> | null>(null);
+        useEffect(() => {
+          loader().then(
+            (mod: { default?: React.ComponentType<unknown> } | React.ComponentType<unknown>) => {
+              setComp(
+                () =>
+                  (mod as { default?: React.ComponentType<unknown> }).default ||
+                  (mod as React.ComponentType<unknown>),
+              );
+            },
+          );
+        }, []);
         return Comp ? <Comp {...props} /> : null;
       };
     },
   };
 });
-vi.mock('@/components/ui/Badge', () => ({ default: ({ children }: any) => <span data-testid="badge">{children}</span> }));
+vi.mock('@/components/ui/Badge', () => ({
+  default: ({ children }: any) => <span data-testid="badge">{children}</span>,
+}));
 vi.mock('./PriceDisplay', () => ({ default: () => <div data-testid="price-display" /> }));
-vi.mock('./QuickView', () => ({ default: ({ onClose }: any) => <div data-testid="quick-view"><button onClick={onClose}>close</button></div> }));
+vi.mock('./QuickView', () => ({
+  default: ({ onClose }: any) => (
+    <div data-testid="quick-view">
+      <button onClick={onClose}>close</button>
+    </div>
+  ),
+}));
 vi.mock('@/components/icons', () => ({
   Heart: () => <span data-testid="heart-icon" />,
   HeartFilled: () => <span data-testid="heart-filled-icon" />,
@@ -33,10 +53,16 @@ vi.mock('@/components/icons', () => ({
   Search: () => <span data-testid="search-icon" />,
 }));
 vi.mock('@/hooks/useCart', () => ({ useCart: () => ({ addItem: mockAddItem }) }));
-vi.mock('@/hooks/useComparison', () => ({ useComparison: () => ({ count: 0, has: () => false, toggle: vi.fn() }) }));
+vi.mock('@/hooks/useComparison', () => ({
+  useComparison: () => ({ count: 0, has: () => false, toggle: vi.fn() }),
+}));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: mockUser.value }) }));
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { get: (...args: any[]) => mockApiGet(...args), post: (...args: any[]) => mockApiPost(...args), delete: (...args: any[]) => mockApiDelete(...args) },
+  apiClient: {
+    get: (...args: any[]) => mockApiGet(...args),
+    post: (...args: any[]) => mockApiPost(...args),
+    delete: (...args: any[]) => mockApiDelete(...args),
+  },
 }));
 
 import ProductCard from './ProductCard';
@@ -87,11 +113,13 @@ describe('ProductCard', () => {
   it('calls addItem when add-to-cart clicked and in stock', () => {
     const { getAllByLabelText } = render(<ProductCard product={makeProduct()} />);
     fireEvent.click(getAllByLabelText('В кошик')[0]);
-    expect(mockAddItem).toHaveBeenCalledWith(expect.objectContaining({
-      productId: 1,
-      name: 'Test Product 500мл',
-      quantity: 1,
-    }));
+    expect(mockAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productId: 1,
+        name: 'Test Product 500мл',
+        quantity: 1,
+      }),
+    );
   });
 
   it('renders badges', () => {
@@ -117,13 +145,17 @@ describe('ProductCard', () => {
 
   it('renders category name when present', () => {
     const { getByText } = render(
-      <ProductCard product={makeProduct({ category: { id: 1, name: 'Порошки', slug: 'poroshky' } })} />
+      <ProductCard
+        product={makeProduct({ category: { id: 1, name: 'Порошки', slug: 'poroshky' } })}
+      />,
     );
     expect(getByText('Порошки')).toBeInTheDocument();
   });
 
   it('renders no-image placeholder when no imagePath', () => {
-    const { container } = render(<ProductCard product={makeProduct({ imagePath: null, images: [] })} />);
+    const { container } = render(
+      <ProductCard product={makeProduct({ imagePath: null, images: [] })} />,
+    );
     const placeholder = container.querySelector('svg');
     expect(placeholder).toBeInTheDocument();
   });
@@ -134,13 +166,31 @@ describe('ProductCard', () => {
   });
 
   it('renders blur placeholder when available', () => {
-    const images = [{ id: 1, pathMedium: '/med.jpg', pathBlur: '/blur.jpg', pathThumbnail: null, pathFull: null, isMain: true }];
+    const images = [
+      {
+        id: 1,
+        pathMedium: '/med.jpg',
+        pathBlur: '/blur.jpg',
+        pathThumbnail: null,
+        pathFull: null,
+        isMain: true,
+      },
+    ];
     const { container } = render(<ProductCard product={makeProduct({ images })} />);
     expect(container.querySelector('img[src="/blur.jpg"]')).toBeInTheDocument();
   });
 
   it('hides blur after main image loads', () => {
-    const images = [{ id: 1, pathMedium: '/med.jpg', pathBlur: '/blur.jpg', pathThumbnail: null, pathFull: null, isMain: true }];
+    const images = [
+      {
+        id: 1,
+        pathMedium: '/med.jpg',
+        pathBlur: '/blur.jpg',
+        pathThumbnail: null,
+        pathFull: null,
+        isMain: true,
+      },
+    ];
     const { container } = render(<ProductCard product={makeProduct({ images })} />);
     const mainImg = container.querySelector('img[src="/med.jpg"]');
     if (mainImg) fireEvent.load(mainImg);
@@ -149,8 +199,22 @@ describe('ProductCard', () => {
 
   it('renders hover image when available', () => {
     const images = [
-      { id: 1, pathMedium: '/med1.jpg', pathBlur: null, pathThumbnail: null, pathFull: null, isMain: true },
-      { id: 2, pathMedium: '/med2.jpg', pathBlur: null, pathThumbnail: null, pathFull: null, isMain: false },
+      {
+        id: 1,
+        pathMedium: '/med1.jpg',
+        pathBlur: null,
+        pathThumbnail: null,
+        pathFull: null,
+        isMain: true,
+      },
+      {
+        id: 2,
+        pathMedium: '/med2.jpg',
+        pathBlur: null,
+        pathThumbnail: null,
+        pathFull: null,
+        isMain: false,
+      },
     ];
     const { container } = render(<ProductCard product={makeProduct({ images })} />);
     expect(container.querySelector('img[src="/med2.jpg"]')).toBeInTheDocument();
@@ -158,14 +222,21 @@ describe('ProductCard', () => {
 
   it('shows shortDescription when no attributes extracted', () => {
     const { getByText } = render(
-      <ProductCard product={makeProduct({ name: 'Simple', content: { shortDescription: 'Short desc' } })} />
+      <ProductCard
+        product={makeProduct({ name: 'Simple', content: { shortDescription: 'Short desc' } })}
+      />,
     );
     expect(getByText('Short desc')).toBeInTheDocument();
   });
 
   it('does not show shortDescription when attributes are extracted', () => {
     const { queryByText } = render(
-      <ProductCard product={makeProduct({ name: 'Product 500 ml', content: { shortDescription: 'Short desc' } })} />
+      <ProductCard
+        product={makeProduct({
+          name: 'Product 500 ml',
+          content: { shortDescription: 'Short desc' },
+        })}
+      />,
     );
     expect(queryByText('Short desc')).not.toBeInTheDocument();
   });
@@ -198,7 +269,9 @@ describe('ProductCard', () => {
     // We need a product not in wishlist
     cleanup();
     localStorage.setItem('clean-shop-wishlist', JSON.stringify([1]));
-    const { getAllByLabelText: getButtons } = render(<ProductCard product={makeProduct({ id: 2 })} />);
+    const { getAllByLabelText: getButtons } = render(
+      <ProductCard product={makeProduct({ id: 2 })} />,
+    );
     const wishBtn = getButtons('Додати в обране')[0];
     fireEvent.click(wishBtn);
     const stored = JSON.parse(localStorage.getItem('clean-shop-wishlist') || '[]');
@@ -229,7 +302,9 @@ describe('ProductCard', () => {
   });
 
   it('opens quick view and closes it', async () => {
-    const { getAllByLabelText, queryByTestId, getByText } = render(<ProductCard product={makeProduct()} />);
+    const { getAllByLabelText, queryByTestId, getByText } = render(
+      <ProductCard product={makeProduct()} />,
+    );
     const qvBtn = getAllByLabelText('Швидкий перегляд')[0];
     fireEvent.click(qvBtn);
     await waitFor(() => {
@@ -246,60 +321,95 @@ describe('ProductCard', () => {
   });
 
   it('passes wholesale price to addItem', () => {
-    const product = makeProduct({ priceWholesale: '80.00', images: [{ id: 1, pathMedium: '/med.jpg', pathBlur: null, pathThumbnail: null, pathFull: null, isMain: true }] });
+    const product = makeProduct({
+      priceWholesale: '80.00',
+      images: [
+        {
+          id: 1,
+          pathMedium: '/med.jpg',
+          pathBlur: null,
+          pathThumbnail: null,
+          pathFull: null,
+          isMain: true,
+        },
+      ],
+    });
     const { getAllByLabelText } = render(<ProductCard product={product} />);
     fireEvent.click(getAllByLabelText('В кошик')[0]);
-    expect(mockAddItem).toHaveBeenCalledWith(expect.objectContaining({
-      priceWholesale: 80,
-      imagePath: '/med.jpg',
-    }));
+    expect(mockAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priceWholesale: 80,
+        imagePath: '/med.jpg',
+      }),
+    );
   });
 
   it('extracts volume attributes from name with ml', () => {
-    const { getAllByText } = render(<ProductCard product={makeProduct({ name: 'Порошок Ariel 500 ml' })} />);
+    const { getAllByText } = render(
+      <ProductCard product={makeProduct({ name: 'Порошок Ariel 500 ml' })} />,
+    );
     expect(getAllByText('500 мл').length).toBeGreaterThan(0);
   });
 
   it('extracts volume attributes with l unit', () => {
-    const { getAllByText } = render(<ProductCard product={makeProduct({ name: 'Product 1.5l' })} />);
+    const { getAllByText } = render(
+      <ProductCard product={makeProduct({ name: 'Product 1.5l' })} />,
+    );
     expect(getAllByText('1.5 л').length).toBeGreaterThan(0);
   });
 
   it('extracts weight attributes from name with kg', () => {
-    const { getAllByText } = render(<ProductCard product={makeProduct({ name: 'Порошок 2 kg' })} />);
+    const { getAllByText } = render(
+      <ProductCard product={makeProduct({ name: 'Порошок 2 kg' })} />,
+    );
     expect(getAllByText('2 кг').length).toBeGreaterThan(0);
   });
 
   it('extracts weight attributes with g unit', () => {
-    const { getAllByText } = render(<ProductCard product={makeProduct({ name: 'Product 500g' })} />);
+    const { getAllByText } = render(
+      <ProductCard product={makeProduct({ name: 'Product 500g' })} />,
+    );
     expect(getAllByText('500 г').length).toBeGreaterThan(0);
   });
 
   it('extracts tabs attributes', () => {
-    const { getAllByText } = render(<ProductCard product={makeProduct({ name: 'Pills 30 tabs' })} />);
+    const { getAllByText } = render(
+      <ProductCard product={makeProduct({ name: 'Pills 30 tabs' })} />,
+    );
     expect(getAllByText('30 шт').length).toBeGreaterThan(0);
   });
 
   it('extracts caps attributes', () => {
-    const { getAllByText } = render(<ProductCard product={makeProduct({ name: 'Capsules 60 caps' })} />);
+    const { getAllByText } = render(
+      <ProductCard product={makeProduct({ name: 'Capsules 60 caps' })} />,
+    );
     expect(getAllByText('60 шт').length).toBeGreaterThan(0);
   });
 
   it('extracts tab (singular) attributes', () => {
-    const { getAllByText } = render(<ProductCard product={makeProduct({ name: 'Single 1 tab' })} />);
+    const { getAllByText } = render(
+      <ProductCard product={makeProduct({ name: 'Single 1 tab' })} />,
+    );
     expect(getAllByText('1 шт').length).toBeGreaterThan(0);
   });
 
   it('extracts attributes from description when not in name', () => {
     const { getAllByText } = render(
-      <ProductCard product={makeProduct({ name: 'Simple Product', content: { shortDescription: 'Volume 750 ml' } })} />
+      <ProductCard
+        product={makeProduct({
+          name: 'Simple Product',
+          content: { shortDescription: 'Volume 750 ml' },
+        })}
+      />,
     );
     expect(getAllByText('750 мл').length).toBeGreaterThan(0);
   });
 
   it('handles localStorage errors gracefully for wishlist', () => {
     const origGetItem = Storage.prototype.getItem;
-    Storage.prototype.getItem = () => { throw new Error('quota'); };
+    Storage.prototype.getItem = () => {
+      throw new Error('quota');
+    };
     const { container } = render(<ProductCard product={makeProduct()} />);
     expect(container).toBeTruthy();
     Storage.prototype.getItem = origGetItem;
@@ -307,7 +417,9 @@ describe('ProductCard', () => {
 
   it('handles localStorage setItem errors gracefully', () => {
     const origSetItem = Storage.prototype.setItem;
-    Storage.prototype.setItem = () => { throw new Error('quota'); };
+    Storage.prototype.setItem = () => {
+      throw new Error('quota');
+    };
     const { getAllByLabelText } = render(<ProductCard product={makeProduct()} />);
     const wishBtn = getAllByLabelText('Додати в обране')[0];
     // Should not throw
@@ -385,12 +497,16 @@ describe('ProductCard', () => {
   });
 
   it('extracts comma-separated volume values', () => {
-    const { getAllByText } = render(<ProductCard product={makeProduct({ name: 'Product 1,5L' })} />);
+    const { getAllByText } = render(
+      <ProductCard product={makeProduct({ name: 'Product 1,5L' })} />,
+    );
     expect(getAllByText('1.5 л').length).toBeGreaterThan(0);
   });
 
   it('extracts comma-separated weight values', () => {
-    const { getAllByText } = render(<ProductCard product={makeProduct({ name: 'Product 2,5 kg' })} />);
+    const { getAllByText } = render(
+      <ProductCard product={makeProduct({ name: 'Product 2,5 kg' })} />,
+    );
     expect(getAllByText('2.5 кг').length).toBeGreaterThan(0);
   });
 

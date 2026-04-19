@@ -81,7 +81,7 @@ describe('sendEmail', () => {
         to: 'user@example.com',
         subject: 'Test Subject',
         html: '<p>Hello</p>',
-      })
+      }),
     );
   });
 
@@ -111,7 +111,7 @@ describe('sendEmail', () => {
             contentType: 'application/pdf',
           },
         ],
-      })
+      }),
     );
   });
 
@@ -162,7 +162,7 @@ describe('sendEmail', () => {
     expect(mockSendMail).toHaveBeenCalledWith(
       expect.objectContaining({
         attachments: undefined,
-      })
+      }),
     );
   });
 
@@ -179,8 +179,8 @@ describe('sendEmail', () => {
 
     expect(mockSendMail).toHaveBeenCalledWith(
       expect.objectContaining({
-        from: '"Порошок" <test@test.com>',
-      })
+        from: '"Pulito Trade" <test@test.com>',
+      }),
     );
     (env as any).SMTP_FROM = original;
   });
@@ -238,7 +238,9 @@ describe('sendPasswordResetEmail', () => {
     const callArgs = mockSendMail.mock.calls[0][0];
     expect(callArgs.to).toBe('user@example.com');
     expect(callArgs.subject).toContain('Відновлення пароля');
-    expect(callArgs.html).toContain('http://localhost:3000/auth/reset-password?token=reset-token-456');
+    expect(callArgs.html).toContain(
+      'http://localhost:3000/auth/reset-password?token=reset-token-456',
+    );
     expect(callArgs.html).toContain('Відновлення пароля');
   });
 

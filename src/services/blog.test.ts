@@ -59,7 +59,7 @@ describe('createPost', () => {
           content: 'Hello',
           authorId: 1,
         }),
-      })
+      }),
     );
   });
 
@@ -79,9 +79,7 @@ describe('getPublishedPosts', () => {
     const result = await getPublishedPosts(1, 2);
 
     expect(result).toEqual({ posts, total: 10 });
-    expect(mockPostFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 0, take: 2 })
-    );
+    expect(mockPostFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 0, take: 2 }));
   });
 
   it('returns empty for unknown category slug', async () => {
@@ -105,6 +103,7 @@ describe('getPostBySlug', () => {
     expect(mockPostUpdate).toHaveBeenCalledWith({
       where: { id: 5 },
       data: { viewsCount: { increment: 1 } },
+      include: { category: { select: { id: true, name: true, slug: true } } },
     });
   });
 
@@ -146,7 +145,7 @@ describe('createCategory', () => {
     expect(mockCategoryCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ name: 'News', slug: 'news' }),
-      })
+      }),
     );
   });
 });

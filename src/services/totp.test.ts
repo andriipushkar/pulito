@@ -52,7 +52,7 @@ describe('generateTOTP', () => {
       Array.from({ length: 5 }, () => {
         const s = generateSecret();
         return generateTOTP(s);
-      })
+      }),
     );
     // At least 2 unique codes out of 5 different secrets
     expect(codes.size).toBeGreaterThanOrEqual(2);
@@ -158,9 +158,9 @@ describe('generateOtpauthUrl', () => {
     expect(url).toContain('period=30');
   });
 
-  it('should encode the issuer (Порошок) in the label and param', () => {
+  it('should encode the issuer (Pulito Trade) in the label and param', () => {
     const url = generateOtpauthUrl('SECRET', 'test@test.com');
-    expect(url).toContain(encodeURIComponent('Порошок'));
+    expect(url).toContain(encodeURIComponent('Pulito Trade'));
   });
 
   it('should include the email in the label', () => {

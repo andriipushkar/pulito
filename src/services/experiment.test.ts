@@ -8,7 +8,7 @@ const mockRedis = vi.hoisted(() => ({
 }));
 
 const mockPrisma = vi.hoisted(() => ({
-  setting: {
+  siteSetting: {
     findUnique: vi.fn(),
   },
 }));
@@ -21,12 +21,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: mockPrisma,
 }));
 
-import {
-  assignVariant,
-  getUserVariant,
-  trackConversion,
-  getExperimentResults,
-} from './experiment';
+import { assignVariant, getUserVariant, trackConversion, getExperimentResults } from './experiment';
 
 const ACTIVE_EXPERIMENT = {
   id: 1,
@@ -93,7 +88,7 @@ describe('assignVariant', () => {
 describe('getUserVariant', () => {
   it('returns null for inactive experiment', async () => {
     mockRedis.get.mockResolvedValue(null);
-    mockPrisma.setting.findUnique.mockResolvedValue({
+    mockPrisma.siteSetting.findUnique.mockResolvedValue({
       key: 'experiment_homepage_cta',
       value: JSON.stringify(INACTIVE_EXPERIMENT),
     });
@@ -105,7 +100,7 @@ describe('getUserVariant', () => {
 
   it('returns a variant for active experiment', async () => {
     mockRedis.get.mockResolvedValue(null);
-    mockPrisma.setting.findUnique.mockResolvedValue({
+    mockPrisma.siteSetting.findUnique.mockResolvedValue({
       key: 'experiment_homepage_cta',
       value: JSON.stringify(ACTIVE_EXPERIMENT),
     });
@@ -118,7 +113,7 @@ describe('getUserVariant', () => {
 
   it('returns null when experiment does not exist', async () => {
     mockRedis.get.mockResolvedValue(null);
-    mockPrisma.setting.findUnique.mockResolvedValue(null);
+    mockPrisma.siteSetting.findUnique.mockResolvedValue(null);
 
     const result = await getUserVariant('nonexistent', 'user1');
 
@@ -131,7 +126,7 @@ describe('getUserVariant', () => {
     const result = await getUserVariant('homepage_cta', 'user1');
 
     expect(result).not.toBeNull();
-    expect(mockPrisma.setting.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.siteSetting.findUnique).not.toHaveBeenCalled();
   });
 });
 
@@ -156,9 +151,9 @@ describe('getExperimentResults', () => {
     // Mock getExperiment (via Redis cache)
     mockRedis.get
       .mockResolvedValueOnce(JSON.stringify(ACTIVE_EXPERIMENT)) // getExperiment cache hit
-      .mockResolvedValueOnce('42')   // control count
-      .mockResolvedValueOnce('18')   // variant_a count
-      .mockResolvedValueOnce('25');  // variant_b count
+      .mockResolvedValueOnce('42') // control count
+      .mockResolvedValueOnce('18') // variant_a count
+      .mockResolvedValueOnce('25'); // variant_b count
 
     const results = await getExperimentResults('homepage_cta');
 
@@ -171,7 +166,7 @@ describe('getExperimentResults', () => {
 
   it('returns empty object when experiment does not exist', async () => {
     mockRedis.get.mockResolvedValue(null);
-    mockPrisma.setting.findUnique.mockResolvedValue(null);
+    mockPrisma.siteSetting.findUnique.mockResolvedValue(null);
 
     const results = await getExperimentResults('nonexistent');
 

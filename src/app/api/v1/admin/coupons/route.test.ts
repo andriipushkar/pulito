@@ -1,7 +1,23 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/services/coupon', () => ({
   getCoupons: vi.fn(),
   createCoupon: vi.fn(),
@@ -19,12 +35,14 @@ import { getCoupons, createCoupon } from '@/services/coupon';
 import { createCouponSchema } from '@/validators/coupon';
 
 describe('GET /api/v1/admin/coupons', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns coupons on success', async () => {
     (getCoupons as any).mockResolvedValue({ coupons: [{ id: 1 }], total: 1 });
 
-    const req = new Request('http://localhost/api/v1/admin/coupons?page=1&limit=20');
+    const req = new NextRequest('http://localhost/api/v1/admin/coupons?page=1&limit=20');
     const res = await GET(req);
 
     expect(res.status).toBe(200);
@@ -33,7 +51,7 @@ describe('GET /api/v1/admin/coupons', () => {
   it('returns 500 on error', async () => {
     (getCoupons as any).mockRejectedValue(new Error('fail'));
 
-    const req = new Request('http://localhost/api/v1/admin/coupons');
+    const req = new NextRequest('http://localhost/api/v1/admin/coupons');
     const res = await GET(req);
 
     expect(res.status).toBe(500);
@@ -41,13 +59,18 @@ describe('GET /api/v1/admin/coupons', () => {
 });
 
 describe('POST /api/v1/admin/coupons', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('creates coupon on success', async () => {
-    (createCouponSchema.safeParse as any).mockReturnValue({ success: true, data: { code: 'SAVE10' } });
+    (createCouponSchema.safeParse as any).mockReturnValue({
+      success: true,
+      data: { code: 'SAVE10' },
+    });
     (createCoupon as any).mockResolvedValue({ id: 1, code: 'SAVE10' });
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: 'SAVE10' }),
@@ -58,9 +81,12 @@ describe('POST /api/v1/admin/coupons', () => {
   });
 
   it('returns 422 on validation error', async () => {
-    (createCouponSchema.safeParse as any).mockReturnValue({ success: false, error: { issues: [{ message: 'Invalid' }] } });
+    (createCouponSchema.safeParse as any).mockReturnValue({
+      success: false,
+      error: { issues: [{ message: 'Invalid' }] },
+    });
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -74,7 +100,7 @@ describe('POST /api/v1/admin/coupons', () => {
     (createCouponSchema.safeParse as any).mockReturnValue({ success: true, data: { code: 'DUP' } });
     (createCoupon as any).mockRejectedValue({ code: 'P2002' });
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: 'DUP' }),
@@ -88,7 +114,7 @@ describe('POST /api/v1/admin/coupons', () => {
     (createCouponSchema.safeParse as any).mockReturnValue({ success: true, data: { code: 'X' } });
     (createCoupon as any).mockRejectedValue(new Error('fail'));
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: 'X' }),

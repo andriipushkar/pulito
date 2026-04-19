@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/services/tenant', () => ({
   getTenantById: vi.fn(),
   updateTenant: vi.fn(),
@@ -11,7 +26,7 @@ vi.mock('@/validators/tenant', () => ({
   updateTenantSchema: {
     safeParse: vi.fn((data: any) => {
       if (data.name !== undefined) return { success: true, data };
-      return { success: false, error: { errors: [{ message: 'Invalid data' }] } };
+      return { success: false, error: { issues: [{ message: 'Invalid data' }] } };
     }),
   },
 }));
@@ -20,7 +35,9 @@ import { GET, PATCH, DELETE } from './route';
 import { getTenantById, updateTenant, deleteTenant } from '@/services/tenant';
 
 describe('GET /api/v1/admin/tenants/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns tenant by ID', async () => {
     vi.mocked(getTenantById).mockResolvedValue({ id: 1, name: 'Test' } as any);
@@ -60,7 +77,9 @@ describe('GET /api/v1/admin/tenants/[id]', () => {
 });
 
 describe('PATCH /api/v1/admin/tenants/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates a tenant', async () => {
     vi.mocked(updateTenant).mockResolvedValue({ id: 1, name: 'Updated' } as any);
@@ -116,7 +135,9 @@ describe('PATCH /api/v1/admin/tenants/[id]', () => {
 });
 
 describe('DELETE /api/v1/admin/tenants/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('deletes a tenant', async () => {
     vi.mocked(deleteTenant).mockResolvedValue(undefined as any);

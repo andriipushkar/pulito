@@ -1,7 +1,23 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     order: { groupBy: vi.fn() },
@@ -17,7 +33,9 @@ import { GET } from './route';
 import { prisma } from '@/lib/prisma';
 
 describe('GET /api/v1/admin/analytics/churn', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns churn analytics on success', async () => {
     const now = new Date();
@@ -35,7 +53,7 @@ describe('GET /api/v1/admin/analytics/churn', () => {
     ]);
     (prisma.user.findMany as any).mockResolvedValue([]);
 
-    const req = new Request('http://localhost/api/v1/admin/analytics/churn?days=90');
+    const req = new NextRequest('http://localhost/api/v1/admin/analytics/churn?days=90');
     const res = await GET(req);
     const data = await res.json();
 
@@ -49,7 +67,7 @@ describe('GET /api/v1/admin/analytics/churn', () => {
   it('returns 500 on error', async () => {
     (prisma.order.groupBy as any).mockRejectedValue(new Error('DB error'));
 
-    const req = new Request('http://localhost/api/v1/admin/analytics/churn');
+    const req = new NextRequest('http://localhost/api/v1/admin/analytics/churn');
     const res = await GET(req);
 
     expect(res.status).toBe(500);

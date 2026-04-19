@@ -1,7 +1,23 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     category: { findUnique: vi.fn(), updateMany: vi.fn(), update: vi.fn(), delete: vi.fn() },
@@ -22,7 +38,9 @@ import { prisma } from '@/lib/prisma';
 const makeParams = (id: string) => ({ params: Promise.resolve({ id }) });
 
 describe('POST /api/v1/admin/categories/[id]/merge', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('merges categories on success', async () => {
     (prisma.category.findUnique as any)
@@ -33,7 +51,7 @@ describe('POST /api/v1/admin/categories/[id]/merge', () => {
     (prisma.category.update as any).mockResolvedValue({});
     (prisma.category.delete as any).mockResolvedValue({});
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetCategoryId: 2 }),
@@ -47,7 +65,7 @@ describe('POST /api/v1/admin/categories/[id]/merge', () => {
   });
 
   it('returns 400 for invalid source ID', async () => {
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetCategoryId: 2 }),
@@ -58,7 +76,7 @@ describe('POST /api/v1/admin/categories/[id]/merge', () => {
   });
 
   it('returns 400 when merging category with itself', async () => {
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetCategoryId: 1 }),
@@ -69,7 +87,7 @@ describe('POST /api/v1/admin/categories/[id]/merge', () => {
   });
 
   it('returns 400 when targetCategoryId is missing', async () => {
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -84,7 +102,7 @@ describe('POST /api/v1/admin/categories/[id]/merge', () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: 2, name: 'Target' });
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetCategoryId: 2 }),
@@ -97,7 +115,7 @@ describe('POST /api/v1/admin/categories/[id]/merge', () => {
   it('returns 500 on error', async () => {
     (prisma.category.findUnique as any).mockRejectedValue(new Error('fail'));
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetCategoryId: 2 }),

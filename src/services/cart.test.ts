@@ -14,6 +14,10 @@ vi.mock('@/lib/prisma', () => ({
     product: {
       findUnique: vi.fn(),
     },
+    volumeDiscount: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -73,7 +77,7 @@ describe('getCartItems', () => {
       expect.objectContaining({
         where: { userId: 1 },
         orderBy: { addedAt: 'desc' },
-      })
+      }),
     );
     expect(result).toHaveLength(1);
     expect(result[0].productId).toBe(10);
@@ -131,7 +135,7 @@ describe('addToCart', () => {
     expect(mockPrisma.cartItem.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { userId: 1, productId: 10, quantity: 2 },
-      })
+      }),
     );
     expect(result).toEqual(created);
   });
@@ -152,7 +156,7 @@ describe('addToCart', () => {
       expect.objectContaining({
         where: { id: 1 },
         data: { quantity: 5 },
-      })
+      }),
     );
     expect(result).toEqual(updated);
   });
@@ -226,7 +230,7 @@ describe('updateCartItem', () => {
       expect.objectContaining({
         where: { id: 1 },
         data: { quantity: 5 },
-      })
+      }),
     );
     expect(result).toEqual(updated);
   });
@@ -328,12 +332,12 @@ describe('mergeCart', () => {
     expect(mockPrisma.cartItem.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { userId: 1, productId: 10, quantity: 2 },
-      })
+      }),
     );
     expect(mockPrisma.cartItem.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { userId: 1, productId: 20, quantity: 3 },
-      })
+      }),
     );
     expect(result).toHaveLength(2);
   });
@@ -400,7 +404,7 @@ describe('mergeCart', () => {
     expect(mockPrisma.cartItem.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { userId: 1, productId: 10, quantity: 5 },
-      })
+      }),
     );
     expect(result).toHaveLength(1);
   });

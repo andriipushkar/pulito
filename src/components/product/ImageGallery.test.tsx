@@ -21,7 +21,14 @@ vi.mock('embla-carousel-react', () => ({
 }));
 vi.mock('@/components/ui/Modal', () => ({
   default: ({ isOpen, onClose, children }: any) =>
-    isOpen ? <div data-testid="modal"><button data-testid="modal-close" onClick={onClose}>X</button>{children}</div> : null,
+    isOpen ? (
+      <div data-testid="modal">
+        <button data-testid="modal-close" onClick={onClose}>
+          X
+        </button>
+        {children}
+      </div>
+    ) : null,
 }));
 vi.mock('@/components/icons', () => ({
   ChevronLeft: () => <span data-testid="chevron-left" />,
@@ -83,8 +90,8 @@ describe('ImageGallery', () => {
     const images = makeImages(3);
     const { container } = render(<ImageGallery images={images} productName="Test" />);
     const thumbButtons = container.querySelectorAll('button');
-    const secondThumb = Array.from(thumbButtons).find(btn =>
-      btn.querySelector('img[src="/thumb-2.jpg"]')
+    const secondThumb = Array.from(thumbButtons).find((btn) =>
+      btn.querySelector('img[src="/thumb-2.jpg"]'),
     );
     if (secondThumb) fireEvent.click(secondThumb);
     expect(container.querySelector('img[src="/full-2.jpg"]')).toBeInTheDocument();
@@ -92,7 +99,9 @@ describe('ImageGallery', () => {
 
   it('opens lightbox when main image clicked', () => {
     const images = makeImages(2);
-    const { container, queryByTestId } = render(<ImageGallery images={images} productName="Test" />);
+    const { container, queryByTestId } = render(
+      <ImageGallery images={images} productName="Test" />,
+    );
     expect(queryByTestId('modal')).not.toBeInTheDocument();
     const desktopMain = container.querySelector('[class*="cursor-zoom-in"]');
     if (desktopMain) fireEvent.click(desktopMain);
@@ -101,7 +110,9 @@ describe('ImageGallery', () => {
 
   it('closes lightbox when close button clicked', () => {
     const images = makeImages(2);
-    const { container, queryByTestId, getByTestId } = render(<ImageGallery images={images} productName="Test" />);
+    const { container, queryByTestId, getByTestId } = render(
+      <ImageGallery images={images} productName="Test" />,
+    );
     const desktopMain = container.querySelector('[class*="cursor-zoom-in"]');
     if (desktopMain) fireEvent.click(desktopMain);
     expect(queryByTestId('modal')).toBeInTheDocument();
@@ -111,7 +122,9 @@ describe('ImageGallery', () => {
 
   it('navigates forward in lightbox', () => {
     const images = makeImages(3);
-    const { container, getAllByLabelText } = render(<ImageGallery images={images} productName="Test" />);
+    const { container, getAllByLabelText } = render(
+      <ImageGallery images={images} productName="Test" />,
+    );
     const desktopMain = container.querySelector('[class*="cursor-zoom-in"]');
     if (desktopMain) fireEvent.click(desktopMain);
     const nextBtn = getAllByLabelText('Наступний')[0];
@@ -121,7 +134,9 @@ describe('ImageGallery', () => {
 
   it('navigates backward in lightbox (wraps around)', () => {
     const images = makeImages(3);
-    const { container, getAllByLabelText } = render(<ImageGallery images={images} productName="Test" />);
+    const { container, getAllByLabelText } = render(
+      <ImageGallery images={images} productName="Test" />,
+    );
     const desktopMain = container.querySelector('[class*="cursor-zoom-in"]');
     if (desktopMain) fireEvent.click(desktopMain);
     const prevBtn = getAllByLabelText('Попередній')[0];
@@ -144,14 +159,18 @@ describe('ImageGallery', () => {
 
   it('does not render mobile dots or counter for single image', () => {
     const images = makeImages(1);
-    const { queryByLabelText, queryByText } = render(<ImageGallery images={images} productName="Test" />);
+    const { queryByLabelText, queryByText } = render(
+      <ImageGallery images={images} productName="Test" />,
+    );
     expect(queryByLabelText('Зображення 1')).not.toBeInTheDocument();
     expect(queryByText('1 / 1')).not.toBeInTheDocument();
   });
 
   it('opens lightbox from mobile image click', () => {
     const images = makeImages(2);
-    const { container, queryByTestId } = render(<ImageGallery images={images} productName="Test" />);
+    const { container, queryByTestId } = render(
+      <ImageGallery images={images} productName="Test" />,
+    );
     const mobileImg = container.querySelector('[class*="lg:hidden"] img');
     if (mobileImg) fireEvent.click(mobileImg);
     expect(queryByTestId('modal')).toBeInTheDocument();
@@ -186,12 +205,17 @@ describe('ImageGallery', () => {
     expect(container.querySelector('img[src="/blur-1.jpg"]')).toBeInTheDocument();
   });
 
-  it('hides blur after main image loads', () => {
+  it('hides desktop blur after main image loads', async () => {
     const images = [{ ...makeImages(1)[0], pathBlur: '/blur-1.jpg' }];
     const { container } = render(<ImageGallery images={images} productName="Test" />);
-    const mainImg = container.querySelector('img[src="/full-1.jpg"]');
-    if (mainImg) fireEvent.load(mainImg);
-    expect(container.querySelector('img[src="/blur-1.jpg"]')).not.toBeInTheDocument();
+    // The desktop main image carries the onLoad that toggles `mainImageLoaded`;
+    // mobile blur persists per-slide unconditionally.
+    const desktopBlock = container.querySelector('.hidden.lg\\:flex');
+    const desktopMain = desktopBlock?.querySelector('img[src="/full-1.jpg"]');
+    if (desktopMain) fireEvent.load(desktopMain);
+    await vi.waitFor(() => {
+      expect(desktopBlock?.querySelector('img[src="/blur-1.jpg"]')).not.toBeInTheDocument();
+    });
   });
 
   it('registers embla select listener', () => {
@@ -211,8 +235,8 @@ describe('ImageGallery', () => {
     const images = makeImages(3);
     const { container } = render(<ImageGallery images={images} productName="Test" />);
     const thumbButtons = container.querySelectorAll('button');
-    const thirdThumb = Array.from(thumbButtons).find(btn =>
-      btn.querySelector('img[src="/thumb-3.jpg"]')
+    const thirdThumb = Array.from(thumbButtons).find((btn) =>
+      btn.querySelector('img[src="/thumb-3.jpg"]'),
     );
     if (thirdThumb) fireEvent.mouseEnter(thirdThumb);
     expect(container.querySelector('img[src="/full-3.jpg"]')).toBeInTheDocument();
@@ -256,7 +280,9 @@ describe('ImageGallery', () => {
 
   it('does not show lightbox nav buttons for single image', () => {
     const images = makeImages(1);
-    const { container, queryByLabelText } = render(<ImageGallery images={images} productName="Test" />);
+    const { container, queryByLabelText } = render(
+      <ImageGallery images={images} productName="Test" />,
+    );
     const desktopMain = container.querySelector('[class*="cursor-zoom-in"]');
     if (desktopMain) fireEvent.click(desktopMain);
     expect(queryByLabelText('Попередній')).not.toBeInTheDocument();
@@ -264,16 +290,18 @@ describe('ImageGallery', () => {
   });
 
   it('falls back to pathMedium when pathFull is null', () => {
-    const images = [{
-      id: 1,
-      pathThumbnail: '/thumb.jpg',
-      pathMedium: '/med.jpg',
-      pathFull: null,
-      pathOriginal: null,
-      pathBlur: null,
-      altText: null,
-      isMain: true,
-    }];
+    const images = [
+      {
+        id: 1,
+        pathThumbnail: '/thumb.jpg',
+        pathMedium: '/med.jpg',
+        pathFull: null,
+        pathOriginal: null,
+        pathBlur: null,
+        altText: null,
+        isMain: true,
+      },
+    ];
     const { container } = render(<ImageGallery images={images} productName="Test" />);
     // Desktop main image should use pathMedium
     const desktopDiv = container.querySelector('[class*="hidden lg:flex"]');
@@ -282,11 +310,15 @@ describe('ImageGallery', () => {
   });
 
   it('falls back to pathFull when pathOriginal is null in lightbox', () => {
-    const images = [{
-      ...makeImages(1)[0],
-      pathOriginal: null,
-    }];
-    const { container, queryByTestId } = render(<ImageGallery images={images} productName="Test" />);
+    const images = [
+      {
+        ...makeImages(1)[0],
+        pathOriginal: null,
+      },
+    ];
+    const { container, queryByTestId } = render(
+      <ImageGallery images={images} productName="Test" />,
+    );
     const desktopMain = container.querySelector('[class*="cursor-zoom-in"]');
     if (desktopMain) fireEvent.click(desktopMain);
     expect(queryByTestId('modal')).toBeInTheDocument();
@@ -297,7 +329,9 @@ describe('ImageGallery', () => {
 
   it('closes lightbox when internal close button is clicked', () => {
     const images = makeImages(2);
-    const { container, queryByTestId, getByLabelText } = render(<ImageGallery images={images} productName="Test" />);
+    const { container, queryByTestId, getByLabelText } = render(
+      <ImageGallery images={images} productName="Test" />,
+    );
     // Open lightbox
     const desktopMain = container.querySelector('[class*="cursor-zoom-in"]');
     if (desktopMain) fireEvent.click(desktopMain);
@@ -309,7 +343,7 @@ describe('ImageGallery', () => {
   });
 
   it('uses pathMedium when pathThumbnail is null for thumbnails', () => {
-    const images = makeImages(2).map(img => ({
+    const images = makeImages(2).map((img) => ({
       ...img,
       pathThumbnail: null,
     }));

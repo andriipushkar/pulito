@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/services/return-request', () => ({
   processReturn: vi.fn(),
   markReturnReceived: vi.fn(),
@@ -26,10 +41,17 @@ vi.mock('@/validators/return-request', () => ({
 }));
 
 import { PATCH } from './route';
-import { processReturn, markReturnReceived, markReturnRefunded, ReturnError } from '@/services/return-request';
+import {
+  processReturn,
+  markReturnReceived,
+  markReturnRefunded,
+  ReturnError,
+} from '@/services/return-request';
 
 describe('PATCH /api/v1/admin/returns/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('marks return as received', async () => {
     vi.mocked(markReturnReceived).mockResolvedValue({ id: 1, status: 'received' } as any);
@@ -39,7 +61,10 @@ describe('PATCH /api/v1/admin/returns/[id]', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'received' }),
     });
-    const res = await PATCH(req as any, { user: { id: 1 }, params: Promise.resolve({ id: '1' }) });
+    const res = await PATCH(
+      req as any,
+      { user: { id: 1 }, params: Promise.resolve({ id: '1' }) } as any,
+    );
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -54,7 +79,10 @@ describe('PATCH /api/v1/admin/returns/[id]', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'refunded' }),
     });
-    const res = await PATCH(req as any, { user: { id: 1 }, params: Promise.resolve({ id: '1' }) });
+    const res = await PATCH(
+      req as any,
+      { user: { id: 1 }, params: Promise.resolve({ id: '1' }) } as any,
+    );
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -69,7 +97,10 @@ describe('PATCH /api/v1/admin/returns/[id]', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'approved', adminComment: 'ok' }),
     });
-    const res = await PATCH(req as any, { user: { id: 1 }, params: Promise.resolve({ id: '1' }) });
+    const res = await PATCH(
+      req as any,
+      { user: { id: 1 }, params: Promise.resolve({ id: '1' }) } as any,
+    );
 
     expect(res.status).toBe(200);
   });
@@ -80,7 +111,10 @@ describe('PATCH /api/v1/admin/returns/[id]', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'received' }),
     });
-    const res = await PATCH(req as any, { user: { id: 1 }, params: Promise.resolve({ id: '0' }) });
+    const res = await PATCH(
+      req as any,
+      { user: { id: 1 }, params: Promise.resolve({ id: '0' }) } as any,
+    );
 
     expect(res.status).toBe(400);
   });
@@ -93,7 +127,10 @@ describe('PATCH /api/v1/admin/returns/[id]', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'received' }),
     });
-    const res = await PATCH(req as any, { user: { id: 1 }, params: Promise.resolve({ id: '1' }) });
+    const res = await PATCH(
+      req as any,
+      { user: { id: 1 }, params: Promise.resolve({ id: '1' }) } as any,
+    );
 
     expect(res.status).toBe(404);
   });
@@ -106,7 +143,10 @@ describe('PATCH /api/v1/admin/returns/[id]', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'received' }),
     });
-    const res = await PATCH(req as any, { user: { id: 1 }, params: Promise.resolve({ id: '1' }) });
+    const res = await PATCH(
+      req as any,
+      { user: { id: 1 }, params: Promise.resolve({ id: '1' }) } as any,
+    );
 
     expect(res.status).toBe(500);
   });

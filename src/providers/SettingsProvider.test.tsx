@@ -25,11 +25,11 @@ describe('SettingsProvider', () => {
     render(
       <SettingsProvider settings={DEFAULT_SETTINGS}>
         <TestConsumer />
-      </SettingsProvider>
+      </SettingsProvider>,
     );
 
-    expect(screen.getByTestId('site-name').textContent).toBe('Порошок');
-    expect(screen.getByTestId('site-email').textContent).toBe('info@poroshok.ua');
+    expect(screen.getByTestId('site-name').textContent).toBe('Pulito Trade');
+    expect(screen.getByTestId('site-email').textContent).toBe('info@pulito.trade');
   });
 
   it('provides custom settings', () => {
@@ -42,7 +42,7 @@ describe('SettingsProvider', () => {
     render(
       <SettingsProvider settings={customSettings}>
         <TestConsumer />
-      </SettingsProvider>
+      </SettingsProvider>,
     );
 
     expect(screen.getByTestId('site-name').textContent).toBe('Custom Shop');
@@ -60,7 +60,7 @@ describe('SettingsProvider', () => {
     render(
       <SettingsProvider settings={DEFAULT_SETTINGS}>
         <TestConsumer />
-      </SettingsProvider>
+      </SettingsProvider>,
     );
 
     const parsed = JSON.parse(screen.getByTestId('settings').textContent!);
@@ -74,15 +74,15 @@ describe('SettingsProvider', () => {
     const { rerender } = render(
       <SettingsProvider settings={DEFAULT_SETTINGS}>
         <TestConsumer />
-      </SettingsProvider>
+      </SettingsProvider>,
     );
 
-    expect(screen.getByTestId('site-name').textContent).toBe('Порошок');
+    expect(screen.getByTestId('site-name').textContent).toBe('Pulito Trade');
 
     rerender(
       <SettingsProvider settings={{ ...DEFAULT_SETTINGS, site_name: 'Updated' }}>
         <TestConsumer />
-      </SettingsProvider>
+      </SettingsProvider>,
     );
 
     expect(screen.getByTestId('site-name').textContent).toBe('Updated');

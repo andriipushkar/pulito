@@ -55,10 +55,14 @@ describe('InstallPrompt', () => {
     render(<InstallPrompt />);
 
     const { promptEvent } = createPromptEvent();
-    act(() => { window.dispatchEvent(promptEvent); });
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      window.dispatchEvent(promptEvent);
+    });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
 
-    expect(screen.getByText('Встановити Порошок')).toBeInTheDocument();
+    expect(screen.getByText('Встановити Pulito Trade')).toBeInTheDocument();
     expect(screen.getByText('Встановити')).toBeInTheDocument();
     expect(screen.getByText('Не зараз')).toBeInTheDocument();
   });
@@ -67,8 +71,12 @@ describe('InstallPrompt', () => {
     render(<InstallPrompt />);
 
     const { promptEvent, mockPrompt } = createPromptEvent('accepted');
-    act(() => { window.dispatchEvent(promptEvent); });
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      window.dispatchEvent(promptEvent);
+    });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
 
     await act(async () => {
       fireEvent.click(screen.getByText('Встановити'));
@@ -81,12 +89,16 @@ describe('InstallPrompt', () => {
     render(<InstallPrompt />);
 
     const { promptEvent } = createPromptEvent();
-    act(() => { window.dispatchEvent(promptEvent); });
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      window.dispatchEvent(promptEvent);
+    });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
 
     fireEvent.click(screen.getByText('Не зараз'));
 
-    expect(screen.queryByText('Встановити Порошок')).not.toBeInTheDocument();
+    expect(screen.queryByText('Встановити Pulito Trade')).not.toBeInTheDocument();
     expect(localStorage.getItem('pwa-install-dismissed')).toBeTruthy();
   });
 
@@ -96,10 +108,14 @@ describe('InstallPrompt', () => {
     render(<InstallPrompt />);
 
     const { promptEvent } = createPromptEvent();
-    act(() => { window.dispatchEvent(promptEvent); });
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      window.dispatchEvent(promptEvent);
+    });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
 
-    expect(screen.queryByText('Встановити Порошок')).not.toBeInTheDocument();
+    expect(screen.queryByText('Встановити Pulito Trade')).not.toBeInTheDocument();
   });
 
   it('shows banner if dismissed more than 14 days ago', () => {
@@ -109,35 +125,49 @@ describe('InstallPrompt', () => {
     render(<InstallPrompt />);
 
     const { promptEvent } = createPromptEvent();
-    act(() => { window.dispatchEvent(promptEvent); });
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      window.dispatchEvent(promptEvent);
+    });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
 
-    expect(screen.getByText('Встановити Порошок')).toBeInTheDocument();
+    expect(screen.getByText('Встановити Pulito Trade')).toBeInTheDocument();
   });
 
   it('hides banner on appinstalled event', () => {
     render(<InstallPrompt />);
 
     const { promptEvent } = createPromptEvent();
-    act(() => { window.dispatchEvent(promptEvent); });
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      window.dispatchEvent(promptEvent);
+    });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
 
-    expect(screen.getByText('Встановити Порошок')).toBeInTheDocument();
+    expect(screen.getByText('Встановити Pulito Trade')).toBeInTheDocument();
 
-    act(() => { window.dispatchEvent(new Event('appinstalled')); });
+    act(() => {
+      window.dispatchEvent(new Event('appinstalled'));
+    });
 
-    expect(screen.queryByText('Встановити Порошок')).not.toBeInTheDocument();
+    expect(screen.queryByText('Встановити Pulito Trade')).not.toBeInTheDocument();
   });
 
   it('hides banner via close (X) button', () => {
     render(<InstallPrompt />);
 
     const { promptEvent } = createPromptEvent();
-    act(() => { window.dispatchEvent(promptEvent); });
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      window.dispatchEvent(promptEvent);
+    });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
 
     fireEvent.click(screen.getByLabelText('Закрити'));
 
-    expect(screen.queryByText('Встановити Порошок')).not.toBeInTheDocument();
+    expect(screen.queryByText('Встановити Pulito Trade')).not.toBeInTheDocument();
   });
 });

@@ -1,7 +1,23 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     emailTemplate: { findUnique: vi.fn() },
@@ -22,7 +38,9 @@ import { sendEmail } from '@/services/email';
 const makeParams = (id: string) => ({ params: Promise.resolve({ id }) });
 
 describe('POST /api/v1/admin/email-templates/[id]/test', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('sends test email on success', async () => {
     (prisma.emailTemplate.findUnique as any).mockResolvedValue({
@@ -32,7 +50,7 @@ describe('POST /api/v1/admin/email-templates/[id]/test', () => {
     });
     (sendEmail as any).mockResolvedValue(undefined);
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'test@example.com' }),
@@ -45,7 +63,7 @@ describe('POST /api/v1/admin/email-templates/[id]/test', () => {
   });
 
   it('returns 400 for invalid ID', async () => {
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'test@example.com' }),
@@ -58,7 +76,7 @@ describe('POST /api/v1/admin/email-templates/[id]/test', () => {
   it('returns 404 when template not found', async () => {
     (prisma.emailTemplate.findUnique as any).mockResolvedValue(null);
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'test@example.com' }),
@@ -69,9 +87,13 @@ describe('POST /api/v1/admin/email-templates/[id]/test', () => {
   });
 
   it('returns 400 when email is missing', async () => {
-    (prisma.emailTemplate.findUnique as any).mockResolvedValue({ id: 1, subject: 'S', bodyHtml: '<p>H</p>' });
+    (prisma.emailTemplate.findUnique as any).mockResolvedValue({
+      id: 1,
+      subject: 'S',
+      bodyHtml: '<p>H</p>',
+    });
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -82,10 +104,14 @@ describe('POST /api/v1/admin/email-templates/[id]/test', () => {
   });
 
   it('returns 500 on error', async () => {
-    (prisma.emailTemplate.findUnique as any).mockResolvedValue({ id: 1, subject: 'S', bodyHtml: '<p>H</p>' });
+    (prisma.emailTemplate.findUnique as any).mockResolvedValue({
+      id: 1,
+      subject: 'S',
+      bodyHtml: '<p>H</p>',
+    });
     (sendEmail as any).mockRejectedValue(new Error('SMTP error'));
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'test@example.com' }),

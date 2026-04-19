@@ -29,7 +29,7 @@ describe('SearchActionJsonLd', () => {
   it('includes site name', () => {
     const { container } = render(<SearchActionJsonLd />);
     const data = getJsonLd(container);
-    expect(data.name).toBe('Порошок');
+    expect(data.name).toBe('Pulito Trade');
   });
 
   it('includes SearchAction potentialAction', () => {

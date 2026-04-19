@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     siteSetting: {
@@ -15,7 +30,9 @@ import { GET, PUT } from './route';
 import { prisma } from '@/lib/prisma';
 
 describe('GET /api/v1/admin/smtp-settings', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns SMTP settings with masked password', async () => {
     vi.mocked(prisma.siteSetting.findMany).mockResolvedValue([
@@ -43,7 +60,9 @@ describe('GET /api/v1/admin/smtp-settings', () => {
 });
 
 describe('PUT /api/v1/admin/smtp-settings', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('saves SMTP settings', async () => {
     vi.mocked(prisma.siteSetting.upsert).mockResolvedValue({} as any);
@@ -53,7 +72,7 @@ describe('PUT /api/v1/admin/smtp-settings', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ smtp_host: 'smtp.example.com' }),
     });
-    const res = await PUT(req as any, { user: { id: 1 } });
+    const res = await PUT(req as any, { user: { id: 1 } } as any);
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -68,7 +87,7 @@ describe('PUT /api/v1/admin/smtp-settings', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ smtp_pass: 'my-••••••ord' }),
     });
-    const res = await PUT(req as any, { user: { id: 1 } });
+    const res = await PUT(req as any, { user: { id: 1 } } as any);
 
     expect(prisma.siteSetting.upsert).not.toHaveBeenCalled();
   });
@@ -81,7 +100,7 @@ describe('PUT /api/v1/admin/smtp-settings', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ smtp_host: 'smtp.example.com' }),
     });
-    const res = await PUT(req as any, { user: { id: 1 } });
+    const res = await PUT(req as any, { user: { id: 1 } } as any);
 
     expect(res.status).toBe(500);
   });

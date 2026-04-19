@@ -89,7 +89,7 @@ beforeEach(() => {
   mockTypesenseDocuments.upsert.mockResolvedValue({});
   mockTypesenseDocuments.import.mockResolvedValue([]);
   // Set up documents(id) to return an object with delete()
-  mockTypesenseCollection.documents.mockImplementation((id?: string) => {
+  (mockTypesenseCollection.documents as any).mockImplementation((id?: string) => {
     if (id) return mockDocumentInstance;
     return mockTypesenseDocuments;
   });
@@ -142,7 +142,7 @@ describe('indexProduct', () => {
         priceRetail: 159.99,
         isActive: true,
         categoryName: 'Порошки',
-      })
+      }),
     );
   });
 
@@ -172,7 +172,7 @@ describe('indexProduct', () => {
 
     expect(mockLogger.error).toHaveBeenCalledWith(
       'Typesense index error',
-      expect.objectContaining({ productId: 1 })
+      expect.objectContaining({ productId: 1 }),
     );
   });
 
@@ -185,7 +185,7 @@ describe('indexProduct', () => {
       expect.objectContaining({
         categoryName: '',
         categorySlug: '',
-      })
+      }),
     );
   });
 
@@ -195,7 +195,7 @@ describe('indexProduct', () => {
     await indexProduct(1);
 
     expect(mockTypesenseDocuments.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ imagePath: '' })
+      expect.objectContaining({ imagePath: '' }),
     );
   });
 });
@@ -271,7 +271,7 @@ describe('searchProducts', () => {
         sort_by: 'priceRetail:asc',
         page: 2,
         per_page: 10,
-      })
+      }),
     );
   });
 
@@ -300,7 +300,7 @@ describe('searchProducts', () => {
     await searchProducts('порошок "Ariel" 3-в-1');
 
     expect(mockTypesenseDocuments.search).toHaveBeenCalledWith(
-      expect.objectContaining({ q: 'порошок "Ariel" 3-в-1' })
+      expect.objectContaining({ q: 'порошок "Ariel" 3-в-1' }),
     );
   });
 });
@@ -354,7 +354,7 @@ describe('autocomplete', () => {
     await autocomplete('test', 5);
 
     expect(mockTypesenseDocuments.search).toHaveBeenCalledWith(
-      expect.objectContaining({ per_page: 5 })
+      expect.objectContaining({ per_page: 5 }),
     );
   });
 });

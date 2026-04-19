@@ -21,7 +21,7 @@ afterEach(() => {
   cleanup();
 });
 
-function ThrowingChild() {
+function ThrowingChild(): never {
   throw new Error('Test error message');
 }
 
@@ -30,7 +30,7 @@ describe('AdminErrorBoundary', () => {
     render(
       <AdminErrorBoundary>
         <div>Normal content</div>
-      </AdminErrorBoundary>
+      </AdminErrorBoundary>,
     );
     expect(screen.getByText('Normal content')).toBeInTheDocument();
   });
@@ -39,7 +39,7 @@ describe('AdminErrorBoundary', () => {
     render(
       <AdminErrorBoundary>
         <ThrowingChild />
-      </AdminErrorBoundary>
+      </AdminErrorBoundary>,
     );
     expect(screen.getByText('Щось пішло не так')).toBeInTheDocument();
     expect(screen.getByText('Test error message')).toBeInTheDocument();
@@ -49,7 +49,7 @@ describe('AdminErrorBoundary', () => {
     render(
       <AdminErrorBoundary fallbackTitle="Custom error title">
         <ThrowingChild />
-      </AdminErrorBoundary>
+      </AdminErrorBoundary>,
     );
     expect(screen.getByText('Custom error title')).toBeInTheDocument();
   });
@@ -58,7 +58,7 @@ describe('AdminErrorBoundary', () => {
     render(
       <AdminErrorBoundary>
         <ThrowingChild />
-      </AdminErrorBoundary>
+      </AdminErrorBoundary>,
     );
     expect(screen.getByText('Спробувати знову')).toBeInTheDocument();
     expect(screen.getByText('Перезавантажити сторінку')).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('AdminErrorBoundary', () => {
     render(
       <AdminErrorBoundary>
         <ThrowingChild />
-      </AdminErrorBoundary>
+      </AdminErrorBoundary>,
     );
     // Clicking retry resets, but child throws again immediately
     fireEvent.click(screen.getByText('Спробувати знову'));
@@ -77,13 +77,13 @@ describe('AdminErrorBoundary', () => {
   });
 
   it('shows "Невідома помилка" when error has no message', () => {
-    function ThrowEmpty() {
+    function ThrowEmpty(): never {
       throw Object.assign(new Error(), { message: '' });
     }
     render(
       <AdminErrorBoundary>
         <ThrowEmpty />
-      </AdminErrorBoundary>
+      </AdminErrorBoundary>,
     );
     expect(screen.getByText('Невідома помилка')).toBeInTheDocument();
   });

@@ -1,7 +1,23 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/services/channel-config', () => ({
   getAllChannelConfigs: vi.fn(),
   maskChannelConfig: vi.fn(),
@@ -13,16 +29,22 @@ vi.mock('@/utils/api-response', () => ({
 }));
 
 import { GET, PUT } from './route';
-import { getAllChannelConfigs, maskChannelConfig, saveChannelConfig } from '@/services/channel-config';
+import {
+  getAllChannelConfigs,
+  maskChannelConfig,
+  saveChannelConfig,
+} from '@/services/channel-config';
 
 describe('GET /api/v1/admin/channel-settings', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns masked channel configs on success', async () => {
     (getAllChannelConfigs as any).mockResolvedValue({});
     (maskChannelConfig as any).mockReturnValue({ enabled: false });
 
-    const res = await GET();
+    const res = await (GET as any)();
 
     expect(res.status).toBe(200);
   });
@@ -30,22 +52,27 @@ describe('GET /api/v1/admin/channel-settings', () => {
   it('returns 500 on error', async () => {
     (getAllChannelConfigs as any).mockRejectedValue(new Error('fail'));
 
-    const res = await GET();
+    const res = await (GET as any)();
 
     expect(res.status).toBe(500);
   });
 });
 
 describe('PUT /api/v1/admin/channel-settings', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('saves channel config on success', async () => {
     (saveChannelConfig as any).mockResolvedValue(undefined);
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel: 'telegram', config: { enabled: true, botToken: 'tok', channelId: 'ch' } }),
+      body: JSON.stringify({
+        channel: 'telegram',
+        config: { enabled: true, botToken: 'tok', channelId: 'ch' },
+      }),
     });
     const res = await PUT(req);
     const data = await res.json();
@@ -55,7 +82,7 @@ describe('PUT /api/v1/admin/channel-settings', () => {
   });
 
   it('returns error for unknown channel', async () => {
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel: 'unknown', config: {} }),
@@ -68,10 +95,13 @@ describe('PUT /api/v1/admin/channel-settings', () => {
   it('returns 500 on error', async () => {
     (saveChannelConfig as any).mockRejectedValue(new Error('fail'));
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel: 'telegram', config: { enabled: true, botToken: 'tok', channelId: 'ch' } }),
+      body: JSON.stringify({
+        channel: 'telegram',
+        config: { enabled: true, botToken: 'tok', channelId: 'ch' },
+      }),
     });
     const res = await PUT(req);
 

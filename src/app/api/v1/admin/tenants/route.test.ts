@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/services/tenant', () => ({
   createTenant: vi.fn(),
   getTenants: vi.fn(),
@@ -10,7 +25,7 @@ vi.mock('@/validators/tenant', () => ({
   createTenantSchema: {
     safeParse: vi.fn((data: any) => {
       if (data.name && data.slug) return { success: true, data };
-      return { success: false, error: { errors: [{ message: 'Name and slug required' }] } };
+      return { success: false, error: { issues: [{ message: 'Name and slug required' }] } };
     }),
   },
 }));
@@ -20,7 +35,9 @@ import { createTenant, getTenants } from '@/services/tenant';
 import { NextRequest } from 'next/server';
 
 describe('GET /api/v1/admin/tenants', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns tenants', async () => {
     const tenants = [{ id: 1, name: 'Test' }];
@@ -45,7 +62,9 @@ describe('GET /api/v1/admin/tenants', () => {
 });
 
 describe('POST /api/v1/admin/tenants', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('creates a tenant', async () => {
     const tenant = { id: 1, name: 'New', slug: 'new' };

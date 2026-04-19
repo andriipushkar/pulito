@@ -31,7 +31,7 @@ describe('ChatWidget', () => {
   it('opens chat widget on trigger click', () => {
     const { container } = render(<ChatWidget />);
     fireEvent.click(container.querySelector('button')!);
-    expect(document.body.textContent).toContain('Порошок');
+    expect(document.body.textContent).toContain('Pulito Trade');
     expect(document.body.textContent).toContain('Часті питання та підтримка');
   });
 
@@ -66,8 +66,8 @@ describe('ChatWidget', () => {
     fireEvent.click(faqButtons[0]);
 
     // Click back button
-    const backButton = Array.from(document.querySelectorAll('button')).find(b =>
-      b.textContent?.includes('Назад до питань')
+    const backButton = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Назад до питань'),
     );
     expect(backButton).toBeTruthy();
     fireEvent.click(backButton!);
@@ -131,6 +131,6 @@ describe('ChatWidget', () => {
     const { container } = render(<ChatWidget />);
     fireEvent.click(container.querySelector('button')!);
     const link = document.querySelector('a[href*="t.me"]') as HTMLAnchorElement;
-    expect(link.href).toContain('PoroshokBot');
+    expect(link.href).toContain('PulitoTradeBot');
   });
 });

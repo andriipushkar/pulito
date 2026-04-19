@@ -1,7 +1,23 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     tenantUser: { findFirst: vi.fn() },
@@ -18,15 +34,17 @@ import { GET } from './route';
 import { prisma } from '@/lib/prisma';
 
 describe('GET /api/v1/admin/billing/invoices', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns invoices on success', async () => {
     (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
     (prisma.tenantBilling.findUnique as any).mockResolvedValue({ id: 10, tenantId: 1 });
     (prisma.billingInvoice.findMany as any).mockResolvedValue([{ id: 1, amount: 100 }]);
 
-    const req = new Request('http://localhost');
-    const res = await GET(req, { user: { id: 1 } });
+    const req = new NextRequest('http://localhost');
+    const res = await GET(req, { user: { id: 1 } } as any);
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -36,8 +54,8 @@ describe('GET /api/v1/admin/billing/invoices', () => {
   it('returns 404 when tenant not found', async () => {
     (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
 
-    const req = new Request('http://localhost');
-    const res = await GET(req, { user: { id: 1 } });
+    const req = new NextRequest('http://localhost');
+    const res = await GET(req, { user: { id: 1 } } as any);
 
     expect(res.status).toBe(404);
   });
@@ -46,8 +64,8 @@ describe('GET /api/v1/admin/billing/invoices', () => {
     (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
     (prisma.tenantBilling.findUnique as any).mockResolvedValue(null);
 
-    const req = new Request('http://localhost');
-    const res = await GET(req, { user: { id: 1 } });
+    const req = new NextRequest('http://localhost');
+    const res = await GET(req, { user: { id: 1 } } as any);
 
     expect(res.status).toBe(404);
   });
@@ -55,8 +73,8 @@ describe('GET /api/v1/admin/billing/invoices', () => {
   it('returns 500 on error', async () => {
     (prisma.tenantUser.findFirst as any).mockRejectedValue(new Error('DB error'));
 
-    const req = new Request('http://localhost');
-    const res = await GET(req, { user: { id: 1 } });
+    const req = new NextRequest('http://localhost');
+    const res = await GET(req, { user: { id: 1 } } as any);
 
     expect(res.status).toBe(500);
   });

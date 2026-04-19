@@ -4,7 +4,16 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 vi.mock('@/components/ui/Tabs', () => ({
-  default: ({ tabs }: any) => <div data-testid="tabs">{tabs.map((t: any) => <div key={t.id}><span>{t.label}</span><div>{t.content}</div></div>)}</div>,
+  default: ({ tabs }: any) => (
+    <div data-testid="tabs">
+      {tabs.map((t: any) => (
+        <div key={t.id}>
+          <span>{t.label}</span>
+          <div>{t.content}</div>
+        </div>
+      ))}
+    </div>
+  ),
 }));
 vi.mock('@/components/ui/Accordion', () => ({
   default: ({ children }: any) => <div data-testid="accordion">{children}</div>,
@@ -18,11 +27,39 @@ vi.mock('@/components/ui/Accordion', () => ({
 vi.mock('./FaqSearch', () => ({
   default: ({ onResults, onQueryChange }: any) => (
     <div data-testid="faq-search">
-      <button data-testid="search-results" onClick={() => { onQueryChange?.('test'); onResults([{ id: 99, question: 'Found Q', answer: 'Found A', category: 'Test' }]); }}>Search Results</button>
-      <button data-testid="search-empty" onClick={() => { onQueryChange?.('xyz'); onResults([]); }}>Empty Results</button>
-      <button data-testid="search-clear" onClick={() => onResults(null)}>Clear</button>
-      <button data-testid="search-query" onClick={() => onQueryChange?.('test')}>Set Query</button>
-      <button data-testid="search-short-query" onClick={() => { onQueryChange?.('t'); onResults([{ id: 88, question: 'Short Q', answer: 'Short A', category: 'Test' }]); }}>Short Query</button>
+      <button
+        data-testid="search-results"
+        onClick={() => {
+          onQueryChange?.('test');
+          onResults([{ id: 99, question: 'Found Q', answer: 'Found A', category: 'Test' }]);
+        }}
+      >
+        Search Results
+      </button>
+      <button
+        data-testid="search-empty"
+        onClick={() => {
+          onQueryChange?.('xyz');
+          onResults([]);
+        }}
+      >
+        Empty Results
+      </button>
+      <button data-testid="search-clear" onClick={() => onResults(null)}>
+        Clear
+      </button>
+      <button data-testid="search-query" onClick={() => onQueryChange?.('test')}>
+        Set Query
+      </button>
+      <button
+        data-testid="search-short-query"
+        onClick={() => {
+          onQueryChange?.('t');
+          onResults([{ id: 88, question: 'Short Q', answer: 'Short A', category: 'Test' }]);
+        }}
+      >
+        Short Query
+      </button>
     </div>
   ),
 }));
@@ -47,8 +84,8 @@ describe('FaqContent', () => {
 
   it('renders tab categories', () => {
     const grouped = {
-      'Доставка': [{ id: 1, question: 'Q1', answer: 'A1', category: 'Доставка' }],
-      'Оплата': [{ id: 2, question: 'Q2', answer: 'A2', category: 'Оплата' }],
+      Доставка: [{ id: 1, question: 'Q1', answer: 'A1', category: 'Доставка' }],
+      Оплата: [{ id: 2, question: 'Q2', answer: 'A2', category: 'Оплата' }],
     };
     render(<FaqContent groupedFaq={grouped} />);
     expect(screen.getByText('Доставка')).toBeInTheDocument();
@@ -57,7 +94,7 @@ describe('FaqContent', () => {
 
   it('renders FAQ answer items in accordion', () => {
     const grouped = {
-      'Test': [{ id: 1, question: 'How?', answer: '<p>Like this</p>', category: 'Test' }],
+      Test: [{ id: 1, question: 'How?', answer: '<p>Like this</p>', category: 'Test' }],
     };
     render(<FaqContent groupedFaq={grouped} />);
     expect(screen.getByText('How?')).toBeInTheDocument();
@@ -65,7 +102,7 @@ describe('FaqContent', () => {
 
   it('shows search results when searching', () => {
     const grouped = {
-      'Test': [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
+      Test: [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
     };
     render(<FaqContent groupedFaq={grouped} />);
     fireEvent.click(screen.getByTestId('search-results'));
@@ -74,7 +111,7 @@ describe('FaqContent', () => {
 
   it('shows empty search results message', () => {
     const grouped = {
-      'Test': [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
+      Test: [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
     };
     render(<FaqContent groupedFaq={grouped} />);
     fireEvent.click(screen.getByTestId('search-empty'));
@@ -83,7 +120,7 @@ describe('FaqContent', () => {
 
   it('returns to tabs when search is cleared', () => {
     const grouped = {
-      'Test': [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
+      Test: [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
     };
     render(<FaqContent groupedFaq={grouped} />);
     fireEvent.click(screen.getByTestId('search-results'));
@@ -93,7 +130,7 @@ describe('FaqContent', () => {
 
   it('fires FAQ click tracking on answer click', () => {
     const grouped = {
-      'Test': [{ id: 42, question: 'Q42', answer: '<p>A42</p>', category: 'Test' }],
+      Test: [{ id: 42, question: 'Q42', answer: '<p>A42</p>', category: 'Test' }],
     };
     render(<FaqContent groupedFaq={grouped} />);
     // Click the answer div (rendered inside AccordionItem)
@@ -118,14 +155,14 @@ describe('FaqContent', () => {
   it('renders Telegram link with correct href', () => {
     render(<FaqContent groupedFaq={{}} />);
     const telegramLink = screen.getByText('Telegram').closest('a');
-    expect(telegramLink).toHaveAttribute('href', 'https://t.me/poroshok_shop');
+    expect(telegramLink).toHaveAttribute('href', 'https://t.me/pulito_trade');
     expect(telegramLink).toHaveAttribute('target', '_blank');
   });
 
   it('renders Viber link with correct href', () => {
     render(<FaqContent groupedFaq={{}} />);
     const viberLink = screen.getByText('Viber').closest('a');
-    expect(viberLink).toHaveAttribute('href', 'viber://pa?chatURI=poroshok_shop');
+    expect(viberLink).toHaveAttribute('href', 'viber://pa?chatURI=pulito_trade');
   });
 
   it('renders phone link', () => {
@@ -137,7 +174,7 @@ describe('FaqContent', () => {
   it('handles FAQ click tracking error gracefully', () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('fail'));
     const grouped = {
-      'Test': [{ id: 1, question: 'Q1', answer: '<p>A1</p>', category: 'Test' }],
+      Test: [{ id: 1, question: 'Q1', answer: '<p>A1</p>', category: 'Test' }],
     };
     render(<FaqContent groupedFaq={grouped} />);
     const answerDivs = document.querySelectorAll('.prose');
@@ -148,7 +185,7 @@ describe('FaqContent', () => {
 
   it('does not highlight text when query is shorter than 2 chars', () => {
     const grouped = {
-      'Test': [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
+      Test: [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
     };
     render(<FaqContent groupedFaq={grouped} />);
     fireEvent.click(screen.getByTestId('search-short-query'));
@@ -158,7 +195,7 @@ describe('FaqContent', () => {
 
   it('highlights text in search results with query', () => {
     const grouped = {
-      'Test': [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
+      Test: [{ id: 1, question: 'Q1', answer: 'A1', category: 'Test' }],
     };
     render(<FaqContent groupedFaq={grouped} />);
     // The mock FaqSearch sets query to 'test' and returns results

@@ -1,7 +1,23 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     tenantUser: { findFirst: vi.fn() },
@@ -10,7 +26,13 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/services/billing', () => ({
   getBilling: vi.fn(),
   checkUsageLimits: vi.fn(),
-  BillingError: class BillingError extends Error { statusCode: number; constructor(msg: string, code: number) { super(msg); this.statusCode = code; } },
+  BillingError: class BillingError extends Error {
+    statusCode: number;
+    constructor(msg: string, code: number) {
+      super(msg);
+      this.statusCode = code;
+    }
+  },
 }));
 vi.mock('@/utils/api-response', () => ({
   successResponse: (data: any, status = 200) => Response.json(data, { status }),
@@ -22,15 +44,17 @@ import { prisma } from '@/lib/prisma';
 import { getBilling, checkUsageLimits } from '@/services/billing';
 
 describe('GET /api/v1/admin/billing', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns billing and usage on success', async () => {
     (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
     (getBilling as any).mockResolvedValue({ plan: 'pro' });
     (checkUsageLimits as any).mockResolvedValue({ products: 50 });
 
-    const req = new Request('http://localhost');
-    const res = await GET(req, { user: { id: 1 } });
+    const req = new NextRequest('http://localhost');
+    const res = await GET(req, { user: { id: 1 } } as any);
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -40,8 +64,8 @@ describe('GET /api/v1/admin/billing', () => {
   it('returns 404 when tenant not found', async () => {
     (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
 
-    const req = new Request('http://localhost');
-    const res = await GET(req, { user: { id: 1 } });
+    const req = new NextRequest('http://localhost');
+    const res = await GET(req, { user: { id: 1 } } as any);
 
     expect(res.status).toBe(404);
   });
@@ -50,8 +74,8 @@ describe('GET /api/v1/admin/billing', () => {
     (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
     (getBilling as any).mockRejectedValue(new Error('fail'));
 
-    const req = new Request('http://localhost');
-    const res = await GET(req, { user: { id: 1 } });
+    const req = new NextRequest('http://localhost');
+    const res = await GET(req, { user: { id: 1 } } as any);
 
     expect(res.status).toBe(500);
   });

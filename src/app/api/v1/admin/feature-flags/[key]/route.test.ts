@@ -1,7 +1,23 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/services/feature-flag', () => ({
   updateFlag: vi.fn(),
   deleteFlag: vi.fn(),
@@ -17,12 +33,14 @@ import { updateFlag, deleteFlag } from '@/services/feature-flag';
 const makeParams = (key: string) => ({ params: Promise.resolve({ key }) });
 
 describe('PATCH /api/v1/admin/feature-flags/[key]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates flag on success', async () => {
     (updateFlag as any).mockResolvedValue({ key: 'dark_mode', isEnabled: true });
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isEnabled: true }),
@@ -35,7 +53,7 @@ describe('PATCH /api/v1/admin/feature-flags/[key]', () => {
   it('returns 404 when flag not found', async () => {
     (updateFlag as any).mockRejectedValue(new Error('not found'));
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isEnabled: true }),
@@ -48,7 +66,7 @@ describe('PATCH /api/v1/admin/feature-flags/[key]', () => {
   it('returns 500 on error', async () => {
     (updateFlag as any).mockRejectedValue(new Error('DB error'));
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isEnabled: true }),
@@ -60,12 +78,14 @@ describe('PATCH /api/v1/admin/feature-flags/[key]', () => {
 });
 
 describe('DELETE /api/v1/admin/feature-flags/[key]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('deletes flag on success', async () => {
     (deleteFlag as any).mockResolvedValue(undefined);
 
-    const req = new Request('http://localhost', { method: 'DELETE' });
+    const req = new NextRequest('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req, makeParams('dark_mode'));
     const data = await res.json();
 
@@ -76,7 +96,7 @@ describe('DELETE /api/v1/admin/feature-flags/[key]', () => {
   it('returns 404 when flag not found', async () => {
     (deleteFlag as any).mockRejectedValue(new Error('not found'));
 
-    const req = new Request('http://localhost', { method: 'DELETE' });
+    const req = new NextRequest('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req, makeParams('nonexistent'));
 
     expect(res.status).toBe(404);
@@ -85,7 +105,7 @@ describe('DELETE /api/v1/admin/feature-flags/[key]', () => {
   it('returns 500 on error', async () => {
     (deleteFlag as any).mockRejectedValue(new Error('DB error'));
 
-    const req = new Request('http://localhost', { method: 'DELETE' });
+    const req = new NextRequest('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req, makeParams('dark_mode'));
 
     expect(res.status).toBe(500);

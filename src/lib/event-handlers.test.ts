@@ -20,7 +20,7 @@ describe('registerEventHandlers', () => {
     const { registerEventHandlers } = await import('./event-handlers');
     registerEventHandlers();
 
-    const registeredEvents = mockOn.mock.calls.map(([type]: [string]) => type);
+    const registeredEvents = mockOn.mock.calls.map((call: unknown[]) => call[0] as string);
     expect(registeredEvents).toContain('order.created');
     expect(registeredEvents).toContain('order.completed');
     expect(registeredEvents).toContain('product.stock_changed');
@@ -57,12 +57,12 @@ describe('registerEventHandlers', () => {
     registerEventHandlers();
 
     const orderCreatedHandler = mockOn.mock.calls.find(
-      ([type]: [string]) => type === 'order.created'
+      (call: unknown[]) => call[0] === 'order.created',
     )?.[1];
 
     // Should not throw when called with wrong type
     await expect(
-      orderCreatedHandler({ type: 'user.registered', payload: {} })
+      orderCreatedHandler({ type: 'user.registered', payload: {} }),
     ).resolves.toBeUndefined();
   });
 });

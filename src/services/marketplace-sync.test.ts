@@ -25,10 +25,8 @@ vi.mock('@/lib/prisma', () => ({
     product: { findMany: vi.fn() },
     publicationChannel: { findMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     order: { findFirst: vi.fn(), create: vi.fn() },
-    setting: { upsert: vi.fn(), findMany: vi.fn() },
-    $transaction: vi.fn((fn: (tx: unknown) => unknown) =>
-      fn({ order: mockTxOrder })
-    ),
+    siteSetting: { upsert: vi.fn(), findMany: vi.fn() },
+    $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn({ order: mockTxOrder })),
   },
 }));
 
@@ -61,7 +59,7 @@ const mockPrisma = prisma as unknown as {
     count: ReturnType<typeof vi.fn>;
   };
   order: { findFirst: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
-  setting: { upsert: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
+  siteSetting: { upsert: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
 };
 
 const mockGetChannelConfig = getChannelConfig as unknown as ReturnType<typeof vi.fn>;
@@ -89,17 +87,17 @@ describe('syncProductsToMarketplace', () => {
       {
         id: 1,
         name: 'Product A',
-        description: 'Desc A',
+        content: { fullDescription: 'Desc A' },
         priceRetail: 100,
         code: 'P001',
         quantity: 10,
-        images: [{ url: 'img1.jpg' }],
-        publications: [{ id: 10, channels: [] }],
+        images: [{ pathFull: 'img1.jpg', pathOriginal: null, pathMedium: null }],
+        publications: [{ id: 10, channelResults: [] }],
       },
     ]);
     mockClient.createProduct.mockResolvedValue({ success: true, externalId: 'ext-1' });
     mockPrisma.publicationChannel.upsert.mockResolvedValue({});
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await syncProductsToMarketplace('rozetka');
 
@@ -119,11 +117,11 @@ describe('syncProductsToMarketplace', () => {
         code: 'P002',
         quantity: 5,
         images: [],
-        publications: [{ id: 20, channels: [{ externalId: 'ext-2', status: 'published' }] }],
+        publications: [{ id: 20, channelResults: [{ externalId: 'ext-2', status: 'published' }] }],
       },
     ]);
     mockClient.updateProduct.mockResolvedValue({ success: true });
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await syncProductsToMarketplace('rozetka');
 
@@ -146,11 +144,11 @@ describe('syncProductsToMarketplace', () => {
         code: 'P003',
         quantity: 1,
         images: [],
-        publications: [{ id: 30, channels: [{ externalId: 'ext-3', status: 'published' }] }],
+        publications: [{ id: 30, channelResults: [{ externalId: 'ext-3', status: 'published' }] }],
       },
     ]);
     mockClient.updateProduct.mockResolvedValue({ success: false });
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await syncProductsToMarketplace('rozetka');
 
@@ -168,11 +166,11 @@ describe('syncProductsToMarketplace', () => {
         code: 'P004',
         quantity: 2,
         images: [],
-        publications: [{ id: 40, channels: [] }],
+        publications: [{ id: 40, channelResults: [] }],
       },
     ]);
     mockClient.createProduct.mockRejectedValue(new Error('Network error'));
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await syncProductsToMarketplace('rozetka');
 
@@ -183,16 +181,34 @@ describe('syncProductsToMarketplace', () => {
     mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'key', sellerId: 'shop1' });
     mockPrisma.product.findMany.mockResolvedValue([
       {
-        id: 1, name: 'New', description: null, priceRetail: 100, code: 'A', quantity: 1,
-        images: [], publications: [{ id: 1, channels: [] }],
+        id: 1,
+        name: 'New',
+        description: null,
+        priceRetail: 100,
+        code: 'A',
+        quantity: 1,
+        images: [],
+        publications: [{ id: 1, channelResults: [] }],
       },
       {
-        id: 2, name: 'Update', description: null, priceRetail: 200, code: 'B', quantity: 2,
-        images: [], publications: [{ id: 2, channels: [{ externalId: 'e2', status: 'published' }] }],
+        id: 2,
+        name: 'Update',
+        description: null,
+        priceRetail: 200,
+        code: 'B',
+        quantity: 2,
+        images: [],
+        publications: [{ id: 2, channelResults: [{ externalId: 'e2', status: 'published' }] }],
       },
       {
-        id: 3, name: 'Fail', description: null, priceRetail: 300, code: 'C', quantity: 3,
-        images: [], publications: [{ id: 3, channels: [] }],
+        id: 3,
+        name: 'Fail',
+        description: null,
+        priceRetail: 300,
+        code: 'C',
+        quantity: 3,
+        images: [],
+        publications: [{ id: 3, channelResults: [] }],
       },
     ]);
     mockClient.createProduct
@@ -200,7 +216,7 @@ describe('syncProductsToMarketplace', () => {
       .mockRejectedValueOnce(new Error('fail'));
     mockClient.updateProduct.mockResolvedValue({ success: true });
     mockPrisma.publicationChannel.upsert.mockResolvedValue({});
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await syncProductsToMarketplace('rozetka');
 
@@ -227,7 +243,7 @@ describe('syncStockToMarketplace', () => {
       },
     ]);
     mockClient.updateStock.mockResolvedValue({ success: true });
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await syncStockToMarketplace('prom');
 
@@ -245,7 +261,7 @@ describe('syncStockToMarketplace', () => {
       },
     ]);
     mockClient.updateStock.mockRejectedValue(new Error('API timeout'));
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await syncStockToMarketplace('prom');
 
@@ -255,10 +271,13 @@ describe('syncStockToMarketplace', () => {
   it('should skip entries without externalId or product', async () => {
     mockGetChannelConfig.mockResolvedValue({ enabled: true, apiToken: 'tok' });
     mockPrisma.publicationChannel.findMany.mockResolvedValue([
-      { externalId: null, publication: { productId: 1, product: { quantity: 5, priceRetail: 50 } } },
+      {
+        externalId: null,
+        publication: { productId: 1, product: { quantity: 5, priceRetail: 50 } },
+      },
       { externalId: 'ext-30', publication: { productId: 2, product: null } },
     ]);
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await syncStockToMarketplace('prom');
 
@@ -286,7 +305,7 @@ describe('importOrdersFromMarketplace', () => {
     ]);
     mockTxOrder.findFirst.mockResolvedValue(null);
     mockTxOrder.create.mockResolvedValue({ id: 1 });
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await importOrdersFromMarketplace('rozetka');
 
@@ -297,10 +316,10 @@ describe('importOrdersFromMarketplace', () => {
         data: expect.objectContaining({
           externalId: '100',
           source: 'rozetka',
-          status: 'new',
+          status: 'new_order',
           totalAmount: 500,
-          customerName: 'John',
-          customerPhone: '+380999999999',
+          contactName: 'John',
+          contactPhone: '+380999999999',
         }),
       }),
     );
@@ -318,7 +337,7 @@ describe('importOrdersFromMarketplace', () => {
       },
     ]);
     mockTxOrder.findFirst.mockResolvedValue({ id: 5, externalId: '200' });
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await importOrdersFromMarketplace('rozetka');
 
@@ -339,7 +358,7 @@ describe('importOrdersFromMarketplace', () => {
     ]);
     mockTxOrder.findFirst.mockResolvedValue(null);
     mockTxOrder.create.mockRejectedValue(new Error('DB constraint'));
-    mockPrisma.setting.upsert.mockResolvedValue({});
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
 
     const result = await importOrdersFromMarketplace('rozetka');
 
@@ -351,7 +370,7 @@ describe('getConnectionStatus', () => {
   it('should return correct status when connected', async () => {
     mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'key' });
     mockPrisma.publicationChannel.count.mockResolvedValue(42);
-    mockPrisma.setting.findMany.mockResolvedValue([
+    mockPrisma.siteSetting.findMany.mockResolvedValue([
       { key: 'marketplace_sync_rozetka_products', value: '2024-01-01T00:00:00.000Z' },
       { key: 'marketplace_sync_rozetka_stock', value: '2024-01-02T00:00:00.000Z' },
     ]);
@@ -371,7 +390,7 @@ describe('getConnectionStatus', () => {
   it('should return disconnected when not configured', async () => {
     mockGetChannelConfig.mockResolvedValue(null);
     mockPrisma.publicationChannel.count.mockResolvedValue(0);
-    mockPrisma.setting.findMany.mockResolvedValue([]);
+    mockPrisma.siteSetting.findMany.mockResolvedValue([]);
 
     const result = await getConnectionStatus('prom');
 

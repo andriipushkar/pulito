@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/services/tenant', () => ({
   getTenantUsers: vi.fn(),
   addUserToTenant: vi.fn(),
@@ -10,7 +25,7 @@ vi.mock('@/validators/tenant', () => ({
   addTenantUserSchema: {
     safeParse: vi.fn((data: any) => {
       if (data.userId) return { success: true, data };
-      return { success: false, error: { errors: [{ message: 'userId required' }] } };
+      return { success: false, error: { issues: [{ message: 'userId required' }] } };
     }),
   },
 }));
@@ -19,7 +34,9 @@ import { GET, POST } from './route';
 import { getTenantUsers, addUserToTenant } from '@/services/tenant';
 
 describe('GET /api/v1/admin/tenants/[id]/users', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns tenant users', async () => {
     const users = [{ id: 1, name: 'User' }];
@@ -51,7 +68,9 @@ describe('GET /api/v1/admin/tenants/[id]/users', () => {
 });
 
 describe('POST /api/v1/admin/tenants/[id]/users', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('adds user to tenant', async () => {
     const tenantUser = { id: 1, userId: 5, tenantId: 1 };

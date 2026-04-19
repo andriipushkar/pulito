@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/services/warehouse', () => ({
   createWarehouse: vi.fn(),
   getWarehouses: vi.fn(),
@@ -26,13 +41,15 @@ import { GET, POST } from './route';
 import { createWarehouse, getWarehouses, WarehouseError } from '@/services/warehouse';
 
 describe('GET /api/v1/admin/warehouses', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns warehouses', async () => {
     const warehouses = [{ id: 1, name: 'Main' }];
     vi.mocked(getWarehouses).mockResolvedValue(warehouses as any);
 
-    const res = await GET();
+    const res = await (GET as any)();
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -42,14 +59,16 @@ describe('GET /api/v1/admin/warehouses', () => {
   it('returns 500 on error', async () => {
     vi.mocked(getWarehouses).mockRejectedValue(new Error('fail'));
 
-    const res = await GET();
+    const res = await (GET as any)();
 
     expect(res.status).toBe(500);
   });
 });
 
 describe('POST /api/v1/admin/warehouses', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('creates a warehouse', async () => {
     const warehouse = { id: 1, name: 'New' };

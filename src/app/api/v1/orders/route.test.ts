@@ -60,6 +60,17 @@ vi.mock('@/middleware/auth', () => ({
   withRole: () => (handler: Function) => handler,
 }));
 
+// Bypass rate limiting in this test — the real implementation uses Redis and
+// accumulates state across calls, which would cause later POSTs to return 429.
+vi.mock('@/lib/api-handler', () => ({
+  createApiHandler: (_config: unknown, handler: Function) => handler,
+}));
+vi.mock('@/services/rate-limit', () => ({
+  RATE_LIMITS: new Proxy({}, { get: () => ({ prefix: 'test', max: 1e9, windowSec: 60 }) }),
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 100, retryAfter: 0 }),
+  RateLimitError: class extends Error {},
+}));
+
 import { GET, POST } from './route';
 import { getUserOrders, createOrder } from '@/services/order';
 import { getCartWithPersonalPrices } from '@/services/cart';
@@ -86,7 +97,10 @@ describe('GET /api/v1/orders', () => {
   });
 
   it('returns 400 on filter validation error', async () => {
-    mockOrderFilterParse.mockReturnValue({ success: false, error: { issues: [{ message: 'bad' }] } });
+    mockOrderFilterParse.mockReturnValue({
+      success: false,
+      error: { issues: [{ message: 'bad' }] },
+    });
     const req = new NextRequest('http://localhost/api/v1/orders');
     const res = await GET(req, authCtx as any);
     expect(res.status).toBe(400);
@@ -113,7 +127,16 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
+        product: {
+          id: 1,
+          code: 'P1',
+          name: 'Product',
+          priceRetail: 100,
+          priceWholesale: null,
+          isPromo: false,
+          quantity: 10,
+          isActive: true,
+        },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 1, orderNumber: 'ORD-001' });
@@ -152,7 +175,10 @@ describe('POST /api/v1/orders', () => {
   });
 
   it('returns 400 on checkout validation error', async () => {
-    mockCheckoutParse.mockReturnValue({ success: false, error: { issues: [{ message: 'bad field' }] } });
+    mockCheckoutParse.mockReturnValue({
+      success: false,
+      error: { issues: [{ message: 'bad field' }] },
+    });
     const req = new NextRequest('http://localhost/api/v1/orders', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -164,7 +190,9 @@ describe('POST /api/v1/orders', () => {
 
   it('returns cached response when idempotency key exists', async () => {
     const { getIdempotentResponse } = await import('@/services/idempotency');
-    vi.mocked(getIdempotentResponse).mockResolvedValue(JSON.stringify({ success: true, data: { id: 99 } }));
+    vi.mocked(getIdempotentResponse).mockResolvedValue(
+      JSON.stringify({ success: true, data: { id: 99 } }),
+    );
     const req = new NextRequest('http://localhost/api/v1/orders', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -186,7 +214,16 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: 80, isPromo: false, quantity: 10, isActive: true },
+        product: {
+          id: 1,
+          code: 'P1',
+          name: 'Product',
+          priceRetail: 100,
+          priceWholesale: 80,
+          isPromo: false,
+          quantity: 10,
+          isActive: true,
+        },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 2, orderNumber: 'ORD-002' });
@@ -208,7 +245,7 @@ describe('POST /api/v1/orders', () => {
       1,
       expect.anything(),
       expect.arrayContaining([expect.objectContaining({ price: 80 })]),
-      'wholesale'
+      'wholesale',
     );
   });
 
@@ -221,7 +258,16 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: 50,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: 80, isPromo: false, quantity: 10, isActive: true },
+        product: {
+          id: 1,
+          code: 'P1',
+          name: 'Product',
+          priceRetail: 100,
+          priceWholesale: 80,
+          isPromo: false,
+          quantity: 10,
+          isActive: true,
+        },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 3, orderNumber: 'ORD-003' });
@@ -237,7 +283,7 @@ describe('POST /api/v1/orders', () => {
       1,
       expect.anything(),
       expect.arrayContaining([expect.objectContaining({ price: 50 })]),
-      'retail'
+      'retail',
     );
   });
 
@@ -254,7 +300,16 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
+        product: {
+          id: 1,
+          code: 'P1',
+          name: 'Product',
+          priceRetail: 100,
+          priceWholesale: null,
+          isPromo: false,
+          quantity: 10,
+          isActive: true,
+        },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 4, orderNumber: 'ORD-004' });
@@ -283,7 +338,16 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
+        product: {
+          id: 1,
+          code: 'P1',
+          name: 'Product',
+          priceRetail: 100,
+          priceWholesale: null,
+          isPromo: false,
+          quantity: 10,
+          isActive: true,
+        },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 5, orderNumber: 'ORD-005' });
@@ -312,7 +376,16 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
+        product: {
+          id: 1,
+          code: 'P1',
+          name: 'Product',
+          priceRetail: 100,
+          priceWholesale: null,
+          isPromo: false,
+          quantity: 10,
+          isActive: true,
+        },
       },
     ]);
     mockCreateOrder.mockResolvedValue({ id: 6, orderNumber: 'ORD-006' });
@@ -336,7 +409,16 @@ describe('POST /api/v1/orders', () => {
       {
         personalPrice: null,
         quantity: 1,
-        product: { id: 1, code: 'P1', name: 'Product', priceRetail: 100, priceWholesale: null, isPromo: false, quantity: 10, isActive: true },
+        product: {
+          id: 1,
+          code: 'P1',
+          name: 'Product',
+          priceRetail: 100,
+          priceWholesale: null,
+          isPromo: false,
+          quantity: 10,
+          isActive: true,
+        },
       },
     ]);
     mockCreateOrder.mockRejectedValue(new OrderError('Order limit exceeded', 429));
@@ -389,7 +471,10 @@ describe('POST /api/v1/orders (guest checkout)', () => {
   it('returns 400 on guest validation error', async () => {
     const { guestCheckoutSchema } = await import('@/validators/order');
     const mockGuestParse = guestCheckoutSchema.safeParse as ReturnType<typeof vi.fn>;
-    mockGuestParse.mockReturnValue({ success: false, error: { issues: [{ message: 'missing phone' }] } });
+    mockGuestParse.mockReturnValue({
+      success: false,
+      error: { issues: [{ message: 'missing phone' }] },
+    });
 
     const req = new NextRequest('http://localhost/api/v1/orders', {
       method: 'POST',

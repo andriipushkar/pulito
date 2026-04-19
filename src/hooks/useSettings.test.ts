@@ -20,13 +20,13 @@ describe('useSettings', () => {
   it('returns default site_name', () => {
     const { result } = renderHook(() => useSettings());
 
-    expect(result.current.site_name).toBe('Порошок');
+    expect(result.current.site_name).toBe('Pulito Trade');
   });
 
   it('returns default site_email', () => {
     const { result } = renderHook(() => useSettings());
 
-    expect(result.current.site_email).toBe('info@poroshok.ua');
+    expect(result.current.site_email).toBe('info@pulito.trade');
   });
 
   it('returns default free_delivery_threshold', () => {

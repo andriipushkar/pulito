@@ -45,7 +45,10 @@ beforeEach(() => {
 describe('verifyViberSignature', () => {
   it('should return true for valid signature', () => {
     const body = '{"event":"subscribed"}';
-    const expected = crypto.createHmac('sha256', 'test-viber-auth-token').update(body).digest('hex');
+    const expected = crypto
+      .createHmac('sha256', 'test-viber-auth-token')
+      .update(body)
+      .digest('hex');
 
     const result = verifyViberSignature(body, expected);
 
@@ -63,7 +66,10 @@ describe('verifyViberSignature', () => {
   it('should return false when signature does not match body', () => {
     const body = '{"event":"subscribed"}';
     const differentBody = '{"event":"message"}';
-    const signature = crypto.createHmac('sha256', 'test-viber-auth-token').update(differentBody).digest('hex');
+    const signature = crypto
+      .createHmac('sha256', 'test-viber-auth-token')
+      .update(differentBody)
+      .digest('hex');
 
     const result = verifyViberSignature(body, signature);
 
@@ -84,7 +90,7 @@ describe('handleViberEvent', () => {
       const callBody = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(callBody.receiver).toBe('viber-user-1');
       expect(callBody.text).toContain('Тарас');
-      expect(callBody.text).toContain('Порошок');
+      expect(callBody.text).toContain('Pulito Trade');
     });
   });
 
@@ -106,7 +112,7 @@ describe('handleViberEvent', () => {
       expect(mockPrisma.category.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { isVisible: true, parentId: null },
-        })
+        }),
       );
       expect(fetchMock).toHaveBeenCalled();
       const callBody = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -130,9 +136,13 @@ describe('handleViberEvent', () => {
 
   describe('orders command', () => {
     it('should show orders for linked user', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Тарас', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Тарас',
+        role: 'client',
+      } as never);
       mockPrisma.order.findMany.mockResolvedValue([
-        { orderNumber: '1001', status: 'processing', totalAmount: 250.00, createdAt: new Date() },
+        { orderNumber: '1001', status: 'processing', totalAmount: 250.0, createdAt: new Date() },
       ] as never);
 
       await handleViberEvent({
@@ -165,7 +175,11 @@ describe('handleViberEvent', () => {
     });
 
     it('should show empty orders message when no orders exist', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Тарас', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Тарас',
+        role: 'client',
+      } as never);
       mockPrisma.order.findMany.mockResolvedValue([] as never);
 
       await handleViberEvent({
@@ -182,14 +196,18 @@ describe('handleViberEvent', () => {
 
   describe('wishlist command', () => {
     it('should show wishlist for linked user', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Тарас', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Тарас',
+        role: 'client',
+      } as never);
       mockPrisma.wishlistItem.findMany.mockResolvedValue([
         {
           product: {
             name: 'Fairy Original',
             slug: 'fairy-original',
             code: 'FR001',
-            priceRetail: 89.90,
+            priceRetail: 89.9,
             imagePath: '/uploads/fairy.jpg',
           },
         },
@@ -205,7 +223,7 @@ describe('handleViberEvent', () => {
       expect(mockPrisma.wishlistItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { wishlist: { userId: 1 } },
-        })
+        }),
       );
       // Should send text + rich media
       expect(fetchMock).toHaveBeenCalled();
@@ -226,7 +244,11 @@ describe('handleViberEvent', () => {
     });
 
     it('should show empty wishlist message', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Тарас', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Тарас',
+        role: 'client',
+      } as never);
       mockPrisma.wishlistItem.findMany.mockResolvedValue([] as never);
 
       await handleViberEvent({
@@ -264,7 +286,7 @@ describe('handleViberEvent', () => {
       expect(mockRedis.setex).toHaveBeenCalledWith(
         'viber:link:viber-user-1',
         600,
-        expect.stringContaining('"email":"user@example.com"')
+        expect.stringContaining('"email":"user@example.com"'),
       );
       const callBody = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(callBody.text).toContain('Код підтвердження');
@@ -305,7 +327,7 @@ describe('handleViberEvent', () => {
 
     it('should verify code and link account', async () => {
       mockRedis.get.mockResolvedValue(
-        JSON.stringify({ email: 'user@example.com', code: '123456', userId: 1 }) as never
+        JSON.stringify({ email: 'user@example.com', code: '123456', userId: 1 }) as never,
       );
       mockPrisma.user.update.mockResolvedValue({ id: 1, viberUserId: 'viber-user-1' } as never);
       mockRedis.del.mockResolvedValue(1 as never);
@@ -328,7 +350,7 @@ describe('handleViberEvent', () => {
 
     it('should reject wrong verification code', async () => {
       mockRedis.get.mockResolvedValue(
-        JSON.stringify({ email: 'user@example.com', code: '123456', userId: 1 }) as never
+        JSON.stringify({ email: 'user@example.com', code: '123456', userId: 1 }) as never,
       );
 
       await handleViberEvent({
@@ -366,7 +388,7 @@ describe('handleViberEvent', () => {
   describe('search fallback', () => {
     it('should treat unknown text as search query', async () => {
       mockPrisma.product.findMany.mockResolvedValue([
-        { name: 'Fairy Original', slug: 'fairy-original', priceRetail: 89.90 },
+        { name: 'Fairy Original', slug: 'fairy-original', priceRetail: 89.9 },
       ] as never);
 
       await handleViberEvent({
@@ -384,7 +406,7 @@ describe('handleViberEvent', () => {
               expect.objectContaining({ name: { contains: 'Fairy', mode: 'insensitive' } }),
             ]),
           }),
-        })
+        }),
       );
     });
 
@@ -414,7 +436,7 @@ describe('handleViberEvent', () => {
 
       const callBody = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(callBody.text).toContain('Контакти');
-      expect(callBody.text).toContain('Порошок');
+      expect(callBody.text).toContain('Pulito Trade');
     });
   });
 
@@ -428,7 +450,7 @@ describe('handleViberEvent', () => {
           timestamp: Date.now(),
           sender: { id: 'viber-user-1', name: 'Тарас' },
           message: { text: '/link bademail', type: 'text' },
-        })
+        }),
       ).resolves.toBeUndefined();
     });
 
@@ -447,7 +469,13 @@ describe('handleViberEvent', () => {
   describe('promo command', () => {
     it('should show promo products', async () => {
       mockPrisma.product.findMany.mockResolvedValue([
-        { name: 'Promo 1', slug: 'promo-1', code: 'PR1', priceRetail: 100, imagePath: '/img/pr1.jpg' },
+        {
+          name: 'Promo 1',
+          slug: 'promo-1',
+          code: 'PR1',
+          priceRetail: 100,
+          imagePath: '/img/pr1.jpg',
+        },
       ] as never);
 
       await handleViberEvent({
@@ -460,7 +488,7 @@ describe('handleViberEvent', () => {
       expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ isActive: true, isPromo: true }),
-        })
+        }),
       );
       // Text message + rich media carousel = at least 2 fetch calls
       expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
@@ -535,9 +563,7 @@ describe('handleViberEvent', () => {
     it('should handle catalog_next command', async () => {
       mockRedis.get.mockResolvedValue('1' as never);
       mockRedis.setex.mockResolvedValue('OK' as never);
-      mockPrisma.category.findMany.mockResolvedValue([
-        { name: 'Cat 1', slug: 'cat-1' },
-      ] as never);
+      mockPrisma.category.findMany.mockResolvedValue([{ name: 'Cat 1', slug: 'cat-1' }] as never);
 
       await handleViberEvent({
         event: 'message',
@@ -550,16 +576,14 @@ describe('handleViberEvent', () => {
       expect(mockPrisma.category.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           skip: 6, // page 2: (2-1) * 6 = 6
-        })
+        }),
       );
     });
 
     it('should handle catalog_prev command', async () => {
       mockRedis.get.mockResolvedValue('3' as never);
       mockRedis.setex.mockResolvedValue('OK' as never);
-      mockPrisma.category.findMany.mockResolvedValue([
-        { name: 'Cat 1', slug: 'cat-1' },
-      ] as never);
+      mockPrisma.category.findMany.mockResolvedValue([{ name: 'Cat 1', slug: 'cat-1' }] as never);
 
       await handleViberEvent({
         event: 'message',
@@ -572,7 +596,7 @@ describe('handleViberEvent', () => {
       expect(mockPrisma.category.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           skip: 6,
-        })
+        }),
       );
     });
 
@@ -590,7 +614,7 @@ describe('handleViberEvent', () => {
 
       // Default is 2, so prev = max(1, 2-1) = 1 -> skip = 0
       expect(mockPrisma.category.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 0 })
+        expect.objectContaining({ skip: 0 }),
       );
     });
 
@@ -598,7 +622,8 @@ describe('handleViberEvent', () => {
       // Return 7 items (pageSize + 1) to trigger hasMore
       mockRedis.setex.mockResolvedValue('OK' as never);
       const categories = Array.from({ length: 7 }, (_, i) => ({
-        name: `Cat ${i}`, slug: `cat-${i}`,
+        name: `Cat ${i}`,
+        slug: `cat-${i}`,
       }));
       mockPrisma.category.findMany.mockResolvedValue(categories as never);
 
@@ -700,7 +725,10 @@ describe('handleViberEvent', () => {
     it('should handle faq_q: command and increment click', async () => {
       mockPrisma.faqItem = { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() } as never;
       vi.mocked(mockPrisma.faqItem.findUnique).mockResolvedValue({
-        id: 1, question: 'How?', answer: 'Like this', category: 'General',
+        id: 1,
+        question: 'How?',
+        answer: 'Like this',
+        category: 'General',
       } as never);
       vi.mocked(mockPrisma.faqItem.update).mockResolvedValue({} as never);
 
@@ -763,7 +791,11 @@ describe('handleViberEvent', () => {
 
   describe('notification management', () => {
     it('should show notification settings for linked user', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Test', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Test',
+        role: 'client',
+      } as never);
 
       await handleViberEvent({
         event: 'message',
@@ -791,7 +823,11 @@ describe('handleViberEvent', () => {
     });
 
     it('should stop notifications when confirmed', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Test', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Test',
+        role: 'client',
+      } as never);
       mockPrisma.user.findUnique.mockResolvedValue({ notificationPrefs: {} } as never);
       mockPrisma.user.update.mockResolvedValue({} as never);
 
@@ -810,7 +846,7 @@ describe('handleViberEvent', () => {
               viber_promo: false,
             }),
           }),
-        })
+        }),
       );
     });
 
@@ -829,8 +865,14 @@ describe('handleViberEvent', () => {
     });
 
     it('should start notifications', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Test', role: 'client' } as never);
-      mockPrisma.user.findUnique.mockResolvedValue({ notificationPrefs: { viber_orders: false } } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Test',
+        role: 'client',
+      } as never);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        notificationPrefs: { viber_orders: false },
+      } as never);
       mockPrisma.user.update.mockResolvedValue({} as never);
 
       await handleViberEvent({
@@ -848,7 +890,7 @@ describe('handleViberEvent', () => {
               viber_promo: true,
             }),
           }),
-        })
+        }),
       );
     });
 
@@ -869,10 +911,18 @@ describe('handleViberEvent', () => {
 
   describe('order tracking', () => {
     it('should show order tracking info for linked user', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Test', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Test',
+        role: 'client',
+      } as never);
       mockPrisma.order.findFirst.mockResolvedValue({
-        orderNumber: 'ORD-100', status: 'shipped', totalAmount: 500,
-        createdAt: new Date('2025-01-01'), trackingNumber: 'TN123', deliveryMethod: 'Nova Poshta',
+        orderNumber: 'ORD-100',
+        status: 'shipped',
+        totalAmount: 500,
+        createdAt: new Date('2025-01-01'),
+        trackingNumber: 'TN123',
+        deliveryMethod: 'Nova Poshta',
       } as never);
 
       await handleViberEvent({
@@ -888,10 +938,18 @@ describe('handleViberEvent', () => {
     });
 
     it('should show order tracking without tracking number', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Test', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Test',
+        role: 'client',
+      } as never);
       mockPrisma.order.findFirst.mockResolvedValue({
-        orderNumber: 'ORD-101', status: 'processing', totalAmount: 200,
-        createdAt: new Date('2025-01-01'), trackingNumber: null, deliveryMethod: 'Pickup',
+        orderNumber: 'ORD-101',
+        status: 'processing',
+        totalAmount: 200,
+        createdAt: new Date('2025-01-01'),
+        trackingNumber: null,
+        deliveryMethod: 'Pickup',
       } as never);
 
       await handleViberEvent({
@@ -906,7 +964,11 @@ describe('handleViberEvent', () => {
     });
 
     it('should show order not found', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Test', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Test',
+        role: 'client',
+      } as never);
       mockPrisma.order.findFirst.mockResolvedValue(null as never);
 
       await handleViberEvent({
@@ -949,10 +1011,18 @@ describe('handleViberEvent', () => {
     });
 
     it('should show unknown status label as-is', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Test', role: 'client' } as never);
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        fullName: 'Test',
+        role: 'client',
+      } as never);
       mockPrisma.order.findFirst.mockResolvedValue({
-        orderNumber: 'ORD-102', status: 'custom_status', totalAmount: 100,
-        createdAt: new Date('2025-01-01'), trackingNumber: null, deliveryMethod: 'Pickup',
+        orderNumber: 'ORD-102',
+        status: 'custom_status',
+        totalAmount: 100,
+        createdAt: new Date('2025-01-01'),
+        trackingNumber: null,
+        deliveryMethod: 'Pickup',
       } as never);
 
       await handleViberEvent({
@@ -1154,7 +1224,7 @@ describe('handleViberEvent - handleLinkVerify with expired code', () => {
     // second redis.get returns null inside handleLinkVerify (line 99)
     mockRedis.get
       .mockResolvedValueOnce('truthy') // pending check
-      .mockResolvedValueOnce(null);    // inside handleLinkVerify
+      .mockResolvedValueOnce(null); // inside handleLinkVerify
 
     await handleViberEvent({
       event: 'message',

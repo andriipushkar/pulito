@@ -75,8 +75,22 @@ describe('ProductJsonLd', () => {
 
   it('uses images array when pathFull available', () => {
     const images = [
-      { pathFull: '/full1.jpg', pathMedium: null, pathThumbnail: null, pathBlur: null, isMain: true, id: 1 },
-      { pathFull: '/full2.jpg', pathMedium: null, pathThumbnail: null, pathBlur: null, isMain: false, id: 2 },
+      {
+        pathFull: '/full1.jpg',
+        pathMedium: null,
+        pathThumbnail: null,
+        pathBlur: null,
+        isMain: true,
+        id: 1,
+      },
+      {
+        pathFull: '/full2.jpg',
+        pathMedium: null,
+        pathThumbnail: null,
+        pathBlur: null,
+        isMain: false,
+        id: 2,
+      },
     ];
     const { container } = render(<ProductJsonLd product={makeProduct({ images })} />);
     const data = getJsonLd(container);
@@ -84,13 +98,17 @@ describe('ProductJsonLd', () => {
   });
 
   it('uses imagePath as fallback when no images have pathFull', () => {
-    const { container } = render(<ProductJsonLd product={makeProduct({ images: [], imagePath: '/fallback.jpg' })} />);
+    const { container } = render(
+      <ProductJsonLd product={makeProduct({ images: [], imagePath: '/fallback.jpg' })} />,
+    );
     const data = getJsonLd(container);
     expect(data.image).toBe('/fallback.jpg');
   });
 
   it('omits image when no images and no imagePath', () => {
-    const { container } = render(<ProductJsonLd product={makeProduct({ images: [], imagePath: null })} />);
+    const { container } = render(
+      <ProductJsonLd product={makeProduct({ images: [], imagePath: null })} />,
+    );
     const data = getJsonLd(container);
     expect(data.image).toBeUndefined();
   });
@@ -120,15 +138,19 @@ describe('ProductJsonLd', () => {
     const { container } = render(<ProductJsonLd product={makeProduct()} />);
     const data = getJsonLd(container);
     expect(data.offers.seller['@type']).toBe('Organization');
-    expect(data.offers.seller.name).toBe('Порошок');
+    expect(data.offers.seller.name).toBe('Pulito Trade');
   });
 
   it('includes priceValidUntil when old price > retail and promoEndDate set', () => {
-    const { container } = render(<ProductJsonLd product={makeProduct({
-      priceRetail: '80.00',
-      priceRetailOld: '100.00',
-      promoEndDate: '2024-12-31T00:00:00Z',
-    })} />);
+    const { container } = render(
+      <ProductJsonLd
+        product={makeProduct({
+          priceRetail: '80.00',
+          priceRetailOld: '100.00',
+          promoEndDate: '2024-12-31T00:00:00Z',
+        })}
+      />,
+    );
     const data = getJsonLd(container);
     expect(data.offers.priceValidUntil).toBe('2024-12-31');
   });
@@ -140,18 +162,36 @@ describe('ProductJsonLd', () => {
   });
 
   it('omits priceValidUntil when old price <= retail', () => {
-    const { container } = render(<ProductJsonLd product={makeProduct({
-      priceRetail: '100.00',
-      priceRetailOld: '80.00',
-    })} />);
+    const { container } = render(
+      <ProductJsonLd
+        product={makeProduct({
+          priceRetail: '100.00',
+          priceRetailOld: '80.00',
+        })}
+      />,
+    );
     const data = getJsonLd(container);
     expect(data.offers.priceValidUntil).toBeUndefined();
   });
 
   it('filters out images without pathFull', () => {
     const images = [
-      { pathFull: '/full1.jpg', pathMedium: null, pathThumbnail: null, pathBlur: null, isMain: true, id: 1 },
-      { pathFull: null, pathMedium: '/med.jpg', pathThumbnail: null, pathBlur: null, isMain: false, id: 2 },
+      {
+        pathFull: '/full1.jpg',
+        pathMedium: null,
+        pathThumbnail: null,
+        pathBlur: null,
+        isMain: true,
+        id: 1,
+      },
+      {
+        pathFull: null,
+        pathMedium: '/med.jpg',
+        pathThumbnail: null,
+        pathBlur: null,
+        isMain: false,
+        id: 2,
+      },
     ];
     const { container } = render(<ProductJsonLd product={makeProduct({ images })} />);
     const data = getJsonLd(container);
@@ -159,17 +199,23 @@ describe('ProductJsonLd', () => {
   });
 
   it('includes content shortDescription omitted when null', () => {
-    const { container } = render(<ProductJsonLd product={makeProduct({ content: { shortDescription: null } })} />);
+    const { container } = render(
+      <ProductJsonLd product={makeProduct({ content: { shortDescription: null } })} />,
+    );
     const data = getJsonLd(container);
     expect(data.description).toBeUndefined();
   });
 
   it('includes priceValidUntil as undefined when promoEndDate is null', () => {
-    const { container } = render(<ProductJsonLd product={makeProduct({
-      priceRetail: '80.00',
-      priceRetailOld: '100.00',
-      promoEndDate: null,
-    })} />);
+    const { container } = render(
+      <ProductJsonLd
+        product={makeProduct({
+          priceRetail: '80.00',
+          priceRetailOld: '100.00',
+          promoEndDate: null,
+        })}
+      />,
+    );
     const data = getJsonLd(container);
     // priceValidUntil should be undefined since no promoEndDate
     expect(data.offers.priceValidUntil).toBeUndefined();

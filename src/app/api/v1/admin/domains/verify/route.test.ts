@@ -1,7 +1,23 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     tenantUser: { findFirst: vi.fn() },
@@ -9,7 +25,13 @@ vi.mock('@/lib/prisma', () => ({
 }));
 vi.mock('@/services/domain', () => ({
   verifyDomain: vi.fn(),
-  DomainError: class DomainError extends Error { statusCode: number; constructor(msg: string, code: number) { super(msg); this.statusCode = code; } },
+  DomainError: class DomainError extends Error {
+    statusCode: number;
+    constructor(msg: string, code: number) {
+      super(msg);
+      this.statusCode = code;
+    }
+  },
 }));
 vi.mock('@/utils/api-response', () => ({
   successResponse: (data: any, status = 200) => Response.json(data, { status }),
@@ -21,18 +43,20 @@ import { prisma } from '@/lib/prisma';
 import { verifyDomain } from '@/services/domain';
 
 describe('POST /api/v1/admin/domains/verify', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('verifies domain on success', async () => {
     (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
     (verifyDomain as any).mockResolvedValue(true);
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ domain: 'example.com' }),
     });
-    const res = await POST(req, { user: { id: 1 } });
+    const res = await POST(req, { user: { id: 1 } } as any);
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -40,12 +64,12 @@ describe('POST /api/v1/admin/domains/verify', () => {
   });
 
   it('returns error when domain is missing', async () => {
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     });
-    const res = await POST(req, { user: { id: 1 } });
+    const res = await POST(req, { user: { id: 1 } } as any);
 
     expect(res.status).toBe(400);
   });
@@ -53,12 +77,12 @@ describe('POST /api/v1/admin/domains/verify', () => {
   it('returns 404 when tenant not found', async () => {
     (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ domain: 'example.com' }),
     });
-    const res = await POST(req, { user: { id: 1 } });
+    const res = await POST(req, { user: { id: 1 } } as any);
 
     expect(res.status).toBe(404);
   });
@@ -67,12 +91,12 @@ describe('POST /api/v1/admin/domains/verify', () => {
     (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
     (verifyDomain as any).mockRejectedValue(new Error('fail'));
 
-    const req = new Request('http://localhost', {
+    const req = new NextRequest('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ domain: 'example.com' }),
     });
-    const res = await POST(req, { user: { id: 1 } });
+    const res = await POST(req, { user: { id: 1 } } as any);
 
     expect(res.status).toBe(500);
   });

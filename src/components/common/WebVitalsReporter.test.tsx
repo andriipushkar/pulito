@@ -5,7 +5,6 @@ import '@testing-library/jest-dom/vitest';
 
 const mockOnLCP = vi.fn();
 const mockOnCLS = vi.fn();
-const mockOnFID = vi.fn();
 const mockOnINP = vi.fn();
 const mockOnTTFB = vi.fn();
 const mockOnFCP = vi.fn();
@@ -13,7 +12,6 @@ const mockOnFCP = vi.fn();
 vi.mock('web-vitals', () => ({
   onLCP: (cb: Function) => mockOnLCP(cb),
   onCLS: (cb: Function) => mockOnCLS(cb),
-  onFID: (cb: Function) => mockOnFID(cb),
   onINP: (cb: Function) => mockOnINP(cb),
   onTTFB: (cb: Function) => mockOnTTFB(cb),
   onFCP: (cb: Function) => mockOnFCP(cb),
@@ -35,14 +33,13 @@ describe('WebVitalsReporter', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('registers all 6 Core Web Vitals listeners', async () => {
+  it('registers all 5 Core Web Vitals listeners (web-vitals v5 removed onFID)', async () => {
     render(<WebVitalsReporter />);
     // Wait for dynamic import to resolve
     await vi.waitFor(() => {
       expect(mockOnLCP).toHaveBeenCalledTimes(1);
     });
     expect(mockOnCLS).toHaveBeenCalledTimes(1);
-    expect(mockOnFID).toHaveBeenCalledTimes(1);
     expect(mockOnINP).toHaveBeenCalledTimes(1);
     expect(mockOnTTFB).toHaveBeenCalledTimes(1);
     expect(mockOnFCP).toHaveBeenCalledTimes(1);
@@ -81,16 +78,19 @@ describe('WebVitalsReporter', () => {
 
     render(<WebVitalsReporter />);
     await vi.waitFor(() => {
-      expect(mockOnFID).toHaveBeenCalled();
+      expect(mockOnINP).toHaveBeenCalled();
     });
 
-    const fidCallback = mockOnFID.mock.calls[0][0];
-    fidCallback({ name: 'FID', value: 50 });
+    const inpCallback = mockOnINP.mock.calls[0][0];
+    inpCallback({ name: 'INP', value: 50 });
 
-    expect(global.fetch).toHaveBeenCalledWith('/api/v1/metrics', expect.objectContaining({
-      method: 'POST',
-      keepalive: true,
-    }));
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/metrics',
+      expect.objectContaining({
+        method: 'POST',
+        keepalive: true,
+      }),
+    );
   });
 
   it('does not throw when fetch fallback fails', async () => {
