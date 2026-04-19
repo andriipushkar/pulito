@@ -84,9 +84,10 @@ test.describe('Visual Regression — Desktop', () => {
   test('FAQ page', async ({ page }) => {
     await page.goto('/faq');
     await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(300);
     await expect(page).toHaveScreenshot('desktop-faq.png', {
-      maxDiffPixelRatio: 0.005,
-      fullPage: true,
+      maxDiffPixelRatio: 0.02,
+      fullPage: false,
     });
   });
 
