@@ -10,7 +10,7 @@ test.describe('Wholesale Flow', () => {
     const hasWholesale = await wholesaleOption.isVisible({ timeout: 3000 }).catch(() => false);
 
     // Page should at least load
-    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator('input[type="email"]').first()).toBeVisible();
     // Wholesale option is expected but not blocking
     if (hasWholesale) {
       expect(hasWholesale).toBeTruthy();

@@ -1,20 +1,28 @@
 import { Page, expect } from '@playwright/test';
 
+// Keep in sync with scripts/seed-users.ts
+const TEST_PASSWORD = 'Test1234!';
+
 export const TEST_USERS = {
   admin: {
-    email: 'admin@clean-shop.ua',
-    password: 'Admin123!',
+    email: 'admin@pulito.trade',
+    password: TEST_PASSWORD,
     fullName: 'Адміністратор',
   },
   manager: {
-    email: 'manager@clean-shop.ua',
-    password: 'Manager123!',
-    fullName: 'Менеджер Олена',
+    email: 'manager@pulito.trade',
+    password: TEST_PASSWORD,
+    fullName: 'Менеджер',
   },
   client: {
-    email: 'client@test.ua',
-    password: 'Client123!',
-    fullName: 'Тестовий Клієнт',
+    email: 'client@pulito.trade',
+    password: TEST_PASSWORD,
+    fullName: 'Роздрібний клієнт',
+  },
+  wholesale: {
+    email: 'wholesale1@pulito.trade',
+    password: TEST_PASSWORD,
+    fullName: 'Оптовий клієнт (група 1)',
   },
 };
 
@@ -23,9 +31,9 @@ export const TEST_USERS = {
  */
 export async function loginViaUI(page: Page, email: string, password: string) {
   await page.goto('/auth/login');
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('input[type="password"]').fill(password);
-  await page.locator('button[type="submit"]').click();
+  await page.locator('input[type="email"]').first().fill(email);
+  await page.locator('input[type="password"]').first().fill(password);
+  await page.locator('button[type="submit"]').first().click();
   // Wait for redirect away from login page
   await expect(page).not.toHaveURL(/\/auth\/login/, { timeout: 10000 });
 }
@@ -37,6 +45,7 @@ export async function loginViaAPI(page: Page, email: string, password: string) {
   const baseURL = page.url().split('/').slice(0, 3).join('/') || 'http://localhost:3000';
 
   const response = await page.request.post(`${baseURL}/api/v1/auth/login`, {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
     data: { email, password },
   });
 
@@ -51,7 +60,7 @@ export async function loginViaAPI(page: Page, email: string, password: string) {
       localStorage.setItem('accessToken', accessToken);
       if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
     },
-    { accessToken: body.data.accessToken, refreshToken: body.data.refreshToken }
+    { accessToken: body.data.accessToken, refreshToken: body.data.refreshToken },
   );
 
   return body.data;

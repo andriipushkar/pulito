@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { readFileSync } from 'fs';
 import { env } from '@/config/env';
 import type { JwtAccessPayload, JwtRefreshPayload, Jwt2faPayload } from '@/types/auth';
@@ -41,7 +41,9 @@ if (algorithm === 'RS256') {
     signingKey = readFileSync(env.JWT_PRIVATE_KEY_PATH, 'utf-8');
     verifyKey = readFileSync(env.JWT_PUBLIC_KEY_PATH, 'utf-8');
   } catch (err) {
-    throw new Error(`Failed to read JWT keys: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to read JWT keys: ${err instanceof Error ? err.message : 'Unknown error'}`,
+    );
   }
 } else {
   // HS256 — use shared secret
@@ -59,14 +61,19 @@ export function signAccessToken(payload: Omit<JwtAccessPayload, 'type'>): string
 }
 
 export function signRefreshToken(payload: Omit<JwtRefreshPayload, 'type'>): string {
+  // jti gives each token a unique identifier so rapid re-issues produce
+  // distinct tokenHashes (refresh_tokens.token_hash is UNIQUE).
   return jwt.sign({ ...payload, type: 'refresh' }, signingKey, {
     algorithm,
     expiresIn: parseTtlToSeconds(env.JWT_REFRESH_TTL),
+    jwtid: randomUUID(),
   });
 }
 
 export function verifyAccessToken(token: string): JwtAccessPayload {
-  const decoded = jwt.verify(token, verifyKey, { algorithms: [algorithm] }) as unknown as JwtAccessPayload;
+  const decoded = jwt.verify(token, verifyKey, {
+    algorithms: [algorithm],
+  }) as unknown as JwtAccessPayload;
   if (decoded.type !== 'access') {
     throw new jwt.JsonWebTokenError('Invalid token type');
   }
@@ -74,7 +81,9 @@ export function verifyAccessToken(token: string): JwtAccessPayload {
 }
 
 export function verifyRefreshToken(token: string): JwtRefreshPayload {
-  const decoded = jwt.verify(token, verifyKey, { algorithms: [algorithm] }) as unknown as JwtRefreshPayload;
+  const decoded = jwt.verify(token, verifyKey, {
+    algorithms: [algorithm],
+  }) as unknown as JwtRefreshPayload;
   if (decoded.type !== 'refresh') {
     throw new jwt.JsonWebTokenError('Invalid token type');
   }
@@ -89,7 +98,9 @@ export function sign2faToken(payload: Omit<Jwt2faPayload, 'type'>): string {
 }
 
 export function verify2faToken(token: string): Jwt2faPayload {
-  const decoded = jwt.verify(token, verifyKey, { algorithms: [algorithm] }) as unknown as Jwt2faPayload;
+  const decoded = jwt.verify(token, verifyKey, {
+    algorithms: [algorithm],
+  }) as unknown as Jwt2faPayload;
   if (decoded.type !== '2fa') {
     throw new jwt.JsonWebTokenError('Invalid token type');
   }

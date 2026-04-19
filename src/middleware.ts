@@ -23,7 +23,9 @@ function getTrustedHosts(request: NextRequest): Set<string> {
   if (appUrl) {
     try {
       hosts.add(new URL(appUrl).host);
-    } catch { /* ignore invalid APP_URL */ }
+    } catch {
+      /* ignore invalid APP_URL */
+    }
   }
 
   // Trust localhost (server always accepts its own requests)
@@ -79,7 +81,7 @@ function checkCsrf(request: NextRequest): NextResponse | null {
   if (!xRequestedWith) {
     return NextResponse.json(
       { error: 'CSRF check failed: missing X-Requested-With header' },
-      { status: 403 }
+      { status: 403 },
     );
   }
 
@@ -92,7 +94,10 @@ export default async function middleware(request: NextRequest) {
   // Admin IP whitelist (optional). Set ADMIN_ALLOWED_IPS="1.2.3.4,5.6.7.8" to restrict admin access.
   const adminAllowedIps = process.env.ADMIN_ALLOWED_IPS;
   if (adminAllowedIps && pathname.startsWith('/admin')) {
-    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || '';
+    const clientIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      '';
     const allowedList = adminAllowedIps.split(',').map((ip) => ip.trim());
     if (!allowedList.includes(clientIp)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
@@ -116,7 +121,7 @@ export default async function middleware(request: NextRequest) {
   // - /api/v1/callback-request: 3 req/15min (sensitive preset)
   // - /api/v1/subscribe: 3 req/15min (sensitive preset)
   // - Server Actions: checkout 5/min, cart 30/min, review 5/15min
-  if (pathname.startsWith('/api')) {
+  if (pathname.startsWith('/api') && process.env.DISABLE_RATE_LIMIT !== '1') {
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       request.headers.get('x-real-ip') ||
@@ -134,7 +139,7 @@ export default async function middleware(request: NextRequest) {
             'X-RateLimit-Limit': String(routeLimit.max),
             'X-RateLimit-Remaining': '0',
           },
-        }
+        },
       );
     }
   }
@@ -180,19 +185,22 @@ export default async function middleware(request: NextRequest) {
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    "upgrade-insecure-requests",
+    'upgrade-insecure-requests',
   ];
 
   if (cspReportUri) {
     cspDirectives.push(`report-uri ${cspReportUri}`);
-    cspDirectives.push("report-to csp-endpoint");
+    cspDirectives.push('report-to csp-endpoint');
 
     // Report-To header (newer API, works alongside report-uri for backward compatibility)
-    response.headers.set('Report-To', JSON.stringify({
-      group: 'csp-endpoint',
-      max_age: 10886400,
-      endpoints: [{ url: cspReportUri }],
-    }));
+    response.headers.set(
+      'Report-To',
+      JSON.stringify({
+        group: 'csp-endpoint',
+        max_age: 10886400,
+        endpoints: [{ url: cspReportUri }],
+      }),
+    );
   }
 
   response.headers.set('Content-Security-Policy', cspDirectives.join('; '));

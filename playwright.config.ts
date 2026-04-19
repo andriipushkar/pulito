@@ -31,5 +31,10 @@ export default defineConfig({
         url: 'http://localhost:3000',
         reuseExistingServer: true,
         timeout: 60_000,
+        env: {
+          DISABLE_RATE_LIMIT: '1',
+          // Force http cookies so localhost e2e doesn't drop them on Secure flag
+          APP_URL: 'http://localhost:3000',
+        },
       },
 });

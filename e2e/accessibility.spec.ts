@@ -25,6 +25,21 @@ const A11Y_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa'];
 const EXCLUDED_RULES: string[] = [];
 
 async function checkA11y(page: any, pageName: string) {
+  // Freeze CSS animations/transitions so axe doesn't read mid-fade colors
+  // (animate-fade-in-up starts at opacity:0 which axe reads as white-on-white).
+  await page.addStyleTag({
+    content: `
+      *, *::before, *::after {
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+      }
+    `,
+  });
+  // Give React a tick to paint the final state.
+  await page.waitForTimeout(100);
+
   const results = await new AxeBuilder({ page })
     .withTags(A11Y_TAGS)
     .disableRules(EXCLUDED_RULES)

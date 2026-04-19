@@ -23,8 +23,13 @@ function cleanup() {
 
 export async function checkApiRateLimit(
   pathname: string,
-  ip: string
+  ip: string,
 ): Promise<{ allowed: boolean; remaining: number }> {
+  // Bypass for e2e/integration tests — set DISABLE_RATE_LIMIT=1 in that env only.
+  if (process.env.DISABLE_RATE_LIMIT === '1') {
+    return { allowed: true, remaining: 9999 };
+  }
+
   const limit = getRouteLimit(pathname);
   const now = Date.now();
   const key = `${ip}:${pathname.split('/').slice(0, 5).join('/')}`;

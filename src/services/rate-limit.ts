@@ -8,7 +8,7 @@ export class RateLimitError extends Error {
   constructor(
     message: string,
     public statusCode: number = 429,
-    public retryAfter?: number
+    public retryAfter?: number,
   ) {
     super(message);
     this.name = 'RateLimitError';
@@ -20,6 +20,7 @@ export class RateLimitError extends Error {
  * Throws RateLimitError if blocked.
  */
 export async function checkLoginRateLimit(ip: string, email: string): Promise<void> {
+  if (process.env.DISABLE_RATE_LIMIT === '1') return;
   try {
     const key = `${LOGIN_PREFIX}${ip}:${email.toLowerCase()}`;
     const current = await redis.get(key);
@@ -29,7 +30,7 @@ export async function checkLoginRateLimit(ip: string, email: string): Promise<vo
       throw new RateLimitError(
         `Забагато спроб входу. Спробуйте через ${Math.ceil(ttl / 60)} хвилин.`,
         429,
-        ttl > 0 ? ttl : BLOCK_DURATION
+        ttl > 0 ? ttl : BLOCK_DURATION,
       );
     }
   } catch (error) {
@@ -43,6 +44,7 @@ export async function checkLoginRateLimit(ip: string, email: string): Promise<vo
  * Record a failed login attempt.
  */
 export async function recordFailedLogin(ip: string, email: string): Promise<void> {
+  if (process.env.DISABLE_RATE_LIMIT === '1') return;
   try {
     const key = `${LOGIN_PREFIX}${ip}:${email.toLowerCase()}`;
     const count = await redis.incr(key);
@@ -117,8 +119,11 @@ export interface RateLimitResult {
  */
 export async function checkRateLimit(
   ip: string,
-  config: RateLimitConfig
+  config: RateLimitConfig,
 ): Promise<RateLimitResult> {
+  if (process.env.DISABLE_RATE_LIMIT === '1') {
+    return { allowed: true, remaining: config.max, retryAfter: 0 };
+  }
   let results;
   const key = `${config.prefix}${ip}`;
   const now = Date.now();
@@ -183,7 +188,7 @@ export function withRateLimit(config: RateLimitConfig) {
               'X-RateLimit-Limit': String(config.max),
               'X-RateLimit-Remaining': '0',
             },
-          }
+          },
         );
       }
 

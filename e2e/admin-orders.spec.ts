@@ -64,9 +64,9 @@ test.describe('Admin Orders Management', () => {
   test('admin should access admin dashboard', async ({ page }) => {
     // Login as admin instead
     await page.goto('/auth/login');
-    await page.locator('input[type="email"]').fill(TEST_USERS.admin.email);
-    await page.locator('input[type="password"]').fill(TEST_USERS.admin.password);
-    await page.locator('button[type="submit"]').click();
+    await page.locator('input[type="email"]').first().fill(TEST_USERS.admin.email);
+    await page.locator('input[type="password"]').first().fill(TEST_USERS.admin.password);
+    await page.locator('button[type="submit"]').first().click();
     await expect(page).not.toHaveURL(/\/auth\/login/, { timeout: 10000 });
 
     await page.goto('/admin');

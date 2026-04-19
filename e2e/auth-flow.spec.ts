@@ -6,7 +6,7 @@ test.describe('Full Auth Flow', () => {
     await page.goto('/auth/register');
     await page.waitForLoadState('domcontentloaded');
 
-    const emailInput = page.locator('input[type="email"]');
+    const emailInput = page.locator('input[type="email"]').first();
     const passwordInput = page.locator('input[type="password"]').first();
     const nameInput = page.locator('input[name="fullName"], input[name="name"]').first();
 
@@ -21,7 +21,7 @@ test.describe('Full Auth Flow', () => {
     }
 
     // Submit
-    await page.locator('button[type="submit"]').click();
+    await page.locator('button[type="submit"]').first().click();
     await page.waitForTimeout(2000);
 
     // Should redirect or show success
@@ -43,9 +43,9 @@ test.describe('Full Auth Flow', () => {
 
   test('should show error with invalid credentials', async ({ page }) => {
     await page.goto('/auth/login');
-    await page.locator('input[type="email"]').fill('nonexistent@test.ua');
-    await page.locator('input[type="password"]').fill('WrongPassword123');
-    await page.locator('button[type="submit"]').click();
+    await page.locator('input[type="email"]').first().fill('nonexistent@test.ua');
+    await page.locator('input[type="password"]').first().fill('WrongPassword123');
+    await page.locator('button[type="submit"]').first().click();
 
     await page.waitForTimeout(1000);
     // Should stay on login page or show error
