@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 export interface DualRangeSliderProps {
   min: number;
@@ -22,7 +22,10 @@ export default function DualRangeSlider({
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<'min' | 'max' | null>(null);
 
-  const clamp = (v: number) => Math.round(Math.max(min, Math.min(max, v)) / step) * step;
+  const clamp = useCallback(
+    (v: number) => Math.round(Math.max(min, Math.min(max, v)) / step) * step,
+    [min, max, step],
+  );
 
   const getPercent = (v: number) => ((v - min) / (max - min)) * 100;
 
@@ -34,7 +37,7 @@ export default function DualRangeSlider({
       const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
       return clamp(min + fraction * (max - min));
     },
-    [min, max, step],
+    [min, max, clamp],
   );
 
   const handlePointerDown = (thumb: 'min' | 'max') => (e: React.PointerEvent) => {
@@ -59,16 +62,6 @@ export default function DualRangeSlider({
   const handlePointerUp = useCallback(() => {
     setDragging(null);
   }, []);
-
-  const handleMinInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = clamp(Number(e.target.value));
-    onChange([Math.min(v, value[1]), value[1]]);
-  };
-
-  const handleMaxInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = clamp(Number(e.target.value));
-    onChange([value[0], Math.max(v, value[0])]);
-  };
 
   const leftPercent = getPercent(value[0]);
   const rightPercent = getPercent(value[1]);

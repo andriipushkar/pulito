@@ -18,7 +18,7 @@ export const createTenantSchema = z.object({
     .optional(),
   plan: z.enum(['free', 'basic', 'pro', 'enterprise']).optional(),
   isActive: z.boolean().optional(),
-  settings: z.record(z.unknown()).optional().nullable(),
+  settings: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const updateTenantSchema = createTenantSchema.partial();

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { refundPayment } from '@/services/payment';
 import { logger } from '@/lib/logger';
+import type { ReturnReason, ReturnStatus } from '../../generated/prisma';
 
 export class ReturnError extends Error {
   statusCode: number;
@@ -62,7 +63,7 @@ export async function createReturnRequest(data: {
     data: {
       orderId: data.orderId,
       userId: data.userId,
-      reason: data.reason as any,
+      reason: data.reason as ReturnReason,
       description: data.description,
       items: itemsData,
       totalAmount,
@@ -84,7 +85,7 @@ export async function getUserReturns(userId: number, page = 1, limit = 10) {
 }
 
 export async function getAdminReturns(page = 1, limit = 20, status?: string) {
-  const where = status ? { status: status as any } : {};
+  const where = status ? { status: status as ReturnStatus } : {};
   const [returns, total] = await Promise.all([
     prisma.returnRequest.findMany({
       where,
@@ -129,7 +130,7 @@ export async function processReturn(
             create: {
               oldStatus: null,
               newStatus: 'return_approved',
-              changeSource: 'admin',
+              changeSource: 'manager',
               comment: `Повернення #${returnId} схвалено`,
             },
           },

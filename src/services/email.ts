@@ -35,6 +35,8 @@ interface EmailOptions {
   text?: string;
   attachments?: Attachment[];
   listUnsubscribe?: string;
+  from?: string;
+  replyTo?: string;
 }
 
 function htmlToPlainText(html: string): string {
@@ -91,7 +93,8 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
     const result = await withRetry(async () => {
       attempts++;
       return transporter.sendMail({
-        from: env.SMTP_FROM || `"Порошок" <${env.SMTP_USER}>`,
+        from: options.from || env.SMTP_FROM || `"Pulito Trade" <${env.SMTP_USER}>`,
+        ...(options.replyTo ? { replyTo: options.replyTo } : {}),
         to: options.to,
         subject: options.subject,
         html: options.html,
@@ -121,11 +124,11 @@ export async function sendVerificationEmail(email: string, token: string): Promi
   const url = `${env.APP_URL}/auth/verify-email?token=${token}`;
   await sendEmail({
     to: email,
-    subject: 'Підтвердіть ваш email — Порошок',
+    subject: 'Підтвердіть ваш email — Pulito Trade',
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
         <h2 style="color:#2563eb">Підтвердження email</h2>
-        <p>Дякуємо за реєстрацію в Порошок!</p>
+        <p>Дякуємо за реєстрацію в Pulito Trade!</p>
         <p>Для підтвердження вашої електронної пошти натисніть на кнопку нижче:</p>
         <a href="${url}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Підтвердити email</a>
         <p style="color:#64748b;font-size:14px">Або скопіюйте це посилання: <br/>${url}</p>
@@ -139,11 +142,11 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
   const url = `${env.APP_URL}/auth/reset-password?token=${token}`;
   await sendEmail({
     to: email,
-    subject: 'Відновлення пароля — Порошок',
+    subject: 'Відновлення пароля — Pulito Trade',
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
         <h2 style="color:#2563eb">Відновлення пароля</h2>
-        <p>Ви запросили відновлення пароля для вашого акаунту Порошок.</p>
+        <p>Ви запросили відновлення пароля для вашого акаунту Pulito Trade.</p>
         <p>Для створення нового пароля натисніть на кнопку нижче:</p>
         <a href="${url}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Відновити пароль</a>
         <p style="color:#64748b;font-size:14px">Або скопіюйте це посилання: <br/>${url}</p>

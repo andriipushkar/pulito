@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { cacheInvalidate } from '@/services/cache';
+import { Prisma } from '../../generated/prisma';
 import type { Tenant, TenantUser, TenantUserRole } from '../../generated/prisma';
 
 // ─────────────────────────────────────
@@ -35,7 +36,13 @@ interface TenantFilters {
 }
 
 export async function createTenant(data: CreateTenantData): Promise<Tenant> {
-  return prisma.tenant.create({ data });
+  const { settings, ...rest } = data;
+  return prisma.tenant.create({
+    data: {
+      ...rest,
+      ...(settings === undefined ? {} : { settings: (settings ?? {}) as Prisma.InputJsonValue }),
+    },
+  });
 }
 
 export async function getTenants(filters?: TenantFilters): Promise<Tenant[]> {
@@ -70,7 +77,14 @@ export async function getTenantById(id: number): Promise<Tenant | null> {
 }
 
 export async function updateTenant(id: number, data: UpdateTenantData): Promise<Tenant> {
-  const tenant = await prisma.tenant.update({ where: { id }, data });
+  const { settings, ...rest } = data;
+  const tenant = await prisma.tenant.update({
+    where: { id },
+    data: {
+      ...rest,
+      ...(settings === undefined ? {} : { settings: (settings ?? {}) as Prisma.InputJsonValue }),
+    },
+  });
   // Invalidate cached tenant lookups
   await cacheInvalidate(`tenant:*`);
   return tenant;
@@ -88,7 +102,7 @@ export async function deleteTenant(id: number): Promise<void> {
 export async function addUserToTenant(
   tenantId: number,
   userId: number,
-  role: TenantUserRole = 'member'
+  role: TenantUserRole = 'member',
 ): Promise<TenantUser> {
   return prisma.tenantUser.create({
     data: { tenantId, userId, role },

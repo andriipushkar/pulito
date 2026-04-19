@@ -7,7 +7,16 @@ import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
-type ChannelKey = 'telegram' | 'viber' | 'facebook' | 'instagram' | 'tiktok' | 'olx' | 'rozetka' | 'prom' | 'epicentrk';
+type ChannelKey =
+  | 'telegram'
+  | 'viber'
+  | 'facebook'
+  | 'instagram'
+  | 'tiktok'
+  | 'olx'
+  | 'rozetka'
+  | 'prom'
+  | 'epicentrk';
 
 interface ChannelField {
   key: string;
@@ -34,9 +43,19 @@ const CHANNELS: ChannelDef[] = [
     color: '#0088cc',
     description: 'Бот для публікацій у канал або групу',
     fields: [
-      { key: 'botToken', label: 'Bot Token', placeholder: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11', sensitive: true },
+      {
+        key: 'botToken',
+        label: 'Bot Token',
+        placeholder: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+        sensitive: true,
+      },
       { key: 'channelId', label: 'Channel ID', placeholder: '@my_channel або -1001234567890' },
-      { key: 'managerChatId', label: 'Chat ID менеджера', placeholder: '123456789', optional: true },
+      {
+        key: 'managerChatId',
+        label: 'Chat ID менеджера',
+        placeholder: '123456789',
+        optional: true,
+      },
     ],
   },
   {
@@ -46,7 +65,12 @@ const CHANNELS: ChannelDef[] = [
     color: '#7360f2',
     description: 'Бот для спільноти або групи Viber',
     fields: [
-      { key: 'authToken', label: 'Auth Token', placeholder: 'Viber Bot Auth Token', sensitive: true },
+      {
+        key: 'authToken',
+        label: 'Auth Token',
+        placeholder: 'Viber Bot Auth Token',
+        sensitive: true,
+      },
     ],
   },
   {
@@ -56,7 +80,12 @@ const CHANNELS: ChannelDef[] = [
     color: '#1877f2',
     description: 'Публікації на Facebook-сторінку',
     fields: [
-      { key: 'pageAccessToken', label: 'Page Access Token', placeholder: 'EAAx...', sensitive: true },
+      {
+        key: 'pageAccessToken',
+        label: 'Page Access Token',
+        placeholder: 'EAAx...',
+        sensitive: true,
+      },
       { key: 'pageId', label: 'Page ID', placeholder: '123456789012345' },
     ],
   },
@@ -70,7 +99,13 @@ const CHANNELS: ChannelDef[] = [
       { key: 'accessToken', label: 'Access Token', placeholder: 'IGQ...', sensitive: true },
       { key: 'businessAccountId', label: 'Business Account ID', placeholder: '17841400000000000' },
       { key: 'appId', label: 'App ID', placeholder: '123456789', optional: true },
-      { key: 'appSecret', label: 'App Secret', placeholder: 'abc123...', sensitive: true, optional: true },
+      {
+        key: 'appSecret',
+        label: 'App Secret',
+        placeholder: 'abc123...',
+        sensitive: true,
+        optional: true,
+      },
     ],
   },
   {
@@ -80,7 +115,12 @@ const CHANNELS: ChannelDef[] = [
     color: '#000000',
     description: 'Публікації відео в TikTok акаунт',
     fields: [
-      { key: 'accessToken', label: 'Access Token', placeholder: 'TikTok API Access Token', sensitive: true },
+      {
+        key: 'accessToken',
+        label: 'Access Token',
+        placeholder: 'TikTok API Access Token',
+        sensitive: true,
+      },
       { key: 'openId', label: 'Open ID', placeholder: 'Ваш TikTok Open ID' },
     ],
   },
@@ -92,10 +132,20 @@ const CHANNELS: ChannelDef[] = [
     description: 'Публікація оголошень на OLX.ua',
     fields: [
       { key: 'clientId', label: 'Client ID', placeholder: 'OLX API Client ID' },
-      { key: 'accessToken', label: 'Access Token', placeholder: 'OLX API Access Token', sensitive: true },
-      { key: 'defaultCategoryId', label: 'Категорія за замовч.', placeholder: '1430 (Побутова хімія)', optional: true },
+      {
+        key: 'accessToken',
+        label: 'Access Token',
+        placeholder: 'OLX API Access Token',
+        sensitive: true,
+      },
+      {
+        key: 'defaultCategoryId',
+        label: 'Категорія за замовч.',
+        placeholder: '1430 (Побутова хімія)',
+        optional: true,
+      },
       { key: 'cityId', label: 'Місто (ID)', placeholder: '1 (Київ)', optional: true },
-      { key: 'contactName', label: 'Ім\'я контакту', placeholder: 'Порошок', optional: true },
+      { key: 'contactName', label: "Ім'я контакту", placeholder: 'Pulito Trade', optional: true },
       { key: 'contactPhone', label: 'Телефон', placeholder: '+380501234567', optional: true },
     ],
   },
@@ -127,7 +177,12 @@ const CHANNELS: ChannelDef[] = [
     color: '#f57c00',
     description: 'Публікація товарів на маркетплейсі Епіцентр К',
     fields: [
-      { key: 'apiKey', label: 'API Key', placeholder: 'Epicentr Marketplace API Key', sensitive: true },
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        placeholder: 'Epicentr Marketplace API Key',
+        sensitive: true,
+      },
       { key: 'sellerId', label: 'Seller ID', placeholder: '12345' },
     ],
   },
@@ -142,33 +197,41 @@ interface TestResult {
 export default function ChannelSettingsPage() {
   const [configs, setConfigs] = useState(() => {
     const o = {} as Record<ChannelKey, Record<string, string | boolean> | null>;
-    CHANNELS.forEach((c) => { o[c.key] = null; });
+    CHANNELS.forEach((c) => {
+      o[c.key] = null;
+    });
     return o;
   });
   const [forms, setForms] = useState(() => {
     const o = {} as Record<ChannelKey, Record<string, string | boolean>>;
-    CHANNELS.forEach((c) => { o[c.key] = { enabled: false }; });
+    CHANNELS.forEach((c) => {
+      o[c.key] = { enabled: false };
+    });
     return o;
   });
   const [dirty, setDirty] = useState(() => {
     const o = {} as Record<ChannelKey, Set<string>>;
-    CHANNELS.forEach((c) => { o[c.key] = new Set(); });
+    CHANNELS.forEach((c) => {
+      o[c.key] = new Set();
+    });
     return o;
   });
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
   const [testing, setTesting] = useState<Record<ChannelKey, boolean>>(
-    Object.fromEntries(CHANNELS.map((c) => [c.key, false])) as Record<ChannelKey, boolean>
+    Object.fromEntries(CHANNELS.map((c) => [c.key, false])) as Record<ChannelKey, boolean>,
   );
   const [testResults, setTestResults] = useState<Record<ChannelKey, TestResult | null>>(
-    Object.fromEntries(CHANNELS.map((c) => [c.key, null])) as Record<ChannelKey, TestResult | null>
+    Object.fromEntries(CHANNELS.map((c) => [c.key, null])) as Record<ChannelKey, TestResult | null>,
   );
   const [saving, setSaving] = useState<Record<ChannelKey, boolean>>(
-    Object.fromEntries(CHANNELS.map((c) => [c.key, false])) as Record<ChannelKey, boolean>
+    Object.fromEntries(CHANNELS.map((c) => [c.key, false])) as Record<ChannelKey, boolean>,
   );
   const [isLoading, setIsLoading] = useState(true);
 
   const loadConfigs = useCallback(async () => {
-    const res = await apiClient.get<Record<ChannelKey, Record<string, string | boolean> | null>>('/api/v1/admin/channel-settings');
+    const res = await apiClient.get<Record<ChannelKey, Record<string, string | boolean> | null>>(
+      '/api/v1/admin/channel-settings',
+    );
     if (res.success && res.data) {
       setConfigs(res.data);
       const newForms = { ...forms };
@@ -177,18 +240,27 @@ export default function ChannelSettingsPage() {
           newForms[ch.key] = { ...res.data[ch.key]! };
         } else {
           const emptyForm: Record<string, string | boolean> = { enabled: false };
-          ch.fields.forEach((f) => { emptyForm[f.key] = ''; });
+          ch.fields.forEach((f) => {
+            emptyForm[f.key] = '';
+          });
           newForms[ch.key] = emptyForm;
         }
       }
       setForms(newForms);
-      setDirty(Object.fromEntries(CHANNELS.map((c) => [c.key, new Set<string>()])) as Record<ChannelKey, Set<string>>);
+      setDirty(
+        Object.fromEntries(CHANNELS.map((c) => [c.key, new Set<string>()])) as Record<
+          ChannelKey,
+          Set<string>
+        >,
+      );
     }
     setIsLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { loadConfigs(); }, [loadConfigs]);
+  useEffect(() => {
+    loadConfigs();
+  }, [loadConfigs]);
 
   const updateField = (channel: ChannelKey, field: string, value: string | boolean) => {
     setForms((prev) => ({
@@ -259,7 +331,11 @@ export default function ChannelSettingsPage() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
@@ -298,7 +374,9 @@ export default function ChannelSettingsPage() {
                   <span className="text-2xl">{channelDef.icon}</span>
                   <div>
                     <h3 className="font-semibold">{channelDef.name}</h3>
-                    <p className="text-xs text-[var(--color-text-secondary)]">{channelDef.description}</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      {channelDef.description}
+                    </p>
                   </div>
                 </div>
                 <label className="relative inline-flex cursor-pointer items-center">
@@ -323,7 +401,9 @@ export default function ChannelSettingsPage() {
                     <div key={field.key}>
                       <label className="mb-1 flex items-center gap-1 text-xs font-medium text-[var(--color-text-secondary)]">
                         {field.label}
-                        {field.optional && <span className="text-[var(--color-text-muted)]">(опц.)</span>}
+                        {field.optional && (
+                          <span className="text-[var(--color-text-muted)]">(опц.)</span>
+                        )}
                       </label>
                       <div className="relative">
                         <Input
@@ -336,7 +416,9 @@ export default function ChannelSettingsPage() {
                         {field.sensitive && (
                           <button
                             type="button"
-                            onClick={() => setShowTokens((prev) => ({ ...prev, [tokenKey]: !isShown }))}
+                            onClick={() =>
+                              setShowTokens((prev) => ({ ...prev, [tokenKey]: !isShown }))
+                            }
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
                           >
                             {isShown ? '🙈' : '👁️'}
@@ -350,11 +432,13 @@ export default function ChannelSettingsPage() {
 
               {/* Test result */}
               {result && (
-                <div className={`mx-5 mb-3 rounded-lg px-3 py-2 text-sm ${
-                  result.success
-                    ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                    : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                }`}>
+                <div
+                  className={`mx-5 mb-3 rounded-lg px-3 py-2 text-sm ${
+                    result.success
+                      ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                      : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                  }`}
+                >
                   {result.success ? (
                     <span>✅ Підключено: {result.name}</span>
                   ) : (
@@ -371,14 +455,26 @@ export default function ChannelSettingsPage() {
                   onClick={() => handleTest(channelDef)}
                   disabled={testing[ch] || !hasRequiredFields}
                 >
-                  {testing[ch] ? <><Spinner size="sm" /> Перевірка...</> : 'Перевірити з\'єднання'}
+                  {testing[ch] ? (
+                    <>
+                      <Spinner size="sm" /> Перевірка...
+                    </>
+                  ) : (
+                    "Перевірити з'єднання"
+                  )}
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => handleSave(channelDef)}
                   disabled={saving[ch] || (!hasDirtyFields && configs[ch] !== null)}
                 >
-                  {saving[ch] ? <><Spinner size="sm" /> Зберігаю...</> : 'Зберегти'}
+                  {saving[ch] ? (
+                    <>
+                      <Spinner size="sm" /> Зберігаю...
+                    </>
+                  ) : (
+                    'Зберегти'
+                  )}
                 </Button>
               </div>
             </div>

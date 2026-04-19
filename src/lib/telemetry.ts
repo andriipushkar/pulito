@@ -15,10 +15,24 @@ export async function initTelemetry() {
   initialized = true;
 
   try {
-    const { NodeSDK } = await import('@opentelemetry/sdk-node');
-    const { getNodeAutoInstrumentations } = await import('@opentelemetry/auto-instrumentations-node');
-    const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
-    const { Resource } = await import('@opentelemetry/resources');
+    // OpenTelemetry packages are optional — load via string interop so type-check
+    // succeeds without the @opentelemetry/* devDependencies installed.
+    const load = (m: string) =>
+      import(/* webpackIgnore: true */ m) as Promise<Record<string, unknown>>;
+    const sdkNode = await load('@opentelemetry/sdk-node');
+    const autoInstr = await load('@opentelemetry/auto-instrumentations-node');
+    const otlpHttp = await load('@opentelemetry/exporter-trace-otlp-http');
+    const resources = await load('@opentelemetry/resources');
+
+    const NodeSDK = sdkNode.NodeSDK as new (config: unknown) => {
+      start: () => void;
+      shutdown: () => Promise<void>;
+    };
+    const getNodeAutoInstrumentations = autoInstr.getNodeAutoInstrumentations as (
+      opts: unknown,
+    ) => unknown;
+    const OTLPTraceExporter = otlpHttp.OTLPTraceExporter as new (config: unknown) => unknown;
+    const Resource = resources.Resource as new (attrs: Record<string, unknown>) => unknown;
 
     const sdk = new NodeSDK({
       resource: new Resource({
@@ -49,14 +63,24 @@ export async function initTelemetry() {
  * Create a manual span for custom instrumentation.
  * Falls back to no-op if OTEL is not configured.
  */
-export async function createSpan<T>(
-  name: string,
-  fn: () => T | Promise<T>
-): Promise<T> {
+export async function createSpan<T>(name: string, fn: () => T | Promise<T>): Promise<T> {
   if (!OTEL_ENDPOINT) return fn();
 
   try {
-    const { trace } = await import('@opentelemetry/api');
+    const load = (m: string) =>
+      import(/* webpackIgnore: true */ m) as Promise<Record<string, unknown>>;
+    const api = await load('@opentelemetry/api');
+    const trace = api.trace as {
+      getTracer: (n: string) => {
+        startActiveSpan: <R>(
+          n: string,
+          fn: (s: {
+            setStatus: (x: { code: number; message?: string }) => void;
+            end: () => void;
+          }) => R,
+        ) => R;
+      };
+    };
     const tracer = trace.getTracer('clean-shop');
     return tracer.startActiveSpan(name, async (span) => {
       try {

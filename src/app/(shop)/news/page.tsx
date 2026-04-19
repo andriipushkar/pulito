@@ -13,13 +13,13 @@ import { prisma } from '@/lib/prisma';
 const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
 export const metadata: Metadata = {
-  title: 'Новини та акції — Порошок',
-  description: 'Останні новини, акції та спеціальні пропозиції від Порошок',
+  title: 'Новини та акції — Pulito Trade',
+  description: 'Останні новини, акції та спеціальні пропозиції від Pulito Trade',
   alternates: {
     canonical: `${baseUrl}/news`,
     languages: {
-      'uk': `${baseUrl}/news`,
-      'en': `${baseUrl}/en/news`,
+      uk: `${baseUrl}/news`,
+      en: `${baseUrl}/en/news`,
       'x-default': `${baseUrl}/news`,
     },
   },
@@ -54,26 +54,27 @@ async function getPublications(page: number = 1) {
   const skip = (page - 1) * limit;
   const paginatedIds = siteIds.slice(skip, skip + limit);
 
-  const publications = paginatedIds.length > 0
-    ? await prisma.publication.findMany({
-        where: { id: { in: paginatedIds } },
-        select: {
-          id: true,
-          title: true,
-          content: true,
-          imagePath: true,
-          hashtags: true,
-          publishedAt: true,
-          product: {
-            select: { id: true, name: true, slug: true },
+  const publications =
+    paginatedIds.length > 0
+      ? await prisma.publication.findMany({
+          where: { id: { in: paginatedIds } },
+          select: {
+            id: true,
+            title: true,
+            content: true,
+            imagePath: true,
+            hashtags: true,
+            publishedAt: true,
+            product: {
+              select: { id: true, name: true, slug: true },
+            },
+            category: {
+              select: { id: true, name: true, slug: true },
+            },
           },
-          category: {
-            select: { id: true, name: true, slug: true },
-          },
-        },
-        orderBy: { publishedAt: 'desc' },
-      })
-    : [];
+          orderBy: { publishedAt: 'desc' },
+        })
+      : [];
 
   return { publications, total, totalPages };
 }
@@ -87,33 +88,33 @@ export default async function NewsPage({
   const page = Math.max(1, Number(params.page) || 1);
   const { publications, totalPages } = await getPublications(page);
 
-  const breadcrumbs = [
-    { label: 'Головна', href: '/' },
-    { label: 'Новини та акції' },
-  ];
+  const breadcrumbs = [{ label: 'Головна', href: '/' }, { label: 'Новини та акції' }];
 
-  const itemListJsonLd = publications.length > 0 ? {
-    '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    name: 'Новини та акції — Порошок',
-    numberOfItems: publications.length,
-    itemListElement: publications.map((pub, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      item: {
-        '@type': 'NewsArticle',
-        headline: pub.title,
-        ...(pub.content && { description: pub.content.slice(0, 200) }),
-        ...(pub.imagePath && { image: pub.imagePath }),
-        ...(pub.publishedAt && { datePublished: pub.publishedAt.toISOString() }),
-        publisher: {
-          '@type': 'Organization',
-          name: 'Порошок',
-          url: baseUrl,
-        },
-      },
-    })),
-  } : null;
+  const itemListJsonLd =
+    publications.length > 0
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: 'Новини та акції — Pulito Trade',
+          numberOfItems: publications.length,
+          itemListElement: publications.map((pub, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            item: {
+              '@type': 'NewsArticle',
+              headline: pub.title,
+              ...(pub.content && { description: pub.content.slice(0, 200) }),
+              ...(pub.imagePath && { image: pub.imagePath }),
+              ...(pub.publishedAt && { datePublished: pub.publishedAt.toISOString() }),
+              publisher: {
+                '@type': 'Organization',
+                name: 'Pulito Trade',
+                url: baseUrl,
+              },
+            },
+          })),
+        }
+      : null;
 
   return (
     <Container className="py-6">
@@ -189,12 +190,7 @@ export default async function NewsPage({
             ))}
           </div>
 
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            baseUrl="/news"
-            className="mt-8"
-          />
+          <Pagination currentPage={page} totalPages={totalPages} baseUrl="/news" className="mt-8" />
         </>
       )}
     </Container>

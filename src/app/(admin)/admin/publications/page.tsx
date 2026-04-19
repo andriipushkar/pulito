@@ -74,7 +74,7 @@ const PUBLICATION_TEMPLATES: PublicationTemplate[] = [
     title: 'Новинка: [Назва товару]',
     content:
       'Зустрічайте новинку в нашому магазині!\n\n[Назва товару] — [короткий опис товару та його переваги].\n\nЦіна: [ціна] грн\nЗамовляйте прямо зараз!',
-    hashtags: '#новинка #порошок #новийтовар',
+    hashtags: '#новинка #pulito_trade #новийтовар',
     channels: ['telegram', 'viber', 'facebook', 'tiktok', 'site'],
   },
   {
@@ -82,7 +82,7 @@ const PUBLICATION_TEMPLATES: PublicationTemplate[] = [
     title: 'Акція: [Назва акції]',
     content:
       'Знижка [XX]%! Тільки до [дата]!\n\n[Опис акції та товарів, що беруть участь].\n\nНе пропустіть вигідну пропозицію!',
-    hashtags: '#акція #знижка #порошок',
+    hashtags: '#акція #знижка #pulito_trade',
     channels: ['telegram', 'viber', 'facebook', 'tiktok'],
   },
   {
@@ -90,7 +90,7 @@ const PUBLICATION_TEMPLATES: PublicationTemplate[] = [
     title: '[Заголовок новини]',
     content:
       '[Основний текст новини — що сталося, чому це важливо для клієнтів].\n\nДетальніше на нашому сайті.',
-    hashtags: '#новини #порошок',
+    hashtags: '#новини #pulito_trade',
     channels: ['telegram', 'facebook', 'site'],
   },
 ];
@@ -117,7 +117,13 @@ const ALL_CHANNELS = [
   { key: 'site', label: 'Сайт' },
 ] as const;
 
-function ChannelCheckboxes({ channels, onChange }: { channels: string[]; onChange: (ch: string) => void }) {
+function ChannelCheckboxes({
+  channels,
+  onChange,
+}: {
+  channels: string[];
+  onChange: (ch: string) => void;
+}) {
   return (
     <div className="mt-1 flex flex-wrap gap-3">
       {ALL_CHANNELS.map((ch) => (
@@ -151,7 +157,13 @@ export default function AdminPublicationsPage() {
   const [showChannelContents, setShowChannelContents] = useState(false);
   const [channelContents, setChannelContents] = useState<Record<string, ChannelContent>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ title: '', content: '', channels: [], hashtags: '', scheduledAt: '' });
+  const [editForm, setEditForm] = useState<EditForm>({
+    title: '',
+    content: '',
+    channels: [],
+    hashtags: '',
+    scheduledAt: '',
+  });
   const [previewPub, setPreviewPub] = useState<Publication | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -174,7 +186,7 @@ export default function AdminPublicationsPage() {
         title,
         content,
         channels: ['telegram', 'viber', 'facebook', 'tiktok'],
-        hashtags: '#порошок',
+        hashtags: '#pulito_trade',
         scheduledAt: '',
         imagePath: image,
       });
@@ -216,7 +228,18 @@ export default function AdminPublicationsPage() {
   const [useWatermark, setUseWatermark] = useState(true);
   const [productSearch, setProductSearch] = useState('');
   const [productFilter, setProductFilter] = useState<'all' | 'promo' | 'new'>('all');
-  const [productResults, setProductResults] = useState<{ id: number; name: string; code: string; priceRetail: number; priceRetailOld: number | null; isPromo: boolean; imagePath: string | null; slug: string }[]>([]);
+  const [productResults, setProductResults] = useState<
+    {
+      id: number;
+      name: string;
+      code: string;
+      priceRetail: number;
+      priceRetailOld: number | null;
+      isPromo: boolean;
+      imagePath: string | null;
+      slug: string;
+    }[]
+  >([]);
   const [productSearching, setProductSearching] = useState(false);
   const [showProductPicker, setShowProductPicker] = useState(false);
 
@@ -226,7 +249,18 @@ export default function AdminPublicationsPage() {
     if (query) params.set('search', query);
     if (filter === 'promo') params.set('isPromo', 'true');
     if (filter === 'new') params.set('sortBy', 'createdAt');
-    const res = await apiClient.get<{ id: number; name: string; code: string; priceRetail: number; priceRetailOld: number | null; isPromo: boolean; imagePath: string | null; slug: string }[]>(`/api/v1/admin/products?${params}`);
+    const res = await apiClient.get<
+      {
+        id: number;
+        name: string;
+        code: string;
+        priceRetail: number;
+        priceRetailOld: number | null;
+        isPromo: boolean;
+        imagePath: string | null;
+        slug: string;
+      }[]
+    >(`/api/v1/admin/products?${params}`);
     if (res.success && res.data) setProductResults(res.data);
     setProductSearching(false);
   };
@@ -234,7 +268,7 @@ export default function AdminPublicationsPage() {
   const debouncedProductSearch = useDebounce(productSearch, SEARCH_DEBOUNCE_MS);
   useEffect(() => {
     if (showProductPicker) searchProducts(debouncedProductSearch, productFilter);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedProductSearch, productFilter]);
 
   const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
@@ -243,7 +277,8 @@ export default function AdminPublicationsPage() {
   const toggleBulkSelect = (id: number) => {
     setBulkSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -267,14 +302,16 @@ export default function AdminPublicationsPage() {
         title,
         content,
         channels,
-        hashtags: p.isPromo ? '#акція #знижка #порошок' : '#порошок',
+        hashtags: p.isPromo ? '#акція #знижка #pulito_trade' : '#pulito_trade',
         imagePath: p.imagePath || undefined,
         productId: p.id,
       };
 
       const createRes = await apiClient.post<{ id: number }>('/api/v1/admin/publications', data);
       if (createRes.success && createRes.data) {
-        const pubRes = await apiClient.post(`/api/v1/admin/publications/${createRes.data.id}/publish`);
+        const pubRes = await apiClient.post(
+          `/api/v1/admin/publications/${createRes.data.id}/publish`,
+        );
         if (!pubRes.success) toast.error(pubRes.error || `Помилка публікації ${p.name}`);
       } else {
         toast.error(createRes.error || `Помилка створення публікації ${p.name}`);
@@ -288,7 +325,16 @@ export default function AdminPublicationsPage() {
     loadPublications();
   };
 
-  const selectProduct = (p: { id: number; name: string; code: string; priceRetail: number; priceRetailOld: number | null; isPromo: boolean; imagePath: string | null; slug: string }) => {
+  const selectProduct = (p: {
+    id: number;
+    name: string;
+    code: string;
+    priceRetail: number;
+    priceRetailOld: number | null;
+    isPromo: boolean;
+    imagePath: string | null;
+    slug: string;
+  }) => {
     const priceText = p.priceRetailOld
       ? `Стара ціна: ${p.priceRetailOld} грн → Нова ціна: ${p.priceRetail} грн`
       : `Ціна: ${p.priceRetail} грн`;
@@ -299,9 +345,11 @@ export default function AdminPublicationsPage() {
     const channels = p.isPromo
       ? ['telegram', 'viber', 'facebook', 'tiktok']
       : ['telegram', 'viber', 'facebook', 'tiktok', 'site'];
-    const hashtags = p.isPromo ? '#акція #знижка #порошок' : '#порошок #новинка';
+    const hashtags = p.isPromo ? '#акція #знижка #pulito_trade' : '#pulito_trade #новинка';
     const productUrl = `/product/${p.slug}`;
-    const discount = p.priceRetailOld ? Math.round((1 - p.priceRetail / p.priceRetailOld) * 100) : 0;
+    const discount = p.priceRetailOld
+      ? Math.round((1 - p.priceRetail / p.priceRetailOld) * 100)
+      : 0;
 
     setForm({
       title,
@@ -318,7 +366,11 @@ export default function AdminPublicationsPage() {
       : `${p.name} — ${p.priceRetail} грн`;
     setChannelContents({
       tiktok: { title: p.name, content: shortContent, hashtags: `${hashtags} #тікток` },
-      instagram: { title: '', content: `${content}\n\n👉 Посилання в біо`, hashtags: `${hashtags} #інстаграм #побутовахімія` },
+      instagram: {
+        title: '',
+        content: `${content}\n\n👉 Посилання в біо`,
+        hashtags: `${hashtags} #інстаграм #побутовахімія`,
+      },
       facebook: { title: '', content: `${content}\n\n🛒 Замовити: ${productUrl}`, hashtags },
     });
     setShowChannelContents(true);
@@ -359,7 +411,14 @@ export default function AdminPublicationsPage() {
       if (res.success) {
         toast.success('Публікацію створено');
         setShowForm(false);
-        setForm({ title: '', content: '', channels: ['telegram'], hashtags: '', scheduledAt: '', imagePath: '' });
+        setForm({
+          title: '',
+          content: '',
+          channels: ['telegram'],
+          hashtags: '',
+          scheduledAt: '',
+          imagePath: '',
+        });
         setChannelContents({});
         setShowChannelContents(false);
         setAdditionalImages([]);
@@ -422,13 +481,26 @@ export default function AdminPublicationsPage() {
   };
 
   const formatDate = (d: string | null) =>
-    d ? new Date(d).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    d
+      ? new Date(d).toLocaleString('uk-UA', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '—';
 
   const toggleChannel = (channels: string[], ch: string) =>
     channels.includes(ch) ? channels.filter((c) => c !== ch) : [...channels, ch];
 
   const statusLabel = (s: string) => {
-    const map: Record<string, string> = { draft: 'Чернетка', scheduled: 'Запланована', published: 'Опублікована', error: 'Помилка' };
+    const map: Record<string, string> = {
+      draft: 'Чернетка',
+      scheduled: 'Запланована',
+      published: 'Опублікована',
+      error: 'Помилка',
+    };
     return map[s] || s;
   };
 
@@ -446,7 +518,10 @@ export default function AdminPublicationsPage() {
   // Monday = 0 … Sunday = 6
   const firstDayOfWeek = (new Date(calendarYear, calendarMonthIdx, 1).getDay() + 6) % 7;
 
-  const calendarMonthLabel = calendarMonth.toLocaleString('uk-UA', { month: 'long', year: 'numeric' });
+  const calendarMonthLabel = calendarMonth.toLocaleString('uk-UA', {
+    month: 'long',
+    year: 'numeric',
+  });
 
   const pubsByDay = publications.reduce<Record<string, Publication[]>>((acc, p) => {
     const dateStr = p.publishedAt || p.scheduledAt || p.createdAt;
@@ -502,26 +577,46 @@ export default function AdminPublicationsPage() {
                   e.target.value = '';
                 }}
               >
-                <option value="" disabled>Обрати шаблон...</option>
+                <option value="" disabled>
+                  Обрати шаблон...
+                </option>
                 {PUBLICATION_TEMPLATES.map((tpl) => (
-                  <option key={tpl.label} value={tpl.label}>{tpl.label}</option>
+                  <option key={tpl.label} value={tpl.label}>
+                    {tpl.label}
+                  </option>
                 ))}
               </select>
             </div>
             {/* Product picker */}
             <div>
               <label className="mb-1 block text-sm font-medium">Товар</label>
-              <Button variant="secondary" size="sm" onClick={() => { setShowProductPicker(!showProductPicker); if (!showProductPicker) searchProducts('', 'all'); }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setShowProductPicker(!showProductPicker);
+                  if (!showProductPicker) searchProducts('', 'all');
+                }}
+              >
                 {showProductPicker ? 'Сховати вибір товару' : 'Обрати товар для публікації'}
               </Button>
               {showProductPicker && (
                 <div className="mt-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <div className="flex overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]">
-                      {([['all', 'Всі'], ['promo', 'Акційні'], ['new', 'Нові']] as const).map(([key, label]) => (
+                      {(
+                        [
+                          ['all', 'Всі'],
+                          ['promo', 'Акційні'],
+                          ['new', 'Нові'],
+                        ] as const
+                      ).map(([key, label]) => (
                         <button
                           key={key}
-                          onClick={() => { setProductFilter(key); searchProducts(productSearch, key); }}
+                          onClick={() => {
+                            setProductFilter(key);
+                            searchProducts(productSearch, key);
+                          }}
                           className={`px-3 py-1 text-xs transition-colors ${productFilter === key ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-bg)]'}`}
                         >
                           {label}
@@ -553,31 +648,48 @@ export default function AdminPublicationsPage() {
                           className="flex flex-1 items-center gap-3 text-left"
                         >
                           {p.imagePath ? (
-                            <Image src={p.imagePath} alt="" width={32} height={32} className="h-8 w-8 rounded object-cover" />
+                            <Image
+                              src={p.imagePath}
+                              alt=""
+                              width={32}
+                              height={32}
+                              className="h-8 w-8 rounded object-cover"
+                            />
                           ) : (
-                            <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-border)] text-xs">📦</div>
+                            <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-border)] text-xs">
+                              📦
+                            </div>
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="truncate font-medium">{p.name}</div>
                             <div className="text-xs text-[var(--color-text-secondary)]">
                               {p.priceRetail} грн
-                              {p.isPromo && <span className="ml-1 text-[var(--color-danger)]">Акція</span>}
+                              {p.isPromo && (
+                                <span className="ml-1 text-[var(--color-danger)]">Акція</span>
+                              )}
                             </div>
                           </div>
                         </button>
                       </div>
                     ))}
                     {productResults.length === 0 && !productSearching && (
-                      <p className="py-2 text-center text-xs text-[var(--color-text-secondary)]">Товарів не знайдено</p>
+                      <p className="py-2 text-center text-xs text-[var(--color-text-secondary)]">
+                        Товарів не знайдено
+                      </p>
                     )}
                   </div>
                   {bulkSelected.size > 0 && (
                     <div className="mt-2 flex items-center gap-2 border-t border-[var(--color-border)] pt-2">
-                      <span className="text-xs text-[var(--color-text-secondary)]">Обрано: {bulkSelected.size}</span>
+                      <span className="text-xs text-[var(--color-text-secondary)]">
+                        Обрано: {bulkSelected.size}
+                      </span>
                       <Button size="sm" onClick={handleBulkPublish} isLoading={bulkPublishing}>
                         Опублікувати всі обрані
                       </Button>
-                      <button onClick={() => setBulkSelected(new Set())} className="text-xs text-[var(--color-text-secondary)] hover:underline">
+                      <button
+                        onClick={() => setBulkSelected(new Set())}
+                        className="text-xs text-[var(--color-text-secondary)] hover:underline"
+                      >
                         Скинути
                       </button>
                     </div>
@@ -620,7 +732,9 @@ export default function AdminPublicationsPage() {
               <label className="text-sm font-medium">Канали</label>
               <ChannelCheckboxes
                 channels={form.channels}
-                onChange={(ch) => setForm((f) => ({ ...f, channels: toggleChannel(f.channels, ch) }))}
+                onChange={(ch) =>
+                  setForm((f) => ({ ...f, channels: toggleChannel(f.channels, ch) }))
+                }
               />
             </div>
             <div>
@@ -635,7 +749,13 @@ export default function AdminPublicationsPage() {
                 {imageUploading && <Spinner size="sm" />}
                 {form.imagePath && (
                   <div className="flex items-center gap-2">
-                    <Image src={form.imagePath} alt="" width={40} height={40} className="h-10 w-10 rounded object-cover" />
+                    <Image
+                      src={form.imagePath}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded object-cover"
+                    />
                     <button
                       type="button"
                       onClick={() => setForm((f) => ({ ...f, imagePath: '' }))}
@@ -662,7 +782,9 @@ export default function AdminPublicationsPage() {
               {form.imagePath && (
                 <div className="mt-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-[var(--color-text-secondary)]">Додаткові фото (карусель Instagram):</span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      Додаткові фото (карусель Instagram):
+                    </span>
                     <input
                       type="file"
                       accept="image/*,video/mp4,video/quicktime"
@@ -675,7 +797,10 @@ export default function AdminPublicationsPage() {
                           const fd = new FormData();
                           fd.append('file', file);
                           fd.append('folder', 'publications');
-                          const res = await apiClient.upload<{ path: string }>('/api/v1/admin/upload', fd);
+                          const res = await apiClient.upload<{ path: string }>(
+                            '/api/v1/admin/upload',
+                            fd,
+                          );
                           if (res.success && res.data) {
                             setAdditionalImages((prev) => [...prev, res.data!.path]);
                           }
@@ -690,10 +815,18 @@ export default function AdminPublicationsPage() {
                     <div className="mt-1 flex flex-wrap gap-2">
                       {additionalImages.map((img, i) => (
                         <div key={i} className="relative">
-                          <Image src={img} alt="" width={48} height={48} className="h-12 w-12 rounded object-cover" />
+                          <Image
+                            src={img}
+                            alt=""
+                            width={48}
+                            height={48}
+                            className="h-12 w-12 rounded object-cover"
+                          />
                           <button
                             type="button"
-                            onClick={() => setAdditionalImages((prev) => prev.filter((_, j) => j !== i))}
+                            onClick={() =>
+                              setAdditionalImages((prev) => prev.filter((_, j) => j !== i))
+                            }
                             className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-danger)] text-[8px] text-white"
                           >
                             x
@@ -710,7 +843,7 @@ export default function AdminPublicationsPage() {
                 label="Хештеги"
                 value={form.hashtags}
                 onChange={(e) => setForm((f) => ({ ...f, hashtags: e.target.value }))}
-                placeholder="#акція #порошок"
+                placeholder="#акція #pulito_trade"
               />
               <div>
                 <label className="mb-1 block text-sm font-medium">Запланувати</label>
@@ -765,7 +898,8 @@ export default function AdminPublicationsPage() {
               {showChannelContents && (
                 <div className="mt-2 space-y-3">
                   <p className="text-xs text-[var(--color-text-secondary)]">
-                    Налаштуйте контент для кожного каналу окремо. Порожні поля використають основний контент.
+                    Налаштуйте контент для кожного каналу окремо. Порожні поля використають основний
+                    контент.
                   </p>
                   {form.channels.map((ch) => {
                     const label = ALL_CHANNELS.find((c) => c.key === ch)?.label || ch;
@@ -773,21 +907,29 @@ export default function AdminPublicationsPage() {
                     const updateCC = (field: keyof ChannelContent, value: string) => {
                       setChannelContents((prev) => ({
                         ...prev,
-                        [ch]: { ...prev[ch] || { title: '', content: '', hashtags: '' }, [field]: value },
+                        [ch]: {
+                          ...(prev[ch] || { title: '', content: '', hashtags: '' }),
+                          [field]: value,
+                        },
                       }));
                     };
                     return (
-                      <div key={ch} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+                      <div
+                        key={ch}
+                        className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3"
+                      >
                         <div className="mb-2 flex items-center justify-between">
                           <span className="text-sm font-medium">{label}</span>
                           {(cc.title || cc.content || cc.hashtags) && (
                             <button
                               type="button"
-                              onClick={() => setChannelContents((prev) => {
-                                const next = { ...prev };
-                                delete next[ch];
-                                return next;
-                              })}
+                              onClick={() =>
+                                setChannelContents((prev) => {
+                                  const next = { ...prev };
+                                  delete next[ch];
+                                  return next;
+                                })
+                              }
                               className="text-xs text-[var(--color-danger)] hover:underline"
                             >
                               Скинути
@@ -829,7 +971,9 @@ export default function AdminPublicationsPage() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Spinner size="md" /></div>
+        <div className="flex justify-center py-12">
+          <Spinner size="md" />
+        </div>
       ) : viewMode === 'list' ? (
         <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
           <table className="w-full text-sm">
@@ -844,7 +988,10 @@ export default function AdminPublicationsPage() {
             </thead>
             <tbody>
               {publications.map((p) => (
-                <tr key={p.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
+                <tr
+                  key={p.id}
+                  className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]"
+                >
                   {editingId === p.id ? (
                     <td colSpan={5} className="p-4">
                       <div className="space-y-3">
@@ -871,17 +1018,34 @@ export default function AdminPublicationsPage() {
                         <div className="flex flex-wrap items-center gap-4">
                           <ChannelCheckboxes
                             channels={editForm.channels}
-                            onChange={(ch) => setEditForm({ ...editForm, channels: toggleChannel(editForm.channels, ch) })}
+                            onChange={(ch) =>
+                              setEditForm({
+                                ...editForm,
+                                channels: toggleChannel(editForm.channels, ch),
+                              })
+                            }
                           />
                           <input
                             type="datetime-local"
                             value={editForm.scheduledAt}
-                            onChange={(e) => setEditForm({ ...editForm, scheduledAt: e.target.value })}
+                            onChange={(e) =>
+                              setEditForm({ ...editForm, scheduledAt: e.target.value })
+                            }
                             className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                           />
                           <div className="ml-auto flex gap-2">
-                            <button onClick={() => setEditingId(null)} className="rounded-[var(--radius)] border border-[var(--color-border)] p-1.5"><Close size={16} /></button>
-                            <button onClick={() => saveEdit(p.id)} className="rounded-[var(--radius)] bg-[var(--color-primary)] p-1.5 text-white"><Check size={16} /></button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="rounded-[var(--radius)] border border-[var(--color-border)] p-1.5"
+                            >
+                              <Close size={16} />
+                            </button>
+                            <button
+                              onClick={() => saveEdit(p.id)}
+                              className="rounded-[var(--radius)] bg-[var(--color-primary)] p-1.5 text-white"
+                            >
+                              <Check size={16} />
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -890,27 +1054,40 @@ export default function AdminPublicationsPage() {
                     <>
                       <td className="px-4 py-3">
                         <span className="font-medium">{p.title}</span>
-                        <p className="line-clamp-1 text-xs text-[var(--color-text-secondary)]">{p.content}</p>
+                        <p className="line-clamp-1 text-xs text-[var(--color-text-secondary)]">
+                          {p.content}
+                        </p>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {(p.channels as string[]).map((ch) => {
                             const cr = p.channelResults?.find((r) => r.channel === ch);
-                            const icon = !cr ? '' : cr.status === 'published' ? '✅' : cr.status === 'failed' ? '❌' : '⏳';
+                            const icon = !cr
+                              ? ''
+                              : cr.status === 'published'
+                                ? '✅'
+                                : cr.status === 'failed'
+                                  ? '❌'
+                                  : '⏳';
                             return (
                               <span
                                 key={ch}
                                 className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                                  cr?.status === 'failed' ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' :
-                                  cr?.status === 'published' ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' :
-                                  'bg-[var(--color-bg-secondary)]'
+                                  cr?.status === 'failed'
+                                    ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                                    : cr?.status === 'published'
+                                      ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                      : 'bg-[var(--color-bg-secondary)]'
                                 }`}
                                 title={cr?.errorMessage || ''}
                               >
                                 {icon} {ALL_CHANNELS.find((c) => c.key === ch)?.label || ch}
                                 {cr?.status === 'failed' && (
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); handleRetry(p.id, ch); }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRetry(p.id, ch);
+                                    }}
                                     className="ml-0.5 text-[9px] underline hover:no-underline"
                                     title={`Повторити: ${cr.errorMessage || ''}`}
                                   >
@@ -923,7 +1100,9 @@ export default function AdminPublicationsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`rounded-full px-2 py-0.5 text-xs ${statusColor(p.status)}`}>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs ${statusColor(p.status)}`}
+                        >
                           {statusLabel(p.status)}
                         </span>
                       </td>
@@ -932,19 +1111,37 @@ export default function AdminPublicationsPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => setPreviewPub(p)} className="rounded-[var(--radius)] border border-[var(--color-border)] p-1 hover:bg-[var(--color-bg-secondary)]" title="Переглянути">
+                          <button
+                            onClick={() => setPreviewPub(p)}
+                            className="rounded-[var(--radius)] border border-[var(--color-border)] p-1 hover:bg-[var(--color-bg-secondary)]"
+                            title="Переглянути"
+                          >
                             <Eye size={14} />
                           </button>
                           {p.status !== 'published' ? (
                             <>
-                              <button onClick={() => startEdit(p)} className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]">Редагувати</button>
+                              <button
+                                onClick={() => startEdit(p)}
+                                className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
+                              >
+                                Редагувати
+                              </button>
                               <Button size="sm" onClick={() => setPublishConfirmId(p.id)}>
                                 Опублікувати
                               </Button>
-                              <button onClick={() => handleDelete(p.id)} className="p-1 text-[var(--color-danger)]"><Trash size={14} /></button>
+                              <button
+                                onClick={() => handleDelete(p.id)}
+                                className="p-1 text-[var(--color-danger)]"
+                              >
+                                <Trash size={14} />
+                              </button>
                             </>
                           ) : (
-                            <Button size="sm" variant="secondary" onClick={() => setPublishConfirmId(p.id)}>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setPublishConfirmId(p.id)}
+                            >
                               Повторити
                             </Button>
                           )}
@@ -956,7 +1153,10 @@ export default function AdminPublicationsPage() {
               ))}
               {publications.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                  >
                     Публікацій немає
                   </td>
                 </tr>
@@ -969,15 +1169,30 @@ export default function AdminPublicationsPage() {
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
           {/* Calendar header */}
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
-            <button onClick={prevMonth} className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-sm hover:bg-[var(--color-bg-secondary)]">&larr;</button>
+            <button
+              onClick={prevMonth}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-sm hover:bg-[var(--color-bg-secondary)]"
+            >
+              &larr;
+            </button>
             <span className="text-sm font-semibold capitalize">{calendarMonthLabel}</span>
-            <button onClick={nextMonth} className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-sm hover:bg-[var(--color-bg-secondary)]">&rarr;</button>
+            <button
+              onClick={nextMonth}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-sm hover:bg-[var(--color-bg-secondary)]"
+            >
+              &rarr;
+            </button>
           </div>
 
           {/* Day-of-week headers */}
           <div className="grid grid-cols-7 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
             {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].map((d) => (
-              <div key={d} className="px-1 py-2 text-center text-xs font-medium text-[var(--color-text-secondary)]">{d}</div>
+              <div
+                key={d}
+                className="px-1 py-2 text-center text-xs font-medium text-[var(--color-text-secondary)]"
+              >
+                {d}
+              </div>
             ))}
           </div>
 
@@ -985,7 +1200,10 @@ export default function AdminPublicationsPage() {
           <div className="grid grid-cols-7">
             {/* Empty cells for days before the 1st */}
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-              <div key={`empty-${i}`} className="min-h-[80px] border-b border-r border-[var(--color-border)] bg-[var(--color-bg-secondary)]/30" />
+              <div
+                key={`empty-${i}`}
+                className="min-h-[80px] border-b border-r border-[var(--color-border)] bg-[var(--color-bg-secondary)]/30"
+              />
             ))}
 
             {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -1004,7 +1222,9 @@ export default function AdminPublicationsPage() {
                   onClick={() => setSelectedDay(isSelected ? null : dayKey)}
                   className={`min-h-[80px] cursor-pointer border-b border-r border-[var(--color-border)] p-1 transition-colors hover:bg-[var(--color-bg-secondary)] ${isSelected ? 'bg-[var(--color-primary)]/5 ring-1 ring-inset ring-[var(--color-primary)]' : ''}`}
                 >
-                  <div className={`mb-0.5 text-xs font-medium ${isToday ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-secondary)]'}`}>
+                  <div
+                    className={`mb-0.5 text-xs font-medium ${isToday ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-secondary)]'}`}
+                  >
                     {day}
                   </div>
                   {dayPubs.slice(0, 3).map((pub) => (
@@ -1017,7 +1237,9 @@ export default function AdminPublicationsPage() {
                     </div>
                   ))}
                   {dayPubs.length > 3 && (
-                    <div className="px-1 text-[10px] text-[var(--color-text-secondary)]">+{dayPubs.length - 3} ще</div>
+                    <div className="px-1 text-[10px] text-[var(--color-text-secondary)]">
+                      +{dayPubs.length - 3} ще
+                    </div>
                   )}
                 </div>
               );
@@ -1028,24 +1250,42 @@ export default function AdminPublicationsPage() {
           {selectedDay && (
             <div className="border-t border-[var(--color-border)] p-4">
               <h3 className="mb-2 text-sm font-semibold">
-                {Number(selectedDay)} {calendarMonth.toLocaleString('uk-UA', { month: 'long' })} {calendarYear}
+                {Number(selectedDay)} {calendarMonth.toLocaleString('uk-UA', { month: 'long' })}{' '}
+                {calendarYear}
               </h3>
               {(pubsByDay[selectedDay] || []).length === 0 ? (
-                <p className="text-sm text-[var(--color-text-secondary)]">Публікацій на цей день немає</p>
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  Публікацій на цей день немає
+                </p>
               ) : (
                 <div className="space-y-2">
                   {(pubsByDay[selectedDay] || []).map((pub) => (
-                    <div key={pub.id} className="flex items-start justify-between rounded-[var(--radius)] border border-[var(--color-border)] p-3">
+                    <div
+                      key={pub.id}
+                      className="flex items-start justify-between rounded-[var(--radius)] border border-[var(--color-border)] p-3"
+                    >
                       <div>
                         <p className="text-sm font-medium">{pub.title}</p>
-                        <p className="line-clamp-1 text-xs text-[var(--color-text-secondary)]">{pub.content}</p>
+                        <p className="line-clamp-1 text-xs text-[var(--color-text-secondary)]">
+                          {pub.content}
+                        </p>
                         <div className="mt-1 flex gap-1">
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] ${statusColor(pub.status)}`}>{statusLabel(pub.status)}</span>
-                          <span className="rounded bg-[var(--color-bg-secondary)] px-1.5 py-0.5 text-[10px]">{pub.channels.join(', ')}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] ${statusColor(pub.status)}`}
+                          >
+                            {statusLabel(pub.status)}
+                          </span>
+                          <span className="rounded bg-[var(--color-bg-secondary)] px-1.5 py-0.5 text-[10px]">
+                            {pub.channels.join(', ')}
+                          </span>
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        <button onClick={() => setPreviewPub(pub)} className="rounded-[var(--radius)] border border-[var(--color-border)] p-1 hover:bg-[var(--color-bg-secondary)]" title="Переглянути">
+                        <button
+                          onClick={() => setPreviewPub(pub)}
+                          className="rounded-[var(--radius)] border border-[var(--color-border)] p-1 hover:bg-[var(--color-bg-secondary)]"
+                          title="Переглянути"
+                        >
                           <Eye size={14} />
                         </button>
                       </div>
@@ -1064,19 +1304,42 @@ export default function AdminPublicationsPage() {
           <div className="p-6">
             <h3 className="mb-2 text-lg font-bold">{previewPub.title}</h3>
             <div className="mb-4 space-y-2">
-              <span className={`rounded-full px-2 py-0.5 text-xs ${statusColor(previewPub.status)}`}>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs ${statusColor(previewPub.status)}`}
+              >
                 {statusLabel(previewPub.status)}
               </span>
               {previewPub.channelResults && previewPub.channelResults.length > 0 && (
                 <div className="space-y-1">
                   {previewPub.channelResults.map((cr) => (
                     <div key={cr.channel} className="flex items-center gap-2 text-xs">
-                      <span>{cr.status === 'published' ? '✅' : cr.status === 'failed' ? '❌' : '⏳'}</span>
-                      <span className="font-medium">{ALL_CHANNELS.find((c) => c.key === cr.channel)?.label || cr.channel}</span>
-                      {cr.permalink && <a href={cr.permalink} target="_blank" rel="noopener" className="text-[var(--color-primary)] underline">Посилання</a>}
-                      {cr.errorMessage && <span className="text-[var(--color-danger)]">{cr.errorMessage}</span>}
+                      <span>
+                        {cr.status === 'published' ? '✅' : cr.status === 'failed' ? '❌' : '⏳'}
+                      </span>
+                      <span className="font-medium">
+                        {ALL_CHANNELS.find((c) => c.key === cr.channel)?.label || cr.channel}
+                      </span>
+                      {cr.permalink && (
+                        <a
+                          href={cr.permalink}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-[var(--color-primary)] underline"
+                        >
+                          Посилання
+                        </a>
+                      )}
+                      {cr.errorMessage && (
+                        <span className="text-[var(--color-danger)]">{cr.errorMessage}</span>
+                      )}
                       {cr.status === 'failed' && (
-                        <button onClick={() => { handleRetry(previewPub.id, cr.channel); setPreviewPub(null); }} className="rounded border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] hover:bg-[var(--color-bg-secondary)]">
+                        <button
+                          onClick={() => {
+                            handleRetry(previewPub.id, cr.channel);
+                            setPreviewPub(null);
+                          }}
+                          className="rounded border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] hover:bg-[var(--color-bg-secondary)]"
+                        >
                           Повторити
                         </button>
                       )}
@@ -1086,60 +1349,96 @@ export default function AdminPublicationsPage() {
               )}
             </div>
             {/* Analytics */}
-            {previewPub.status === 'published' && previewPub.channelResults && previewPub.channelResults.some((cr) => cr.views || cr.clicks) && (
-              <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
-                <div className="mb-2 text-[10px] font-medium uppercase text-[var(--color-text-secondary)]">Аналітика</div>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <div className="text-lg font-bold">{previewPub.channelResults.reduce((s, cr) => s + (cr.views || 0), 0)}</div>
-                    <div className="text-[10px] text-[var(--color-text-secondary)]">Перегляди</div>
+            {previewPub.status === 'published' &&
+              previewPub.channelResults &&
+              previewPub.channelResults.some((cr) => cr.views || cr.clicks) && (
+                <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+                  <div className="mb-2 text-[10px] font-medium uppercase text-[var(--color-text-secondary)]">
+                    Аналітика
                   </div>
-                  <div>
-                    <div className="text-lg font-bold">{previewPub.channelResults.reduce((s, cr) => s + (cr.clicks || 0), 0)}</div>
-                    <div className="text-[10px] text-[var(--color-text-secondary)]">Кліки</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold">
-                      {(() => {
-                        const withEng = previewPub.channelResults.filter((cr) => cr.engagement != null);
-                        return withEng.length > 0 ? (withEng.reduce((s, cr) => s + (cr.engagement || 0), 0) / withEng.length).toFixed(1) + '%' : '—';
-                      })()}
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <div className="text-lg font-bold">
+                        {previewPub.channelResults.reduce((s, cr) => s + (cr.views || 0), 0)}
+                      </div>
+                      <div className="text-[10px] text-[var(--color-text-secondary)]">
+                        Перегляди
+                      </div>
                     </div>
-                    <div className="text-[10px] text-[var(--color-text-secondary)]">Залучення</div>
+                    <div>
+                      <div className="text-lg font-bold">
+                        {previewPub.channelResults.reduce((s, cr) => s + (cr.clicks || 0), 0)}
+                      </div>
+                      <div className="text-[10px] text-[var(--color-text-secondary)]">Кліки</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold">
+                        {(() => {
+                          const withEng = previewPub.channelResults.filter(
+                            (cr) => cr.engagement != null,
+                          );
+                          return withEng.length > 0
+                            ? (
+                                withEng.reduce((s, cr) => s + (cr.engagement || 0), 0) /
+                                withEng.length
+                              ).toFixed(1) + '%'
+                            : '—';
+                        })()}
+                      </div>
+                      <div className="text-[10px] text-[var(--color-text-secondary)]">
+                        Залучення
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {previewPub.channelResults
+                      .filter((cr) => cr.status === 'published')
+                      .map((cr) => (
+                        <div key={cr.channel} className="flex items-center justify-between text-xs">
+                          <span className="font-medium">
+                            {ALL_CHANNELS.find((c) => c.key === cr.channel)?.label || cr.channel}
+                          </span>
+                          <span className="text-[var(--color-text-secondary)]">
+                            {cr.views ?? '—'} перегл. · {cr.clicks ?? '—'} клік. ·{' '}
+                            {cr.engagement != null ? `${cr.engagement.toFixed(1)}%` : '—'}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                 </div>
-                <div className="mt-2 space-y-1">
-                  {previewPub.channelResults.filter((cr) => cr.status === 'published').map((cr) => (
-                    <div key={cr.channel} className="flex items-center justify-between text-xs">
-                      <span className="font-medium">{ALL_CHANNELS.find((c) => c.key === cr.channel)?.label || cr.channel}</span>
-                      <span className="text-[var(--color-text-secondary)]">
-                        {cr.views ?? '—'} перегл. · {cr.clicks ?? '—'} клік. · {cr.engagement != null ? `${cr.engagement.toFixed(1)}%` : '—'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
 
             {/* Per-channel preview */}
             <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
-              <div className="mb-2 text-[10px] font-medium uppercase text-[var(--color-text-secondary)]">Прев&apos;ю по каналах</div>
+              <div className="mb-2 text-[10px] font-medium uppercase text-[var(--color-text-secondary)]">
+                Прев&apos;ю по каналах
+              </div>
               <div className="space-y-2 text-sm">
                 {previewPub.channels.map((ch) => {
                   const label = ALL_CHANNELS.find((c) => c.key === ch)?.label || ch;
                   const cc = previewPub.channelContents?.[ch];
                   const title = cc?.title || previewPub.title;
                   const content = cc?.content || previewPub.content;
-                  const hashtags = cc?.hashtags !== undefined && cc?.hashtags ? cc.hashtags : previewPub.hashtags;
+                  const hashtags =
+                    cc?.hashtags !== undefined && cc?.hashtags ? cc.hashtags : previewPub.hashtags;
                   const hasOverride = !!(cc?.title || cc?.content || cc?.hashtags);
 
                   if (ch === 'telegram') {
                     return (
                       <div key={ch} className="rounded bg-[var(--color-bg)] p-2">
                         <div className="mb-1 flex items-center gap-1 text-[10px] text-[var(--color-text-secondary)]">
-                          {label} (HTML) {hasOverride && <span className="rounded bg-blue-100 px-1 text-blue-600">custom</span>}
+                          {label} (HTML){' '}
+                          {hasOverride && (
+                            <span className="rounded bg-blue-100 px-1 text-blue-600">custom</span>
+                          )}
                         </div>
-                        <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(`<b>${title}</b><br/><br/>${content.replace(/\n/g, '<br/>')}${hashtags ? `<br/><br/>${hashtags}` : ''}`) }} />
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html: sanitizeHtml(
+                              `<b>${title}</b><br/><br/>${content.replace(/\n/g, '<br/>')}${hashtags ? `<br/><br/>${hashtags}` : ''}`,
+                            ),
+                          }}
+                        />
                       </div>
                     );
                   }
@@ -1148,7 +1447,10 @@ export default function AdminPublicationsPage() {
                     return (
                       <div key={ch} className="rounded bg-[var(--color-bg)] p-2">
                         <div className="mb-1 flex items-center gap-1 text-[10px] text-[var(--color-text-secondary)]">
-                          {label} ({fullText.length}/2200) {hasOverride && <span className="rounded bg-blue-100 px-1 text-blue-600">custom</span>}
+                          {label} ({fullText.length}/2200){' '}
+                          {hasOverride && (
+                            <span className="rounded bg-blue-100 px-1 text-blue-600">custom</span>
+                          )}
                         </div>
                         <p className="whitespace-pre-wrap">{fullText}</p>
                       </div>
@@ -1157,9 +1459,17 @@ export default function AdminPublicationsPage() {
                   return (
                     <div key={ch} className="rounded bg-[var(--color-bg)] p-2">
                       <div className="mb-1 flex items-center gap-1 text-[10px] text-[var(--color-text-secondary)]">
-                        {label} {hasOverride && <span className="rounded bg-blue-100 px-1 text-blue-600">custom</span>}
+                        {label}{' '}
+                        {hasOverride && (
+                          <span className="rounded bg-blue-100 px-1 text-blue-600">custom</span>
+                        )}
                       </div>
-                      <p className="whitespace-pre-wrap"><strong>{title}</strong>{'\n\n'}{content}{hashtags ? `\n\n${hashtags}` : ''}</p>
+                      <p className="whitespace-pre-wrap">
+                        <strong>{title}</strong>
+                        {'\n\n'}
+                        {content}
+                        {hashtags ? `\n\n${hashtags}` : ''}
+                      </p>
                     </div>
                   );
                 })}
@@ -1170,7 +1480,9 @@ export default function AdminPublicationsPage() {
                 <p>Автор: {previewPub.creator.fullName}</p>
                 <p>Створено: {formatDate(previewPub.createdAt)}</p>
                 {previewPub.scheduledAt && <p>Заплановано: {formatDate(previewPub.scheduledAt)}</p>}
-                {previewPub.publishedAt && <p>Опубліковано: {formatDate(previewPub.publishedAt)}</p>}
+                {previewPub.publishedAt && (
+                  <p>Опубліковано: {formatDate(previewPub.publishedAt)}</p>
+                )}
               </div>
               {previewPub.status === 'published' && (
                 <button
@@ -1190,38 +1502,50 @@ export default function AdminPublicationsPage() {
       </Modal>
 
       {/* Publish confirmation */}
-      {publishConfirmId !== null && (() => {
-        const pub = publications.find((p) => p.id === publishConfirmId);
-        if (!pub) return null;
-        return (
-          <Modal isOpen onClose={() => setPublishConfirmId(null)} size="sm">
-            <div className="p-6">
-              <h3 className="mb-3 text-lg font-bold">Підтвердження публікації</h3>
-              <p className="mb-2 text-sm">Опублікувати <strong>{pub.title}</strong> у такі канали:</p>
-              <div className="mb-4 flex flex-wrap gap-2">
-                {pub.channels.map((ch) => (
-                  <span key={ch} className="rounded-full bg-[var(--color-bg-secondary)] px-3 py-1 text-sm font-medium">
-                    {ALL_CHANNELS.find((c) => c.key === ch)?.label || ch}
-                  </span>
-                ))}
-              </div>
-              {pub.channelContents && Object.keys(pub.channelContents).length > 0 && (
-                <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-                  Для {Object.keys(pub.channelContents).length} каналів використовується окремий контент
+      {publishConfirmId !== null &&
+        (() => {
+          const pub = publications.find((p) => p.id === publishConfirmId);
+          if (!pub) return null;
+          return (
+            <Modal isOpen onClose={() => setPublishConfirmId(null)} size="sm">
+              <div className="p-6">
+                <h3 className="mb-3 text-lg font-bold">Підтвердження публікації</h3>
+                <p className="mb-2 text-sm">
+                  Опублікувати <strong>{pub.title}</strong> у такі канали:
                 </p>
-              )}
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={() => setPublishConfirmId(null)}>
-                  Скасувати
-                </Button>
-                <Button onClick={() => { handlePublish(pub.id); setPublishConfirmId(null); }}>
-                  Опублікувати
-                </Button>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {pub.channels.map((ch) => (
+                    <span
+                      key={ch}
+                      className="rounded-full bg-[var(--color-bg-secondary)] px-3 py-1 text-sm font-medium"
+                    >
+                      {ALL_CHANNELS.find((c) => c.key === ch)?.label || ch}
+                    </span>
+                  ))}
+                </div>
+                {pub.channelContents && Object.keys(pub.channelContents).length > 0 && (
+                  <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
+                    Для {Object.keys(pub.channelContents).length} каналів використовується окремий
+                    контент
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button variant="secondary" onClick={() => setPublishConfirmId(null)}>
+                    Скасувати
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handlePublish(pub.id);
+                      setPublishConfirmId(null);
+                    }}
+                  >
+                    Опублікувати
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Modal>
-        );
-      })()}
+            </Modal>
+          );
+        })()}
 
       <ConfirmDialog
         isOpen={deleteId !== null}

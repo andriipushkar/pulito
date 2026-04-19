@@ -66,24 +66,71 @@ export default function BoughtTogetherSection({ productId }: BoughtTogetherSecti
               key={p.id}
               className="flex w-[150px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow)] transition-all hover:shadow-[var(--shadow-md)] hover:-translate-y-1 lg:w-auto"
             >
-              <Link href={`/product/${p.slug}`} className="relative block aspect-[4/3] bg-[var(--color-bg-secondary)]">
+              <Link
+                href={`/product/${p.slug}`}
+                className="relative block aspect-[4/3] bg-[var(--color-bg-secondary)]"
+              >
                 {image ? (
-                  <Image src={image} alt={p.name} fill sizes="(max-width: 1024px) 150px, 16vw" className="object-contain p-1.5" />
+                  <Image
+                    src={image}
+                    alt={p.name}
+                    fill
+                    sizes="(max-width: 1024px) 150px, 16vw"
+                    className="object-contain p-1.5"
+                  />
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-gray-50 to-gray-100">
                     <svg className="h-10 w-10 text-gray-300" viewBox="0 0 64 64" fill="none">
-                      <rect x="18" y="8" width="28" height="4" rx="2" fill="currentColor" opacity="0.4" />
-                      <rect x="16" y="14" width="32" height="42" rx="6" fill="currentColor" opacity="0.15" />
-                      <rect x="16" y="14" width="32" height="42" rx="6" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
+                      <rect
+                        x="18"
+                        y="8"
+                        width="28"
+                        height="4"
+                        rx="2"
+                        fill="currentColor"
+                        opacity="0.4"
+                      />
+                      <rect
+                        x="16"
+                        y="14"
+                        width="32"
+                        height="42"
+                        rx="6"
+                        fill="currentColor"
+                        opacity="0.15"
+                      />
+                      <rect
+                        x="16"
+                        y="14"
+                        width="32"
+                        height="42"
+                        rx="6"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        opacity="0.3"
+                      />
                       <circle cx="32" cy="32" r="8" fill="currentColor" opacity="0.12" />
-                      <text x="32" y="36" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" opacity="0.25">P</text>
+                      <text
+                        x="32"
+                        y="36"
+                        textAnchor="middle"
+                        fontSize="8"
+                        fontWeight="700"
+                        fill="currentColor"
+                        opacity="0.25"
+                      >
+                        P
+                      </text>
                     </svg>
-                    <span className="text-[9px] font-medium text-gray-300">Порошок</span>
+                    <span className="text-[9px] font-medium text-gray-300">Pulito Trade</span>
                   </div>
                 )}
               </Link>
               <div className="flex flex-1 flex-col p-2">
-                <Link href={`/product/${p.slug}`} className="mb-1 line-clamp-2 text-xs font-medium leading-tight hover:text-[var(--color-primary)]">
+                <Link
+                  href={`/product/${p.slug}`}
+                  className="mb-1 line-clamp-2 text-xs font-medium leading-tight hover:text-[var(--color-primary)]"
+                >
                   {p.name}
                 </Link>
                 <div className="mt-auto flex items-center justify-between gap-1">

@@ -37,36 +37,102 @@ const COLOR_VARS = [
 ];
 
 function ThemePreview({ colors }: { colors: Record<string, string> }) {
-  const style = Object.entries(colors).reduce((acc, [k, v]) => {
-    acc[k as string] = v;
-    return acc;
-  }, {} as Record<string, string>);
+  const style = Object.entries(colors).reduce(
+    (acc, [k, v]) => {
+      acc[k as string] = v;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
 
   return (
-    <div className="mt-4 overflow-hidden rounded-lg border-2 border-dashed border-[var(--color-border)] p-4" style={style}>
-      <div className="mb-3 flex items-center gap-3 rounded-lg p-3" style={{ backgroundColor: colors['--color-bg'] || '#fff' }}>
-        <span className="text-lg font-bold" style={{ color: colors['--color-primary'] || '#2563eb' }}>Порошок</span>
+    <div
+      className="mt-4 overflow-hidden rounded-lg border-2 border-dashed border-[var(--color-border)] p-4"
+      style={style}
+    >
+      <div
+        className="mb-3 flex items-center gap-3 rounded-lg p-3"
+        style={{ backgroundColor: colors['--color-bg'] || '#fff' }}
+      >
+        <span
+          className="text-lg font-bold"
+          style={{ color: colors['--color-primary'] || '#2563eb' }}
+        >
+          Pulito Trade
+        </span>
         <div className="ml-auto flex gap-2">
-          <span className="rounded px-3 py-1 text-xs text-white" style={{ backgroundColor: colors['--color-primary'] || '#2563eb' }}>Каталог</span>
-          <span className="rounded px-3 py-1 text-xs" style={{ color: colors['--color-text-secondary'] || '#6b7280', borderWidth: 1, borderColor: colors['--color-border'] || '#e5e7eb' }}>Акції</span>
+          <span
+            className="rounded px-3 py-1 text-xs text-white"
+            style={{ backgroundColor: colors['--color-primary'] || '#2563eb' }}
+          >
+            Каталог
+          </span>
+          <span
+            className="rounded px-3 py-1 text-xs"
+            style={{
+              color: colors['--color-text-secondary'] || '#6b7280',
+              borderWidth: 1,
+              borderColor: colors['--color-border'] || '#e5e7eb',
+            }}
+          >
+            Акції
+          </span>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {['Товар 1', 'Товар 2', 'Товар 3'].map((name) => (
-          <div key={name} className="rounded-lg p-2" style={{ backgroundColor: colors['--color-bg-secondary'] || '#f9fafb', borderWidth: 1, borderColor: colors['--color-border'] || '#e5e7eb' }}>
-            <div className="mb-2 aspect-square rounded" style={{ backgroundColor: colors['--color-border'] || '#e5e7eb' }} />
-            <p className="text-xs font-medium" style={{ color: colors['--color-text'] || '#111827' }}>{name}</p>
-            <p className="text-xs" style={{ color: colors['--color-text-secondary'] || '#6b7280' }}>Код: A001</p>
+          <div
+            key={name}
+            className="rounded-lg p-2"
+            style={{
+              backgroundColor: colors['--color-bg-secondary'] || '#f9fafb',
+              borderWidth: 1,
+              borderColor: colors['--color-border'] || '#e5e7eb',
+            }}
+          >
+            <div
+              className="mb-2 aspect-square rounded"
+              style={{ backgroundColor: colors['--color-border'] || '#e5e7eb' }}
+            />
+            <p
+              className="text-xs font-medium"
+              style={{ color: colors['--color-text'] || '#111827' }}
+            >
+              {name}
+            </p>
+            <p className="text-xs" style={{ color: colors['--color-text-secondary'] || '#6b7280' }}>
+              Код: A001
+            </p>
             <div className="mt-1 flex items-center justify-between">
-              <span className="text-sm font-bold" style={{ color: colors['--color-primary'] || '#2563eb' }}>125.00 ₴</span>
-              <span className="text-[10px]" style={{ color: colors['--color-in-stock'] || '#16a34a' }}>В наявності</span>
+              <span
+                className="text-sm font-bold"
+                style={{ color: colors['--color-primary'] || '#2563eb' }}
+              >
+                125.00 ₴
+              </span>
+              <span
+                className="text-[10px]"
+                style={{ color: colors['--color-in-stock'] || '#16a34a' }}
+              >
+                В наявності
+              </span>
             </div>
           </div>
         ))}
       </div>
       <div className="mt-3 flex gap-2">
-        <button className="rounded px-4 py-1.5 text-xs font-medium text-white" style={{ backgroundColor: colors['--color-primary'] || '#2563eb' }}>Кнопка CTA</button>
-        <button className="rounded px-4 py-1.5 text-xs font-medium text-white" style={{ backgroundColor: colors['--color-danger'] || '#dc2626' }}>Небезпека</button>
+        <button
+          className="rounded px-4 py-1.5 text-xs font-medium text-white"
+          style={{ backgroundColor: colors['--color-primary'] || '#2563eb' }}
+        >
+          Кнопка CTA
+        </button>
+        <button
+          className="rounded px-4 py-1.5 text-xs font-medium text-white"
+          style={{ backgroundColor: colors['--color-danger'] || '#dc2626' }}
+        >
+          Небезпека
+        </button>
       </div>
     </div>
   );
@@ -82,12 +148,17 @@ export default function AdminThemesPage() {
   const [activateId, setActivateId] = useState<number | null>(null);
 
   const loadThemes = () => {
-    apiClient.get<Theme[]>('/api/v1/admin/themes').then((res) => {
-      if (res.success && res.data) setThemes(res.data);
-    }).finally(() => setIsLoading(false));
+    apiClient
+      .get<Theme[]>('/api/v1/admin/themes')
+      .then((res) => {
+        if (res.success && res.data) setThemes(res.data);
+      })
+      .finally(() => setIsLoading(false));
   };
 
-  useEffect(() => { loadThemes(); }, []);
+  useEffect(() => {
+    loadThemes();
+  }, []);
 
   const activateTheme = async (id: number) => {
     setActivateId(null);
@@ -104,7 +175,9 @@ export default function AdminThemesPage() {
 
   const saveColors = async () => {
     if (!editingId) return;
-    const res = await apiClient.put(`/api/v1/admin/themes/${editingId}`, { customSettings: colors });
+    const res = await apiClient.put(`/api/v1/admin/themes/${editingId}`, {
+      customSettings: colors,
+    });
     if (res.success) toast.success('Кольори збережено');
     else toast.error(res.error || 'Помилка збереження');
     setEditingId(null);
@@ -151,7 +224,11 @@ export default function AdminThemesPage() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
@@ -160,24 +237,41 @@ export default function AdminThemesPage() {
         <h2 className="text-xl font-bold">Теми оформлення</h2>
         <label className="cursor-pointer rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-primary-dark)]">
           {isUploading ? 'Завантаження...' : 'Завантажити ZIP'}
-          <input type="file" accept=".zip" onChange={handleZipUpload} className="hidden" disabled={isUploading} />
+          <input
+            type="file"
+            accept=".zip"
+            onChange={handleZipUpload}
+            className="hidden"
+            disabled={isUploading}
+          />
         </label>
       </div>
 
       <div className="space-y-4">
         {themes.map((t) => (
-          <div key={t.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <div
+            key={t.id}
+            className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">{t.displayName}</p>
-                <p className="text-xs text-[var(--color-text-secondary)]">{t.description || t.folderName} {t.version ? `v${t.version}` : ''}</p>
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  {t.description || t.folderName} {t.version ? `v${t.version}` : ''}
+                </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => startEdit(t)}>Кольори</Button>
+                <Button variant="outline" size="sm" onClick={() => startEdit(t)}>
+                  Кольори
+                </Button>
                 {!t.isActive ? (
-                  <Button size="sm" onClick={() => setActivateId(t.id)}>Активувати</Button>
+                  <Button size="sm" onClick={() => setActivateId(t.id)}>
+                    Активувати
+                  </Button>
                 ) : (
-                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs text-green-700">Активна</span>
+                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs text-green-700">
+                    Активна
+                  </span>
                 )}
               </div>
             </div>
@@ -190,7 +284,9 @@ export default function AdminThemesPage() {
                       <input
                         type="color"
                         value={colors[cv.key] || '#000000'}
-                        onChange={(e) => setColors((prev) => ({ ...prev, [cv.key]: e.target.value }))}
+                        onChange={(e) =>
+                          setColors((prev) => ({ ...prev, [cv.key]: e.target.value }))
+                        }
                         className="h-8 w-8 rounded border"
                       />
                       <span className="text-xs">{cv.label}</span>
@@ -198,11 +294,15 @@ export default function AdminThemesPage() {
                   ))}
                 </div>
                 <div className="mt-4 flex gap-2">
-                  <Button size="sm" onClick={saveColors}>Зберегти</Button>
-                  <Button variant="outline" size="sm" onClick={() => setShowPreview((v) => !v)}>
-                    {showPreview ? 'Сховати прев\'ю' : 'Прев\'ю'}
+                  <Button size="sm" onClick={saveColors}>
+                    Зберегти
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>Скасувати</Button>
+                  <Button variant="outline" size="sm" onClick={() => setShowPreview((v) => !v)}>
+                    {showPreview ? "Сховати прев'ю" : "Прев'ю"}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                    Скасувати
+                  </Button>
                 </div>
                 {showPreview && <ThemePreview colors={colors} />}
               </div>

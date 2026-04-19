@@ -39,7 +39,10 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
   const baseUrl = process.env.APP_URL || 'http://localhost:3000';
   const title = product.content?.seoTitle || product.name;
-  const description = product.content?.seoDescription || product.content?.shortDescription || `${product.name} — купити за вигідною ціною в Порошок`;
+  const description =
+    product.content?.seoDescription ||
+    product.content?.shortDescription ||
+    `${product.name} — купити за вигідною ціною в Pulito Trade`;
   const image = product.images[0]?.pathFull || product.imagePath;
   const url = `${baseUrl}/product/${slug}`;
 
@@ -51,8 +54,8 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     alternates: {
       canonical: url,
       languages: {
-        'uk': url,
-        'en': `${baseUrl}/en/product/${slug}`,
+        uk: url,
+        en: `${baseUrl}/en/product/${slug}`,
         'x-default': url,
       },
     },
@@ -60,14 +63,16 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       title,
       description,
       url,
-      images: [{
-        url: `${baseUrl}/api/og?title=${encodeURIComponent(product.name)}&price=${price}&oldPrice=${product.priceRetailOld ? Number(product.priceRetailOld) : ''}&category=${encodeURIComponent(product.category?.name || '')}&image=${image ? encodeURIComponent(`${baseUrl}${image}`) : ''}`,
-        width: 1200,
-        height: 630,
-        alt: product.name,
-      }],
+      images: [
+        {
+          url: `${baseUrl}/api/og?title=${encodeURIComponent(product.name)}&price=${price}&oldPrice=${product.priceRetailOld ? Number(product.priceRetailOld) : ''}&category=${encodeURIComponent(product.category?.name || '')}&image=${image ? encodeURIComponent(`${baseUrl}${image}`) : ''}`,
+          width: 1200,
+          height: 630,
+          alt: product.name,
+        },
+      ],
       type: 'website',
-      siteName: 'Порошок',
+      siteName: 'Pulito Trade',
     },
     twitter: {
       card: 'summary_large_image',
@@ -99,19 +104,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const ratingStats = await getProductRatingStats(product.id);
 
   const relatedProducts = product.category
-    ? (await getProducts({
-        category: product.category.slug,
-        page: 1,
-        limit: 8,
-        sort: 'popular',
-      })).products.filter((p) => p.id !== product.id)
+    ? (
+        await getProducts({
+          category: product.category.slug,
+          page: 1,
+          limit: 8,
+          sort: 'popular',
+        })
+      ).products.filter((p) => p.id !== product.id)
     : [];
 
   const breadcrumbs = [
     { label: 'Головна', href: '/' },
     { label: 'Каталог', href: '/catalog' },
     ...(product.category?.parent
-      ? [{ label: product.category.parent.name, href: `/catalog?category=${product.category.parent.slug}` }]
+      ? [
+          {
+            label: product.category.parent.name,
+            href: `/catalog?category=${product.category.parent.slug}`,
+          },
+        ]
       : []),
     ...(product.category
       ? [{ label: product.category.name, href: `/catalog?category=${product.category.slug}` }]
@@ -166,7 +178,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <ProductCarousel
             title="Схожі товари"
             products={relatedProducts}
-            viewAllHref={product.category ? `/catalog?category=${product.category.slug}` : '/catalog'}
+            viewAllHref={
+              product.category ? `/catalog?category=${product.category.slug}` : '/catalog'
+            }
           />
         </Suspense>
       )}

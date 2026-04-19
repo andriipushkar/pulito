@@ -21,7 +21,7 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
     const body = await request.json();
     const parsed = createRoomSchema.safeParse(body);
     if (!parsed.success) {
-      return errorResponse(parsed.error.errors[0]?.message || 'Невірні дані', 400);
+      return errorResponse(parsed.error.issues[0]?.message || 'Невірні дані', 400);
     }
 
     const room = await createRoom(user.id, parsed.data.subject);

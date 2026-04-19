@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma';
  */
 async function getCategoryMappings(): Promise<Record<string, string>> {
   try {
-    const setting = await prisma.setting.findUnique({
+    const setting = await prisma.siteSetting.findUnique({
       where: { key: 'calculator_categories' },
     });
     if (setting?.value) {
@@ -28,7 +28,7 @@ const DEFAULT_CATEGORY_SLUGS: Record<string, string> = {
 };
 
 interface CalculatorInput {
-  familySize: number;   // 1-8
+  familySize: number; // 1-8
   washLoadsPerWeek: number; // 1-14
   cleaningFrequency: 'daily' | 'weekly' | 'biweekly';
 }
@@ -57,17 +57,19 @@ const CATEGORY_USAGE: Record<string, (input: CalculatorInput) => number> = {
   'pralni-poroshky': (i) => Math.ceil((i.washLoadsPerWeek * 0.15 * 4.3) / 1), // kg per month
   'pralni-zasoby': (i) => Math.ceil((i.washLoadsPerWeek * 0.15 * 4.3) / 1),
   // Кондиціонер для білизни: ~50ml per load
-  'kondytsionery': (i) => Math.ceil((i.washLoadsPerWeek * 0.05 * 4.3) / 1), // L per month
+  kondytsionery: (i) => Math.ceil((i.washLoadsPerWeek * 0.05 * 4.3) / 1), // L per month
   // Засоби для миття посуду: ~10ml per person per day
   'mytya-posudu': (i) => Math.ceil((i.familySize * 0.01 * 30) / 0.5), // bottles (0.5L)
   // Засоби для прибирання: based on cleaning frequency
-  'prybyrannya': (i) => {
-    const freqMultiplier = i.cleaningFrequency === 'daily' ? 30 : i.cleaningFrequency === 'weekly' ? 4.3 : 2.15;
+  prybyrannya: (i) => {
+    const freqMultiplier =
+      i.cleaningFrequency === 'daily' ? 30 : i.cleaningFrequency === 'weekly' ? 4.3 : 2.15;
     return Math.ceil((i.familySize * 0.02 * freqMultiplier) / 1);
   },
   // Засоби для ванної/туалету
   'vannaya-tualet': (i) => {
-    const freqMultiplier = i.cleaningFrequency === 'daily' ? 30 : i.cleaningFrequency === 'weekly' ? 4.3 : 2.15;
+    const freqMultiplier =
+      i.cleaningFrequency === 'daily' ? 30 : i.cleaningFrequency === 'weekly' ? 4.3 : 2.15;
     return Math.ceil(freqMultiplier / 4.3); // 1 bottle per ~month if weekly
   },
 };
@@ -170,9 +172,17 @@ export async function calculateRoomNeeds(rooms: RoomConfig[]): Promise<RoomCalcu
   const catBySlug = new Map(categories.map((c) => [c.slug, c]));
 
   // Pre-fetch one product per category
-  const productByCategory = new Map<string, {
-    id: number; name: string; code: string; slug: string; imagePath: string | null; priceRetail: unknown;
-  }>();
+  const productByCategory = new Map<
+    string,
+    {
+      id: number;
+      name: string;
+      code: string;
+      slug: string;
+      imagePath: string | null;
+      priceRetail: unknown;
+    }
+  >();
 
   for (const cat of categories) {
     const product = await prisma.product.findFirst({
@@ -304,7 +314,8 @@ export async function calculateNeeds(input: CalculatorInput): Promise<Calculator
     }
   }
 
-  const totalMonthly = Math.round(recommendations.reduce((sum, r) => sum + r.totalCost, 0) * 100) / 100;
+  const totalMonthly =
+    Math.round(recommendations.reduce((sum, r) => sum + r.totalCost, 0) * 100) / 100;
 
   return {
     recommendations,

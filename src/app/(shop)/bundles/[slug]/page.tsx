@@ -32,8 +32,10 @@ export async function generateMetadata({ params }: BundleDetailPageProps): Promi
       description: bundle.description || `Комплект "${bundle.name}" — купити за вигідною ціною`,
       url,
       type: 'website',
-      siteName: 'Порошок',
-      ...(bundle.imagePath && { images: [{ url: `${baseUrl}${bundle.imagePath}`, alt: bundle.name }] }),
+      siteName: 'Pulito Trade',
+      ...(bundle.imagePath && {
+        images: [{ url: `${baseUrl}${bundle.imagePath}`, alt: bundle.name }],
+      }),
     },
   };
 }
@@ -56,7 +58,10 @@ export default async function BundleDetailPage({ params }: BundleDetailPageProps
       <BreadcrumbJsonLd
         items={breadcrumbs
           .filter((b) => b.href)
-          .map((b) => ({ name: b.label, url: `${process.env.APP_URL || 'http://localhost:3000'}${b.href}` }))}
+          .map((b) => ({
+            name: b.label,
+            url: `${process.env.APP_URL || 'http://localhost:3000'}${b.href}`,
+          }))}
       />
       <Breadcrumbs items={breadcrumbs} className="mb-6" />
 
@@ -66,7 +71,8 @@ export default async function BundleDetailPage({ params }: BundleDetailPageProps
           <div className="mb-6 flex flex-wrap items-start gap-3">
             <h1 className="text-2xl font-bold lg:text-3xl">{bundle.name}</h1>
             <Badge className="bg-[var(--color-primary)] text-white">
-              {bundle.items.length} {bundle.items.length === 1 ? 'товар' : bundle.items.length < 5 ? 'товари' : 'товарів'}
+              {bundle.items.length}{' '}
+              {bundle.items.length === 1 ? 'товар' : bundle.items.length < 5 ? 'товари' : 'товарів'}
             </Badge>
           </div>
 
@@ -106,8 +112,18 @@ export default async function BundleDetailPage({ params }: BundleDetailPageProps
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)]">
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      <svg
+                        className="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                        />
                       </svg>
                     </div>
                   )}
@@ -127,9 +143,7 @@ export default async function BundleDetailPage({ params }: BundleDetailPageProps
                     {Number(item.product.priceRetail).toFixed(2)} ₴
                   </p>
                   {item.quantity > 1 && (
-                    <p className="text-xs text-[var(--color-text-secondary)]">
-                      x{item.quantity}
-                    </p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">x{item.quantity}</p>
                   )}
                 </div>
               </div>

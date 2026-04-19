@@ -21,11 +21,11 @@ function zodSchema(schema: z.ZodType): object {
 export const openApiDocument = {
   openapi: '3.0.3',
   info: {
-    title: 'Порошок API',
+    title: 'Pulito Trade API',
     description: 'REST API для інтернет-магазину побутової хімії (оптово-роздрібна платформа)',
     version: '1.0.0',
     contact: {
-      name: 'Порошок',
+      name: 'Pulito Trade',
     },
   },
   servers: [
@@ -93,10 +93,28 @@ export const openApiDocument = {
         properties: {
           id: { type: 'integer' },
           orderNumber: { type: 'string' },
-          status: { type: 'string', enum: ['new_order', 'processing', 'confirmed', 'paid', 'shipped', 'completed', 'cancelled', 'returned'] },
+          status: {
+            type: 'string',
+            enum: [
+              'new_order',
+              'processing',
+              'confirmed',
+              'paid',
+              'shipped',
+              'completed',
+              'cancelled',
+              'returned',
+            ],
+          },
           totalAmount: { type: 'number' },
-          paymentMethod: { type: 'string', enum: ['cod', 'bank_transfer', 'online', 'card_prepay'] },
-          deliveryMethod: { type: 'string', enum: ['nova_poshta', 'ukrposhta', 'pickup', 'pallet'] },
+          paymentMethod: {
+            type: 'string',
+            enum: ['cod', 'bank_transfer', 'online', 'card_prepay'],
+          },
+          deliveryMethod: {
+            type: 'string',
+            enum: ['nova_poshta', 'ukrposhta', 'pickup', 'pallet'],
+          },
           createdAt: { type: 'string', format: 'date-time' },
         },
       },
@@ -152,7 +170,12 @@ export const openApiDocument = {
           content: { 'application/json': { schema: zodSchema(loginSchema) } },
         },
         responses: {
-          '200': { description: 'Успішний логін', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthTokens' } } } },
+          '200': {
+            description: 'Успішний логін',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/AuthTokens' } },
+            },
+          },
           '401': { description: 'Невірні облікові дані' },
         },
       },
@@ -186,7 +209,11 @@ export const openApiDocument = {
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
           { name: 'categoryId', in: 'query', schema: { type: 'integer' } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
-          { name: 'sort', in: 'query', schema: { type: 'string', enum: ['name', 'price', 'newest'] } },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: { type: 'string', enum: ['name', 'price', 'newest'] },
+          },
         ],
         responses: {
           '200': { description: 'Список товарів з пагінацією' },
@@ -284,17 +311,32 @@ export const openApiDocument = {
           content: { 'application/json': { schema: zodSchema(initiatePaymentSchema) } },
         },
         responses: {
-          '200': { description: 'URL для оплати', content: { 'application/json': { schema: { type: 'object', properties: { redirectUrl: { type: 'string' } } } } } },
+          '200': {
+            description: 'URL для оплати',
+            content: {
+              'application/json': {
+                schema: { type: 'object', properties: { redirectUrl: { type: 'string' } } },
+              },
+            },
+          },
         },
       },
     },
 
     // Webhooks
     '/webhooks/liqpay': {
-      post: { tags: ['Webhooks'], summary: 'LiqPay callback', responses: { '200': { description: 'OK' } } },
+      post: {
+        tags: ['Webhooks'],
+        summary: 'LiqPay callback',
+        responses: { '200': { description: 'OK' } },
+      },
     },
     '/webhooks/monobank': {
-      post: { tags: ['Webhooks'], summary: 'Monobank callback', responses: { '200': { description: 'OK' } } },
+      post: {
+        tags: ['Webhooks'],
+        summary: 'Monobank callback',
+        responses: { '200': { description: 'OK' } },
+      },
     },
 
     // User profile
@@ -342,7 +384,12 @@ export const openApiDocument = {
         summary: 'Трекінг посилки',
         parameters: [
           { name: 'trackingNumber', in: 'query', required: true, schema: { type: 'string' } },
-          { name: 'provider', in: 'query', required: true, schema: { type: 'string', enum: ['nova_poshta', 'ukrposhta'] } },
+          {
+            name: 'provider',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', enum: ['nova_poshta', 'ukrposhta'] },
+          },
         ],
         responses: { '200': { description: 'Статус посилки' } },
       },
@@ -416,23 +463,48 @@ export const openApiDocument = {
         summary: 'Аналітика',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'type', in: 'query', required: true, schema: { type: 'string', enum: ['sales', 'products', 'clients', 'orders'] } },
+          {
+            name: 'type',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', enum: ['sales', 'products', 'clients', 'orders'] },
+          },
           { name: 'days', in: 'query', schema: { type: 'integer', default: 30 } },
         ],
         responses: { '200': { description: 'Дані аналітики залежно від типу' } },
       },
     },
     '/admin/analytics/performance': {
-      get: { tags: ['Admin', 'Analytics'], summary: 'Performance метрики', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Web Vitals агреговані дані' } } },
+      get: {
+        tags: ['Admin', 'Analytics'],
+        summary: 'Performance метрики',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Web Vitals агреговані дані' } },
+      },
     },
     '/admin/analytics/funnel': {
-      get: { tags: ['Admin', 'Analytics'], summary: 'Воронка конверсії', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Дані воронки' } } },
+      get: {
+        tags: ['Admin', 'Analytics'],
+        summary: 'Воронка конверсії',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Дані воронки' } },
+      },
     },
     '/admin/analytics/cohorts': {
-      get: { tags: ['Admin', 'Analytics'], summary: 'Когортний аналіз', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Retention когорт' } } },
+      get: {
+        tags: ['Admin', 'Analytics'],
+        summary: 'Когортний аналіз',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Retention когорт' } },
+      },
     },
     '/admin/analytics/abc': {
-      get: { tags: ['Admin', 'Analytics'], summary: 'ABC-аналіз товарів', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Класифікація товарів' } } },
+      get: {
+        tags: ['Admin', 'Analytics'],
+        summary: 'ABC-аналіз товарів',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Класифікація товарів' } },
+      },
     },
 
     // Admin — Personal Prices
@@ -463,8 +535,18 @@ export const openApiDocument = {
 
     // Admin — Loyalty
     '/admin/loyalty/settings': {
-      get: { tags: ['Admin', 'Loyalty'], summary: 'Налаштування рівнів лояльності', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Список рівнів' } } },
-      put: { tags: ['Admin', 'Loyalty'], summary: 'Оновити рівні лояльності', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Оновлено' } } },
+      get: {
+        tags: ['Admin', 'Loyalty'],
+        summary: 'Налаштування рівнів лояльності',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Список рівнів' } },
+      },
+      put: {
+        tags: ['Admin', 'Loyalty'],
+        summary: 'Оновити рівні лояльності',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Оновлено' } },
+      },
     },
     '/admin/loyalty/adjust': {
       post: {
@@ -478,16 +560,33 @@ export const openApiDocument = {
 
     // Admin — Settings
     '/admin/settings': {
-      get: { tags: ['Admin'], summary: 'Налаштування сайту', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Key-value налаштувань' } } },
-      put: { tags: ['Admin'], summary: 'Оновити налаштування', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Оновлено' } } },
+      get: {
+        tags: ['Admin'],
+        summary: 'Налаштування сайту',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Key-value налаштувань' } },
+      },
+      put: {
+        tags: ['Admin'],
+        summary: 'Оновити налаштування',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Оновлено' } },
+      },
     },
     '/admin/settings/pallet-delivery': {
-      get: { tags: ['Admin', 'Delivery'], summary: 'Конфіг палетної доставки', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Конфіг' } } },
+      get: {
+        tags: ['Admin', 'Delivery'],
+        summary: 'Конфіг палетної доставки',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Конфіг' } },
+      },
       put: {
         tags: ['Admin', 'Delivery'],
         summary: 'Оновити конфіг палетної доставки',
         security: [{ bearerAuth: [] }],
-        requestBody: { content: { 'application/json': { schema: zodSchema(palletConfigSchema.partial()) } } },
+        requestBody: {
+          content: { 'application/json': { schema: zodSchema(palletConfigSchema.partial()) } },
+        },
         responses: { '200': { description: 'Оновлено' } },
       },
     },

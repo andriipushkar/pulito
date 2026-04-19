@@ -25,21 +25,22 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
   const post = await getPostBySlug(slug);
 
   if (!post) {
-    return { title: 'Статтю не знайдено — Порошок' };
+    return { title: 'Статтю не знайдено — Pulito Trade' };
   }
 
   const title = post.seoTitle || post.title;
-  const description = post.seoDescription || post.excerpt || `${post.title} — читайте в блозі Порошок`;
+  const description =
+    post.seoDescription || post.excerpt || `${post.title} — читайте в блозі Pulito Trade`;
   const url = `${baseUrl}/blog/${slug}`;
 
   return {
-    title: `${title} — Порошок`,
+    title: `${title} — Pulito Trade`,
     description,
     alternates: {
       canonical: url,
       languages: {
-        'uk': url,
-        'en': `${baseUrl}/en/blog/${slug}`,
+        uk: url,
+        en: `${baseUrl}/en/blog/${slug}`,
         'x-default': url,
       },
     },
@@ -48,16 +49,20 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
       description,
       url,
       type: 'article',
-      siteName: 'Порошок',
+      siteName: 'Pulito Trade',
       ...(post.publishedAt && { publishedTime: new Date(post.publishedAt).toISOString() }),
       ...(post.updatedAt && { modifiedTime: new Date(post.updatedAt).toISOString() }),
       ...(post.coverImage && {
-        images: [{
-          url: post.coverImage.startsWith('http') ? post.coverImage : `${baseUrl}${post.coverImage}`,
-          width: 1200,
-          height: 630,
-          alt: post.title,
-        }],
+        images: [
+          {
+            url: post.coverImage.startsWith('http')
+              ? post.coverImage
+              : `${baseUrl}${post.coverImage}`,
+            width: 1200,
+            height: 630,
+            alt: post.title,
+          },
+        ],
       }),
     },
     twitter: {
@@ -65,14 +70,19 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
       title,
       description,
       ...(post.coverImage && {
-        images: [post.coverImage.startsWith('http') ? post.coverImage : `${baseUrl}${post.coverImage}`],
+        images: [
+          post.coverImage.startsWith('http') ? post.coverImage : `${baseUrl}${post.coverImage}`,
+        ],
       }),
     },
   };
 }
 
 function estimateReadTime(content: string): number {
-  const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length;
+  const wordCount = content
+    .replace(/<[^>]*>/g, '')
+    .split(/\s+/)
+    .filter(Boolean).length;
   return Math.max(1, Math.ceil(wordCount / 200));
 }
 
@@ -108,8 +118,18 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         title={post.seoTitle || post.title}
         description={post.seoDescription || post.excerpt || ''}
         url={url}
-        image={post.coverImage ? (post.coverImage.startsWith('http') ? post.coverImage : `${baseUrl}${post.coverImage}`) : null}
-        datePublished={post.publishedAt ? new Date(post.publishedAt).toISOString() : new Date(post.createdAt).toISOString()}
+        image={
+          post.coverImage
+            ? post.coverImage.startsWith('http')
+              ? post.coverImage
+              : `${baseUrl}${post.coverImage}`
+            : null
+        }
+        datePublished={
+          post.publishedAt
+            ? new Date(post.publishedAt).toISOString()
+            : new Date(post.createdAt).toISOString()
+        }
         dateModified={new Date(post.updatedAt).toISOString()}
         categoryName={post.category?.name}
       />
@@ -128,9 +148,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </Link>
           )}
 
-          <h1 className="mb-4 text-3xl font-bold leading-tight sm:text-4xl">
-            {post.title}
-          </h1>
+          <h1 className="mb-4 text-3xl font-bold leading-tight sm:text-4xl">{post.title}</h1>
 
           <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--color-text-secondary)]">
             {post.publishedAt && (
@@ -143,9 +161,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               </time>
             )}
             <span>{readTime} хв читання</span>
-            {post.viewsCount > 0 && (
-              <span>{post.viewsCount} переглядів</span>
-            )}
+            {post.viewsCount > 0 && <span>{post.viewsCount} переглядів</span>}
           </div>
         </header>
 

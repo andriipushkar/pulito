@@ -48,10 +48,14 @@ async function handleBotBlocked(chatId: number) {
   }
 }
 
-async function sendMessage(chatId: number, text: string, options?: {
-  parse_mode?: string;
-  reply_markup?: unknown;
-}) {
+async function sendMessage(
+  chatId: number,
+  text: string,
+  options?: {
+    parse_mode?: string;
+    reply_markup?: unknown;
+  },
+) {
   const res = await fetch(`${API_BASE}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -68,10 +72,15 @@ async function sendMessage(chatId: number, text: string, options?: {
   }
 }
 
-async function sendPhoto(chatId: number, photoUrl: string, caption: string, options?: {
-  parse_mode?: string;
-  reply_markup?: unknown;
-}) {
+async function sendPhoto(
+  chatId: number,
+  photoUrl: string,
+  caption: string,
+  options?: {
+    parse_mode?: string;
+    reply_markup?: unknown;
+  },
+) {
   await fetch(`${API_BASE}/sendPhoto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -88,10 +97,15 @@ async function sendPhoto(chatId: number, photoUrl: string, caption: string, opti
 /**
  * Send a product message: uses sendPhoto if image exists, otherwise sendMessage.
  */
-async function sendProductMessage(chatId: number, text: string, imageUrl: string | null, options?: {
-  parse_mode?: string;
-  reply_markup?: unknown;
-}) {
+async function sendProductMessage(
+  chatId: number,
+  text: string,
+  imageUrl: string | null,
+  options?: {
+    parse_mode?: string;
+    reply_markup?: unknown;
+  },
+) {
   if (imageUrl) {
     await sendPhoto(chatId, imageUrl, text, options);
   } else {
@@ -117,10 +131,22 @@ async function findLinkedUser(chatId: number) {
 
 const MAIN_MENU = {
   inline_keyboard: [
-    [{ text: '🛒 Каталог', callback_data: 'catalog' }, { text: '🔥 Акції', callback_data: 'promo' }],
-    [{ text: '🆕 Новинки', callback_data: 'new' }, { text: '⭐ Популярне', callback_data: 'popular' }],
-    [{ text: '📦 Мої замовлення', callback_data: 'orders' }, { text: '✍️ Відгук', callback_data: 'feedback' }],
-    [{ text: '📞 Зв\'язатися', callback_data: 'contact' }, { text: '⚙️ Налаштування', callback_data: 'settings' }],
+    [
+      { text: '🛒 Каталог', callback_data: 'catalog' },
+      { text: '🔥 Акції', callback_data: 'promo' },
+    ],
+    [
+      { text: '🆕 Новинки', callback_data: 'new' },
+      { text: '⭐ Популярне', callback_data: 'popular' },
+    ],
+    [
+      { text: '📦 Мої замовлення', callback_data: 'orders' },
+      { text: '✍️ Відгук', callback_data: 'feedback' },
+    ],
+    [
+      { text: "📞 Зв'язатися", callback_data: 'contact' },
+      { text: '⚙️ Налаштування', callback_data: 'settings' },
+    ],
   ],
 };
 
@@ -128,7 +154,7 @@ async function handleStart(chatId: number, firstName: string) {
   const user = await findLinkedUser(chatId);
   const greeting = user
     ? `Вітаємо, ${user.fullName || firstName}! 👋`
-    : `Вітаємо у Порошок, ${firstName}! 👋`;
+    : `Вітаємо у Pulito Trade, ${firstName}! 👋`;
 
   await sendMessage(chatId, `${greeting}\n\nОберіть дію:`, {
     reply_markup: MAIN_MENU,
@@ -162,7 +188,15 @@ async function handleCategoryProducts(chatId: number, categoryId: number, offset
   const [products, totalCount] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true, categoryId },
-      select: { id: true, name: true, slug: true, priceRetail: true, isPromo: true, code: true, imagePath: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        priceRetail: true,
+        isPromo: true,
+        code: true,
+        imagePath: true,
+      },
       orderBy: { sortOrder: 'asc' },
       skip: offset,
       take: PRODUCTS_PER_PAGE,
@@ -193,7 +227,12 @@ async function handleCategoryProducts(chatId: number, categoryId: number, offset
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram&utm_medium=bot` }],
+          [
+            {
+              text: '🛒 На сайт',
+              url: `${appUrl}/product/${p.slug}?utm_source=telegram&utm_medium=bot`,
+            },
+          ],
         ],
       },
     });
@@ -202,19 +241,22 @@ async function handleCategoryProducts(chatId: number, categoryId: number, offset
   // Pagination buttons
   const paginationButtons: { text: string; callback_data: string }[] = [];
   if (offset > 0) {
-    paginationButtons.push({ text: '◀️ Назад', callback_data: `cat_products:${categoryId}:${offset - PRODUCTS_PER_PAGE}` });
+    paginationButtons.push({
+      text: '◀️ Назад',
+      callback_data: `cat_products:${categoryId}:${offset - PRODUCTS_PER_PAGE}`,
+    });
   }
   if (offset + PRODUCTS_PER_PAGE < totalCount) {
-    paginationButtons.push({ text: 'Вперед ▶️', callback_data: `cat_products:${categoryId}:${offset + PRODUCTS_PER_PAGE}` });
+    paginationButtons.push({
+      text: 'Вперед ▶️',
+      callback_data: `cat_products:${categoryId}:${offset + PRODUCTS_PER_PAGE}`,
+    });
   }
 
   if (paginationButtons.length > 0) {
     await sendMessage(chatId, 'Навігація:', {
       reply_markup: {
-        inline_keyboard: [
-          paginationButtons,
-          [{ text: '⬅️ Головне меню', callback_data: 'menu' }],
-        ],
+        inline_keyboard: [paginationButtons, [{ text: '⬅️ Головне меню', callback_data: 'menu' }]],
       },
     });
   }
@@ -224,7 +266,15 @@ async function handlePromo(chatId: number, offset: number = 0) {
   const [products, totalCount] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true, isPromo: true },
-      select: { id: true, name: true, slug: true, priceRetail: true, priceRetailOld: true, code: true, imagePath: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        priceRetail: true,
+        priceRetailOld: true,
+        code: true,
+        imagePath: true,
+      },
       skip: offset,
       take: PRODUCTS_PER_PAGE,
     }),
@@ -253,7 +303,9 @@ async function handlePromo(chatId: number, offset: number = 0) {
     const imageUrl = p.imagePath ? `${appUrl}${p.imagePath}` : null;
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
-        inline_keyboard: [[{ text: '🛒 Купити', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }]],
+        inline_keyboard: [
+          [{ text: '🛒 Купити', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }],
+        ],
       },
     });
   }
@@ -261,19 +313,22 @@ async function handlePromo(chatId: number, offset: number = 0) {
   // Pagination buttons
   const paginationButtons: { text: string; callback_data: string }[] = [];
   if (offset > 0) {
-    paginationButtons.push({ text: '◀️ Назад', callback_data: `promo:${offset - PRODUCTS_PER_PAGE}` });
+    paginationButtons.push({
+      text: '◀️ Назад',
+      callback_data: `promo:${offset - PRODUCTS_PER_PAGE}`,
+    });
   }
   if (offset + PRODUCTS_PER_PAGE < totalCount) {
-    paginationButtons.push({ text: 'Вперед ▶️', callback_data: `promo:${offset + PRODUCTS_PER_PAGE}` });
+    paginationButtons.push({
+      text: 'Вперед ▶️',
+      callback_data: `promo:${offset + PRODUCTS_PER_PAGE}`,
+    });
   }
 
   if (paginationButtons.length > 0) {
     await sendMessage(chatId, 'Навігація:', {
       reply_markup: {
-        inline_keyboard: [
-          paginationButtons,
-          [{ text: '⬅️ Головне меню', callback_data: 'menu' }],
-        ],
+        inline_keyboard: [paginationButtons, [{ text: '⬅️ Головне меню', callback_data: 'menu' }]],
       },
     });
   }
@@ -283,9 +338,11 @@ async function handleOrders(chatId: number) {
   const user = await findLinkedUser(chatId);
   if (!user) {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    await sendMessage(chatId, 'Для перегляду замовлень прив\'яжіть акаунт:', {
+    await sendMessage(chatId, "Для перегляду замовлень прив'яжіть акаунт:", {
       reply_markup: {
-        inline_keyboard: [[{ text: '🔗 Увійти в акаунт', url: `${appUrl}/auth/login?telegram=${chatId}` }]],
+        inline_keyboard: [
+          [{ text: '🔗 Увійти в акаунт', url: `${appUrl}/auth/login?telegram=${chatId}` }],
+        ],
       },
     });
     return;
@@ -304,8 +361,14 @@ async function handleOrders(chatId: number) {
   }
 
   const statusEmoji: Record<string, string> = {
-    new_order: '🆕', processing: '⏳', confirmed: '✅', paid: '💰',
-    shipped: '🚚', completed: '✅', cancelled: '❌', returned: '↩️',
+    new_order: '🆕',
+    processing: '⏳',
+    confirmed: '✅',
+    paid: '💰',
+    shipped: '🚚',
+    completed: '✅',
+    cancelled: '❌',
+    returned: '↩️',
   };
 
   let text = '📦 <b>Ваші замовлення:</b>\n\n';
@@ -332,9 +395,13 @@ async function handleSearch(chatId: number, query: string) {
   });
 
   if (products.length === 0) {
-    await sendMessage(chatId, `На жаль, за запитом «${query}» нічого не знайдено.\nСпробуйте інший запит або перегляньте каталог.`, {
-      reply_markup: { inline_keyboard: [[{ text: '🛒 Каталог', callback_data: 'catalog' }]] },
-    });
+    await sendMessage(
+      chatId,
+      `На жаль, за запитом «${query}» нічого не знайдено.\nСпробуйте інший запит або перегляньте каталог.`,
+      {
+        reply_markup: { inline_keyboard: [[{ text: '🛒 Каталог', callback_data: 'catalog' }]] },
+      },
+    );
     return;
   }
 
@@ -345,7 +412,9 @@ async function handleSearch(chatId: number, query: string) {
     const imageUrl = p.imagePath ? `${appUrl}${p.imagePath}` : null;
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
-        inline_keyboard: [[{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }]],
+        inline_keyboard: [
+          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }],
+        ],
       },
     });
   }
@@ -355,7 +424,15 @@ async function handleNew(chatId: number) {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   const products = await prisma.product.findMany({
     where: { isActive: true },
-    select: { id: true, name: true, slug: true, priceRetail: true, code: true, imagePath: true, createdAt: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      priceRetail: true,
+      code: true,
+      imagePath: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: 'desc' },
     take: PRODUCTS_PER_PAGE,
   });
@@ -372,7 +449,9 @@ async function handleNew(chatId: number) {
     const imageUrl = p.imagePath ? `${appUrl}${p.imagePath}` : null;
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
-        inline_keyboard: [[{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }]],
+        inline_keyboard: [
+          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }],
+        ],
       },
     });
   }
@@ -382,7 +461,15 @@ async function handlePopular(chatId: number) {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   const products = await prisma.product.findMany({
     where: { isActive: true },
-    select: { id: true, name: true, slug: true, priceRetail: true, code: true, imagePath: true, ordersCount: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      priceRetail: true,
+      code: true,
+      imagePath: true,
+      ordersCount: true,
+    },
     orderBy: { ordersCount: 'desc' },
     take: PRODUCTS_PER_PAGE,
   });
@@ -398,7 +485,9 @@ async function handlePopular(chatId: number) {
     const imageUrl = p.imagePath ? `${appUrl}${p.imagePath}` : null;
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
-        inline_keyboard: [[{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }]],
+        inline_keyboard: [
+          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }],
+        ],
       },
     });
   }
@@ -409,7 +498,10 @@ const feedbackAwaiters = new Set<number>();
 
 async function handleFeedbackStart(chatId: number) {
   feedbackAwaiters.add(chatId);
-  await sendMessage(chatId, '✍️ Напишіть ваш відгук або побажання одним повідомленням.\n\nДля скасування натисніть /cancel');
+  await sendMessage(
+    chatId,
+    '✍️ Напишіть ваш відгук або побажання одним повідомленням.\n\nДля скасування натисніть /cancel',
+  );
 }
 
 async function handleFeedbackSubmit(chatId: number, message: string, firstName: string) {
@@ -429,7 +521,7 @@ async function handleFeedbackSubmit(chatId: number, message: string, firstName: 
     },
   });
 
-  await sendMessage(chatId, '✅ Дякуємо за ваш відгук! Ми обов\'язково його розглянемо.', {
+  await sendMessage(chatId, "✅ Дякуємо за ваш відгук! Ми обов'язково його розглянемо.", {
     reply_markup: { inline_keyboard: [[{ text: '⬅️ Головне меню', callback_data: 'menu' }]] },
   });
 
@@ -446,10 +538,10 @@ async function handleFeedbackSubmit(chatId: number, message: string, firstName: 
 async function handleSettings(chatId: number) {
   const user = await findLinkedUser(chatId);
   if (!user) {
-    await sendMessage(chatId, '⚠️ Для налаштувань потрібно прив\'язати акаунт.', {
+    await sendMessage(chatId, "⚠️ Для налаштувань потрібно прив'язати акаунт.", {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🔗 Прив\'язати акаунт', callback_data: 'link' }],
+          [{ text: "🔗 Прив'язати акаунт", callback_data: 'link' }],
           [{ text: '⬅️ Головне меню', callback_data: 'menu' }],
         ],
       },
@@ -470,15 +562,19 @@ async function handleSettings(chatId: number) {
     : '🔔 Увімкнути Telegram-сповіщення';
   const toggleAction = telegramEnabled ? 'settings_notif:off' : 'settings_notif:on';
 
-  await sendMessage(chatId, `⚙️ <b>Налаштування</b>\n\nTelegram-сповіщення: ${telegramEnabled ? '✅ Увімкнено' : '❌ Вимкнено'}`, {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: toggleText, callback_data: toggleAction }],
-        [{ text: '🔗 Прив\'язка акаунту', callback_data: 'link' }],
-        [{ text: '⬅️ Головне меню', callback_data: 'menu' }],
-      ],
+  await sendMessage(
+    chatId,
+    `⚙️ <b>Налаштування</b>\n\nTelegram-сповіщення: ${telegramEnabled ? '✅ Увімкнено' : '❌ Вимкнено'}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: toggleText, callback_data: toggleAction }],
+          [{ text: "🔗 Прив'язка акаунту", callback_data: 'link' }],
+          [{ text: '⬅️ Головне меню', callback_data: 'menu' }],
+        ],
+      },
     },
-  });
+  );
 }
 
 async function handleSettingsToggleNotification(chatId: number, enable: boolean) {
@@ -498,7 +594,9 @@ async function handleSettingsToggleNotification(chatId: number, enable: boolean)
     },
   });
 
-  const statusText = enable ? '✅ Telegram-сповіщення увімкнено.' : '❌ Telegram-сповіщення вимкнено.';
+  const statusText = enable
+    ? '✅ Telegram-сповіщення увімкнено.'
+    : '❌ Telegram-сповіщення вимкнено.';
   await sendMessage(chatId, statusText, {
     reply_markup: {
       inline_keyboard: [
@@ -511,11 +609,17 @@ async function handleSettingsToggleNotification(chatId: number, enable: boolean)
 
 async function handleContact(chatId: number) {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
-  await sendMessage(chatId, `📞 <b>Контакти Порошок</b>\n\n📱 Телефон: +380 XX XXX XX XX\n📧 Email: info@poroshok.ua\n🕐 Графік: Пн-Пт 9:00-18:00\n🌐 Сайт: ${appUrl}`);
+  await sendMessage(
+    chatId,
+    `📞 <b>Контакти Pulito Trade</b>\n\n📱 Телефон: +380 XX XXX XX XX\n📧 Email: info@pulito.trade\n🕐 Графік: Пн-Пт 9:00-18:00\n🌐 Сайт: ${appUrl}`,
+  );
 }
 
 async function handleHelp(chatId: number) {
-  await sendMessage(chatId, `<b>Доступні команди:</b>\n\n/start — Головне меню\n/catalog — Каталог товарів\n/promo — Акційні товари\n/new — Новинки\n/popular — Популярні товари\n/search — Пошук товарів\n/orders — Мої замовлення\n/feedback — Залишити відгук\n/settings — Налаштування сповіщень\n/contact — Контакти\n/help — Ця довідка\n\nАбо просто напишіть назву товару для пошуку.`);
+  await sendMessage(
+    chatId,
+    `<b>Доступні команди:</b>\n\n/start — Головне меню\n/catalog — Каталог товарів\n/promo — Акційні товари\n/new — Новинки\n/popular — Популярні товари\n/search — Пошук товарів\n/orders — Мої замовлення\n/feedback — Залишити відгук\n/settings — Налаштування сповіщень\n/contact — Контакти\n/help — Ця довідка\n\nАбо просто напишіть назву товару для пошуку.`,
+  );
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -537,7 +641,7 @@ export async function sendClientNotification(
   chatId: number,
   title: string,
   message: string,
-  link?: string | null
+  link?: string | null,
 ) {
   if (!BOT_TOKEN) return;
 
@@ -558,7 +662,7 @@ export async function sendClientNotification(
 export async function sendProductPhotoToUser(
   userId: number,
   imageUrl: string,
-  caption: string
+  caption: string,
 ): Promise<boolean> {
   if (!BOT_TOKEN) return false;
 
@@ -608,7 +712,9 @@ export async function notifyManagerNewOrder(order: {
     `🏷 Тип: ${clientLabel}`,
     `🚚 Доставка: ${order.deliveryMethod}`,
     `💳 Оплата: ${order.paymentMethod}`,
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   try {
     await sendMessage(Number(chatId), text);
@@ -625,7 +731,7 @@ export async function notifyClientStatusChange(
   orderNumber: string,
   oldStatus: string,
   newStatus: string,
-  trackingNumber?: string | null
+  trackingNumber?: string | null,
 ) {
   if (!BOT_TOKEN) return;
 
@@ -661,9 +767,7 @@ export async function notifyClientStatusChange(
   try {
     await sendMessage(chatId, lines.join('\n'), {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: '📋 Деталі замовлення', url: `${appUrl}/account/orders` }],
-        ],
+        inline_keyboard: [[{ text: '📋 Деталі замовлення', url: `${appUrl}/account/orders` }]],
       },
     });
   } catch {
@@ -686,7 +790,8 @@ export async function notifyManagerFeedback(data: {
   if (!chatId || !BOT_TOKEN) return;
 
   const icon = data.type === 'callback' ? '📞' : '📨';
-  const label = data.type === 'callback' ? 'Запит на зворотний дзвінок' : 'Повідомлення зворотного зв\'язку';
+  const label =
+    data.type === 'callback' ? 'Запит на зворотний дзвінок' : "Повідомлення зворотного зв'язку";
   const lines = [
     `${icon} <b>${label}</b>`,
     '',
@@ -748,7 +853,7 @@ async function handleOutsideSchedule(chatId: number) {
           [{ text: '🌐 Перейти на сайт', url: process.env.APP_URL || 'http://localhost:3000' }],
         ],
       },
-    }
+    },
   );
 }
 
@@ -779,24 +884,28 @@ export async function linkTelegramAccount(userId: number, token: string): Promis
   await redis.del(`tg_link:${token}`);
 
   // Notify user in Telegram
-  await sendMessage(Number(chatId), '✅ Акаунт успішно прив\'язано! Тепер ви будете отримувати сповіщення тут.');
+  await sendMessage(
+    Number(chatId),
+    "✅ Акаунт успішно прив'язано! Тепер ви будете отримувати сповіщення тут.",
+  );
   return true;
 }
 
 async function handleLink(chatId: number) {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   const token = await generateLinkToken(chatId);
-  await sendMessage(
-    chatId,
-    '🔗 Для прив\'язки акаунту натисніть на кнопку нижче:',
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔗 Прив\'язати акаунт', url: `${appUrl}/account/settings?link_telegram=${token}` }],
+  await sendMessage(chatId, "🔗 Для прив'язки акаунту натисніть на кнопку нижче:", {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "🔗 Прив'язати акаунт",
+            url: `${appUrl}/account/settings?link_telegram=${token}`,
+          },
         ],
-      },
-    }
-  );
+      ],
+    },
+  });
 }
 
 /**
@@ -875,13 +984,12 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
       else if (data.startsWith('cat_products:')) {
         const parts = data.split(':');
         await handleCategoryProducts(chatId, Number(parts[1]), Number(parts[2]) || 0);
-      }
-      else if (data.startsWith('cat_')) await handleCategoryProducts(chatId, Number(data.replace('cat_', '')));
+      } else if (data.startsWith('cat_'))
+        await handleCategoryProducts(chatId, Number(data.replace('cat_', '')));
       else if (data.startsWith('promo:')) {
         const promoOffset = Number(data.split(':')[1]) || 0;
         await handlePromo(chatId, promoOffset);
-      }
-      else if (data === 'promo') await handlePromo(chatId);
+      } else if (data === 'promo') await handlePromo(chatId);
       else if (data === 'new') await handleNew(chatId);
       else if (data === 'popular') await handlePopular(chatId);
       else if (data === 'feedback') await handleFeedbackStart(chatId);
@@ -914,7 +1022,9 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
         if (feedbackAwaiters.has(chatId)) {
           feedbackAwaiters.delete(chatId);
           await sendMessage(chatId, 'Відгук скасовано.', {
-            reply_markup: { inline_keyboard: [[{ text: '⬅️ Головне меню', callback_data: 'menu' }]] },
+            reply_markup: {
+              inline_keyboard: [[{ text: '⬅️ Головне меню', callback_data: 'menu' }]],
+            },
           });
         }
         return;
@@ -953,7 +1063,10 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
 async function handleWholesalePrices(chatId: number) {
   const user = await findLinkedUser(chatId);
   if (!user || user.role !== 'wholesaler') {
-    await sendMessage(chatId, '⚠️ Оптові ціни доступні тільки для авторизованих оптових клієнтів.\n\nЗверніться до менеджера для отримання оптового статусу.');
+    await sendMessage(
+      chatId,
+      '⚠️ Оптові ціни доступні тільки для авторизованих оптових клієнтів.\n\nЗверніться до менеджера для отримання оптового статусу.',
+    );
     return;
   }
 

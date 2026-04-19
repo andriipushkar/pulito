@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Скидання пароля',
-  description: 'Встановіть новий пароль для вашого акаунту в інтернет-магазині Порошок.',
+  description: 'Встановіть новий пароль для вашого акаунту в інтернет-магазині Pulito Trade.',
   robots: { index: false, follow: true },
 };
 

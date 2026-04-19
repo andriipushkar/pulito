@@ -295,7 +295,7 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
     await prisma.$transaction([
       prisma.payment.update({
         where: { orderId },
-        data: { paymentStatus: newPaymentStatus as any },
+        data: { paymentStatus: newPaymentStatus },
       }),
       prisma.order.update({
         where: { id: orderId },

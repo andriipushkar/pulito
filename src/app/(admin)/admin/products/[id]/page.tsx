@@ -57,6 +57,8 @@ export default function AdminProductDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { isUploading, progress, upload: uploadWithProgress } = useUploadProgress();
   const { errors, validateAll, clearError } = useFormValidation({
     name: { required: "Назва обов'язкова", minLength: { value: 2, message: 'Мінімум 2 символи' } },
@@ -172,6 +174,24 @@ export default function AdminProductDetailPage() {
     const res = await apiClient.delete(`/api/v1/admin/products/${id}/images/${imageId}`);
     if (res.success && product) {
       setProduct({ ...product, images: product.images.filter((img) => img.id !== imageId) });
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    setConfirmDelete(false);
+    setIsDeleting(true);
+    try {
+      const res = await apiClient.delete(`/api/v1/admin/products/${id}`);
+      if (res.success) {
+        toast.success('Товар видалено');
+        router.push('/admin/products');
+      } else {
+        toast.error(res.error || 'Не вдалося видалити товар');
+      }
+    } catch {
+      toast.error('Помилка видалення');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -445,6 +465,9 @@ export default function AdminProductDetailPage() {
         <Button variant="outline" onClick={() => router.push('/admin/products')}>
           Скасувати
         </Button>
+        <Button variant="danger" onClick={() => setConfirmDelete(true)} isLoading={isDeleting}>
+          Видалити товар
+        </Button>
       </div>
 
       <ConfirmDialog
@@ -453,6 +476,16 @@ export default function AdminProductDetailPage() {
         onConfirm={executeDeleteImage}
         variant="danger"
         message="Видалити зображення?"
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDeleteProduct}
+        variant="danger"
+        title="Видалення товару"
+        message={`Ви впевнені, що хочете видалити "${product.name}"? Товар буде деактивовано та позначено як видалений.`}
+        confirmText="Так, видалити"
       />
     </div>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiClient, getAccessToken } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 
@@ -46,17 +46,13 @@ export default function AdminIntegrationsPage() {
 
   async function fetchData() {
     try {
-      const token = getAccessToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const [keysRes, syncsRes] = await Promise.all([
-        apiClient.get('/api/v1/admin/integration/api-keys', { headers }),
-        apiClient.get('/api/v1/admin/integration/syncs', { headers }),
+        apiClient.get<ApiKeyRow[]>('/api/v1/admin/integration/api-keys'),
+        apiClient.get<SyncRow[]>('/api/v1/admin/integration/syncs'),
       ]);
 
-      setApiKeys(keysRes.data?.data ?? []);
-      setSyncs(syncsRes.data?.data ?? []);
+      setApiKeys(keysRes.data ?? []);
+      setSyncs(syncsRes.data ?? []);
     } catch {
       // silently handle — page will show empty state
     } finally {
@@ -72,21 +68,13 @@ export default function AdminIntegrationsPage() {
     if (!newKeyName.trim()) return;
     setIsCreatingKey(true);
     try {
-      const token = getAccessToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await apiClient.post<{ rawKey?: string }>('/api/v1/admin/integration/api-keys', {
+        name: newKeyName.trim(),
+        permissions: { products: true, orders: true, stock: true, prices: true },
+      });
 
-      const res = await apiClient.post(
-        '/api/v1/admin/integration/api-keys',
-        {
-          name: newKeyName.trim(),
-          permissions: { products: true, orders: true, stock: true, prices: true },
-        },
-        { headers }
-      );
-
-      if (res.data?.data?.rawKey) {
-        setCreatedKey(res.data.data.rawKey);
+      if (res.data?.rawKey) {
+        setCreatedKey(res.data.rawKey);
       }
       setNewKeyName('');
       fetchData();
@@ -99,15 +87,7 @@ export default function AdminIntegrationsPage() {
 
   async function handleDeactivateKey(id: number) {
     try {
-      const token = getAccessToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      await apiClient.patch(
-        `/api/v1/admin/integration/api-keys/${id}`,
-        { isActive: false },
-        { headers }
-      );
+      await apiClient.patch(`/api/v1/admin/integration/api-keys/${id}`, { isActive: false });
       fetchData();
     } catch {
       // handle error
@@ -190,22 +170,16 @@ export default function AdminIntegrationsPage() {
                   <td className="px-3 py-2">
                     <span
                       className={`rounded px-2 py-0.5 text-xs font-medium ${
-                        key.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600'
+                        key.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                       }`}
                     >
                       {key.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="px-3 py-2">
-                    {key.lastUsedAt
-                      ? new Date(key.lastUsedAt).toLocaleString()
-                      : 'Never'}
+                    {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : 'Never'}
                   </td>
-                  <td className="px-3 py-2">
-                    {new Date(key.createdAt).toLocaleDateString()}
-                  </td>
+                  <td className="px-3 py-2">{new Date(key.createdAt).toLocaleDateString()}</td>
                   <td className="px-3 py-2">
                     {key.isActive && (
                       <button

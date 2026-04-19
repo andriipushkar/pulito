@@ -13,7 +13,8 @@ export async function sendAnalyticsDigest(period: DigestPeriod) {
   const dateFrom = new Date();
   dateFrom.setDate(dateFrom.getDate() - days);
 
-  const periodLabel = period === 'daily' ? 'Щоденний' : period === 'weekly' ? 'Щотижневий' : 'Щомісячний';
+  const periodLabel =
+    period === 'daily' ? 'Щоденний' : period === 'weekly' ? 'Щотижневий' : 'Щомісячний';
   const dateRange = `${dateFrom.toLocaleDateString('uk-UA')} — ${new Date().toLocaleDateString('uk-UA')}`;
 
   // Gather analytics data
@@ -29,7 +30,9 @@ export async function sendAnalyticsDigest(period: DigestPeriod) {
     // Top 5 products
     prisma.orderItem.groupBy({
       by: ['productName', 'productCode'],
-      where: { order: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled', 'returned'] } } },
+      where: {
+        order: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled', 'returned'] } },
+      },
       _sum: { subtotal: true, quantity: true },
       orderBy: { _sum: { subtotal: 'desc' } },
       take: 5,
@@ -45,7 +48,9 @@ export async function sendAnalyticsDigest(period: DigestPeriod) {
   const avgCheck = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
   // Build HTML email
-  const topProductsHtml = topProducts.map((p, i) => `
+  const topProductsHtml = topProducts
+    .map(
+      (p, i) => `
     <tr>
       <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb">${i + 1}</td>
       <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb">${p.productCode}</td>
@@ -53,11 +58,13 @@ export async function sendAnalyticsDigest(period: DigestPeriod) {
       <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:right">${Number(p._sum.quantity || 0)}</td>
       <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:right">${Number(p._sum.subtotal || 0).toFixed(0)} ₴</td>
     </tr>
-  `).join('');
+  `,
+    )
+    .join('');
 
   const html = `
     <div style="font-family:sans-serif;max-width:700px;margin:0 auto;padding:20px">
-      <h2 style="color:#2563eb;margin-bottom:4px">${periodLabel} дайджест — Порошок</h2>
+      <h2 style="color:#2563eb;margin-bottom:4px">${periodLabel} дайджест — Pulito Trade</h2>
       <p style="color:#64748b;font-size:14px;margin-top:0">${dateRange}</p>
 
       <div style="display:flex;gap:16px;margin:24px 0">
@@ -88,7 +95,9 @@ export async function sendAnalyticsDigest(period: DigestPeriod) {
         </div>
       </div>
 
-      ${topProducts.length > 0 ? `
+      ${
+        topProducts.length > 0
+          ? `
         <h3 style="color:#1e293b;margin-bottom:8px">Топ-5 товарів</h3>
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead>
@@ -102,11 +111,13 @@ export async function sendAnalyticsDigest(period: DigestPeriod) {
           </thead>
           <tbody>${topProductsHtml}</tbody>
         </table>
-      ` : ''}
+      `
+          : ''
+      }
 
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />
       <p style="color:#94a3b8;font-size:12px">
-        Цей дайджест надіслано автоматично з <a href="${env.APP_URL}/admin/analytics" style="color:#2563eb">Порошок</a>
+        Цей дайджест надіслано автоматично з <a href="${env.APP_URL}/admin/analytics" style="color:#2563eb">Pulito Trade</a>
       </p>
     </div>
   `;

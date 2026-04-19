@@ -37,11 +37,11 @@ export async function processWelcomeSeries(): Promise<{ sent: number }> {
     try {
       await sendEmail({
         to: user.email,
-        subject: 'Ласкаво просимо до Порошок! 🎉',
+        subject: 'Ласкаво просимо до Pulito Trade! 🎉',
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
             <h1 style="color:#2563eb">Вітаємо, ${user.fullName}!</h1>
-            <p>Дякуємо за реєстрацію в інтернет-магазині <strong>Порошок</strong>.</p>
+            <p>Дякуємо за реєстрацію в інтернет-магазині <strong>Pulito Trade</strong>.</p>
             <p>Ось що вас чекає:</p>
             <ul>
               <li>🛒 Широкий асортимент побутової хімії</li>

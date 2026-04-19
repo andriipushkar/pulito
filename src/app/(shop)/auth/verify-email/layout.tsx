@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Підтвердження email',
-  description: 'Підтвердження електронної адреси для акаунту в інтернет-магазині Порошок.',
+  description: 'Підтвердження електронної адреси для акаунту в інтернет-магазині Pulito Trade.',
   robots: { index: false, follow: true },
 };
 

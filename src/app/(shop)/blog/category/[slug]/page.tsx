@@ -30,11 +30,12 @@ export async function generateMetadata({ params }: BlogCategoryPageProps): Promi
   const category = await getCategoryBySlug(slug);
 
   if (!category) {
-    return { title: 'Категорію не знайдено — Порошок' };
+    return { title: 'Категорію не знайдено — Pulito Trade' };
   }
 
-  const title = category.seoTitle || `${category.name} — Блог Порошок`;
-  const description = category.seoDescription || `Статті в категорії "${category.name}" — блог Порошок`;
+  const title = category.seoTitle || `${category.name} — Блог Pulito Trade`;
+  const description =
+    category.seoDescription || `Статті в категорії "${category.name}" — блог Pulito Trade`;
   const url = `${baseUrl}/blog/category/${slug}`;
 
   return {
@@ -43,8 +44,8 @@ export async function generateMetadata({ params }: BlogCategoryPageProps): Promi
     alternates: {
       canonical: url,
       languages: {
-        'uk': url,
-        'en': `${baseUrl}/en/blog/category/${slug}`,
+        uk: url,
+        en: `${baseUrl}/en/blog/category/${slug}`,
         'x-default': url,
       },
     },
@@ -53,7 +54,7 @@ export async function generateMetadata({ params }: BlogCategoryPageProps): Promi
       description,
       url,
       type: 'website',
-      siteName: 'Порошок',
+      siteName: 'Pulito Trade',
     },
   };
 }

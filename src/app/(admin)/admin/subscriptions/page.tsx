@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
@@ -39,7 +39,7 @@ export default function AdminSubscriptionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
 
-  const loadSubscriptions = () => {
+  const loadSubscriptions = useCallback(() => {
     setIsLoading(true);
     const params = statusFilter ? `?status=${statusFilter}` : '';
     apiClient
@@ -49,9 +49,11 @@ export default function AdminSubscriptionsPage() {
         else toast.error('Не вдалося завантажити підписки');
       })
       .finally(() => setIsLoading(false));
-  };
+  }, [statusFilter]);
 
-  useEffect(() => { loadSubscriptions(); }, [statusFilter]);
+  useEffect(() => {
+    loadSubscriptions();
+  }, [loadSubscriptions]);
 
   if (isLoading) {
     return <AdminTableSkeleton rows={6} columns={7} />;
@@ -61,7 +63,10 @@ export default function AdminSubscriptionsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold">
-          Підписки <span className="text-base font-normal text-[var(--color-text-secondary)]">({subscriptions.length})</span>
+          Підписки{' '}
+          <span className="text-base font-normal text-[var(--color-text-secondary)]">
+            ({subscriptions.length})
+          </span>
         </h2>
         <div>
           <select
@@ -91,25 +96,34 @@ export default function AdminSubscriptionsPage() {
           </thead>
           <tbody>
             {subscriptions.map((sub) => (
-              <tr key={sub.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
+              <tr
+                key={sub.id}
+                className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]"
+              >
                 <td className="px-4 py-3">
                   <div>
                     <span className="font-medium">{sub.userName}</span>
-                    <span className="ml-2 text-xs text-[var(--color-text-secondary)]">{sub.userEmail}</span>
+                    <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
+                      {sub.userEmail}
+                    </span>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                   {FREQUENCY_LABELS[sub.frequency] || sub.frequency}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[sub.status] || 'bg-gray-100 text-gray-500'}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[sub.status] || 'bg-gray-100 text-gray-500'}`}
+                  >
                     {STATUS_LABELS[sub.status] || sub.status}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                   {sub.nextDelivery ? new Date(sub.nextDelivery).toLocaleDateString('uk-UA') : '—'}
                 </td>
-                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">{sub.itemsCount}</td>
+                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">
+                  {sub.itemsCount}
+                </td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                   {new Date(sub.createdAt).toLocaleDateString('uk-UA')}
                 </td>
@@ -117,7 +131,10 @@ export default function AdminSubscriptionsPage() {
             ))}
             {subscriptions.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                <td
+                  colSpan={6}
+                  className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                >
                   Підписок немає
                 </td>
               </tr>

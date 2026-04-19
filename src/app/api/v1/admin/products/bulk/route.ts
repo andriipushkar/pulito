@@ -7,14 +7,25 @@ import * as XLSX from 'xlsx';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import { env } from '@/config/env';
+import { cacheInvalidate } from '@/services/cache';
 
 const bulkSchema = z.object({
-  action: z.enum(['activate', 'deactivate', 'export', 'export_filtered']),
+  action: z.enum([
+    'activate',
+    'deactivate',
+    'delete',
+    'change_category',
+    'export',
+    'export_filtered',
+  ]),
   productIds: z.array(z.number()).optional(),
   filters: z.record(z.string(), z.string()).optional(),
 });
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest) => {
   try {
     const body = await request.json();
     const parsed = bulkSchema.safeParse(body);
@@ -30,6 +41,29 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
         where: { id: { in: productIds } },
         data: { isActive: action === 'activate' },
       });
+      await cacheInvalidate('products:*');
+      return successResponse({ updated: productIds.length });
+    }
+
+    if (action === 'delete') {
+      if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
+      await prisma.product.updateMany({
+        where: { id: { in: productIds } },
+        data: { isActive: false, deletedAt: new Date() },
+      });
+      await cacheInvalidate('products:*');
+      return successResponse({ deleted: productIds.length });
+    }
+
+    if (action === 'change_category') {
+      if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
+      const categoryId = (body as { categoryId?: number }).categoryId;
+      if (!categoryId) return errorResponse('Не вказано категорію', 400);
+      await prisma.product.updateMany({
+        where: { id: { in: productIds } },
+        data: { categoryId },
+      });
+      await cacheInvalidate('products:*');
       return successResponse({ updated: productIds.length });
     }
 
@@ -56,26 +90,33 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
       const products = await prisma.product.findMany({
         where,
         select: {
-          code: true, name: true, priceRetail: true,
-          priceWholesale: true, priceWholesale2: true, priceWholesale3: true,
-          quantity: true, isActive: true, isPromo: true, ordersCount: true,
+          code: true,
+          name: true,
+          priceRetail: true,
+          priceWholesale: true,
+          priceWholesale2: true,
+          priceWholesale3: true,
+          quantity: true,
+          isActive: true,
+          isPromo: true,
+          ordersCount: true,
           category: { select: { name: true } },
         },
         orderBy: { name: 'asc' },
       });
 
       const rows = products.map((p) => ({
-        'Код': p.code,
-        'Назва': p.name,
-        'Категорія': p.category?.name || '',
+        Код: p.code,
+        Назва: p.name,
+        Категорія: p.category?.name || '',
         'Роздрібна ціна': Number(Number(p.priceRetail).toFixed(2)),
         'Ціна: Дрібний опт': p.priceWholesale ? Number(Number(p.priceWholesale).toFixed(2)) : '',
         'Ціна: Середній опт': p.priceWholesale2 ? Number(Number(p.priceWholesale2).toFixed(2)) : '',
         'Ціна: Великий опт': p.priceWholesale3 ? Number(Number(p.priceWholesale3).toFixed(2)) : '',
-        'Залишок': p.quantity,
-        'Продажі': p.ordersCount,
-        'Активний': p.isActive ? 'Так' : 'Ні',
-        'Акція': p.isPromo ? 'Так' : 'Ні',
+        Залишок: p.quantity,
+        Продажі: p.ordersCount,
+        Активний: p.isActive ? 'Так' : 'Ні',
+        Акція: p.isPromo ? 'Так' : 'Ні',
       }));
 
       const reportsDir = path.join(env.UPLOAD_DIR, 'reports');

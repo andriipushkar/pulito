@@ -25,42 +25,47 @@ export const viewport: Viewport = {
 
 const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
-export const metadata: Metadata = {
-  title: {
-    default: 'Порошок — Інтернет-магазин побутової хімії',
-    template: '%s | Порошок',
-  },
-  description:
-    'Оптово-роздрібний інтернет-магазин побутової хімії. Широкий асортимент, вигідні ціни, швидка доставка по Україні.',
-  keywords: ['побутова хімія', 'миючі засоби', 'купити', 'оптом', 'інтернет-магазин', 'Україна'],
-  robots: {
-    index: true,
-    follow: true,
-  },
-  ...(process.env.GOOGLE_SITE_VERIFICATION && {
-    verification: {
-      google: process.env.GOOGLE_SITE_VERIFICATION,
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  return {
+    title: {
+      default:
+        settings.default_seo_title || `${settings.site_name} — Інтернет-магазин побутової хімії`,
+      template: `%s | ${settings.site_name}`,
     },
-  }),
-  openGraph: {
-    type: 'website',
-    locale: 'uk_UA',
-    siteName: 'Порошок',
-  },
-  alternates: {
-    canonical: baseUrl,
-    languages: {
-      'uk': baseUrl,
-      'en': `${baseUrl}/en`,
-      'x-default': baseUrl,
+    description:
+      settings.default_seo_description ||
+      'Оптово-роздрібний інтернет-магазин побутової хімії. Широкий асортимент, вигідні ціни, швидка доставка по Україні.',
+    keywords: ['побутова хімія', 'миючі засоби', 'купити', 'оптом', 'інтернет-магазин', 'Україна'],
+    robots: {
+      index: true,
+      follow: true,
     },
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Порошок',
-  },
-};
+    ...(process.env.GOOGLE_SITE_VERIFICATION && {
+      verification: {
+        google: process.env.GOOGLE_SITE_VERIFICATION,
+      },
+    }),
+    openGraph: {
+      type: 'website',
+      locale: 'uk_UA',
+      siteName: settings.site_name,
+    },
+    alternates: {
+      canonical: baseUrl,
+      languages: {
+        uk: baseUrl,
+        en: `${baseUrl}/en`,
+        'x-default': baseUrl,
+      },
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: settings.site_name,
+    },
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [locale, messages, settings] = await Promise.all([
@@ -103,11 +108,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       addressCountry: 'UA',
       addressLocality: settings.site_address,
     },
-    sameAs: [
-      settings.social_instagram,
-      settings.social_telegram,
-      settings.social_facebook,
-    ].filter(Boolean),
+    sameAs: [settings.social_instagram, settings.social_telegram, settings.social_facebook].filter(
+      Boolean,
+    ),
   };
 
   return (
@@ -119,7 +122,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
         <link rel="apple-touch-icon" href="/images/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="alternate" type="application/rss+xml" title={`${settings.site_name} — Нові товари`} href="/feed.xml" />
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title={`${settings.site_name} — Нові товари`}
+          href="/feed.xml"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
@@ -132,9 +140,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>
-            <ThemeProvider>
-              {children}
-            </ThemeProvider>
+            <ThemeProvider>{children}</ThemeProvider>
           </AuthProvider>
         </NextIntlClientProvider>
         <WebVitalsReporter />

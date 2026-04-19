@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Порошок — Побутова хімія',
-    short_name: 'Порошок',
+    name: 'Pulito Trade — Побутова хімія',
+    short_name: 'Pulito Trade',
     description: 'Інтернет-магазин побутової хімії — роздріб та опт',
     start_url: '/',
     display: 'standalone',

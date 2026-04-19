@@ -24,7 +24,7 @@ export interface PdfJobData {
 }
 
 export interface MarketplaceSyncJobData {
-  platform: string;
+  platform: 'rozetka' | 'prom';
   syncType: 'products' | 'prices' | 'stock' | 'orders';
 }
 

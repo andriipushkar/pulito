@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import { successResponse } from '@/utils/api-response';
 
 export const POST = withRole('admin')(async (request: NextRequest) => {
   try {
@@ -8,17 +8,20 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
 
     if (provider === 'liqpay') {
       if (!config.publicKey || !config.privateKey) {
-        return successResponse({ success: false, error: 'Public Key та Private Key обов\'язкові' });
+        return successResponse({ success: false, error: "Public Key та Private Key обов'язкові" });
       }
       // LiqPay test: create a test checkout request
       const crypto = await import('crypto');
-      const testData = Buffer.from(JSON.stringify({
-        version: 3,
-        public_key: config.publicKey,
-        action: 'status',
-        order_id: 'test_connection_check',
-      })).toString('base64');
-      const signature = crypto.createHash('sha1')
+      const testData = Buffer.from(
+        JSON.stringify({
+          version: 3,
+          public_key: config.publicKey,
+          action: 'status',
+          order_id: 'test_connection_check',
+        }),
+      ).toString('base64');
+      const signature = crypto
+        .createHash('sha1')
         .update(config.privateKey + testData + config.privateKey)
         .digest('base64');
 
@@ -31,7 +34,10 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
       const data = await res.json();
       if (data.result === 'error' && data.err_code === 'order_not_found') {
         // This is actually a success — means credentials are valid
-        return successResponse({ success: true, name: `LiqPay (${config.publicKey.slice(0, 10)}...)` });
+        return successResponse({
+          success: true,
+          name: `LiqPay (${config.publicKey.slice(0, 10)}...)`,
+        });
       }
       if (data.result === 'error') {
         return successResponse({ success: false, error: data.err_description || data.err_code });
@@ -41,7 +47,7 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
 
     if (provider === 'monobank') {
       if (!config.token) {
-        return successResponse({ success: false, error: 'API Token обов\'язковий' });
+        return successResponse({ success: false, error: "API Token обов'язковий" });
       }
       const res = await fetch('https://api.monobank.ua/api/merchant/details', {
         headers: { 'X-Token': config.token },
@@ -56,7 +62,7 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
 
     if (provider === 'wayforpay') {
       if (!config.merchantAccount) {
-        return successResponse({ success: false, error: 'Merchant Account обов\'язковий' });
+        return successResponse({ success: false, error: "Merchant Account обов'язковий" });
       }
       // WayForPay doesn't have a simple test endpoint, just validate format
       if (config.merchantAccount.length < 3) {
@@ -67,7 +73,7 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
 
     return successResponse({ success: false, error: 'Невідомий провайдер' });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Помилка з\'єднання';
+    const message = err instanceof Error ? err.message : "Помилка з'єднання";
     return successResponse({ success: false, error: message });
   }
 });

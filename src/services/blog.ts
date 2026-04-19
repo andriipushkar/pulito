@@ -4,7 +4,7 @@ import { createSlug } from '@/utils/slug';
 export class BlogError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'BlogError';
@@ -24,7 +24,7 @@ export async function createPost(
     seoDescription?: string;
     isPublished?: boolean;
   },
-  authorId: number
+  authorId: number,
 ) {
   const slug = data.slug || createSlug(data.title);
 
@@ -72,7 +72,7 @@ export async function updatePost(
     seoTitle?: string;
     seoDescription?: string;
     isPublished?: boolean;
-  }
+  },
 ) {
   const post = await prisma.blogPost.findUnique({ where: { id } });
   if (!post) throw new BlogError('Статтю не знайдено', 404);
@@ -87,8 +87,7 @@ export async function updatePost(
     if (!category) throw new BlogError('Категорію блогу не знайдено', 404);
   }
 
-  const publishedAt =
-    data.isPublished === true && !post.isPublished ? new Date() : undefined;
+  const publishedAt = data.isPublished === true && !post.isPublished ? new Date() : undefined;
 
   return prisma.blogPost.update({
     where: { id },
@@ -120,7 +119,7 @@ export async function getPublishedPosts(
   page: number,
   limit: number,
   categorySlug?: string,
-  tag?: string
+  tag?: string,
 ) {
   const where: Record<string, unknown> = { isPublished: true };
 
@@ -163,12 +162,15 @@ export async function getPostBySlug(slug: string) {
 
   if (!post) return null;
 
-  await prisma.blogPost.update({
+  const updated = await prisma.blogPost.update({
     where: { id: post.id },
     data: { viewsCount: { increment: 1 } },
+    include: {
+      category: { select: { id: true, name: true, slug: true } },
+    },
   });
 
-  return post;
+  return updated;
 }
 
 export async function getRelatedPosts(postId: number, limit = 4) {
@@ -247,7 +249,7 @@ export async function updateCategory(
     description?: string;
     seoTitle?: string;
     seoDescription?: string;
-  }
+  },
 ) {
   const category = await prisma.blogCategory.findUnique({ where: { id } });
   if (!category) throw new BlogError('Категорію не знайдено', 404);

@@ -137,7 +137,7 @@ export function hashBackupCode(code: string): string {
 }
 
 export function generateOtpauthUrl(secret: string, email: string): string {
-  const issuer = 'Порошок';
+  const issuer = 'Pulito Trade';
   const label = `${issuer}:${email}`;
   return `otpauth://totp/${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=${TOTP_DIGITS}&period=${TOTP_PERIOD}`;
 }

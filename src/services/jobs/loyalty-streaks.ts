@@ -29,8 +29,6 @@ export async function processLoyaltyStreaks(): Promise<{ reset: number; active: 
  * Called after order completion to update user's streak.
  */
 export async function updateStreakOnOrder(userId: number): Promise<void> {
-  const cutoff = new Date(Date.now() - STREAK_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-
   const streak = await prisma.loyaltyStreak.upsert({
     where: { userId },
     create: {

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
-const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:noreply@poroshok.ua';
+const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:noreply@pulito.trade';
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
@@ -21,7 +21,7 @@ interface PushPayload {
  */
 export async function subscribePush(
   userId: number,
-  subscription: { endpoint: string; keys: { p256dh: string; auth: string } }
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
 ) {
   return prisma.pushSubscription.upsert({
     where: { endpoint: subscription.endpoint },
@@ -74,15 +74,18 @@ export async function sendPushNotification(userId: number, payload: PushPayload)
           endpoint: sub.endpoint,
           keys: { p256dh: sub.p256dh, auth: sub.auth },
         },
-        jsonPayload
-      )
-    )
+        jsonPayload,
+      ),
+    ),
   );
 
   // Cleanup expired/invalid subscriptions
   const expiredEndpoints: string[] = [];
   results.forEach((result, i) => {
-    if (result.status === 'rejected' && (result.reason as { statusCode?: number })?.statusCode === 410) {
+    if (
+      result.status === 'rejected' &&
+      (result.reason as { statusCode?: number })?.statusCode === 410
+    ) {
       expiredEndpoints.push(subscriptions[i].endpoint);
     }
   });
@@ -123,13 +126,16 @@ export async function sendPushToAll(payload: PushPayload) {
             endpoint: sub.endpoint,
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
-          jsonPayload
-        )
-      )
+          jsonPayload,
+        ),
+      ),
     );
 
     results.forEach((result, j) => {
-      if (result.status === 'rejected' && (result.reason as { statusCode?: number })?.statusCode === 410) {
+      if (
+        result.status === 'rejected' &&
+        (result.reason as { statusCode?: number })?.statusCode === 410
+      ) {
         expiredEndpoints.push(batch[j].endpoint);
       }
     });

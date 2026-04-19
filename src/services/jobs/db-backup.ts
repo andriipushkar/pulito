@@ -1,4 +1,4 @@
-import { execFile, exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs/promises';
@@ -7,7 +7,7 @@ import { pipeline } from 'stream/promises';
 import { createGzip } from 'zlib';
 
 const execFileAsync = promisify(execFile);
-const execAsync = promisify(exec);
+
 const BACKUP_DIR = path.join(process.cwd(), 'backups');
 const MAX_BACKUPS = 7; // Keep last 7 backups
 
@@ -39,15 +39,24 @@ export async function createDatabaseBackup() {
 
   try {
     // Use execFile with array args — no shell injection possible
-    await execFileAsync('pg_dump', [
-      '-h', dbHost,
-      '-p', dbPort,
-      '-U', dbUser,
-      '-d', dbName,
-      '--no-owner',
-      '--no-acl',
-      '-f', rawFilepath,
-    ], { env, timeout: 300000 });
+    await execFileAsync(
+      'pg_dump',
+      [
+        '-h',
+        dbHost,
+        '-p',
+        dbPort,
+        '-U',
+        dbUser,
+        '-d',
+        dbName,
+        '--no-owner',
+        '--no-acl',
+        '-f',
+        rawFilepath,
+      ],
+      { env, timeout: 300000 },
+    );
   } catch {
     // Try via docker if pg_dump is not available locally
     const containerName = process.env.DB_CONTAINER_NAME || 'clean_postgres';
@@ -56,10 +65,11 @@ export async function createDatabaseBackup() {
     if (!/^[a-zA-Z0-9_-]+$/.test(dbUser)) throw new Error('Invalid DB username');
     if (!/^[a-zA-Z0-9_-]+$/.test(dbName)) throw new Error('Invalid DB name');
 
-    await execFileAsync('docker', [
-      'exec', containerName,
-      'pg_dump', '-U', dbUser, '-d', dbName, '--no-owner', '--no-acl',
-    ], { env, timeout: 300000 }).then(async ({ stdout }) => {
+    await execFileAsync(
+      'docker',
+      ['exec', containerName, 'pg_dump', '-U', dbUser, '-d', dbName, '--no-owner', '--no-acl'],
+      { env, timeout: 300000 },
+    ).then(async ({ stdout }) => {
       await fs.writeFile(rawFilepath, stdout);
     });
   }
@@ -68,7 +78,7 @@ export async function createDatabaseBackup() {
   await pipeline(
     (await import('fs')).createReadStream(rawFilepath),
     createGzip(),
-    createWriteStream(filepath)
+    createWriteStream(filepath),
   );
   await fs.unlink(rawFilepath); // Remove uncompressed
 

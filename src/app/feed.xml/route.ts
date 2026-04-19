@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma';
+import { getSettings } from '@/services/settings';
 
 export async function GET() {
   const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+  const settings = await getSettings();
 
   const products = await prisma.product.findMany({
     where: { isActive: true },
@@ -27,16 +29,16 @@ export async function GET() {
       <category>${p.category?.name || ''}</category>
       <pubDate>${p.createdAt.toUTCString()}</pubDate>
       <guid isPermaLink="true">${baseUrl}/product/${p.slug}</guid>
-    </item>`
+    </item>`,
     )
     .join('\n');
 
   const rss = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Порошок — Нові товари</title>
+    <title>${settings.site_name} — Нові товари</title>
     <link>${baseUrl}</link>
-    <description>Нові товари побутової хімії в інтернет-магазині Порошок</description>
+    <description>Нові товари побутової хімії в інтернет-магазині ${settings.site_name}</description>
     <language>uk</language>
     <atom:link href="${baseUrl}/feed.xml" rel="self" type="application/rss+xml"/>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>

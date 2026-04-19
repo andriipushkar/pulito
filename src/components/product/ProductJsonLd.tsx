@@ -9,9 +9,7 @@ export default function ProductJsonLd({ product, ratingStats }: ProductJsonLdPro
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '';
   const price = Number(product.priceRetail);
   const oldPrice = product.priceRetailOld ? Number(product.priceRetailOld) : null;
-  const images = product.images
-    .map((img) => img.pathFull)
-    .filter(Boolean);
+  const images = product.images.map((img) => img.pathFull).filter(Boolean);
   const mainImage = images[0] || product.imagePath;
 
   const jsonLd: Record<string, unknown> = {
@@ -26,27 +24,27 @@ export default function ProductJsonLd({ product, ratingStats }: ProductJsonLdPro
     ...(product.category && { category: product.category.name }),
     brand: {
       '@type': 'Brand',
-      name: 'Порошок',
+      name: 'Pulito Trade',
     },
-    ...(ratingStats && ratingStats.totalReviews > 0 && {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: ratingStats.averageRating,
-        reviewCount: ratingStats.totalReviews,
-      },
-    }),
+    ...(ratingStats &&
+      ratingStats.totalReviews > 0 && {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: ratingStats.averageRating,
+          reviewCount: ratingStats.totalReviews,
+        },
+      }),
     offers: {
       '@type': 'Offer',
       url: `${baseUrl}/product/${product.slug}`,
       price: price.toFixed(2),
       priceCurrency: 'UAH',
-      availability: product.quantity > 0
-        ? 'https://schema.org/InStock'
-        : 'https://schema.org/OutOfStock',
+      availability:
+        product.quantity > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       itemCondition: 'https://schema.org/NewCondition',
       seller: {
         '@type': 'Organization',
-        name: 'Порошок',
+        name: 'Pulito Trade',
         url: baseUrl,
       },
       shippingDetails: {
@@ -79,11 +77,12 @@ export default function ProductJsonLd({ product, ratingStats }: ProductJsonLdPro
         returnMethod: 'https://schema.org/ReturnByMail',
         returnFees: 'https://schema.org/ReturnFeesCustomerResponsibility',
       },
-      ...(oldPrice && oldPrice > price && {
-        priceValidUntil: product.promoEndDate
-          ? new Date(product.promoEndDate).toISOString().split('T')[0]
-          : undefined,
-      }),
+      ...(oldPrice &&
+        oldPrice > price && {
+          priceValidUntil: product.promoEndDate
+            ? new Date(product.promoEndDate).toISOString().split('T')[0]
+            : undefined,
+        }),
     },
   };
 

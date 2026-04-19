@@ -86,14 +86,14 @@ export default function InstallPrompt() {
         <div className="flex items-start gap-3">
           <Image
             src="/images/icon-192.png"
-            alt="Порошок"
+            alt="Pulito Trade"
             width={48}
             height={48}
             className="rounded-xl"
           />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-[var(--color-text)]">
-              Встановити Порошок
+              Встановити Pulito Trade
             </p>
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
               Додайте на головний екран для швидкого доступу до магазину
@@ -104,7 +104,13 @@ export default function InstallPrompt() {
             aria-label="Закрити"
             className="shrink-0 rounded-lg p-1 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)]"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

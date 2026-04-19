@@ -3,7 +3,7 @@ import { sendEmail } from './email';
 import { getCustomerSegmentation } from './analytics-reports';
 import { generateUnsubscribeToken } from './subscriber';
 import { env } from '@/config/env';
-import type { CampaignFrequency, CampaignRule } from '@prisma/client';
+import type { CampaignFrequency, CampaignRule } from '../../generated/prisma';
 
 // ──────────────────────────────────────────
 // Campaign CRUD

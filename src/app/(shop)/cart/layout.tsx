@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Кошик',
-  description: 'Перегляд товарів у кошику та оформлення замовлення в інтернет-магазині Порошок.',
+  description:
+    'Перегляд товарів у кошику та оформлення замовлення в інтернет-магазині Pulito Trade.',
   robots: { index: false, follow: false },
 };
 

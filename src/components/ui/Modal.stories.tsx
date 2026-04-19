@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { useState } from 'react';
+
 import Modal from './Modal';
 
 const meta: Meta<typeof Modal> = {
@@ -41,7 +41,11 @@ export const Closed: Story = {
   args: {
     isOpen: false,
     title: 'Закритий модал',
-    children: <div className="p-6"><p>Цей контент не видно.</p></div>,
+    children: (
+      <div className="p-6">
+        <p>Цей контент не видно.</p>
+      </div>
+    ),
   },
 };
 

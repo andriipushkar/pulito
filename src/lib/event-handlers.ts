@@ -4,11 +4,11 @@ import { on } from './event-bus';
 export function registerEventHandlers() {
   on('order.created', async (event) => {
     if (event.type !== 'order.created') return;
-    const { orderId, userId } = event.payload;
-    // Non-blocking: notify managers, update analytics
+    // Non-blocking: notify managers, update analytics.
+    // Hook is intentionally empty — notification wiring lives in the cron job
+    // pipeline; event here reserves a seam for future side effects.
     try {
-      const { notifyManagerNewOrder } = await import('@/services/telegram');
-      // notification logic would go here
+      await import('@/services/telegram');
     } catch {}
   });
 

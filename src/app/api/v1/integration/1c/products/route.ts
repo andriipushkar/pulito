@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { withApiKey } from '@/middleware/api-key-auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { oneCProductsImportSchema } from '@/validators/integration-1c';
-import { importProductsFrom1C, exportOrdersTo1C } from '@/services/integration-1c';
+import { importProductsFrom1C } from '@/services/integration-1c';
 import { prisma } from '@/lib/prisma';
 
 /** GET /api/v1/integration/1c/products — Export products for 1C */
@@ -42,10 +42,7 @@ export const GET = withApiKey(['products'])(async (request: NextRequest) => {
 
     return successResponse({ items, total, page, limit });
   } catch (err) {
-    return errorResponse(
-      err instanceof Error ? err.message : 'Failed to export products',
-      500
-    );
+    return errorResponse(err instanceof Error ? err.message : 'Failed to export products', 500);
   }
 });
 
@@ -87,9 +84,6 @@ export const POST = withApiKey(['products'])(async (request: NextRequest) => {
 
     return successResponse(result, 200);
   } catch (err) {
-    return errorResponse(
-      err instanceof Error ? err.message : 'Failed to import products',
-      500
-    );
+    return errorResponse(err instanceof Error ? err.message : 'Failed to import products', 500);
   }
 });

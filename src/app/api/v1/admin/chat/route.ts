@@ -5,7 +5,10 @@ import { getAdminRooms } from '@/services/chat';
 import { adminChatFilterSchema } from '@/validators/chat';
 
 // GET /api/v1/admin/chat - get all chat rooms for admin
-export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest) => {
   try {
     const searchParams = request.nextUrl.searchParams;
     const parsed = adminChatFilterSchema.safeParse({
@@ -16,7 +19,7 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
     });
 
     if (!parsed.success) {
-      return errorResponse(parsed.error.errors[0]?.message || 'Невірні параметри', 400);
+      return errorResponse(parsed.error.issues[0]?.message || 'Невірні параметри', 400);
     }
 
     const { page, limit, status, search } = parsed.data;

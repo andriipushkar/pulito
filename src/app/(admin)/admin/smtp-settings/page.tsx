@@ -34,7 +34,9 @@ export default function SmtpSettingsPage() {
     setIsLoading(false);
   }, []);
 
-  useEffect(() => { loadSettings(); }, [loadSettings]);
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const updateField = (key: string, value: string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -73,7 +75,12 @@ export default function SmtpSettingsPage() {
     setTesting(false);
   };
 
-  if (isLoading) return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
 
   return (
     <div>
@@ -84,7 +91,11 @@ export default function SmtpSettingsPage() {
             Налаштування поштового сервера для відправки листів
           </p>
         </div>
-        <Button onClick={() => setConfirmSave(true)} isLoading={isSaving} disabled={dirty.size === 0}>
+        <Button
+          onClick={() => setConfirmSave(true)}
+          isLoading={isSaving}
+          disabled={dirty.size === 0}
+        >
           Зберегти
         </Button>
       </div>
@@ -94,7 +105,9 @@ export default function SmtpSettingsPage() {
           <span className="text-2xl">📧</span>
           <div>
             <h3 className="font-semibold">SMTP сервер</h3>
-            <p className="text-xs text-[var(--color-text-secondary)]">Gmail, SendGrid, Mailgun, або будь-який SMTP сервер</p>
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Gmail, SendGrid, Mailgun, або будь-який SMTP сервер
+            </p>
           </div>
         </div>
 
@@ -119,7 +132,9 @@ export default function SmtpSettingsPage() {
             placeholder="your@gmail.com"
           />
           <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">Пароль</label>
+            <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
+              Пароль
+            </label>
             <div className="relative">
               <Input
                 type={showPass ? 'text' : 'password'}
@@ -135,19 +150,21 @@ export default function SmtpSettingsPage() {
                 {showPass ? '🙈' : '👁️'}
               </button>
             </div>
-            <p className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">Для Gmail використовуйте App Password</p>
+            <p className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">
+              Для Gmail використовуйте App Password
+            </p>
           </div>
           <Input
             label="Email відправника (From)"
             value={settings.smtp_from || ''}
             onChange={(e) => updateField('smtp_from', e.target.value)}
-            placeholder="noreply@poroshok.ua"
+            placeholder="noreply@pulito.trade"
           />
           <Input
             label="Ім'я відправника"
             value={settings.smtp_from_name || ''}
             onChange={(e) => updateField('smtp_from_name', e.target.value)}
-            placeholder="Порошок"
+            placeholder="Pulito Trade"
           />
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm">
@@ -164,7 +181,7 @@ export default function SmtpSettingsPage() {
 
         {/* Test connection */}
         <div className="mt-6 border-t border-[var(--color-border)] pt-4">
-          <h4 className="mb-3 text-sm font-semibold">Перевірити з'єднання</h4>
+          <h4 className="mb-3 text-sm font-semibold">Перевірити з&apos;єднання</h4>
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1">
               <Input
@@ -174,14 +191,24 @@ export default function SmtpSettingsPage() {
                 placeholder="test@example.com"
               />
             </div>
-            <Button variant="outline" onClick={handleTest} disabled={testing || !settings.smtp_host}>
-              {testing ? 'Перевірка...' : testEmail ? 'Надіслати тестовий лист' : 'Перевірити з\'єднання'}
+            <Button
+              variant="outline"
+              onClick={handleTest}
+              disabled={testing || !settings.smtp_host}
+            >
+              {testing
+                ? 'Перевірка...'
+                : testEmail
+                  ? 'Надіслати тестовий лист'
+                  : "Перевірити з'єднання"}
             </Button>
           </div>
           {testResult && (
-            <div className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-              testResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-            }`}>
+            <div
+              className={`mt-3 rounded-lg px-3 py-2 text-sm ${
+                testResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+              }`}
+            >
               {testResult.success ? `✅ ${testResult.name}` : `❌ ${testResult.error}`}
             </div>
           )}
@@ -194,7 +221,9 @@ export default function SmtpSettingsPage() {
           <span className="text-2xl">📎</span>
           <div>
             <h3 className="font-semibold">Ліміт файлів</h3>
-            <p className="text-xs text-[var(--color-text-secondary)]">Максимальний розмір файлів для завантаження</p>
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Максимальний розмір файлів для завантаження
+            </p>
           </div>
         </div>
         <div className="max-w-xs">

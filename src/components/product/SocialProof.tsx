@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface SocialProofProps {
   productId: number;
@@ -8,25 +8,37 @@ interface SocialProofProps {
   viewsCount: number;
 }
 
-export default function SocialProof({ productId, ordersCount, viewsCount }: SocialProofProps) {
-  const [viewersNow, setViewersNow] = useState(0);
+// Deterministic pseudo-random based on a seed — keeps render pure (React
+// Compiler requires no Math.random in render body) while still looking varied
+// across different products.
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed * 9301 + 49297) * 233280;
+  return x - Math.floor(x);
+}
 
-  useEffect(() => {
-    // Simulate "viewing now" based on product popularity
+export default function SocialProof({ productId, ordersCount, viewsCount }: SocialProofProps) {
+  // Initial viewers-now synthesized from product popularity. useState lazy
+  // initializer runs once on mount (no setState-in-effect warning).
+  const [viewersNow, setViewersNow] = useState(() => {
     const base = Math.min(Math.floor(viewsCount / 100), 8);
     const jitter = Math.floor(Math.random() * 3);
-    setViewersNow(Math.max(1, base + jitter));
+    return Math.max(1, base + jitter);
+  });
 
-    // Periodically update
+  useEffect(() => {
+    // Periodically drift the count so the UI feels alive.
     const interval = setInterval(() => {
       const newJitter = Math.floor(Math.random() * 3) - 1;
       setViewersNow((prev) => Math.max(1, prev + newJitter));
     }, 15000);
-
     return () => clearInterval(interval);
-  }, [viewsCount]);
+  }, []);
 
-  const weeklyOrders = Math.min(ordersCount, Math.floor(ordersCount / 4) + Math.floor(Math.random() * 3));
+  const weeklyOrders = useMemo(
+    () =>
+      Math.min(ordersCount, Math.floor(ordersCount / 4) + Math.floor(seededRandom(productId) * 3)),
+    [productId, ordersCount],
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -39,7 +51,8 @@ export default function SocialProof({ productId, ordersCount, viewsCount }: Soci
 
       {weeklyOrders > 0 && (
         <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-green-600">
-          Куплено {weeklyOrders} {weeklyOrders === 1 ? 'раз' : weeklyOrders < 5 ? 'рази' : 'разів'} за тиждень
+          Куплено {weeklyOrders} {weeklyOrders === 1 ? 'раз' : weeklyOrders < 5 ? 'рази' : 'разів'}{' '}
+          за тиждень
         </span>
       )}
 

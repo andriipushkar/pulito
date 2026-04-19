@@ -45,21 +45,25 @@ export async function generateMetadata({ searchParams }: CatalogPageProps): Prom
 
   return {
     title,
-    description: category?.seoDescription || 'Каталог побутової хімії. Широкий вибір товарів за вигідними цінами.',
+    description:
+      category?.seoDescription ||
+      'Каталог побутової хімії. Широкий вибір товарів за вигідними цінами.',
     alternates: {
       canonical,
       languages: {
-        'uk': canonical,
-        'en': `${baseUrl}/en/catalog${canonicalQuery ? `?${canonicalQuery}` : ''}`,
+        uk: canonical,
+        en: `${baseUrl}/en/catalog${canonicalQuery ? `?${canonicalQuery}` : ''}`,
         'x-default': canonical,
       },
     },
     openGraph: {
       title,
-      description: category?.seoDescription || 'Каталог побутової хімії. Широкий вибір товарів за вигідними цінами.',
+      description:
+        category?.seoDescription ||
+        'Каталог побутової хімії. Широкий вибір товарів за вигідними цінами.',
       url: canonical,
       type: 'website',
-      siteName: 'Порошок',
+      siteName: 'Pulito Trade',
     },
   };
 }
@@ -74,7 +78,12 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const priceMax = params.price_max ? Number(params.price_max) : undefined;
   const promo = params.promo === 'true' ? true : undefined;
   const inStock = params.in_stock === 'true' ? true : undefined;
-  const sort = (typeof params.sort === 'string' ? params.sort : 'popular') as 'popular' | 'price_asc' | 'price_desc' | 'name_asc' | 'newest';
+  const sort = (typeof params.sort === 'string' ? params.sort : 'popular') as
+    | 'popular'
+    | 'price_asc'
+    | 'price_desc'
+    | 'name_asc'
+    | 'newest';
 
   const [{ products, total }, categories] = await Promise.all([
     getProducts({ page, limit, category, search, priceMin, priceMax, promo, inStock, sort }),
@@ -117,30 +126,32 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   if (sort !== 'popular') currentSearchParams.sort = sort;
 
   const baseUrl = process.env.APP_URL || 'http://localhost:3000';
-  const collectionJsonLd = !search ? {
-    '@context': 'https://schema.org',
-    '@type': 'CollectionPage',
-    name: categoryData?.name || 'Каталог товарів',
-    url: `${baseUrl}/catalog${category ? `?category=${category}` : ''}`,
-    ...(categoryData?.seoDescription && { description: categoryData.seoDescription }),
-    isPartOf: {
-      '@type': 'WebSite',
-      name: 'Порошок',
-      url: baseUrl,
-    },
-    ...(products.length > 0 && {
-      mainEntity: {
-        '@type': 'ItemList',
-        numberOfItems: total,
-        itemListElement: products.slice(0, 10).map((p, i) => ({
-          '@type': 'ListItem',
-          position: (page - 1) * limit + i + 1,
-          url: `${baseUrl}/product/${p.slug}`,
-          name: p.name,
-        })),
-      },
-    }),
-  } : null;
+  const collectionJsonLd = !search
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: categoryData?.name || 'Каталог товарів',
+        url: `${baseUrl}/catalog${category ? `?category=${category}` : ''}`,
+        ...(categoryData?.seoDescription && { description: categoryData.seoDescription }),
+        isPartOf: {
+          '@type': 'WebSite',
+          name: 'Pulito Trade',
+          url: baseUrl,
+        },
+        ...(products.length > 0 && {
+          mainEntity: {
+            '@type': 'ItemList',
+            numberOfItems: total,
+            itemListElement: products.slice(0, 10).map((p, i) => ({
+              '@type': 'ListItem',
+              position: (page - 1) * limit + i + 1,
+              url: `${baseUrl}/product/${p.slug}`,
+              name: p.name,
+            })),
+          },
+        }),
+      }
+    : null;
 
   const breadcrumbJsonLdItems = breadcrumbs
     .filter((b) => b.href)
@@ -161,23 +172,25 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
         {categoryData?.name || (search ? `Результати пошуку: "${search}"` : 'Каталог товарів')}
       </h1>
 
-      <Suspense fallback={
-        <div>
-          <Skeleton className="mb-4 h-10 w-full" />
-          <div className="mt-4 flex gap-6">
-            <div className="hidden w-64 shrink-0 lg:block">
-              <Skeleton className="h-[400px] w-full rounded-[var(--radius)]" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <ProductCardSkeleton key={i} />
-                ))}
+      <Suspense
+        fallback={
+          <div>
+            <Skeleton className="mb-4 h-10 w-full" />
+            <div className="mt-4 flex gap-6">
+              <div className="hidden w-64 shrink-0 lg:block">
+                <Skeleton className="h-[400px] w-full rounded-[var(--radius)]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <ProductCardSkeleton key={i} />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      }>
+        }
+      >
         <CatalogClient total={total} categories={categories}>
           {products.length === 0 ? (
             <EmptyState

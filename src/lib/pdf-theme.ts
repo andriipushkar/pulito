@@ -7,7 +7,7 @@ import { getSettings } from '@/services/settings';
  * Ensures consistent look across invoices, pricelists, analytics reports,
  * and all generated files.
  *
- * Brand: Порошок — clean, modern, professional
+ * Brand: Pulito Trade — clean, modern, professional
  * Primary color: #2563eb (Tailwind blue-600 — matches website)
  */
 
@@ -66,9 +66,9 @@ export const PAGE = {
 export async function getCompanyInfo() {
   const s = await getSettings();
   return {
-    name: s.site_name || 'Порошок',
+    name: s.site_name || 'Pulito Trade',
     description: s.company_description || 'Інтернет-магазин побутової хімії',
-    website: s.site_email?.split('@')[1] || 'poroshok.ua',
+    website: s.site_email?.split('@')[1] || 'pulito.trade',
     phone: s.site_phone_display || '',
     email: s.site_email || '',
   };
@@ -89,7 +89,7 @@ export function setupDoc(doc: InstanceType<typeof PDFDocument>) {
 export function drawHeader(
   doc: InstanceType<typeof PDFDocument>,
   company: CompanyInfo,
-  subtitle?: string
+  subtitle?: string,
 ) {
   const M = PAGE.margin;
 
@@ -121,7 +121,7 @@ export function drawDocTitle(
   doc: InstanceType<typeof PDFDocument>,
   title: string,
   meta: string,
-  date: string
+  date: string,
 ) {
   const M = PAGE.margin;
   doc.font('Bold').fontSize(16).fillColor(BRAND.text);
@@ -164,7 +164,7 @@ export function drawInfoLine(doc: InstanceType<typeof PDFDocument>, label: strin
 /** Styled table header row */
 export function drawTableHeader(
   doc: InstanceType<typeof PDFDocument>,
-  columns: { label: string; x: number; width: number; align?: 'left' | 'right' | 'center' }[]
+  columns: { label: string; x: number; width: number; align?: 'left' | 'right' | 'center' }[],
 ) {
   const M = PAGE.margin;
   const y = doc.y;
@@ -186,7 +186,7 @@ export function drawTableRow(
   doc: InstanceType<typeof PDFDocument>,
   columns: { value: string; x: number; width: number; align?: 'left' | 'right' | 'center' }[],
   rowIndex: number,
-  rowHeight = 18
+  rowHeight = 18,
 ) {
   const M = PAGE.margin;
   const y = doc.y;
@@ -208,14 +208,13 @@ export function drawTableRow(
 export function drawTotalBlock(
   doc: InstanceType<typeof PDFDocument>,
   label: string,
-  amount: string
+  amount: string,
 ) {
   const blockW = 200;
   const blockX = PAGE.margin + PAGE.contentWidth - blockW;
   const y = doc.y;
 
-  doc.rect(blockX - 5, y - 4, blockW + 10, 24)
-    .fill(BRAND.primary);
+  doc.rect(blockX - 5, y - 4, blockW + 10, 24).fill(BRAND.primary);
 
   doc.font('Bold').fontSize(11).fillColor(BRAND.white);
   doc.text(`${label}: ${amount}`, blockX, y, { width: blockW, align: 'right' });
@@ -231,18 +230,17 @@ export function drawFooter(doc: InstanceType<typeof PDFDocument>, company: Compa
   doc.rect(M, y, PAGE.contentWidth, 1).fill(BRAND.border);
 
   doc.font('Regular').fontSize(7).fillColor(BRAND.textMuted);
-  doc.text(
-    `${company.name}  ·  ${company.website}  ·  ${company.phone}`,
-    M, y + 6,
-    { width: PAGE.contentWidth, align: 'center' }
-  );
+  doc.text(`${company.name}  ·  ${company.website}  ·  ${company.phone}`, M, y + 6, {
+    width: PAGE.contentWidth,
+    align: 'center',
+  });
 }
 
 /** Check if we need a page break, and if so add a new page with header */
 export function checkPageBreak(
   doc: InstanceType<typeof PDFDocument>,
   company: CompanyInfo,
-  threshold = 720
+  threshold = 720,
 ): boolean {
   if (doc.y > threshold) {
     drawFooter(doc, company);
@@ -260,7 +258,7 @@ export function drawBadge(
   x: number,
   y: number,
   color: string = BRAND.primary,
-  bgColor: string = BRAND.primaryLight
+  bgColor: string = BRAND.primaryLight,
 ) {
   const w = doc.widthOfString(text) + 12;
   doc.roundedRect(x, y - 2, w, 14, 4).fill(bgColor);
@@ -276,7 +274,7 @@ export function drawKpiCard(
   width: number,
   label: string,
   value: string,
-  change?: string
+  change?: string,
 ) {
   // Card background
   doc.roundedRect(x, y, width, 50, 6).fill(BRAND.bgLight);

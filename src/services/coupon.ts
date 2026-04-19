@@ -45,7 +45,11 @@ export async function validateCoupon(code: string, userId?: number, orderAmount?
 }
 
 export function calculateDiscount(
-  coupon: { type: string; value: number | string; maxDiscount: number | string | null },
+  coupon: {
+    type: string;
+    value: number | string | { toString(): string };
+    maxDiscount: number | string | { toString(): string } | null;
+  },
   orderAmount: number,
 ): number {
   const value = Number(coupon.value);

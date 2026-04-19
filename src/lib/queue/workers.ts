@@ -66,8 +66,8 @@ export function startWorkers() {
   const marketplaceSyncWorker = new Worker<MarketplaceSyncJobData>(
     'marketplace-sync',
     async (job) => {
-      const { syncProducts } = await import('@/services/marketplace-sync');
-      const result = await syncProducts(job.data.platform);
+      const { syncProductsToMarketplace } = await import('@/services/marketplace-sync');
+      const result = await syncProductsToMarketplace(job.data.platform);
       logger.info('Marketplace sync completed via queue', {
         jobId: job.id,
         platform: job.data.platform,

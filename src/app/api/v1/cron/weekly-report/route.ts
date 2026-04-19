@@ -42,12 +42,15 @@ export async function POST(request: NextRequest) {
 
     const totalRevenue = Number(revenue._sum.totalAmount || 0);
     const topList = topProducts
-      .map((p, i) => `${i + 1}. ${productMap.get(p.productId!) || 'Невідомий'} — ${p._sum.quantity} шт.`)
+      .map(
+        (p, i) =>
+          `${i + 1}. ${productMap.get(p.productId!) || 'Невідомий'} — ${p._sum.quantity} шт.`,
+      )
       .join('\n');
 
     // Format message
     const message = [
-      '📊 <b>Щотижневий звіт — Порошок</b>',
+      '📊 <b>Щотижневий звіт — Pulito Trade</b>',
       '',
       `📦 Замовлень: <b>${ordersCount}</b>`,
       `💰 Виручка: <b>${totalRevenue.toFixed(0)} ₴</b>`,

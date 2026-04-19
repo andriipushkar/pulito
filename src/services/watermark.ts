@@ -2,7 +2,7 @@ import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
 
-const WATERMARK_TEXT = process.env.WATERMARK_TEXT || 'poroshok.com';
+const WATERMARK_TEXT = process.env.WATERMARK_TEXT || 'pulito.trade';
 const UPLOADS_DIR = path.join(process.cwd(), 'public');
 
 /**

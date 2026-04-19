@@ -9,7 +9,7 @@ interface Experiment {
   id: number;
   key: string;
   variants: string[]; // e.g. ['control', 'variant_a', 'variant_b']
-  weights: number[];   // e.g. [50, 25, 25] — must sum to 100
+  weights: number[]; // e.g. [50, 25, 25] — must sum to 100
   isActive: boolean;
 }
 
@@ -17,7 +17,12 @@ interface Experiment {
  * Get the variant for a user in an experiment.
  * Uses deterministic hashing (userId + experimentKey) for consistent assignment.
  */
-export function assignVariant(experimentKey: string, userId: string, variants: string[], weights: number[]): string {
+export function assignVariant(
+  experimentKey: string,
+  userId: string,
+  variants: string[],
+  weights: number[],
+): string {
   const hash = createHash('md5').update(`${experimentKey}:${userId}`).digest('hex');
   const bucket = parseInt(hash.slice(0, 8), 16) % 100;
 
@@ -43,7 +48,7 @@ export async function getExperiment(key: string): Promise<Experiment | null> {
     // Redis unavailable
   }
 
-  const setting = await prisma.setting.findUnique({
+  const setting = await prisma.siteSetting.findUnique({
     where: { key: `experiment_${key}` },
   });
 
@@ -63,7 +68,10 @@ export async function getExperiment(key: string): Promise<Experiment | null> {
 /**
  * Get user's variant for an experiment.
  */
-export async function getUserVariant(experimentKey: string, userId: string): Promise<string | null> {
+export async function getUserVariant(
+  experimentKey: string,
+  userId: string,
+): Promise<string | null> {
   const experiment = await getExperiment(experimentKey);
   if (!experiment?.isActive) return null;
 

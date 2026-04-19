@@ -23,22 +23,23 @@ export async function generateMetadata({ searchParams }: BlogPageProps): Promise
   const canonical = page > 1 ? `${baseUrl}/blog?page=${page}` : `${baseUrl}/blog`;
 
   return {
-    title: 'Блог — Порошок',
-    description: 'Корисні статті про побутову хімію, поради з прибирання та догляду за домом від Порошок.',
+    title: 'Блог — Pulito Trade',
+    description:
+      'Корисні статті про побутову хімію, поради з прибирання та догляду за домом від Pulito Trade.',
     alternates: {
       canonical,
       languages: {
-        'uk': canonical,
-        'en': `${baseUrl}/en/blog${page > 1 ? `?page=${page}` : ''}`,
+        uk: canonical,
+        en: `${baseUrl}/en/blog${page > 1 ? `?page=${page}` : ''}`,
         'x-default': canonical,
       },
     },
     openGraph: {
-      title: 'Блог — Порошок',
+      title: 'Блог — Pulito Trade',
       description: 'Корисні статті про побутову хімію, поради з прибирання та догляду за домом.',
       url: canonical,
       type: 'website',
-      siteName: 'Порошок',
+      siteName: 'Pulito Trade',
     },
   };
 }
@@ -56,31 +57,32 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
 
   const totalPages = Math.ceil(total / limit);
 
-  const breadcrumbs = [
-    { label: 'Головна', href: '/' },
-    { label: 'Блог' },
-  ];
+  const breadcrumbs = [{ label: 'Головна', href: '/' }, { label: 'Блог' }];
 
   const currentSearchParams: Record<string, string> = {};
   if (categorySlug) currentSearchParams.category = categorySlug;
 
-  const itemListJsonLd = posts.length > 0 ? {
-    '@context': 'https://schema.org',
-    '@type': 'CollectionPage',
-    name: 'Блог — Порошок',
-    url: `${baseUrl}/blog`,
-    description: 'Корисні статті про побутову хімію, поради з прибирання та догляду за домом.',
-    mainEntity: {
-      '@type': 'ItemList',
-      numberOfItems: total,
-      itemListElement: posts.map((post, index) => ({
-        '@type': 'ListItem',
-        position: (page - 1) * limit + index + 1,
-        url: `${baseUrl}/blog/${post.slug}`,
-        name: post.title,
-      })),
-    },
-  } : null;
+  const itemListJsonLd =
+    posts.length > 0
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: 'Блог — Pulito Trade',
+          url: `${baseUrl}/blog`,
+          description:
+            'Корисні статті про побутову хімію, поради з прибирання та догляду за домом.',
+          mainEntity: {
+            '@type': 'ItemList',
+            numberOfItems: total,
+            itemListElement: posts.map((post, index) => ({
+              '@type': 'ListItem',
+              position: (page - 1) * limit + index + 1,
+              url: `${baseUrl}/blog/${post.slug}`,
+              name: post.title,
+            })),
+          },
+        }
+      : null;
 
   return (
     <Container className="py-6">

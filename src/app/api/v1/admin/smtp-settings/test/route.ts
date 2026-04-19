@@ -8,7 +8,7 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
     const { config, testEmail } = await request.json();
 
     if (!config.host || !config.port) {
-      return successResponse({ success: false, error: 'Host та Port обов\'язкові' });
+      return successResponse({ success: false, error: "Host та Port обов'язкові" });
     }
 
     const transporter = nodemailer.createTransport({
@@ -29,16 +29,19 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
           ? `"${config.fromName}" <${config.from || config.user}>`
           : config.from || config.user,
         to: testEmail,
-        subject: 'Тестовий лист від Порошок',
+        subject: 'Тестовий лист від Pulito Trade',
         text: 'Це тестовий лист. Якщо ви його бачите — SMTP налаштовано правильно!',
         html: '<h2>Тестовий лист</h2><p>Якщо ви бачите цей лист — SMTP налаштовано правильно!</p>',
       });
       return successResponse({ success: true, name: `SMTP OK, лист надіслано на ${testEmail}` });
     }
 
-    return successResponse({ success: true, name: `SMTP з'єднання успішне (${config.host}:${config.port})` });
+    return successResponse({
+      success: true,
+      name: `SMTP з'єднання успішне (${config.host}:${config.port})`,
+    });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Помилка з\'єднання';
+    const message = err instanceof Error ? err.message : "Помилка з'єднання";
     return successResponse({ success: false, error: message });
   }
 });

@@ -4,15 +4,15 @@ import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
 import { validateFileType } from '@/utils/file-validation';
-import { uploadFile, deleteFile, isCloudStorageEnabled } from '@/lib/storage';
+import { uploadFile, isCloudStorageEnabled } from '@/lib/storage';
 
-const WATERMARK_TEXT = process.env.WATERMARK_TEXT || 'poroshok.com';
+const WATERMARK_TEXT = process.env.WATERMARK_TEXT || 'pulito.trade';
 const WATERMARK_ENABLED = process.env.WATERMARK_ENABLED !== 'false'; // enabled by default
 
 export class ImageError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'ImageError';
@@ -46,7 +46,7 @@ export async function processProductImage(
   mimeType: string,
   originalFilename: string,
   productId: number,
-  isMain = false
+  isMain = false,
 ) {
   if (!ALLOWED_FORMATS.includes(mimeType)) {
     throw new ImageError('Непідтримуваний формат. Дозволені: JPG, PNG, WebP', 400);
@@ -94,11 +94,10 @@ export async function processProductImage(
       const filename = `${baseName}_${size.width}x${size.height}.webp`;
       const filePath = path.join(imageDir, filename);
 
-      let pipeline = sharp(fileBuffer)
-        .resize(size.width, size.height, {
-          fit: 'inside',
-          withoutEnlargement: true,
-        });
+      let pipeline = sharp(fileBuffer).resize(size.width, size.height, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      });
 
       if (key === 'blur') {
         pipeline = pipeline.blur(5).webp({ quality: 20 });
@@ -138,7 +137,7 @@ export async function processProductImage(
       }
 
       return { key, path: getRelativePath(filePath) };
-    })
+    }),
   );
 
   const pathMap: Record<string, string> = {};

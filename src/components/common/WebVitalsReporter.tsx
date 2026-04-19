@@ -24,17 +24,18 @@ function sendMetric(name: string, value: number) {
 
 export default function WebVitalsReporter() {
   useEffect(() => {
-    // Dynamically import web-vitals to collect all Core Web Vitals
-    import('web-vitals').then(({ onCLS, onFID, onLCP, onINP, onTTFB, onFCP }) => {
-      onLCP((metric) => sendMetric('LCP', metric.value));
-      onCLS((metric) => sendMetric('CLS', metric.value));
-      onFID((metric) => sendMetric('FID', metric.value));
-      onINP((metric) => sendMetric('INP', metric.value));
-      onTTFB((metric) => sendMetric('TTFB', metric.value));
-      onFCP((metric) => sendMetric('FCP', metric.value));
-    }).catch(() => {
-      // web-vitals not available — silent fallback
-    });
+    // web-vitals v5 dropped onFID in favor of onINP (Interaction to Next Paint)
+    import('web-vitals')
+      .then(({ onCLS, onLCP, onINP, onTTFB, onFCP }) => {
+        onLCP((metric: { value: number }) => sendMetric('LCP', metric.value));
+        onCLS((metric: { value: number }) => sendMetric('CLS', metric.value));
+        onINP((metric: { value: number }) => sendMetric('INP', metric.value));
+        onTTFB((metric: { value: number }) => sendMetric('TTFB', metric.value));
+        onFCP((metric: { value: number }) => sendMetric('FCP', metric.value));
+      })
+      .catch(() => {
+        // web-vitals not available — silent fallback
+      });
   }, []);
 
   return null;

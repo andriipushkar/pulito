@@ -26,17 +26,19 @@ const PRODUCT_SELECT = {
  */
 export async function getRecommendations(
   productId: number,
-  limit = 8
-): Promise<{
-  id: number;
-  name: string;
-  slug: string;
-  code: string;
-  priceRetail: unknown;
-  imagePath: string | null;
-  isPromo: boolean;
-  images: { pathThumbnail: string | null }[];
-}[]> {
+  limit = 8,
+): Promise<
+  {
+    id: number;
+    name: string;
+    slug: string;
+    code: string;
+    priceRetail: unknown;
+    imagePath: string | null;
+    isPromo: boolean;
+    images: { pathThumbnail: string | null }[];
+  }[]
+> {
   const cacheKey = `${CACHE_PREFIX}${productId}`;
   const cached = await redis.get(cacheKey);
   if (cached) return JSON.parse(cached);
@@ -67,9 +69,7 @@ export async function getRecommendations(
     },
   });
 
-  const manualProducts = manual
-    .map((r) => r.recommendedProduct)
-    .filter((p) => p.isActive);
+  const manualProducts = manual.map((r) => r.recommendedProduct).filter((p) => p.isActive);
 
   if (manualProducts.length >= limit) {
     const result = manualProducts.slice(0, limit);
@@ -108,9 +108,7 @@ export async function getRecommendations(
     },
   });
 
-  const autoProducts = auto
-    .map((r) => r.recommendedProduct)
-    .filter((p) => p.isActive);
+  const autoProducts = auto.map((r) => r.recommendedProduct).filter((p) => p.isActive);
 
   const combined = [...manualProducts, ...autoProducts];
 
@@ -192,7 +190,10 @@ export async function buildBoughtTogetherRecommendations(): Promise<number> {
     const [a, b] = key.split(':').map(Number);
 
     // Upsert both directions
-    for (const [from, to] of [[a, b], [b, a]]) {
+    for (const [from, to] of [
+      [a, b],
+      [b, a],
+    ]) {
       const existing = await prisma.productRecommendation.findFirst({
         where: {
           productId: from,
@@ -261,7 +262,7 @@ export async function buildCollaborativeRecommendations(options?: {
     if (!order.userId) continue;
     const existing = userProducts.get(order.userId) ?? new Set<number>();
     for (const item of order.items) {
-      existing.add(item.productId);
+      if (item.productId !== null) existing.add(item.productId);
     }
     userProducts.set(order.userId, existing);
   }
@@ -302,7 +303,10 @@ export async function buildCollaborativeRecommendations(options?: {
       if (score < minScore) continue;
 
       // Add to both product's recommendation lists
-      for (const [from, to] of [[a, b], [b, a]] as [number, number][]) {
+      for (const [from, to] of [
+        [a, b],
+        [b, a],
+      ] as [number, number][]) {
         const recs = topRecs.get(from) ?? [];
         recs.push({ recommendedId: to, score });
         topRecs.set(from, recs);
@@ -348,17 +352,19 @@ export async function buildCollaborativeRecommendations(options?: {
  */
 export async function getPersonalizedRecommendations(
   userId: number,
-  limit = 12
-): Promise<{
-  id: number;
-  name: string;
-  slug: string;
-  code: string;
-  priceRetail: unknown;
-  imagePath: string | null;
-  isPromo: boolean;
-  images: { pathThumbnail: string | null }[];
-}[]> {
+  limit = 12,
+): Promise<
+  {
+    id: number;
+    name: string;
+    slug: string;
+    code: string;
+    priceRetail: unknown;
+    imagePath: string | null;
+    isPromo: boolean;
+    images: { pathThumbnail: string | null }[];
+  }[]
+> {
   const cacheKey = `${PERSONAL_CACHE_PREFIX}${userId}`;
   const cached = await redis.get(cacheKey);
   if (cached) return JSON.parse(cached);
@@ -379,7 +385,7 @@ export async function getPersonalizedRecommendations(
   const boughtProductIds = new Set<number>();
   for (const order of userOrders) {
     for (const item of order.items) {
-      boughtProductIds.add(item.productId);
+      if (item.productId !== null) boughtProductIds.add(item.productId);
     }
   }
 

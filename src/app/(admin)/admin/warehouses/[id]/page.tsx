@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -33,7 +33,7 @@ export default function AdminWarehouseDetailPage() {
   const [updateForm, setUpdateForm] = useState({ productId: '', quantity: '' });
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const loadWarehouse = () => {
+  const loadWarehouse = useCallback(() => {
     setIsLoading(true);
     apiClient
       .get<WarehouseData>(`/api/v1/admin/warehouses/${id}`)
@@ -41,9 +41,11 @@ export default function AdminWarehouseDetailPage() {
         if (res.success && res.data) setWarehouse(res.data);
       })
       .finally(() => setIsLoading(false));
-  };
+  }, [id]);
 
-  useEffect(() => { loadWarehouse(); }, [id]);
+  useEffect(() => {
+    loadWarehouse();
+  }, [loadWarehouse]);
 
   const handleUpdateStock = async () => {
     const pid = Number(updateForm.productId);
@@ -68,14 +70,21 @@ export default function AdminWarehouseDetailPage() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   if (!warehouse) {
     return (
       <div className="text-center">
         <p className="text-[var(--color-text-secondary)]">Склад не знайдено</p>
-        <Link href="/admin/warehouses" className="mt-4 inline-block text-sm text-[var(--color-primary)] hover:underline">
+        <Link
+          href="/admin/warehouses"
+          className="mt-4 inline-block text-sm text-[var(--color-primary)] hover:underline"
+        >
           До списку складів
         </Link>
       </div>
@@ -85,11 +94,18 @@ export default function AdminWarehouseDetailPage() {
   return (
     <div>
       <div className="mb-6">
-        <Link href="/admin/warehouses" className="text-sm text-[var(--color-primary)] hover:underline">← Склади</Link>
+        <Link
+          href="/admin/warehouses"
+          className="text-sm text-[var(--color-primary)] hover:underline"
+        >
+          ← Склади
+        </Link>
         <h2 className="mt-1 text-xl font-bold">
           {warehouse.name}
           {warehouse.isDefault && (
-            <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-sm font-normal text-blue-700">Основний</span>
+            <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-sm font-normal text-blue-700">
+              Основний
+            </span>
           )}
         </h2>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
@@ -113,7 +129,9 @@ export default function AdminWarehouseDetailPage() {
             placeholder="Кількість"
             className="w-32"
           />
-          <Button onClick={handleUpdateStock} isLoading={isUpdating}>Оновити</Button>
+          <Button onClick={handleUpdateStock} isLoading={isUpdating}>
+            Оновити
+          </Button>
         </div>
       </div>
 
@@ -130,13 +148,24 @@ export default function AdminWarehouseDetailPage() {
           </thead>
           <tbody>
             {warehouse.stock.map((item) => (
-              <tr key={item.productId} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
+              <tr
+                key={item.productId}
+                className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]"
+              >
                 <td className="px-4 py-3 font-medium">{item.productName}</td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">{item.productCode}</td>
                 <td className="px-4 py-3 text-right">{item.quantity}</td>
-                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">{item.reserved}</td>
+                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">
+                  {item.reserved}
+                </td>
                 <td className="px-4 py-3 text-right">
-                  <span className={item.quantity - item.reserved <= 0 ? 'font-medium text-[var(--color-danger)]' : ''}>
+                  <span
+                    className={
+                      item.quantity - item.reserved <= 0
+                        ? 'font-medium text-[var(--color-danger)]'
+                        : ''
+                    }
+                  >
                     {item.quantity - item.reserved}
                   </span>
                 </td>
@@ -144,7 +173,10 @@ export default function AdminWarehouseDetailPage() {
             ))}
             {warehouse.stock.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                <td
+                  colSpan={5}
+                  className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                >
                   На складі немає товарів
                 </td>
               </tr>

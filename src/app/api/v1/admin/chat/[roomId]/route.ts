@@ -14,7 +14,10 @@ import {
 import { adminChatUpdateSchema, sendMessageSchema } from '@/validators/chat';
 
 // GET /api/v1/admin/chat/[roomId] - get room detail with messages
-export const GET = withRole('admin', 'manager')(async (request: NextRequest, { params }) => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { params }) => {
   try {
     const { roomId } = (await params) || {};
     const id = Number(roomId);
@@ -37,7 +40,10 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest, { p
 });
 
 // PATCH /api/v1/admin/chat/[roomId] - assign/resolve/close room
-export const PATCH = withRole('admin', 'manager')(async (request: NextRequest, { user, params }) => {
+export const PATCH = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { user, params }) => {
   try {
     const { roomId } = (await params) || {};
     const id = Number(roomId);
@@ -46,7 +52,7 @@ export const PATCH = withRole('admin', 'manager')(async (request: NextRequest, {
     const body = await request.json();
     const parsed = adminChatUpdateSchema.safeParse(body);
     if (!parsed.success) {
-      return errorResponse(parsed.error.errors[0]?.message || 'Невірні дані', 400);
+      return errorResponse(parsed.error.issues[0]?.message || 'Невірні дані', 400);
     }
 
     const { action, agentId } = parsed.data;
@@ -78,7 +84,10 @@ export const PATCH = withRole('admin', 'manager')(async (request: NextRequest, {
 });
 
 // POST /api/v1/admin/chat/[roomId] - send message as agent
-export const POST = withRole('admin', 'manager')(async (request: NextRequest, { user, params }) => {
+export const POST = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { user, params }) => {
   try {
     const { roomId } = (await params) || {};
     const id = Number(roomId);
@@ -87,7 +96,7 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest, { 
     const body = await request.json();
     const parsed = sendMessageSchema.safeParse(body);
     if (!parsed.success) {
-      return errorResponse(parsed.error.errors[0]?.message || 'Невірні дані', 400);
+      return errorResponse(parsed.error.issues[0]?.message || 'Невірні дані', 400);
     }
 
     // Mark customer messages as read when agent responds
@@ -98,7 +107,7 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest, { 
       'agent',
       user.id,
       parsed.data.content,
-      parsed.data.attachmentUrl
+      parsed.data.attachmentUrl,
     );
 
     return successResponse(message, 201);

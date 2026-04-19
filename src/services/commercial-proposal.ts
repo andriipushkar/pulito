@@ -3,8 +3,16 @@ import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import { env } from '@/config/env';
 import {
-  BRAND, PAGE, setupDoc, drawHeader, drawDocTitle,
-  drawTableHeader as drawThemedTableHeader, drawTableRow, drawTotalBlock, drawFooter, getCompanyInfo,
+  BRAND,
+  PAGE,
+  setupDoc,
+  drawHeader,
+  drawDocTitle,
+  drawTableHeader as drawThemedTableHeader,
+  drawTableRow,
+  drawTotalBlock,
+  drawFooter,
+  getCompanyInfo,
 } from '@/lib/pdf-theme';
 
 interface ProposalItem {
@@ -92,18 +100,38 @@ export async function generateCommercialProposal(options: ProposalOptions): Prom
       drawThemedTableHeader(doc, tableColumns);
     }
 
-    drawTableRow(doc, [
-      { value: String(i + 1), x: tableColumns[0].x, width: tableColumns[0].width },
-      { value: item.code, x: tableColumns[1].x, width: tableColumns[1].width },
-      { value: item.name.slice(0, 45), x: tableColumns[2].x, width: tableColumns[2].width },
-      { value: String(item.quantity), x: tableColumns[3].x, width: tableColumns[3].width, align: 'right' },
-      { value: item.price.toFixed(2), x: tableColumns[4].x, width: tableColumns[4].width, align: 'right' },
-      { value: item.total.toFixed(2), x: tableColumns[5].x, width: tableColumns[5].width, align: 'right' },
-    ], i, 16);
+    drawTableRow(
+      doc,
+      [
+        { value: String(i + 1), x: tableColumns[0].x, width: tableColumns[0].width },
+        { value: item.code, x: tableColumns[1].x, width: tableColumns[1].width },
+        { value: item.name.slice(0, 45), x: tableColumns[2].x, width: tableColumns[2].width },
+        {
+          value: String(item.quantity),
+          x: tableColumns[3].x,
+          width: tableColumns[3].width,
+          align: 'right',
+        },
+        {
+          value: item.price.toFixed(2),
+          x: tableColumns[4].x,
+          width: tableColumns[4].width,
+          align: 'right',
+        },
+        {
+          value: item.total.toFixed(2),
+          x: tableColumns[5].x,
+          width: tableColumns[5].width,
+          align: 'right',
+        },
+      ],
+      i,
+      16,
+    );
   }
 
   doc.moveDown(1);
-  drawTotalBlock(doc, `Загалом: ${totalAmount.toFixed(2)} грн`);
+  drawTotalBlock(doc, 'Загалом', `${totalAmount.toFixed(2)} грн`);
 
   // Validity
   doc.moveDown(2);

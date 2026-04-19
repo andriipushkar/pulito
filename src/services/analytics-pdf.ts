@@ -4,7 +4,6 @@ import path from 'path';
 import { env } from '@/config/env';
 import {
   BRAND,
-  FONT_REGULAR,
   PAGE,
   setupDoc,
   drawHeader,
@@ -13,7 +12,6 @@ import {
   drawTableHeader,
   drawTableRow,
   drawFooter,
-  drawKpiCard,
   getCompanyInfo,
   checkPageBreak,
 } from '@/lib/pdf-theme';
@@ -29,7 +27,10 @@ import {
 
 type ReportType = 'stock' | 'price' | 'channels' | 'geography' | 'ltv' | 'segments' | 'summary';
 
-export async function generateAnalyticsPdf(reportType: ReportType, days: number = 30): Promise<string> {
+export async function generateAnalyticsPdf(
+  reportType: ReportType,
+  days: number = 30,
+): Promise<string> {
   const reportsDir = path.join(env.UPLOAD_DIR, 'reports');
   if (!existsSync(reportsDir)) {
     mkdirSync(reportsDir, { recursive: true });
@@ -127,13 +128,22 @@ async function renderStockReport(doc: PDFKit.PDFDocument, days: number, company:
   for (let i = 0; i < Math.min(data.criticalStock.length, 30); i++) {
     const item = data.criticalStock[i];
     checkPageBreak(doc, company);
-    drawTableRow(doc, [
-      { value: item.code, x: cols[0].x, width: cols[0].width },
-      { value: item.name.slice(0, 40), x: cols[1].x, width: cols[1].width },
-      { value: String(item.quantity), x: cols[2].x, width: cols[2].width, align: 'right' },
-      { value: String(item.avgDailySales), x: cols[3].x, width: cols[3].width, align: 'right' },
-      { value: item.daysUntilOut !== null ? String(item.daysUntilOut) : '—', x: cols[4].x, width: cols[4].width, align: 'right' },
-    ], i);
+    drawTableRow(
+      doc,
+      [
+        { value: item.code, x: cols[0].x, width: cols[0].width },
+        { value: item.name.slice(0, 40), x: cols[1].x, width: cols[1].width },
+        { value: String(item.quantity), x: cols[2].x, width: cols[2].width, align: 'right' },
+        { value: String(item.avgDailySales), x: cols[3].x, width: cols[3].width, align: 'right' },
+        {
+          value: item.daysUntilOut !== null ? String(item.daysUntilOut) : '—',
+          x: cols[4].x,
+          width: cols[4].width,
+          align: 'right',
+        },
+      ],
+      i,
+    );
   }
 }
 
@@ -163,13 +173,32 @@ async function renderPriceReport(doc: PDFKit.PDFDocument, days: number, company:
   for (let i = 0; i < Math.min(data.changes.length, 40); i++) {
     const c = data.changes[i];
     checkPageBreak(doc, company);
-    drawTableRow(doc, [
-      { value: c.product?.code || '', x: cols[0].x, width: cols[0].width },
-      { value: (c.product?.name || '').slice(0, 35), x: cols[1].x, width: cols[1].width },
-      { value: `${c.priceRetailOld.toFixed(2)} ₴`, x: cols[2].x, width: cols[2].width, align: 'right' },
-      { value: `${c.priceRetailNew.toFixed(2)} ₴`, x: cols[3].x, width: cols[3].width, align: 'right' },
-      { value: `${c.changePercent > 0 ? '+' : ''}${c.changePercent}%`, x: cols[4].x, width: cols[4].width, align: 'right' },
-    ], i);
+    drawTableRow(
+      doc,
+      [
+        { value: c.product?.code || '', x: cols[0].x, width: cols[0].width },
+        { value: (c.product?.name || '').slice(0, 35), x: cols[1].x, width: cols[1].width },
+        {
+          value: `${c.priceRetailOld.toFixed(2)} ₴`,
+          x: cols[2].x,
+          width: cols[2].width,
+          align: 'right',
+        },
+        {
+          value: `${c.priceRetailNew.toFixed(2)} ₴`,
+          x: cols[3].x,
+          width: cols[3].width,
+          align: 'right',
+        },
+        {
+          value: `${c.changePercent > 0 ? '+' : ''}${c.changePercent}%`,
+          x: cols[4].x,
+          width: cols[4].width,
+          align: 'right',
+        },
+      ],
+      i,
+    );
   }
 }
 
@@ -200,12 +229,26 @@ async function renderChannelsReport(doc: PDFKit.PDFDocument, days: number, compa
   for (let i = 0; i < data.byUtmSource.length; i++) {
     const row = data.byUtmSource[i];
     checkPageBreak(doc, company);
-    drawTableRow(doc, [
-      { value: row.utmSource || 'Без мітки', x: cols[0].x, width: cols[0].width },
-      { value: String(row.orders), x: cols[1].x, width: cols[1].width, align: 'right' },
-      { value: `${row.revenue.toFixed(0)} ₴`, x: cols[2].x, width: cols[2].width, align: 'right' },
-      { value: `${row.orders > 0 ? (row.revenue / row.orders).toFixed(0) : 0} ₴`, x: cols[3].x, width: cols[3].width, align: 'right' },
-    ], i);
+    drawTableRow(
+      doc,
+      [
+        { value: row.utmSource || 'Без мітки', x: cols[0].x, width: cols[0].width },
+        { value: String(row.orders), x: cols[1].x, width: cols[1].width, align: 'right' },
+        {
+          value: `${row.revenue.toFixed(0)} ₴`,
+          x: cols[2].x,
+          width: cols[2].width,
+          align: 'right',
+        },
+        {
+          value: `${row.orders > 0 ? (row.revenue / row.orders).toFixed(0) : 0} ₴`,
+          x: cols[3].x,
+          width: cols[3].width,
+          align: 'right',
+        },
+      ],
+      i,
+    );
   }
 
   doc.moveDown(1);
@@ -222,12 +265,26 @@ async function renderChannelsReport(doc: PDFKit.PDFDocument, days: number, compa
   for (let i = 0; i < data.channelConversionRates.length; i++) {
     const row = data.channelConversionRates[i];
     checkPageBreak(doc, company);
-    drawTableRow(doc, [
-      { value: row.source, x: convCols[0].x, width: convCols[0].width },
-      { value: String(row.visits), x: convCols[1].x, width: convCols[1].width, align: 'right' },
-      { value: String(row.conversions), x: convCols[2].x, width: convCols[2].width, align: 'right' },
-      { value: `${row.conversionRate}%`, x: convCols[3].x, width: convCols[3].width, align: 'right' },
-    ], i);
+    drawTableRow(
+      doc,
+      [
+        { value: row.source, x: convCols[0].x, width: convCols[0].width },
+        { value: String(row.visits), x: convCols[1].x, width: convCols[1].width, align: 'right' },
+        {
+          value: String(row.conversions),
+          x: convCols[2].x,
+          width: convCols[2].width,
+          align: 'right',
+        },
+        {
+          value: `${row.conversionRate}%`,
+          x: convCols[3].x,
+          width: convCols[3].width,
+          align: 'right',
+        },
+      ],
+      i,
+    );
   }
 }
 
@@ -236,7 +293,11 @@ async function renderGeographyReport(doc: PDFKit.PDFDocument, days: number, comp
 
   drawSectionTitle(doc, 'Географія замовлень');
   doc.font('Regular').fontSize(10).fillColor(BRAND.text);
-  doc.text(`Міст: ${data.totalCities} | Замовлень: ${data.totalOrders} | Виручка: ${data.totalRevenue.toFixed(0)} ₴`, PAGE.margin, doc.y);
+  doc.text(
+    `Міст: ${data.totalCities} | Замовлень: ${data.totalOrders} | Виручка: ${data.totalRevenue.toFixed(0)} ₴`,
+    PAGE.margin,
+    doc.y,
+  );
   if (data.topCity) doc.text(`Топ-місто: ${data.topCity.city} (${data.topCity.ordersPercent}%)`);
   doc.moveDown(1);
 
@@ -255,14 +316,23 @@ async function renderGeographyReport(doc: PDFKit.PDFDocument, days: number, comp
   for (let i = 0; i < Math.min(data.cities.length, 40); i++) {
     const city = data.cities[i];
     checkPageBreak(doc, company);
-    drawTableRow(doc, [
-      { value: city.city, x: cols[0].x, width: cols[0].width },
-      { value: String(city.orders), x: cols[1].x, width: cols[1].width, align: 'right' },
-      { value: `${city.ordersPercent}%`, x: cols[2].x, width: cols[2].width, align: 'right' },
-      { value: `${city.revenue.toFixed(0)} ₴`, x: cols[3].x, width: cols[3].width, align: 'right' },
-      { value: `${city.revenuePercent}%`, x: cols[4].x, width: cols[4].width, align: 'right' },
-      { value: `${city.avgCheck} ₴`, x: cols[5].x, width: cols[5].width, align: 'right' },
-    ], i);
+    drawTableRow(
+      doc,
+      [
+        { value: city.city, x: cols[0].x, width: cols[0].width },
+        { value: String(city.orders), x: cols[1].x, width: cols[1].width, align: 'right' },
+        { value: `${city.ordersPercent}%`, x: cols[2].x, width: cols[2].width, align: 'right' },
+        {
+          value: `${city.revenue.toFixed(0)} ₴`,
+          x: cols[3].x,
+          width: cols[3].width,
+          align: 'right',
+        },
+        { value: `${city.revenuePercent}%`, x: cols[4].x, width: cols[4].width, align: 'right' },
+        { value: `${city.avgCheck} ₴`, x: cols[5].x, width: cols[5].width, align: 'right' },
+      ],
+      i,
+    );
   }
 }
 
@@ -299,14 +369,23 @@ async function renderLTVReport(doc: PDFKit.PDFDocument, days: number, company: C
   for (let i = 0; i < Math.min(data.topCustomers.length, 30); i++) {
     const c = data.topCustomers[i];
     checkPageBreak(doc, company);
-    drawTableRow(doc, [
-      { value: String(i + 1), x: cols[0].x, width: cols[0].width },
-      { value: (c.fullName || c.email).slice(0, 30), x: cols[1].x, width: cols[1].width },
-      { value: `${c.totalSpent.toFixed(0)} ₴`, x: cols[2].x, width: cols[2].width, align: 'right' },
-      { value: String(c.orderCount), x: cols[3].x, width: cols[3].width, align: 'right' },
-      { value: `${c.avgCheck} ₴`, x: cols[4].x, width: cols[4].width, align: 'right' },
-      { value: `${c.projectedYearlyLTV} ₴`, x: cols[5].x, width: cols[5].width, align: 'right' },
-    ], i);
+    drawTableRow(
+      doc,
+      [
+        { value: String(i + 1), x: cols[0].x, width: cols[0].width },
+        { value: (c.fullName || c.email).slice(0, 30), x: cols[1].x, width: cols[1].width },
+        {
+          value: `${c.totalSpent.toFixed(0)} ₴`,
+          x: cols[2].x,
+          width: cols[2].width,
+          align: 'right',
+        },
+        { value: String(c.orderCount), x: cols[3].x, width: cols[3].width, align: 'right' },
+        { value: `${c.avgCheck} ₴`, x: cols[4].x, width: cols[4].width, align: 'right' },
+        { value: `${c.projectedYearlyLTV} ₴`, x: cols[5].x, width: cols[5].width, align: 'right' },
+      ],
+      i,
+    );
   }
 }
 
@@ -315,7 +394,11 @@ async function renderSegmentsReport(doc: PDFKit.PDFDocument, company: CompanyInf
 
   drawSectionTitle(doc, 'Сегментація клієнтів');
   doc.font('Regular').fontSize(10).fillColor(BRAND.text);
-  doc.text(`Всього клієнтів: ${data.totalCustomers} | Загальна виручка: ${data.totalRevenue} ₴`, PAGE.margin, doc.y);
+  doc.text(
+    `Всього клієнтів: ${data.totalCustomers} | Загальна виручка: ${data.totalRevenue} ₴`,
+    PAGE.margin,
+    doc.y,
+  );
   doc.moveDown(1);
 
   const M = PAGE.margin;
@@ -332,14 +415,20 @@ async function renderSegmentsReport(doc: PDFKit.PDFDocument, company: CompanyInf
   for (let i = 0; i < data.segments.length; i++) {
     const seg = data.segments[i];
     checkPageBreak(doc, company);
-    const pct = data.totalCustomers > 0 ? ((seg.count / data.totalCustomers) * 100).toFixed(1) : '0';
-    drawTableRow(doc, [
-      { value: seg.label, x: cols[0].x, width: cols[0].width },
-      { value: String(seg.count), x: cols[1].x, width: cols[1].width, align: 'right' },
-      { value: `${pct}%`, x: cols[2].x, width: cols[2].width, align: 'right' },
-      { value: `${seg.revenue} ₴`, x: cols[3].x, width: cols[3].width, align: 'right' },
-      { value: `${seg.avgCheck} ₴`, x: cols[4].x, width: cols[4].width, align: 'right' },
-    ], i, 18);
+    const pct =
+      data.totalCustomers > 0 ? ((seg.count / data.totalCustomers) * 100).toFixed(1) : '0';
+    drawTableRow(
+      doc,
+      [
+        { value: seg.label, x: cols[0].x, width: cols[0].width },
+        { value: String(seg.count), x: cols[1].x, width: cols[1].width, align: 'right' },
+        { value: `${pct}%`, x: cols[2].x, width: cols[2].width, align: 'right' },
+        { value: `${seg.revenue} ₴`, x: cols[3].x, width: cols[3].width, align: 'right' },
+        { value: `${seg.avgCheck} ₴`, x: cols[4].x, width: cols[4].width, align: 'right' },
+      ],
+      i,
+      18,
+    );
   }
 }
 
@@ -359,7 +448,11 @@ async function renderSummaryReport(doc: PDFKit.PDFDocument, days: number, compan
   const geo = await getGeographyAnalytics(days);
   drawSectionTitle(doc, 'Географія');
   doc.font('Regular').fontSize(10).fillColor(BRAND.text);
-  doc.text(`Міст: ${geo.totalCities} | Замовлень: ${geo.totalOrders} | Виручка: ${geo.totalRevenue.toFixed(0)} ₴`, PAGE.margin, doc.y);
+  doc.text(
+    `Міст: ${geo.totalCities} | Замовлень: ${geo.totalOrders} | Виручка: ${geo.totalRevenue.toFixed(0)} ₴`,
+    PAGE.margin,
+    doc.y,
+  );
   if (geo.topCity) doc.text(`Топ-місто: ${geo.topCity.city}`);
   doc.moveDown(1);
 
@@ -380,7 +473,8 @@ async function renderSummaryReport(doc: PDFKit.PDFDocument, days: number, compan
   drawSectionTitle(doc, 'Сегменти');
   doc.font('Regular').fontSize(10).fillColor(BRAND.text);
   for (const seg of segs.segments) {
-    const pct = segs.totalCustomers > 0 ? ((seg.count / segs.totalCustomers) * 100).toFixed(1) : '0';
+    const pct =
+      segs.totalCustomers > 0 ? ((seg.count / segs.totalCustomers) * 100).toFixed(1) : '0';
     doc.text(`${seg.label}: ${seg.count} (${pct}%) — ${seg.revenue} ₴`, PAGE.margin, doc.y);
   }
 }

@@ -70,7 +70,7 @@ export default function () {
           errorRate.add(r.status !== 200);
           check(r, { 'product 200': (r) => r.status === 200 });
         }
-      } catch (_) {}
+      } catch { /* ignore */ }
     }
     sleep(Math.random() * 3 + 2);
   });

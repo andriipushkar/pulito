@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Оформлення замовлення',
   description:
-    'Оформіть замовлення в інтернет-магазині Порошок: виберіть спосіб доставки та оплати.',
+    'Оформіть замовлення в інтернет-магазині Pulito Trade: виберіть спосіб доставки та оплати.',
   robots: { index: false, follow: false },
 };
 

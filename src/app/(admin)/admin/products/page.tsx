@@ -67,6 +67,7 @@ const BULK_ACTIONS = [
   { value: '', label: 'Масова дія...' },
   { value: 'activate', label: 'Активувати' },
   { value: 'deactivate', label: 'Деактивувати' },
+  { value: 'delete', label: 'Видалити' },
   { value: 'change_category', label: 'Змінити категорію' },
   { value: 'export', label: 'Експорт обраних (XLSX)' },
 ];
@@ -178,7 +179,10 @@ export default function AdminProductsPage() {
     if (!bulkAction || selected.size === 0) return;
 
     // Require confirmation for destructive actions
-    if (['activate', 'deactivate', 'change_category'].includes(bulkAction) && !confirmBulk) {
+    if (
+      ['activate', 'deactivate', 'delete', 'change_category'].includes(bulkAction) &&
+      !confirmBulk
+    ) {
       setConfirmBulk(true);
       return;
     }
@@ -217,6 +221,17 @@ export default function AdminProductsPage() {
           toast.success(`Експортовано ${ids.length} товарів`);
         } else {
           toast.error(res.error || 'Помилка експорту');
+        }
+      } else if (bulkAction === 'delete') {
+        const res = await apiClient.post('/api/v1/admin/products/bulk', {
+          action: 'delete',
+          productIds: ids,
+        });
+        if (res.success) {
+          toast.success(`Видалено ${ids.length} товарів`);
+          loadProducts();
+        } else {
+          toast.error(res.error || 'Помилка');
         }
       } else {
         const res = await apiClient.post('/api/v1/admin/products/bulk', {
@@ -519,10 +534,14 @@ export default function AdminProductsPage() {
         isOpen={confirmBulk}
         onClose={() => setConfirmBulk(false)}
         onConfirm={handleBulkAction}
-        variant="warning"
-        title="Підтвердження масової дії"
-        message={`Ви впевнені, що хочете виконати "${bulkActionLabel}" для ${selected.size} товарів?`}
-        confirmText="Так, виконати"
+        variant={bulkAction === 'delete' ? 'danger' : 'warning'}
+        title={bulkAction === 'delete' ? 'Видалення товарів' : 'Підтвердження масової дії'}
+        message={
+          bulkAction === 'delete'
+            ? `Ви впевнені, що хочете видалити ${selected.size} товарів? Товари будуть деактивовані та позначені як видалені.`
+            : `Ви впевнені, що хочете виконати "${bulkActionLabel}" для ${selected.size} товарів?`
+        }
+        confirmText={bulkAction === 'delete' ? 'Так, видалити' : 'Так, виконати'}
       />
     </div>
   );

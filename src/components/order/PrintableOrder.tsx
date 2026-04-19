@@ -20,7 +20,7 @@ export default function PrintableOrder({ order }: PrintableOrderProps) {
   const COMPANY = {
     name: settings.site_name,
     tagline: settings.company_description,
-    website: settings.site_email.split('@')[1] || 'poroshok.ua',
+    website: settings.site_email.split('@')[1] || 'pulito.trade',
     phone: settings.site_phone_display,
     email: settings.site_email,
   };
@@ -88,13 +88,6 @@ ${content.innerHTML}
     win.document.close();
   };
 
-  const formatDate = (date: string | Date) =>
-    new Date(date).toLocaleDateString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-
   const formatDateTime = (date: string | Date) =>
     new Date(date).toLocaleString('uk-UA', {
       day: '2-digit',
@@ -104,16 +97,17 @@ ${content.innerHTML}
       minute: '2-digit',
     });
 
-  const statusColor = {
-    new_order: '#3b82f6',
-    processing: '#f59e0b',
-    confirmed: '#10b981',
-    paid: '#06b6d4',
-    shipped: '#8b5cf6',
-    completed: '#6b7280',
-    cancelled: '#ef4444',
-    returned: '#f97316',
-  }[order.status] || '#666';
+  const statusColor =
+    {
+      new_order: '#3b82f6',
+      processing: '#f59e0b',
+      confirmed: '#10b981',
+      paid: '#06b6d4',
+      shipped: '#8b5cf6',
+      completed: '#6b7280',
+      cancelled: '#ef4444',
+      returned: '#f97316',
+    }[order.status] || '#666';
 
   return (
     <>
@@ -121,7 +115,16 @@ ${content.innerHTML}
         onClick={handlePrint}
         className="flex items-center gap-2 rounded-lg border border-[var(--color-border)]/60 bg-[var(--color-bg)] px-4 py-2 text-sm font-medium text-[var(--color-text)] shadow-sm transition-colors hover:bg-[var(--color-bg-secondary)]"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <polyline points="6 9 6 2 18 2 18 9" />
           <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
           <rect x="6" y="14" width="12" height="8" />
@@ -163,23 +166,31 @@ ${content.innerHTML}
                 <h3>Відправник</h3>
                 <p className="value">{COMPANY.name}</p>
                 <p>{COMPANY.tagline}</p>
-                <p><span className="label">Тел:</span> {COMPANY.phone}</p>
-                <p><span className="label">Сайт:</span> {COMPANY.website}</p>
+                <p>
+                  <span className="label">Тел:</span> {COMPANY.phone}
+                </p>
+                <p>
+                  <span className="label">Сайт:</span> {COMPANY.website}
+                </p>
               </div>
               <div className="box">
                 <h3>Отримувач</h3>
                 <p className="value">{order.contactName}</p>
-                <p><span className="label">Тел:</span> {order.contactPhone}</p>
-                {order.contactEmail && <p><span className="label">Email:</span> {order.contactEmail}</p>}
+                <p>
+                  <span className="label">Тел:</span> {order.contactPhone}
+                </p>
+                {order.contactEmail && (
+                  <p>
+                    <span className="label">Email:</span> {order.contactEmail}
+                  </p>
+                )}
               </div>
               <div className="box">
                 <h3>Доставка</h3>
                 <p className="value">{DELIVERY_METHOD_LABELS[order.deliveryMethod]}</p>
                 {order.deliveryCity && <p>{order.deliveryCity}</p>}
                 {order.deliveryAddress && <p>{order.deliveryAddress}</p>}
-                {order.trackingNumber && (
-                  <p className="ttn">ТТН: {order.trackingNumber}</p>
-                )}
+                {order.trackingNumber && <p className="ttn">ТТН: {order.trackingNumber}</p>}
               </div>
               <div className="box">
                 <h3>Оплата</h3>
@@ -187,7 +198,9 @@ ${content.innerHTML}
                 <p>{PAYMENT_STATUS_LABELS[order.paymentStatus]}</p>
                 {order.comment && (
                   <>
-                    <p style={{ marginTop: '6px' }}><span className="label">Коментар:</span></p>
+                    <p style={{ marginTop: '6px' }}>
+                      <span className="label">Коментар:</span>
+                    </p>
                     <p>{order.comment}</p>
                   </>
                 )}
@@ -198,13 +211,23 @@ ${content.innerHTML}
             <table>
               <thead>
                 <tr>
-                  <th className="c" style={{ width: '30px' }}>№</th>
+                  <th className="c" style={{ width: '30px' }}>
+                    №
+                  </th>
                   <th style={{ width: '80px' }}>Код</th>
                   <th>Найменування</th>
-                  <th className="c" style={{ width: '40px' }}>Од.</th>
-                  <th className="c" style={{ width: '50px' }}>К-ть</th>
-                  <th className="r" style={{ width: '80px' }}>Ціна, ₴</th>
-                  <th className="r" style={{ width: '90px' }}>Сума, ₴</th>
+                  <th className="c" style={{ width: '40px' }}>
+                    Од.
+                  </th>
+                  <th className="c" style={{ width: '50px' }}>
+                    К-ть
+                  </th>
+                  <th className="r" style={{ width: '80px' }}>
+                    Ціна, ₴
+                  </th>
+                  <th className="r" style={{ width: '90px' }}>
+                    Сума, ₴
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -260,7 +283,9 @@ ${content.innerHTML}
 
             {/* Footer */}
             <div className="footer">
-              <p>© {new Date().getFullYear()} {COMPANY.name} • {COMPANY.website} • {COMPANY.phone}</p>
+              <p>
+                © {new Date().getFullYear()} {COMPANY.name} • {COMPANY.website} • {COMPANY.phone}
+              </p>
               <p>Документ сформовано: {formatDateTime(new Date())}</p>
             </div>
           </div>

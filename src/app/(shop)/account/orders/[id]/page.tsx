@@ -19,14 +19,38 @@ import Spinner from '@/components/ui/Spinner';
 import PrintableOrder from '@/components/order/PrintableOrder';
 
 /* ── Icons (inline SVGs) ── */
-const IconCreditCard = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-);
+
 const IconPackage = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+    <line x1="12" y1="22.08" x2="12" y2="12" />
+  </svg>
 );
 const IconClock = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
 );
 
 export default function OrderDetailPage() {
@@ -53,7 +77,7 @@ export default function OrderDetailPage() {
     try {
       const res = await apiClient.put(`/api/v1/orders/${id}/status`, { status: 'cancelled' });
       if (res.success) {
-        setOrder((prev) => prev ? { ...prev, status: 'cancelled' as OrderStatus } : prev);
+        setOrder((prev) => (prev ? { ...prev, status: 'cancelled' as OrderStatus } : prev));
       }
     } finally {
       setIsCancelling(false);
@@ -88,8 +112,18 @@ export default function OrderDetailPage() {
     return (
       <div className="py-12 text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-orange-50 text-orange-400">
-          <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z" />
+          <svg
+            className="h-7 w-7"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"
+            />
           </svg>
         </div>
         <p className="text-[var(--color-text-secondary)]">Замовлення не знайдено</p>
@@ -121,16 +155,23 @@ export default function OrderDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold">#{order.orderNumber}</h2>
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{formatDate(order.createdAt)}</p>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+              {formatDate(order.createdAt)}
+            </p>
           </div>
           <div className="flex flex-col items-end gap-3">
             <span
               className="rounded-full px-4 py-1.5 text-sm font-semibold"
-              style={{ backgroundColor: ORDER_STATUS_COLORS[order.status] + '18', color: ORDER_STATUS_COLORS[order.status] }}
+              style={{
+                backgroundColor: ORDER_STATUS_COLORS[order.status] + '18',
+                color: ORDER_STATUS_COLORS[order.status],
+              }}
             >
               {ORDER_STATUS_LABELS[order.status]}
             </span>
-            <p className="text-2xl font-bold">{total.toFixed(2)} <span className="text-lg">₴</span></p>
+            <p className="text-2xl font-bold">
+              {total.toFixed(2)} <span className="text-lg">₴</span>
+            </p>
           </div>
         </div>
 
@@ -151,16 +192,24 @@ export default function OrderDetailPage() {
           {/* Left column: Contact + Delivery */}
           <div>
             <div className="p-5">
-              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Контактна особа</h3>
+              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                Контактна особа
+              </h3>
               <p className="text-sm font-semibold">{order.contactName}</p>
-              <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">{order.contactPhone}</p>
+              <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
+                {order.contactPhone}
+              </p>
               {order.contactEmail && (
                 <p className="text-sm text-[var(--color-text-secondary)]">{order.contactEmail}</p>
               )}
             </div>
             <div className="border-t border-[var(--color-border)]/40 p-5">
-              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Доставка</h3>
-              <p className="text-sm font-semibold">{DELIVERY_METHOD_LABELS[order.deliveryMethod]}</p>
+              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                Доставка
+              </h3>
+              <p className="text-sm font-semibold">
+                {DELIVERY_METHOD_LABELS[order.deliveryMethod]}
+              </p>
               {(order.deliveryCity || order.deliveryAddress) && (
                 <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
                   {[order.deliveryCity, order.deliveryAddress].filter(Boolean).join(', ')}
@@ -174,7 +223,9 @@ export default function OrderDetailPage() {
             </div>
             {order.comment && (
               <div className="border-t border-[var(--color-border)]/40 p-5">
-                <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Коментар</h3>
+                <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                  Коментар
+                </h3>
                 <p className="text-sm text-[var(--color-text-secondary)]">{order.comment}</p>
               </div>
             )}
@@ -183,27 +234,36 @@ export default function OrderDetailPage() {
           {/* Vertical divider */}
           <div className="hidden border-l border-[var(--color-border)]/60 sm:block" />
           {/* Mobile horizontal divider */}
-          <div className="border-t border-[var(--color-border)]/60 sm:hidden" style={{ gridColumn: '1 / -1' }} />
+          <div
+            className="border-t border-[var(--color-border)]/60 sm:hidden"
+            style={{ gridColumn: '1 / -1' }}
+          />
 
           {/* Right column: Payment + Totals */}
           <div>
             <div className="p-5">
-              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Оплата</h3>
+              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                Оплата
+              </h3>
               <p className="text-sm font-semibold">{PAYMENT_METHOD_LABELS[order.paymentMethod]}</p>
               <p className="mt-1.5">
-                <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                  order.paymentStatus === 'paid'
-                    ? 'bg-green-100 text-green-700'
-                    : order.paymentStatus === 'refunded'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-amber-100 text-amber-700'
-                }`}>
+                <span
+                  className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    order.paymentStatus === 'paid'
+                      ? 'bg-green-100 text-green-700'
+                      : order.paymentStatus === 'refunded'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-amber-100 text-amber-700'
+                  }`}
+                >
                   {PAYMENT_STATUS_LABELS[order.paymentStatus]}
                 </span>
               </p>
             </div>
             <div className="border-t border-[var(--color-border)]/40 p-5">
-              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Сума замовлення</h3>
+              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                Сума замовлення
+              </h3>
               <div className="space-y-1.5 text-sm">
                 {discount > 0 && (
                   <div className="flex justify-between">
@@ -254,7 +314,13 @@ export default function OrderDetailPage() {
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[var(--color-bg-secondary)]">
                   {item.imagePath ? (
-                    <Image src={item.imagePath} alt={item.productName} fill className="object-cover" sizes="56px" />
+                    <Image
+                      src={item.imagePath}
+                      alt={item.productName}
+                      fill
+                      className="object-cover"
+                      sizes="56px"
+                    />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)]">
                       <IconPackage />
@@ -263,7 +329,9 @@ export default function OrderDetailPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{item.productName}</p>
-                  <p className="font-mono text-xs text-[var(--color-text-secondary)]">{item.productCode}</p>
+                  <p className="font-mono text-xs text-[var(--color-text-secondary)]">
+                    {item.productCode}
+                  </p>
                 </div>
               </div>
               {/* Price */}
@@ -309,9 +377,15 @@ export default function OrderDetailPage() {
                   {/* Content */}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">
-                      {entry.oldStatus
-                        ? <>{ORDER_STATUS_LABELS[entry.oldStatus as OrderStatus]} <span className="text-[var(--color-text-secondary)]">&rarr;</span> {ORDER_STATUS_LABELS[entry.newStatus as OrderStatus]}</>
-                        : ORDER_STATUS_LABELS[entry.newStatus as OrderStatus]}
+                      {entry.oldStatus ? (
+                        <>
+                          {ORDER_STATUS_LABELS[entry.oldStatus as OrderStatus]}{' '}
+                          <span className="text-[var(--color-text-secondary)]">&rarr;</span>{' '}
+                          {ORDER_STATUS_LABELS[entry.newStatus as OrderStatus]}
+                        </>
+                      ) : (
+                        ORDER_STATUS_LABELS[entry.newStatus as OrderStatus]
+                      )}
                     </p>
                     <p className="text-xs text-[var(--color-text-secondary)]">
                       {formatDateTime(entry.createdAt)}
@@ -330,8 +404,18 @@ export default function OrderDetailPage() {
         href="/account/orders"
         className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)]/5"
       >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+          />
         </svg>
         Повернутись до замовлень
       </Link>

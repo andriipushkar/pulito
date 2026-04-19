@@ -7,7 +7,11 @@ interface RateLimitConfig {
   windowSec: number;
 }
 
-type RouteHandler = (request: NextRequest, context?: unknown) => Promise<NextResponse | Response>;
+// Accepts Next.js 16 route handler shapes and auth-wrapped handlers that carry
+// an optional `{ params }` segment data object. Uses `any` for the context so
+// wrappers like withAuth (which require a specific context shape) are assignable.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RouteHandler = (request: NextRequest, context?: any) => Promise<NextResponse | Response>;
 
 function getClientIp(request: NextRequest): string {
   return (
@@ -27,14 +31,14 @@ function rateLimitResponse(config: RateLimitConfig, result: RateLimitResult): Ne
         'X-RateLimit-Limit': String(config.max),
         'X-RateLimit-Remaining': '0',
       },
-    }
+    },
   );
 }
 
 function addRateLimitHeaders(
   response: NextResponse | Response,
   config: RateLimitConfig,
-  result: RateLimitResult
+  result: RateLimitResult,
 ): NextResponse | Response {
   response.headers.set('X-RateLimit-Limit', String(config.max));
   response.headers.set('X-RateLimit-Remaining', String(result.remaining));

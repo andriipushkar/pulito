@@ -4,6 +4,21 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { oneCOrderStatusBatchSchema } from '@/validators/integration-1c';
 import { exportOrdersTo1C } from '@/services/integration-1c';
 import { prisma } from '@/lib/prisma';
+import type { OrderStatus } from '../../../../../../../generated/prisma';
+
+const ALLOWED_STATUSES = [
+  'new_order',
+  'processing',
+  'confirmed',
+  'paid',
+  'shipped',
+  'completed',
+  'cancelled',
+  'returned',
+] as const;
+function toOrderStatus(value: string): OrderStatus | null {
+  return (ALLOWED_STATUSES as readonly string[]).includes(value) ? (value as OrderStatus) : null;
+}
 
 /** GET /api/v1/integration/1c/orders — Export orders for 1C */
 export const GET = withApiKey(['orders'])(async (request: NextRequest) => {
@@ -17,10 +32,7 @@ export const GET = withApiKey(['orders'])(async (request: NextRequest) => {
 
     return successResponse({ orders, total: orders.length });
   } catch (err) {
-    return errorResponse(
-      err instanceof Error ? err.message : 'Failed to export orders',
-      500
-    );
+    return errorResponse(err instanceof Error ? err.message : 'Failed to export orders', 500);
   }
 });
 
@@ -65,10 +77,20 @@ export const POST = withApiKey(['orders'])(async (request: NextRequest) => {
           continue;
         }
 
+        const nextStatus = toOrderStatus(item.status);
+        if (!nextStatus) {
+          failed++;
+          errors.push({
+            code: item.orderNumber,
+            message: `Invalid status: ${item.status}`,
+          });
+          continue;
+        }
+
         await prisma.order.update({
           where: { id: order.id },
           data: {
-            status: item.status,
+            status: nextStatus,
             ...(item.trackingNumber ? { trackingNumber: item.trackingNumber } : {}),
           },
         });
@@ -96,9 +118,6 @@ export const POST = withApiKey(['orders'])(async (request: NextRequest) => {
 
     return successResponse({ total: parsed.data.orders.length, processed, failed, errors });
   } catch (err) {
-    return errorResponse(
-      err instanceof Error ? err.message : 'Failed to update orders',
-      500
-    );
+    return errorResponse(err instanceof Error ? err.message : 'Failed to update orders', 500);
   }
 });

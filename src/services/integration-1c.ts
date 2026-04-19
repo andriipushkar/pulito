@@ -1,11 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { createSlug } from '@/utils/slug';
 import { cacheInvalidate } from '@/services/cache';
-import type {
-  OneCProduct,
-  OneCStockItem,
-  OneCPriceItem,
-} from '@/validators/integration-1c';
+import type { OneCProduct, OneCStockItem, OneCPriceItem } from '@/validators/integration-1c';
 
 // ── 1C data interfaces ──────────────────────────────────────
 
@@ -68,8 +64,11 @@ export function transformOrderTo1C(order: {
   user: { fullName: string; phone: string | null; email: string } | null;
   items: Array<{
     quantity: number;
-    price: unknown;
-    product: { code: string; name: string };
+    priceAtOrder?: unknown;
+    price?: unknown;
+    productCode?: string;
+    productName?: string;
+    product?: { code: string; name: string } | null;
   }>;
 }): OneCOrder {
   return {
@@ -83,22 +82,23 @@ export function transformOrderTo1C(order: {
     paymentMethod: order.paymentMethod ?? '',
     status: order.status,
     totalAmount: Number(order.totalAmount),
-    items: order.items.map((item) => ({
-      code: item.product.code,
-      name: item.product.name,
-      quantity: item.quantity,
-      price: Number(item.price),
-      total: item.quantity * Number(item.price),
-    })),
+    items: order.items.map((item) => {
+      const price = Number(item.priceAtOrder ?? item.price ?? 0);
+      return {
+        code: item.productCode ?? item.product?.code ?? '',
+        name: item.productName ?? item.product?.name ?? '',
+        quantity: item.quantity,
+        price,
+        total: item.quantity * price,
+      };
+    }),
   };
 }
 
 // ── Sync operations ─────────────────────────────────────────
 
 /** Sync products from 1C — creates or updates products by code */
-export async function importProductsFrom1C(
-  products: OneCProduct[]
-): Promise<SyncResult> {
+export async function importProductsFrom1C(products: OneCProduct[]): Promise<SyncResult> {
   const result: SyncResult = {
     total: products.length,
     processed: 0,
@@ -112,9 +112,7 @@ export async function importProductsFrom1C(
   const existingCategories = await prisma.category.findMany({
     select: { id: true, name: true },
   });
-  const categoryMap = new Map(
-    existingCategories.map((c) => [c.name.toLowerCase(), c.id])
-  );
+  const categoryMap = new Map(existingCategories.map((c) => [c.name.toLowerCase(), c.id]));
 
   for (const product of products) {
     try {
@@ -235,9 +233,7 @@ export async function exportOrdersTo1C(filters?: {
 }
 
 /** Update stock from 1C */
-export async function updateStockFrom1C(
-  stockData: OneCStockItem[]
-): Promise<SyncResult> {
+export async function updateStockFrom1C(stockData: OneCStockItem[]): Promise<SyncResult> {
   const result: SyncResult = {
     total: stockData.length,
     processed: 0,
@@ -284,9 +280,7 @@ export async function updateStockFrom1C(
 }
 
 /** Update prices from 1C */
-export async function updatePricesFrom1C(
-  priceData: OneCPriceItem[]
-): Promise<SyncResult> {
+export async function updatePricesFrom1C(priceData: OneCPriceItem[]): Promise<SyncResult> {
   const result: SyncResult = {
     total: priceData.length,
     processed: 0,

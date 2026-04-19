@@ -8,7 +8,6 @@ import type {
   WayForPayCallbackData,
 } from '@/types/payment';
 
-const API_URL = 'https://secure.wayforpay.com/pay';
 const API_PURCHASE_URL = 'https://api.wayforpay.com/api';
 
 export class WayForPayError extends Error {

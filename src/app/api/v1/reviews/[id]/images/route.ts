@@ -47,7 +47,7 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
     const ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1];
     const fileName = `reviews/${review.id}/${Date.now()}.${ext}`;
 
-    const url = await uploadFile(buffer, fileName, file.type);
+    const url = await uploadFile(fileName, buffer, file.type);
 
     const updatedImages = [...existingImages, url];
     await prisma.review.update({

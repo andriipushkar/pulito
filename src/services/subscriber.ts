@@ -15,7 +15,7 @@ export function generateUnsubscribeToken(email: string): string {
 export class SubscriberError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'SubscriberError';
@@ -85,9 +85,7 @@ export async function unsubscribe(token: string) {
     where: { status: { in: ['confirmed', 'pending_sub'] } },
   });
 
-  const subscriber = subscribers.find(
-    (s) => generateUnsubscribeToken(s.email) === token
-  );
+  const subscriber = subscribers.find((s) => generateUnsubscribeToken(s.email) === token);
 
   if (!subscriber) {
     throw new SubscriberError('Підписку не знайдено', 404);
@@ -119,11 +117,11 @@ async function sendConfirmationEmail(email: string, token: string) {
   const url = `${env.APP_URL}/subscribe/confirm?token=${token}`;
   await sendEmail({
     to: email,
-    subject: 'Підтвердіть підписку — Порошок',
+    subject: 'Підтвердіть підписку — Pulito Trade',
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
         <h2 style="color:#2563eb">Підтвердження підписки</h2>
-        <p>Дякуємо за підписку на розсилку Порошок!</p>
+        <p>Дякуємо за підписку на розсилку Pulito Trade!</p>
         <p>Для підтвердження підписки натисніть на кнопку нижче:</p>
         <a href="${url}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Підтвердити підписку</a>
         <p style="color:#64748b;font-size:14px">Або скопіюйте це посилання: <br/>${url}</p>

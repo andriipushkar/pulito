@@ -123,7 +123,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         }
       }
     },
-    [isWished, user, product.id]
+    [isWished, user, product.id],
   );
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -135,7 +135,9 @@ export default function ProductCard({ product }: ProductCardProps) {
       slug: product.slug,
       code: product.code,
       priceRetail: Number(product.priceRetail),
-      priceWholesale: resolveWholesalePrice(product, user?.wholesaleGroup) ?? (product.priceWholesale ? Number(product.priceWholesale) : null),
+      priceWholesale:
+        resolveWholesalePrice(product, user?.wholesaleGroup) ??
+        (product.priceWholesale ? Number(product.priceWholesale) : null),
       imagePath: mainImage,
       quantity: 1,
       maxQuantity: product.quantity,
@@ -148,7 +150,10 @@ export default function ProductCard({ product }: ProductCardProps) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Link href={`/product/${product.slug}`} className="relative aspect-square overflow-hidden bg-[var(--color-bg-secondary)]">
+      <Link
+        href={`/product/${product.slug}`}
+        className="relative aspect-square overflow-hidden bg-[var(--color-bg-secondary)]"
+      >
         {mainImage ? (
           <>
             {blurImage && !imageLoaded && (
@@ -180,11 +185,20 @@ export default function ProductCard({ product }: ProductCardProps) {
           </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-            <svg className="h-10 w-10 text-gray-300 sm:h-16 sm:w-16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg
+              className="h-10 w-10 text-gray-300 sm:h-16 sm:w-16"
+              viewBox="0 0 64 64"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
               <rect x="22" y="4" width="20" height="6" rx="2" fill="currentColor" opacity="0.5" />
               <rect x="26" y="1" width="4" height="5" rx="1" fill="currentColor" opacity="0.4" />
               <rect x="34" y="1" width="4" height="5" rx="1" fill="currentColor" opacity="0.4" />
-              <path d="M20 10h24v6a4 4 0 01-4 4H24a4 4 0 01-4-4v-6z" fill="currentColor" opacity="0.5" />
+              <path
+                d="M20 10h24v6a4 4 0 01-4 4H24a4 4 0 01-4-4v-6z"
+                fill="currentColor"
+                opacity="0.5"
+              />
               <rect x="24" y="20" width="16" height="36" rx="4" fill="currentColor" opacity="0.6" />
               <rect x="28" y="24" width="8" height="12" rx="2" fill="currentColor" opacity="0.3" />
               <circle cx="14" cy="6" r="1.5" fill="currentColor" opacity="0.3" />
@@ -192,7 +206,9 @@ export default function ProductCard({ product }: ProductCardProps) {
               <circle cx="50" cy="8" r="1.5" fill="currentColor" opacity="0.3" />
               <circle cx="53" cy="12" r="1" fill="currentColor" opacity="0.2" />
             </svg>
-            <span className="mt-2 text-[10px] font-semibold tracking-widest text-gray-300 select-none">Порошок</span>
+            <span className="mt-2 text-[10px] font-semibold tracking-widest text-gray-300 select-none">
+              Pulito Trade
+            </span>
           </div>
         )}
 
@@ -216,17 +232,27 @@ export default function ProductCard({ product }: ProductCardProps) {
           </button>
           <button
             className={`rounded-full bg-white/90 p-1 shadow-[var(--shadow)] backdrop-blur-sm transition-colors sm:p-1.5 ${
-              isCompared ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
+              isCompared
+                ? 'text-[var(--color-primary)]'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
             }`}
             aria-label={isCompared ? 'Видалити з порівняння' : 'Додати до порівняння'}
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleCompare(product.id); }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleCompare(product.id);
+            }}
           >
             <Compare size={16} />
           </button>
           <button
             className="hidden rounded-full bg-white/90 p-1.5 text-[var(--color-text-secondary)] shadow-[var(--shadow)] backdrop-blur-sm hover:text-[var(--color-primary)] sm:block"
             aria-label="Швидкий перегляд"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowQuickView(true); }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowQuickView(true);
+            }}
           >
             <Search size={16} />
           </button>
@@ -240,14 +266,20 @@ export default function ProductCard({ product }: ProductCardProps) {
           </span>
         )}
 
-        <Link href={`/product/${product.slug}`} className="mb-1 line-clamp-2 text-xs font-medium leading-snug text-[var(--color-text)] hover:text-[var(--color-primary)] sm:text-sm">
+        <Link
+          href={`/product/${product.slug}`}
+          className="mb-1 line-clamp-2 text-xs font-medium leading-snug text-[var(--color-text)] hover:text-[var(--color-primary)] sm:text-sm"
+        >
           {product.name}
         </Link>
 
         {attributes.length > 0 && (
           <div className="mb-1 flex flex-wrap gap-1">
             {attributes.map((attr) => (
-              <span key={attr} className="inline-flex items-center rounded-md bg-[var(--color-bg-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)]">
+              <span
+                key={attr}
+                className="inline-flex items-center rounded-md bg-[var(--color-bg-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)]"
+              >
                 {attr}
               </span>
             ))}
@@ -271,7 +303,9 @@ export default function ProductCard({ product }: ProductCardProps) {
           />
 
           <div className="mt-2.5 flex items-center justify-between gap-1 sm:mt-3 sm:gap-2">
-            <span className={`shrink-0 text-[10px] font-medium sm:text-xs ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}>
+            <span
+              className={`shrink-0 text-[10px] font-medium sm:text-xs ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}
+            >
               {inStock ? 'В наявності' : 'Немає'}
             </span>
             <button

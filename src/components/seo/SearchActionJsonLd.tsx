@@ -1,10 +1,10 @@
-const baseUrl = process.env.APP_URL || 'https://poroshok.ua';
+const baseUrl = process.env.APP_URL || 'https://pulito.trade';
 
 export default function SearchActionJsonLd() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'Порошок',
+    name: 'Pulito Trade',
     url: baseUrl,
     potentialAction: {
       '@type': 'SearchAction',
@@ -15,5 +15,10 @@ export default function SearchActionJsonLd() {
       'query-input': 'required name=search_term_string',
     },
   };
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />;
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
 }

@@ -32,11 +32,11 @@ export default function BlogJsonLd({
     dateModified,
     author: {
       '@type': authorName ? 'Person' : 'Organization',
-      name: authorName || 'Порошок',
+      name: authorName || 'Pulito Trade',
     },
     publisher: {
       '@type': 'Organization',
-      name: 'Порошок',
+      name: 'Pulito Trade',
       url: baseUrl,
       logo: {
         '@type': 'ImageObject',

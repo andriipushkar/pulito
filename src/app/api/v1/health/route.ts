@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import fs from 'fs/promises';
-import os from 'os';
 
 interface CheckResult {
   status: 'ok' | 'error';
@@ -41,10 +40,12 @@ export async function GET() {
     const tsPort = process.env.TYPESENSE_PORT || '8108';
     const tsProto = process.env.TYPESENSE_PROTOCOL || 'http';
     const { latencyMs } = await measureLatency(() =>
-      fetch(`${tsProto}://${tsHost}:${tsPort}/health`, { signal: AbortSignal.timeout(3000) }).then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r;
-      })
+      fetch(`${tsProto}://${tsHost}:${tsPort}/health`, { signal: AbortSignal.timeout(3000) }).then(
+        (r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r;
+        },
+      ),
     );
     checks.typesense = { status: 'ok', latencyMs };
   } catch (err) {
@@ -54,8 +55,8 @@ export async function GET() {
   // Disk space check
   try {
     const stats = await fs.statfs(process.cwd());
-    const totalGb = (stats.bsize * stats.blocks) / (1024 ** 3);
-    const freeGb = (stats.bsize * stats.bavail) / (1024 ** 3);
+    const totalGb = (stats.bsize * stats.blocks) / 1024 ** 3;
+    const freeGb = (stats.bsize * stats.bavail) / 1024 ** 3;
     const usedPercent = Math.round(((totalGb - freeGb) / totalGb) * 100);
     checks.disk = {
       status: usedPercent > 90 ? 'error' : 'ok',
@@ -72,10 +73,8 @@ export async function GET() {
     {
       status: allOk ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
-      checks: Object.fromEntries(
-        Object.entries(checks).map(([k, v]) => [k, { status: v.status }])
-      ),
+      checks: Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, { status: v.status }])),
     },
-    { status: allOk ? 200 : 503 }
+    { status: allOk ? 200 : 503 },
   );
 }

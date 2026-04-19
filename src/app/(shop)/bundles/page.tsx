@@ -10,14 +10,13 @@ export const revalidate = 120;
 
 export const metadata: Metadata = {
   title: 'Комплекти товарів — вигідні набори',
-  description:
-    'Готові комплекти побутової хімії за зниженими цінами. Зберіть набір та заощадьте.',
+  description: 'Готові комплекти побутової хімії за зниженими цінами. Зберіть набір та заощадьте.',
   openGraph: {
     title: 'Комплекти товарів — вигідні набори',
     description:
       'Готові комплекти побутової хімії за зниженими цінами. Зберіть набір та заощадьте.',
     type: 'website',
-    siteName: 'Порошок',
+    siteName: 'Pulito Trade',
   },
 };
 
@@ -28,20 +27,20 @@ export default async function BundlesPage() {
     bundles.map(async (bundle) => {
       const pricing = await calculateBundlePrice(bundle.id);
       return { ...bundle, pricing };
-    })
+    }),
   );
 
-  const breadcrumbs = [
-    { label: 'Головна', href: '/' },
-    { label: 'Комплекти' },
-  ];
+  const breadcrumbs = [{ label: 'Головна', href: '/' }, { label: 'Комплекти' }];
 
   return (
     <Container className="py-6">
       <BreadcrumbJsonLd
         items={breadcrumbs
           .filter((b) => b.href)
-          .map((b) => ({ name: b.label, url: `${(process.env.APP_URL || 'http://localhost:3000')}${b.href}` }))}
+          .map((b) => ({
+            name: b.label,
+            url: `${process.env.APP_URL || 'http://localhost:3000'}${b.href}`,
+          }))}
       />
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 

@@ -4,14 +4,21 @@ import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
 import {
-  BRAND, FONT_REGULAR, FONT_BOLD, PAGE, setupDoc, drawHeader, drawDocTitle,
-  drawTableHeader as drawThemedTableHeader, drawTableRow, drawFooter, getCompanyInfo,
+  BRAND,
+  PAGE,
+  setupDoc,
+  drawHeader,
+  drawDocTitle,
+  drawTableHeader as drawThemedTableHeader,
+  drawTableRow,
+  drawFooter,
+  getCompanyInfo,
 } from '@/lib/pdf-theme';
 
 export class PdfCatalogError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'PdfCatalogError';
@@ -95,18 +102,36 @@ export async function generatePriceList(options: PriceListOptions): Promise<stri
 
     const price = type === 'wholesale' ? Number(p.priceWholesale) : Number(p.priceRetail);
 
-    drawTableRow(doc, [
-      { value: p.code, x: tableColumns[0].x, width: tableColumns[0].width },
-      { value: p.name, x: tableColumns[1].x, width: tableColumns[1].width },
-      { value: p.category?.name || '', x: tableColumns[2].x, width: tableColumns[2].width },
-      { value: price.toFixed(2), x: tableColumns[3].x, width: tableColumns[3].width, align: 'right' },
-      { value: p.quantity > 0 ? `${p.quantity}` : 'Немає', x: tableColumns[4].x, width: tableColumns[4].width, align: 'right' },
-    ], i, 16);
+    drawTableRow(
+      doc,
+      [
+        { value: p.code, x: tableColumns[0].x, width: tableColumns[0].width },
+        { value: p.name, x: tableColumns[1].x, width: tableColumns[1].width },
+        { value: p.category?.name || '', x: tableColumns[2].x, width: tableColumns[2].width },
+        {
+          value: price.toFixed(2),
+          x: tableColumns[3].x,
+          width: tableColumns[3].width,
+          align: 'right',
+        },
+        {
+          value: p.quantity > 0 ? `${p.quantity}` : 'Немає',
+          x: tableColumns[4].x,
+          width: tableColumns[4].width,
+          align: 'right',
+        },
+      ],
+      i,
+      16,
+    );
   }
 
   // Footer info
   doc.moveDown(2);
-  doc.fontSize(8).fillColor(BRAND.textSecondary).text(`Загалом товарів: ${products.length}`, { align: 'center' });
+  doc
+    .fontSize(8)
+    .fillColor(BRAND.textSecondary)
+    .text(`Загалом товарів: ${products.length}`, { align: 'center' });
 
   drawFooter(doc, company);
   doc.end();
@@ -124,7 +149,9 @@ interface IllustratedCatalogOptions {
   promoOnly?: boolean;
 }
 
-export async function generateIllustratedCatalog(options: IllustratedCatalogOptions = {}): Promise<string> {
+export async function generateIllustratedCatalog(
+  options: IllustratedCatalogOptions = {},
+): Promise<string> {
   const company = await getCompanyInfo();
   const { categoryId, promoOnly } = options;
 
@@ -173,7 +200,11 @@ export async function generateIllustratedCatalog(options: IllustratedCatalogOpti
   doc.moveDown(1);
   categories.forEach((cat, i) => {
     const count = products.filter((p) => (p.category?.name || 'Без категорії') === cat).length;
-    doc.font('Regular').fontSize(10).fillColor(BRAND.text).text(`${i + 1}. ${cat} (${count} товарів)`);
+    doc
+      .font('Regular')
+      .fontSize(10)
+      .fillColor(BRAND.text)
+      .text(`${i + 1}. ${cat} (${count} товарів)`);
     doc.moveDown(0.3);
   });
 
@@ -205,15 +236,26 @@ export async function generateIllustratedCatalog(options: IllustratedCatalogOpti
 
     const y = doc.y;
 
-    doc.font('Bold').fontSize(10).fillColor(BRAND.text).text(`${p.code} — ${p.name}`, 40, y, { width: 400 });
+    doc
+      .font('Bold')
+      .fontSize(10)
+      .fillColor(BRAND.text)
+      .text(`${p.code} — ${p.name}`, 40, y, { width: 400 });
     doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
-    doc.text(`Роздріб: ${Number(p.priceRetail).toFixed(2)} грн | Опт: ${Number(p.priceWholesale).toFixed(2)} грн`, 40, y + 15);
+    doc.text(
+      `Роздріб: ${Number(p.priceRetail).toFixed(2)} грн | Опт: ${Number(p.priceWholesale).toFixed(2)} грн`,
+      40,
+      y + 15,
+    );
     doc.text(`Наявність: ${p.quantity > 0 ? `${p.quantity} шт.` : 'Немає'}`, 40, y + 27);
     if (p.isPromo) {
       doc.fillColor(BRAND.danger).text('АКЦІЯ', 480, y, { width: 70, align: 'right' });
     }
     doc.fillColor(BRAND.text);
-    doc.moveTo(40, y + 42).lineTo(555, y + 42).stroke(BRAND.borderLight);
+    doc
+      .moveTo(40, y + 42)
+      .lineTo(555, y + 42)
+      .stroke(BRAND.borderLight);
     doc.y = y + 50;
 
     itemsOnPage++;

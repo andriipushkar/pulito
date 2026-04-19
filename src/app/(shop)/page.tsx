@@ -13,7 +13,7 @@ import SearchActionJsonLd from '@/components/seo/SearchActionJsonLd';
 export const metadata: Metadata = {
   title: 'Головна',
   description:
-    'Порошок — інтернет-магазин побутової хімії. Широкий асортимент засобів для прибирання, прання та догляду за домом з доставкою по Україні.',
+    'Pulito Trade — інтернет-магазин побутової хімії. Широкий асортимент засобів для прибирання, прання та догляду за домом з доставкою по Україні.',
 };
 
 const BrandLogos = dynamic(() => import('@/components/home/BrandLogos'));
@@ -29,9 +29,9 @@ const USPBlock = dynamic(() => import('@/components/home/USPBlock'));
 const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'Порошок',
-  url: process.env.APP_URL || 'https://poroshok.ua',
-  logo: `${process.env.APP_URL || 'https://poroshok.ua'}/images/icon-512.png`,
+  name: 'Pulito Trade',
+  url: process.env.APP_URL || 'https://pulito.trade',
+  logo: `${process.env.APP_URL || 'https://pulito.trade'}/images/icon-512.png`,
   description:
     'Оптово-роздрібний інтернет-магазин побутової хімії. Широкий асортимент, вигідні ціни, швидка доставка по Україні.',
   address: {
@@ -116,11 +116,11 @@ export default async function HomePage() {
       <section>
         <div className="rounded-2xl border border-[var(--color-border)]/40 bg-gradient-to-br from-[var(--color-primary-50)]/60 to-white p-5 sm:p-6 lg:p-8">
           <h2 className="mb-2 text-base font-semibold tracking-tight text-[var(--color-text)] sm:text-lg lg:text-xl">
-            Інтернет-магазин побутової хімії Порошок
+            Інтернет-магазин побутової хімії Pulito Trade
           </h2>
           <p className="max-w-3xl text-[13px] leading-relaxed text-[var(--color-text-secondary)] sm:text-sm">
             {seoText ||
-              `Ласкаво просимо до Порошок — вашого надійного постачальника побутової хімії в Україні. Ми пропонуємо широкий асортимент засобів для прибирання, прання, миття посуду та догляду за домом від провідних світових та вітчизняних виробників. Оптовим покупцям — спеціальні ціни та умови співпраці. Швидка доставка по всій Україні.`}
+              `Ласкаво просимо до Pulito Trade — вашого надійного постачальника побутової хімії в Україні. Ми пропонуємо широкий асортимент засобів для прибирання, прання, миття посуду та догляду за домом від провідних світових та вітчизняних виробників. Оптовим покупцям — спеціальні ціни та умови співпраці. Швидка доставка по всій Україні.`}
           </p>
         </div>
       </section>

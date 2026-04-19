@@ -75,15 +75,87 @@ const MAIN_KEYBOARD = {
   Type: 'keyboard',
   DefaultHeight: false,
   Buttons: [
-    { Columns: 2, Rows: 1, ActionType: 'reply', ActionBody: 'catalog', Text: '🛒 Каталог', BgColor: '#2563eb', TextSize: 'medium' },
-    { Columns: 2, Rows: 1, ActionType: 'reply', ActionBody: 'promo', Text: '🔥 Акції', BgColor: '#dc2626', TextSize: 'medium' },
-    { Columns: 2, Rows: 1, ActionType: 'reply', ActionBody: 'orders', Text: '📦 Замовлення', BgColor: '#059669', TextSize: 'medium' },
-    { Columns: 2, Rows: 1, ActionType: 'reply', ActionBody: 'contact', Text: 'ℹ️ Інфо', BgColor: '#6b7280', TextSize: 'medium' },
-    { Columns: 2, Rows: 1, ActionType: 'reply', ActionBody: 'wishlist', Text: '❤️ Обране', BgColor: '#ec4899', TextSize: 'medium' },
-    { Columns: 2, Rows: 1, ActionType: 'reply', ActionBody: 'faq', Text: '❓ Часті питання', BgColor: '#8b5cf6', TextSize: 'medium' },
-    { Columns: 2, Rows: 1, ActionType: 'reply', ActionBody: 'recommend', Text: '👥 Порекомендувати', BgColor: '#f59e0b', TextSize: 'medium' },
-    { Columns: 2, Rows: 1, ActionType: 'reply', ActionBody: 'stop_notifications', Text: '🔕 Сповіщення', BgColor: '#ef4444', TextSize: 'medium' },
-    { Columns: 2, Rows: 1, ActionType: 'reply', ActionBody: 'settings', Text: '⚙️ Меню', BgColor: '#6b7280', TextSize: 'medium' },
+    {
+      Columns: 2,
+      Rows: 1,
+      ActionType: 'reply',
+      ActionBody: 'catalog',
+      Text: '🛒 Каталог',
+      BgColor: '#2563eb',
+      TextSize: 'medium',
+    },
+    {
+      Columns: 2,
+      Rows: 1,
+      ActionType: 'reply',
+      ActionBody: 'promo',
+      Text: '🔥 Акції',
+      BgColor: '#dc2626',
+      TextSize: 'medium',
+    },
+    {
+      Columns: 2,
+      Rows: 1,
+      ActionType: 'reply',
+      ActionBody: 'orders',
+      Text: '📦 Замовлення',
+      BgColor: '#059669',
+      TextSize: 'medium',
+    },
+    {
+      Columns: 2,
+      Rows: 1,
+      ActionType: 'reply',
+      ActionBody: 'contact',
+      Text: 'ℹ️ Інфо',
+      BgColor: '#6b7280',
+      TextSize: 'medium',
+    },
+    {
+      Columns: 2,
+      Rows: 1,
+      ActionType: 'reply',
+      ActionBody: 'wishlist',
+      Text: '❤️ Обране',
+      BgColor: '#ec4899',
+      TextSize: 'medium',
+    },
+    {
+      Columns: 2,
+      Rows: 1,
+      ActionType: 'reply',
+      ActionBody: 'faq',
+      Text: '❓ Часті питання',
+      BgColor: '#8b5cf6',
+      TextSize: 'medium',
+    },
+    {
+      Columns: 2,
+      Rows: 1,
+      ActionType: 'reply',
+      ActionBody: 'recommend',
+      Text: '👥 Порекомендувати',
+      BgColor: '#f59e0b',
+      TextSize: 'medium',
+    },
+    {
+      Columns: 2,
+      Rows: 1,
+      ActionType: 'reply',
+      ActionBody: 'stop_notifications',
+      Text: '🔕 Сповіщення',
+      BgColor: '#ef4444',
+      TextSize: 'medium',
+    },
+    {
+      Columns: 2,
+      Rows: 1,
+      ActionType: 'reply',
+      ActionBody: 'settings',
+      Text: '⚙️ Меню',
+      BgColor: '#6b7280',
+      TextSize: 'medium',
+    },
   ],
 };
 
@@ -98,23 +170,31 @@ async function handleLinkStart(viberId: string, email: string) {
   });
 
   if (!user) {
-    await sendTextMessage(viberId, '❌ Акаунт з такою email-адресою не знайдено. Перевірте правильність email.', MAIN_KEYBOARD);
+    await sendTextMessage(
+      viberId,
+      '❌ Акаунт з такою email-адресою не знайдено. Перевірте правильність email.',
+      MAIN_KEYBOARD,
+    );
     return;
   }
 
   if (user.viberUserId === viberId) {
-    await sendTextMessage(viberId, '✅ Ваш акаунт вже прив\'язано!', MAIN_KEYBOARD);
+    await sendTextMessage(viberId, "✅ Ваш акаунт вже прив'язано!", MAIN_KEYBOARD);
     return;
   }
 
   // Generate 6-digit verification code
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  await redis.setex(`viber:link:${viberId}`, LINK_CODE_TTL, JSON.stringify({ email: email.toLowerCase().trim(), code, userId: user.id }));
+  await redis.setex(
+    `viber:link:${viberId}`,
+    LINK_CODE_TTL,
+    JSON.stringify({ email: email.toLowerCase().trim(), code, userId: user.id }),
+  );
 
   await sendTextMessage(
     viberId,
     `📩 Код підтвердження відправлено!\n\nВведіть код: відправте його у цей чат для підтвердження.\n\nВаш код: ${code}\n\n⏰ Код дійсний 10 хвилин.`,
-    MAIN_KEYBOARD
+    MAIN_KEYBOARD,
   );
 }
 
@@ -124,7 +204,11 @@ async function handleLinkStart(viberId: string, email: string) {
 async function handleLinkVerify(viberId: string, inputCode: string) {
   const stored = await redis.get(`viber:link:${viberId}`);
   if (!stored) {
-    await sendTextMessage(viberId, '❌ Код прострочено або не знайдено. Спробуйте ще раз: відправте /link ваш@email.com', MAIN_KEYBOARD);
+    await sendTextMessage(
+      viberId,
+      '❌ Код прострочено або не знайдено. Спробуйте ще раз: відправте /link ваш@email.com',
+      MAIN_KEYBOARD,
+    );
     return;
   }
 
@@ -143,7 +227,11 @@ async function handleLinkVerify(viberId: string, inputCode: string) {
 
   await redis.del(`viber:link:${viberId}`);
 
-  await sendTextMessage(viberId, '✅ Акаунт успішно прив\'язано! Тепер ви отримуватимете сповіщення у Viber.', MAIN_KEYBOARD);
+  await sendTextMessage(
+    viberId,
+    "✅ Акаунт успішно прив'язано! Тепер ви отримуватимете сповіщення у Viber.",
+    MAIN_KEYBOARD,
+  );
 }
 
 async function sendPictureMessage(receiverId: string, imageUrl: string, text: string) {
@@ -167,7 +255,7 @@ async function sendPictureMessage(receiverId: string, imageUrl: string, text: st
 export async function sendProductPhotoToUser(
   userId: number,
   imageUrl: string,
-  caption: string
+  caption: string,
 ): Promise<boolean> {
   if (!AUTH_TOKEN) return false;
 
@@ -194,7 +282,7 @@ export async function sendViberNotification(
   userId: number,
   title: string,
   message: string,
-  link?: string | null
+  link?: string | null,
 ) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -215,14 +303,20 @@ export async function sendViberNotification(
 async function handleSubscribed(userId: string, name: string) {
   await sendTextMessage(
     userId,
-    `Вітаємо у Порошок, ${name}! 👋\n\nОберіть дію з меню нижче або напишіть назву товару для пошуку.`,
-    MAIN_KEYBOARD
+    `Вітаємо у Pulito Trade, ${name}! 👋\n\nОберіть дію з меню нижче або напишіть назву товару для пошуку.`,
+    MAIN_KEYBOARD,
   );
 }
 
 async function sendRichMediaCarousel(
   receiverId: string,
-  products: { name: string; slug: string; code: string; price: number; imagePath?: string | null }[]
+  products: {
+    name: string;
+    slug: string;
+    code: string;
+    price: number;
+    imagePath?: string | null;
+  }[],
 ) {
   if (products.length === 0) return;
 
@@ -231,13 +325,15 @@ async function sendRichMediaCarousel(
     const image = p.imagePath ? `${appUrl}${p.imagePath}` : `${appUrl}/images/placeholder.png`;
     return [
       {
-        Columns: 6, Rows: 3,
+        Columns: 6,
+        Rows: 3,
         ActionType: 'open-url',
         ActionBody: `${appUrl}/product/${p.slug}?utm_source=viber`,
         Image: image,
       },
       {
-        Columns: 6, Rows: 2,
+        Columns: 6,
+        Rows: 2,
         ActionType: 'open-url',
         ActionBody: `${appUrl}/product/${p.slug}?utm_source=viber`,
         Text: `<b>${p.name}</b><br><font color="#666">${p.code}</font><br><b>${p.price.toFixed(2)} ₴</b>`,
@@ -246,7 +342,8 @@ async function sendRichMediaCarousel(
         TextHAlign: 'left',
       },
       {
-        Columns: 6, Rows: 1,
+        Columns: 6,
+        Rows: 1,
         ActionType: 'open-url',
         ActionBody: `${appUrl}/product/${p.slug}?utm_source=viber`,
         Text: '<b>🛒 Купити</b>',
@@ -303,16 +400,24 @@ async function handleCatalog(userId: string, page = 1) {
   const navButtons = [];
   if (page > 1) {
     navButtons.push({
-      Columns: 3, Rows: 1, ActionType: 'reply',
+      Columns: 3,
+      Rows: 1,
+      ActionType: 'reply',
       ActionBody: 'catalog_prev',
-      Text: '⬅️ Назад', BgColor: '#6b7280', TextSize: 'medium',
+      Text: '⬅️ Назад',
+      BgColor: '#6b7280',
+      TextSize: 'medium',
     });
   }
   if (hasMore) {
     navButtons.push({
-      Columns: page > 1 ? 3 : 6, Rows: 1, ActionType: 'reply',
+      Columns: page > 1 ? 3 : 6,
+      Rows: 1,
+      ActionType: 'reply',
       ActionBody: 'catalog_next',
-      Text: 'Далі ➡️', BgColor: '#6b7280', TextSize: 'medium',
+      Text: 'Далі ➡️',
+      BgColor: '#6b7280',
+      TextSize: 'medium',
     });
   }
 
@@ -323,14 +428,17 @@ async function handleCatalog(userId: string, page = 1) {
       ...MAIN_KEYBOARD,
       Buttons: [
         {
-          Columns: 6, Rows: 1, ActionType: 'open-url',
+          Columns: 6,
+          Rows: 1,
+          ActionType: 'open-url',
           ActionBody: `${appUrl}/catalog?utm_source=viber`,
-          Text: '🛒 Відкрити каталог', BgColor: '#2563eb',
+          Text: '🛒 Відкрити каталог',
+          BgColor: '#2563eb',
         },
         ...navButtons,
         ...MAIN_KEYBOARD.Buttons,
       ],
-    }
+    },
   );
 }
 
@@ -349,14 +457,18 @@ async function handlePromo(userId: string) {
   await sendTextMessage(userId, '🔥 Акційні товари:');
   await sendRichMediaCarousel(
     userId,
-    products.map((p) => ({ ...p, price: Number(p.priceRetail) }))
+    products.map((p) => ({ ...p, price: Number(p.priceRetail) })),
   );
 }
 
 async function handleOrders(userId: string) {
   const user = await findLinkedUser(userId);
   if (!user) {
-    await sendTextMessage(userId, 'Для перегляду замовлень увійдіть в акаунт на сайті.', MAIN_KEYBOARD);
+    await sendTextMessage(
+      userId,
+      'Для перегляду замовлень увійдіть в акаунт на сайті.',
+      MAIN_KEYBOARD,
+    );
     return;
   }
 
@@ -396,20 +508,33 @@ async function handleSearch(userId: string, query: string) {
     return;
   }
 
-  const list = products.map((p) => `• ${p.name} — ${Number(p.priceRetail).toFixed(2)} ₴`).join('\n');
+  const list = products
+    .map((p) => `• ${p.name} — ${Number(p.priceRetail).toFixed(2)} ₴`)
+    .join('\n');
   await sendTextMessage(userId, `🔍 Результати:\n\n${list}`, MAIN_KEYBOARD);
 }
 
 async function handleOrderTracking(userId: string, orderNumber: string) {
   const user = await findLinkedUser(userId);
   if (!user) {
-    await sendTextMessage(userId, 'Для перегляду замовлень прив\'яжіть акаунт: /link ваш@email.com', MAIN_KEYBOARD);
+    await sendTextMessage(
+      userId,
+      "Для перегляду замовлень прив'яжіть акаунт: /link ваш@email.com",
+      MAIN_KEYBOARD,
+    );
     return;
   }
 
   const order = await prisma.order.findFirst({
     where: { userId: user.id, orderNumber },
-    select: { orderNumber: true, status: true, totalAmount: true, createdAt: true, trackingNumber: true, deliveryMethod: true },
+    select: {
+      orderNumber: true,
+      status: true,
+      totalAmount: true,
+      createdAt: true,
+      trackingNumber: true,
+      deliveryMethod: true,
+    },
   });
 
   if (!order) {
@@ -418,9 +543,14 @@ async function handleOrderTracking(userId: string, orderNumber: string) {
   }
 
   const statusLabels: Record<string, string> = {
-    new_order: '🆕 Нове', processing: '⏳ В обробці', confirmed: '✅ Підтверджене',
-    paid: '💳 Оплачене', shipped: '🚚 Відправлене', completed: '✨ Виконане',
-    cancelled: '❌ Скасоване', returned: '↩️ Повернення',
+    new_order: '🆕 Нове',
+    processing: '⏳ В обробці',
+    confirmed: '✅ Підтверджене',
+    paid: '💳 Оплачене',
+    shipped: '🚚 Відправлене',
+    completed: '✨ Виконане',
+    cancelled: '❌ Скасоване',
+    returned: '↩️ Повернення',
   };
 
   let text = `📦 Замовлення #${order.orderNumber}\n\nСтатус: ${statusLabels[order.status] || order.status}\nСума: ${Number(order.totalAmount).toFixed(2)} ₴\nДата: ${new Date(order.createdAt).toLocaleDateString('uk-UA')}`;
@@ -432,13 +562,21 @@ async function handleOrderTracking(userId: string, orderNumber: string) {
 async function handleWishlist(userId: string) {
   const user = await findLinkedUser(userId);
   if (!user) {
-    await sendTextMessage(userId, 'Для перегляду обраного прив\'яжіть акаунт: /link ваш@email.com', MAIN_KEYBOARD);
+    await sendTextMessage(
+      userId,
+      "Для перегляду обраного прив'яжіть акаунт: /link ваш@email.com",
+      MAIN_KEYBOARD,
+    );
     return;
   }
 
   const wishlistItems = await prisma.wishlistItem.findMany({
     where: { wishlist: { userId: user.id } },
-    include: { product: { select: { name: true, slug: true, code: true, priceRetail: true, imagePath: true } } },
+    include: {
+      product: {
+        select: { name: true, slug: true, code: true, priceRetail: true, imagePath: true },
+      },
+    },
     take: 5,
     orderBy: { addedAt: 'desc' },
   });
@@ -451,7 +589,7 @@ async function handleWishlist(userId: string) {
   await sendTextMessage(userId, '❤️ Ваше обране:');
   await sendRichMediaCarousel(
     userId,
-    wishlistItems.map((item) => ({ ...item.product, price: Number(item.product.priceRetail) }))
+    wishlistItems.map((item) => ({ ...item.product, price: Number(item.product.priceRetail) })),
   );
 }
 
@@ -459,8 +597,8 @@ async function handleContact(userId: string) {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   await sendTextMessage(
     userId,
-    `📞 Контакти Порошок\n\nТелефон: +380 XX XXX XX XX\nEmail: info@poroshok.ua\nГрафік: Пн-Пт 9:00-18:00\nСайт: ${appUrl}`,
-    MAIN_KEYBOARD
+    `📞 Контакти Pulito Trade\n\nТелефон: +380 XX XXX XX XX\nEmail: info@pulito.trade\nГрафік: Пн-Пт 9:00-18:00\nСайт: ${appUrl}`,
+    MAIN_KEYBOARD,
   );
 }
 
@@ -480,23 +618,31 @@ async function handleFaqCategories(userId: string) {
 
   const categories = items.map((i) => i.category);
   const catButtons = categories.map((cat) => ({
-    Columns: 6, Rows: 1, ActionType: 'reply' as const,
+    Columns: 6,
+    Rows: 1,
+    ActionType: 'reply' as const,
     ActionBody: `faq_cat:${cat}`,
-    Text: `📂 ${cat}`, BgColor: '#8b5cf6', TextSize: 'medium' as const,
+    Text: `📂 ${cat}`,
+    BgColor: '#8b5cf6',
+    TextSize: 'medium' as const,
   }));
 
-  await sendTextMessage(
-    userId,
-    '❓ Часті питання\n\nОберіть категорію:',
-    {
-      Type: 'keyboard',
-      DefaultHeight: false,
-      Buttons: [
-        ...catButtons,
-        { Columns: 6, Rows: 1, ActionType: 'reply', ActionBody: 'main_menu', Text: '⬅️ Головне меню', BgColor: '#6b7280', TextSize: 'medium' },
-      ],
-    }
-  );
+  await sendTextMessage(userId, '❓ Часті питання\n\nОберіть категорію:', {
+    Type: 'keyboard',
+    DefaultHeight: false,
+    Buttons: [
+      ...catButtons,
+      {
+        Columns: 6,
+        Rows: 1,
+        ActionType: 'reply',
+        ActionBody: 'main_menu',
+        Text: '⬅️ Головне меню',
+        BgColor: '#6b7280',
+        TextSize: 'medium',
+      },
+    ],
+  });
 }
 
 async function handleFaqQuestions(userId: string, category: string) {
@@ -512,24 +658,40 @@ async function handleFaqQuestions(userId: string, category: string) {
   }
 
   const questionButtons = questions.map((q) => ({
-    Columns: 6, Rows: 1, ActionType: 'reply' as const,
+    Columns: 6,
+    Rows: 1,
+    ActionType: 'reply' as const,
     ActionBody: `faq_q:${q.id}`,
-    Text: `❔ ${q.question}`, BgColor: '#ddd6fe', TextSize: 'small' as const,
+    Text: `❔ ${q.question}`,
+    BgColor: '#ddd6fe',
+    TextSize: 'small' as const,
   }));
 
-  await sendTextMessage(
-    userId,
-    `📂 ${category}\n\nОберіть питання:`,
-    {
-      Type: 'keyboard',
-      DefaultHeight: false,
-      Buttons: [
-        ...questionButtons,
-        { Columns: 3, Rows: 1, ActionType: 'reply', ActionBody: 'faq', Text: '⬅️ Категорії', BgColor: '#8b5cf6', TextSize: 'medium' },
-        { Columns: 3, Rows: 1, ActionType: 'reply', ActionBody: 'main_menu', Text: '🏠 Меню', BgColor: '#6b7280', TextSize: 'medium' },
-      ],
-    }
-  );
+  await sendTextMessage(userId, `📂 ${category}\n\nОберіть питання:`, {
+    Type: 'keyboard',
+    DefaultHeight: false,
+    Buttons: [
+      ...questionButtons,
+      {
+        Columns: 3,
+        Rows: 1,
+        ActionType: 'reply',
+        ActionBody: 'faq',
+        Text: '⬅️ Категорії',
+        BgColor: '#8b5cf6',
+        TextSize: 'medium',
+      },
+      {
+        Columns: 3,
+        Rows: 1,
+        ActionType: 'reply',
+        ActionBody: 'main_menu',
+        Text: '🏠 Меню',
+        BgColor: '#6b7280',
+        TextSize: 'medium',
+      },
+    ],
+  });
 }
 
 async function handleFaqAnswer(userId: string, questionId: number) {
@@ -548,19 +710,31 @@ async function handleFaqAnswer(userId: string, questionId: number) {
     data: { clickCount: { increment: 1 } },
   });
 
-  await sendTextMessage(
-    userId,
-    `❓ ${item.question}\n\n${item.answer}`,
-    {
-      Type: 'keyboard',
-      DefaultHeight: false,
-      Buttons: [
-        { Columns: 3, Rows: 1, ActionType: 'reply', ActionBody: `faq_cat:${item.category}`, Text: `⬅️ ${item.category}`, BgColor: '#8b5cf6', TextSize: 'medium' },
-        { Columns: 3, Rows: 1, ActionType: 'reply', ActionBody: 'faq', Text: '📂 Категорії', BgColor: '#8b5cf6', TextSize: 'medium' },
-        ...MAIN_KEYBOARD.Buttons,
-      ],
-    }
-  );
+  await sendTextMessage(userId, `❓ ${item.question}\n\n${item.answer}`, {
+    Type: 'keyboard',
+    DefaultHeight: false,
+    Buttons: [
+      {
+        Columns: 3,
+        Rows: 1,
+        ActionType: 'reply',
+        ActionBody: `faq_cat:${item.category}`,
+        Text: `⬅️ ${item.category}`,
+        BgColor: '#8b5cf6',
+        TextSize: 'medium',
+      },
+      {
+        Columns: 3,
+        Rows: 1,
+        ActionType: 'reply',
+        ActionBody: 'faq',
+        Text: '📂 Категорії',
+        BgColor: '#8b5cf6',
+        TextSize: 'medium',
+      },
+      ...MAIN_KEYBOARD.Buttons,
+    ],
+  });
 }
 
 // ─── Recommend to friend ─────────────────────────────────────────────
@@ -569,7 +743,7 @@ async function handleRecommend(userId: string) {
   await sendTextMessage(
     userId,
     `👥 Порекомендуйте нас друзям!\n\nПоділіться з друзями! Відправте це посилання:\n${appUrl}?utm_source=viber&utm_medium=share\n\nПросто перешліть це повідомлення другу 👆`,
-    MAIN_KEYBOARD
+    MAIN_KEYBOARD,
   );
 }
 
@@ -579,24 +753,36 @@ async function handleNotificationSettings(userId: string) {
   if (!user) {
     await sendTextMessage(
       userId,
-      'Для управління сповіщеннями прив\'яжіть акаунт: /link ваш@email.com',
-      MAIN_KEYBOARD
+      "Для управління сповіщеннями прив'яжіть акаунт: /link ваш@email.com",
+      MAIN_KEYBOARD,
     );
     return;
   }
 
-  await sendTextMessage(
-    userId,
-    '🔔 Сповіщення\n\nОберіть дію:',
-    {
-      Type: 'keyboard',
-      DefaultHeight: false,
-      Buttons: [
-        { Columns: 6, Rows: 1, ActionType: 'reply', ActionBody: 'stop_notif_confirm', Text: '🔕 Зупинити сповіщення', BgColor: '#ef4444', TextSize: 'medium' },
-        { Columns: 6, Rows: 1, ActionType: 'reply', ActionBody: 'main_menu', Text: '⬅️ Головне меню', BgColor: '#6b7280', TextSize: 'medium' },
-      ],
-    }
-  );
+  await sendTextMessage(userId, '🔔 Сповіщення\n\nОберіть дію:', {
+    Type: 'keyboard',
+    DefaultHeight: false,
+    Buttons: [
+      {
+        Columns: 6,
+        Rows: 1,
+        ActionType: 'reply',
+        ActionBody: 'stop_notif_confirm',
+        Text: '🔕 Зупинити сповіщення',
+        BgColor: '#ef4444',
+        TextSize: 'medium',
+      },
+      {
+        Columns: 6,
+        Rows: 1,
+        ActionType: 'reply',
+        ActionBody: 'main_menu',
+        Text: '⬅️ Головне меню',
+        BgColor: '#6b7280',
+        TextSize: 'medium',
+      },
+    ],
+  });
 }
 
 async function handleStopNotifications(userId: string) {
@@ -604,8 +790,8 @@ async function handleStopNotifications(userId: string) {
   if (!user) {
     await sendTextMessage(
       userId,
-      'Для управління сповіщеннями прив\'яжіть акаунт: /link ваш@email.com',
-      MAIN_KEYBOARD
+      "Для управління сповіщеннями прив'яжіть акаунт: /link ваш@email.com",
+      MAIN_KEYBOARD,
     );
     return;
   }
@@ -631,7 +817,7 @@ async function handleStopNotifications(userId: string) {
   await sendTextMessage(
     userId,
     '✅ Ви відписались від сповіщень у Viber.\n\nЩоб знову отримувати сповіщення, змініть налаштування на сайті або напишіть /start_notifications',
-    MAIN_KEYBOARD
+    MAIN_KEYBOARD,
   );
 }
 
@@ -640,8 +826,8 @@ async function handleStartNotifications(userId: string) {
   if (!user) {
     await sendTextMessage(
       userId,
-      'Для управління сповіщеннями прив\'яжіть акаунт: /link ваш@email.com',
-      MAIN_KEYBOARD
+      "Для управління сповіщеннями прив'яжіть акаунт: /link ваш@email.com",
+      MAIN_KEYBOARD,
     );
     return;
   }
@@ -666,7 +852,7 @@ async function handleStartNotifications(userId: string) {
   await sendTextMessage(
     userId,
     '✅ Сповіщення у Viber увімкнено!\n\nВи отримуватимете сповіщення про замовлення та акції.',
-    MAIN_KEYBOARD
+    MAIN_KEYBOARD,
   );
 }
 
@@ -699,7 +885,8 @@ export async function handleViberEvent(event: ViberEvent) {
       if (text === 'orders') return handleOrders(userId);
       if (text === 'wishlist') return handleWishlist(userId);
       if (text === 'contact' || text === 'help') return handleContact(userId);
-      if (text === 'settings' || text === 'menu' || text === 'main_menu') return handleSubscribed(userId, event.sender.name);
+      if (text === 'settings' || text === 'menu' || text === 'main_menu')
+        return handleSubscribed(userId, event.sender.name);
 
       // FAQ navigation
       if (text === 'faq') return handleFaqCategories(userId);

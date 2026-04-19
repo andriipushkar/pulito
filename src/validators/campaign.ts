@@ -13,7 +13,7 @@ const RFM_SEGMENTS = [
 
 export const createCampaignRuleSchema = z.object({
   name: z.string().min(1, 'Назва обовʼязкова').max(255),
-  rfmSegment: z.enum(RFM_SEGMENTS, { errorMap: () => ({ message: 'Невідомий сегмент' }) }),
+  rfmSegment: z.enum(RFM_SEGMENTS, { error: 'Невідомий сегмент' }),
   emailTemplateId: z.number().int().positive('Оберіть шаблон email'),
   frequency: z.enum(['once', 'weekly', 'biweekly', 'monthly']).default('once'),
   isActive: z.boolean().default(true),

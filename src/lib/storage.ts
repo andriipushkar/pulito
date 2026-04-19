@@ -1,4 +1,9 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { env } from '@/config/env';
@@ -13,7 +18,7 @@ const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
 const R2_BUCKET = process.env.R2_BUCKET || '';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || ''; // e.g. https://media.poroshok.com
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || ''; // e.g. https://media.pulito.trade
 
 const isR2Enabled = !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET);
 
@@ -46,7 +51,7 @@ function getLocalUploadDir(): string {
 export async function uploadFile(
   key: string,
   buffer: Buffer,
-  contentType: string
+  contentType: string,
 ): Promise<string> {
   if (isR2Enabled) {
     const client = getS3Client();
@@ -57,7 +62,7 @@ export async function uploadFile(
         Body: buffer,
         ContentType: contentType,
         CacheControl: 'public, max-age=31536000, immutable',
-      })
+      }),
     );
     return R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/${key}` : `/uploads/${key}`;
   }
@@ -81,7 +86,7 @@ export async function deleteFile(key: string): Promise<void> {
         new DeleteObjectCommand({
           Bucket: R2_BUCKET,
           Key: key,
-        })
+        }),
       );
     } catch {
       // File might not exist
@@ -112,7 +117,7 @@ export async function readFile(key: string): Promise<Buffer | null> {
         new GetObjectCommand({
           Bucket: R2_BUCKET,
           Key: key,
-        })
+        }),
       );
       const chunks: Uint8Array[] = [];
       for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {

@@ -27,11 +27,10 @@ interface ChatMessage {
 
 const ROOMS_KEY = '/api/v1/chat';
 
-function fetcher(url: string) {
-  return apiClient.get(url).then((res) => {
-    if (res.success) return res.data;
-    throw new Error(res.error || 'Failed to fetch');
-  });
+async function fetcher<T>(url: string): Promise<T> {
+  const res = await apiClient.get<T>(url);
+  if (!res.success) throw new Error(res.error || 'Failed to fetch');
+  return res.data as T;
 }
 
 export default function ChatWidget() {
@@ -44,19 +43,22 @@ export default function ChatWidget() {
   const { data: roomsData } = useSWR<{ rooms: ChatRoom[]; unreadCount: number }>(
     isOpen && !activeRoomId ? ROOMS_KEY : null,
     fetcher,
-    { refreshInterval: 5000 }
+    { refreshInterval: 5000 },
   );
 
   // Fetch active room messages
   const { data: roomData, isLoading: isLoadingMessages } = useSWR<{
-    room: { id: number; status: string; subject: string | null; assignedAgent: { fullName: string } | null };
+    room: {
+      id: number;
+      status: string;
+      subject: string | null;
+      assignedAgent: { fullName: string } | null;
+    };
     messages: ChatMessage[];
     total: number;
-  }>(
-    isOpen && activeRoomId ? `/api/v1/chat/${activeRoomId}` : null,
-    fetcher,
-    { refreshInterval: 3000 }
-  );
+  }>(isOpen && activeRoomId ? `/api/v1/chat/${activeRoomId}` : null, fetcher, {
+    refreshInterval: 3000,
+  });
 
   const totalUnread = roomsData?.unreadCount || 0;
 
@@ -89,7 +91,7 @@ export default function ChatWidget() {
         setIsSending(false);
       }
     },
-    [activeRoomId, isSending]
+    [activeRoomId, isSending],
   );
 
   const handleBack = () => {
@@ -112,11 +114,32 @@ export default function ChatWidget() {
         data-testid="chat-bubble"
       >
         {isOpen ? (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
           </svg>
         ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
           </svg>
         )}
@@ -137,15 +160,23 @@ export default function ChatWidget() {
           <div className="flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-primary)] px-4 py-3 text-white">
             {activeRoomId && (
               <button onClick={handleBack} className="mr-1 rounded p-0.5 hover:bg-white/10">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="m15 18-6-6 6-6" />
                 </svg>
               </button>
             )}
             <h3 className="flex-1 text-sm font-semibold">
-              {activeRoomId
-                ? roomData?.room?.subject || 'Чат'
-                : 'Підтримка'}
+              {activeRoomId ? roomData?.room?.subject || 'Чат' : 'Підтримка'}
             </h3>
             {activeRoomId && roomData?.room?.status && (
               <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px]">
@@ -160,10 +191,7 @@ export default function ChatWidget() {
           {/* Body */}
           {activeRoomId ? (
             <>
-              <ChatMessageList
-                messages={roomData?.messages || []}
-                isLoading={isLoadingMessages}
-              />
+              <ChatMessageList messages={roomData?.messages || []} isLoading={isLoadingMessages} />
               <ChatInput
                 onSend={handleSendMessage}
                 disabled={roomData?.room?.status === 'closed' || isSending}
@@ -203,12 +231,21 @@ export default function ChatWidget() {
                 </div>
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--color-text-secondary)]">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-[var(--color-text-secondary)]"
+                  >
                     <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
                   </svg>
-                  <p className="text-sm text-[var(--color-text-secondary)]">
-                    У вас ще немає чатів
-                  </p>
+                  <p className="text-sm text-[var(--color-text-secondary)]">У вас ще немає чатів</p>
                 </div>
               )}
               {/* New chat button */}
@@ -246,7 +283,9 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${colors[status] || colors.open}`}>
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${colors[status] || colors.open}`}
+    >
       {labels[status] || status}
     </span>
   );

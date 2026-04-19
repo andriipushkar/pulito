@@ -64,7 +64,7 @@ export const POST = withAuth(async (request: NextRequest, { user, params }) => {
     const body = await request.json();
     const parsed = sendMessageSchema.safeParse(body);
     if (!parsed.success) {
-      return errorResponse(parsed.error.errors[0]?.message || 'Невірні дані', 400);
+      return errorResponse(parsed.error.issues[0]?.message || 'Невірні дані', 400);
     }
 
     const message = await sendMessage(
@@ -72,7 +72,7 @@ export const POST = withAuth(async (request: NextRequest, { user, params }) => {
       'customer',
       user.id,
       parsed.data.content,
-      parsed.data.attachmentUrl
+      parsed.data.attachmentUrl,
     );
 
     return successResponse(message, 201);

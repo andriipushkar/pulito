@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
 import { sendWelcomeEmail, sendDigestEmail } from '../email-template';
-import { env } from '@/config/env';
 
 /**
  * Send welcome emails to users registered in the last 24h who haven't received one yet.

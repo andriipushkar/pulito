@@ -48,10 +48,12 @@ export default function WishlistPage() {
     try {
       const res = await apiClient.get<Wishlist[]>('/api/v1/me/wishlists');
       if (res.success && res.data) {
-        setWishlists(res.data.map((wl) => ({
-          ...wl,
-          items: (wl.items || []).filter((i) => i.product && i.product.name),
-        })));
+        setWishlists(
+          res.data.map((wl) => ({
+            ...wl,
+            items: (wl.items || []).filter((i) => i.product && i.product.name),
+          })),
+        );
       }
     } finally {
       setIsLoading(false);
@@ -63,7 +65,12 @@ export default function WishlistPage() {
   }, [loadWishlists]);
 
   const markBusy = (id: number) => setBusyIds((s) => new Set(s).add(id));
-  const unmarkBusy = (id: number) => setBusyIds((s) => { const n = new Set(s); n.delete(id); return n; });
+  const unmarkBusy = (id: number) =>
+    setBusyIds((s) => {
+      const n = new Set(s);
+      n.delete(id);
+      return n;
+    });
 
   const handleCreateList = async () => {
     const name = newListName.trim();
@@ -99,7 +106,7 @@ export default function WishlistPage() {
         setError(res.error || `Не вдалося видалити список #${wishlistId}`);
         return false;
       }
-    } catch (e) {
+    } catch {
       setError(`Помилка мережі при видаленні списку #${wishlistId}`);
       return false;
     } finally {
@@ -137,8 +144,8 @@ export default function WishlistPage() {
         prev.map((wl) =>
           wl.id === wishlistId
             ? { ...wl, items: wl.items.filter((i) => i.productId !== productId) }
-            : wl
-        )
+            : wl,
+        ),
       );
     }
   };
@@ -165,7 +172,11 @@ export default function WishlistPage() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   const totalItems = wishlists.reduce((sum, wl) => sum + wl.items.length, 0);
@@ -177,8 +188,18 @@ export default function WishlistPage() {
     <div>
       <PageHeader
         icon={
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+            />
           </svg>
         }
         title={`Обране (${totalItems})`}
@@ -189,7 +210,13 @@ export default function WishlistPage() {
               onClick={() => setShowNewForm(true)}
               className="rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] px-4 py-2 text-sm font-medium text-[var(--color-text)] shadow-sm hover:bg-[var(--color-bg-secondary)]"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               Новий список
@@ -201,12 +228,28 @@ export default function WishlistPage() {
       {/* ── Error message ── */}
       {error && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          <svg
+            className="h-4 w-4 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
           </svg>
           {error}
           <button onClick={() => setError('')} className="ml-auto text-red-500 hover:text-red-700">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -217,10 +260,22 @@ export default function WishlistPage() {
       {emptyCount > 1 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center gap-2 text-sm text-amber-800">
-            <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            <svg
+              className="h-4 w-4 shrink-0 text-amber-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+              />
             </svg>
-            <span>У вас <strong>{emptyCount}</strong> порожніх списків.</span>
+            <span>
+              У вас <strong>{emptyCount}</strong> порожніх списків.
+            </span>
           </div>
           <button
             onClick={handleCleanupEmpty}
@@ -230,8 +285,18 @@ export default function WishlistPage() {
             {isCleaningUp ? (
               <Spinner size="sm" />
             ) : (
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                />
               </svg>
             )}
             Очистити порожні
@@ -255,8 +320,17 @@ export default function WishlistPage() {
               className="flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 text-sm"
               autoFocus
             />
-            <Button size="sm" onClick={handleCreateList}>Створити</Button>
-            <Button size="sm" variant="outline" onClick={() => { setShowNewForm(false); setNewListName(''); }}>
+            <Button size="sm" onClick={handleCreateList}>
+              Створити
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setShowNewForm(false);
+                setNewListName('');
+              }}
+            >
               Скасувати
             </Button>
           </div>
@@ -281,7 +355,10 @@ export default function WishlistPage() {
       {/* ── Lists with items (full card view) ── */}
       <div className="space-y-6">
         {nonEmptyLists.map((wishlist) => (
-          <div key={wishlist.id} className="overflow-hidden rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)]">
+          <div
+            key={wishlist.id}
+            className="overflow-hidden rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)]"
+          >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[var(--color-border)]/60 px-5 py-3">
               {editingId === wishlist.id ? (
@@ -294,10 +371,19 @@ export default function WishlistPage() {
                     className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
                     autoFocus
                   />
-                  <button onClick={() => handleRenameList(wishlist.id)} className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white">
+                  <button
+                    onClick={() => handleRenameList(wishlist.id)}
+                    className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white"
+                  >
                     OK
                   </button>
-                  <button onClick={() => { setEditingId(null); setEditName(''); }} className="text-xs text-[var(--color-text-secondary)]">
+                  <button
+                    onClick={() => {
+                      setEditingId(null);
+                      setEditName('');
+                    }}
+                    className="text-xs text-[var(--color-text-secondary)]"
+                  >
                     Скасувати
                   </button>
                 </div>
@@ -321,12 +407,25 @@ export default function WishlistPage() {
                 </button>
                 {editingId !== wishlist.id && (
                   <button
-                    onClick={() => { setEditingId(wishlist.id); setEditName(wishlist.name); }}
+                    onClick={() => {
+                      setEditingId(wishlist.id);
+                      setEditName(wishlist.name);
+                    }}
                     className="rounded-lg p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
                     title="Перейменувати"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+                      />
                     </svg>
                   </button>
                 )}
@@ -348,14 +447,33 @@ export default function WishlistPage() {
                 const inStock = item.product.quantity > 0;
 
                 return (
-                  <div key={item.productId} className="group flex flex-col overflow-hidden rounded-xl border border-[var(--color-border)]/60 shadow-sm transition-all">
+                  <div
+                    key={item.productId}
+                    className="group flex flex-col overflow-hidden rounded-xl border border-[var(--color-border)]/60 shadow-sm transition-all"
+                  >
                     <div className="relative aspect-square overflow-hidden bg-[var(--color-bg-secondary)]">
                       {img ? (
-                        <Image src={img} alt={item.product.name} fill className="object-cover transition-transform group-hover:scale-105" sizes="200px" />
+                        <Image
+                          src={img}
+                          alt={item.product.name}
+                          fill
+                          className="object-cover transition-transform group-hover:scale-105"
+                          sizes="200px"
+                        />
                       ) : (
                         <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)] opacity-30">
-                          <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+                          <svg
+                            className="h-8 w-8"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={1}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
+                            />
                           </svg>
                         </div>
                       )}
@@ -368,16 +486,23 @@ export default function WishlistPage() {
                       </button>
                       {!inStock && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
-                          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-red-600">Немає</span>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-red-600">
+                            Немає
+                          </span>
                         </div>
                       )}
                     </div>
                     <div className="flex flex-1 flex-col p-3">
-                      <Link href={`/product/${item.product.slug}`} className="line-clamp-2 text-xs font-medium leading-snug hover:text-[var(--color-primary)]">
+                      <Link
+                        href={`/product/${item.product.slug}`}
+                        className="line-clamp-2 text-xs font-medium leading-snug hover:text-[var(--color-primary)]"
+                      >
                         {item.product.name}
                       </Link>
                       <div className="mt-auto pt-2">
-                        <span className="text-sm font-bold">{Number(item.product.priceRetail).toFixed(2)} ₴</span>
+                        <span className="text-sm font-bold">
+                          {Number(item.product.priceRetail).toFixed(2)} ₴
+                        </span>
                         <button
                           disabled={!inStock}
                           onClick={() => handleAddToCart(item)}
@@ -404,7 +529,10 @@ export default function WishlistPage() {
             </div>
             <div className="divide-y divide-[var(--color-border)]">
               {emptyLists.map((wishlist) => (
-                <div key={wishlist.id} className="flex items-center justify-between px-5 py-3 hover:bg-[var(--color-bg-secondary)]/30">
+                <div
+                  key={wishlist.id}
+                  className="flex items-center justify-between px-5 py-3 hover:bg-[var(--color-bg-secondary)]/30"
+                >
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
                       <Heart size={12} />
@@ -419,12 +547,27 @@ export default function WishlistPage() {
                           className="rounded-lg border border-[var(--color-border)] px-2 py-1 text-sm"
                           autoFocus
                         />
-                        <button onClick={() => handleRenameList(wishlist.id)} className="text-xs font-medium text-[var(--color-primary)]">OK</button>
-                        <button onClick={() => { setEditingId(null); setEditName(''); }} className="text-xs text-[var(--color-text-secondary)]">Скасувати</button>
+                        <button
+                          onClick={() => handleRenameList(wishlist.id)}
+                          className="text-xs font-medium text-[var(--color-primary)]"
+                        >
+                          OK
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditName('');
+                          }}
+                          className="text-xs text-[var(--color-text-secondary)]"
+                        >
+                          Скасувати
+                        </button>
                       </div>
                     ) : (
                       <>
-                        <span className="text-sm font-medium text-[var(--color-text-secondary)]">{wishlist.name}</span>
+                        <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+                          {wishlist.name}
+                        </span>
                         <span className="text-xs text-[var(--color-text-secondary)]">Порожній</span>
                       </>
                     )}
@@ -432,11 +575,24 @@ export default function WishlistPage() {
                   <div className="flex items-center gap-1">
                     {editingId !== wishlist.id && (
                       <button
-                        onClick={() => { setEditingId(wishlist.id); setEditName(wishlist.name); }}
+                        onClick={() => {
+                          setEditingId(wishlist.id);
+                          setEditName(wishlist.name);
+                        }}
                         className="rounded-lg p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
                       >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+                          />
                         </svg>
                       </button>
                     )}

@@ -50,14 +50,25 @@ export default function ChatMessageList({ messages, isLoading }: ChatMessageList
     );
   }
 
-  let lastDate = '';
+  // Pre-compute "show date separator" flags per message so the render loop
+  // stays pure (no mutation of closure variables across iterations). React
+  // Compiler requires this for safe memoization.
+  const dateFlags = (() => {
+    const flags: boolean[] = [];
+    let prev = '';
+    for (const msg of messages) {
+      const d = formatDate(msg.createdAt);
+      flags.push(d !== prev);
+      prev = d;
+    }
+    return flags;
+  })();
 
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto p-3 space-y-2">
-      {messages.map((msg) => {
+      {messages.map((msg, idx) => {
         const msgDate = formatDate(msg.createdAt);
-        const showDateSeparator = msgDate !== lastDate;
-        lastDate = msgDate;
+        const showDateSeparator = dateFlags[idx];
 
         if (msg.senderType === 'system') {
           return (

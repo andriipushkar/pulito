@@ -5,7 +5,14 @@ import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
 import type { Prisma } from '../../generated/prisma';
-import { BRAND, FONT_REGULAR, PAGE, setupDoc, drawHeader, drawDocTitle, drawFooter, getCompanyInfo } from '@/lib/pdf-theme';
+import {
+  BRAND,
+  setupDoc,
+  drawHeader,
+  drawDocTitle,
+  drawFooter,
+  getCompanyInfo,
+} from '@/lib/pdf-theme';
 
 type TemplateKey =
   | 'sales_summary'
@@ -56,7 +63,7 @@ const TEMPLATE_LABELS: Record<TemplateKey, string> = {
 export async function generateReport(
   templateKey: TemplateKey,
   format: Format,
-  params: ReportParams
+  params: ReportParams,
 ): Promise<{ url: string }> {
   const reportsDir = path.join(env.UPLOAD_DIR, 'reports');
   if (!existsSync(reportsDir)) {
@@ -134,10 +141,10 @@ async function fetchSalesSummary(params: ReportParams): Promise<RowData[]> {
   }
 
   return Array.from(grouped.entries()).map(([date, data]) => ({
-    'Дата': date,
-    'Замовлень': data.count,
-    'Товарів': data.items,
-    'Виручка': Number(data.revenue.toFixed(2)),
+    Дата: date,
+    Замовлень: data.count,
+    Товарів: data.items,
+    Виручка: Number(data.revenue.toFixed(2)),
     'Середній чек': Number((data.count > 0 ? data.revenue / data.count : 0).toFixed(2)),
   }));
 }
@@ -158,9 +165,14 @@ async function fetchProductsStock(params: ReportParams): Promise<RowData[]> {
       category: { select: { name: true } },
       _count: {
         select: {
-          orderItems: dateRange.gte || dateRange.lte
-            ? { where: { order: { createdAt: dateRange, status: { notIn: ['cancelled', 'returned'] } } } }
-            : { where: { order: { status: { notIn: ['cancelled', 'returned'] } } } },
+          orderItems:
+            dateRange.gte || dateRange.lte
+              ? {
+                  where: {
+                    order: { createdAt: dateRange, status: { notIn: ['cancelled', 'returned'] } },
+                  },
+                }
+              : { where: { order: { status: { notIn: ['cancelled', 'returned'] } } } },
         },
       },
     },
@@ -168,10 +180,10 @@ async function fetchProductsStock(params: ReportParams): Promise<RowData[]> {
   });
 
   return products.map((p) => ({
-    'Код': p.code,
-    'Назва': p.name,
-    'Категорія': p.category?.name || '',
-    'Залишок': p.quantity,
+    Код: p.code,
+    Назва: p.name,
+    Категорія: p.category?.name || '',
+    Залишок: p.quantity,
     'Роздрібна ціна': Number(Number(p.priceRetail).toFixed(2)),
     'Оптова ціна': Number(Number(p.priceWholesale || 0).toFixed(2)),
     'Продано (шт)': p._count.orderItems,
@@ -194,16 +206,16 @@ async function fetchOrdersByStatus(params: ReportParams): Promise<RowData[]> {
 
   return orders.map((o) => ({
     '№ замовлення': o.orderNumber,
-    'Дата': o.createdAt.toLocaleDateString('uk-UA'),
-    'Статус': o.status,
-    'Клієнт': o.contactName,
-    'Телефон': o.contactPhone,
-    'Тип': o.clientType === 'wholesale' ? 'Оптовий' : 'Роздрібний',
+    Дата: o.createdAt.toLocaleDateString('uk-UA'),
+    Статус: o.status,
+    Клієнт: o.contactName,
+    Телефон: o.contactPhone,
+    Тип: o.clientType === 'wholesale' ? 'Оптовий' : 'Роздрібний',
     'Кількість товарів': o.itemsCount,
-    'Сума': Number(Number(o.totalAmount).toFixed(2)),
-    'Оплата': o.paymentMethod,
+    Сума: Number(Number(o.totalAmount).toFixed(2)),
+    Оплата: o.paymentMethod,
     'Статус оплати': o.paymentStatus,
-    'Товари': o.items.map((i) => `${i.productName} x${i.quantity}`).join('; '),
+    Товари: o.items.map((i) => `${i.productName} x${i.quantity}`).join('; '),
   }));
 }
 
@@ -220,9 +232,7 @@ async function fetchClientsActivity(params: ReportParams): Promise<RowData[]> {
       createdAt: true,
       _count: {
         select: {
-          orders: dateRange.gte || dateRange.lte
-            ? { where: { createdAt: dateRange } }
-            : true,
+          orders: dateRange.gte || dateRange.lte ? { where: { createdAt: dateRange } } : true,
         },
       },
       orders: {
@@ -236,11 +246,11 @@ async function fetchClientsActivity(params: ReportParams): Promise<RowData[]> {
   return users.map((u) => {
     const totalSpent = u.orders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
     return {
-      'ID': u.id,
-      'Email': u.email,
+      ID: u.id,
+      Email: u.email,
       "Ім'я": u.fullName || '',
-      'Телефон': u.phone || '',
-      'Роль': u.role,
+      Телефон: u.phone || '',
+      Роль: u.role,
       'Дата реєстрації': u.createdAt.toLocaleDateString('uk-UA'),
       'Замовлень за період': u._count.orders,
       'Сума за період': Number(totalSpent.toFixed(2)),
@@ -265,15 +275,15 @@ async function fetchWholesaleReport(params: ReportParams): Promise<RowData[]> {
 
   return orders.map((o) => ({
     '№ замовлення': o.orderNumber,
-    'Дата': o.createdAt.toLocaleDateString('uk-UA'),
-    'Клієнт': o.contactName,
-    'Компанія': o.user?.companyName || '',
-    'ЄДРПОУ': o.user?.edrpou || '',
-    'Статус': o.status,
+    Дата: o.createdAt.toLocaleDateString('uk-UA'),
+    Клієнт: o.contactName,
+    Компанія: o.user?.companyName || '',
+    ЄДРПОУ: o.user?.edrpou || '',
+    Статус: o.status,
     'Кількість товарів': o.itemsCount,
-    'Знижка': Number(Number(o.discountAmount).toFixed(2)),
-    'Сума': Number(Number(o.totalAmount).toFixed(2)),
-    'Оплата': o.paymentMethod,
+    Знижка: Number(Number(o.discountAmount).toFixed(2)),
+    Сума: Number(Number(o.totalAmount).toFixed(2)),
+    Оплата: o.paymentMethod,
     'Статус оплати': o.paymentStatus,
   }));
 }
@@ -301,12 +311,12 @@ async function fetchDeliveryReport(params: ReportParams): Promise<RowData[]> {
 
   return orders.map((o) => ({
     '№ замовлення': o.orderNumber,
-    'Дата': o.createdAt.toLocaleDateString('uk-UA'),
-    'Клієнт': o.contactName,
+    Дата: o.createdAt.toLocaleDateString('uk-UA'),
+    Клієнт: o.contactName,
     'Метод доставки': o.deliveryMethod,
-    'Місто': o.deliveryCity || '',
-    'Адреса': o.deliveryAddress || '',
-    'ТТН': o.trackingNumber || '',
+    Місто: o.deliveryCity || '',
+    Адреса: o.deliveryAddress || '',
+    ТТН: o.trackingNumber || '',
     'Вартість доставки': Number(Number(o.deliveryCost).toFixed(2)),
     'Статус замовлення': o.status,
   }));
@@ -325,7 +335,10 @@ async function fetchFinancialReport(params: ReportParams): Promise<RowData[]> {
     orderBy: { createdAt: 'asc' },
   });
 
-  const grouped = new Map<string, { revenue: number; discounts: number; delivery: number; count: number }>();
+  const grouped = new Map<
+    string,
+    { revenue: number; discounts: number; delivery: number; count: number }
+  >();
   for (const o of orders) {
     const dateKey = o.createdAt.toLocaleDateString('uk-UA');
     const existing = grouped.get(dateKey) || { revenue: 0, discounts: 0, delivery: 0, count: 0 };
@@ -337,11 +350,11 @@ async function fetchFinancialReport(params: ReportParams): Promise<RowData[]> {
   }
 
   return Array.from(grouped.entries()).map(([date, d]) => ({
-    'Дата': date,
-    'Замовлень': d.count,
-    'Виручка': Number(d.revenue.toFixed(2)),
-    'Знижки': Number(d.discounts.toFixed(2)),
-    'Доставка': Number(d.delivery.toFixed(2)),
+    Дата: date,
+    Замовлень: d.count,
+    Виручка: Number(d.revenue.toFixed(2)),
+    Знижки: Number(d.discounts.toFixed(2)),
+    Доставка: Number(d.delivery.toFixed(2)),
     'Чистий дохід': Number((d.revenue - d.discounts - d.delivery).toFixed(2)),
     'Середній чек': Number((d.count > 0 ? d.revenue / d.count : 0).toFixed(2)),
   }));
@@ -355,44 +368,63 @@ async function fetchReturnsCancellations(params: ReportParams): Promise<RowData[
   const orders = await prisma.order.findMany({
     where,
     select: {
-      orderNumber: true, createdAt: true, status: true, totalAmount: true,
-      cancelledReason: true, cancelledBy: true, contactName: true, itemsCount: true,
+      orderNumber: true,
+      createdAt: true,
+      status: true,
+      totalAmount: true,
+      cancelledReason: true,
+      cancelledBy: true,
+      contactName: true,
+      itemsCount: true,
     },
     orderBy: { createdAt: 'desc' },
   });
 
   return orders.map((o) => ({
     '№ замовлення': o.orderNumber,
-    'Дата': o.createdAt.toLocaleDateString('uk-UA'),
-    'Статус': o.status === 'cancelled' ? 'Скасовано' : 'Повернуто',
-    'Клієнт': o.contactName,
-    'Товарів': o.itemsCount,
-    'Сума': Number(Number(o.totalAmount).toFixed(2)),
-    'Причина': o.cancelledReason || 'Не вказано',
-    'Ініціатор': o.cancelledBy || 'Не вказано',
+    Дата: o.createdAt.toLocaleDateString('uk-UA'),
+    Статус: o.status === 'cancelled' ? 'Скасовано' : 'Повернуто',
+    Клієнт: o.contactName,
+    Товарів: o.itemsCount,
+    Сума: Number(Number(o.totalAmount).toFixed(2)),
+    Причина: o.cancelledReason || 'Не вказано',
+    Ініціатор: o.cancelledBy || 'Не вказано',
   }));
 }
 
 async function fetchWholesaleGroups(params: ReportParams): Promise<RowData[]> {
   const dateRange = buildDateRange(params);
-  const orderWhere: Prisma.OrderWhereInput = { status: { notIn: ['cancelled', 'returned'] }, clientType: 'wholesale' };
+  const orderWhere: Prisma.OrderWhereInput = {
+    status: { notIn: ['cancelled', 'returned'] },
+    clientType: 'wholesale',
+  };
   if (dateRange.gte || dateRange.lte) orderWhere.createdAt = dateRange;
 
-  const groupLabels: Record<number, string> = { 1: 'Дрібний опт', 2: 'Середній опт', 3: 'Великий опт' };
+  const groupLabels: Record<number, string> = {
+    1: 'Дрібний опт',
+    2: 'Середній опт',
+    3: 'Великий опт',
+  };
 
   const wholesalers = await prisma.user.findMany({
     where: { role: 'wholesaler', wholesaleGroup: { not: null } },
     select: {
-      id: true, fullName: true, companyName: true, wholesaleGroup: true,
+      id: true,
+      fullName: true,
+      companyName: true,
+      wholesaleGroup: true,
       orders: {
         where: orderWhere,
         select: { totalAmount: true },
       },
       _count: {
         select: {
-          orders: dateRange.gte || dateRange.lte
-            ? { where: { ...orderWhere } }
-            : { where: { status: { notIn: ['cancelled', 'returned'] }, clientType: 'wholesale' } },
+          orders:
+            dateRange.gte || dateRange.lte
+              ? { where: { ...orderWhere } }
+              : {
+                  where: { status: { notIn: ['cancelled', 'returned'] }, clientType: 'wholesale' },
+                },
         },
       },
     },
@@ -403,11 +435,11 @@ async function fetchWholesaleGroups(params: ReportParams): Promise<RowData[]> {
     .map((u) => {
       const totalSpent = u.orders.reduce((s, o) => s + Number(o.totalAmount), 0);
       return {
-        'Група': groupLabels[u.wholesaleGroup!] || `Група ${u.wholesaleGroup}`,
+        Група: groupLabels[u.wholesaleGroup!] || `Група ${u.wholesaleGroup}`,
         "Ім'я": u.fullName,
-        'Компанія': u.companyName || '',
-        'Замовлень': u._count.orders,
-        'Сума': Number(totalSpent.toFixed(2)),
+        Компанія: u.companyName || '',
+        Замовлень: u._count.orders,
+        Сума: Number(totalSpent.toFixed(2)),
         'Середній чек': Number((u._count.orders > 0 ? totalSpent / u._count.orders : 0).toFixed(2)),
       };
     });
@@ -415,15 +447,21 @@ async function fetchWholesaleGroups(params: ReportParams): Promise<RowData[]> {
 
 async function fetchProductLeaders(params: ReportParams): Promise<RowData[]> {
   const dateRange = buildDateRange(params);
-  const orderItemWhere: Prisma.OrderItemWhereInput = { order: { status: { notIn: ['cancelled', 'returned'] } } };
+  const orderItemWhere: Prisma.OrderItemWhereInput = {
+    order: { status: { notIn: ['cancelled', 'returned'] } },
+  };
   if (dateRange.gte || dateRange.lte) {
-    orderItemWhere.order = { ...orderItemWhere.order as object, createdAt: dateRange };
+    orderItemWhere.order = { ...(orderItemWhere.order as object), createdAt: dateRange };
   }
 
   const products = await prisma.product.findMany({
     where: { isActive: true },
     select: {
-      code: true, name: true, priceRetail: true, quantity: true, viewsCount: true,
+      code: true,
+      name: true,
+      priceRetail: true,
+      quantity: true,
+      viewsCount: true,
       category: { select: { name: true } },
       _count: {
         select: { orderItems: { where: orderItemWhere } },
@@ -440,14 +478,14 @@ async function fetchProductLeaders(params: ReportParams): Promise<RowData[]> {
       const soldQty = p.orderItems.reduce((s, i) => s + i.quantity, 0);
       const soldSum = p.orderItems.reduce((s, i) => s + Number(i.subtotal), 0);
       return {
-        'Код': p.code,
-        'Назва': p.name,
-        'Категорія': p.category?.name || '',
-        'Ціна': Number(Number(p.priceRetail).toFixed(2)),
-        'Залишок': p.quantity,
+        Код: p.code,
+        Назва: p.name,
+        Категорія: p.category?.name || '',
+        Ціна: Number(Number(p.priceRetail).toFixed(2)),
+        Залишок: p.quantity,
         'Продано (шт)': soldQty,
         'Продано (грн)': Number(soldSum.toFixed(2)),
-        'Перегляди': p.viewsCount,
+        Перегляди: p.viewsCount,
         'Конверсія %': p.viewsCount > 0 ? Number(((soldQty / p.viewsCount) * 100).toFixed(1)) : 0,
       };
     })
@@ -470,7 +508,10 @@ async function fetchManagerActivity(params: ReportParams): Promise<RowData[]> {
   });
   const managerMap = new Map(managers.map((m) => [m.id, m]));
 
-  const stats = new Map<number, { orders: Set<number>; actions: number; statuses: Record<string, number> }>();
+  const stats = new Map<
+    number,
+    { orders: Set<number>; actions: number; statuses: Record<string, number> }
+  >();
   for (const sc of statusChanges) {
     if (!sc.changedBy) continue;
     const existing = stats.get(sc.changedBy) || { orders: new Set(), actions: 0, statuses: {} };
@@ -484,14 +525,14 @@ async function fetchManagerActivity(params: ReportParams): Promise<RowData[]> {
     .map(([managerId, s]) => {
       const mgr = managerMap.get(managerId);
       return {
-        'Менеджер': mgr?.fullName || `ID ${managerId}`,
-        'Email': mgr?.email || '',
+        Менеджер: mgr?.fullName || `ID ${managerId}`,
+        Email: mgr?.email || '',
         'Оброблено замовлень': s.orders.size,
         'Дій всього': s.actions,
-        'Підтверджено': s.statuses['confirmed'] || 0,
-        'Відправлено': s.statuses['shipped'] || 0,
-        'Завершено': s.statuses['completed'] || 0,
-        'Скасовано': s.statuses['cancelled'] || 0,
+        Підтверджено: s.statuses['confirmed'] || 0,
+        Відправлено: s.statuses['shipped'] || 0,
+        Завершено: s.statuses['completed'] || 0,
+        Скасовано: s.statuses['cancelled'] || 0,
       };
     })
     .sort((a, b) => b['Оброблено замовлень'] - a['Оброблено замовлень']);
@@ -504,7 +545,13 @@ async function fetchAcquisitionChannels(params: ReportParams): Promise<RowData[]
 
   const orders = await prisma.order.findMany({
     where,
-    select: { utmSource: true, utmMedium: true, utmCampaign: true, totalAmount: true, status: true },
+    select: {
+      utmSource: true,
+      utmMedium: true,
+      utmCampaign: true,
+      totalAmount: true,
+      status: true,
+    },
   });
 
   const channels = new Map<string, { orders: number; revenue: number; cancelled: number }>();
@@ -521,12 +568,14 @@ async function fetchAcquisitionChannels(params: ReportParams): Promise<RowData[]
 
   return Array.from(channels.entries())
     .map(([source, d]) => ({
-      'Джерело': source,
-      'Замовлень': d.orders,
-      'Виручка': Number(d.revenue.toFixed(2)),
-      'Скасовано': d.cancelled,
-      'Конверсія %': d.orders > 0 ? Number((((d.orders - d.cancelled) / d.orders) * 100).toFixed(1)) : 0,
-      'Середній чек': d.orders - d.cancelled > 0 ? Number((d.revenue / (d.orders - d.cancelled)).toFixed(2)) : 0,
+      Джерело: source,
+      Замовлень: d.orders,
+      Виручка: Number(d.revenue.toFixed(2)),
+      Скасовано: d.cancelled,
+      'Конверсія %':
+        d.orders > 0 ? Number((((d.orders - d.cancelled) / d.orders) * 100).toFixed(1)) : 0,
+      'Середній чек':
+        d.orders - d.cancelled > 0 ? Number((d.revenue / (d.orders - d.cancelled)).toFixed(2)) : 0,
     }))
     .sort((a, b) => b['Виручка'] - a['Виручка']);
 }
@@ -537,16 +586,32 @@ async function fetchSummaryReport(params: ReportParams): Promise<RowData[]> {
   if (dateRange.gte || dateRange.lte) orderWhere.createdAt = dateRange;
 
   const [
-    totalOrders, cancelledOrders, returnedOrders,
-    revenueAgg, discountAgg, deliveryAgg,
-    newUsers, wholesalers, totalProducts, outOfStock,
+    totalOrders,
+    cancelledOrders,
+    returnedOrders,
+    revenueAgg,
+    discountAgg,
+    deliveryAgg,
+    newUsers,
+    wholesalers,
+    totalProducts,
+    outOfStock,
   ] = await Promise.all([
     prisma.order.count({ where: { ...orderWhere, status: { notIn: ['cancelled', 'returned'] } } }),
     prisma.order.count({ where: { ...orderWhere, status: 'cancelled' } }),
     prisma.order.count({ where: { ...orderWhere, status: 'returned' } }),
-    prisma.order.aggregate({ where: { ...orderWhere, status: { notIn: ['cancelled', 'returned'] } }, _sum: { totalAmount: true } }),
-    prisma.order.aggregate({ where: { ...orderWhere, status: { notIn: ['cancelled', 'returned'] } }, _sum: { discountAmount: true } }),
-    prisma.order.aggregate({ where: { ...orderWhere, status: { notIn: ['cancelled', 'returned'] } }, _sum: { deliveryCost: true } }),
+    prisma.order.aggregate({
+      where: { ...orderWhere, status: { notIn: ['cancelled', 'returned'] } },
+      _sum: { totalAmount: true },
+    }),
+    prisma.order.aggregate({
+      where: { ...orderWhere, status: { notIn: ['cancelled', 'returned'] } },
+      _sum: { discountAmount: true },
+    }),
+    prisma.order.aggregate({
+      where: { ...orderWhere, status: { notIn: ['cancelled', 'returned'] } },
+      _sum: { deliveryCost: true },
+    }),
     prisma.user.count({ where: dateRange.gte || dateRange.lte ? { createdAt: dateRange } : {} }),
     prisma.user.count({ where: { role: 'wholesaler' } }),
     prisma.product.count({ where: { isActive: true } }),
@@ -559,18 +624,18 @@ async function fetchSummaryReport(params: ReportParams): Promise<RowData[]> {
   const avgCheck = totalOrders > 0 ? revenue / totalOrders : 0;
 
   return [
-    { 'Показник': 'Виручка', 'Значення': Number(revenue.toFixed(2)) },
-    { 'Показник': 'Знижки', 'Значення': Number(discounts.toFixed(2)) },
-    { 'Показник': 'Доставка', 'Значення': Number(delivery.toFixed(2)) },
-    { 'Показник': 'Чистий дохід', 'Значення': Number((revenue - discounts - delivery).toFixed(2)) },
-    { 'Показник': 'Замовлень (без скасованих)', 'Значення': totalOrders },
-    { 'Показник': 'Скасовано', 'Значення': cancelledOrders },
-    { 'Показник': 'Повернуто', 'Значення': returnedOrders },
-    { 'Показник': 'Середній чек', 'Значення': Number(avgCheck.toFixed(2)) },
-    { 'Показник': 'Нових користувачів', 'Значення': newUsers },
-    { 'Показник': 'Оптових клієнтів', 'Значення': wholesalers },
-    { 'Показник': 'Активних товарів', 'Значення': totalProducts },
-    { 'Показник': 'Немає в наявності', 'Значення': outOfStock },
+    { Показник: 'Виручка', Значення: Number(revenue.toFixed(2)) },
+    { Показник: 'Знижки', Значення: Number(discounts.toFixed(2)) },
+    { Показник: 'Доставка', Значення: Number(delivery.toFixed(2)) },
+    { Показник: 'Чистий дохід', Значення: Number((revenue - discounts - delivery).toFixed(2)) },
+    { Показник: 'Замовлень (без скасованих)', Значення: totalOrders },
+    { Показник: 'Скасовано', Значення: cancelledOrders },
+    { Показник: 'Повернуто', Значення: returnedOrders },
+    { Показник: 'Середній чек', Значення: Number(avgCheck.toFixed(2)) },
+    { Показник: 'Нових користувачів', Значення: newUsers },
+    { Показник: 'Оптових клієнтів', Значення: wholesalers },
+    { Показник: 'Активних товарів', Значення: totalProducts },
+    { Показник: 'Немає в наявності', Значення: outOfStock },
   ];
 }
 
@@ -619,7 +684,7 @@ async function renderPdf(
   rows: RowData[],
   title: string,
   columns: { label: string; key: string; width: number; align?: string }[],
-  filePath: string
+  filePath: string,
 ): Promise<void> {
   const doc = new PDFDocument({ size: 'A4', margin: 50, layout: 'landscape' });
   setupDoc(doc);
@@ -660,7 +725,10 @@ async function renderPdf(
     currentX += col.width + 5;
   }
   y += 14;
-  doc.moveTo(startX, y).lineTo(startX + columns.reduce((s, c) => s + c.width + 5, 0), y).stroke(BRAND.border);
+  doc
+    .moveTo(startX, y)
+    .lineTo(startX + columns.reduce((s, c) => s + c.width + 5, 0), y)
+    .stroke(BRAND.border);
   y += 8;
   doc.fillColor(BRAND.text);
 
@@ -682,7 +750,10 @@ async function renderPdf(
         currentX += col.width + 5;
       }
       y += 14;
-      doc.moveTo(startX, y).lineTo(startX + columns.reduce((s, c) => s + c.width + 5, 0), y).stroke(BRAND.border);
+      doc
+        .moveTo(startX, y)
+        .lineTo(startX + columns.reduce((s, c) => s + c.width + 5, 0), y)
+        .stroke(BRAND.border);
       y += 8;
       doc.fillColor(BRAND.text);
     }

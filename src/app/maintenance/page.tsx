@@ -22,7 +22,7 @@ export default function MaintenancePage() {
           Зазвичай це займає кілька хвилин. Дякуємо за терпіння!
         </p>
         <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
-          Якщо проблема не зникає, зв&apos;яжіться з нами: info@poroshok.ua
+          Якщо проблема не зникає, зв&apos;яжіться з нами: info@pulito.trade
         </p>
       </div>
     </div>

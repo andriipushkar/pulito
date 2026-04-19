@@ -1,24 +1,52 @@
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { Prisma } from '../../generated/prisma';
 
 // Fields that may contain sensitive data — mask before storing
 // Covers PCI DSS (card data), GDPR (PII), and auth credentials
 const SENSITIVE_KEYS = new Set([
   // Card / PCI DSS
-  'card_number', 'cardNumber', 'card_pan', 'cardPan', 'pan',
-  'cvv', 'cvv2', 'cvc', 'expiry', 'exp_month', 'exp_year',
+  'card_number',
+  'cardNumber',
+  'card_pan',
+  'cardPan',
+  'pan',
+  'cvv',
+  'cvv2',
+  'cvc',
+  'expiry',
+  'exp_month',
+  'exp_year',
   // Auth tokens & secrets
-  'card_token', 'token', 'access_token', 'private_key', 'secret',
-  'password', 'signature', 'merchantSignature',
+  'card_token',
+  'token',
+  'access_token',
+  'private_key',
+  'secret',
+  'password',
+  'signature',
+  'merchantSignature',
   // PII / GDPR
-  'email', 'phone', 'sender_phone', 'receiver_phone',
-  'sender_email', 'customer_email', 'customer_phone',
+  'email',
+  'phone',
+  'sender_phone',
+  'receiver_phone',
+  'sender_email',
+  'customer_email',
+  'customer_phone',
 ]);
 
 // Keys where we show last 4 chars (card numbers, phones)
 const LAST4_KEYS = new Set([
-  'card_number', 'cardNumber', 'card_pan', 'cardPan', 'pan',
-  'phone', 'sender_phone', 'receiver_phone', 'customer_phone',
+  'card_number',
+  'cardNumber',
+  'card_pan',
+  'cardPan',
+  'pan',
+  'phone',
+  'sender_phone',
+  'receiver_phone',
+  'customer_phone',
 ]);
 
 /**
@@ -57,12 +85,14 @@ export async function logWebhook(data: {
   durationMs?: number;
 }) {
   try {
-    const sanitized = data.payload ? sanitizePayload(JSON.parse(JSON.stringify(data.payload))) : undefined;
+    const sanitized = data.payload
+      ? sanitizePayload(JSON.parse(JSON.stringify(data.payload)))
+      : undefined;
     await prisma.webhookLog.create({
       data: {
         source: data.source,
         event: data.event,
-        payload: sanitized as any,
+        payload: sanitized as Prisma.InputJsonValue,
         statusCode: data.statusCode,
         error: data.error,
         durationMs: data.durationMs,
@@ -73,11 +103,7 @@ export async function logWebhook(data: {
   }
 }
 
-export async function getWebhookLogs(params: {
-  source?: string;
-  page?: number;
-  limit?: number;
-}) {
+export async function getWebhookLogs(params: { source?: string; page?: number; limit?: number }) {
   const { source, page = 1, limit = 50 } = params;
   const where = source ? { source } : {};
 

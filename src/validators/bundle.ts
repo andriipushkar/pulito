@@ -12,7 +12,7 @@ export const createBundleSchema = z.object({
     .optional(),
   description: z.string().max(2000).optional(),
   bundleType: z.enum(['curated', 'custom'], {
-    errorMap: () => ({ message: 'Тип комплекту має бути curated або custom' }),
+    error: 'Тип комплекту має бути curated або custom',
   }),
   discountPercent: z.number().min(0).max(100).optional(),
   fixedPrice: z.number().min(0).optional().nullable(),
@@ -22,7 +22,7 @@ export const createBundleSchema = z.object({
       z.object({
         productId: z.number().int().positive('ID товару має бути додатнім числом'),
         quantity: z.number().int().min(1, 'Кількість має бути щонайменше 1'),
-      })
+      }),
     )
     .min(1, 'Комплект повинен містити щонайменше один товар'),
 });

@@ -15,7 +15,7 @@ export async function GET() {
   // Google product category mapping for household chemicals
   const googleCategoryMap: Record<string, string> = {
     // Household cleaning supplies
-    'default': '623', // Household Supplies > Household Cleaning Supplies
+    default: '623', // Household Supplies > Household Cleaning Supplies
   };
 
   const products = await prisma.product.findMany({
@@ -33,7 +33,9 @@ export async function GET() {
       imagePath: true,
       updatedAt: true,
       content: { select: { shortDescription: true } },
-      category: { select: { name: true, slug: true, parent: { select: { name: true, slug: true } } } },
+      category: {
+        select: { name: true, slug: true, parent: { select: { name: true, slug: true } } },
+      },
       images: {
         select: { pathFull: true },
         orderBy: [{ isMain: 'desc' as const }, { sortOrder: 'asc' as const }],
@@ -49,13 +51,8 @@ export async function GET() {
       const image = p.images[0]?.pathFull || p.imagePath;
       const imageUrl = image?.startsWith('http') ? image : image ? `${baseUrl}${image}` : '';
       const description = p.content?.shortDescription || p.name;
-      const categoryParts = [
-        p.category?.parent?.name,
-        p.category?.name,
-      ].filter(Boolean);
-      const productType = categoryParts.length > 0
-        ? categoryParts.join(' > ')
-        : 'Побутова хімія';
+      const categoryParts = [p.category?.parent?.name, p.category?.name].filter(Boolean);
+      const productType = categoryParts.length > 0 ? categoryParts.join(' > ') : 'Побутова хімія';
 
       const categorySlug = p.category?.slug || p.category?.parent?.slug || '';
       const googleCategory = googleCategoryMap[categorySlug] || googleCategoryMap['default'];
@@ -72,7 +69,7 @@ export async function GET() {
     <g:condition>new</g:condition>
     <g:mpn>${escapeXml(p.code)}</g:mpn>
     <g:product_type>${escapeXml(productType)}</g:product_type>
-    <g:brand>Порошок</g:brand>
+    <g:brand>Pulito Trade</g:brand>
     <g:google_product_category>${googleCategory}</g:google_product_category>
     <g:shipping>
       <g:country>UA</g:country>
@@ -86,9 +83,9 @@ export async function GET() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
   <channel>
-    <title>Порошок — Товари</title>
+    <title>Pulito Trade — Товари</title>
     <link>${baseUrl}</link>
-    <description>Каталог товарів інтернет-магазину Порошок</description>
+    <description>Каталог товарів інтернет-магазину Pulito Trade</description>
 ${items}
   </channel>
 </rss>`;
