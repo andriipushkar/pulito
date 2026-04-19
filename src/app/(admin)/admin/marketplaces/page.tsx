@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -37,12 +37,42 @@ const MARKETPLACES = [
     color: '#002f34',
     description: 'Публікація оголошень на OLX.ua',
     fields: [
-      { key: 'clientId', label: 'Client ID', placeholder: 'OLX API Client ID', sensitive: false, optional: false },
-      { key: 'accessToken', label: 'Access Token', placeholder: 'OLX API Access Token', sensitive: true, optional: false },
-      { key: 'defaultCategoryId', label: 'Категорія за замовч.', placeholder: '1430', sensitive: false, optional: true },
+      {
+        key: 'clientId',
+        label: 'Client ID',
+        placeholder: 'OLX API Client ID',
+        sensitive: false,
+        optional: false,
+      },
+      {
+        key: 'accessToken',
+        label: 'Access Token',
+        placeholder: 'OLX API Access Token',
+        sensitive: true,
+        optional: false,
+      },
+      {
+        key: 'defaultCategoryId',
+        label: 'Категорія за замовч.',
+        placeholder: '1430',
+        sensitive: false,
+        optional: true,
+      },
       { key: 'cityId', label: 'Місто (ID)', placeholder: '1', sensitive: false, optional: true },
-      { key: 'contactName', label: "Ім'я контакту", placeholder: 'Порошок', sensitive: false, optional: true },
-      { key: 'contactPhone', label: 'Телефон', placeholder: '+380501234567', sensitive: false, optional: true },
+      {
+        key: 'contactName',
+        label: "Ім'я контакту",
+        placeholder: 'Pulito Trade',
+        sensitive: false,
+        optional: true,
+      },
+      {
+        key: 'contactPhone',
+        label: 'Телефон',
+        placeholder: '+380501234567',
+        sensitive: false,
+        optional: true,
+      },
     ],
   },
   {
@@ -52,8 +82,20 @@ const MARKETPLACES = [
     color: '#00a046',
     description: 'Публікація товарів на Rozetka Marketplace',
     fields: [
-      { key: 'apiKey', label: 'API Key', placeholder: 'Rozetka Seller API Key', sensitive: true, optional: false },
-      { key: 'sellerId', label: 'Seller ID', placeholder: '12345', sensitive: false, optional: false },
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        placeholder: 'Rozetka Seller API Key',
+        sensitive: true,
+        optional: false,
+      },
+      {
+        key: 'sellerId',
+        label: 'Seller ID',
+        placeholder: '12345',
+        sensitive: false,
+        optional: false,
+      },
     ],
   },
   {
@@ -63,7 +105,13 @@ const MARKETPLACES = [
     color: '#2b5797',
     description: 'Публікація товарів на Prom.ua',
     fields: [
-      { key: 'apiToken', label: 'API Token', placeholder: 'Prom.ua API Token', sensitive: true, optional: false },
+      {
+        key: 'apiToken',
+        label: 'API Token',
+        placeholder: 'Prom.ua API Token',
+        sensitive: true,
+        optional: false,
+      },
     ],
   },
   {
@@ -73,8 +121,20 @@ const MARKETPLACES = [
     color: '#f57c00',
     description: 'Публікація товарів на маркетплейсі Епіцентр К',
     fields: [
-      { key: 'apiKey', label: 'API Key', placeholder: 'Epicentr API Key', sensitive: true, optional: false },
-      { key: 'sellerId', label: 'Seller ID', placeholder: '12345', sensitive: false, optional: false },
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        placeholder: 'Epicentr API Key',
+        sensitive: true,
+        optional: false,
+      },
+      {
+        key: 'sellerId',
+        label: 'Seller ID',
+        placeholder: '12345',
+        sensitive: false,
+        optional: false,
+      },
     ],
   },
 ] as const;
@@ -87,11 +147,13 @@ export default function MarketplacesPage() {
 
   // Load unread message count
   useEffect(() => {
-    apiClient.get<{ id: string; isRead: boolean }[]>('/api/v1/admin/marketplaces/messages').then((res) => {
-      if (res.success && res.data) {
-        setMessageCount(res.data.filter((m) => !m.isRead).length);
-      }
-    });
+    apiClient
+      .get<{ id: string; isRead: boolean }[]>('/api/v1/admin/marketplaces/messages')
+      .then((res) => {
+        if (res.success && res.data) {
+          setMessageCount(res.data.filter((m) => !m.isRead).length);
+        }
+      });
   }, [tab]);
 
   const tabs: { key: TabKey; label: string; badge?: number }[] = [
@@ -148,7 +210,9 @@ function ProductsTab() {
   const [targetMarketplace, setTargetMarketplace] = useState('olx');
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishProgress, setPublishProgress] = useState({ current: 0, total: 0 });
-  const [publishResults, setPublishResults] = useState<{ id: number; name: string; status: string; error?: string }[]>([]);
+  const [publishResults, setPublishResults] = useState<
+    { id: number; name: string; status: string; error?: string }[]
+  >([]);
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showOnlyUnpublished, setShowOnlyUnpublished] = useState(false);
@@ -159,35 +223,39 @@ function ProductsTab() {
 
   // Load marketplace connection statuses
   useEffect(() => {
-    apiClient.get<Record<string, MarketplaceConfig | null>>('/api/v1/admin/channel-settings').then((res) => {
-      if (res.success && res.data) {
-        const statuses: Record<string, boolean> = {};
-        for (const m of MARKETPLACES) {
-          const config = res.data[m.key] as MarketplaceConfig | null;
-          statuses[m.key] = config?.enabled === true;
+    apiClient
+      .get<Record<string, MarketplaceConfig | null>>('/api/v1/admin/channel-settings')
+      .then((res) => {
+        if (res.success && res.data) {
+          const statuses: Record<string, boolean> = {};
+          for (const m of MARKETPLACES) {
+            const config = res.data[m.key] as MarketplaceConfig | null;
+            statuses[m.key] = config?.enabled === true;
+          }
+          setMarketplaceStatuses(statuses);
         }
-        setMarketplaceStatuses(statuses);
-      }
-    });
+      });
   }, []);
 
   // Load which products are already published on selected marketplace
   useEffect(() => {
-    apiClient.get<{ id: number; productId: number; channels: string[] }[]>(
-      `/api/v1/admin/publications?limit=1000&status=published`
-    ).then((res) => {
-      if (res.success && res.data) {
-        const byChannel: Record<string, Set<number>> = {};
-        for (const pub of res.data) {
-          if (!pub.productId) continue;
-          for (const ch of pub.channels) {
-            if (!byChannel[ch]) byChannel[ch] = new Set();
-            byChannel[ch].add(pub.productId);
+    apiClient
+      .get<
+        { id: number; productId: number; channels: string[] }[]
+      >(`/api/v1/admin/publications?limit=1000&status=published`)
+      .then((res) => {
+        if (res.success && res.data) {
+          const byChannel: Record<string, Set<number>> = {};
+          for (const pub of res.data) {
+            if (!pub.productId) continue;
+            for (const ch of pub.channels) {
+              if (!byChannel[ch]) byChannel[ch] = new Set();
+              byChannel[ch].add(pub.productId);
+            }
           }
+          setPublishedIds(byChannel);
         }
-        setPublishedIds(byChannel);
-      }
-    });
+      });
   }, [publishResults]);
 
   const loadProducts = useCallback(async () => {
@@ -205,13 +273,18 @@ function ProductsTab() {
     setIsLoading(false);
   }, [page, limit, debouncedSearch]);
 
-  useEffect(() => { loadProducts(); }, [loadProducts]);
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -229,7 +302,9 @@ function ProductsTab() {
     if (selected.size === 0) return;
 
     if (!isConfigured) {
-      toast.error(`${MARKETPLACES.find((m) => m.key === targetMarketplace)?.name} не налаштовано. Перейдіть на вкладку "Налаштування API".`);
+      toast.error(
+        `${MARKETPLACES.find((m) => m.key === targetMarketplace)?.name} не налаштовано. Перейдіть на вкладку "Налаштування API".`,
+      );
       return;
     }
 
@@ -262,11 +337,16 @@ function ProductsTab() {
             id: productId,
             name: product.name,
             status: pubRes.success ? 'ok' : 'error',
-            error: pubRes.success ? undefined : (pubRes.error || 'Помилка публікації'),
+            error: pubRes.success ? undefined : pubRes.error || 'Помилка публікації',
           });
         }
       } else {
-        results.push({ id: productId, name: product.name, status: 'error', error: res.error || 'Помилка' });
+        results.push({
+          id: productId,
+          name: product.name,
+          status: 'error',
+          error: res.error || 'Помилка',
+        });
       }
     }
 
@@ -299,14 +379,18 @@ function ProductsTab() {
             key={m.key}
             onClick={() => setTargetMarketplace(m.key)}
             className={`cursor-pointer rounded-xl border px-4 py-3 transition-all hover:shadow-sm ${
-              targetMarketplace === m.key ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5' : 'border-[var(--color-border)] bg-[var(--color-bg)]'
+              targetMarketplace === m.key
+                ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                : 'border-[var(--color-border)] bg-[var(--color-bg)]'
             }`}
           >
             <div className="flex items-center gap-2">
               <span className="text-lg">{m.icon}</span>
               <span className="text-sm font-semibold">{m.name}</span>
               {!m.configured && (
-                <span className="ml-auto rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Не налашт.</span>
+                <span className="ml-auto rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">
+                  Не налашт.
+                </span>
               )}
             </div>
             <p className="mt-1 text-2xl font-bold">{m.published}</p>
@@ -323,9 +407,14 @@ function ProductsTab() {
             size="sm"
             onClick={async () => {
               setIsSyncing(true);
-              const res = await apiClient.post<{ updated: number; failed: number }>('/api/v1/admin/marketplaces/sync-prices', { channel: targetMarketplace });
+              const res = await apiClient.post<{ updated: number; failed: number }>(
+                '/api/v1/admin/marketplaces/sync-prices',
+                { channel: targetMarketplace },
+              );
               if (res.success && res.data) {
-                toast.success(`Синхронізовано: ${res.data.updated} оновлено, ${res.data.failed} помилок`);
+                toast.success(
+                  `Синхронізовано: ${res.data.updated} оновлено, ${res.data.failed} помилок`,
+                );
               } else {
                 toast.error(res.error || 'Помилка синхронізації');
               }
@@ -344,14 +433,26 @@ function ProductsTab() {
       {/* Not configured warning */}
       {!isConfigured && (
         <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-amber-200 bg-amber-50 px-4 py-3">
-          <svg className="h-5 w-5 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          <svg
+            className="h-5 w-5 shrink-0 text-amber-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+            />
           </svg>
           <div>
             <p className="text-sm font-medium text-amber-800">
               {MARKETPLACES.find((m) => m.key === targetMarketplace)?.name} не налаштовано
             </p>
-            <p className="text-xs text-amber-600">Перейдіть на вкладку &quot;Налаштування API&quot; щоб додати API ключі</p>
+            <p className="text-xs text-amber-600">
+              Перейдіть на вкладку &quot;Налаштування API&quot; щоб додати API ключі
+            </p>
           </div>
         </div>
       )}
@@ -370,7 +471,9 @@ function ProductsTab() {
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
           {MARKETPLACES.map((m) => (
-            <option key={m.key} value={m.key}>{m.icon} {m.name}</option>
+            <option key={m.key} value={m.key}>
+              {m.icon} {m.name}
+            </option>
           ))}
         </select>
         <Button
@@ -396,7 +499,9 @@ function ProductsTab() {
         <div className="mb-4">
           <div className="mb-1 flex justify-between text-xs text-[var(--color-text-secondary)]">
             <span>Публікація...</span>
-            <span>{publishProgress.current} / {publishProgress.total}</span>
+            <span>
+              {publishProgress.current} / {publishProgress.total}
+            </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-[var(--color-bg-secondary)]">
             <div
@@ -412,14 +517,26 @@ function ProductsTab() {
         <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold">Результати публікації</p>
-            <button onClick={() => setPublishResults([])} className="text-xs text-[var(--color-text-secondary)] hover:underline">Закрити</button>
+            <button
+              onClick={() => setPublishResults([])}
+              className="text-xs text-[var(--color-text-secondary)] hover:underline"
+            >
+              Закрити
+            </button>
           </div>
           <div className="max-h-40 space-y-1 overflow-y-auto">
             {publishResults.map((r) => (
-              <div key={r.id} className={`flex items-center gap-2 text-xs ${r.status === 'ok' ? 'text-green-700' : 'text-red-600'}`}>
+              <div
+                key={r.id}
+                className={`flex items-center gap-2 text-xs ${r.status === 'ok' ? 'text-green-700' : 'text-red-600'}`}
+              >
                 <span>{r.status === 'ok' ? '✅' : '❌'}</span>
                 <span className="truncate">{r.name}</span>
-                {r.error && <span className="ml-auto shrink-0 text-[var(--color-text-secondary)]">{r.error}</span>}
+                {r.error && (
+                  <span className="ml-auto shrink-0 text-[var(--color-text-secondary)]">
+                    {r.error}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -436,7 +553,12 @@ function ProductsTab() {
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
                   <th className="px-3 py-3 text-left">
-                    <input type="checkbox" checked={selected.size === products.length && products.length > 0} onChange={toggleAll} className="accent-[var(--color-primary)]" />
+                    <input
+                      type="checkbox"
+                      checked={selected.size === products.length && products.length > 0}
+                      onChange={toggleAll}
+                      className="accent-[var(--color-primary)]"
+                    />
                   </th>
                   <th className="px-4 py-3 text-left font-medium">Товар</th>
                   <th className="px-4 py-3 text-left font-medium">Код</th>
@@ -447,46 +569,82 @@ function ProductsTab() {
                 </tr>
               </thead>
               <tbody>
-                {products.filter((p) => !showOnlyUnpublished || !publishedOnTarget.has(p.id)).map((p) => {
-                  const isPublished = publishedOnTarget.has(p.id);
-                  return (
-                    <tr
-                      key={p.id}
-                      className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${selected.has(p.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'}`}
-                    >
-                      <td className="px-3 py-3">
-                        <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="accent-[var(--color-primary)]" />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
-                            {p.imagePath ? (
-                              <Image src={p.imagePath} alt="" width={40} height={40} className="h-full w-full object-contain" />
-                            ) : (
-                              <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">—</div>
-                            )}
+                {products
+                  .filter((p) => !showOnlyUnpublished || !publishedOnTarget.has(p.id))
+                  .map((p) => {
+                    const isPublished = publishedOnTarget.has(p.id);
+                    return (
+                      <tr
+                        key={p.id}
+                        className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${selected.has(p.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'}`}
+                      >
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(p.id)}
+                            onChange={() => toggleSelect(p.id)}
+                            className="accent-[var(--color-primary)]"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
+                              {p.imagePath ? (
+                                <Image
+                                  src={p.imagePath}
+                                  alt=""
+                                  width={40}
+                                  height={40}
+                                  className="h-full w-full object-contain"
+                                />
+                              ) : (
+                                <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">
+                                  —
+                                </div>
+                              )}
+                            </div>
+                            <span className="font-medium">{p.name}</span>
                           </div>
-                          <span className="font-medium">{p.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-[var(--color-text-secondary)]">{p.code}</td>
-                      <td className="px-4 py-3 text-[var(--color-text-secondary)]">{p.category?.name || '—'}</td>
-                      <td className="px-4 py-3 text-right">{Number(p.priceRetail).toFixed(2)} ₴</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={p.quantity === 0 ? 'font-medium text-[var(--color-danger)]' : ''}>{p.quantity}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {isPublished ? (
-                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Опублік.</span>
-                        ) : (
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                        <td className="px-4 py-3 text-[var(--color-text-secondary)]">{p.code}</td>
+                        <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                          {p.category?.name || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {Number(p.priceRetail).toFixed(2)} ₴
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={
+                              p.quantity === 0 ? 'font-medium text-[var(--color-danger)]' : ''
+                            }
+                          >
+                            {p.quantity}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {isPublished ? (
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                              Опублік.
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                              —
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 {products.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">Товарів не знайдено</td></tr>
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                    >
+                      Товарів не знайдено
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -495,13 +653,35 @@ function ProductsTab() {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               <p className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</p>
-              <PageSizeSelector value={limit} onChange={(size) => { setLimit(size); setPage(1); }} />
+              <PageSizeSelector
+                value={limit}
+                onChange={(size) => {
+                  setLimit(size);
+                  setPage(1);
+                }}
+              />
             </div>
             {total > limit && (
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Назад</Button>
-                <span className="px-2 py-1 text-sm text-[var(--color-text-secondary)]">{page} / {Math.ceil(total / limit)}</span>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={products.length < limit}>Далі</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Назад
+                </Button>
+                <span className="px-2 py-1 text-sm text-[var(--color-text-secondary)]">
+                  {page} / {Math.ceil(total / limit)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={products.length < limit}
+                >
+                  Далі
+                </Button>
               </div>
             )}
           </div>
@@ -530,7 +710,13 @@ interface PublicationHistoryItem {
   publishedAt: string | null;
   createdAt: string;
   productId: number | null;
-  channelResults?: { channel: string; status: string; externalId: string | null; permalink: string | null; errorMessage: string | null }[];
+  channelResults?: {
+    channel: string;
+    status: string;
+    externalId: string | null;
+    permalink: string | null;
+    errorMessage: string | null;
+  }[];
 }
 
 function HistoryTab() {
@@ -541,36 +727,51 @@ function HistoryTab() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
-  const mpChannels: string[] = MARKETPLACES.map((m) => m.key);
+  const mpChannels = useMemo<string[]>(() => MARKETPLACES.map((m) => m.key), []);
 
   useEffect(() => {
     setIsLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: '20' });
     if (filterStatus) params.set('status', filterStatus);
 
-    apiClient.get<PublicationHistoryItem[]>(`/api/v1/admin/publications?${params}`).then((res) => {
-      if (res.success && res.data) {
-        // Filter to only marketplace publications
-        const filtered = res.data.filter((pub) =>
-          pub.channels.some((ch) => mpChannels.includes(ch)) &&
-          (!filterMp || pub.channels.includes(filterMp))
-        );
-        setItems(filtered);
-        setTotal(res.pagination?.total || 0);
-      }
-    }).finally(() => setIsLoading(false));
-  }, [page, filterMp, filterStatus]);
+    apiClient
+      .get<PublicationHistoryItem[]>(`/api/v1/admin/publications?${params}`)
+      .then((res) => {
+        if (res.success && res.data) {
+          // Filter to only marketplace publications
+          const filtered = res.data.filter(
+            (pub) =>
+              pub.channels.some((ch) => mpChannels.includes(ch)) &&
+              (!filterMp || pub.channels.includes(filterMp)),
+          );
+          setItems(filtered);
+          setTotal(res.pagination?.total || 0);
+        }
+      })
+      .finally(() => setIsLoading(false));
+  }, [page, filterMp, filterStatus, mpChannels]);
 
   const formatDate = (d: string) =>
-    new Date(d).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    new Date(d).toLocaleString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
   const statusLabel = (s: string) => {
     switch (s) {
-      case 'published': return { text: 'Опубліковано', color: 'bg-green-100 text-green-700' };
-      case 'failed': return { text: 'Помилка', color: 'bg-red-100 text-red-700' };
-      case 'draft': return { text: 'Чернетка', color: 'bg-gray-100 text-gray-600' };
-      case 'scheduled': return { text: 'Заплановано', color: 'bg-blue-100 text-blue-700' };
-      default: return { text: s, color: 'bg-gray-100 text-gray-600' };
+      case 'published':
+        return { text: 'Опубліковано', color: 'bg-green-100 text-green-700' };
+      case 'failed':
+        return { text: 'Помилка', color: 'bg-red-100 text-red-700' };
+      case 'draft':
+        return { text: 'Чернетка', color: 'bg-gray-100 text-gray-600' };
+      case 'scheduled':
+        return { text: 'Заплановано', color: 'bg-blue-100 text-blue-700' };
+      default:
+        return { text: s, color: 'bg-gray-100 text-gray-600' };
     }
   };
 
@@ -579,17 +780,25 @@ function HistoryTab() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <select
           value={filterMp}
-          onChange={(e) => { setFilterMp(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setFilterMp(e.target.value);
+            setPage(1);
+          }}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
           <option value="">Всі маркетплейси</option>
           {MARKETPLACES.map((m) => (
-            <option key={m.key} value={m.key}>{m.icon} {m.name}</option>
+            <option key={m.key} value={m.key}>
+              {m.icon} {m.name}
+            </option>
           ))}
         </select>
         <select
           value={filterStatus}
-          onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setFilterStatus(e.target.value);
+            setPage(1);
+          }}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
           <option value="">Всі статуси</option>
@@ -611,10 +820,15 @@ function HistoryTab() {
             {items.map((pub) => {
               const st = statusLabel(pub.status);
               return (
-                <div key={pub.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+                <div
+                  key={pub.id}
+                  className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${st.color}`}>{st.text}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${st.color}`}>
+                        {st.text}
+                      </span>
                       <span className="text-sm font-medium">{pub.title}</span>
                     </div>
                     <span className="text-xs text-[var(--color-text-secondary)]">
@@ -623,20 +837,29 @@ function HistoryTab() {
                   </div>
                   {pub.channelResults && pub.channelResults.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {pub.channelResults.filter((cr) => mpChannels.includes(cr.channel)).map((cr) => (
-                        <div key={cr.channel} className="flex items-center gap-1.5 text-xs">
-                          <span>{cr.status === 'published' ? '✅' : '❌'}</span>
-                          <span className="font-medium">{MARKETPLACES.find((m) => m.key === cr.channel)?.name || cr.channel}</span>
-                          {cr.permalink && (
-                            <a href={cr.permalink} target="_blank" rel="noopener noreferrer" className="text-[var(--color-primary)] hover:underline">
-                              Посилання
-                            </a>
-                          )}
-                          {cr.errorMessage && (
-                            <span className="text-[var(--color-danger)]">{cr.errorMessage}</span>
-                          )}
-                        </div>
-                      ))}
+                      {pub.channelResults
+                        .filter((cr) => mpChannels.includes(cr.channel))
+                        .map((cr) => (
+                          <div key={cr.channel} className="flex items-center gap-1.5 text-xs">
+                            <span>{cr.status === 'published' ? '✅' : '❌'}</span>
+                            <span className="font-medium">
+                              {MARKETPLACES.find((m) => m.key === cr.channel)?.name || cr.channel}
+                            </span>
+                            {cr.permalink && (
+                              <a
+                                href={cr.permalink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[var(--color-primary)] hover:underline"
+                              >
+                                Посилання
+                              </a>
+                            )}
+                            {cr.errorMessage && (
+                              <span className="text-[var(--color-danger)]">{cr.errorMessage}</span>
+                            )}
+                          </div>
+                        ))}
                     </div>
                   )}
                 </div>
@@ -646,9 +869,23 @@ function HistoryTab() {
 
           {total > 20 && (
             <div className="mt-4 flex justify-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Назад</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Назад
+              </Button>
               <span className="px-2 py-1 text-sm text-[var(--color-text-secondary)]">{page}</span>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={items.length < 20}>Далі</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={items.length < 20}
+              >
+                Далі
+              </Button>
             </div>
           )}
         </>
@@ -670,7 +907,12 @@ interface MarketplaceMessage {
   isRead: boolean;
 }
 
-const MP_NAMES: Record<string, string> = { olx: 'OLX', rozetka: 'Rozetka', prom: 'Prom.ua', epicentrk: 'Epicentr K' };
+const MP_NAMES: Record<string, string> = {
+  olx: 'OLX',
+  rozetka: 'Rozetka',
+  prom: 'Prom.ua',
+  epicentrk: 'Epicentr K',
+};
 const MP_ICONS: Record<string, string> = { olx: '🟢', rozetka: '🟩', prom: '🔵', epicentrk: '🟠' };
 
 function MessagesTab() {
@@ -681,14 +923,23 @@ function MessagesTab() {
   useEffect(() => {
     setIsLoading(true);
     const params = filterMp ? `?channel=${filterMp}` : '';
-    apiClient.get<MarketplaceMessage[]>(`/api/v1/admin/marketplaces/messages${params}`).then((res) => {
-      if (res.success && res.data) setMessages(res.data);
-      else toast.error('Не вдалося завантажити повідомлення');
-    }).catch(() => toast.error('Помилка мережі')).finally(() => setIsLoading(false));
+    apiClient
+      .get<MarketplaceMessage[]>(`/api/v1/admin/marketplaces/messages${params}`)
+      .then((res) => {
+        if (res.success && res.data) setMessages(res.data);
+        else toast.error('Не вдалося завантажити повідомлення');
+      })
+      .catch(() => toast.error('Помилка мережі'))
+      .finally(() => setIsLoading(false));
   }, [filterMp]);
 
   const formatDate = (d: string) =>
-    new Date(d).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    new Date(d).toLocaleString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
   return (
     <div>
@@ -700,7 +951,9 @@ function MessagesTab() {
         >
           <option value="">Всі маркетплейси</option>
           {MARKETPLACES.map((m) => (
-            <option key={m.key} value={m.key}>{m.icon} {m.name}</option>
+            <option key={m.key} value={m.key}>
+              {m.icon} {m.name}
+            </option>
           ))}
         </select>
         <p className="text-xs text-[var(--color-text-secondary)]">
@@ -713,7 +966,9 @@ function MessagesTab() {
       ) : messages.length === 0 ? (
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-12 text-center text-[var(--color-text-secondary)]">
           <p className="text-lg">Немає повідомлень</p>
-          <p className="mt-1 text-sm">Повідомлення від покупців з маркетплейсів з&apos;являться тут</p>
+          <p className="mt-1 text-sm">
+            Повідомлення від покупців з маркетплейсів з&apos;являться тут
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -729,12 +984,18 @@ function MessagesTab() {
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span>{MP_ICONS[msg.marketplace] || '📦'}</span>
-                  <span className="text-xs font-medium text-[var(--color-text-secondary)]">{MP_NAMES[msg.marketplace] || msg.marketplace}</span>
+                  <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                    {MP_NAMES[msg.marketplace] || msg.marketplace}
+                  </span>
                   {!msg.isRead && (
-                    <span className="rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-[9px] font-bold text-white">Нове</span>
+                    <span className="rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-[9px] font-bold text-white">
+                      Нове
+                    </span>
                   )}
                 </div>
-                <span className="text-xs text-[var(--color-text-secondary)]">{formatDate(msg.createdAt)}</span>
+                <span className="text-xs text-[var(--color-text-secondary)]">
+                  {formatDate(msg.createdAt)}
+                </span>
               </div>
               <div className="flex items-start gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-sm font-bold text-[var(--color-text-secondary)]">
@@ -744,7 +1005,9 @@ function MessagesTab() {
                   <p className="text-sm font-medium">{msg.buyerName}</p>
                   <p className="mt-0.5 text-sm text-[var(--color-text)]">{msg.text}</p>
                   {msg.listingTitle && (
-                    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Товар: {msg.listingTitle}</p>
+                    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                      Товар: {msg.listingTitle}
+                    </p>
                   )}
                 </div>
               </div>
@@ -767,7 +1030,9 @@ function SettingsTab() {
   const [dirty, setDirty] = useState<Record<string, Set<string>>>({});
 
   const loadConfigs = useCallback(async () => {
-    const res = await apiClient.get<Record<string, MarketplaceConfig | null>>('/api/v1/admin/channel-settings');
+    const res = await apiClient.get<Record<string, MarketplaceConfig | null>>(
+      '/api/v1/admin/channel-settings',
+    );
     if (res.success && res.data) {
       const newForms: Record<string, Record<string, string | boolean>> = {};
       const newDirty: Record<string, Set<string>> = {};
@@ -777,7 +1042,9 @@ function SettingsTab() {
           newForms[m.key] = { ...config };
         } else {
           const empty: Record<string, string | boolean> = { enabled: false };
-          m.fields.forEach((f) => { empty[f.key] = ''; });
+          m.fields.forEach((f) => {
+            empty[f.key] = '';
+          });
           newForms[m.key] = empty;
         }
         newDirty[m.key] = new Set();
@@ -789,7 +1056,9 @@ function SettingsTab() {
     setIsLoading(false);
   }, []);
 
-  useEffect(() => { loadConfigs(); }, [loadConfigs]);
+  useEffect(() => {
+    loadConfigs();
+  }, [loadConfigs]);
 
   const updateField = (marketplace: string, field: string, value: string | boolean) => {
     setForms((prev) => ({ ...prev, [marketplace]: { ...prev[marketplace], [field]: value } }));
@@ -800,7 +1069,7 @@ function SettingsTab() {
     });
   };
 
-  const handleSave = async (marketplace: typeof MARKETPLACES[number]) => {
+  const handleSave = async (marketplace: (typeof MARKETPLACES)[number]) => {
     const ch = marketplace.key;
     setSaving((prev) => ({ ...prev, [ch]: true }));
 
@@ -825,7 +1094,12 @@ function SettingsTab() {
     setSaving((prev) => ({ ...prev, [ch]: false }));
   };
 
-  if (isLoading) return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -838,7 +1112,9 @@ function SettingsTab() {
           <div
             key={ch}
             className={`rounded-xl border p-5 transition-all ${
-              isEnabled ? 'border-green-200 bg-[var(--color-bg)] shadow-sm' : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)]'
+              isEnabled
+                ? 'border-green-200 bg-[var(--color-bg)] shadow-sm'
+                : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)]'
             }`}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -846,7 +1122,9 @@ function SettingsTab() {
                 <span className="text-2xl">{marketplace.icon}</span>
                 <div>
                   <h3 className="font-semibold">{marketplace.name}</h3>
-                  <p className="text-xs text-[var(--color-text-secondary)]">{marketplace.description}</p>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    {marketplace.description}
+                  </p>
                 </div>
               </div>
               <button
@@ -855,7 +1133,9 @@ function SettingsTab() {
                   isEnabled ? 'bg-green-500' : 'bg-gray-300'
                 }`}
               >
-                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isEnabled ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isEnabled ? 'translate-x-[22px]' : 'translate-x-[2px]'}`}
+                />
               </button>
             </div>
 
@@ -866,7 +1146,10 @@ function SettingsTab() {
                 return (
                   <div key={field.key}>
                     <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-                      {field.label} {field.optional && <span className="text-[var(--color-text-secondary)]">(опц.)</span>}
+                      {field.label}{' '}
+                      {field.optional && (
+                        <span className="text-[var(--color-text-secondary)]">(опц.)</span>
+                      )}
                     </label>
                     <div className="relative">
                       <Input
@@ -878,7 +1161,9 @@ function SettingsTab() {
                       {field.sensitive && (
                         <button
                           type="button"
-                          onClick={() => setShowTokens((prev) => ({ ...prev, [tokenKey]: !isShown }))}
+                          onClick={() =>
+                            setShowTokens((prev) => ({ ...prev, [tokenKey]: !isShown }))
+                          }
                           className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-xs text-[var(--color-text-secondary)]"
                         >
                           {isShown ? '🙈' : '👁️'}
@@ -894,13 +1179,19 @@ function SettingsTab() {
               <Button
                 size="sm"
                 onClick={() => handleSave(marketplace)}
-                disabled={saving[ch] || !(dirty[ch]?.size)}
+                disabled={saving[ch] || !dirty[ch]?.size}
               >
                 {saving[ch] ? 'Зберігаю...' : 'Зберегти'}
               </Button>
               {isEnabled && (
                 <span className="flex items-center gap-1.5 text-xs text-green-600">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                   Підключено
@@ -931,14 +1222,14 @@ function SettingsTab() {
 function AutoSyncSettings() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     apiClient.get<Record<string, string>>('/api/v1/admin/delivery-settings').then(() => {
       // Use site settings for auto-sync config
-      apiClient.get<Record<string, string>>('/api/v1/admin/payment-settings').then((res) => {
+      apiClient.get<Record<string, string>>('/api/v1/admin/payment-settings').then(() => {
         // Load from a shared settings endpoint - for now use localStorage as bridge
-        const saved = typeof window !== 'undefined' ? localStorage.getItem('marketplace_autosync') : null;
+        const saved =
+          typeof window !== 'undefined' ? localStorage.getItem('marketplace_autosync') : null;
         if (saved) setSettings(JSON.parse(saved));
         setIsLoading(false);
       });
@@ -958,7 +1249,10 @@ function AutoSyncSettings() {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {MARKETPLACES.map((m) => (
-        <div key={m.key} className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-3">
+        <div
+          key={m.key}
+          className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-3"
+        >
           <div className="flex items-center gap-2">
             <span>{m.icon}</span>
             <span className="text-sm font-medium">{m.name}</span>
@@ -980,7 +1274,8 @@ function AutoSyncSettings() {
       ))}
       <div className="sm:col-span-2">
         <p className="text-[10px] text-[var(--color-text-secondary)]">
-          Синхронізація оновлює ціни та залишки для всіх раніше опублікованих товарів. Запускається автоматично через cron job.
+          Синхронізація оновлює ціни та залишки для всіх раніше опублікованих товарів. Запускається
+          автоматично через cron job.
         </p>
       </div>
     </div>

@@ -7,6 +7,9 @@ enum NotificationType {
   back_in_stock
   promo
   system_notification @map("system")
+  welcome
+  winback
+  review_request
 }
 
 model UserNotification {
@@ -89,17 +92,17 @@ model NotificationQueue {
 // 23.31-32 Email_Templates
 // ─────────────────────────────────────
 model EmailTemplate {
-  id          Int                    @id @default(autoincrement())
-  templateKey String                 @unique @map("template_key")
-  subject     String
-  bodyHtml    String                 @map("body_html")
-  bodyText    String?                @map("body_text")
-  version     Int                    @default(1)
-  isActive    Boolean                @default(true) @map("is_active")
-  isMarketing Boolean                @default(false) @map("is_marketing")
-  updatedBy   Int?                   @map("updated_by")
-  createdAt   DateTime               @default(now()) @map("created_at")
-  updatedAt   DateTime               @updatedAt @map("updated_at")
+  id            Int                    @id @default(autoincrement())
+  templateKey   String                 @unique @map("template_key")
+  subject       String
+  bodyHtml      String                 @map("body_html")
+  bodyText      String?                @map("body_text")
+  version       Int                    @default(1)
+  isActive      Boolean                @default(true) @map("is_active")
+  isMarketing   Boolean                @default(false) @map("is_marketing")
+  updatedBy     Int?                   @map("updated_by")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
   versions      EmailTemplateVersion[]
   campaignRules CampaignRule[]
 

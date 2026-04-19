@@ -8,7 +8,7 @@ test.describe('Admin Marketplaces Page', () => {
 
   test('should access admin marketplaces page', async ({ page }) => {
     await page.goto('/admin/marketplaces');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin');
     await expect(page.locator('body')).toBeVisible();
@@ -16,7 +16,7 @@ test.describe('Admin Marketplaces Page', () => {
 
   test('should render marketplaces content', async ({ page }) => {
     await page.goto('/admin/marketplaces');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const pageTitle = page.locator('h1, h2');
     await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });
@@ -30,7 +30,7 @@ test.describe('Admin Marketplace Returns Page', () => {
 
   test('should navigate to marketplace returns page', async ({ page }) => {
     await page.goto('/admin/marketplaces/returns');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/admin/marketplaces/returns');
     await expect(page.locator('h1')).toContainText('Повернення з маркетплейсів');
@@ -38,7 +38,7 @@ test.describe('Admin Marketplace Returns Page', () => {
 
   test('should verify returns table loads', async ({ page }) => {
     await page.goto('/admin/marketplaces/returns');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Table or empty state should be visible
     const table = page.locator('[data-testid="returns-table"]');
@@ -48,7 +48,7 @@ test.describe('Admin Marketplace Returns Page', () => {
 
   test('should have status filter dropdown', async ({ page }) => {
     await page.goto('/admin/marketplaces/returns');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const filter = page.locator('[data-testid="status-filter"]');
     await expect(filter).toBeVisible();

@@ -69,7 +69,7 @@ export default function MarketplaceReturnsPage() {
       if (statusFilter) params.set('status', statusFilter);
 
       const res = await apiClient.get<PaginatedResponse>(
-        `/api/v1/admin/marketplaces/returns?${params.toString()}`
+        `/api/v1/admin/marketplaces/returns?${params.toString()}`,
       );
 
       if (res.success && res.data) {
@@ -132,38 +132,64 @@ export default function MarketplaceReturnsPage() {
             </option>
           ))}
         </select>
-        <PageSizeSelector value={pageSize} onChange={(v) => { setPageSize(v); setPage(1); }} />
+        <PageSizeSelector
+          value={pageSize}
+          onChange={(v) => {
+            setPageSize(v);
+            setPage(1);
+          }}
+        />
       </div>
 
       {/* Table */}
       {loading ? (
-        <AdminTableSkeleton rows={5} cols={7} />
+        <AdminTableSkeleton rows={5} columns={9} />
       ) : returns.length === 0 ? (
-        <div className="py-12 text-center text-gray-500">
-          Повернень не знайдено
-        </div>
+        <div className="py-12 text-center text-gray-500">Повернень не знайдено</div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200">
           <table className="min-w-full divide-y divide-gray-200" data-testid="returns-table">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Маркетплейс</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Зовнішній ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Замовлення</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Причина</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Статус</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Сума</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Дата</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Дії</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  ID
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Маркетплейс
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Зовнішній ID
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Замовлення
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Причина
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Статус
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
+                  Сума
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Дата
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Дії
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {returns.map((ret) => (
                 <tr key={ret.id} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap px-4 py-3 text-sm">{ret.id}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm capitalize">{ret.connection.platform}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm font-mono text-xs">{ret.externalReturnId}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm capitalize">
+                    {ret.connection.platform}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm font-mono text-xs">
+                    {ret.externalReturnId}
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
                     {ret.order ? `#${ret.order.orderNumber}` : '-'}
                   </td>
@@ -171,7 +197,9 @@ export default function MarketplaceReturnsPage() {
                     {ret.reason || '-'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
-                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLORS[ret.status] || 'bg-gray-100 text-gray-800'}`}>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLORS[ret.status] || 'bg-gray-100 text-gray-800'}`}
+                    >
                       {STATUS_LABELS[ret.status] || ret.status}
                     </span>
                   </td>

@@ -5,21 +5,27 @@ import { getChannelConfig, type MarketplaceConfig } from '@/services/channel-con
 
 type Platform = 'rozetka' | 'prom';
 
+function asString(value: string | boolean | undefined): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'boolean') return String(value);
+  return '';
+}
+
 function getClient(platform: Platform, config: MarketplaceConfig): RozetkaClient | PromClient {
   switch (platform) {
     case 'rozetka':
-      return new RozetkaClient(config.apiKey!, config.sellerId);
+      return new RozetkaClient(asString(config.apiKey), asString(config.sellerId));
     case 'prom':
-      return new PromClient(config.apiToken!);
+      return new PromClient(asString(config.apiToken));
     default:
       throw new Error(`Невідома платформа: ${platform}`);
   }
 }
 
 export async function syncProductsToMarketplace(
-  platform: Platform
+  platform: Platform,
 ): Promise<{ created: number; updated: number; failed: number }> {
-  const config = await getChannelConfig(platform) as MarketplaceConfig | null;
+  const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
   if (!config?.enabled) {
     throw new Error(`${platform} не налаштовано або вимкнено`);
   }
@@ -32,18 +38,16 @@ export async function syncProductsToMarketplace(
   // Get all active products with their publication channels
   const products = await prisma.product.findMany({
     where: { isActive: true },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      priceRetail: true,
-      code: true,
-      quantity: true,
-      images: { select: { url: true }, take: 10 },
+    include: {
+      content: { select: { fullDescription: true } },
+      images: {
+        select: { pathFull: true, pathOriginal: true, pathMedium: true },
+        take: 10,
+      },
       publications: {
         select: {
           id: true,
-          channels: {
+          channelResults: {
             where: { channel: platform },
             select: { externalId: true, status: true },
           },
@@ -55,7 +59,7 @@ export async function syncProductsToMarketplace(
   for (const product of products) {
     try {
       const publication = product.publications[0];
-      const channelEntry = publication?.channels[0];
+      const channelEntry = publication?.channelResults[0];
 
       if (channelEntry?.externalId) {
         // Update existing listing
@@ -68,10 +72,12 @@ export async function syncProductsToMarketplace(
         else failed++;
       } else {
         // Create new listing
-        const imageUrls = product.images.map((img) => img.url);
+        const imageUrls = product.images
+          .map((img) => img.pathFull || img.pathOriginal || img.pathMedium)
+          .filter((u): u is string => Boolean(u));
         const result = await client.createProduct({
           name: product.name,
-          description: product.description || undefined,
+          description: product.content?.fullDescription || undefined,
           price: Number(product.priceRetail),
           quantity: product.quantity,
           images: imageUrls,
@@ -103,7 +109,10 @@ export async function syncProductsToMarketplace(
         }
       }
     } catch (error) {
-      console.error(`[MarketplaceSync] Помилка синхронізації товару ${product.id} на ${platform}:`, error);
+      console.error(
+        `[MarketplaceSync] Помилка синхронізації товару ${product.id} на ${platform}:`,
+        error,
+      );
       failed++;
     }
   }
@@ -115,9 +124,9 @@ export async function syncProductsToMarketplace(
 }
 
 export async function syncStockToMarketplace(
-  platform: Platform
+  platform: Platform,
 ): Promise<{ updated: number; failed: number }> {
-  const config = await getChannelConfig(platform) as MarketplaceConfig | null;
+  const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
   if (!config?.enabled) {
     throw new Error(`${platform} не налаштовано або вимкнено`);
   }
@@ -143,14 +152,14 @@ export async function syncStockToMarketplace(
     if (!pub.externalId || !pub.publication.product) continue;
 
     try {
-      const result = await client.updateStock(
-        pub.externalId,
-        pub.publication.product.quantity
-      );
+      const result = await client.updateStock(pub.externalId, pub.publication.product.quantity);
       if (result.success) updated++;
       else failed++;
     } catch (error) {
-      console.error(`[MarketplaceSync] Помилка оновлення залишків ${pub.externalId} на ${platform}:`, error);
+      console.error(
+        `[MarketplaceSync] Помилка оновлення залишків ${pub.externalId} на ${platform}:`,
+        error,
+      );
       failed++;
     }
   }
@@ -161,9 +170,9 @@ export async function syncStockToMarketplace(
 }
 
 export async function importOrdersFromMarketplace(
-  platform: Platform
+  platform: Platform,
 ): Promise<{ imported: number; skipped: number; failed: number }> {
-  const config = await getChannelConfig(platform) as MarketplaceConfig | null;
+  const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
   if (!config?.enabled) {
     throw new Error(`${platform} не налаштовано або вимкнено`);
   }
@@ -189,36 +198,66 @@ export async function importOrdersFromMarketplace(
 
         if (existing) return 'skipped' as const;
 
-        const orderItems = 'items' in order
-          ? (order.items as { name: string; quantity: number; price: number | string }[])
-          : (order as { products?: { name: string; quantity: number; price: number | string }[] }).products || [];
+        const orderItems =
+          'items' in order
+            ? (order.items as {
+                name: string;
+                quantity: number;
+                price: number | string;
+                code?: string;
+              }[])
+            : (
+                order as {
+                  products?: {
+                    name: string;
+                    quantity: number;
+                    price: number | string;
+                    code?: string;
+                  }[];
+                }
+              ).products || [];
 
         const totalAmount = orderItems.reduce(
           (sum, item) => sum + Number(item.price) * item.quantity,
-          0
+          0,
         );
 
-        const buyerName = 'buyer' in order
-          ? (order.buyer as { name: string }).name
-          : `${(order as { client_first_name?: string }).client_first_name || ''} ${(order as { client_last_name?: string }).client_last_name || ''}`.trim();
+        const buyerName =
+          'buyer' in order
+            ? (order.buyer as { name: string }).name
+            : `${(order as { client_first_name?: string }).client_first_name || ''} ${(order as { client_last_name?: string }).client_last_name || ''}`.trim();
 
-        const buyerPhone = 'buyer' in order
-          ? (order.buyer as { phone: string }).phone
-          : (order as { phone?: string }).phone || '';
+        const buyerPhone =
+          'buyer' in order
+            ? (order.buyer as { phone: string }).phone
+            : (order as { phone?: string }).phone || '';
+
+        const buyerEmail =
+          'buyer' in order
+            ? (order.buyer as { email?: string }).email || ''
+            : (order as { email?: string }).email || '';
 
         await tx.order.create({
           data: {
+            orderNumber: `${platform.toUpperCase()}-${externalOrderId}`,
             externalId: externalOrderId,
             source: platform,
-            status: 'new',
+            status: 'new_order',
+            clientType: 'retail',
             totalAmount,
-            customerName: buyerName || 'Покупець',
-            customerPhone: buyerPhone,
+            itemsCount: orderItems.reduce((s, i) => s + i.quantity, 0),
+            contactName: buyerName || 'Покупець',
+            contactPhone: buyerPhone,
+            contactEmail: buyerEmail,
+            deliveryMethod: 'nova_poshta',
+            paymentMethod: 'cod',
             items: {
               create: orderItems.map((item) => ({
+                productCode: item.code || 'UNKNOWN',
                 productName: item.name,
                 quantity: item.quantity,
-                price: Number(item.price),
+                priceAtOrder: Number(item.price),
+                subtotal: Number(item.price) * item.quantity,
               })),
             },
           },
@@ -230,7 +269,10 @@ export async function importOrdersFromMarketplace(
       if (result === 'skipped') skipped++;
       else imported++;
     } catch (error) {
-      console.error(`[MarketplaceSync] Помилка імпорту замовлення ${order.id} з ${platform}:`, error);
+      console.error(
+        `[MarketplaceSync] Помилка імпорту замовлення ${order.id} з ${platform}:`,
+        error,
+      );
       failed++;
     }
   }
@@ -240,9 +282,7 @@ export async function importOrdersFromMarketplace(
   return { imported, skipped, failed };
 }
 
-export async function getConnectionStatus(
-  platform: Platform
-): Promise<{
+export async function getConnectionStatus(platform: Platform): Promise<{
   connected: boolean;
   platform: string;
   lastSyncProducts?: string | null;
@@ -250,25 +290,29 @@ export async function getConnectionStatus(
   lastSyncOrders?: string | null;
   publishedCount: number;
 }> {
-  const config = await getChannelConfig(platform) as MarketplaceConfig | null;
-  const connected = !!(config?.enabled);
+  const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
+  const connected = !!config?.enabled;
 
   const publishedCount = await prisma.publicationChannel.count({
     where: { channel: platform, status: 'published' },
   });
 
   // Get last sync times from settings
-  const syncSettings = await prisma.setting.findMany({
+  const syncSettings = await prisma.siteSetting.findMany({
     where: {
-      key: { in: [
-        `marketplace_sync_${platform}_products`,
-        `marketplace_sync_${platform}_stock`,
-        `marketplace_sync_${platform}_orders`,
-      ] },
+      key: {
+        in: [
+          `marketplace_sync_${platform}_products`,
+          `marketplace_sync_${platform}_stock`,
+          `marketplace_sync_${platform}_orders`,
+        ],
+      },
     },
   });
 
-  const syncMap = Object.fromEntries(syncSettings.map((s) => [s.key, s.value]));
+  const syncMap = Object.fromEntries(
+    syncSettings.map((s: { key: string; value: string }) => [s.key, s.value]),
+  );
 
   return {
     connected,
@@ -292,7 +336,7 @@ export async function syncReturns(): Promise<{ synced: number }> {
   for (const connection of connections) {
     try {
       const platform = connection.platform as Platform;
-      const config = await getChannelConfig(platform) as MarketplaceConfig | null;
+      const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
       if (!config?.enabled) continue;
 
       const client = getClient(platform, config);
@@ -300,9 +344,7 @@ export async function syncReturns(): Promise<{ synced: number }> {
 
       for (const ret of returns) {
         const externalReturnId = String(ret.id);
-        const externalOrderId = String(
-          'order_id' in ret ? ret.order_id : ''
-        );
+        const externalOrderId = String('order_id' in ret ? ret.order_id : '');
 
         // Try to find matching local order
         const localOrder = externalOrderId
@@ -341,14 +383,19 @@ export async function syncReturns(): Promise<{ synced: number }> {
 
       await updateLastSyncTime(platform, 'returns');
     } catch (error) {
-      console.error(`[MarketplaceSync] Помилка синхронізації повернень для ${connection.platform}:`, error);
+      console.error(
+        `[MarketplaceSync] Помилка синхронізації повернень для ${connection.platform}:`,
+        error,
+      );
     }
   }
 
   return { synced };
 }
 
-function mapReturnStatus(externalStatus: string): 'pending' | 'approved' | 'rejected' | 'completed' {
+function mapReturnStatus(
+  externalStatus: string,
+): 'pending' | 'approved' | 'rejected' | 'completed' {
   const statusMap: Record<string, 'pending' | 'approved' | 'rejected' | 'completed'> = {
     pending: 'pending',
     new: 'pending',
@@ -367,7 +414,7 @@ async function updateLastSyncTime(platform: string, type: string) {
   const key = `marketplace_sync_${platform}_${type}`;
   const value = new Date().toISOString();
 
-  await prisma.setting.upsert({
+  await prisma.siteSetting.upsert({
     where: { key },
     update: { value },
     create: { key, value },
