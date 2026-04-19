@@ -20,7 +20,7 @@ test.describe('Account Manager', () => {
       await page.goto('/account/manager');
       await waitForLoaded(page);
 
-      const main = page.locator('main');
+      const main = page.locator('main').first();
       await expect(main).toBeVisible({ timeout: 5000 });
 
       // Non-wholesale user should see a restriction or empty state
@@ -50,19 +50,18 @@ test.describe('Account Manager', () => {
     });
   });
 
-  test.describe('Admin user (wholesaler substitute)', () => {
+  test.describe('Wholesale user', () => {
     test.beforeEach(async ({ page }) => {
-      await loginViaUI(page, TEST_USERS.admin.email, TEST_USERS.admin.password);
+      await loginViaUI(page, TEST_USERS.wholesale.email, TEST_USERS.wholesale.password);
     });
 
     test('should load manager page for privileged user', async ({ page }) => {
       await page.goto('/account/manager');
       await waitForLoaded(page);
 
-      const main = page.locator('main');
+      const main = page.locator('main').first();
       await expect(main).toBeVisible({ timeout: 5000 });
 
-      // Privileged users should see manager info or account layout
       const heading = page.locator('h1, h2').first();
       await expect(heading).toBeVisible({ timeout: 5000 });
     });

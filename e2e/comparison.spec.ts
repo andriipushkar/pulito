@@ -5,7 +5,7 @@ test.describe('Comparison', () => {
     await page.goto('/comparison');
     await page.waitForLoadState('domcontentloaded');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible({ timeout: 5000 });
   });
 
@@ -50,7 +50,7 @@ test.describe('Comparison', () => {
       // If no compare button found, just verify comparison page loads
       await page.goto('/comparison');
       await page.waitForLoadState('domcontentloaded');
-      await expect(page.locator('main')).toBeVisible({ timeout: 5000 });
+      await expect(page.locator('main').first()).toBeVisible({ timeout: 5000 });
       return;
     }
 
@@ -60,7 +60,7 @@ test.describe('Comparison', () => {
     await page.goto('/comparison');
     await page.waitForLoadState('domcontentloaded');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible({ timeout: 5000 });
 
     // Should show comparison content (table or product cards)

@@ -5,7 +5,7 @@ test.describe('Bundles', () => {
     await page.goto('/bundles');
     await page.waitForLoadState('domcontentloaded');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible();
   });
 
@@ -50,7 +50,7 @@ test.describe('Bundles', () => {
     expect(hasPrice).toBeTruthy();
 
     // Should show product list within the bundle
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible();
   });
 

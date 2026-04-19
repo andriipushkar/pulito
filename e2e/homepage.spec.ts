@@ -62,7 +62,7 @@ test.describe('Homepage', () => {
     }
 
     // Page should load regardless
-    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('main').first()).toBeVisible();
   });
 
   test('should have footer with links', async ({ page }) => {

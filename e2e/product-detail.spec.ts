@@ -54,7 +54,7 @@ test.describe('Product Detail Page', () => {
     if (hasPrice) {
       expect(hasPrice).toBeTruthy();
     }
-    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('main').first()).toBeVisible();
   });
 
   test('should have add to cart button', async ({ page }) => {
@@ -80,7 +80,7 @@ test.describe('Product Detail Page', () => {
     if (hasButton) {
       await expect(addToCartButton).toBeEnabled();
     }
-    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('main').first()).toBeVisible();
   });
 
   test('should have reviews section', async ({ page }) => {

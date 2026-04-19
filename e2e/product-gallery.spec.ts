@@ -266,6 +266,6 @@ test.describe('Product Image Gallery', () => {
     const _dotCount = await dotButtons.count();
 
     // At least the main content should be visible
-    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('main').first()).toBeVisible();
   });
 });

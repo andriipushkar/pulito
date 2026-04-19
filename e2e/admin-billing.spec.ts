@@ -19,8 +19,19 @@ test.describe('Admin Billing Page', () => {
     await page.goto('/admin/billing');
     await waitForLoaded(page);
 
-    const pageTitle = page.locator('h1, h2');
-    await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });
+    // When billing API has no record, page shows "Біллінг ще не налаштовано"
+    // — no heading. Accept either the heading or the empty-state copy.
+    const hasHeading = await page
+      .locator('h1, h2')
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    const hasEmpty = await page
+      .locator('text=/Біллінг ще не налаштовано/i')
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
+    expect(hasHeading || hasEmpty).toBeTruthy();
   });
 
   test('should navigate to plans page', async ({ page }) => {

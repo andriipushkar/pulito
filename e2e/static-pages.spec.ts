@@ -5,7 +5,7 @@ test.describe('Static Pages', () => {
     await page.goto('/pages/delivery');
     await page.waitForLoadState('domcontentloaded');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible({ timeout: 5000 });
 
     // Should have a heading
@@ -17,7 +17,7 @@ test.describe('Static Pages', () => {
     await page.goto('/pages/about');
     await page.waitForLoadState('domcontentloaded');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible({ timeout: 5000 });
 
     // Should have a heading
@@ -30,7 +30,7 @@ test.describe('Static Pages', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Page should have meaningful text content
-    const content = page.locator('main');
+    const content = page.locator('main').first();
     await expect(content).toBeVisible({ timeout: 5000 });
 
     const text = await content.textContent();

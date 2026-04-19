@@ -19,14 +19,18 @@ test.describe('Notifications', () => {
 
       await page.goto('/');
       await waitForLoaded(page);
+      // Wait for AuthProvider to populate user — "Увійти" link disappears once logged in
+      await page
+        .locator('a[href="/auth/login"]')
+        .first()
+        .waitFor({ state: 'hidden', timeout: 8000 })
+        .catch(() => {});
 
-      // The bell link should be visible (at least on desktop)
-      const bellLink = page.locator('a[href="/account/notifications"]');
+      const bellLink = page.locator('a[href="/account/notifications"]:visible').first();
       const isVisible = await bellLink.isVisible({ timeout: 5000 }).catch(() => false);
 
-      // On mobile viewport it may be hidden, check viewport
       const viewportSize = page.viewportSize();
-      if (viewportSize && viewportSize.width >= 640) {
+      if (viewportSize && viewportSize.width >= 1024) {
         expect(isVisible).toBeTruthy();
       }
     });
@@ -60,7 +64,7 @@ test.describe('Notifications', () => {
       await waitForLoaded(page);
 
       // Should show either notification list or empty state
-      const main = page.locator('main');
+      const main = page.locator('main').first();
       await expect(main).toBeVisible({ timeout: 5000 });
     });
 

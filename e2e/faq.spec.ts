@@ -5,7 +5,7 @@ test.describe('FAQ page', () => {
     const response = await page.goto('/faq');
     expect(response?.status()).toBe(200);
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible();
   });
 
@@ -91,7 +91,7 @@ test.describe('FAQ page', () => {
     await page.waitForTimeout(300);
 
     // Page should remain stable
-    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('main').first()).toBeVisible();
   });
 });
 

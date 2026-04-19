@@ -52,7 +52,7 @@ test.describe('Cart Flow', () => {
     await page.goto('/cart');
     await page.waitForLoadState('domcontentloaded');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible();
   });
 
@@ -84,7 +84,7 @@ test.describe('Cart Flow', () => {
       await increaseButton.click();
       await page.waitForTimeout(500);
       // Page should remain stable after quantity change
-      await expect(page.locator('main')).toBeVisible();
+      await expect(page.locator('main').first()).toBeVisible();
     }
   });
 
@@ -117,7 +117,7 @@ test.describe('Cart Flow', () => {
     if (await removeButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await removeButton.click();
       await page.waitForTimeout(500);
-      await expect(page.locator('main')).toBeVisible();
+      await expect(page.locator('main').first()).toBeVisible();
     }
   });
 
@@ -126,7 +126,7 @@ test.describe('Cart Flow', () => {
     await page.goto('/cart');
     await page.waitForLoadState('domcontentloaded');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible();
 
     // Look for empty cart message or empty state

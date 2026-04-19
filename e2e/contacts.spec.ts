@@ -5,7 +5,7 @@ test.describe('Contacts Page', () => {
     const response = await page.goto('/contacts');
     expect(response?.status()).toBe(200);
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible();
   });
 

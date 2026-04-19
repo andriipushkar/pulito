@@ -67,8 +67,8 @@ test.describe('Catalog filters', () => {
   test('should display filter chips for active filters', async ({ page }) => {
     await page.goto('/catalog?promo=true');
     // Look for a chip with "Акційні" text
-    const chip = page.getByText('Акційні');
-    if (await chip.isVisible()) {
+    const chip = page.getByText('Акційні').first();
+    if (await chip.isVisible().catch(() => false)) {
       await expect(chip).toBeVisible();
     }
   });

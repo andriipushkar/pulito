@@ -5,7 +5,7 @@ test.describe('Blog', () => {
     await page.goto('/blog');
     await page.waitForLoadState('domcontentloaded');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible();
 
     // Should have a heading related to blog
@@ -48,7 +48,7 @@ test.describe('Blog', () => {
     expect(page.url()).toMatch(/\/blog\/.+/);
 
     // Detail page should have content
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible();
 
     // Should have a heading for the post

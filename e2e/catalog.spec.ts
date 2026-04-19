@@ -9,7 +9,7 @@ test.describe('Catalog page', () => {
   test('should display product grid', async ({ page }) => {
     await page.goto('/catalog');
     // Wait for products or empty state
-    const content = page.locator('main');
+    const content = page.locator('main').first();
     await expect(content).toBeVisible();
   });
 

@@ -9,11 +9,17 @@ import { Page } from '@playwright/test';
  */
 export async function waitForLoaded(page: Page, timeoutMs = 15000): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
+  // Hide any in-flight <Spinner role="status"> or "Завантаження..." skeleton
+  await page
+    .locator('[role="status"][aria-label*="Завантаж" i], [role="status"][aria-label*="Load" i]')
+    .first()
+    .waitFor({ state: 'hidden', timeout: timeoutMs })
+    .catch(() => {});
   await page
     .locator('text=/^Завантаження\\.?\\.?\\.?$/')
     .first()
     .waitFor({ state: 'hidden', timeout: timeoutMs })
     .catch(() => {});
-  // Let React paint
-  await page.waitForTimeout(100);
+  // Let React paint final state
+  await page.waitForTimeout(150);
 }

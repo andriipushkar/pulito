@@ -13,7 +13,7 @@ test.describe('Admin Feature Flags', () => {
 
     expect(page.url()).toContain('/admin/feature-flags');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible({ timeout: 5000 });
   });
 

@@ -49,6 +49,6 @@ test.describe('Admin Warehouses Management', () => {
     const cardCount = await cards.count();
 
     // Page should be stable regardless of data
-    await expect(page.locator('main')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('main').first()).toBeVisible({ timeout: 5000 });
   });
 });

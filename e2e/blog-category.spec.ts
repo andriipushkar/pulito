@@ -18,7 +18,7 @@ test.describe('Blog Category', () => {
     await page.goto(href!);
     await page.waitForLoadState('domcontentloaded');
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible({ timeout: 5000 });
 
     // Should have a heading for the category
@@ -86,7 +86,7 @@ test.describe('Blog Category', () => {
     // Should navigate to a blog post detail page
     expect(page.url()).toMatch(/\/blog\/.+/);
 
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible({ timeout: 5000 });
   });
 

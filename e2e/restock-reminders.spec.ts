@@ -20,7 +20,7 @@ test.describe('Restock Reminders', () => {
       await page.goto('/account');
       await waitForLoaded(page);
 
-      const main = page.locator('main');
+      const main = page.locator('main').first();
       await expect(main).toBeVisible({ timeout: 5000 });
 
       // Should show the restock reminders heading or empty state

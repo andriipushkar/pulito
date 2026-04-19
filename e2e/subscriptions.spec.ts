@@ -20,7 +20,7 @@ test.describe('Subscriptions', () => {
       await page.goto('/account/subscriptions');
       await waitForLoaded(page);
 
-      const main = page.locator('main');
+      const main = page.locator('main').first();
       await expect(main).toBeVisible({ timeout: 5000 });
 
       // Should have a heading related to subscriptions
@@ -33,7 +33,9 @@ test.describe('Subscriptions', () => {
       await waitForLoaded(page);
 
       // Either subscription list or empty state
-      const emptyState = page.locator('text=/Немає підписок|Підписки відсутні|У вас немає/i');
+      const emptyState = page.locator(
+        'text=/Немає підписок|Підписки відсутні|У вас немає|Підписок немає/i',
+      );
       const subscriptionItems = page.locator('a[href*="/subscription"], [class*="subscription"]');
 
       const hasEmpty = await emptyState.isVisible({ timeout: 5000 }).catch(() => false);

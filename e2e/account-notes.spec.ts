@@ -13,14 +13,14 @@ test.describe('Account Notes', () => {
 
   test.describe('Authenticated', () => {
     test.beforeEach(async ({ page }) => {
-      await loginViaUI(page, TEST_USERS.client.email, TEST_USERS.client.password);
+      await loginViaUI(page, TEST_USERS.wholesale.email, TEST_USERS.wholesale.password);
     });
 
     test('should load notes page', async ({ page }) => {
       await page.goto('/account/notes');
       await waitForLoaded(page);
 
-      const main = page.locator('main');
+      const main = page.locator('main').first();
       await expect(main).toBeVisible({ timeout: 5000 });
 
       // Should show heading related to notes

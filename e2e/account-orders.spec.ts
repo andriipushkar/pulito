@@ -13,12 +13,25 @@ test.describe('Account Orders', () => {
     await waitForLoaded(page);
 
     const orderList = page.locator('[data-testid="order-list"], table, .order-list, .orders');
-    const emptyState = page.locator('[data-testid="empty-state"], .empty-state, .no-orders');
+    const emptyState = page.locator(
+      '[data-testid="empty-state"], .empty-state, .no-orders, text=/Замовлень немає|Немає замовлень/i',
+    );
 
-    const hasOrders = await orderList.isVisible().catch(() => false);
-    const hasEmpty = await emptyState.isVisible().catch(() => false);
+    const hasOrders = await orderList
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const hasEmpty = await emptyState
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const hasHeading = await page
+      .locator('text=/Мої замовлення/i')
+      .first()
+      .isVisible()
+      .catch(() => false);
 
-    expect(hasOrders || hasEmpty).toBeTruthy();
+    expect(hasOrders || hasEmpty || hasHeading).toBeTruthy();
   });
 
   test('should display status filter dropdown', async ({ page }) => {

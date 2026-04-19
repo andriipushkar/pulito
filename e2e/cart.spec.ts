@@ -4,7 +4,7 @@ test.describe('Cart', () => {
   test('should show empty cart message', async ({ page }) => {
     await page.goto('/cart');
     // Cart should show empty state or items
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible();
   });
 
@@ -23,7 +23,7 @@ test.describe('Checkout', () => {
   test('should redirect to cart if empty', async ({ page }) => {
     await page.goto('/checkout');
     // Checkout may redirect to cart or show empty message
-    const content = page.locator('main');
+    const content = page.locator('main').first();
     await expect(content).toBeVisible();
   });
 });

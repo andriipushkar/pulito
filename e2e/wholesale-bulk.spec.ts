@@ -20,7 +20,7 @@ test.describe('Wholesale Bulk Order', () => {
       await page.goto('/account/wholesale/bulk-order');
       await waitForLoaded(page);
 
-      const main = page.locator('main');
+      const main = page.locator('main').first();
       await expect(main).toBeVisible({ timeout: 5000 });
     });
 

@@ -55,7 +55,7 @@ test.describe('Admin Blog Management', () => {
     expect(page.url()).toContain('/admin/blog/new');
 
     // Form should have essential fields
-    const main = page.locator('main');
+    const main = page.locator('main').first();
     await expect(main).toBeVisible({ timeout: 5000 });
   });
 

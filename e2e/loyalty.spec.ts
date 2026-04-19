@@ -20,7 +20,7 @@ test.describe('Loyalty Program', () => {
       await page.goto('/account/loyalty');
       await waitForLoaded(page);
 
-      const main = page.locator('main');
+      const main = page.locator('main').first();
       await expect(main).toBeVisible({ timeout: 5000 });
     });
 
