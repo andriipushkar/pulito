@@ -1,16 +1,31 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
+import { redis, CACHE_TTL } from '@/lib/redis';
 import { successResponse, errorResponse } from '@/utils/api-response';
 
-export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
+const RFM_CACHE_PREFIX = 'rfm:segments:v1:';
+
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const days = Math.min(365, Math.max(7, Number(searchParams.get('days')) || 90));
+
+    const cacheKey = `${RFM_CACHE_PREFIX}${days}d`;
+    const cached = await redis.get(cacheKey).catch(() => null);
+    if (cached) {
+      return successResponse(JSON.parse(cached));
+    }
+
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    // Get customers with order stats
+    // Get customers with order stats. groupBy scales linearly with
+    // customer count; cache the result for CACHE_TTL.MEDIUM to avoid
+    // re-running on every admin page load.
     const customers = await prisma.order.groupBy({
       by: ['userId'],
       where: {
@@ -28,7 +43,9 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
 
     // Calculate RFM scores for each customer
     const rfmData = customers.map((c) => {
-      const recency = Math.floor((now.getTime() - new Date(c._max.createdAt!).getTime()) / (1000 * 60 * 60 * 24));
+      const recency = Math.floor(
+        (now.getTime() - new Date(c._max.createdAt!).getTime()) / (1000 * 60 * 60 * 24),
+      );
       const frequency = c._count.id;
       const monetary = Number(c._sum.totalAmount) || 0;
       return { recency, frequency, monetary };
@@ -41,9 +58,21 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
 
     const percentile = (arr: number[], p: number) => arr[Math.floor(arr.length * p)] || 0;
 
-    const rThresholds = [percentile(recencies, 0.25), percentile(recencies, 0.5), percentile(recencies, 0.75)];
-    const fThresholds = [percentile(frequencies, 0.25), percentile(frequencies, 0.5), percentile(frequencies, 0.75)];
-    const mThresholds = [percentile(monetaries, 0.25), percentile(monetaries, 0.5), percentile(monetaries, 0.75)];
+    const rThresholds = [
+      percentile(recencies, 0.25),
+      percentile(recencies, 0.5),
+      percentile(recencies, 0.75),
+    ];
+    const fThresholds = [
+      percentile(frequencies, 0.25),
+      percentile(frequencies, 0.5),
+      percentile(frequencies, 0.75),
+    ];
+    const mThresholds = [
+      percentile(monetaries, 0.25),
+      percentile(monetaries, 0.5),
+      percentile(monetaries, 0.75),
+    ];
 
     const score = (val: number, thresholds: number[], inverse = false) => {
       if (inverse) {
@@ -59,7 +88,10 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
     };
 
     // Segment based on RFM scores
-    const segmentCounts: Record<string, { count: number; totalR: number; totalF: number; totalM: number }> = {};
+    const segmentCounts: Record<
+      string,
+      { count: number; totalR: number; totalF: number; totalM: number }
+    > = {};
 
     for (const d of rfmData) {
       const rScore = score(d.recency, rThresholds, true); // Lower recency = better
@@ -78,7 +110,8 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
       else if (rScore === 1 && fScore === 1 && mScore <= 2) segment = 'lost';
       else segment = 'hibernating';
 
-      if (!segmentCounts[segment]) segmentCounts[segment] = { count: 0, totalR: 0, totalF: 0, totalM: 0 };
+      if (!segmentCounts[segment])
+        segmentCounts[segment] = { count: 0, totalR: 0, totalF: 0, totalM: 0 };
       segmentCounts[segment].count++;
       segmentCounts[segment].totalR += d.recency;
       segmentCounts[segment].totalF += d.frequency;
@@ -97,7 +130,9 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
       }))
       .sort((a, b) => b.count - a.count);
 
-    return successResponse({ segments, totalCustomers });
+    const payload = { segments, totalCustomers };
+    await redis.set(cacheKey, JSON.stringify(payload), 'EX', CACHE_TTL.MEDIUM).catch(() => {});
+    return successResponse(payload);
   } catch (error) {
     console.error('[RFM Analysis]', error);
     return errorResponse('Помилка аналізу RFM', 500);

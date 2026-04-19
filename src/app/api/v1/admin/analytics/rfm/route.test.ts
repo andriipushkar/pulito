@@ -23,6 +23,10 @@ vi.mock('@/lib/prisma', () => ({
     order: { groupBy: vi.fn() },
   },
 }));
+vi.mock('@/lib/redis', () => ({
+  redis: { get: vi.fn().mockResolvedValue(null), set: vi.fn().mockResolvedValue('OK') },
+  CACHE_TTL: { SHORT: 60, MEDIUM: 300, LONG: 3600, DAY: 86400 },
+}));
 vi.mock('@/utils/api-response', () => ({
   successResponse: (data: any, status = 200) => Response.json(data, { status }),
   errorResponse: (msg: string, status = 400) => Response.json({ error: msg }, { status }),
