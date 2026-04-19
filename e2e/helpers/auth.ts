@@ -67,11 +67,14 @@ export async function loginViaAPI(page: Page, email: string, password: string) {
 }
 
 /**
- * Ensure the user is logged out.
+ * Ensure the user is logged out — clears tokens in localStorage AND the
+ * refresh-token cookie so the next page load can't silently re-auth.
  */
 export async function logout(page: Page) {
   await page.evaluate(() => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
   });
+  // refresh_token cookie is scoped to /api/v1/auth
+  await page.context().clearCookies();
 }

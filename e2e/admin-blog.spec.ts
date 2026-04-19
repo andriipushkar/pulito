@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin Blog Management', () => {
@@ -8,7 +9,7 @@ test.describe('Admin Blog Management', () => {
 
   test('should access admin blog page', async ({ page }) => {
     await page.goto('/admin/blog');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin/blog');
 
@@ -19,26 +20,37 @@ test.describe('Admin Blog Management', () => {
 
   test('should display blog posts table or list', async ({ page }) => {
     await page.goto('/admin/blog');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
+    // Wait for initial loading skeleton to disappear
+    await page
+      .locator('text=/Завантаження/')
+      .first()
+      .waitFor({ state: 'hidden', timeout: 15000 })
+      .catch(() => {});
 
-    // Should have a table or list of blog posts
     const table = page.locator('table');
     const list = page.locator('[class*="grid"], [class*="list"]');
-    const emptyState = page.locator('text=/Немає статей|Поки що немає/i');
+    const emptyState = page.locator('text=/Немає статей|Поки що немає|немає/i');
 
-    const hasTable = await table.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasTable = await table
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
     const hasList = await list
       .first()
       .isVisible({ timeout: 3000 })
       .catch(() => false);
-    const hasEmpty = await emptyState.isVisible({ timeout: 3000 }).catch(() => false);
+    const hasEmpty = await emptyState
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
 
     expect(hasTable || hasList || hasEmpty).toBeTruthy();
   });
 
   test('should navigate to new blog post form', async ({ page }) => {
     await page.goto('/admin/blog/new');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin/blog/new');
 
@@ -49,7 +61,12 @@ test.describe('Admin Blog Management', () => {
 
   test('should have form fields on new blog post page', async ({ page }) => {
     await page.goto('/admin/blog/new');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
+    await page
+      .locator('text=/Завантаження/')
+      .first()
+      .waitFor({ state: 'hidden', timeout: 15000 })
+      .catch(() => {});
 
     // Look for title input
     const titleInput = page.locator(
@@ -73,16 +90,14 @@ test.describe('Admin Blog Management', () => {
 
   test('should have create/add button on blog listing', async ({ page }) => {
     await page.goto('/admin/blog');
-    await page.waitForLoadState('domcontentloaded');
-
-    // Look for create/add button or link
-    const addButton = page.locator(
-      'a[href*="/admin/blog/new"], button:has-text("Додати"), button:has-text("Створити"), a:has-text("Нова стаття")',
-    );
-    const hasAddButton = await addButton
+    await waitForLoaded(page);
+    await page
+      .locator('text=/Завантаження/')
       .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    expect(hasAddButton).toBeTruthy();
+      .waitFor({ state: 'hidden', timeout: 15000 })
+      .catch(() => {});
+
+    const addButton = page.locator('a[href*="/admin/blog/new"]').first();
+    await expect(addButton).toBeVisible({ timeout: 10000 });
   });
 });

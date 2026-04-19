@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Account Manager', () => {
   test('requires authentication', async ({ page }) => {
     await page.goto('/account/manager');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Should redirect to login or show restricted content
     await expect(page).toHaveURL(/login|manager/);
@@ -17,7 +18,7 @@ test.describe('Account Manager', () => {
 
     test('should show restriction message for non-wholesaler', async ({ page }) => {
       await page.goto('/account/manager');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const main = page.locator('main');
       await expect(main).toBeVisible({ timeout: 5000 });
@@ -37,7 +38,7 @@ test.describe('Account Manager', () => {
 
     test('should not display manager contact info for regular client', async ({ page }) => {
       await page.goto('/account/manager');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       // Manager phone / email should not be visible for regular client
       const managerContact = page.locator('a[href^="tel:"], a[href^="mailto:"]');
@@ -56,7 +57,7 @@ test.describe('Account Manager', () => {
 
     test('should load manager page for privileged user', async ({ page }) => {
       await page.goto('/account/manager');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const main = page.locator('main');
       await expect(main).toBeVisible({ timeout: 5000 });

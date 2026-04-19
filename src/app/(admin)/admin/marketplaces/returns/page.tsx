@@ -68,15 +68,16 @@ export default function MarketplaceReturnsPage() {
       });
       if (statusFilter) params.set('status', statusFilter);
 
-      const res = await apiClient.get<PaginatedResponse>(
+      const res = await apiClient.get<MarketplaceReturn[]>(
         `/api/v1/admin/marketplaces/returns?${params.toString()}`,
       );
 
       if (res.success && res.data) {
-        const data = res.data as unknown as PaginatedResponse;
-        setReturns(data.data);
-        setTotalPages(data.pagination.totalPages);
-        setTotal(data.pagination.total);
+        setReturns(res.data);
+        if (res.pagination) {
+          setTotalPages(res.pagination.totalPages);
+          setTotal(res.pagination.total);
+        }
       }
     } catch {
       toast.error('Помилка завантаження повернень');

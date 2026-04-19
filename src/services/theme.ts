@@ -3,34 +3,35 @@ import { prisma } from '@/lib/prisma';
 export class ThemeError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'ThemeError';
   }
 }
 
-// Тема 1: «Синій океан» — blue primary (default)
+// Тема 1: «Синій океан» — blue primary (default).
+// Primary darkened to #1565C0 to satisfy WCAG AA (4.5:1 contrast on white).
 export const THEME_FRESHNESS: Record<string, string> = {
-  '--color-primary': '#1E88E5',
-  '--color-primary-light': '#42A5F5',
-  '--color-primary-dark': '#1565C0',
+  '--color-primary': '#1565C0',
+  '--color-primary-light': '#1E88E5',
+  '--color-primary-dark': '#0D47A1',
   '--color-primary-50': '#E3F2FD',
   '--color-primary-100': '#BBDEFB',
   '--color-secondary': '#FFC107',
   '--color-accent': '#FF9800',
-  '--color-danger': '#ef4444',
-  '--color-warning': '#f59e0b',
-  '--color-success': '#10b981',
-  '--color-info': '#1E88E5',
+  '--color-danger': '#c62828',
+  '--color-warning': '#c77700',
+  '--color-success': '#2e7d32',
+  '--color-info': '#1565C0',
   '--color-bg': '#ffffff',
   '--color-bg-secondary': '#F5F5F5',
   '--color-bg-overlay': 'rgba(0, 0, 0, 0.5)',
   '--color-text': '#212121',
-  '--color-text-secondary': '#757575',
+  '--color-text-secondary': '#6B6B6B',
   '--color-border': '#E0E0E0',
-  '--color-discount': '#ef4444',
-  '--color-in-stock': '#4CAF50',
+  '--color-discount': '#c62828',
+  '--color-in-stock': '#2e7d32',
   '--color-out-of-stock': '#9E9E9E',
   '--radius': '0.375rem',
   '--shadow': '0 1px 3px rgba(0, 0, 0, 0.08)',
@@ -180,7 +181,7 @@ export async function uploadTheme(buffer: Buffer, _filename: string) {
 
   // Validate theme.json exists
   const themeJsonEntry = entries.find(
-    (e) => e.entryName === 'theme.json' || e.entryName.endsWith('/theme.json')
+    (e) => e.entryName === 'theme.json' || e.entryName.endsWith('/theme.json'),
   );
   if (!themeJsonEntry) {
     throw new ThemeError('ZIP-архів має містити файл theme.json', 400);

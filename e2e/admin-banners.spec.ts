@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin Banners Management', () => {
@@ -8,7 +9,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should access admin banners page', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin/banners');
 
@@ -20,7 +21,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should create a new banner via add button', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Count existing banners
     const bannersBefore = page.locator('[draggable="true"]');
@@ -42,7 +43,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should open inline edit form when clicking edit button', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Find first edit button
     const editButton = page.locator('button', { hasText: /Редагувати/i }).first();
@@ -69,7 +70,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should edit banner inline and save', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Find first edit button
     const editButton = page.locator('button', { hasText: /Редагувати/i }).first();
@@ -102,7 +103,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should toggle active status', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Find active/inactive toggle button
     const toggleButton = page.locator('button', { hasText: /Активний|Вимкнено/i }).first();
@@ -130,7 +131,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should handle delete with confirmation dialog', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Find delete button (Trash icon)
     const _deleteButton = page
@@ -167,7 +168,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should show empty state when no banners exist', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Either banners or empty state should be visible
     const banners = page.locator('[draggable="true"]');
@@ -184,7 +185,7 @@ test.describe('Admin Banners Management', () => {
 
   test('should display banner thumbnails', async ({ page }) => {
     await page.goto('/admin/banners');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const bannerItems = page.locator('[draggable="true"]');
     if ((await bannerItems.count()) === 0) {

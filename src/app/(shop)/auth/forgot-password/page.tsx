@@ -43,9 +43,10 @@ export default function ForgotPasswordPage() {
       <div className="text-center">
         <h1 className="mb-4 text-2xl font-bold">Перевірте пошту</h1>
         <p className="mb-6 text-sm text-[var(--color-text-secondary)]">
-          Якщо акаунт з email <strong>{email}</strong> існує, ми надіслали лист із інструкціями для відновлення пароля.
+          Якщо акаунт з email <strong>{email}</strong> існує, ми надіслали лист із інструкціями для
+          відновлення пароля.
         </p>
-        <Link href="/auth/login" className="text-sm text-[var(--color-primary)] hover:underline">
+        <Link href="/auth/login" className="text-sm text-[var(--color-primary)] underline">
           Повернутись до входу
         </Link>
       </div>
@@ -75,7 +76,7 @@ export default function ForgotPasswordPage() {
       </form>
 
       <div className="mt-6 text-center">
-        <Link href="/auth/login" className="text-sm text-[var(--color-primary)] hover:underline">
+        <Link href="/auth/login" className="text-sm text-[var(--color-primary)] underline">
           Повернутись до входу
         </Link>
       </div>

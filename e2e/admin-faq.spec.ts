@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin FAQ Management', () => {
@@ -8,7 +9,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should access admin FAQ page', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin/faq');
 
@@ -20,7 +21,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should display create FAQ form when clicking add button', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Click "Додати питання" button
     const addButton = page.locator('button', { hasText: /Додати питання/i });
@@ -40,7 +41,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should create a new FAQ item', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Open create form
     const addButton = page.locator('button', { hasText: /Додати питання/i });
@@ -69,7 +70,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should open inline edit form when clicking edit button', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Find the first edit button
     const editButton = page.locator('button', { hasText: /Редагувати/i }).first();
@@ -90,7 +91,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should toggle published status', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Find a publish toggle button
     const toggleButton = page.locator('button', { hasText: /Опубл\.|Чернетка/i }).first();
@@ -119,7 +120,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should filter by category when multiple categories exist', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Look for category filter select
     const filterSelect = page.locator('select').first();
@@ -148,7 +149,7 @@ test.describe('Admin FAQ Management', () => {
 
   test('should handle delete with confirmation dialog', async ({ page }) => {
     await page.goto('/admin/faq');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Find delete button
     const deleteButton = page.locator('button[title="Видалити"]').first();

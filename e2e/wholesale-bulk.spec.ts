@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Wholesale Bulk Order', () => {
   test('requires authentication', async ({ page }) => {
     await page.goto('/account/wholesale/bulk-order');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Should either redirect to login or show the page
     await expect(page).toHaveURL(/login|bulk-order/);
@@ -17,7 +18,7 @@ test.describe('Wholesale Bulk Order', () => {
 
     test('should load bulk order page', async ({ page }) => {
       await page.goto('/account/wholesale/bulk-order');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const main = page.locator('main');
       await expect(main).toBeVisible({ timeout: 5000 });
@@ -25,7 +26,7 @@ test.describe('Wholesale Bulk Order', () => {
 
     test('should have textarea for article codes', async ({ page }) => {
       await page.goto('/account/wholesale/bulk-order');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const textarea = page.locator('textarea');
       const hasTextarea = await textarea
@@ -37,7 +38,7 @@ test.describe('Wholesale Bulk Order', () => {
 
     test('should have calculate button', async ({ page }) => {
       await page.goto('/account/wholesale/bulk-order');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const button = page.locator('button', { hasText: /Розрахувати|Порахувати|Знайти/i });
       const hasButton = await button
@@ -49,7 +50,7 @@ test.describe('Wholesale Bulk Order', () => {
 
     test('should type article codes and click calculate', async ({ page }) => {
       await page.goto('/account/wholesale/bulk-order');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const textarea = page.locator('textarea').first();
       if (!(await textarea.isVisible({ timeout: 5000 }).catch(() => false))) {

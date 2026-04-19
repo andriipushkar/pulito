@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin Feature Flags', () => {
@@ -8,7 +9,7 @@ test.describe('Admin Feature Flags', () => {
 
   test('should access feature flags page', async ({ page }) => {
     await page.goto('/admin/feature-flags');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin/feature-flags');
 
@@ -18,7 +19,7 @@ test.describe('Admin Feature Flags', () => {
 
   test('should display feature flags heading', async ({ page }) => {
     await page.goto('/admin/feature-flags');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const heading = page.locator('h1, h2');
     await expect(heading.first()).toBeVisible({ timeout: 5000 });
@@ -26,7 +27,7 @@ test.describe('Admin Feature Flags', () => {
 
   test('should display feature flags list or empty state', async ({ page }) => {
     await page.goto('/admin/feature-flags');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const table = page.locator('table');
     const list = page.locator('[class*="grid"], [class*="list"]');
@@ -45,7 +46,7 @@ test.describe('Admin Feature Flags', () => {
 
   test('should have create form or button', async ({ page }) => {
     await page.goto('/admin/feature-flags');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Look for create form (inline) or add button
     const createForm = page.locator('form');

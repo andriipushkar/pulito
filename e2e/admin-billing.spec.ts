@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin Billing Page', () => {
@@ -8,7 +9,7 @@ test.describe('Admin Billing Page', () => {
 
   test('should access admin billing page', async ({ page }) => {
     await page.goto('/admin/billing');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin');
     await expect(page.locator('body')).toBeVisible();
@@ -16,7 +17,7 @@ test.describe('Admin Billing Page', () => {
 
   test('should display billing page title', async ({ page }) => {
     await page.goto('/admin/billing');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const pageTitle = page.locator('h1, h2');
     await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });
@@ -24,7 +25,7 @@ test.describe('Admin Billing Page', () => {
 
   test('should navigate to plans page', async ({ page }) => {
     await page.goto('/admin/billing/plans');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin/billing/plans');
     await expect(page.locator('body')).toBeVisible();

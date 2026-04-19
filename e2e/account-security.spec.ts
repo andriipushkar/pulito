@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaAPI, logout, TEST_USERS } from './helpers/auth';
 
 test.describe('Account Security', () => {
@@ -9,7 +10,7 @@ test.describe('Account Security', () => {
 
   test('should load security page with 2FA section', async ({ page }) => {
     await page.goto('/account/security');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const twoFactorSection = page
       .locator('[data-testid="2fa-section"], .two-factor, h2, h3, p')
@@ -28,7 +29,7 @@ test.describe('Account Security', () => {
 
   test('should display login history table', async ({ page }) => {
     await page.goto('/account/security');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const historyTable = page
       .locator('table, [data-testid="login-history"], .login-history, .sessions')
@@ -51,7 +52,7 @@ test.describe('Account Security', () => {
 
   test('should show 2FA setup button when not enabled', async ({ page }) => {
     await page.goto('/account/security');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const setupButton = page
       .locator('button, a')
@@ -77,9 +78,9 @@ test.describe('Account Security', () => {
   test('should restrict access for unauthenticated users', async ({ page }) => {
     await logout(page);
     await page.goto('/account/security');
-    await page.waitForLoadState('domcontentloaded');
+    // Give AuthProvider time to refresh + redirect
+    await page.waitForURL(/\/auth\/login/, { timeout: 10000 }).catch(() => {});
 
-    // Should redirect to login or show unauthorized
     const isRedirected = page.url().includes('/auth/login') || page.url().includes('/login');
     const unauthorizedMessage = page.locator('text=/unauthorized|увійдіть|авторизуйтесь/i').first();
     const hasUnauthorized = await unauthorizedMessage.isVisible().catch(() => false);

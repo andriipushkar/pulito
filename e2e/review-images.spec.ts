@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 
 test.describe('Review Images', () => {
   test('should navigate to product page and check for review section', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const productLink = page.locator('a[href*="/product/"]').first();
     if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -12,7 +13,7 @@ test.describe('Review Images', () => {
     }
 
     await productLink.click();
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
     expect(page.url()).toContain('/product/');
 
     // Check that review section exists
@@ -22,7 +23,7 @@ test.describe('Review Images', () => {
 
   test('should display review images if present', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const productLink = page.locator('a[href*="/product/"]').first();
     if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -31,7 +32,7 @@ test.describe('Review Images', () => {
     }
 
     await productLink.click();
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Look for review image gallery thumbnails
     const gallery = page.locator('[data-testid="review-image-gallery"]').first();
@@ -52,7 +53,7 @@ test.describe('Review Images', () => {
 
   test('should open gallery lightbox on image click', async ({ page }) => {
     await page.goto('/catalog');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const productLink = page.locator('a[href*="/product/"]').first();
     if (!(await productLink.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -61,7 +62,7 @@ test.describe('Review Images', () => {
     }
 
     await productLink.click();
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const gallery = page.locator('[data-testid="review-image-gallery"]').first();
     const galleryVisible = await gallery.isVisible({ timeout: 3000 }).catch(() => false);

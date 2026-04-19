@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Subscriptions', () => {
   test('requires authentication', async ({ page }) => {
     await page.goto('/account/subscriptions');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Should either redirect to login or show the subscriptions page
     await expect(page).toHaveURL(/login|subscriptions/);
@@ -17,7 +18,7 @@ test.describe('Subscriptions', () => {
 
     test('should load subscriptions page with title', async ({ page }) => {
       await page.goto('/account/subscriptions');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const main = page.locator('main');
       await expect(main).toBeVisible({ timeout: 5000 });
@@ -29,7 +30,7 @@ test.describe('Subscriptions', () => {
 
     test('should show subscriptions or empty state', async ({ page }) => {
       await page.goto('/account/subscriptions');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       // Either subscription list or empty state
       const emptyState = page.locator('text=/Немає підписок|Підписки відсутні|У вас немає/i');

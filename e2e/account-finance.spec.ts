@@ -1,15 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaAPI, logout, TEST_USERS } from './helpers/auth';
 
 test.describe('Account Finance', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await loginViaAPI(page, TEST_USERS.client.email, TEST_USERS.client.password);
+    await loginViaAPI(page, TEST_USERS.wholesale.email, TEST_USERS.wholesale.password);
   });
 
   test('should load financial dashboard', async ({ page }) => {
     await page.goto('/account/finance');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const dashboard = page.locator('main, [data-testid="finance-dashboard"], .finance, .dashboard');
     await expect(dashboard.first()).toBeVisible({ timeout: 10000 });
@@ -17,7 +18,7 @@ test.describe('Account Finance', () => {
 
   test('should display metrics cards', async ({ page }) => {
     await page.goto('/account/finance');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const cards = page.locator(
       '[data-testid="metric-card"], .metric-card, .stat-card, .card, [class*="card"]',
@@ -39,7 +40,7 @@ test.describe('Account Finance', () => {
 
   test('should render chart or graph element', async ({ page }) => {
     await page.goto('/account/finance');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const chart = page
       .locator('canvas, svg, [data-testid="chart"], .chart, .recharts-wrapper, [class*="chart"]')
@@ -55,9 +56,8 @@ test.describe('Account Finance', () => {
   test('should restrict access for unauthenticated users', async ({ page }) => {
     await logout(page);
     await page.goto('/account/finance');
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForURL(/\/auth\/login/, { timeout: 10000 }).catch(() => {});
 
-    // Should redirect to login or show unauthorized
     const isRedirected = page.url().includes('/auth/login') || page.url().includes('/login');
     const unauthorizedMessage = page.locator('text=/unauthorized|увійдіть|авторизуйтесь/i').first();
     const hasUnauthorized = await unauthorizedMessage.isVisible().catch(() => false);
@@ -67,7 +67,7 @@ test.describe('Account Finance', () => {
 
   test('should show date range or period selector if available', async ({ page }) => {
     await page.goto('/account/finance');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const periodSelector = page
       .locator(

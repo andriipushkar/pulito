@@ -4,8 +4,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  retries: process.env.CI ? 2 : 1,
+  // Dev server can't handle 4 concurrent admin pages with heavy Prisma queries.
+  // 2 workers is a solid balance between speed and server capacity.
+  workers: process.env.CI ? 1 : 2,
   reporter: process.env.CI ? 'github' : 'html',
   globalSetup: require.resolve('./e2e/global-setup'),
   use: {

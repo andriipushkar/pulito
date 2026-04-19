@@ -8,7 +8,9 @@ import Spinner from '@/components/ui/Spinner';
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(token ? 'loading' : 'error');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
+    token ? 'loading' : 'error',
+  );
   const [message, setMessage] = useState(token ? '' : 'Невалідне посилання для верифікації');
 
   useEffect(() => {
@@ -65,10 +67,7 @@ export default function VerifyEmailPage() {
           <div className="mb-4 text-5xl text-[var(--color-danger)]">✕</div>
           <h1 className="mb-4 text-2xl font-bold text-[var(--color-danger)]">Помилка</h1>
           <p className="mb-6 text-[var(--color-text-secondary)]">{message}</p>
-          <Link
-            href="/auth/login"
-            className="text-sm text-[var(--color-primary)] hover:underline"
-          >
+          <Link href="/auth/login" className="text-sm text-[var(--color-primary)] underline">
             Повернутись до входу
           </Link>
         </>

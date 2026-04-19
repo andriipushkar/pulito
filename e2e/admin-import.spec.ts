@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin Product Import', () => {
@@ -8,7 +9,7 @@ test.describe('Admin Product Import', () => {
 
   test('should access admin import page', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin');
 
@@ -18,7 +19,7 @@ test.describe('Admin Product Import', () => {
 
   test('should display import form with file upload', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Look for file upload input
     const fileInput = page.locator('input[type="file"]').first();
@@ -35,7 +36,7 @@ test.describe('Admin Product Import', () => {
 
   test('should show import history', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Look for import history table or list
     const historyTable = page.locator('table');
@@ -55,7 +56,7 @@ test.describe('Admin Product Import', () => {
 
   test('should upload a product file', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const fileInput = page.locator('input[type="file"]').first();
 
@@ -97,7 +98,7 @@ test.describe('Admin Product Import', () => {
 
   test('should show import validation errors for bad file', async ({ page }) => {
     await page.goto('/admin/import');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const fileInput = page.locator('input[type="file"]').first();
 

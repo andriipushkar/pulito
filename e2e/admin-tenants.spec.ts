@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin Tenants Management', () => {
@@ -8,7 +9,7 @@ test.describe('Admin Tenants Management', () => {
 
   test('should navigate to admin tenants page', async ({ page }) => {
     await page.goto('/admin/tenants');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin/tenants');
 
@@ -20,7 +21,7 @@ test.describe('Admin Tenants Management', () => {
 
   test('should display tenants table or empty state', async ({ page }) => {
     await page.goto('/admin/tenants');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Either tenants table or empty state should be visible
     const table = page.locator('table');
@@ -33,7 +34,7 @@ test.describe('Admin Tenants Management', () => {
 
   test('should show create tenant form when clicking add button', async ({ page }) => {
     await page.goto('/admin/tenants');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const addButton = page.locator('button', { hasText: /Створити тенант/i });
     await expect(addButton).toBeVisible({ timeout: 5000 });

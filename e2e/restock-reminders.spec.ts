@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Restock Reminders', () => {
   test('requires authentication', async ({ page }) => {
     await page.goto('/account');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Should either redirect to login or show the account page
     await expect(page).toHaveURL(/login|account/);
@@ -17,7 +18,7 @@ test.describe('Restock Reminders', () => {
 
     test('should render restock reminders section on account page', async ({ page }) => {
       await page.goto('/account');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const main = page.locator('main');
       await expect(main).toBeVisible({ timeout: 5000 });
@@ -40,7 +41,7 @@ test.describe('Restock Reminders', () => {
 
     test('should show empty state or prediction cards', async ({ page }) => {
       await page.goto('/account');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       // Either empty state or prediction cards
       const emptyState = page.locator("text=/Ваші прогнози з'являться після кількох покупок/i");

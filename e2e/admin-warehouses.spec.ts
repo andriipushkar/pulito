@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin Warehouses Management', () => {
@@ -8,7 +9,7 @@ test.describe('Admin Warehouses Management', () => {
 
   test('should access admin warehouses page', async ({ page }) => {
     await page.goto('/admin/warehouses');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin/warehouses');
 
@@ -19,7 +20,7 @@ test.describe('Admin Warehouses Management', () => {
 
   test('should display warehouses table or list', async ({ page }) => {
     await page.goto('/admin/warehouses');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Should have a table, list, or empty state
     const table = page.locator('table');
@@ -38,7 +39,7 @@ test.describe('Admin Warehouses Management', () => {
 
   test('should show warehouse details or rows', async ({ page }) => {
     await page.goto('/admin/warehouses');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Table rows or cards should exist
     const tableRows = page.locator('table tbody tr');

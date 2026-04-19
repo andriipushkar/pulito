@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaAPI, TEST_USERS } from './helpers/auth';
 
 test.describe('Account Addresses', () => {
@@ -9,7 +10,7 @@ test.describe('Account Addresses', () => {
 
   test('should load addresses page with list or empty state', async ({ page }) => {
     await page.goto('/account/addresses');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const addressList = page.locator('[data-testid="address-list"], .address-list, .addresses');
     const emptyState = page.locator('[data-testid="empty-state"], .empty-state, .no-addresses');
@@ -27,7 +28,7 @@ test.describe('Account Addresses', () => {
 
   test('should validate add new address form', async ({ page }) => {
     await page.goto('/account/addresses');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const addButton = page
       .locator('button, a')
@@ -35,7 +36,7 @@ test.describe('Account Addresses', () => {
       .first();
     if (await addButton.isVisible().catch(() => false)) {
       await addButton.click();
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       // Try submitting empty form to trigger validation
       const submitButton = page.locator('button[type="submit"]').first();
@@ -59,7 +60,7 @@ test.describe('Account Addresses', () => {
 
   test('should open edit form for existing address', async ({ page }) => {
     await page.goto('/account/addresses');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const editButton = page
       .locator('button, a')
@@ -67,7 +68,7 @@ test.describe('Account Addresses', () => {
       .first();
     if (await editButton.isVisible().catch(() => false)) {
       await editButton.click();
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       // Edit form or modal should appear with input fields
       const input = page
@@ -81,7 +82,7 @@ test.describe('Account Addresses', () => {
 
   test('should handle delete address', async ({ page }) => {
     await page.goto('/account/addresses');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const deleteButton = page
       .locator('button, a')
@@ -104,7 +105,7 @@ test.describe('Account Addresses', () => {
 
   test('should allow setting default address', async ({ page }) => {
     await page.goto('/account/addresses');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const defaultButton = page
       .locator('button, a, input[type="radio"]')

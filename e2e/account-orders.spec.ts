@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaAPI, TEST_USERS } from './helpers/auth';
 
 test.describe('Account Orders', () => {
@@ -9,7 +10,7 @@ test.describe('Account Orders', () => {
 
   test('should load orders page with order list or empty state', async ({ page }) => {
     await page.goto('/account/orders');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const orderList = page.locator('[data-testid="order-list"], table, .order-list, .orders');
     const emptyState = page.locator('[data-testid="empty-state"], .empty-state, .no-orders');
@@ -22,7 +23,7 @@ test.describe('Account Orders', () => {
 
   test('should display status filter dropdown', async ({ page }) => {
     await page.goto('/account/orders');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const filter = page.locator('select, [data-testid="status-filter"], [role="combobox"]').first();
     if (await filter.isVisible().catch(() => false)) {
@@ -37,7 +38,7 @@ test.describe('Account Orders', () => {
 
   test('should handle pagination if available', async ({ page }) => {
     await page.goto('/account/orders');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const pagination = page
       .locator(
@@ -51,7 +52,7 @@ test.describe('Account Orders', () => {
         .first();
       if (await nextButton.isVisible().catch(() => false)) {
         await nextButton.click();
-        await page.waitForLoadState('domcontentloaded');
+        await waitForLoaded(page);
         await expect(page).toHaveURL(/page|offset|skip/);
       }
     }
@@ -59,21 +60,21 @@ test.describe('Account Orders', () => {
 
   test('should navigate to order detail on click', async ({ page }) => {
     await page.goto('/account/orders');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const orderLink = page
       .locator('a[href*="/account/orders/"], [data-testid="order-link"], tr[data-order-id]')
       .first();
     if (await orderLink.isVisible().catch(() => false)) {
       await orderLink.click();
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
       await expect(page).toHaveURL(/\/account\/orders\/\w+/);
     }
   });
 
   test('should show empty state message when no orders match filter', async ({ page }) => {
     await page.goto('/account/orders');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const filter = page.locator('select, [data-testid="status-filter"], [role="combobox"]').first();
     if (await filter.isVisible().catch(() => false)) {
@@ -81,7 +82,7 @@ test.describe('Account Orders', () => {
       await filter
         .selectOption({ index: (await filter.locator('option').count()) - 1 })
         .catch(() => {});
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       // Page should still be functional regardless of results
       await expect(page).toHaveURL(/\/account\/orders/);

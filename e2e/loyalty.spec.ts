@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Loyalty Program', () => {
   test('requires authentication', async ({ page }) => {
     await page.goto('/account/loyalty');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Should either redirect to login or show the loyalty page
     await expect(page).toHaveURL(/login|loyalty/);
@@ -17,7 +18,7 @@ test.describe('Loyalty Program', () => {
 
     test('should load loyalty page', async ({ page }) => {
       await page.goto('/account/loyalty');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const main = page.locator('main');
       await expect(main).toBeVisible({ timeout: 5000 });
@@ -25,7 +26,7 @@ test.describe('Loyalty Program', () => {
 
     test('should display loyalty heading', async ({ page }) => {
       await page.goto('/account/loyalty');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const heading = page.locator('h1, h2');
       await expect(heading.first()).toBeVisible({ timeout: 5000 });
@@ -33,7 +34,7 @@ test.describe('Loyalty Program', () => {
 
     test('should show challenges section or empty state', async ({ page }) => {
       await page.goto('/account/loyalty');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       // Look for challenges section, points display, or empty state
       const challenges = page.locator('text=/Челенд|Завдання|Виклики|challenge/i');

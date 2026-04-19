@@ -106,7 +106,7 @@ export default function AccountFinancePage() {
 
   useEffect(() => {
     apiClient
-      .get<OrderData[]>('/api/v1/orders?page=1&limit=1000')
+      .get<OrderData[]>('/api/v1/orders?page=1&limit=100')
       .then((res) => {
         if (res.success && res.data) {
           const orders = Array.isArray(res.data) ? res.data : [];
@@ -136,7 +136,7 @@ export default function AccountFinancePage() {
     setDownloadingAll(true);
     try {
       const completedDocs = data.documents.filter(
-        (d) => d.status === 'completed' || d.status === 'paid' || d.status === 'shipped'
+        (d) => d.status === 'completed' || d.status === 'paid' || d.status === 'shipped',
       );
       for (const doc of completedDocs) {
         await handleDownloadPdf(doc.orderId, doc.orderNumber);
@@ -155,7 +155,11 @@ export default function AccountFinancePage() {
   }
 
   if (isLoading || !data) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
@@ -164,7 +168,10 @@ export default function AccountFinancePage() {
 
       {/* Stat cards */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard label="Загальна сума закупівель" value={`${data.totalPurchases.toFixed(0)} грн`} />
+        <StatCard
+          label="Загальна сума закупівель"
+          value={`${data.totalPurchases.toFixed(0)} грн`}
+        />
         <StatCard label="Цього місяця" value={`${data.monthPurchases.toFixed(0)} грн`} />
         <StatCard label="Середній чек" value={`${data.avgCheck.toFixed(0)} грн`} />
         <StatCard label="Всього замовлень" value={String(data.orderCount)} />
@@ -203,7 +210,11 @@ export default function AccountFinancePage() {
           </div>
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <h3 className="mb-3 text-sm font-semibold">Кількість замовлень по місяцях</h3>
-            <FinanceChart data={data.monthlyData} dataKey="count" color="var(--color-accent, #06b6d4)" />
+            <FinanceChart
+              data={data.monthlyData}
+              dataKey="count"
+              color="var(--color-accent, #06b6d4)"
+            />
           </div>
         </div>
       )}
@@ -213,7 +224,12 @@ export default function AccountFinancePage() {
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
             <h3 className="text-sm font-semibold">Документи</h3>
             {data.documents.length > 0 && (
-              <Button size="sm" variant="secondary" onClick={handleDownloadAll} isLoading={downloadingAll}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleDownloadAll}
+                isLoading={downloadingAll}
+              >
                 Завантажити всі
               </Button>
             )}
@@ -222,16 +238,25 @@ export default function AccountFinancePage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-left">
-                  <th className="px-4 py-3 font-medium text-[var(--color-text-secondary)]">Замовлення</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-text-secondary)]">
+                    Замовлення
+                  </th>
                   <th className="px-4 py-3 font-medium text-[var(--color-text-secondary)]">Дата</th>
                   <th className="px-4 py-3 font-medium text-[var(--color-text-secondary)]">Сума</th>
-                  <th className="px-4 py-3 font-medium text-[var(--color-text-secondary)]">Статус</th>
-                  <th className="px-4 py-3 font-medium text-[var(--color-text-secondary)]">Документи</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-text-secondary)]">
+                    Статус
+                  </th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-text-secondary)]">
+                    Документи
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {data.documents.map((doc) => (
-                  <tr key={doc.orderNumber} className="border-b border-[var(--color-border)] last:border-0">
+                  <tr
+                    key={doc.orderNumber}
+                    className="border-b border-[var(--color-border)] last:border-0"
+                  >
                     <td className="px-4 py-3 font-mono text-xs">#{doc.orderNumber}</td>
                     <td className="px-4 py-3">{doc.date}</td>
                     <td className="px-4 py-3 font-semibold">{doc.amount.toFixed(0)} грн</td>
@@ -249,8 +274,18 @@ export default function AccountFinancePage() {
                         {downloadingId === doc.orderId ? (
                           <Spinner size="sm" />
                         ) : (
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
                           </svg>
                         )}
                         PDF
@@ -260,7 +295,10 @@ export default function AccountFinancePage() {
                 ))}
                 {data.documents.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                    <td
+                      colSpan={5}
+                      className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                    >
                       Документів немає
                     </td>
                   </tr>

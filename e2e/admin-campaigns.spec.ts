@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin Campaigns Page', () => {
@@ -8,7 +9,7 @@ test.describe('Admin Campaigns Page', () => {
 
   test('should access admin campaigns page', async ({ page }) => {
     await page.goto('/admin/campaigns');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin');
     await expect(page.locator('body')).toBeVisible();
@@ -16,7 +17,7 @@ test.describe('Admin Campaigns Page', () => {
 
   test('should render campaigns page with list or empty state', async ({ page }) => {
     await page.goto('/admin/campaigns');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     const pageTitle = page.locator('h2');
     await expect(pageTitle.first()).toBeVisible({ timeout: 5000 });

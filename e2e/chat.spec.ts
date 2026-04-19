@@ -42,7 +42,7 @@ test.describe('Chat Widget', () => {
     expect(hasNewChat || hasHeading).toBeTruthy();
   });
 
-  test('should close chat panel when bubble is clicked again', async ({ page }) => {
+  test('should close chat panel via close button', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
@@ -52,8 +52,8 @@ test.describe('Chat Widget', () => {
     const chatPanel = page.locator('[data-testid="chat-panel"]');
     await expect(chatPanel).toBeVisible({ timeout: 5000 });
 
-    // Click bubble again to close
-    await chatBubble.click();
+    // Close via the header close button
+    await page.locator('button[aria-label="Закрити чат"]').first().click();
     await expect(chatPanel).not.toBeVisible({ timeout: 3000 });
   });
 });

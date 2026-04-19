@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Volume Pricing', () => {
@@ -9,7 +10,7 @@ test.describe('Volume Pricing', () => {
 
     test('should access admin volume discounts page', async ({ page }) => {
       await page.goto('/admin/volume-discounts');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       expect(page.url()).toContain('/admin/volume-discounts');
 
@@ -20,7 +21,7 @@ test.describe('Volume Pricing', () => {
 
     test('should display volume discounts table or empty state', async ({ page }) => {
       await page.goto('/admin/volume-discounts');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       // Should have a table or empty state
       const table = page.locator('table');
@@ -34,7 +35,7 @@ test.describe('Volume Pricing', () => {
 
     test('should have create button', async ({ page }) => {
       await page.goto('/admin/volume-discounts');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       const addButton = page.locator('button:has-text("Додати знижку")');
       await expect(addButton).toBeVisible({ timeout: 5000 });
@@ -45,7 +46,7 @@ test.describe('Volume Pricing', () => {
     test('should show volume discount badge on product with discount', async ({ page }) => {
       // Navigate to catalog / products page
       await page.goto('/');
-      await page.waitForLoadState('domcontentloaded');
+      await waitForLoaded(page);
 
       // Look for volume discount badge anywhere on the page
       const badge = page.locator('[data-testid="volume-discount-badge"]');

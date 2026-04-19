@@ -5,6 +5,7 @@ test.describe('API Health', () => {
     const response = await request.get('/api/v1/health');
     expect(response.status()).toBe(200);
     const json = await response.json();
-    expect(json.success).toBe(true);
+    expect(json.status).toBe('healthy');
+    expect(json.checks.database.status).toBe('ok');
   });
 });

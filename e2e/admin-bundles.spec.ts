@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForLoaded } from './helpers/wait';
 import { loginViaUI, TEST_USERS } from './helpers/auth';
 
 test.describe('Admin Bundles Management', () => {
@@ -8,7 +9,7 @@ test.describe('Admin Bundles Management', () => {
 
   test('should access admin bundles page', async ({ page }) => {
     await page.goto('/admin/bundles');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     expect(page.url()).toContain('/admin/bundles');
 
@@ -19,7 +20,7 @@ test.describe('Admin Bundles Management', () => {
 
   test('should display bundles table or list', async ({ page }) => {
     await page.goto('/admin/bundles');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Should have a table, grid, or empty state
     const table = page.locator('table');
@@ -38,7 +39,7 @@ test.describe('Admin Bundles Management', () => {
 
   test('should have create button', async ({ page }) => {
     await page.goto('/admin/bundles');
-    await page.waitForLoadState('domcontentloaded');
+    await waitForLoaded(page);
 
     // Look for create/add button
     const addButton = page.locator(

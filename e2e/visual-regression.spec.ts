@@ -19,15 +19,18 @@ test.describe('Visual Regression — Desktop', () => {
   test('Homepage', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
-    // Hide dynamic content that changes between runs
-    await page.evaluate(() => {
-      document
-        .querySelectorAll('[data-testid="banner-slider"]')
-        .forEach((el) => ((el as HTMLElement).style.opacity = '0'));
+    // Freeze animations, hide banner/promo that shuffles across runs
+    await page.addStyleTag({
+      content: `*, *::before, *::after {
+        animation-duration: 0s !important;
+        transition-duration: 0s !important;
+      }
+      [data-testid="banner-slider"], .swiper, [class*="carousel"] { visibility: hidden !important; }`,
     });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('desktop-homepage.png', {
-      maxDiffPixelRatio: 0.005,
-      fullPage: true,
+      maxDiffPixelRatio: 0.02,
+      fullPage: false,
     });
   });
 

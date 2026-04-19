@@ -50,6 +50,7 @@ export default function CatalogToolbar({ total, onOpenFilters }: CatalogToolbarP
           value={currentSort}
           onChange={(e) => handleSort(e.target.value)}
           className="w-32 sm:w-40"
+          aria-label="Сортування"
         />
       </div>
     </div>

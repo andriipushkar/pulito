@@ -57,6 +57,7 @@ export default function ChatWidget({ triggerClassName, iconSize }: ChatWidgetPro
           'fixed bottom-24 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)] text-white shadow-lg transition-transform hover:scale-110'
         }
         aria-label="Онлайн-чат"
+        data-testid="chat-bubble"
       >
         <MessageCircle size={iconSize || 22} />
       </button>
@@ -65,7 +66,10 @@ export default function ChatWidget({ triggerClassName, iconSize }: ChatWidgetPro
         createPortal(
           <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
             <div className="absolute inset-0 bg-black/40" onClick={close} />
-            <div className="relative w-full max-h-[85vh] overflow-hidden rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-xl sm:max-w-md sm:rounded-2xl">
+            <div
+              className="relative w-full max-h-[85vh] overflow-hidden rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-xl sm:max-w-md sm:rounded-2xl"
+              data-testid="chat-panel"
+            >
               {/* Header */}
               <div className="flex items-center justify-between bg-[var(--color-primary)] px-4 py-3 text-white">
                 <div>
