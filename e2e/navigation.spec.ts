@@ -43,16 +43,18 @@ test.describe('Navigation — Footer Links', () => {
     await page.waitForLoadState('domcontentloaded');
 
     const footer = page.locator('footer');
+    await footer.scrollIntoViewIfNeeded();
     await expect(footer).toBeVisible();
 
-    const footerLinks = footer.locator('a[href^="/"]');
+    const footerLinks = footer.locator('a[href^="/"]:visible');
     const count = await footerLinks.count();
     expect(count).toBeGreaterThan(0);
 
-    // Verify first internal footer link navigates correctly
+    // Verify first visible internal footer link navigates correctly
     const firstLink = footerLinks.first();
     const href = await firstLink.getAttribute('href');
     if (href) {
+      await firstLink.scrollIntoViewIfNeeded();
       await firstLink.click();
       await page.waitForLoadState('domcontentloaded');
       expect(page.url()).toContain(href);

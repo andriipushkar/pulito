@@ -54,3 +54,6 @@ next-env.d.ts
 /docker-data/
 
 /generated/prisma
+
+# Playwright generated storage state
+/e2e/.auth/
