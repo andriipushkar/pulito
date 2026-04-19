@@ -96,14 +96,14 @@ test.describe('Search Flow', () => {
     await page.waitForLoadState('domcontentloaded');
 
     const productLink = page.locator('a[href*="/product/"]').first();
-    if (await productLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await productLink.click();
+    const href = await productLink.getAttribute('href').catch(() => null);
+    if (href) {
+      // Direct navigation avoids quick-view overlays on product card click.
+      await page.goto(href);
       await page.waitForLoadState('domcontentloaded');
 
-      // Should be on product detail page
       expect(page.url()).toContain('/product/');
 
-      // Should show product info
       const productName = page.locator('h1').first();
       await expect(productName).toBeVisible({ timeout: 5000 });
     }
