@@ -88,7 +88,7 @@ function checkCsrf(request: NextRequest): NextResponse | null {
   return null;
 }
 
-export default async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Admin IP whitelist (optional). Set ADMIN_ALLOWED_IPS="1.2.3.4,5.6.7.8" to restrict admin access.

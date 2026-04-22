@@ -39,35 +39,25 @@ const nextConfig: NextConfig = {
       // Static assets — long cache for Cloudflare CDN
       {
         source: '/images/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
       {
         source: '/uploads/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
       // Fonts, SW, manifest — long cache
       {
         source: '/:path*.woff2',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
       {
         source: '/sw.js',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],
       },
       // API — no cache (Cloudflare must not cache dynamic responses)
       {
         source: '/api/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'private, no-cache, no-store' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'private, no-cache, no-store' }],
       },
       // CORS for API routes — only allow own origin
       {
@@ -75,7 +65,10 @@ const nextConfig: NextConfig = {
         headers: [
           { key: 'Access-Control-Allow-Origin', value: allowedOrigins[0] },
           { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,PATCH,DELETE,OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Requested-With, X-Idempotency-Key' },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization, X-Requested-With, X-Idempotency-Key',
+          },
           { key: 'Access-Control-Allow-Credentials', value: 'true' },
           { key: 'Access-Control-Max-Age', value: '86400' },
         ],
@@ -115,7 +108,7 @@ const nextConfig: NextConfig = {
             key: 'X-Download-Options',
             value: 'noopen',
           },
-          // CSP is set dynamically in middleware.ts with per-request nonce
+          // CSP is set dynamically in proxy.ts with per-request nonce
         ],
       },
     ];
@@ -123,9 +116,9 @@ const nextConfig: NextConfig = {
 };
 
 // Bundle analyzer: run with ANALYZE=true npm run build
-const withBundleAnalyzer = process.env.ANALYZE === 'true'
-   
-  ? require('@next/bundle-analyzer')({ enabled: true })
-  : (config: NextConfig) => config;
+const withBundleAnalyzer =
+  process.env.ANALYZE === 'true'
+    ? require('@next/bundle-analyzer')({ enabled: true })
+    : (config: NextConfig) => config;
 
 export default withBundleAnalyzer(withNextIntl(nextConfig));
