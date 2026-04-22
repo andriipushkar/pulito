@@ -38,7 +38,7 @@ describe('GET /api/v1/admin/homepage-blocks', () => {
   it('should return saved blocks when setting exists', async () => {
     const blocks = [
       { key: 'banner_slider', label: 'Банер-слайдер', enabled: true },
-      { key: 'usp', label: 'Блок переваг (USP)', enabled: false },
+      { key: 'categories', label: 'Каталог категорій', enabled: false },
     ];
 
     mockPrisma.siteSetting.findUnique.mockResolvedValue({
@@ -59,7 +59,7 @@ describe('GET /api/v1/admin/homepage-blocks', () => {
 
     const response = await (GET as Function)();
 
-    expect(response.data).toHaveLength(9);
+    expect(response.data).toHaveLength(8);
     expect(response.data[0].key).toBe('banner_slider');
   });
 
@@ -116,7 +116,7 @@ describe('PUT /api/v1/admin/homepage-blocks', () => {
   });
 
   it('should return error on database failure', async () => {
-    const blocks = [{ key: 'usp', label: 'USP', enabled: true }];
+    const blocks = [{ key: 'banner_slider', label: 'Банер', enabled: true }];
 
     const mockRequest = {
       json: () => Promise.resolve(blocks),

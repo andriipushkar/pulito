@@ -9,6 +9,7 @@ import MiniCart from './MiniCart';
 import { Heart, Cart, User, Bell } from '@/components/icons';
 import CallbackButton from '@/components/common/CallbackButton';
 import ChatWidget from '@/components/common/ChatWidget';
+import SiteLogo from '@/components/common/SiteLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
@@ -59,17 +60,7 @@ export default function HeaderMain({ categories: _categories, shrink }: HeaderMa
         <Container
           className={`flex items-center gap-4 transition-all duration-300 ${shrink ? 'py-1.5' : 'py-3'}`}
         >
-          <Link
-            href="/"
-            className="flex shrink-0 items-center gap-1.5 text-xl font-bold tracking-tight text-[var(--color-text)] sm:gap-2"
-          >
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-sm font-extrabold text-white shadow-[var(--shadow-brand)]">
-              {settings.site_name.charAt(0)}
-            </span>
-            <span className="bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-light)] bg-clip-text text-transparent">
-              {settings.site_name}
-            </span>
-          </Link>
+          <SiteLogo />
 
           <div className="hidden flex-1 lg:block">
             <SearchBar />

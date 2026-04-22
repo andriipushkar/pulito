@@ -1,37 +1,20 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
-import {
-  getUSPItems,
-  updateUSPItems,
-  getSeoText,
-  updateSeoText,
-  getHomepageBlocks,
-} from '@/services/homepage';
+import { getSeoText, updateSeoText, getHomepageBlocks } from '@/services/homepage';
 import { successResponse, errorResponse } from '@/utils/api-response';
 
 export const GET = withRole(
   'admin',
   'manager',
 )(async () => {
-  const [uspItems, seoText, blocks] = await Promise.all([
-    getUSPItems(),
-    getSeoText(),
-    getHomepageBlocks(),
-  ]);
+  const [seoText, blocks] = await Promise.all([getSeoText(), getHomepageBlocks()]);
 
-  return successResponse({ uspItems, seoText, blocks });
+  return successResponse({ seoText, blocks });
 });
 
 export const PATCH = withRole('admin')(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
-
-    if (body.uspItems !== undefined) {
-      if (!Array.isArray(body.uspItems)) {
-        return errorResponse('uspItems повинно бути масивом', 422);
-      }
-      await updateUSPItems(body.uspItems, user.id);
-    }
 
     if (body.seoText !== undefined) {
       if (typeof body.seoText !== 'string') {

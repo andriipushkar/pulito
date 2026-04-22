@@ -13,7 +13,7 @@ import { apiClient } from '@/lib/api-client';
 import AdminErrorBoundary from '@/components/admin/ErrorBoundary';
 import CommandPalette from '@/components/admin/CommandPalette';
 import HelpPanel from '@/components/admin/HelpPanel';
-import { useSettings } from '@/hooks/useSettings';
+import SiteLogo from '@/components/common/SiteLogo';
 
 const NAV_SECTIONS = [
   {
@@ -124,7 +124,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const settings = useSettings();
   const { showHelp, setShowHelp, shortcuts } = useAdminHotkeys();
   const { notifications, dismiss, dismissAll } = useAdminNotifications();
   const [showNotifs, setShowNotifs] = useState(false);
@@ -267,17 +266,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-4">
-        {!sidebarCollapsed && (
-          <Link
-            href="/admin"
-            className="flex items-center gap-1.5 text-lg font-bold text-[var(--color-primary)]"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-xs font-extrabold text-white">
-              {settings.site_name.charAt(0)}
-            </span>
-            {settings.site_name}
-          </Link>
-        )}
+        {!sidebarCollapsed && <SiteLogo href="/admin" />}
         {/* Collapse button (desktop) */}
         <button
           onClick={toggleSidebarCollapse}

@@ -6,15 +6,8 @@ export interface HomepageBlock {
   enabled: boolean;
 }
 
-export interface USPItem {
-  icon: string;
-  title: string;
-  description: string;
-}
-
 const DEFAULT_BLOCKS: HomepageBlock[] = [
   { key: 'banner_slider', label: 'Банер-слайдер', enabled: true },
-  { key: 'usp', label: 'Блок переваг (USP)', enabled: true },
   { key: 'categories', label: 'Каталог категорій', enabled: true },
   { key: 'promo_products', label: 'Акційні товари', enabled: true },
   { key: 'new_products', label: 'Новинки', enabled: true },
@@ -31,40 +24,14 @@ export async function getHomepageBlocks(): Promise<HomepageBlock[]> {
     });
 
     if (setting) {
-      return JSON.parse(setting.value);
+      const stored: HomepageBlock[] = JSON.parse(setting.value);
+      return stored.filter((b) => b.key !== 'usp');
     }
   } catch {
     // fall through to default
   }
 
   return DEFAULT_BLOCKS;
-}
-
-const DEFAULT_USP_ITEMS: USPItem[] = [
-  { icon: 'truck', title: 'Швидка доставка', description: 'По всій Україні за 1-3 дні' },
-  { icon: 'shield', title: 'Гарантія якості', description: 'Тільки оригінальна продукція' },
-  { icon: 'money', title: 'Оптові ціни', description: 'Знижки для оптових покупців' },
-  { icon: 'phone', title: 'Підтримка', description: 'Консультація Пн-Пт 9-18' },
-];
-
-export async function getUSPItems(): Promise<USPItem[]> {
-  try {
-    const setting = await prisma.siteSetting.findUnique({
-      where: { key: 'homepage_usp_items' },
-    });
-    if (setting) return JSON.parse(setting.value);
-  } catch {
-    // fall through
-  }
-  return DEFAULT_USP_ITEMS;
-}
-
-export async function updateUSPItems(items: USPItem[], updatedBy?: number): Promise<void> {
-  await prisma.siteSetting.upsert({
-    where: { key: 'homepage_usp_items' },
-    update: { value: JSON.stringify(items), updatedBy },
-    create: { key: 'homepage_usp_items', value: JSON.stringify(items), updatedBy },
-  });
 }
 
 export async function getSeoText(): Promise<string> {

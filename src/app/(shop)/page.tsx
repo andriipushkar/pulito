@@ -23,8 +23,7 @@ const RecentlyViewedSection = dynamic(() => import('@/components/product/Recentl
 export const revalidate = 60;
 import { getCategories } from '@/services/category';
 import { getPromoProducts, getNewProducts, getPopularProducts } from '@/services/product';
-import { getHomepageBlocks, getUSPItems, getSeoText } from '@/services/homepage';
-const USPBlock = dynamic(() => import('@/components/home/USPBlock'));
+import { getHomepageBlocks, getSeoText } from '@/services/homepage';
 
 const organizationJsonLd = {
   '@context': 'https://schema.org',
@@ -55,8 +54,7 @@ export default async function HomePage() {
     getHomepageBlocks(),
   ]);
 
-  // Load CMS data for USP and SEO blocks
-  const [uspItems, seoText] = await Promise.all([getUSPItems(), getSeoText()]);
+  const seoText = await getSeoText();
 
   const enabledBlocks = blocks.filter((b) => b.enabled);
 
@@ -64,11 +62,6 @@ export default async function HomePage() {
     banner_slider: (
       <Suspense fallback={<Skeleton className="aspect-[5/2] w-full rounded-3xl" />}>
         <BannerSlider />
-      </Suspense>
-    ),
-    usp: (
-      <Suspense fallback={<Skeleton className="h-[80px] w-full rounded-2xl" />}>
-        <USPBlock items={uspItems} />
       </Suspense>
     ),
     categories:

@@ -8,13 +8,6 @@ export default function HomeLoading() {
         {/* Banner */}
         <Skeleton className="aspect-[5/2] w-full rounded-3xl" />
 
-        {/* USP — mobile only */}
-        <div className="flex gap-2.5 overflow-hidden lg:hidden">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[88px] w-[140px] shrink-0 rounded-2xl sm:h-[100px] sm:w-[180px]" />
-          ))}
-        </div>
-
         {/* Categories — mobile only */}
         <div className="lg:hidden">
           <Skeleton className="mb-3 h-6 w-28" />

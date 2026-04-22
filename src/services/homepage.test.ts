@@ -23,7 +23,6 @@ describe('getHomepageBlocks', () => {
     const savedBlocks = [
       { key: 'categories', label: 'Каталог категорій', enabled: true },
       { key: 'banner_slider', label: 'Банер-слайдер', enabled: false },
-      { key: 'usp', label: 'Блок переваг (USP)', enabled: true },
     ];
 
     mockPrisma.siteSetting.findUnique.mockResolvedValue({
@@ -49,7 +48,7 @@ describe('getHomepageBlocks', () => {
 
     const result = await getHomepageBlocks();
 
-    expect(result).toHaveLength(9);
+    expect(result).toHaveLength(8);
     expect(result[0].key).toBe('banner_slider');
     expect(result.every((b) => b.enabled)).toBe(true);
   });
@@ -59,7 +58,7 @@ describe('getHomepageBlocks', () => {
 
     const result = await getHomepageBlocks();
 
-    expect(result).toHaveLength(9);
+    expect(result).toHaveLength(8);
     expect(result[0].key).toBe('banner_slider');
   });
 
@@ -71,7 +70,6 @@ describe('getHomepageBlocks', () => {
     const keys = result.map((b) => b.key);
     expect(keys).toEqual([
       'banner_slider',
-      'usp',
       'categories',
       'promo_products',
       'new_products',
@@ -80,6 +78,26 @@ describe('getHomepageBlocks', () => {
       'brands',
       'seo_text',
     ]);
+  });
+
+  it('should filter out legacy usp block from stored settings', async () => {
+    const withLegacy = [
+      { key: 'banner_slider', label: 'Банер-слайдер', enabled: true },
+      { key: 'usp', label: 'Блок переваг (USP)', enabled: true },
+      { key: 'categories', label: 'Каталог категорій', enabled: true },
+    ];
+
+    mockPrisma.siteSetting.findUnique.mockResolvedValue({
+      id: 1,
+      key: 'homepage_blocks',
+      value: JSON.stringify(withLegacy),
+      updatedBy: null,
+      updatedAt: new Date(),
+    } as never);
+
+    const result = await getHomepageBlocks();
+
+    expect(result.map((b) => b.key)).toEqual(['banner_slider', 'categories']);
   });
 
   it('should preserve custom block order from saved settings', async () => {
