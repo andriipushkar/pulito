@@ -414,3 +414,125 @@ export async function sendWholesaleRejected(data: {
     html: baseLayout(content),
   });
 }
+
+export async function sendNewOrderToManager(data: {
+  to: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone: string;
+  customerType: 'client' | 'wholesaler';
+  total: number;
+  itemCount: number;
+  orderId: number;
+}) {
+  const dbTemplate = await renderDbTemplate('order_new_manager', {
+    order_number: data.orderNumber,
+    customer_name: data.customerName,
+    customer_phone: data.customerPhone,
+    customer_type: data.customerType === 'wholesaler' ? 'Оптовик' : 'Клієнт',
+    total: data.total.toFixed(2),
+    item_count: String(data.itemCount),
+    order_url: `${env.APP_URL}/admin/orders/${data.orderId}`,
+  });
+
+  if (dbTemplate) {
+    await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
+    return;
+  }
+
+  const customerLabel = data.customerType === 'wholesaler' ? 'Оптовик' : 'Клієнт';
+  const content = `
+    <h2 style="margin:0 0 16px;color:#1e293b">Нове замовлення #${data.orderNumber}</h2>
+    <p style="color:#475569"><strong>Тип:</strong> ${customerLabel}</p>
+    <p style="color:#475569"><strong>Клієнт:</strong> ${data.customerName}</p>
+    <p style="color:#475569"><strong>Телефон:</strong> <a href="tel:${data.customerPhone}">${data.customerPhone}</a></p>
+    <p style="color:#475569"><strong>Кількість позицій:</strong> ${data.itemCount}</p>
+    <p style="color:#475569"><strong>Сума:</strong> ${data.total.toFixed(2)} ₴</p>
+    ${button('Перейти до замовлення', `${env.APP_URL}/admin/orders/${data.orderId}`)}
+  `;
+
+  await sendEmail({
+    to: data.to,
+    subject: `Нове замовлення #${data.orderNumber} (${customerLabel})`,
+    html: baseLayout(content),
+  });
+}
+
+export async function sendWholesaleRequestToManager(data: {
+  to: string;
+  companyName: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  edrpou?: string;
+  userId: number;
+}) {
+  const dbTemplate = await renderDbTemplate('wholesale_request', {
+    company_name: data.companyName,
+    contact_name: data.contactName,
+    contact_email: data.contactEmail,
+    contact_phone: data.contactPhone,
+    edrpou: data.edrpou ?? '—',
+    user_url: `${env.APP_URL}/admin/users/${data.userId}`,
+  });
+
+  if (dbTemplate) {
+    await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
+    return;
+  }
+
+  const content = `
+    <h2 style="margin:0 0 16px;color:#1e293b">Новий запит на оптовий статус</h2>
+    <p style="color:#475569"><strong>Компанія:</strong> ${data.companyName}</p>
+    <p style="color:#475569"><strong>Контактна особа:</strong> ${data.contactName}</p>
+    <p style="color:#475569"><strong>Email:</strong> <a href="mailto:${data.contactEmail}">${data.contactEmail}</a></p>
+    <p style="color:#475569"><strong>Телефон:</strong> <a href="tel:${data.contactPhone}">${data.contactPhone}</a></p>
+    ${data.edrpou ? `<p style="color:#475569"><strong>ЄДРПОУ:</strong> ${data.edrpou}</p>` : ''}
+    ${button('Розглянути запит', `${env.APP_URL}/admin/users/${data.userId}`)}
+  `;
+
+  await sendEmail({
+    to: data.to,
+    subject: `Новий запит на оптовий статус — ${data.companyName}`,
+    html: baseLayout(content),
+  });
+}
+
+export async function sendInvoiceCreatedEmail(data: {
+  to: string;
+  name: string;
+  orderNumber: string;
+  invoiceNumber: string;
+  total: number;
+  invoiceUrl: string;
+  orderId: number;
+}) {
+  const dbTemplate = await renderDbTemplate('invoice_created', {
+    name: data.name,
+    order_number: data.orderNumber,
+    invoice_number: data.invoiceNumber,
+    total: data.total.toFixed(2),
+    invoice_url: data.invoiceUrl,
+    order_url: `${env.APP_URL}/account/orders/${data.orderId}`,
+  });
+
+  if (dbTemplate) {
+    await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
+    return;
+  }
+
+  const content = `
+    <h2 style="margin:0 0 16px;color:#1e293b">Рахунок-фактура готовий</h2>
+    <p style="color:#475569">Шановний(а) ${data.name},</p>
+    <p style="color:#475569">Для замовлення <strong>#${data.orderNumber}</strong> сформовано рахунок-фактуру <strong>${data.invoiceNumber}</strong> на суму <strong>${data.total.toFixed(2)} ₴</strong>.</p>
+    ${button('Завантажити рахунок (PDF)', data.invoiceUrl)}
+    <p style="color:#94a3b8;font-size:12px;margin-top:12px">Якщо посилання на рахунок не відкривається, відкрийте сторінку замовлення в особистому кабінеті.</p>
+    ${button('Перейти до замовлення', `${env.APP_URL}/account/orders/${data.orderId}`)}
+  `;
+
+  await sendEmail({
+    to: data.to,
+    subject: `Рахунок-фактура ${data.invoiceNumber} — Pulito Trade`,
+    html: baseLayout(content),
+  });
+}

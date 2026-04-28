@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { findAutoReply } from './bot-auto-reply';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -46,6 +47,28 @@ async function handleBotBlocked(chatId: number) {
   } catch {
     // best-effort cleanup
   }
+}
+
+function parseAutoReplyButtons(
+  buttons: unknown,
+): Array<Array<{ text: string; url?: string; callback_data?: string }>> | null {
+  if (!Array.isArray(buttons)) return null;
+  const rows: Array<Array<{ text: string; url?: string; callback_data?: string }>> = [];
+  for (const row of buttons) {
+    if (!Array.isArray(row)) continue;
+    const cells: Array<{ text: string; url?: string; callback_data?: string }> = [];
+    for (const cell of row) {
+      if (!cell || typeof cell !== 'object') continue;
+      const c = cell as Record<string, unknown>;
+      if (typeof c.text !== 'string') continue;
+      const out: { text: string; url?: string; callback_data?: string } = { text: c.text };
+      if (typeof c.url === 'string') out.url = c.url;
+      else if (typeof c.callback_data === 'string') out.callback_data = c.callback_data;
+      cells.push(out);
+    }
+    if (cells.length > 0) rows.push(cells);
+  }
+  return rows.length > 0 ? rows : null;
 }
 
 async function sendMessage(
@@ -1045,6 +1068,16 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
       // If user is submitting feedback text
       if (feedbackAwaiters.has(chatId)) {
         return handleFeedbackSubmit(chatId, text, from.first_name);
+      }
+
+      // Auto-reply rules take precedence over the search fallback
+      const autoReply = await findAutoReply('telegram', text);
+      if (autoReply) {
+        const inline = parseAutoReplyButtons(autoReply.buttons);
+        await sendMessage(chatId, autoReply.responseText, {
+          ...(inline ? { reply_markup: { inline_keyboard: inline } } : {}),
+        });
+        return;
       }
 
       // Treat any other text as a search query

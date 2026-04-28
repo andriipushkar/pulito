@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
+import { findAutoReply } from './bot-auto-reply';
 import crypto from 'crypto';
 
 const AUTH_TOKEN = process.env.VIBER_AUTH_TOKEN || '';
@@ -929,6 +930,13 @@ export async function handleViberEvent(event: ViberEvent) {
         if (pending) {
           return handleLinkVerify(userId, text.trim());
         }
+      }
+
+      // Auto-reply rules take precedence over search fallback
+      const autoReply = await findAutoReply('viber', text);
+      if (autoReply) {
+        await sendTextMessage(userId, autoReply.responseText, MAIN_KEYBOARD);
+        return;
       }
 
       // Treat as search
