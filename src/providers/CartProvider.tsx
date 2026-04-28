@@ -1,9 +1,18 @@
 'use client';
 
-import { createContext, useCallback, useEffect, useOptimistic, useReducer, useTransition, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useOptimistic,
+  useReducer,
+  useTransition,
+  type ReactNode,
+} from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { useAuth } from '@/hooks/useAuth';
 import { fetcher } from '@/lib/swr';
+import { trackEvent } from '@/lib/event-tracker';
 
 export interface CartItem {
   productId: number;
@@ -39,7 +48,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
           items: state.items.map((i) =>
             i.productId === action.item.productId
               ? { ...i, quantity: Math.min(i.quantity + action.item.quantity, i.maxQuantity) }
-              : i
+              : i,
           ),
         };
       }
@@ -52,7 +61,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         items: state.items.map((i) =>
           i.productId === action.productId
             ? { ...i, quantity: Math.max(1, Math.min(action.quantity, i.maxQuantity)) }
-            : i
+            : i,
         ),
       };
     case 'CLEAR':
@@ -95,11 +104,10 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   const [isPending, startTransition] = useTransition();
 
   // SWR for authenticated users — fetch cart from server
-  const { data: serverCart } = useSWR<CartItem[]>(
-    user ? CART_API_KEY : null,
-    fetcher,
-    { revalidateOnFocus: true, dedupingInterval: 5000 }
-  );
+  const { data: serverCart } = useSWR<CartItem[]>(user ? CART_API_KEY : null, fetcher, {
+    revalidateOnFocus: true,
+    dedupingInterval: 5000,
+  });
 
   // Sync server cart data into local state when it arrives
   useEffect(() => {
@@ -110,7 +118,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
 
   // Optimistic count: user sees the updated number immediately
   const [optimisticItemCount, setOptimisticItemCount] = useOptimistic(
-    state.items.reduce((sum, i) => sum + i.quantity, 0)
+    state.items.reduce((sum, i) => sum + i.quantity, 0),
   );
 
   // Load from localStorage for anonymous users
@@ -134,32 +142,47 @@ export default function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [state.items, user]);
 
-  const addItem = useCallback((item: CartItem) => {
-    startTransition(() => {
-      setOptimisticItemCount((prev) => prev + item.quantity);
-      dispatch({ type: 'ADD_ITEM', item });
-    });
-    if (user) {
-      // Optimistically update SWR cache, then revalidate
-      globalMutate(CART_API_KEY);
-    }
-  }, [setOptimisticItemCount, user]);
+  const addItem = useCallback(
+    (item: CartItem) => {
+      startTransition(() => {
+        setOptimisticItemCount((prev) => prev + item.quantity);
+        dispatch({ type: 'ADD_ITEM', item });
+      });
+      trackEvent({
+        eventType: 'add_to_cart',
+        productId: item.productId,
+        metadata: { quantity: item.quantity, price: item.priceRetail },
+      });
+      if (user) {
+        // Optimistically update SWR cache, then revalidate
+        globalMutate(CART_API_KEY);
+      }
+    },
+    [setOptimisticItemCount, user],
+  );
 
-  const removeItem = useCallback((productId: number) => {
-    startTransition(() => {
-      dispatch({ type: 'REMOVE_ITEM', productId });
-    });
-    if (user) {
-      globalMutate(CART_API_KEY);
-    }
-  }, [user]);
+  const removeItem = useCallback(
+    (productId: number) => {
+      startTransition(() => {
+        dispatch({ type: 'REMOVE_ITEM', productId });
+      });
+      trackEvent({ eventType: 'remove_from_cart', productId });
+      if (user) {
+        globalMutate(CART_API_KEY);
+      }
+    },
+    [user],
+  );
 
-  const updateQuantity = useCallback((productId: number, quantity: number) => {
-    dispatch({ type: 'UPDATE_QUANTITY', productId, quantity });
-    if (user) {
-      globalMutate(CART_API_KEY);
-    }
-  }, [user]);
+  const updateQuantity = useCallback(
+    (productId: number, quantity: number) => {
+      dispatch({ type: 'UPDATE_QUANTITY', productId, quantity });
+      if (user) {
+        globalMutate(CART_API_KEY);
+      }
+    },
+    [user],
+  );
 
   const clearCart = useCallback(() => {
     startTransition(() => {
@@ -178,7 +201,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
           role === 'wholesaler' && item.priceWholesale ? item.priceWholesale : item.priceRetail;
         return sum + price * item.quantity;
       }, 0),
-    [state.items]
+    [state.items],
   );
 
   return (

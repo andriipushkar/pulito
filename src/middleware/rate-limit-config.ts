@@ -10,6 +10,7 @@ export const ROUTE_LIMITS: Record<string, { max: number; window: number }> = {
   '/api/v1/blog': { max: 60, window: 60 },
   '/api/v1/bundles': { max: 60, window: 60 },
   '/api/v1/calculator': { max: 20, window: 60 },
+  '/api/v1/events': { max: 120, window: 60 },
   '/api/v1/admin': { max: 60, window: 60 },
   '/api/v1/cron': { max: 5, window: 60 },
   default: { max: 100, window: 60 },

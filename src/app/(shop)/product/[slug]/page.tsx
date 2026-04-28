@@ -10,6 +10,7 @@ import ProductTabs from '@/components/product/ProductTabs';
 import ProductJsonLd from '@/components/product/ProductJsonLd';
 import ProductCarousel from '@/components/product/ProductCarousel';
 import RecentlyViewedTracker from '@/components/product/RecentlyViewedTracker';
+import PageViewTracker from '@/components/analytics/PageViewTracker';
 import FloatingBuyBar from '@/components/product/FloatingBuyBar';
 import ProductCarouselSkeleton from '@/components/ui/ProductCarouselSkeleton';
 import ReviewSectionSkeleton from '@/components/ui/ReviewSectionSkeleton';
@@ -149,6 +150,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         />
       )}
       <RecentlyViewedTracker productId={product.id} />
+      <PageViewTracker eventType="product_view" productId={product.id} />
 
       <Breadcrumbs items={breadcrumbs} className="mb-6" />
 

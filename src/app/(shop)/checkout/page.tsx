@@ -17,6 +17,8 @@ import StepDelivery from '@/components/checkout/StepDelivery';
 import StepPayment from '@/components/checkout/StepPayment';
 import StepConfirmation from '@/components/checkout/StepConfirmation';
 import OrderSuccess from '@/components/checkout/OrderSuccess';
+import PageViewTracker from '@/components/analytics/PageViewTracker';
+import { trackEvent } from '@/lib/event-tracker';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -71,7 +73,7 @@ export default function CheckoutPage() {
 
     if (stepNumber === 1) {
       if (!formData.contactName || formData.contactName.length < 2) {
-        newErrors.contactName = "Мінімум 2 символи";
+        newErrors.contactName = 'Мінімум 2 символи';
       }
       if (!formData.contactPhone || formData.contactPhone.length < 10) {
         newErrors.contactPhone = 'Введіть коректний номер телефону';
@@ -88,7 +90,8 @@ export default function CheckoutPage() {
       if (!formData.deliveryMethod) {
         newErrors.deliveryMethod = 'Оберіть спосіб доставки';
       }
-      const needsAddress = formData.deliveryMethod === 'nova_poshta' || formData.deliveryMethod === 'ukrposhta';
+      const needsAddress =
+        formData.deliveryMethod === 'nova_poshta' || formData.deliveryMethod === 'ukrposhta';
       if (needsAddress && !formData.deliveryCity) {
         newErrors.deliveryCity = 'Вкажіть місто';
       }
@@ -140,7 +143,9 @@ export default function CheckoutPage() {
     try {
       // Sync cart to server first if user is authenticated
       if (user) {
-        await apiClient.put('/api/v1/cart', { items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })) });
+        await apiClient.put('/api/v1/cart', {
+          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        });
       }
 
       const res = await apiClient.post<{
@@ -150,13 +155,18 @@ export default function CheckoutPage() {
       }>('/api/v1/orders', parsed.data);
 
       if (res.success && res.data) {
+        trackEvent({
+          eventType: 'order_completed',
+          orderId: res.data.id,
+          metadata: { orderNumber: res.data.orderNumber, total: total(user?.role) },
+        });
         clearCart();
 
         // If online payment — initiate payment and redirect
         if (res.data.paymentRequired && parsed.data.paymentProvider) {
           const payRes = await apiClient.post<{ redirectUrl: string }>(
             `/api/v1/orders/${res.data.id}/pay`,
-            { provider: parsed.data.paymentProvider }
+            { provider: parsed.data.paymentProvider },
           );
 
           if (payRes.success && payRes.data?.redirectUrl) {
@@ -166,7 +176,10 @@ export default function CheckoutPage() {
 
           // Payment initiation failed — still show order number, user can pay later
           setOrderNumber(res.data.orderNumber);
-          setErrors({ submit: 'Замовлення створено, але не вдалося ініціювати оплату. Сплатіть через "Мої замовлення".' });
+          setErrors({
+            submit:
+              'Замовлення створено, але не вдалося ініціювати оплату. Сплатіть через "Мої замовлення".',
+          });
         } else {
           setOrderNumber(res.data.orderNumber);
         }
@@ -207,6 +220,10 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
+      <PageViewTracker
+        eventType="checkout_started"
+        metadata={{ step, itemCount: items.length, total: total(user?.role) }}
+      />
       <Breadcrumbs
         items={[
           { label: 'Головна', href: '/' },
@@ -247,13 +264,19 @@ export default function CheckoutPage() {
                 Назад
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => router.push('/cart')} className="w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/cart')}
+                className="w-full sm:w-auto"
+              >
                 Повернутись до кошика
               </Button>
             )}
 
             {step < 4 ? (
-              <Button onClick={handleNext} className="w-full sm:w-auto">Далі</Button>
+              <Button onClick={handleNext} className="w-full sm:w-auto">
+                Далі
+              </Button>
             ) : (
               <Button onClick={handleSubmit} isLoading={isSubmitting} className="w-full sm:w-auto">
                 Підтвердити замовлення
@@ -265,13 +288,21 @@ export default function CheckoutPage() {
         {/* Right: order summary (desktop) */}
         <div className="mt-6 lg:mt-0">
           <div className="sticky top-[140px] rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-5">
-            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">Ваше замовлення</h3>
+            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+              Ваше замовлення
+            </h3>
             <div className="max-h-[280px] space-y-3 overflow-y-auto">
               {items.map((item) => (
                 <div key={item.productId} className="flex items-center gap-3">
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--color-bg-secondary)]">
                     {item.imagePath ? (
-                      <Image src={item.imagePath} alt={item.name} fill sizes="48px" className="object-contain" />
+                      <Image
+                        src={item.imagePath}
+                        alt={item.name}
+                        fill
+                        sizes="48px"
+                        className="object-contain"
+                      />
                     ) : (
                       <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)]">
                         <CartIcon size={16} />
@@ -280,9 +311,13 @@ export default function CheckoutPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-medium">{item.name}</p>
-                    <p className="text-xs text-[var(--color-text-secondary)]">{item.quantity} x {item.priceRetail.toFixed(0)} ₴</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      {item.quantity} x {item.priceRetail.toFixed(0)} ₴
+                    </p>
                   </div>
-                  <span className="shrink-0 text-sm font-semibold">{(item.priceRetail * item.quantity).toFixed(0)} ₴</span>
+                  <span className="shrink-0 text-sm font-semibold">
+                    {(item.priceRetail * item.quantity).toFixed(0)} ₴
+                  </span>
                 </div>
               ))}
             </div>

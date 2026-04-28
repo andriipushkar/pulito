@@ -7,6 +7,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import CartItemRow from '@/components/cart/CartItemRow';
 import CartSummary from '@/components/cart/CartSummary';
 import CartRecommendations from '@/components/cart/CartRecommendations';
+import PageViewTracker from '@/components/analytics/PageViewTracker';
 
 export default function CartPage() {
   const { items, itemCount, total, updateQuantity, removeItem, clearCart } = useCart();
@@ -29,10 +30,8 @@ export default function CartPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <Breadcrumbs
-        items={[{ label: 'Головна', href: '/' }, { label: 'Кошик' }]}
-        className="mb-6"
-      />
+      <PageViewTracker eventType="cart_view" metadata={{ itemCount, total: cartTotal }} />
+      <Breadcrumbs items={[{ label: 'Головна', href: '/' }, { label: 'Кошик' }]} className="mb-6" />
 
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Кошик ({itemCount})</h1>
@@ -49,10 +48,18 @@ export default function CartPage() {
         <div>
           {/* Table header (desktop) */}
           <div className="hidden border-b border-[var(--color-border)] pb-2 sm:grid sm:grid-cols-[1fr_96px_136px_112px_40px] sm:gap-4 sm:px-[96px]">
-            <span className="text-xs font-medium uppercase text-[var(--color-text-secondary)]">Товар</span>
-            <span className="text-right text-xs font-medium uppercase text-[var(--color-text-secondary)]">Ціна</span>
-            <span className="text-center text-xs font-medium uppercase text-[var(--color-text-secondary)]">Кількість</span>
-            <span className="text-right text-xs font-medium uppercase text-[var(--color-text-secondary)]">Сума</span>
+            <span className="text-xs font-medium uppercase text-[var(--color-text-secondary)]">
+              Товар
+            </span>
+            <span className="text-right text-xs font-medium uppercase text-[var(--color-text-secondary)]">
+              Ціна
+            </span>
+            <span className="text-center text-xs font-medium uppercase text-[var(--color-text-secondary)]">
+              Кількість
+            </span>
+            <span className="text-right text-xs font-medium uppercase text-[var(--color-text-secondary)]">
+              Сума
+            </span>
             <span />
           </div>
 
@@ -69,10 +76,7 @@ export default function CartPage() {
         {/* Summary */}
         <div className="mt-6 lg:mt-0">
           <div className="sticky top-24">
-            <CartSummary
-              itemCount={itemCount}
-              total={cartTotal}
-            />
+            <CartSummary itemCount={itemCount} total={cartTotal} />
           </div>
         </div>
       </div>
