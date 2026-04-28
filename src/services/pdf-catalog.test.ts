@@ -12,11 +12,20 @@ vi.mock('pdfkit', () => {
     moveTo: vi.fn().mockReturnThis(),
     lineTo: vi.fn().mockReturnThis(),
     stroke: vi.fn().mockReturnThis(),
+    rect: vi.fn().mockReturnThis(),
+    roundedRect: vi.fn().mockReturnThis(),
+    fill: vi.fn().mockReturnThis(),
+    lineWidth: vi.fn().mockReturnThis(),
+    image: vi.fn().mockReturnThis(),
     end: vi.fn(),
     on: vi.fn(),
   };
   mockDoc.y = 100;
-  return { default: vi.fn(function () { return mockDoc; }) };
+  return {
+    default: vi.fn(function () {
+      return mockDoc;
+    }),
+  };
 });
 
 vi.mock('fs', () => ({
@@ -26,7 +35,14 @@ vi.mock('fs', () => ({
     }),
   })),
   mkdirSync: vi.fn(),
-  existsSync: vi.fn(() => true),
+  existsSync: vi.fn(() => false),
+  readFileSync: vi.fn(() => Buffer.from('mock-image')),
+}));
+
+vi.mock('qrcode', () => ({
+  default: {
+    toBuffer: vi.fn().mockResolvedValue(Buffer.from('mock-qr')),
+  },
 }));
 
 vi.mock('@/config/env', () => ({
@@ -40,7 +56,19 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 vi.mock('@/lib/pdf-theme', () => ({
-  BRAND: { text: '#000', textSecondary: '#666', primary: '#0066cc', primaryDark: '#004499', danger: '#cc0000', borderLight: '#eee' },
+  BRAND: {
+    text: '#000',
+    textSecondary: '#666',
+    textMuted: '#999',
+    primary: '#0066cc',
+    primaryDark: '#004499',
+    danger: '#cc0000',
+    success: '#00aa00',
+    border: '#ccc',
+    borderLight: '#eee',
+    bgLight: '#fafafa',
+    white: '#fff',
+  },
   FONT_REGULAR: 'Regular',
   FONT_BOLD: 'Bold',
   PAGE: { margin: 40, contentWidth: 515 },
@@ -51,7 +79,8 @@ vi.mock('@/lib/pdf-theme', () => ({
   drawTableRow: vi.fn(),
   drawFooter: vi.fn(),
   getCompanyInfo: vi.fn().mockResolvedValue({
-    name: 'Test Co', description: 'Test Description',
+    name: 'Test Co',
+    description: 'Test Description',
   }),
 }));
 
@@ -79,7 +108,15 @@ describe('generatePriceList', () => {
   it('should generate a retail price list PDF', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { id: 1, code: 'P1', name: 'Product 1', priceRetail: 100, priceWholesale: 80, quantity: 10, category: { name: 'Cat A' } },
+      {
+        id: 1,
+        code: 'P1',
+        name: 'Product 1',
+        priceRetail: 100,
+        priceWholesale: 80,
+        quantity: 10,
+        category: { name: 'Cat A' },
+      },
     ] as never);
 
     const url = await generatePriceList({ type: 'retail' });
@@ -89,7 +126,15 @@ describe('generatePriceList', () => {
   it('should generate a wholesale price list PDF', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { id: 1, code: 'P1', name: 'Product 1', priceRetail: 100, priceWholesale: 80, quantity: 5, category: { name: 'Cat A' } },
+      {
+        id: 1,
+        code: 'P1',
+        name: 'Product 1',
+        priceRetail: 100,
+        priceWholesale: 80,
+        quantity: 5,
+        category: { name: 'Cat A' },
+      },
     ] as never);
 
     const url = await generatePriceList({ type: 'wholesale' });
@@ -100,14 +145,23 @@ describe('generatePriceList', () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
 
-    await expect(generatePriceList({ type: 'retail' }))
-      .rejects.toThrow('Немає товарів для генерації');
+    await expect(generatePriceList({ type: 'retail' })).rejects.toThrow(
+      'Немає товарів для генерації',
+    );
   });
 
   it('should filter by categoryId when provided', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { id: 1, code: 'P1', name: 'Product 1', priceRetail: 100, priceWholesale: 80, quantity: 10, category: { name: 'Cat A' } },
+      {
+        id: 1,
+        code: 'P1',
+        name: 'Product 1',
+        priceRetail: 100,
+        priceWholesale: 80,
+        quantity: 10,
+        category: { name: 'Cat A' },
+      },
     ] as never);
 
     await generatePriceList({ type: 'retail', categoryId: 5 });
@@ -124,18 +178,36 @@ describe('generatePriceList', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { id: 1, code: 'P1', name: 'Test', priceRetail: 10, priceWholesale: 8, quantity: 1, category: null },
+      {
+        id: 1,
+        code: 'P1',
+        name: 'Test',
+        priceRetail: 10,
+        priceWholesale: 8,
+        quantity: 1,
+        category: null,
+      },
     ] as never);
 
     await generatePriceList({ type: 'retail' });
 
-    expect(mkdirSync).toHaveBeenCalledWith(expect.stringContaining('catalogs'), { recursive: true });
+    expect(mkdirSync).toHaveBeenCalledWith(expect.stringContaining('catalogs'), {
+      recursive: true,
+    });
   });
 
   it('should handle products with zero quantity', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { id: 1, code: 'P1', name: 'Out of Stock', priceRetail: 100, priceWholesale: 80, quantity: 0, category: null },
+      {
+        id: 1,
+        code: 'P1',
+        name: 'Out of Stock',
+        priceRetail: 100,
+        priceWholesale: 80,
+        quantity: 0,
+        category: null,
+      },
     ] as never);
 
     const url = await generatePriceList({ type: 'retail' });
@@ -145,7 +217,13 @@ describe('generatePriceList', () => {
   it('should handle large product lists', async () => {
     const { prisma } = await import('@/lib/prisma');
     const products = Array.from({ length: 50 }, (_, i) => ({
-      id: i + 1, code: `P${i}`, name: `Product ${i}`, priceRetail: 100, priceWholesale: 80, quantity: 10, category: { name: 'Cat' },
+      id: i + 1,
+      code: `P${i}`,
+      name: `Product ${i}`,
+      priceRetail: 100,
+      priceWholesale: 80,
+      quantity: 10,
+      category: { name: 'Cat' },
     }));
     vi.mocked(prisma.product.findMany).mockResolvedValue(products as never);
 
@@ -158,7 +236,16 @@ describe('generateIllustratedCatalog', () => {
   it('should generate an illustrated catalog PDF', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { id: 1, code: 'P1', name: 'Product 1', priceRetail: 100, priceWholesale: 80, quantity: 5, isPromo: false, category: { name: 'Cat A' } },
+      {
+        id: 1,
+        code: 'P1',
+        name: 'Product 1',
+        priceRetail: 100,
+        priceWholesale: 80,
+        quantity: 5,
+        isPromo: false,
+        category: { name: 'Cat A' },
+      },
     ] as never);
 
     const url = await generateIllustratedCatalog();
@@ -175,7 +262,16 @@ describe('generateIllustratedCatalog', () => {
   it('should filter by categoryId', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { id: 1, code: 'P1', name: 'Test', priceRetail: 10, priceWholesale: 8, quantity: 1, isPromo: false, category: { name: 'Cat' } },
+      {
+        id: 1,
+        code: 'P1',
+        name: 'Test',
+        priceRetail: 10,
+        priceWholesale: 8,
+        quantity: 1,
+        isPromo: false,
+        category: { name: 'Cat' },
+      },
     ] as never);
 
     await generateIllustratedCatalog({ categoryId: 3 });
@@ -190,7 +286,16 @@ describe('generateIllustratedCatalog', () => {
   it('should filter promo-only products', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { id: 1, code: 'P1', name: 'Promo', priceRetail: 50, priceWholesale: 40, quantity: 3, isPromo: true, category: { name: 'Cat' } },
+      {
+        id: 1,
+        code: 'P1',
+        name: 'Promo',
+        priceRetail: 50,
+        priceWholesale: 40,
+        quantity: 3,
+        isPromo: true,
+        category: { name: 'Cat' },
+      },
     ] as never);
 
     await generateIllustratedCatalog({ promoOnly: true });
@@ -205,10 +310,56 @@ describe('generateIllustratedCatalog', () => {
   it('should handle products without category', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { id: 1, code: 'NC1', name: 'No Cat', priceRetail: 10, priceWholesale: 8, quantity: 1, isPromo: false, category: null },
+      {
+        id: 1,
+        code: 'NC1',
+        name: 'No Cat',
+        priceRetail: 10,
+        priceWholesale: 8,
+        quantity: 1,
+        isPromo: false,
+        category: null,
+      },
     ] as never);
 
     const url = await generateIllustratedCatalog();
     expect(url).toBeTruthy();
+  });
+
+  it('generates a QR code per product pointing at the product page', async () => {
+    const { default: QRCode } = await import('qrcode');
+    const { prisma } = await import('@/lib/prisma');
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      {
+        id: 1,
+        code: 'A',
+        name: 'A',
+        slug: 'a-slug',
+        priceRetail: 1,
+        priceWholesale: 1,
+        quantity: 1,
+        isPromo: false,
+        imagePath: null,
+        category: { name: 'Cat' },
+      },
+      {
+        id: 2,
+        code: 'B',
+        name: 'B',
+        slug: 'b-slug',
+        priceRetail: 1,
+        priceWholesale: 1,
+        quantity: 1,
+        isPromo: true,
+        imagePath: null,
+        category: { name: 'Cat' },
+      },
+    ] as never);
+
+    await generateIllustratedCatalog();
+
+    expect(QRCode.toBuffer).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(QRCode.toBuffer).mock.calls[0][0]).toContain('/product/a-slug');
+    expect(vi.mocked(QRCode.toBuffer).mock.calls[0][0]).toContain('utm_source=catalog_pdf');
   });
 });

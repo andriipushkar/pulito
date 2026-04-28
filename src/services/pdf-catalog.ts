@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
-import { createWriteStream, mkdirSync, existsSync } from 'fs';
+import { createWriteStream, mkdirSync, existsSync, readFileSync } from 'fs';
 import path from 'path';
+import QRCode from 'qrcode';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
 import {
@@ -149,6 +150,157 @@ interface IllustratedCatalogOptions {
   promoOnly?: boolean;
 }
 
+const CARD_COLS = 2;
+const CARD_ROWS = 3;
+const CARDS_PER_PAGE = CARD_COLS * CARD_ROWS;
+const CARD_GAP = 12;
+const CARD_HEIGHT = 220;
+const IMAGE_HEIGHT = 110;
+const QR_SIZE = 56;
+
+function readImageBuffer(imagePath: string | null): Buffer | null {
+  if (!imagePath) return null;
+  try {
+    const cleaned = imagePath.replace(/^\/+/, '');
+    const candidates = [
+      path.join(env.UPLOAD_DIR, cleaned.replace(/^uploads\//, '')),
+      path.join(process.cwd(), 'public', cleaned),
+      path.join(process.cwd(), cleaned),
+    ];
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        return readFileSync(candidate);
+      }
+    }
+  } catch {
+    // ignore — image is optional
+  }
+  return null;
+}
+
+async function buildQrPng(url: string): Promise<Buffer | null> {
+  try {
+    return await QRCode.toBuffer(url, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: QR_SIZE * 2,
+    });
+  } catch {
+    return null;
+  }
+}
+
+interface CatalogProduct {
+  id: number;
+  code: string;
+  name: string;
+  slug: string;
+  priceRetail: unknown;
+  priceWholesale: unknown;
+  quantity: number;
+  isPromo: boolean;
+  imagePath: string | null;
+}
+
+function drawProductCard(
+  doc: InstanceType<typeof PDFDocument>,
+  product: CatalogProduct,
+  x: number,
+  y: number,
+  width: number,
+  qrPng: Buffer | null,
+): void {
+  doc.roundedRect(x, y, width, CARD_HEIGHT, 6).lineWidth(0.5).stroke(BRAND.border);
+
+  const imageBuffer = readImageBuffer(product.imagePath);
+  const imgY = y + 8;
+  if (imageBuffer) {
+    try {
+      doc.image(imageBuffer, x + 8, imgY, {
+        width: width - 16,
+        height: IMAGE_HEIGHT,
+        fit: [width - 16, IMAGE_HEIGHT],
+        align: 'center',
+        valign: 'center',
+      });
+    } catch {
+      doc.rect(x + 8, imgY, width - 16, IMAGE_HEIGHT).fill(BRAND.bgLight);
+    }
+  } else {
+    doc.rect(x + 8, imgY, width - 16, IMAGE_HEIGHT).fill(BRAND.bgLight);
+    doc
+      .font('Regular')
+      .fontSize(8)
+      .fillColor(BRAND.textMuted)
+      .text('Без фото', x + 8, imgY + IMAGE_HEIGHT / 2 - 4, {
+        width: width - 16,
+        align: 'center',
+      });
+  }
+
+  if (product.isPromo) {
+    const badgeW = 50;
+    doc.roundedRect(x + width - badgeW - 8, y + 8, badgeW, 16, 4).fill(BRAND.danger);
+    doc
+      .font('Bold')
+      .fontSize(8)
+      .fillColor(BRAND.white)
+      .text('АКЦІЯ', x + width - badgeW - 8, y + 12, { width: badgeW, align: 'center' });
+  }
+
+  // Text content below the image
+  const textX = x + 10;
+  const textWidth = width - 20 - QR_SIZE - 8;
+  const textY = imgY + IMAGE_HEIGHT + 8;
+
+  doc
+    .font('Bold')
+    .fontSize(9)
+    .fillColor(BRAND.text)
+    .text(product.name, textX, textY, { width: textWidth, height: 24, ellipsis: true });
+
+  doc
+    .font('Regular')
+    .fontSize(7.5)
+    .fillColor(BRAND.textSecondary)
+    .text(`Код: ${product.code}`, textX, textY + 24, { width: textWidth });
+
+  const retail = Number(product.priceRetail).toFixed(2);
+  const wholesale = product.priceWholesale ? Number(product.priceWholesale).toFixed(2) : null;
+
+  doc
+    .font('Bold')
+    .fontSize(10)
+    .fillColor(BRAND.primaryDark)
+    .text(`${retail} ₴`, textX, textY + 38, { width: textWidth });
+
+  if (wholesale) {
+    doc
+      .font('Regular')
+      .fontSize(7.5)
+      .fillColor(BRAND.textSecondary)
+      .text(`Опт: ${wholesale} ₴`, textX, textY + 52, { width: textWidth });
+  }
+
+  doc
+    .font('Regular')
+    .fontSize(7)
+    .fillColor(product.quantity > 0 ? BRAND.success : BRAND.danger)
+    .text(product.quantity > 0 ? 'У наявності' : 'Немає', textX, textY + 66, { width: textWidth });
+
+  // QR code in the bottom-right corner
+  if (qrPng) {
+    try {
+      doc.image(qrPng, x + width - QR_SIZE - 10, textY + 24, {
+        width: QR_SIZE,
+        height: QR_SIZE,
+      });
+    } catch {
+      // ignore
+    }
+  }
+}
+
 export async function generateIllustratedCatalog(
   options: IllustratedCatalogOptions = {},
 ): Promise<string> {
@@ -161,7 +313,18 @@ export async function generateIllustratedCatalog(
 
   const products = await prisma.product.findMany({
     where,
-    include: { category: { select: { name: true } } },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      slug: true,
+      priceRetail: true,
+      priceWholesale: true,
+      quantity: true,
+      isPromo: true,
+      imagePath: true,
+      category: { select: { name: true } },
+    },
     orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
     take: 500,
   });
@@ -180,6 +343,16 @@ export async function generateIllustratedCatalog(
   const filePath = path.join(catalogDir, fileName);
   const publicUrl = `/uploads/catalogs/${fileName}`;
 
+  // Pre-generate all QR codes in parallel — each links back to the product page
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  const qrCodes = new Map<number, Buffer | null>();
+  await Promise.all(
+    products.map(async (p) => {
+      const url = `${appUrl}/product/${p.slug}?utm_source=catalog_pdf&utm_medium=qr`;
+      qrCodes.set(p.id, await buildQrPng(url));
+    }),
+  );
+
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
   setupDoc(doc);
   doc.font('Regular');
@@ -187,78 +360,71 @@ export async function generateIllustratedCatalog(
   const stream = createWriteStream(filePath);
   doc.pipe(stream);
 
-  // Title page
+  // Cover
   drawHeader(doc, company, 'Каталог товарів');
   drawDocTitle(doc, 'Каталог товарів', company.description, new Date().toLocaleDateString('uk-UA'));
 
+  // Group products by category for the TOC
+  const byCategory = new Map<string, CatalogProduct[]>();
+  for (const p of products) {
+    const cat = p.category?.name || 'Без категорії';
+    const list = byCategory.get(cat) ?? [];
+    list.push(p);
+    byCategory.set(cat, list);
+  }
+
   // Table of contents
-  const categories = [...new Set(products.map((p) => p.category?.name || 'Без категорії'))];
   drawFooter(doc, company);
   doc.addPage();
   drawHeader(doc, company);
   doc.font('Bold').fontSize(14).fillColor(BRAND.text).text('Зміст', { align: 'center' });
   doc.moveDown(1);
-  categories.forEach((cat, i) => {
-    const count = products.filter((p) => (p.category?.name || 'Без категорії') === cat).length;
+  let tocIndex = 1;
+  for (const [cat, list] of byCategory) {
     doc
       .font('Regular')
       .fontSize(10)
       .fillColor(BRAND.text)
-      .text(`${i + 1}. ${cat} (${count} товарів)`);
+      .text(`${tocIndex}. ${cat} (${list.length} товарів)`);
     doc.moveDown(0.3);
-  });
+    tocIndex++;
+  }
 
-  // Products by category - 5 per page
-  let currentCategory = '';
-  let itemsOnPage = 0;
+  // Render product cards in a 2x3 grid grouped by category
+  const M = 40;
+  const contentWidth = PAGE.contentWidth;
+  const cardWidth = (contentWidth - CARD_GAP * (CARD_COLS - 1)) / CARD_COLS;
 
-  for (const p of products) {
-    const cat = p.category?.name || 'Без категорії';
+  for (const [cat, list] of byCategory) {
+    drawFooter(doc, company);
+    doc.addPage();
+    drawHeader(doc, company);
+    doc.font('Bold').fontSize(14).fillColor(BRAND.primaryDark).text(cat, { align: 'center' });
+    doc.moveDown(0.6);
 
-    if (cat !== currentCategory) {
-      drawFooter(doc, company);
-      doc.addPage();
-      drawHeader(doc, company);
-      doc.font('Bold').fontSize(14).fillColor(BRAND.primaryDark).text(cat, { align: 'center' });
-      doc.moveDown(1);
-      currentCategory = cat;
-      itemsOnPage = 0;
+    let cardsOnPage = 0;
+    let rowStartY = doc.y;
+
+    for (const product of list) {
+      if (cardsOnPage >= CARDS_PER_PAGE) {
+        drawFooter(doc, company);
+        doc.addPage();
+        drawHeader(doc, company);
+        doc.font('Bold').fontSize(12).fillColor(BRAND.primaryDark).text(cat, { align: 'center' });
+        doc.moveDown(0.4);
+        cardsOnPage = 0;
+        rowStartY = doc.y;
+      }
+
+      const col = cardsOnPage % CARD_COLS;
+      const row = Math.floor(cardsOnPage / CARD_COLS);
+      const x = M + col * (cardWidth + CARD_GAP);
+      const y = rowStartY + row * (CARD_HEIGHT + CARD_GAP);
+
+      drawProductCard(doc, product, x, y, cardWidth, qrCodes.get(product.id) ?? null);
+
+      cardsOnPage++;
     }
-
-    if (itemsOnPage >= 5) {
-      drawFooter(doc, company);
-      doc.addPage();
-      drawHeader(doc, company);
-      doc.font('Bold').fontSize(12).fillColor(BRAND.primaryDark).text(cat, { align: 'center' });
-      doc.moveDown(0.5);
-      itemsOnPage = 0;
-    }
-
-    const y = doc.y;
-
-    doc
-      .font('Bold')
-      .fontSize(10)
-      .fillColor(BRAND.text)
-      .text(`${p.code} — ${p.name}`, 40, y, { width: 400 });
-    doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
-    doc.text(
-      `Роздріб: ${Number(p.priceRetail).toFixed(2)} грн | Опт: ${Number(p.priceWholesale).toFixed(2)} грн`,
-      40,
-      y + 15,
-    );
-    doc.text(`Наявність: ${p.quantity > 0 ? `${p.quantity} шт.` : 'Немає'}`, 40, y + 27);
-    if (p.isPromo) {
-      doc.fillColor(BRAND.danger).text('АКЦІЯ', 480, y, { width: 70, align: 'right' });
-    }
-    doc.fillColor(BRAND.text);
-    doc
-      .moveTo(40, y + 42)
-      .lineTo(555, y + 42)
-      .stroke(BRAND.borderLight);
-    doc.y = y + 50;
-
-    itemsOnPage++;
   }
 
   drawFooter(doc, company);
