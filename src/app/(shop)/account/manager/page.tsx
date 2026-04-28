@@ -10,6 +10,7 @@ interface ManagerInfo {
   fullName: string | null;
   email: string;
   phone: string | null;
+  telegramUsername: string | null;
 }
 
 export default function AccountManagerPage() {
@@ -22,7 +23,10 @@ export default function AccountManagerPage() {
       .get<{ assignedManager: ManagerInfo | null }>('/api/v1/auth/me')
       .then((res) => {
         if (res.success && res.data) {
-          setManager((res.data as unknown as { assignedManager: ManagerInfo | null }).assignedManager || null);
+          setManager(
+            (res.data as unknown as { assignedManager: ManagerInfo | null }).assignedManager ||
+              null,
+          );
         }
       })
       .finally(() => setIsLoading(false));
@@ -37,7 +41,11 @@ export default function AccountManagerPage() {
   }
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
@@ -65,6 +73,25 @@ export default function AccountManagerPage() {
                 Зателефонувати
               </a>
             )}
+            {manager.telegramUsername && (
+              <a
+                href={`https://t.me/${manager.telegramUsername.replace(/^@/, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-[var(--radius)] bg-[#229ED9] px-4 py-2 text-sm text-white hover:opacity-90"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+                </svg>
+                Telegram
+              </a>
+            )}
             <a
               href={`mailto:${manager.email}`}
               className="inline-flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] px-4 py-2 text-sm hover:bg-[var(--color-bg-secondary)]"
@@ -75,7 +102,9 @@ export default function AccountManagerPage() {
         </div>
       ) : (
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 text-center">
-          <p className="text-[var(--color-text-secondary)]">Персональний менеджер ще не призначений</p>
+          <p className="text-[var(--color-text-secondary)]">
+            Персональний менеджер ще не призначений
+          </p>
           <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
             Зверніться на загальну лінію підтримки
           </p>

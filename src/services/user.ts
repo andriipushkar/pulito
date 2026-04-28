@@ -5,7 +5,7 @@ import { randomBytes } from 'crypto';
 export class UserError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'UserError';
@@ -43,7 +43,18 @@ const userSelect = {
 } satisfies Prisma.UserSelect;
 
 export async function getAllUsers(params: UserListParams = {}) {
-  const { page = 1, limit = 20, role, wholesaleStatus, wholesaleGroup, search, sortBy, sortOrder, dateFrom, dateTo } = params;
+  const {
+    page = 1,
+    limit = 20,
+    role,
+    wholesaleStatus,
+    wholesaleGroup,
+    search,
+    sortBy,
+    sortOrder,
+    dateFrom,
+    dateTo,
+  } = params;
 
   const where: Prisma.UserWhereInput = {};
   if (role) where.role = role as Prisma.EnumUserRoleFilter;
@@ -106,7 +117,9 @@ const userDetailSelect = {
   wholesaleApprovedDate: true,
   wholesaleMonthlyVol: true,
   assignedManagerId: true,
-  assignedManager: { select: { id: true, fullName: true, email: true } },
+  assignedManager: {
+    select: { id: true, fullName: true, email: true, phone: true, telegramUsername: true },
+  },
   notificationPrefs: true,
   avatarUrl: true,
   isBlocked: true,
@@ -134,7 +147,7 @@ export async function updateUserProfile(
     edrpou?: string;
     legalAddress?: string;
   },
-  adminId: number
+  adminId: number,
 ) {
   const user = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
   if (!user) throw new UserError('Користувача не знайдено', 404);
@@ -177,9 +190,12 @@ export async function toggleBlockUser(
   id: number,
   block: boolean,
   reason: string | undefined,
-  adminId: number
+  adminId: number,
 ) {
-  const user = await prisma.user.findUnique({ where: { id }, select: { id: true, isBlocked: true } });
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, isBlocked: true },
+  });
   if (!user) throw new UserError('Користувача не знайдено', 404);
 
   const updated = await prisma.user.update({
@@ -302,10 +318,7 @@ export async function getUserStats(userId: number) {
 export async function getUserAuditLog(userId: number, limit = 20) {
   return prisma.auditLog.findMany({
     where: {
-      OR: [
-        { userId },
-        { entityType: 'user', entityId: userId },
-      ],
+      OR: [{ userId }, { entityType: 'user', entityId: userId }],
     },
     select: {
       id: true,
@@ -323,14 +336,23 @@ export async function getUserAuditLog(userId: number, limit = 20) {
 
 // 1. Manual email verification
 export async function verifyUserEmail(userId: number, adminId: number) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, isVerified: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, isVerified: true },
+  });
   if (!user) throw new UserError('Користувача не знайдено', 404);
   if (user.isVerified) throw new UserError('Email вже верифіковано', 400);
 
   await prisma.user.update({ where: { id: userId }, data: { isVerified: true } });
 
   await prisma.auditLog.create({
-    data: { userId: adminId, actionType: 'user_edit', entityType: 'user', entityId: userId, details: { action: 'manual_verify_email' } },
+    data: {
+      userId: adminId,
+      actionType: 'user_edit',
+      entityType: 'user',
+      entityId: userId,
+      details: { action: 'manual_verify_email' },
+    },
   });
 
   return { success: true };
@@ -341,7 +363,7 @@ export async function sendMessageToUser(
   userId: number,
   message: string,
   channels: ('email' | 'telegram' | 'viber')[],
-  subject?: string
+  subject?: string,
 ) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -360,7 +382,9 @@ export async function sendMessageToUser(
         html: `<p>Шановний(а) ${user.fullName},</p><p>${message.replace(/\n/g, '<br>')}</p>`,
       });
       sent.push('email');
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   if (channels.includes('telegram') && user.telegramChatId) {
@@ -368,7 +392,9 @@ export async function sendMessageToUser(
       const tg = await import('@/services/telegram');
       await tg.sendClientNotification(Number(user.telegramChatId), 'Сповіщення', message);
       sent.push('telegram');
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   if (channels.includes('viber') && user.viberUserId) {
@@ -376,7 +402,9 @@ export async function sendMessageToUser(
       const vb = await import('@/services/viber');
       await vb.sendViberNotification(Number(user.viberUserId), 'Сповіщення', message);
       sent.push('viber');
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   if (sent.length === 0) throw new UserError('Не вдалося відправити жодним каналом', 400);
@@ -465,16 +493,40 @@ export async function exportUserData(userId: number) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      id: true, email: true, fullName: true, phone: true, role: true,
-      companyName: true, edrpou: true, legalAddress: true, bankIban: true, bankName: true,
-      ownershipType: true, taxSystem: true, wholesaleStatus: true, wholesaleGroup: true,
-      isVerified: true, createdAt: true, updatedAt: true,
+      id: true,
+      email: true,
+      fullName: true,
+      phone: true,
+      role: true,
+      companyName: true,
+      edrpou: true,
+      legalAddress: true,
+      bankIban: true,
+      bankName: true,
+      ownershipType: true,
+      taxSystem: true,
+      wholesaleStatus: true,
+      wholesaleGroup: true,
+      isVerified: true,
+      createdAt: true,
+      updatedAt: true,
       orders: {
-        select: { id: true, orderNumber: true, status: true, totalAmount: true, createdAt: true, contactName: true, contactPhone: true, contactEmail: true },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          totalAmount: true,
+          createdAt: true,
+          contactName: true,
+          contactPhone: true,
+          contactEmail: true,
+        },
         orderBy: { createdAt: 'desc' },
       },
       addresses: true,
-      wishlists: { include: { items: { include: { product: { select: { name: true, code: true } } } } } },
+      wishlists: {
+        include: { items: { include: { product: { select: { name: true, code: true } } } } },
+      },
     },
   });
   if (!user) throw new UserError('Користувача не знайдено', 404);
@@ -555,7 +607,11 @@ export async function updateUserRole(id: number, role: string, adminId?: number)
   return updated;
 }
 
-export async function approveWholesale(userId: number, managerId?: number, wholesaleGroup?: number) {
+export async function approveWholesale(
+  userId: number,
+  managerId?: number,
+  wholesaleGroup?: number,
+) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { wholesaleStatus: true },

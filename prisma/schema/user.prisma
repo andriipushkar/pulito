@@ -56,6 +56,7 @@ model User {
   notificationPrefs     Json?           @map("notification_preferences")
   googleId              String?         @unique @map("google_id")
   telegramChatId        BigInt?         @map("telegram_chat_id")
+  telegramUsername      String?         @map("telegram_username")
   viberUserId           String?         @map("viber_user_id")
   avatarUrl             String?         @map("avatar_url")
   twoFactorEnabled      Boolean         @default(false) @map("two_factor_enabled")
