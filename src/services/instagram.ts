@@ -1,9 +1,10 @@
 import { env } from '@/config/env';
+import { assertInstagramQuotaAvailable, consumeInstagramQuota } from './instagram-quota';
 
 export class InstagramError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'InstagramError';
@@ -16,7 +17,7 @@ async function fetchWithRetry(
   url: string,
   options: RequestInit,
   maxRetries = 3,
-  baseDelay = 1000
+  baseDelay = 1000,
 ): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -25,7 +26,8 @@ async function fetchWithRetry(
 
       // Handle rate limiting (429)
       if (res.status === 429) {
-        const retryAfter = Number(res.headers.get('retry-after')) || baseDelay * Math.pow(2, attempt) / 1000;
+        const retryAfter =
+          Number(res.headers.get('retry-after')) || (baseDelay * Math.pow(2, attempt)) / 1000;
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
           continue;
@@ -68,7 +70,7 @@ export async function getAccountInsights(): Promise<AccountInsights> {
 
   const res = await fetchWithRetry(
     `${GRAPH_API}/${accountId}/insights?metric=impressions,reach,profile_views&period=day&access_token=${accessToken}`,
-    { method: 'GET' }
+    { method: 'GET' },
   );
 
   const data = await res.json();
@@ -85,7 +87,7 @@ export async function getAccountInsights(): Promise<AccountInsights> {
   // Get follower count separately
   const profileRes = await fetchWithRetry(
     `${GRAPH_API}/${accountId}?fields=followers_count&access_token=${accessToken}`,
-    { method: 'GET' }
+    { method: 'GET' },
   );
   const profileData = await profileRes.json();
 
@@ -105,6 +107,8 @@ export async function publishImagePost(imageUrl: string, caption: string): Promi
     throw new InstagramError('Instagram credentials not configured');
   }
 
+  await assertInstagramQuotaAvailable();
+
   // Step 1: Create media container
   const containerRes = await fetchWithRetry(`${GRAPH_API}/${accountId}/media`, {
     method: 'POST',
@@ -118,7 +122,9 @@ export async function publishImagePost(imageUrl: string, caption: string): Promi
 
   const containerData = await containerRes.json();
   if (!containerData.id) {
-    throw new InstagramError(`Failed to create media container: ${containerData.error?.message || 'Unknown error'}`);
+    throw new InstagramError(
+      `Failed to create media container: ${containerData.error?.message || 'Unknown error'}`,
+    );
   }
 
   const creationId = containerData.id;
@@ -135,14 +141,21 @@ export async function publishImagePost(imageUrl: string, caption: string): Promi
 
   const publishData = await publishRes.json();
   if (!publishData.id) {
-    throw new InstagramError(`Failed to publish media: ${publishData.error?.message || 'Unknown error'}`);
+    throw new InstagramError(
+      `Failed to publish media: ${publishData.error?.message || 'Unknown error'}`,
+    );
   }
 
   const mediaId = publishData.id;
 
   // Step 3: Get permalink
-  const mediaRes = await fetchWithRetry(`${GRAPH_API}/${mediaId}?fields=permalink&access_token=${accessToken}`, { method: 'GET' });
+  const mediaRes = await fetchWithRetry(
+    `${GRAPH_API}/${mediaId}?fields=permalink&access_token=${accessToken}`,
+    { method: 'GET' },
+  );
   const mediaData = await mediaRes.json();
+
+  await consumeInstagramQuota();
 
   return {
     igMediaId: mediaId,
@@ -150,7 +163,10 @@ export async function publishImagePost(imageUrl: string, caption: string): Promi
   };
 }
 
-export async function publishCarouselPost(imageUrls: string[], caption: string): Promise<PublishResult> {
+export async function publishCarouselPost(
+  imageUrls: string[],
+  caption: string,
+): Promise<PublishResult> {
   const accountId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
   const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
 
@@ -161,6 +177,8 @@ export async function publishCarouselPost(imageUrls: string[], caption: string):
   if (imageUrls.length < 2 || imageUrls.length > 10) {
     throw new InstagramError('Carousel requires 2-10 images');
   }
+
+  await assertInstagramQuotaAvailable();
 
   // Step 1: Create individual item containers
   const itemIds: string[] = [];
@@ -177,7 +195,9 @@ export async function publishCarouselPost(imageUrls: string[], caption: string):
 
     const data = await res.json();
     if (!data.id) {
-      throw new InstagramError(`Failed to create carousel item: ${data.error?.message || 'Unknown error'}`);
+      throw new InstagramError(
+        `Failed to create carousel item: ${data.error?.message || 'Unknown error'}`,
+      );
     }
     itemIds.push(data.id);
   }
@@ -196,7 +216,9 @@ export async function publishCarouselPost(imageUrls: string[], caption: string):
 
   const containerData = await containerRes.json();
   if (!containerData.id) {
-    throw new InstagramError(`Failed to create carousel container: ${containerData.error?.message || 'Unknown error'}`);
+    throw new InstagramError(
+      `Failed to create carousel container: ${containerData.error?.message || 'Unknown error'}`,
+    );
   }
 
   // Step 3: Publish carousel
@@ -211,14 +233,21 @@ export async function publishCarouselPost(imageUrls: string[], caption: string):
 
   const publishData = await publishRes.json();
   if (!publishData.id) {
-    throw new InstagramError(`Failed to publish carousel: ${publishData.error?.message || 'Unknown error'}`);
+    throw new InstagramError(
+      `Failed to publish carousel: ${publishData.error?.message || 'Unknown error'}`,
+    );
   }
 
   const mediaId = publishData.id;
 
   // Step 4: Get permalink
-  const mediaRes = await fetchWithRetry(`${GRAPH_API}/${mediaId}?fields=permalink&access_token=${accessToken}`, { method: 'GET' });
+  const mediaRes = await fetchWithRetry(
+    `${GRAPH_API}/${mediaId}?fields=permalink&access_token=${accessToken}`,
+    { method: 'GET' },
+  );
   const mediaData = await mediaRes.json();
+
+  await consumeInstagramQuota();
 
   return {
     igMediaId: mediaId,
@@ -226,13 +255,19 @@ export async function publishCarouselPost(imageUrls: string[], caption: string):
   };
 }
 
-export async function publishReelsPost(videoUrl: string, caption: string, coverUrl?: string): Promise<PublishResult> {
+export async function publishReelsPost(
+  videoUrl: string,
+  caption: string,
+  coverUrl?: string,
+): Promise<PublishResult> {
   const accountId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
   const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
 
   if (!accountId || !accessToken) {
     throw new InstagramError('Instagram credentials not configured');
   }
+
+  await assertInstagramQuotaAvailable();
 
   // Step 1: Create REELS media container
   const containerBody: Record<string, unknown> = {
@@ -253,7 +288,9 @@ export async function publishReelsPost(videoUrl: string, caption: string, coverU
 
   const containerData = await containerRes.json();
   if (!containerData.id) {
-    throw new InstagramError(`Failed to create Reels container: ${containerData.error?.message || 'Unknown error'}`);
+    throw new InstagramError(
+      `Failed to create Reels container: ${containerData.error?.message || 'Unknown error'}`,
+    );
   }
 
   const creationId = containerData.id;
@@ -264,7 +301,7 @@ export async function publishReelsPost(videoUrl: string, caption: string, coverU
   while (attempts < maxAttempts) {
     const statusRes = await fetchWithRetry(
       `${GRAPH_API}/${creationId}?fields=status_code&access_token=${accessToken}`,
-      { method: 'GET' }
+      { method: 'GET' },
     );
     const statusData = await statusRes.json();
 
@@ -293,14 +330,21 @@ export async function publishReelsPost(videoUrl: string, caption: string, coverU
 
   const publishData = await publishRes.json();
   if (!publishData.id) {
-    throw new InstagramError(`Failed to publish Reels: ${publishData.error?.message || 'Unknown error'}`);
+    throw new InstagramError(
+      `Failed to publish Reels: ${publishData.error?.message || 'Unknown error'}`,
+    );
   }
 
   const mediaId = publishData.id;
 
   // Step 4: Get permalink
-  const mediaRes = await fetchWithRetry(`${GRAPH_API}/${mediaId}?fields=permalink&access_token=${accessToken}`, { method: 'GET' });
+  const mediaRes = await fetchWithRetry(
+    `${GRAPH_API}/${mediaId}?fields=permalink&access_token=${accessToken}`,
+    { method: 'GET' },
+  );
   const mediaData = await mediaRes.json();
+
+  await consumeInstagramQuota();
 
   return {
     igMediaId: mediaId,
@@ -340,7 +384,7 @@ export async function getMediaInsights(mediaId: string) {
   }
 
   const res = await fetch(
-    `${GRAPH_API}/${mediaId}/insights?metric=impressions,reach,engagement,saved&access_token=${accessToken}`
+    `${GRAPH_API}/${mediaId}/insights?metric=impressions,reach,engagement,saved&access_token=${accessToken}`,
   );
 
   const data = await res.json();
