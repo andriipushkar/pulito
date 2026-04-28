@@ -20,6 +20,7 @@ const registerSchema = z.object({
     .regex(/^\d{8}$/, 'ЄДРПОУ має містити рівно 8 цифр')
     .optional()
     .or(z.literal('')),
+  acceptTerms: z.literal(true, { message: 'Необхідно прийняти умови, щоб продовжити' }),
 });
 
 export default function RegisterPage() {
@@ -32,13 +33,14 @@ export default function RegisterPage() {
     phone: '',
     companyName: '',
     edrpou: '',
+    acceptTerms: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showCompany, setShowCompany] = useState(false);
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -165,6 +167,40 @@ export default function RegisterPage() {
                 maxLength={8}
               />
             </div>
+          )}
+        </div>
+
+        <div>
+          <label className="flex items-start gap-2 text-sm text-[var(--color-text-secondary)]">
+            <input
+              type="checkbox"
+              checked={form.acceptTerms}
+              onChange={(e) => handleChange('acceptTerms', e.target.checked)}
+              className="mt-0.5 h-4 w-4 cursor-pointer accent-[var(--color-primary)]"
+              aria-invalid={Boolean(errors.acceptTerms)}
+            />
+            <span>
+              Я ознайомлений та приймаю{' '}
+              <Link
+                href="/pages/privacy-policy"
+                target="_blank"
+                className="text-[var(--color-primary)] underline"
+              >
+                Політику конфіденційності
+              </Link>{' '}
+              та{' '}
+              <Link
+                href="/pages/public-offer"
+                target="_blank"
+                className="text-[var(--color-primary)] underline"
+              >
+                Публічну оферту
+              </Link>
+              .
+            </span>
+          </label>
+          {errors.acceptTerms && (
+            <p className="mt-1 text-xs text-[var(--color-danger)]">{errors.acceptTerms}</p>
           )}
         </div>
 
