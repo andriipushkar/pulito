@@ -8,6 +8,7 @@ vi.mock('@/lib/prisma', () => ({
     priceHistory: { findMany: vi.fn() },
     channelVisit: { groupBy: vi.fn() },
     user: { findMany: vi.fn() },
+    orderStatusHistory: { findMany: vi.fn() },
   },
 }));
 
@@ -18,6 +19,7 @@ import {
   getGeographyAnalytics,
   getCustomerLTV,
   getCustomerSegmentation,
+  getOrderProcessingTime,
 } from './analytics-reports';
 
 beforeEach(() => {
@@ -32,7 +34,7 @@ describe('getStockAnalytics', () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.product.findMany).mockResolvedValue(products as never);
     vi.mocked(prisma.orderItem.groupBy)
-      .mockResolvedValueOnce(sales as never)   // sales in period
+      .mockResolvedValueOnce(sales as never) // sales in period
       .mockResolvedValueOnce(lastSales as never); // last sale dates
   }
 
@@ -44,8 +46,8 @@ describe('getStockAnalytics', () => {
         { id: 2, code: 'B2', name: 'Product B', quantity: 100 },
       ],
       [
-        { productId: 1, _sum: { quantity: 30 } },  // 1/day for 30-day period => 10 days left
-        { productId: 2, _sum: { quantity: 3 } },   // 0.1/day => 1000 days left
+        { productId: 1, _sum: { quantity: 30 } }, // 1/day for 30-day period => 10 days left
+        { productId: 2, _sum: { quantity: 3 } }, // 0.1/day => 1000 days left
       ],
       [
         { productId: 1, _max: { createdAt: now } },
@@ -79,11 +81,7 @@ describe('getStockAnalytics', () => {
   });
 
   it('should include products with no sales ever as dead stock', async () => {
-    await setupMocks(
-      [{ id: 1, code: 'NS1', name: 'Never Sold', quantity: 20 }],
-      [],
-      [],
-    );
+    await setupMocks([{ id: 1, code: 'NS1', name: 'Never Sold', quantity: 20 }], [], []);
 
     const result = await getStockAnalytics(30);
 
@@ -147,13 +145,18 @@ describe('getStockAnalytics', () => {
 
   it('should limit results to 50 items per list', async () => {
     const products = Array.from({ length: 60 }, (_, i) => ({
-      id: i + 1, code: `P${i}`, name: `Product ${i}`, quantity: 5,
+      id: i + 1,
+      code: `P${i}`,
+      name: `Product ${i}`,
+      quantity: 5,
     }));
     const sales = products.map((p) => ({
-      productId: p.id, _sum: { quantity: 30 },
+      productId: p.id,
+      _sum: { quantity: 30 },
     }));
     const lastSales = products.map((p) => ({
-      productId: p.id, _max: { createdAt: new Date() },
+      productId: p.id,
+      _max: { createdAt: new Date() },
     }));
 
     await setupMocks(products, sales, lastSales);
@@ -240,7 +243,9 @@ describe('getPriceAnalytics', () => {
     const result = await getPriceAnalytics(30);
 
     expect(result.promoImpact).toHaveLength(1);
-    expect(result.promoImpact[0].avgSalesAfter).toBeGreaterThan(result.promoImpact[0].avgSalesBefore);
+    expect(result.promoImpact[0].avgSalesAfter).toBeGreaterThan(
+      result.promoImpact[0].avgSalesBefore,
+    );
     expect(result.promoImpact[0].salesLift).toBeGreaterThan(0);
   });
 
@@ -265,9 +270,7 @@ describe('getChannelAnalytics', () => {
     const { prisma } = await import('@/lib/prisma');
     // bySource
     vi.mocked(prisma.order.groupBy)
-      .mockResolvedValueOnce([
-        { source: 'web', _count: 50, _sum: { totalAmount: 10000 } },
-      ] as never)
+      .mockResolvedValueOnce([{ source: 'web', _count: 50, _sum: { totalAmount: 10000 } }] as never)
       // byUtmSource
       .mockResolvedValueOnce([
         { utmSource: 'google', _count: 30, _sum: { totalAmount: 6000 } },
@@ -283,13 +286,9 @@ describe('getChannelAnalytics', () => {
 
     // channelVisits
     vi.mocked(prisma.channelVisit.groupBy)
-      .mockResolvedValueOnce([
-        { utmSource: 'google', _count: 1000 },
-      ] as never)
+      .mockResolvedValueOnce([{ utmSource: 'google', _count: 1000 }] as never)
       // channelConversions
-      .mockResolvedValueOnce([
-        { utmSource: 'google', _count: 30 },
-      ] as never);
+      .mockResolvedValueOnce([{ utmSource: 'google', _count: 30 }] as never);
 
     const result = await getChannelAnalytics(30);
 
@@ -380,7 +379,13 @@ describe('getCustomerLTV', () => {
       },
     ] as never);
     vi.mocked(prisma.user.findMany).mockResolvedValue([
-      { id: 1, email: 'user@test.com', fullName: 'Test User', companyName: null, createdAt: firstDate },
+      {
+        id: 1,
+        email: 'user@test.com',
+        fullName: 'Test User',
+        companyName: null,
+        createdAt: firstDate,
+      },
     ] as never);
 
     const result = await getCustomerLTV(365);
@@ -525,7 +530,11 @@ describe('getCustomerSegmentation', () => {
 
     vi.mocked(prisma.order.groupBy).mockResolvedValue(customers as never);
     vi.mocked(prisma.user.findMany).mockResolvedValue(
-      customers.map((c) => ({ id: c.userId, email: `u${c.userId}@test.com`, fullName: null })) as never,
+      customers.map((c) => ({
+        id: c.userId,
+        email: `u${c.userId}@test.com`,
+        fullName: null,
+      })) as never,
     );
 
     const result = await getCustomerSegmentation();
@@ -533,5 +542,77 @@ describe('getCustomerSegmentation', () => {
     const newSegment = result.segments.find((s) => s.segment === 'new');
     expect(newSegment!.count).toBe(15);
     expect(newSegment!.customers.length).toBeLessThanOrEqual(10);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getOrderProcessingTime
+// ---------------------------------------------------------------------------
+describe('getOrderProcessingTime', () => {
+  it('returns zero stats when no transitions in window', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    vi.mocked(prisma.orderStatusHistory.findMany).mockResolvedValue([] as never);
+
+    const result = await getOrderProcessingTime(30);
+
+    expect(result.sampleSize).toBe(0);
+    expect(result.avgHours).toBe(0);
+  });
+
+  it('computes avg/median/p95 across orders', async () => {
+    const { prisma } = await import('@/lib/prisma');
+
+    // First call: toStatus transitions
+    // Second call: fromStatus transitions for those orders
+    vi.mocked(prisma.orderStatusHistory.findMany)
+      .mockResolvedValueOnce([
+        { orderId: 1, createdAt: new Date('2026-04-01T10:00:00Z') },
+        { orderId: 2, createdAt: new Date('2026-04-02T20:00:00Z') },
+        { orderId: 3, createdAt: new Date('2026-04-03T08:00:00Z') },
+      ] as never)
+      .mockResolvedValueOnce([
+        { orderId: 1, createdAt: new Date('2026-04-01T08:00:00Z') }, // 2h
+        { orderId: 2, createdAt: new Date('2026-04-02T10:00:00Z') }, // 10h
+        { orderId: 3, createdAt: new Date('2026-04-02T08:00:00Z') }, // 24h
+      ] as never);
+
+    const result = await getOrderProcessingTime(30);
+
+    expect(result.sampleSize).toBe(3);
+    expect(result.avgHours).toBe(12); // (2+10+24)/3
+    expect(result.medianHours).toBe(10);
+    expect(result.p95Hours).toBe(24);
+  });
+
+  it('skips transitions with no matching from-status', async () => {
+    const { prisma } = await import('@/lib/prisma');
+
+    vi.mocked(prisma.orderStatusHistory.findMany)
+      .mockResolvedValueOnce([
+        { orderId: 1, createdAt: new Date('2026-04-01T10:00:00Z') },
+        { orderId: 2, createdAt: new Date('2026-04-02T10:00:00Z') },
+      ] as never)
+      .mockResolvedValueOnce([
+        { orderId: 1, createdAt: new Date('2026-04-01T08:00:00Z') }, // only order 1 has it
+      ] as never);
+
+    const result = await getOrderProcessingTime(30);
+
+    expect(result.sampleSize).toBe(1);
+  });
+
+  it('passes through custom from/to statuses', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    const findMock = vi.mocked(prisma.orderStatusHistory.findMany);
+    findMock.mockResolvedValue([] as never);
+
+    await getOrderProcessingTime(7, 'paid', 'completed');
+
+    expect(findMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({ newStatus: 'completed' }),
+      }),
+    );
   });
 });

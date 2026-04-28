@@ -5,10 +5,36 @@ import { prisma } from '@/lib/prisma';
 // ──────────────────────────────────────────
 
 interface StockAnalyticsResult {
-  criticalStock: { id: number; code: string; name: string; quantity: number; avgDailySales: number; daysUntilOut: number | null }[];
-  deadStock: { id: number; code: string; name: string; quantity: number; lastSoldAt: string | null; daysSinceLastSale: number | null }[];
-  turnoverRates: { id: number; code: string; name: string; quantity: number; soldLast30: number; turnoverRate: number }[];
-  summary: { totalProducts: number; criticalCount: number; deadStockCount: number; avgTurnover: number };
+  criticalStock: {
+    id: number;
+    code: string;
+    name: string;
+    quantity: number;
+    avgDailySales: number;
+    daysUntilOut: number | null;
+  }[];
+  deadStock: {
+    id: number;
+    code: string;
+    name: string;
+    quantity: number;
+    lastSoldAt: string | null;
+    daysSinceLastSale: number | null;
+  }[];
+  turnoverRates: {
+    id: number;
+    code: string;
+    name: string;
+    quantity: number;
+    soldLast30: number;
+    turnoverRate: number;
+  }[];
+  summary: {
+    totalProducts: number;
+    criticalCount: number;
+    deadStockCount: number;
+    avgTurnover: number;
+  };
 }
 
 export async function getStockAnalytics(days: number = 30): Promise<StockAnalyticsResult> {
@@ -50,7 +76,11 @@ export async function getStockAnalytics(days: number = 30): Promise<StockAnalyti
       const sold = salesMap.get(p.id) || 0;
       const avgDailySales = sold / days;
       const daysUntilOut = avgDailySales > 0 ? p.quantity / avgDailySales : null;
-      return { ...p, avgDailySales: Math.round(avgDailySales * 100) / 100, daysUntilOut: daysUntilOut ? Math.round(daysUntilOut) : null };
+      return {
+        ...p,
+        avgDailySales: Math.round(avgDailySales * 100) / 100,
+        daysUntilOut: daysUntilOut ? Math.round(daysUntilOut) : null,
+      };
     })
     .filter((p) => p.daysUntilOut !== null && p.daysUntilOut < 14 && p.quantity > 0)
     .sort((a, b) => (a.daysUntilOut ?? 999) - (b.daysUntilOut ?? 999))
@@ -61,7 +91,9 @@ export async function getStockAnalytics(days: number = 30): Promise<StockAnalyti
     .filter((p) => p.quantity > 0)
     .map((p) => {
       const lastSold = lastSaleMap.get(p.id);
-      const daysSince = lastSold ? Math.floor((now.getTime() - lastSold.getTime()) / (1000 * 60 * 60 * 24)) : null;
+      const daysSince = lastSold
+        ? Math.floor((now.getTime() - lastSold.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
       return {
         ...p,
         lastSoldAt: lastSold?.toISOString() || null,
@@ -83,11 +115,14 @@ export async function getStockAnalytics(days: number = 30): Promise<StockAnalyti
     .sort((a, b) => b.turnoverRate - a.turnoverRate)
     .slice(0, 50);
 
-  const allTurnovers = products.filter((p) => p.quantity > 0).map((p) => {
-    const sold = salesMap.get(p.id) || 0;
-    return p.quantity > 0 ? sold / p.quantity : 0;
-  });
-  const avgTurnover = allTurnovers.length > 0 ? allTurnovers.reduce((a, b) => a + b, 0) / allTurnovers.length : 0;
+  const allTurnovers = products
+    .filter((p) => p.quantity > 0)
+    .map((p) => {
+      const sold = salesMap.get(p.id) || 0;
+      return p.quantity > 0 ? sold / p.quantity : 0;
+    });
+  const avgTurnover =
+    allTurnovers.length > 0 ? allTurnovers.reduce((a, b) => a + b, 0) / allTurnovers.length : 0;
 
   return {
     criticalStock,
@@ -169,7 +204,10 @@ export async function getPriceAnalytics(days: number = 30) {
       prisma.orderItem.aggregate({
         where: {
           productId: p.id,
-          order: { createdAt: { gte: dateFrom, lt: midDate }, status: { notIn: ['cancelled', 'returned'] } },
+          order: {
+            createdAt: { gte: dateFrom, lt: midDate },
+            status: { notIn: ['cancelled', 'returned'] },
+          },
         },
         _sum: { quantity: true, subtotal: true },
         _count: true,
@@ -204,7 +242,10 @@ export async function getPriceAnalytics(days: number = 30) {
     totalChanges: changes.length,
     priceIncreases: changes.filter((c) => c.changePercent > 0).length,
     priceDecreases: changes.filter((c) => c.changePercent < 0).length,
-    avgChangePercent: changes.length > 0 ? Math.round(changes.reduce((s, c) => s + c.changePercent, 0) / changes.length * 10) / 10 : 0,
+    avgChangePercent:
+      changes.length > 0
+        ? Math.round((changes.reduce((s, c) => s + c.changePercent, 0) / changes.length) * 10) / 10
+        : 0,
   };
 
   return { changes, promoImpact, summary };
@@ -229,7 +270,11 @@ export async function getChannelAnalytics(days: number = 30) {
   // Orders by UTM source
   const byUtmSource = await prisma.order.groupBy({
     by: ['utmSource'],
-    where: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled'] }, utmSource: { not: null } },
+    where: {
+      createdAt: { gte: dateFrom },
+      status: { notIn: ['cancelled'] },
+      utmSource: { not: null },
+    },
     _count: true,
     _sum: { totalAmount: true },
   });
@@ -237,7 +282,11 @@ export async function getChannelAnalytics(days: number = 30) {
   // Orders by UTM medium
   const byUtmMedium = await prisma.order.groupBy({
     by: ['utmMedium'],
-    where: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled'] }, utmMedium: { not: null } },
+    where: {
+      createdAt: { gte: dateFrom },
+      status: { notIn: ['cancelled'] },
+      utmMedium: { not: null },
+    },
     _count: true,
     _sum: { totalAmount: true },
   });
@@ -245,7 +294,11 @@ export async function getChannelAnalytics(days: number = 30) {
   // Orders by UTM campaign
   const byUtmCampaign = await prisma.order.groupBy({
     by: ['utmCampaign'],
-    where: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled'] }, utmCampaign: { not: null } },
+    where: {
+      createdAt: { gte: dateFrom },
+      status: { notIn: ['cancelled'] },
+      utmCampaign: { not: null },
+    },
     _count: true,
     _sum: { totalAmount: true },
   });
@@ -266,21 +319,39 @@ export async function getChannelAnalytics(days: number = 30) {
   const visitMap = new Map(channelVisits.map((v) => [v.utmSource, v._count]));
   const convMap = new Map(channelConversions.map((v) => [v.utmSource, v._count]));
 
-  const channelConversionRates = [...visitMap.entries()].map(([source, visits]) => {
-    const conversions = convMap.get(source) || 0;
-    return {
-      source: source || 'direct',
-      visits,
-      conversions,
-      conversionRate: visits > 0 ? Math.round((conversions / visits) * 10000) / 100 : 0,
-    };
-  }).sort((a, b) => b.visits - a.visits);
+  const channelConversionRates = [...visitMap.entries()]
+    .map(([source, visits]) => {
+      const conversions = convMap.get(source) || 0;
+      return {
+        source: source || 'direct',
+        visits,
+        conversions,
+        conversionRate: visits > 0 ? Math.round((conversions / visits) * 10000) / 100 : 0,
+      };
+    })
+    .sort((a, b) => b.visits - a.visits);
 
   return {
-    bySource: bySource.map((s) => ({ source: s.source, orders: s._count, revenue: Number(s._sum.totalAmount || 0) })),
-    byUtmSource: byUtmSource.map((s) => ({ utmSource: s.utmSource, orders: s._count, revenue: Number(s._sum.totalAmount || 0) })),
-    byUtmMedium: byUtmMedium.map((s) => ({ utmMedium: s.utmMedium, orders: s._count, revenue: Number(s._sum.totalAmount || 0) })),
-    byUtmCampaign: byUtmCampaign.map((s) => ({ utmCampaign: s.utmCampaign, orders: s._count, revenue: Number(s._sum.totalAmount || 0) })),
+    bySource: bySource.map((s) => ({
+      source: s.source,
+      orders: s._count,
+      revenue: Number(s._sum.totalAmount || 0),
+    })),
+    byUtmSource: byUtmSource.map((s) => ({
+      utmSource: s.utmSource,
+      orders: s._count,
+      revenue: Number(s._sum.totalAmount || 0),
+    })),
+    byUtmMedium: byUtmMedium.map((s) => ({
+      utmMedium: s.utmMedium,
+      orders: s._count,
+      revenue: Number(s._sum.totalAmount || 0),
+    })),
+    byUtmCampaign: byUtmCampaign.map((s) => ({
+      utmCampaign: s.utmCampaign,
+      orders: s._count,
+      revenue: Number(s._sum.totalAmount || 0),
+    })),
     channelConversionRates,
   };
 }
@@ -295,7 +366,11 @@ export async function getGeographyAnalytics(days: number = 30) {
 
   const byCity = await prisma.order.groupBy({
     by: ['deliveryCity'],
-    where: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled'] }, deliveryCity: { not: null } },
+    where: {
+      createdAt: { gte: dateFrom },
+      status: { notIn: ['cancelled'] },
+      deliveryCity: { not: null },
+    },
     _count: { _all: true },
     _sum: { totalAmount: true },
   });
@@ -388,7 +463,10 @@ export async function getCustomerLTV(days: number = 365) {
       const orderCount = c._count;
       const firstOrder = c._min.createdAt!;
       const lastOrder = c._max.createdAt!;
-      const lifetimeDays = Math.max(1, Math.floor((lastOrder.getTime() - firstOrder.getTime()) / (1000 * 60 * 60 * 24)));
+      const lifetimeDays = Math.max(
+        1,
+        Math.floor((lastOrder.getTime() - firstOrder.getTime()) / (1000 * 60 * 60 * 24)),
+      );
       const monthlyValue = lifetimeDays > 0 ? (totalSpent / lifetimeDays) * 30 : totalSpent;
 
       return {
@@ -434,7 +512,10 @@ export async function getCustomerLTV(days: number = 365) {
       totalCustomers,
       totalRevenue: Math.round(totalRevenue),
       avgLTV: Math.round(avgLTV),
-      medianLTV: totalCustomers > 0 ? Math.round(allSpends.sort((a, b) => a - b)[Math.floor(totalCustomers / 2)]) : 0,
+      medianLTV:
+        totalCustomers > 0
+          ? Math.round(allSpends.sort((a, b) => a - b)[Math.floor(totalCustomers / 2)])
+          : 0,
     },
     distribution,
   };
@@ -444,7 +525,15 @@ export async function getCustomerLTV(days: number = 365) {
 // 6. Customer Segmentation
 // ──────────────────────────────────────────
 
-type SegmentName = 'champions' | 'loyal' | 'recent' | 'promising' | 'at_risk' | 'sleeping' | 'lost' | 'new';
+type SegmentName =
+  | 'champions'
+  | 'loyal'
+  | 'recent'
+  | 'promising'
+  | 'at_risk'
+  | 'sleeping'
+  | 'lost'
+  | 'new';
 
 interface CustomerSegment {
   segment: SegmentName;
@@ -452,7 +541,14 @@ interface CustomerSegment {
   count: number;
   revenue: number;
   avgCheck: number;
-  customers: { userId: number; email: string; fullName: string | null; lastOrderDays: number; orderCount: number; totalSpent: number }[];
+  customers: {
+    userId: number;
+    email: string;
+    fullName: string | null;
+    lastOrderDays: number;
+    orderCount: number;
+    totalSpent: number;
+  }[];
 }
 
 export async function getCustomerSegmentation() {
@@ -478,7 +574,10 @@ export async function getCustomerSegmentation() {
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   // Segment customers based on recency and frequency
-  const segmented: Record<SegmentName, { count: number; revenue: number; totalOrders: number; customers: CustomerSegment['customers'] }> = {
+  const segmented: Record<
+    SegmentName,
+    { count: number; revenue: number; totalOrders: number; customers: CustomerSegment['customers'] }
+  > = {
     champions: { count: 0, revenue: 0, totalOrders: 0, customers: [] },
     loyal: { count: 0, revenue: 0, totalOrders: 0, customers: [] },
     recent: { count: 0, revenue: 0, totalOrders: 0, customers: [] },
@@ -492,7 +591,9 @@ export async function getCustomerSegmentation() {
   for (const c of customerStats) {
     if (!c.userId || !c._max.createdAt) continue;
 
-    const daysSinceLastOrder = Math.floor((now.getTime() - c._max.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    const daysSinceLastOrder = Math.floor(
+      (now.getTime() - c._max.createdAt.getTime()) / (1000 * 60 * 60 * 24),
+    );
     const orderCount = c._count;
     const totalSpent = Number(c._sum.totalAmount || 0);
     const user = userMap.get(c.userId);
@@ -542,7 +643,9 @@ export async function getCustomerSegmentation() {
     new: 'Нові',
   };
 
-  const segments: CustomerSegment[] = (Object.entries(segmented) as [SegmentName, typeof segmented[SegmentName]][]).map(([key, data]) => ({
+  const segments: CustomerSegment[] = (
+    Object.entries(segmented) as [SegmentName, (typeof segmented)[SegmentName]][]
+  ).map(([key, data]) => ({
     segment: key,
     label: SEGMENT_LABELS[key],
     count: data.count,
@@ -554,6 +657,116 @@ export async function getCustomerSegmentation() {
   return {
     segments,
     totalCustomers: customerStats.length,
-    totalRevenue: Math.round(customerStats.reduce((s, c) => s + Number(c._sum.totalAmount || 0), 0)),
+    totalRevenue: Math.round(
+      customerStats.reduce((s, c) => s + Number(c._sum.totalAmount || 0), 0),
+    ),
+  };
+}
+
+// ──────────────────────────────────────────
+// 7. Order Processing Time
+// ──────────────────────────────────────────
+
+interface ProcessingTimeStats {
+  /** Average duration in hours, rounded to 1 decimal */
+  avgHours: number;
+  /** Median duration in hours */
+  medianHours: number;
+  /** 95th percentile duration in hours */
+  p95Hours: number;
+  /** Number of orders included in the calculation */
+  sampleSize: number;
+  /** Targeted statuses (e.g., from new_order to shipped) */
+  fromStatus: string;
+  toStatus: string;
+}
+
+/**
+ * Compute average processing time between two order statuses, using
+ * OrderStatusHistory transitions over the requested window.
+ *
+ * Default window: 30 days; default measurement: new_order → shipped.
+ */
+export async function getOrderProcessingTime(
+  days: number = 30,
+  fromStatus: string = 'new_order',
+  toStatus: string = 'shipped',
+): Promise<ProcessingTimeStats> {
+  const dateFrom = new Date();
+  dateFrom.setDate(dateFrom.getDate() - days);
+
+  // Find all "to" transitions in the window, then look up the matching
+  // "from" transition for the same order.
+  const toTransitions = await prisma.orderStatusHistory.findMany({
+    where: {
+      newStatus: toStatus,
+      createdAt: { gte: dateFrom },
+    },
+    select: { orderId: true, createdAt: true },
+  });
+
+  if (toTransitions.length === 0) {
+    return {
+      avgHours: 0,
+      medianHours: 0,
+      p95Hours: 0,
+      sampleSize: 0,
+      fromStatus,
+      toStatus,
+    };
+  }
+
+  const orderIds = toTransitions.map((t) => t.orderId);
+
+  const fromTransitions = await prisma.orderStatusHistory.findMany({
+    where: {
+      orderId: { in: orderIds },
+      newStatus: fromStatus,
+    },
+    select: { orderId: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const firstFromByOrder = new Map<number, Date>();
+  for (const row of fromTransitions) {
+    if (!firstFromByOrder.has(row.orderId)) {
+      firstFromByOrder.set(row.orderId, row.createdAt);
+    }
+  }
+
+  const durationsHours: number[] = [];
+  for (const t of toTransitions) {
+    const start = firstFromByOrder.get(t.orderId);
+    if (!start) continue;
+    const ms = t.createdAt.getTime() - start.getTime();
+    if (ms <= 0) continue;
+    durationsHours.push(ms / 3_600_000);
+  }
+
+  if (durationsHours.length === 0) {
+    return {
+      avgHours: 0,
+      medianHours: 0,
+      p95Hours: 0,
+      sampleSize: 0,
+      fromStatus,
+      toStatus,
+    };
+  }
+
+  durationsHours.sort((a, b) => a - b);
+  const sum = durationsHours.reduce((s, v) => s + v, 0);
+  const avg = sum / durationsHours.length;
+  const median = durationsHours[Math.floor(durationsHours.length / 2)];
+  const p95Index = Math.min(durationsHours.length - 1, Math.floor(durationsHours.length * 0.95));
+  const p95 = durationsHours[p95Index];
+
+  return {
+    avgHours: Math.round(avg * 10) / 10,
+    medianHours: Math.round(median * 10) / 10,
+    p95Hours: Math.round(p95 * 10) / 10,
+    sampleSize: durationsHours.length,
+    fromStatus,
+    toStatus,
   };
 }
