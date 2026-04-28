@@ -255,3 +255,34 @@ describe('sendPasswordResetEmail', () => {
     }
   });
 });
+
+describe('open-tracking pixel substitution', () => {
+  it('replaces {{notificationId}} in html and returns trackingId', async () => {
+    mockSendMail.mockResolvedValue({ messageId: '<x@test.com>' });
+
+    const result = await sendEmail({
+      to: 'user@example.com',
+      subject: 'Test',
+      html: '<p>Hi</p><img src="/api/v1/metrics?type=email_open&id={{notificationId}}" />',
+    });
+
+    expect(result.trackingId).toBeTruthy();
+    expect(result.trackingId).toMatch(/^[a-zA-Z0-9-]+$/);
+
+    const sentHtml = mockSendMail.mock.calls[0][0].html;
+    expect(sentHtml).not.toContain('{{notificationId}}');
+    expect(sentHtml).toContain(result.trackingId!);
+  });
+
+  it('does not generate trackingId when html has no placeholder', async () => {
+    mockSendMail.mockResolvedValue({ messageId: '<x@test.com>' });
+
+    const result = await sendEmail({
+      to: 'user@example.com',
+      subject: 'Test',
+      html: '<p>No tracking here</p>',
+    });
+
+    expect(result.trackingId).toBeUndefined();
+  });
+});

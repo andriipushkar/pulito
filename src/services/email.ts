@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 import { env } from '@/config/env';
 
 const transporter = nodemailer.createTransport({
@@ -69,6 +70,14 @@ interface EmailResult {
   messageId?: string;
   error?: string;
   attempts: number;
+  /** Tracking ID injected into the open-pixel URL (if HTML contained {{notificationId}}) */
+  trackingId?: string;
+}
+
+function generateTrackingId(): string {
+  return typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : crypto.randomBytes(16).toString('hex');
 }
 
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 1000): Promise<T> {
@@ -89,6 +98,15 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 10
 
 export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
   let attempts = 0;
+  let trackingId: string | undefined;
+  let html = options.html;
+
+  // Substitute {{notificationId}} → fresh tracking UUID so the open-pixel can be matched.
+  if (html.includes('{{notificationId}}')) {
+    trackingId = generateTrackingId();
+    html = html.replace(/\{\{notificationId\}\}/g, trackingId);
+  }
+
   try {
     const result = await withRetry(async () => {
       attempts++;
@@ -97,8 +115,8 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
         ...(options.replyTo ? { replyTo: options.replyTo } : {}),
         to: options.to,
         subject: options.subject,
-        html: options.html,
-        text: options.text || htmlToPlainText(options.html),
+        html,
+        text: options.text || htmlToPlainText(html),
         attachments: options.attachments?.map((a) => ({
           filename: a.filename,
           content: a.content,
@@ -113,7 +131,7 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
       });
     });
 
-    return { success: true, messageId: result.messageId, attempts };
+    return { success: true, messageId: result.messageId, attempts, trackingId };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Невідома помилка відправки email';
     throw new EmailError(message, 500, error);

@@ -11,10 +11,16 @@ vi.mock('@/services/performance', () => ({
   recordMetric: vi.fn(),
 }));
 
-import { POST } from './route';
+vi.mock('@/services/client-events', () => ({
+  recordClientEvent: vi.fn(),
+}));
+
+import { POST, GET } from './route';
 import { recordMetric } from '@/services/performance';
+import { recordClientEvent } from '@/services/client-events';
 
 const mocked = vi.mocked(recordMetric);
+const mockedRecordEvent = vi.mocked(recordClientEvent);
 
 function makeReq(body: object) {
   return new NextRequest('http://localhost/api/v1/metrics', {
@@ -51,5 +57,49 @@ describe('POST /api/v1/metrics', () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/v1/metrics (email open pixel)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedRecordEvent.mockResolvedValue(undefined as never);
+  });
+
+  it('returns a 1x1 GIF for valid email_open requests', async () => {
+    const req = new NextRequest('http://localhost/api/v1/metrics?type=email_open&id=abc123def456', {
+      method: 'GET',
+    });
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/gif');
+  });
+
+  it('records an email_open event when id is valid', async () => {
+    const req = new NextRequest('http://localhost/api/v1/metrics?type=email_open&id=abc123def456', {
+      method: 'GET',
+    });
+    await GET(req);
+    expect(mockedRecordEvent).toHaveBeenCalledWith({
+      eventType: 'email_open',
+      metadata: { trackingId: 'abc123def456' },
+    });
+  });
+
+  it('still returns the GIF when params are missing/invalid (do not record)', async () => {
+    const req = new NextRequest('http://localhost/api/v1/metrics?type=email_open', {
+      method: 'GET',
+    });
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    expect(mockedRecordEvent).not.toHaveBeenCalled();
+  });
+
+  it('rejects ids with disallowed characters', async () => {
+    const req = new NextRequest('http://localhost/api/v1/metrics?type=email_open&id=<script>', {
+      method: 'GET',
+    });
+    await GET(req);
+    expect(mockedRecordEvent).not.toHaveBeenCalled();
   });
 });

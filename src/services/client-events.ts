@@ -16,6 +16,7 @@ export const ALLOWED_EVENT_TYPES = [
   'instagram_post_published',
   'instagram_post_likes',
   'instagram_post_comments',
+  'email_open',
 ] as const;
 
 export type ClientEventType = (typeof ALLOWED_EVENT_TYPES)[number];

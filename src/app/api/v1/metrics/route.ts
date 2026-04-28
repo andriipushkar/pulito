@@ -1,5 +1,14 @@
 import { NextRequest } from 'next/server';
 import { recordMetric } from '@/services/performance';
+import { recordClientEvent } from '@/services/client-events';
+
+// 1x1 transparent GIF used as the email-open tracking pixel
+const TRANSPARENT_GIF = Buffer.from(
+  'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+  'base64',
+);
+
+const TRACKING_ID_PATTERN = /^[a-zA-Z0-9_-]{8,128}$/;
 
 const VALID_METRICS = ['LCP', 'CLS', 'FID', 'TTFB', 'INP', 'FCP'];
 const ROUTE_PATTERN = /^\/[a-zA-Z0-9\-\/\[\]_]*$/;
@@ -36,4 +45,33 @@ export async function POST(request: NextRequest) {
   } catch {
     return new Response(null, { status: 400 });
   }
+}
+
+/**
+ * GET /api/v1/metrics?type=email_open&id={trackingId}
+ *
+ * Returns a 1x1 transparent GIF and asynchronously records an `email_open`
+ * ClientEvent. Used as a tracking pixel inside transactional emails.
+ */
+export async function GET(request: NextRequest) {
+  const params = request.nextUrl.searchParams;
+  const type = params.get('type');
+  const id = params.get('id');
+
+  if (type === 'email_open' && id && TRACKING_ID_PATTERN.test(id)) {
+    recordClientEvent({
+      eventType: 'email_open',
+      metadata: { trackingId: id },
+    }).catch(() => {});
+  }
+
+  return new Response(TRANSPARENT_GIF, {
+    status: 200,
+    headers: {
+      'Content-Type': 'image/gif',
+      'Content-Length': String(TRANSPARENT_GIF.length),
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+    },
+  });
 }
