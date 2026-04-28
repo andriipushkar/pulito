@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { findAutoReply } from './bot-auto-reply';
+import { pickWelcomeMessage } from './bot-welcome';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -175,6 +176,20 @@ const MAIN_MENU = {
 
 async function handleStart(chatId: number, firstName: string) {
   const user = await findLinkedUser(chatId);
+
+  // Returning users always see the standard greeting; new chats get an
+  // A/B-tested welcome (if any are configured) before the menu.
+  if (!user) {
+    const welcome = await pickWelcomeMessage('telegram');
+    if (welcome) {
+      const personalised = welcome.messageText.replace(/\{name\}/g, firstName);
+      const inline = parseAutoReplyButtons(welcome.buttons);
+      await sendMessage(chatId, personalised, {
+        ...(inline ? { reply_markup: { inline_keyboard: inline } } : {}),
+      });
+    }
+  }
+
   const greeting = user
     ? `Вітаємо, ${user.fullName || firstName}! 👋`
     : `Вітаємо у Pulito Trade, ${firstName}! 👋`;

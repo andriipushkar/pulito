@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 import { findAutoReply } from './bot-auto-reply';
+import { pickWelcomeMessage } from './bot-welcome';
 import crypto from 'crypto';
 
 const AUTH_TOKEN = process.env.VIBER_AUTH_TOKEN || '';
@@ -302,6 +303,12 @@ export async function sendViberNotification(
 }
 
 async function handleSubscribed(userId: string, name: string) {
+  const welcome = await pickWelcomeMessage('viber');
+  if (welcome) {
+    await sendTextMessage(userId, welcome.messageText.replace(/\{name\}/g, name), MAIN_KEYBOARD);
+    return;
+  }
+
   await sendTextMessage(
     userId,
     `Вітаємо у Pulito Trade, ${name}! 👋\n\nОберіть дію з меню нижче або напишіть назву товару для пошуку.`,
