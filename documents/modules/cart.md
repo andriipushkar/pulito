@@ -167,12 +167,25 @@ Checkout реалізований як покроковий wizard:
 - `deliveryMethod` -- `nova_poshta` | `ukrposhta` | `pickup` | `pallet`
 - `paymentMethod` -- `cod` | `bank_transfer` | `online` | `card_prepay`
 - `loyaltyPointsToSpend` -- опціонально, >= 0
-- `paymentProvider` -- `liqpay` | `monobank` (для online)
+- `paymentProvider` -- `liqpay` | `liqpay_paypart` | `monobank` | `wayforpay` | `apple_pay` | `google_pay` (для online)
+
+## Free shipping progress
+
+`CartSummary` показує **прогрес-бар безкоштовної доставки**, якщо адмін задав `delivery_free_shipping_threshold` (грн):
+
+- Текст "Додайте ще X ₴ для безкоштовної доставки" коли `cartTotal < threshold`
+- Зелений банер "Безкоштовна доставка вам нараховується" коли досягнуто
+
+Threshold завантажується з `/api/v1/checkout/config` при mount'і `/cart` сторінки.
+
+## Address book autofill
+
+Для авторизованих клієнтів на checkout-кроці delivery показуються кнопки-пресети з останніми 5 адресами з історії замовлень. Клік підставляє місто + адресу + warehouse-ref. Endpoint: `GET /api/v1/me/saved-addresses` (фільтрує за поточно-доступними методами).
 
 ## UI компоненти
 
 - `src/components/cart/CartItemRow.tsx` -- рядок товару в кошику
-- `src/components/cart/CartSummary.tsx` -- підсумок кошика
+- `src/components/cart/CartSummary.tsx` -- підсумок + прогрес безкоштовної доставки
 
 ## Файли модуля
 

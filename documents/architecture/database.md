@@ -99,6 +99,22 @@ Clean Shop використовує PostgreSQL через Prisma ORM. Генер
 - **Джерело** (`OrderSource`): `web`, `telegram_bot`, `viber_bot`
 - UTM-мітки: `utmSource`, `utmMedium`, `utmCampaign`
 
+**B2B-поля** (міграція `20260506000000_add_order_b2b_fields`):
+
+- `companyName String?` — юридична назва (ТОВ/ФОП)
+- `edrpou String?` — ЄДРПОУ (8 цифр)
+
+**Адресні поля для D2D кур'єрської доставки** (міграція `20260506200000_add_d2d_address_fields`):
+
+- `deliveryStreetRef String?` — UUID вулиці у НП-довіднику
+- `deliveryBuilding String?` — номер будинку
+- `deliveryFlat String?` — номер квартири
+
+**Tracking-статус від перевізника** (міграція `20260506100000_add_tracking_status`):
+
+- `trackingStatus String?` — текст останнього статусу від НП ("Прибуло у відділення", "В дорозі" тощо)
+- `trackingStatusAt DateTime?` — коли статус оновлено
+
 **Індекси:**
 
 - `[userId, createdAt DESC]` -- замовлення користувача
@@ -115,7 +131,9 @@ Clean Shop використовує PostgreSQL через Prisma ORM. Генер
 
 ### Payment (payments)
 
-Дані платежу (1:1 з Order). Провайдери: `liqpay`, `monobank`. Зберігає `callbackData` (JSON) та `invoicePdfUrl`.
+Дані платежу (1:1 з Order). Провайдери (`paymentProvider`): `liqpay`, `monobank`, `wayforpay`. Зберігає `callbackData` (JSON) та `invoicePdfUrl`.
+
+> Apple Pay / Google Pay / LiqPay paypart роутяться через WFP/LiqPay і зберігаються як базовий `wayforpay`/`liqpay` для коректного refund-routing.
 
 ### Delivery (deliveries)
 

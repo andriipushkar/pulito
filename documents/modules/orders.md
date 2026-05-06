@@ -46,15 +46,24 @@ new_order -> processing -> confirmed -> paid -> shipped -> completed
   "companyName": "ТОВ Компанія",
   "edrpou": "12345678",
   "deliveryMethod": "nova_poshta",
-  "deliveryCity": "Київ",
-  "deliveryWarehouseRef": "...",
-  "deliveryAddress": "...",
+  "deliveryCity": "city-ref-uuid",
+  "deliveryWarehouseRef": "warehouse-ref-uuid",
+  "deliveryAddress": "Відділення №5: вул. Хрещатик, 1",
+  "deliveryStreetRef": "street-uuid",
+  "deliveryBuilding": "12",
+  "deliveryFlat": "5",
   "paymentMethod": "online",
   "comment": "Коментар до замовлення",
   "loyaltyPointsToSpend": 100,
-  "paymentProvider": "liqpay"
+  "paymentProvider": "apple_pay"
 }
 ```
+
+**B2B-поля** (`companyName`, `edrpou`) — опційні, але якщо вказані, тригерять авто-генерацію PDF-інвойсу при переході в `confirmed`.
+
+**D2D-поля** (`deliveryStreetRef`, `deliveryBuilding`, `deliveryFlat`) — опційні, замість `deliveryWarehouseRef` для адресної кур'єрської доставки НП.
+
+**`paymentProvider`** значення: `liqpay`, `liqpay_paypart`, `monobank`, `wayforpay`, `apple_pay`, `google_pay`. Apple/Google Pay автоматично роутяться через WFP (пріоритет) або LiqPay.
 
 ### Процес створення
 
@@ -118,6 +127,8 @@ new_order -> processing -> confirmed -> paid -> shipped -> completed
    - Оновлення статусу
    - Запис в OrderStatusHistory
 4. **Після транзакції:**
+   - **Auto-create TTN** для NP-замовлень при `confirmed`/`shipped` без `trackingNumber` (з COD-сумою якщо `paymentMethod='cod' && paymentStatus !== 'paid'`, з D2D fields якщо `deliveryStreetRef + deliveryBuilding`)
+   - **Auto-email B2B-інвойсу** при `confirmed` для замовлень з `companyName`/`edrpou` і `contactEmail` (HTML-escape для XSS-protection)
    - Сповіщення клієнта через Telegram (асинхронно)
    - При `completed`:
      - Нарахування балів лояльності
@@ -164,11 +175,30 @@ new_order -> processing -> confirmed -> paid -> shipped -> completed
 - `utmSource`, `utmMedium`, `utmCampaign`
 - `ipAddress`, `userAgent`
 
+## Pay later (для online замовлень)
+
+Якщо клієнт оформив замовлення з `paymentMethod='online'` і `paymentStatus='pending'` (наприклад, не дочекався webhook'у або закрив сторінку), він може **повторно ініціювати оплату** з кабінету:
+
+- UI: `/account/orders/[id]` показує кнопки "Сплатити LiqPay / Monobank / WayForPay" коли умови виконано (online + не paid + не cancelled).
+- Endpoint: `POST /api/v1/orders/:id/pay` приймає `{ provider }`, повертає `{ redirectUrl }`.
+- Вибір провайдера відрізняється від оригінального — клієнт може спробувати інший gateway.
+
+## B2B-поля у моделі Order
+
+```
+companyName  String?  -- юридична назва ТОВ/ФОП
+edrpou       String?  -- ЄДРПОУ (8 цифр)
+```
+
+Раніше валідувалися у Zod-схемі, але **не зберігалися** на Order — це був баг (втрачали ЄДРПОУ, не могли згенерувати B2B-інвойс). Виправлено міграцією `20260506000000_add_order_b2b_fields`.
+
 ## Файли модуля
 
-- `src/services/order.ts` -- основна логіка (create, list, status change, edit items)
-- `src/validators/order.ts` -- Zod-схеми (checkout, filter, status update, guest checkout)
-- `src/app/api/v1/orders/` -- клієнтські ендпоінти
-- `src/app/api/v1/admin/orders/` -- адмін ендпоінти
-- `src/app/(shop)/account/orders/` -- UI сторінки замовлень
-- `src/app/(admin)/admin/orders/` -- адмін UI
+- `src/services/order.ts` — основна логіка (create, list, status change, edit items, auto-TTN, B2B email)
+- `src/validators/order.ts` — Zod-схеми (checkout з D2D + B2B полями, filter, status update, guest checkout)
+- `src/app/api/v1/orders/` — клієнтські ендпоінти
+- `src/app/api/v1/orders/[id]/pay/route.ts` — pay-later endpoint
+- `src/app/api/v1/admin/orders/` — адмін ендпоінти
+- `src/app/api/v1/admin/orders/bulk-ttn/route.ts` — масове створення TTN
+- `src/app/(shop)/account/orders/` — UI сторінки замовлень + pay-later кнопки + tracking-status
+- `src/app/(admin)/admin/orders/` — адмін UI з checkbox-ами для bulk TTN
