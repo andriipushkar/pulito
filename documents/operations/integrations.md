@@ -231,22 +231,70 @@ Nodemailer з автоматичним визначенням secure (порт 4
 
 ## Платіжні провайдери
 
+Усі ключі **опційні** — фіча просто не показується в чекауті без них. Можна задавати через `.env` або через `/admin/payment-settings` (DB > env priority).
+
 ### LiqPay
 
-| Змінна               | Опис                  |
-| -------------------- | --------------------- |
-| `LIQPAY_PUBLIC_KEY`  | Публічний ключ LiqPay |
-| `LIQPAY_PRIVATE_KEY` | Приватний ключ LiqPay |
+| Змінна               | Опис                                                 |
+| -------------------- | ---------------------------------------------------- |
+| `LIQPAY_PUBLIC_KEY`  | Публічний ключ LiqPay                                |
+| `LIQPAY_PRIVATE_KEY` | Приватний ключ (підпис + paypart + Apple/Google Pay) |
 
 **Webhook:** `POST /api/webhooks/liqpay`
+**Sandbox toggle:** через DB-настройку `payment_liqpay_sandbox` в адмінці.
+**Розстрочка:** `payment_liqpay_paypart_enabled` + `payment_liqpay_paypart_count` (2-24 міс).
 
 ### Monobank
 
-| Змінна           | Опис               |
-| ---------------- | ------------------ |
-| `MONOBANK_TOKEN` | Токен API Monobank |
+| Змінна           | Опис                         |
+| ---------------- | ---------------------------- |
+| `MONOBANK_TOKEN` | Токен Monobank Acquiring API |
 
 **Webhook:** `POST /api/webhooks/monobank`
+
+### WayForPay
+
+| Змінна                       | Опис                            |
+| ---------------------------- | ------------------------------- |
+| `WAYFORPAY_MERCHANT_ACCOUNT` | Merchant account                |
+| `WAYFORPAY_SECRET_KEY`       | Секретний ключ для HMAC-підпису |
+
+**Webhook:** `POST /api/webhooks/wayforpay`
+
+### Apple Pay / Google Pay
+
+Окремих ключів **не потрібно**. Маршрутизуються через WFP (preferred) або LiqPay автоматично:
+
+- Включаються в адмінці `/admin/payment-settings` тоглами `payment_apple_pay_enabled` / `payment_google_pay_enabled`
+- Показуються коли є хоча б один із базових gateway-ів (WFP або LiqPay) сконфігурований
+- Для нативних кнопок в Apple Pay потрібен файл `/.well-known/apple-developer-merchantid-domain-association` від Apple Developer
+
+---
+
+## Cron-задачі (платежі та доставка)
+
+### Auto-tracking (Nova Poshta)
+
+**Endpoint:** `POST /api/v1/cron/auto-tracking`
+**Auth:** `Authorization: Bearer ${APP_SECRET}`
+**Schedule:** кожні 30 хвилин
+
+Бере замовлення в `confirmed/paid/shipped` з `trackingNumber`, запитує NP API, оновлює `Order.trackingStatus` + `trackingStatusAt`. Якщо статус "доставлено" (StatusCode 9/11) — переводить замовлення в `completed` і сповіщає клієнта в Telegram.
+
+### Payment reconciliation
+
+**Endpoint:** `POST /api/v1/cron/payment-reconciliation`
+**Auth:** `Authorization: Bearer ${APP_SECRET}`
+**Schedule:** кожні 15 хвилин
+
+Бере Payment-записи з `paymentStatus='pending'` старші 30 хв (і молодші 14 днів). Запитує статус прямо в провайдера через `checkPaymentStatus` / `checkInvoiceStatus` / `checkTransactionStatus`. Якщо `success`/`failure` — викликає той самий `handlePaymentCallback`, що webhook. Catches missed webhooks через мережеві проблеми.
+
+### GitHub Actions schedule
+
+Готовий workflow: `.github/workflows/cron-payments-tracking.yml`. Потребує GitHub Secrets:
+
+- `PRODUCTION_URL` — наприклад `https://shop.example.com`
+- `APP_SECRET` — той самий, що в `.env`
 
 ---
 
