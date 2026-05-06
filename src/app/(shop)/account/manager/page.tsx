@@ -35,7 +35,7 @@ export default function AccountManagerPage() {
   if (user?.role !== 'wholesaler') {
     return (
       <div className="py-8 text-center text-[var(--color-text-secondary)]">
-        Розділ доступний тільки для оптових клієнтів
+        Розділ доступний тільки для гуртових клієнтів
       </div>
     );
   }

@@ -6,10 +6,15 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { z } from 'zod';
 
 const bulkOrderSchema = z.object({
-  items: z.array(z.object({
-    code: z.string().min(1),
-    quantity: z.number().int().positive(),
-  })).min(1).max(500),
+  items: z
+    .array(
+      z.object({
+        code: z.string().min(1),
+        quantity: z.number().int().positive(),
+      }),
+    )
+    .min(1)
+    .max(500),
 });
 
 export const POST = withAuth(async (request: NextRequest, { user }) => {
@@ -26,8 +31,11 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
       select: { wholesaleGroup: true, role: true },
     });
 
-    if (!userData || (userData.role !== 'wholesaler' && userData.role !== 'admin' && userData.role !== 'manager')) {
-      return errorResponse('Доступно тільки для оптових покупців', 403);
+    if (
+      !userData ||
+      (userData.role !== 'wholesaler' && userData.role !== 'admin' && userData.role !== 'manager')
+    ) {
+      return errorResponse('Доступно тільки для гуртових покупців', 403);
     }
 
     const result = await resolveBulkOrder(parsed.data.items, userData.wholesaleGroup);

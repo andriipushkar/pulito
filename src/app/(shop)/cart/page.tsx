@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/useCart';
+import { apiClient } from '@/lib/api-client';
 import { Cart as CartIcon } from '@/components/icons';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import EmptyState from '@/components/ui/EmptyState';
@@ -8,10 +10,23 @@ import CartItemRow from '@/components/cart/CartItemRow';
 import CartSummary from '@/components/cart/CartSummary';
 import CartRecommendations from '@/components/cart/CartRecommendations';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
+import type { CheckoutConfig } from '@/services/checkout-config';
 
 export default function CartPage() {
   const { items, itemCount, total, updateQuantity, removeItem, clearCart } = useCart();
   const cartTotal = total();
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number | null>(null);
+
+  useEffect(() => {
+    apiClient
+      .get<CheckoutConfig>('/api/v1/checkout/config')
+      .then((res) => {
+        if (res.success && res.data) {
+          setFreeShippingThreshold(res.data.delivery.freeShippingThreshold);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   if (items.length === 0) {
     return (
@@ -76,7 +91,11 @@ export default function CartPage() {
         {/* Summary */}
         <div className="mt-6 lg:mt-0">
           <div className="sticky top-24">
-            <CartSummary itemCount={itemCount} total={cartTotal} />
+            <CartSummary
+              itemCount={itemCount}
+              total={cartTotal}
+              freeShippingThreshold={freeShippingThreshold}
+            />
           </div>
         </div>
       </div>

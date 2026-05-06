@@ -51,7 +51,10 @@ export default function PriceHistoryChart({ productSlug }: PriceHistoryChartProp
   }));
 
   return (
-    <div className="mt-8 rounded-lg border p-4" style={{ borderColor: 'var(--color-border, #e2e8f0)' }}>
+    <div
+      className="mt-8 rounded-lg border p-4"
+      style={{ borderColor: 'var(--color-border, #e2e8f0)' }}
+    >
       <h3 className="mb-4 text-lg font-semibold" style={{ color: 'var(--color-text, #1e293b)' }}>
         Історія цін
       </h3>
@@ -77,7 +80,7 @@ export default function PriceHistoryChart({ productSlug }: PriceHistoryChartProp
           <Line
             type="monotone"
             dataKey="wholesale"
-            name="Оптова"
+            name="Гуртова"
             stroke="#16a34a"
             strokeWidth={2}
             dot={{ r: 3 }}

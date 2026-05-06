@@ -62,7 +62,7 @@ export default function VolumeDiscountBadge({ productId, categoryId }: VolumeDis
       className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
       data-testid="volume-discount-badge"
     >
-      {`Оптова знижка до ${maxDiscount}% (від ${minThreshold} шт)`}
+      {`Гуртова знижка до ${maxDiscount}% (від ${minThreshold} шт)`}
     </span>
   );
 }

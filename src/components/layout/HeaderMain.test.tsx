@@ -9,17 +9,67 @@ const mockItemCount = vi.hoisted(() => ({ current: 0 }));
 const mockTotal = vi.hoisted(() => vi.fn().mockReturnValue(0));
 const mockWishlistCount = vi.hoisted(() => ({ current: 0 }));
 
-vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
-vi.mock('@/components/ui/Container', () => ({ default: ({ children, ...props }: any) => <div {...props}>{children}</div> }));
-vi.mock('@/components/ui/IconButton', () => ({ default: ({ label, onClick, badge, ...props }: any) => <button aria-label={label} onClick={onClick} data-badge={badge} {...props}>{badge != null && badge > 0 ? badge : ''}</button> }));
-vi.mock('@/components/icons', () => ({ Bell: () => <span data-testid="bell-icon" />, Cart: () => <span data-testid="cart-icon" />, Check: () => <span data-testid="icon" />, ChevronDown: () => <span data-testid="icon" />, ChevronLeft: () => <span data-testid="icon" />, ChevronRight: () => <span data-testid="icon" />, Close: () => <span data-testid="icon" />, Compare: () => <span data-testid="icon" />, Copy: () => <span data-testid="icon" />, Facebook: () => <span data-testid="icon" />, Filter: () => <span data-testid="icon" />, Heart: () => <span data-testid="icon" />, HeartFilled: () => <span data-testid="icon" />, HelpCircle: () => <span data-testid="icon" />, Instagram: () => <span data-testid="icon" />, MessageCircle: () => <span data-testid="icon" />, Minus: () => <span data-testid="icon" />, Phone: () => <span data-testid="icon" />, Plus: () => <span data-testid="icon" />, Search: () => <span data-testid="icon" />, Telegram: () => <span data-testid="icon" />, TikTok: () => <span data-testid="icon" />, Trash: () => <span data-testid="icon" />, User: () => <span data-testid="icon" />, Viber: () => <span data-testid="icon" /> }));
+vi.mock('next/link', () => ({
+  default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
+vi.mock('@/components/ui/Container', () => ({
+  default: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+}));
+vi.mock('@/components/ui/IconButton', () => ({
+  default: ({ label, onClick, badge, ...props }: any) => (
+    <button aria-label={label} onClick={onClick} data-badge={badge} {...props}>
+      {badge != null && badge > 0 ? badge : ''}
+    </button>
+  ),
+}));
+vi.mock('@/components/icons', () => ({
+  Bell: () => <span data-testid="bell-icon" />,
+  Cart: () => <span data-testid="cart-icon" />,
+  Check: () => <span data-testid="icon" />,
+  ChevronDown: () => <span data-testid="icon" />,
+  ChevronLeft: () => <span data-testid="icon" />,
+  ChevronRight: () => <span data-testid="icon" />,
+  Close: () => <span data-testid="icon" />,
+  Compare: () => <span data-testid="icon" />,
+  Copy: () => <span data-testid="icon" />,
+  Facebook: () => <span data-testid="icon" />,
+  Filter: () => <span data-testid="icon" />,
+  Heart: () => <span data-testid="icon" />,
+  HeartFilled: () => <span data-testid="icon" />,
+  HelpCircle: () => <span data-testid="icon" />,
+  Instagram: () => <span data-testid="icon" />,
+  MessageCircle: () => <span data-testid="icon" />,
+  Minus: () => <span data-testid="icon" />,
+  Phone: () => <span data-testid="icon" />,
+  Plus: () => <span data-testid="icon" />,
+  Search: () => <span data-testid="icon" />,
+  Telegram: () => <span data-testid="icon" />,
+  TikTok: () => <span data-testid="icon" />,
+  Trash: () => <span data-testid="icon" />,
+  User: () => <span data-testid="icon" />,
+  Viber: () => <span data-testid="icon" />,
+}));
 vi.mock('./SearchBar', () => ({ default: () => <div data-testid="search-bar" /> }));
-vi.mock('./MiniCart', () => ({ default: ({ onClose }: any) => <div data-testid="mini-cart"><button onClick={onClose}>Close</button></div> }));
-vi.mock('@/components/common/CallbackButton', () => ({ default: () => <div data-testid="callback-btn" /> }));
-vi.mock('@/components/common/ChatWidget', () => ({ default: () => <div data-testid="chat-widget" /> }));
+vi.mock('./MiniCart', () => ({
+  default: ({ onClose }: any) => (
+    <div data-testid="mini-cart">
+      <button onClick={onClose}>Close</button>
+    </div>
+  ),
+}));
+vi.mock('@/components/common/CallbackButton', () => ({
+  default: () => <div data-testid="callback-btn" />,
+}));
+vi.mock('@/components/common/ChatWidget', () => ({
+  default: () => <div data-testid="chat-widget" />,
+}));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: mockUser.current }) }));
-vi.mock('@/hooks/useCart', () => ({ useCart: () => ({ itemCount: mockItemCount.current, total: mockTotal }) }));
-vi.mock('@/hooks/useWishlist', () => ({ useWishlist: () => ({ wishlistCount: mockWishlistCount.current }) }));
+vi.mock('@/hooks/useCart', () => ({
+  useCart: () => ({ itemCount: mockItemCount.current, total: mockTotal }),
+}));
+vi.mock('@/hooks/useWishlist', () => ({
+  useWishlist: () => ({ wishlistCount: mockWishlistCount.current }),
+}));
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...args: any[]) => mockGet(...args) } }));
 vi.mock('@/utils/format', () => ({ formatPrice: (v: number) => `${v} ₴` }));
 vi.mock('@/hooks/useSettings', () => ({
@@ -31,8 +81,23 @@ vi.mock('@/hooks/useSettings', () => ({
     site_address: 'м. Київ',
     working_hours: 'Пн-Пт: 9:00-18:00',
     free_delivery_threshold: '2000',
-    social_telegram: '', social_viber: '', social_instagram: '', social_facebook: '', social_tiktok: '',
-    maintenance_mode: 'false', company_description: '', company_legal_name: '', company_edrpou: '', company_ipn: '', company_iban: '', company_bank: '', company_legal_address: '', default_seo_title: '', default_seo_description: '', google_analytics_id: '', facebook_pixel_id: '',
+    social_telegram: '',
+    social_viber: '',
+    social_instagram: '',
+    social_facebook: '',
+    social_tiktok: '',
+    maintenance_mode: 'false',
+    company_description: '',
+    company_legal_name: '',
+    company_edrpou: '',
+    company_ipn: '',
+    company_iban: '',
+    company_bank: '',
+    company_legal_address: '',
+    default_seo_title: '',
+    default_seo_description: '',
+    google_analytics_id: '',
+    facebook_pixel_id: '',
   }),
 }));
 
@@ -70,7 +135,7 @@ describe('HeaderMain', () => {
   it('renders logo link', () => {
     render(<HeaderMain categories={[]} />);
     const logoLinks = screen.getAllByRole('link');
-    const homeLink = logoLinks.find(l => l.getAttribute('href') === '/');
+    const homeLink = logoLinks.find((l) => l.getAttribute('href') === '/');
     expect(homeLink).toBeTruthy();
   });
 
@@ -185,13 +250,13 @@ describe('HeaderMain', () => {
   it('renders wholesaler badge', () => {
     mockUser.current = { id: 1, role: 'wholesaler' };
     const { container } = render(<HeaderMain categories={[]} />);
-    expect(container.textContent).toContain('Оптовий клієнт');
+    expect(container.textContent).toContain('Гуртовий клієнт');
   });
 
   it('does not render wholesaler badge for regular customer', () => {
     mockUser.current = { id: 1, role: 'customer' };
     const { container } = render(<HeaderMain categories={[]} />);
-    expect(container.textContent).not.toContain('Оптовий клієнт');
+    expect(container.textContent).not.toContain('Гуртовий клієнт');
   });
 
   it('shows cart total and items count text when items > 0', () => {

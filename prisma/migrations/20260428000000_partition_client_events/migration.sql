@@ -31,6 +31,12 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Rename old indexes so the partitioned table can re-create them with
+  -- the same canonical names without colliding.
+  EXECUTE 'ALTER INDEX IF EXISTS client_events_event_type_created_at_idx RENAME TO client_events_legacy_event_type_idx';
+  EXECUTE 'ALTER INDEX IF EXISTS client_events_user_id_created_at_idx   RENAME TO client_events_legacy_user_id_idx';
+  EXECUTE 'ALTER INDEX IF EXISTS client_events_session_id_idx           RENAME TO client_events_legacy_session_id_idx';
+
   -- Rename the existing (non-partitioned) table out of the way
   EXECUTE 'ALTER TABLE client_events RENAME TO client_events_legacy';
 
@@ -127,10 +133,10 @@ DO $$
 DECLARE
   base_month date := date_trunc('month', now())::date;
 BEGIN
-  PERFORM ensure_client_events_partition(base_month - interval '1 month');
+  PERFORM ensure_client_events_partition((base_month - interval '1 month')::date);
   PERFORM ensure_client_events_partition(base_month);
-  PERFORM ensure_client_events_partition(base_month + interval '1 month');
-  PERFORM ensure_client_events_partition(base_month + interval '2 months');
+  PERFORM ensure_client_events_partition((base_month + interval '1 month')::date);
+  PERFORM ensure_client_events_partition((base_month + interval '2 months')::date);
 END
 $$;
 

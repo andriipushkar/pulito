@@ -23,6 +23,8 @@ export interface SiteSettings {
   default_seo_description: string;
   google_analytics_id: string;
   facebook_pixel_id: string;
+  google_maps_api_key: string;
+  google_business_place_id: string;
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -52,6 +54,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     'Купуйте побутову хімію онлайн з доставкою по Україні. Великий вибір засобів для прання, миття посуду, прибирання та особистої гігієни.',
   google_analytics_id: '',
   facebook_pixel_id: '',
+  google_maps_api_key: '',
+  google_business_place_id: '',
 };
 
 export type SettingsKey = keyof SiteSettings;

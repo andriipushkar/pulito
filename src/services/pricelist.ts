@@ -34,7 +34,10 @@ const C = {
 };
 
 export class PricelistError extends Error {
-  constructor(message: string, public statusCode: number = 400) {
+  constructor(
+    message: string,
+    public statusCode: number = 400,
+  ) {
     super(message);
     this.name = 'PricelistError';
   }
@@ -55,19 +58,28 @@ async function loadImage(imgPath: string | null): Promise<Buffer | null> {
   try {
     const local = path.join(PUBLIC_DIR, imgPath);
     if (fs.existsSync(local)) raw = fs.readFileSync(local);
-  } catch { /* */ }
+  } catch {
+    /* */
+  }
 
   if (!raw) {
     try {
-      const base = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+      const base =
+        process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
       const url = imgPath.startsWith('http') ? imgPath : `${base}${imgPath}`;
       const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
       if (r.ok) raw = Buffer.from(await r.arrayBuffer());
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
   }
 
   if (!raw) return null;
-  try { return await toPngOrJpeg(raw); } catch { return null; }
+  try {
+    return await toPngOrJpeg(raw);
+  } catch {
+    return null;
+  }
 }
 
 function fmtPrice(n: number): string {
@@ -75,8 +87,16 @@ function fmtPrice(n: number): string {
 }
 
 // ── Rounded rect helper ──
-function roundedRect(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, r: number) {
-  doc.moveTo(x + r, y)
+function roundedRect(
+  doc: PDFKit.PDFDocument,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  doc
+    .moveTo(x + r, y)
     .lineTo(x + w - r, y)
     .quadraticCurveTo(x + w, y, x + w, y + r)
     .lineTo(x + w, y + h - r)
@@ -109,7 +129,11 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
     where: { isActive: true },
     include: {
       category: { select: { name: true } },
-      images: { where: { isMain: true }, select: { pathThumbnail: true, pathMedium: true }, take: 1 },
+      images: {
+        where: { isMain: true },
+        select: { pathThumbnail: true, pathMedium: true },
+        take: 1,
+      },
     },
     orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
   });
@@ -162,7 +186,7 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
     doc.text(COMPANY.tagline, M, 46, { lineBreak: false });
 
     // Right: type badge
-    const typeLabel = type === 'wholesale' ? 'ОПТОВИЙ ПРАЙС' : 'РОЗДРІБНИЙ ПРАЙС';
+    const typeLabel = type === 'wholesale' ? 'ГУРТОВИЙ ПРАЙС' : 'РОЗДРІБНИЙ ПРАЙС';
     const badgeW = 130;
     const badgeX = PW - M - badgeW;
     roundedRect(doc, badgeX, 20, badgeW, 22, 4);
@@ -173,10 +197,17 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
 
     // Right: date & contacts
     doc.font('R').fontSize(7).fillColor(C.sub);
-    doc.text(new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' }),
-      M, 48, { width: CW, align: 'right', lineBreak: false });
-    doc.text(`${COMPANY.website}  •  ${COMPANY.phone}`,
-      M, 58, { width: CW, align: 'right', lineBreak: false });
+    doc.text(
+      new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' }),
+      M,
+      48,
+      { width: CW, align: 'right', lineBreak: false },
+    );
+    doc.text(`${COMPANY.website}  •  ${COMPANY.phone}`, M, 58, {
+      width: CW,
+      align: 'right',
+      lineBreak: false,
+    });
 
     // Social media line
     const socials = `Telegram: ${COMPANY.social.telegram}  •  Viber: ${COMPANY.social.viber}  •  Instagram: ${COMPANY.social.instagram}  •  Facebook: ${COMPANY.social.facebook}`;
@@ -184,7 +215,11 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
     doc.text(socials, M, 68, { width: CW, align: 'right', lineBreak: false });
 
     // Separator
-    doc.moveTo(M, 80).lineTo(PW - M, 80).lineWidth(0.5).stroke(C.line);
+    doc
+      .moveTo(M, 80)
+      .lineTo(PW - M, 80)
+      .lineWidth(0.5)
+      .stroke(C.line);
 
     return 88;
   };
@@ -232,7 +267,7 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
 
   // ── Product row ──
   let rowNum = 0;
-  const drawRow = async (y: number, p: typeof products[0], odd: boolean): Promise<number> => {
+  const drawRow = async (y: number, p: (typeof products)[0], odd: boolean): Promise<number> => {
     rowNum++;
 
     // Row background
@@ -242,7 +277,11 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
 
     // Row number
     doc.font('R').fontSize(7).fillColor(C.sub);
-    doc.text(`${rowNum}`, col.num, y + (ROW - 7) / 2, { width: NUM_W, align: 'center', lineBreak: false });
+    doc.text(`${rowNum}`, col.num, y + (ROW - 7) / 2, {
+      width: NUM_W,
+      align: 'center',
+      lineBreak: false,
+    });
 
     // Image
     const imgPath = p.images?.[0]?.pathThumbnail || p.images?.[0]?.pathMedium || p.imagePath;
@@ -254,7 +293,11 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
         // Soft rounded bg behind image
         roundedRect(doc, col.img + 1, imgY - 1, IMG + 2, IMG + 2, 4);
         doc.fill(C.imgBg);
-        doc.image(imgBuf, col.img + 2, imgY, { fit: [IMG, IMG], align: 'center', valign: 'center' });
+        doc.image(imgBuf, col.img + 2, imgY, {
+          fit: [IMG, IMG],
+          align: 'center',
+          valign: 'center',
+        });
       } catch {
         roundedRect(doc, col.img + 1, imgY - 1, IMG + 2, IMG + 2, 4);
         doc.fill(C.imgBg);
@@ -281,9 +324,12 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
     doc.text(p.code, col.name, nameY + 16, { width: nameW, lineBreak: false });
 
     // Price
-    const price = type === 'wholesale'
-      ? (p.priceWholesale !== null ? Number(p.priceWholesale) : Number(p.priceRetail))
-      : Number(p.priceRetail);
+    const price =
+      type === 'wholesale'
+        ? p.priceWholesale !== null
+          ? Number(p.priceWholesale)
+          : Number(p.priceRetail)
+        : Number(p.priceRetail);
 
     if (hasBold) doc.font('B');
     doc.fontSize(9).fillColor(C.dark);
@@ -305,8 +351,11 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
     doc.fillColor(C.dark);
 
     // Bottom separator
-    doc.moveTo(M + 8, y + ROW - 1).lineTo(PW - M - 8, y + ROW - 1)
-      .lineWidth(0.2).stroke(C.line);
+    doc
+      .moveTo(M + 8, y + ROW - 1)
+      .lineTo(PW - M - 8, y + ROW - 1)
+      .lineWidth(0.2)
+      .stroke(C.line);
 
     return y + ROW;
   };
@@ -314,14 +363,20 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
   // ── Footer helper (draws on current page) ──
   const drawFooter = () => {
     const fy = PH - 28;
-    doc.moveTo(M, fy).lineTo(PW - M, fy).lineWidth(0.3).stroke(C.line);
+    doc
+      .moveTo(M, fy)
+      .lineTo(PW - M, fy)
+      .lineWidth(0.3)
+      .stroke(C.line);
 
     // Temporarily disable auto-paging (text at bottom would trigger new page)
     const savedMargin = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
 
     doc.font('R').fontSize(6.5).fillColor(C.sub);
-    doc.text(`© ${new Date().getFullYear()} ${COMPANY.name}  •  ${COMPANY.website}`, M, fy + 6, { lineBreak: false });
+    doc.text(`© ${new Date().getFullYear()} ${COMPANY.name}  •  ${COMPANY.website}`, M, fy + 6, {
+      lineBreak: false,
+    });
     doc.text(`Стор. ${pageNum}`, M, fy + 6, { width: CW, align: 'right', lineBreak: false });
 
     doc.page.margins.bottom = savedMargin;
@@ -367,14 +422,24 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
   // Footer on last page + total
   {
     const fy = PH - 28;
-    doc.moveTo(M, fy).lineTo(PW - M, fy).lineWidth(0.3).stroke(C.line);
+    doc
+      .moveTo(M, fy)
+      .lineTo(PW - M, fy)
+      .lineWidth(0.3)
+      .stroke(C.line);
 
     const savedMargin = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
 
     doc.font('R').fontSize(6.5).fillColor(C.sub);
-    doc.text(`© ${new Date().getFullYear()} ${COMPANY.name}  •  ${COMPANY.website}`, M, fy + 6, { lineBreak: false });
-    doc.text(`${products.length} товарів у каталозі`, M, fy + 6, { width: CW, align: 'center', lineBreak: false });
+    doc.text(`© ${new Date().getFullYear()} ${COMPANY.name}  •  ${COMPANY.website}`, M, fy + 6, {
+      lineBreak: false,
+    });
+    doc.text(`${products.length} товарів у каталозі`, M, fy + 6, {
+      width: CW,
+      align: 'center',
+      lineBreak: false,
+    });
     doc.text(`Стор. ${pageNum}`, M, fy + 6, { width: CW, align: 'right', lineBreak: false });
 
     doc.page.margins.bottom = savedMargin;

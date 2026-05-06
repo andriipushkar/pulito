@@ -29,22 +29,42 @@ describe('VolumeDiscountBadge', () => {
   it('renders single tier discount badge', async () => {
     mockApiGet.mockResolvedValue({
       success: true,
-      data: [{ id: 1, minQuantity: 10, maxQuantity: null, discountPercent: 15, discountType: 'percentage' }],
+      data: [
+        {
+          id: 1,
+          minQuantity: 10,
+          maxQuantity: null,
+          discountPercent: 15,
+          discountType: 'percentage',
+        },
+      ],
     });
     render(<VolumeDiscountBadge productId={1} />);
     await waitFor(() => {
-      expect(screen.getByTestId('volume-discount-badge')).toHaveTextContent('Від 10 шт — знижка 15%');
+      expect(screen.getByTestId('volume-discount-badge')).toHaveTextContent(
+        'Від 10 шт — знижка 15%',
+      );
     });
   });
 
   it('renders fixed amount suffix for fixed_amount discount type', async () => {
     mockApiGet.mockResolvedValue({
       success: true,
-      data: [{ id: 1, minQuantity: 5, maxQuantity: 20, discountPercent: 50, discountType: 'fixed_amount' }],
+      data: [
+        {
+          id: 1,
+          minQuantity: 5,
+          maxQuantity: 20,
+          discountPercent: 50,
+          discountType: 'fixed_amount',
+        },
+      ],
     });
     render(<VolumeDiscountBadge productId={1} />);
     await waitFor(() => {
-      expect(screen.getByTestId('volume-discount-badge')).toHaveTextContent('Від 5 шт — знижка 50 грн');
+      expect(screen.getByTestId('volume-discount-badge')).toHaveTextContent(
+        'Від 5 шт — знижка 50 грн',
+      );
     });
   });
 
@@ -53,12 +73,20 @@ describe('VolumeDiscountBadge', () => {
       success: true,
       data: [
         { id: 1, minQuantity: 5, maxQuantity: 9, discountPercent: 5, discountType: 'percentage' },
-        { id: 2, minQuantity: 10, maxQuantity: null, discountPercent: 15, discountType: 'percentage' },
+        {
+          id: 2,
+          minQuantity: 10,
+          maxQuantity: null,
+          discountPercent: 15,
+          discountType: 'percentage',
+        },
       ],
     });
     render(<VolumeDiscountBadge productId={1} />);
     await waitFor(() => {
-      expect(screen.getByTestId('volume-discount-badge')).toHaveTextContent('Оптова знижка до 15% (від 5 шт)');
+      expect(screen.getByTestId('volume-discount-badge')).toHaveTextContent(
+        'Гуртова знижка до 15% (від 5 шт)',
+      );
     });
   });
 

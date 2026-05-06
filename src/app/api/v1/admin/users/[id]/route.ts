@@ -22,7 +22,10 @@ import {
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { filterByRole, filterArrayByRole } from '@/utils/role-filter';
 
-export const GET = withRole('admin', 'manager')(async (request: NextRequest, { params, user: adminUser }) => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { params, user: adminUser }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -103,14 +106,18 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params, user
     }
 
     if (action === 'editProfile') {
-      const user = await updateUserProfile(numId, {
-        fullName: body.fullName,
-        phone: body.phone,
-        email: body.email,
-        companyName: body.companyName,
-        edrpou: body.edrpou,
-        legalAddress: body.legalAddress,
-      }, adminId);
+      const user = await updateUserProfile(
+        numId,
+        {
+          fullName: body.fullName,
+          phone: body.phone,
+          email: body.email,
+          companyName: body.companyName,
+          edrpou: body.edrpou,
+          legalAddress: body.legalAddress,
+        },
+        adminId,
+      );
       return successResponse(user);
     }
 
@@ -141,7 +148,7 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params, user
       const { prisma } = await import('@/lib/prisma');
       const group = body.wholesaleGroup === null ? null : Number(body.wholesaleGroup);
       if (group !== null && ![1, 2, 3].includes(group)) {
-        return errorResponse('Оптова група має бути 1, 2 або 3', 400);
+        return errorResponse('Гуртова група має бути 1, 2 або 3', 400);
       }
       await prisma.user.update({ where: { id: numId }, data: { wholesaleGroup: group } });
       const user = await getUserById(numId);

@@ -142,7 +142,7 @@ describe('sendWholesaleApproved', () => {
     });
 
     const call = mockSendEmail.mock.calls[0][0];
-    expect(call.subject).toContain('Оптовий статус');
+    expect(call.subject).toContain('Гуртовий статус');
     expect(call.html).toContain('ТОВ Клін');
   });
 
@@ -388,7 +388,7 @@ describe('DB template rendering', () => {
     mockFindUnique.mockResolvedValueOnce({
       templateKey: 'wholesale_approved',
       isActive: true,
-      subject: 'Оптовий доступ для {company_name}',
+      subject: 'Гуртовий доступ для {company_name}',
       bodyHtml: '<p>{company_name} підтверджено</p>',
     });
 
@@ -398,7 +398,7 @@ describe('DB template rendering', () => {
     });
 
     const call = mockSendEmail.mock.calls[0][0];
-    expect(call.subject).toBe('Оптовий доступ для ТОВ Клін');
+    expect(call.subject).toBe('Гуртовий доступ для ТОВ Клін');
   });
 
   it('should return null for inactive DB template', async () => {

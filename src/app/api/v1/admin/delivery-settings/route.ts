@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { invalidateSettingsCache } from '@/services/settings';
 
 const DELIVERY_SETTINGS_KEYS = [
   'delivery_nova_poshta_enabled',
@@ -24,17 +25,17 @@ const DELIVERY_SETTINGS_KEYS = [
   'delivery_ukrposhta_fixed_cost',
 ] as const;
 
-const SENSITIVE_KEYS = [
-  'delivery_nova_poshta_api_key',
-  'delivery_ukrposhta_bearer_token',
-];
+const SENSITIVE_KEYS = ['delivery_nova_poshta_api_key', 'delivery_ukrposhta_bearer_token'];
 
 function maskValue(key: string, value: string): string {
   if (!SENSITIVE_KEYS.includes(key) || !value || value.length < 8) return value;
   return value.slice(0, 4) + '••••••••' + value.slice(-4);
 }
 
-export const GET = withRole('admin', 'manager')(async () => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async () => {
   try {
     const settings = await prisma.siteSetting.findMany({
       where: { key: { in: [...DELIVERY_SETTINGS_KEYS] } },
@@ -57,7 +58,8 @@ export const PUT = withRole('admin')(async (request: NextRequest, { user }) => {
     const body = await request.json();
 
     for (const [key, value] of Object.entries(body)) {
-      if (!DELIVERY_SETTINGS_KEYS.includes(key as typeof DELIVERY_SETTINGS_KEYS[number])) continue;
+      if (!DELIVERY_SETTINGS_KEYS.includes(key as (typeof DELIVERY_SETTINGS_KEYS)[number]))
+        continue;
 
       const strValue = String(value);
       if (SENSITIVE_KEYS.includes(key) && strValue.includes('••••')) continue;
@@ -69,6 +71,7 @@ export const PUT = withRole('admin')(async (request: NextRequest, { user }) => {
       });
     }
 
+    await invalidateSettingsCache();
     return successResponse({ saved: true });
   } catch {
     return errorResponse('Помилка збереження налаштувань', 500);

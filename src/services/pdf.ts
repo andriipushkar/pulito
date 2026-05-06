@@ -21,7 +21,7 @@ import { generateReorderQR } from '@/services/qr-code';
 export class PdfError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'PdfError';
@@ -69,12 +69,33 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
     doc,
     'Рахунок-фактура',
     `#${order.orderNumber}`,
-    order.createdAt.toLocaleDateString('uk-UA')
+    order.createdAt.toLocaleDateString('uk-UA'),
   );
 
-  // Client info
-  drawSectionTitle(doc, 'Інформація про клієнта');
-  drawInfoLine(doc, "Ім'я:", order.contactName);
+  const isB2B = !!(order.companyName || order.edrpou);
+  const hasLegal = !!(COMPANY.legalName || COMPANY.edrpou || COMPANY.iban);
+
+  // Supplier (Постачальник) — with full legal info if configured
+  if (hasLegal) {
+    drawSectionTitle(doc, 'Постачальник');
+    if (COMPANY.legalName) drawInfoLine(doc, 'Назва:', COMPANY.legalName);
+    if (COMPANY.edrpou) drawInfoLine(doc, 'ЄДРПОУ:', COMPANY.edrpou);
+    if (COMPANY.ipn) drawInfoLine(doc, 'ІПН:', COMPANY.ipn);
+    if (COMPANY.iban) drawInfoLine(doc, 'IBAN:', COMPANY.iban);
+    if (COMPANY.bank) drawInfoLine(doc, 'Банк:', COMPANY.bank);
+    if (COMPANY.legalAddress) drawInfoLine(doc, 'Адреса:', COMPANY.legalAddress);
+    doc.moveDown(0.5);
+  }
+
+  // Покупець: B2B блок (юр. особа) або фіз. особа
+  drawSectionTitle(doc, isB2B ? 'Покупець (юридична особа)' : 'Інформація про клієнта');
+  if (isB2B) {
+    if (order.companyName) drawInfoLine(doc, 'Назва:', order.companyName);
+    if (order.edrpou) drawInfoLine(doc, 'ЄДРПОУ:', order.edrpou);
+    drawInfoLine(doc, 'Контактна особа:', order.contactName);
+  } else {
+    drawInfoLine(doc, "Ім'я:", order.contactName);
+  }
   drawInfoLine(doc, 'Телефон:', order.contactPhone);
   if (order.contactEmail) drawInfoLine(doc, 'Email:', order.contactEmail);
   if (order.deliveryCity) drawInfoLine(doc, 'Місто:', order.deliveryCity);
@@ -103,19 +124,37 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
       drawTableHeader(doc, colDefs);
     }
 
-    drawTableRow(doc, [
-      { value: item.productCode || '-', x: colDefs[0].x, width: colDefs[0].width },
-      { value: item.productName, x: colDefs[1].x, width: colDefs[1].width },
-      { value: `${Number(item.priceAtOrder).toFixed(2)}`, x: colDefs[2].x, width: colDefs[2].width, align: 'right' },
-      { value: String(item.quantity), x: colDefs[3].x, width: colDefs[3].width, align: 'center' },
-      { value: `${Number(item.subtotal).toFixed(2)}`, x: colDefs[4].x, width: colDefs[4].width, align: 'right' },
-    ], i);
+    drawTableRow(
+      doc,
+      [
+        { value: item.productCode || '-', x: colDefs[0].x, width: colDefs[0].width },
+        { value: item.productName, x: colDefs[1].x, width: colDefs[1].width },
+        {
+          value: `${Number(item.priceAtOrder).toFixed(2)}`,
+          x: colDefs[2].x,
+          width: colDefs[2].width,
+          align: 'right',
+        },
+        { value: String(item.quantity), x: colDefs[3].x, width: colDefs[3].width, align: 'center' },
+        {
+          value: `${Number(item.subtotal).toFixed(2)}`,
+          x: colDefs[4].x,
+          width: colDefs[4].width,
+          align: 'right',
+        },
+      ],
+      i,
+    );
   }
 
   doc.moveDown(0.5);
 
   // Bottom line under table
-  doc.moveTo(PAGE.margin, doc.y).lineTo(PAGE.margin + PAGE.contentWidth, doc.y).lineWidth(0.5).stroke(BRAND.border);
+  doc
+    .moveTo(PAGE.margin, doc.y)
+    .lineTo(PAGE.margin + PAGE.contentWidth, doc.y)
+    .lineWidth(0.5)
+    .stroke(BRAND.border);
   doc.moveDown(0.5);
 
   // Totals block — right-aligned
@@ -127,14 +166,22 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
   doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
   doc.text(`Сума товарів:`, totalsX, doc.y, { width: totalsW - 80 });
   doc.font('Regular').fontSize(9).fillColor(BRAND.text);
-  doc.text(`${subtotal.toFixed(2)} грн`, totalsX + totalsW - 80, doc.y - doc.currentLineHeight(), { width: 80, align: 'right' });
+  doc.text(`${subtotal.toFixed(2)} грн`, totalsX + totalsW - 80, doc.y - doc.currentLineHeight(), {
+    width: 80,
+    align: 'right',
+  });
 
   if (Number(order.discountAmount) > 0) {
     doc.moveDown(0.2);
     doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
     doc.text(`Знижка:`, totalsX, doc.y, { width: totalsW - 80 });
     doc.font('Regular').fontSize(9).fillColor('#F44336');
-    doc.text(`-${Number(order.discountAmount).toFixed(2)} грн`, totalsX + totalsW - 80, doc.y - doc.currentLineHeight(), { width: 80, align: 'right' });
+    doc.text(
+      `-${Number(order.discountAmount).toFixed(2)} грн`,
+      totalsX + totalsW - 80,
+      doc.y - doc.currentLineHeight(),
+      { width: 80, align: 'right' },
+    );
   }
 
   if (Number(order.deliveryCost) > 0) {
@@ -142,7 +189,12 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
     doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
     doc.text(`Доставка:`, totalsX, doc.y, { width: totalsW - 80 });
     doc.font('Regular').fontSize(9).fillColor(BRAND.text);
-    doc.text(`${Number(order.deliveryCost).toFixed(2)} грн`, totalsX + totalsW - 80, doc.y - doc.currentLineHeight(), { width: 80, align: 'right' });
+    doc.text(
+      `${Number(order.deliveryCost).toFixed(2)} грн`,
+      totalsX + totalsW - 80,
+      doc.y - doc.currentLineHeight(),
+      { width: 80, align: 'right' },
+    );
   }
 
   doc.moveDown(0.5);
@@ -163,7 +215,10 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
     const qrY = totalY + 30;
     doc.image(qrBuffer, qrX, qrY, { width: 80 });
     doc.font('Regular').fontSize(7).fillColor(BRAND.textSecondary);
-    doc.text('Сканувати для повторного замовлення', qrX - 20, qrY + 83, { width: 120, align: 'center' });
+    doc.text('Сканувати для повторного замовлення', qrX - 20, qrY + 83, {
+      width: 120,
+      align: 'center',
+    });
   } catch {
     // QR generation failure should not block invoice creation
   }
@@ -227,7 +282,7 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
     doc,
     'Видаткова накладна',
     `#${order.orderNumber}`,
-    order.createdAt.toLocaleDateString('uk-UA')
+    order.createdAt.toLocaleDateString('uk-UA'),
   );
 
   // Two-column layout for Supplier and Client
@@ -250,7 +305,8 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
   doc.text(`Тел: ${order.contactPhone}`, rightCol, doc.y, { width: 230 });
   if (order.contactEmail) doc.text(`Email: ${order.contactEmail}`, rightCol, doc.y, { width: 230 });
   if (order.deliveryCity) doc.text(`Місто: ${order.deliveryCity}`, rightCol, doc.y, { width: 230 });
-  if (order.deliveryAddress) doc.text(`Адреса: ${order.deliveryAddress}`, rightCol, doc.y, { width: 230 });
+  if (order.deliveryAddress)
+    doc.text(`Адреса: ${order.deliveryAddress}`, rightCol, doc.y, { width: 230 });
   if (order.trackingNumber) {
     doc.font('Bold').fontSize(9).fillColor(BRAND.accent);
     doc.text(`ТТН: ${order.trackingNumber}`, rightCol, doc.y, { width: 230 });
@@ -281,19 +337,37 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
       drawTableHeader(doc, colDefs);
     }
 
-    drawTableRow(doc, [
-      { value: String(i + 1), x: colDefs[0].x, width: colDefs[0].width, align: 'center' },
-      { value: item.productCode || '-', x: colDefs[1].x, width: colDefs[1].width },
-      { value: item.productName, x: colDefs[2].x, width: colDefs[2].width },
-      { value: 'шт.', x: colDefs[3].x, width: colDefs[3].width, align: 'center' },
-      { value: String(item.quantity), x: colDefs[4].x, width: colDefs[4].width, align: 'center' },
-      { value: `${Number(item.priceAtOrder).toFixed(2)}`, x: colDefs[5].x, width: colDefs[5].width, align: 'right' },
-      { value: `${Number(item.subtotal).toFixed(2)}`, x: colDefs[6].x, width: colDefs[6].width, align: 'right' },
-    ], i);
+    drawTableRow(
+      doc,
+      [
+        { value: String(i + 1), x: colDefs[0].x, width: colDefs[0].width, align: 'center' },
+        { value: item.productCode || '-', x: colDefs[1].x, width: colDefs[1].width },
+        { value: item.productName, x: colDefs[2].x, width: colDefs[2].width },
+        { value: 'шт.', x: colDefs[3].x, width: colDefs[3].width, align: 'center' },
+        { value: String(item.quantity), x: colDefs[4].x, width: colDefs[4].width, align: 'center' },
+        {
+          value: `${Number(item.priceAtOrder).toFixed(2)}`,
+          x: colDefs[5].x,
+          width: colDefs[5].width,
+          align: 'right',
+        },
+        {
+          value: `${Number(item.subtotal).toFixed(2)}`,
+          x: colDefs[6].x,
+          width: colDefs[6].width,
+          align: 'right',
+        },
+      ],
+      i,
+    );
   }
 
   doc.moveDown(0.5);
-  doc.moveTo(PAGE.margin, doc.y).lineTo(PAGE.margin + PAGE.contentWidth, doc.y).lineWidth(0.5).stroke(BRAND.border);
+  doc
+    .moveTo(PAGE.margin, doc.y)
+    .lineTo(PAGE.margin + PAGE.contentWidth, doc.y)
+    .lineWidth(0.5)
+    .stroke(BRAND.border);
   doc.moveDown(0.5);
 
   // Total with styled block
@@ -309,7 +383,11 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
 
   // Signatures section
   doc.y = totalY + 50;
-  doc.moveTo(PAGE.margin, doc.y).lineTo(PAGE.margin + PAGE.contentWidth, doc.y).lineWidth(0.5).stroke(BRAND.border);
+  doc
+    .moveTo(PAGE.margin, doc.y)
+    .lineTo(PAGE.margin + PAGE.contentWidth, doc.y)
+    .lineWidth(0.5)
+    .stroke(BRAND.border);
   doc.moveDown(1);
 
   doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
@@ -317,11 +395,19 @@ export async function generateDeliveryNotePdf(orderId: number): Promise<string> 
   const sigY = doc.y;
   // Left signature
   doc.text('Відпустив:', PAGE.margin, sigY);
-  doc.moveTo(PAGE.margin + 60, sigY + 12).lineTo(PAGE.margin + 200, sigY + 12).lineWidth(0.5).stroke(BRAND.border);
+  doc
+    .moveTo(PAGE.margin + 60, sigY + 12)
+    .lineTo(PAGE.margin + 200, sigY + 12)
+    .lineWidth(0.5)
+    .stroke(BRAND.border);
 
   // Right signature
   doc.text('Отримав:', rightCol, sigY);
-  doc.moveTo(rightCol + 55, sigY + 12).lineTo(rightCol + 200, sigY + 12).lineWidth(0.5).stroke(BRAND.border);
+  doc
+    .moveTo(rightCol + 55, sigY + 12)
+    .lineTo(rightCol + 200, sigY + 12)
+    .lineWidth(0.5)
+    .stroke(BRAND.border);
 
   // Footer
   drawFooter(doc, COMPANY);
@@ -347,7 +433,7 @@ export async function generateCommercialOfferPdf(
     unit?: string;
     description?: string;
   }[],
-  clientName?: string
+  clientName?: string,
 ): Promise<string> {
   if (products.length === 0) {
     throw new PdfError('Список товарів порожній', 400);
@@ -378,7 +464,7 @@ export async function generateCommercialOfferPdf(
     doc,
     'Комерційна пропозиція',
     clientName ? `Для: ${clientName}` : '',
-    new Date().toLocaleDateString('uk-UA')
+    new Date().toLocaleDateString('uk-UA'),
   );
 
   doc.font('Regular').fontSize(9).fillColor(BRAND.text);
@@ -406,17 +492,30 @@ export async function generateCommercialOfferPdf(
       drawTableHeader(doc, colDefs);
     }
 
-    drawTableRow(doc, [
-      { value: String(i + 1), x: colDefs[0].x, width: colDefs[0].width, align: 'center' },
-      { value: p.code, x: colDefs[1].x, width: colDefs[1].width },
-      { value: p.name, x: colDefs[2].x, width: colDefs[2].width },
-      { value: `${p.price.toFixed(2)} грн`, x: colDefs[3].x, width: colDefs[3].width, align: 'right' },
-      { value: p.unit || 'шт.', x: colDefs[4].x, width: colDefs[4].width, align: 'center' },
-    ], i);
+    drawTableRow(
+      doc,
+      [
+        { value: String(i + 1), x: colDefs[0].x, width: colDefs[0].width, align: 'center' },
+        { value: p.code, x: colDefs[1].x, width: colDefs[1].width },
+        { value: p.name, x: colDefs[2].x, width: colDefs[2].width },
+        {
+          value: `${p.price.toFixed(2)} грн`,
+          x: colDefs[3].x,
+          width: colDefs[3].width,
+          align: 'right',
+        },
+        { value: p.unit || 'шт.', x: colDefs[4].x, width: colDefs[4].width, align: 'center' },
+      ],
+      i,
+    );
   }
 
   doc.moveDown(0.5);
-  doc.moveTo(PAGE.margin, doc.y).lineTo(PAGE.margin + PAGE.contentWidth, doc.y).lineWidth(0.5).stroke(BRAND.border);
+  doc
+    .moveTo(PAGE.margin, doc.y)
+    .lineTo(PAGE.margin + PAGE.contentWidth, doc.y)
+    .lineWidth(0.5)
+    .stroke(BRAND.border);
   doc.moveDown(1);
 
   doc.font('Regular').fontSize(8).fillColor(BRAND.textSecondary);

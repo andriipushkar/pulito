@@ -737,7 +737,7 @@ export async function notifyManagerNewOrder(order: {
   const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
   if (!chatId || !BOT_TOKEN) return;
 
-  const clientLabel = order.clientType === 'wholesale' ? 'Оптовий' : 'Роздрібний';
+  const clientLabel = order.clientType === 'wholesale' ? 'Гуртовий' : 'Роздрібний';
   const text = [
     `🆕 <b>Нове замовлення #${order.orderNumber}</b>`,
     '',
@@ -1113,7 +1113,7 @@ async function handleWholesalePrices(chatId: number) {
   if (!user || user.role !== 'wholesaler') {
     await sendMessage(
       chatId,
-      '⚠️ Оптові ціни доступні тільки для авторизованих оптових клієнтів.\n\nЗверніться до менеджера для отримання оптового статусу.',
+      '⚠️ Гуртові ціни доступні тільки для авторизованих гуртових клієнтів.\n\nЗверніться до менеджера для отримання гуртового статусу.',
     );
     return;
   }
@@ -1126,12 +1126,12 @@ async function handleWholesalePrices(chatId: number) {
   });
 
   if (products.length === 0) {
-    await sendMessage(chatId, 'Оптові ціни тимчасово недоступні.');
+    await sendMessage(chatId, 'Гуртові ціни тимчасово недоступні.');
     return;
   }
 
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
-  let text = '💼 <b>Оптові ціни (Топ-10):</b>\n\n';
+  let text = '💼 <b>Гуртові ціни (Топ-10):</b>\n\n';
   for (const p of products) {
     const retail = Number(p.priceRetail).toFixed(2);
     const wholesale = p.priceWholesale ? Number(p.priceWholesale).toFixed(2) : retail;

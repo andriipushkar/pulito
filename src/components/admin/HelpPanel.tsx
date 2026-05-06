@@ -21,18 +21,26 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Натисніть на око щоб сховати/показати віджет',
       'Увімкніть автооновлення для відстеження замовлень в реальному часі',
     ],
-    tips: ['Сповіщення про нові замовлення з\'являються автоматично', 'Ctrl+K — швидкий перехід між розділами'],
+    tips: [
+      "Сповіщення про нові замовлення з'являються автоматично",
+      'Ctrl+K — швидкий перехід між розділами',
+    ],
   },
   '/admin/orders': {
     title: 'Замовлення',
-    description: 'Управління всіма замовленнями магазину. Перегляд, фільтрація, зміна статусів та експорт.',
+    description:
+      'Управління всіма замовленнями магазину. Перегляд, фільтрація, зміна статусів та експорт.',
     steps: [
-      'Використовуйте пошук за номером, ім\'ям, телефоном або ТТН',
+      "Використовуйте пошук за номером, ім'ям, телефоном або ТТН",
       'Фільтруйте за статусом, типом клієнта, способом оплати чи доставки',
       'Для швидкої зміни статусу натисніть іконку олівця в рядку замовлення',
       'Натисніть на номер замовлення для перегляду деталей',
     ],
-    tips: ['Нові замовлення підсвічуються бейджем зверху', 'Статистика оновлюється кожні 30 секунд', 'Експорт у XLSX доступний через кнопку "Експорт"'],
+    tips: [
+      'Нові замовлення підсвічуються бейджем зверху',
+      'Статистика оновлюється кожні 30 секунд',
+      'Експорт у XLSX доступний через кнопку "Експорт"',
+    ],
   },
   '/admin/products': {
     title: 'Товари',
@@ -43,17 +51,23 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Виберіть товари чекбоксами для масових дій (активація, деактивація, зміна категорії)',
       'Натисніть на назву товару для редагування',
     ],
-    tips: ['Сортування за категорією допоможе швидко знайти потрібні товари', 'Товари з нульовим залишком підсвічені червоним'],
+    tips: [
+      'Сортування за категорією допоможе швидко знайти потрібні товари',
+      'Товари з нульовим залишком підсвічені червоним',
+    ],
   },
   '/admin/users': {
     title: 'Користувачі',
-    description: 'Управління клієнтами, оптовими заявками та ролями.',
+    description: 'Управління клієнтами, гуртовими заявками та ролями.',
     steps: [
-      'Шукайте за email, ім\'ям, телефоном або назвою компанії',
-      'Для підтвердження оптової заявки виберіть групу (Опт 1/2/3) і натисніть "Так"',
-      'Натисніть на ім\'я для перегляду профілю користувача',
+      "Шукайте за email, ім'ям, телефоном або назвою компанії",
+      'Для підтвердження гуртової заявки виберіть групу (Опт 1/2/3) і натисніть "Так"',
+      "Натисніть на ім'я для перегляду профілю користувача",
     ],
-    tips: ['Оптовий статус "Очікує" підсвічується кольором', 'Заблоковані акаунти мають червоний бейдж'],
+    tips: [
+      'Гуртовий статус "Очікує" підсвічується кольором',
+      'Заблоковані акаунти мають червоний бейдж',
+    ],
   },
   '/admin/analytics': {
     title: 'Аналітика',
@@ -63,7 +77,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Перемикайтеся між вкладками для різних типів аналітики',
       'Експортуйте звіти в CSV або PDF',
     ],
-    tips: ['Вкладка "Воронка" показує конверсію від перегляду до покупки', 'ABC-аналіз допоможе визначити найприбутковіші товари'],
+    tips: [
+      'Вкладка "Воронка" показує конверсію від перегляду до покупки',
+      'ABC-аналіз допоможе визначити найприбутковіші товари',
+    ],
   },
   '/admin/reports': {
     title: 'Звіти',
@@ -73,7 +90,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Задайте параметри (період, статус) та натисніть "Згенерувати"',
       'Файл автоматично завантажиться у вибраному форматі',
     ],
-    tips: ['Можна створити власний звіт через конструктор', 'Звіти генеруються на сервері — великі файли можуть зайняти кілька секунд'],
+    tips: [
+      'Можна створити власний звіт через конструктор',
+      'Звіти генеруються на сервері — великі файли можуть зайняти кілька секунд',
+    ],
   },
   '/admin/categories': {
     title: 'Категорії',
@@ -84,7 +104,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Для об\'єднання категорій натисніть "Об\'єднати" — всі товари перемістяться',
       'Підкатегорії відображаються з відступом під батьківською',
     ],
-    tips: ['Максимум 8 батьківських категорій', 'Категорію з товарами не можна видалити — спочатку перемістіть товари'],
+    tips: [
+      'Максимум 8 батьківських категорій',
+      'Категорію з товарами не можна видалити — спочатку перемістіть товари',
+    ],
   },
   '/admin/pages': {
     title: 'Статичні сторінки',
@@ -93,7 +116,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Натисніть "Редагувати" для зміни контенту сторінки',
       'Slug визначає URL сторінки (наприклад, /pages/delivery)',
     ],
-    tips: ['Сторінки "Чернетка" не відображаються на сайті', 'Зміни застосовуються одразу після збереження'],
+    tips: [
+      'Сторінки "Чернетка" не відображаються на сайті',
+      'Зміни застосовуються одразу після збереження',
+    ],
   },
   '/admin/faq': {
     title: 'FAQ',
@@ -113,7 +139,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Перегляньте попередній перегляд перед підтвердженням імпорту',
       'Після імпорту перегляньте лог з кількістю створених, оновлених та пропущених товарів',
     ],
-    tips: ['Стандартний формат: Код, Назва, Категорія, Ціна роздріб, Ціна опт', 'Прайс-лист з 4 цінами (Роздріб, Опт1, Опт2, Опт3) оновлює ціни автоматично'],
+    tips: [
+      'Стандартний формат: Код, Назва, Категорія, Ціна роздріб, Ціна опт',
+      'Прайс-лист з 4 цінами (Роздріб, Опт1, Опт2, Опт3) оновлює ціни автоматично',
+    ],
   },
   '/admin/publications': {
     title: 'Публікації',
@@ -124,7 +153,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Прикріпіть товар для автозаповнення даних (ціна, назва, посилання)',
       'Запланувайте публікацію на конкретну дату або опублікуйте одразу',
     ],
-    tips: ['Змінні {{product.name}}, {{product.price}} замінюються автоматично', 'Для кожного каналу можна налаштувати окремий текст'],
+    tips: [
+      'Змінні {{product.name}}, {{product.price}} замінюються автоматично',
+      'Для кожного каналу можна налаштувати окремий текст',
+    ],
   },
   '/admin/badges': {
     title: 'Бейджі товарів',
@@ -146,11 +178,12 @@ const HELP_DATA: Record<string, HelpSection> = {
     ],
   },
   '/admin/wholesale-rules': {
-    title: 'Оптові правила',
-    description: 'Налаштування правил для оптових покупців: мінімальна сума, кратність, обмеження.',
+    title: 'Гуртові правила',
+    description:
+      'Налаштування правил для гуртових покупців: мінімальна сума, кратність, обмеження.',
     steps: [
       'Натисніть "Додати правило" та оберіть тип',
-      'Мін. сума — мінімальна сума замовлення для оптовиків',
+      'Мін. сума — мінімальна сума замовлення для гуртівників',
       'Кратність — товар можна замовити лише кратною кількістю',
       'Увімкніть/вимкніть правило кнопкою статусу',
     ],
@@ -176,7 +209,8 @@ const HELP_DATA: Record<string, HelpSection> = {
   },
   '/admin/email-templates': {
     title: 'Email-шаблони',
-    description: 'Редагування шаблонів електронних листів (підтвердження замовлення, реєстрація тощо).',
+    description:
+      'Редагування шаблонів електронних листів (підтвердження замовлення, реєстрація тощо).',
     steps: [
       'Натисніть "Редагувати" для зміни теми та тіла листа',
       'Використовуйте змінні: {{name}}, {{orderNumber}}, {{status}}, {{link}}, {{amount}}',
@@ -185,8 +219,8 @@ const HELP_DATA: Record<string, HelpSection> = {
     ],
   },
   '/admin/feedback': {
-    title: 'Зворотний зв\'язок',
-    description: 'Управління зверненнями від клієнтів: форми зв\'язку, зворотні дзвінки.',
+    title: "Зворотний зв'язок",
+    description: "Управління зверненнями від клієнтів: форми зв'язку, зворотні дзвінки.",
     steps: [
       'Натисніть на звернення для перегляду деталей',
       'Натисніть "Оброблено" або "Відхилити" для зміни статусу',
@@ -210,7 +244,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Натисніть "Перевірити з\'єднання" для тесту',
       'Натисніть "Зберегти" — ключі зашифровані та замасковані',
     ],
-    tips: ['Чутливі дані (токени) показуються замаскованими', 'При повторному збереженні замасковані значення НЕ перезаписуються'],
+    tips: [
+      'Чутливі дані (токени) показуються замаскованими',
+      'При повторному збереженні замасковані значення НЕ перезаписуються',
+    ],
   },
   '/admin/bot-settings': {
     title: 'Налаштування ботів',
@@ -240,7 +277,11 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Вкладка "Повідомлення": повідомлення від покупців з маркетплейсів',
       'Вкладка "Налаштування API": API ключі для кожного маркетплейсу',
     ],
-    tips: ['Кнопка "Синхронізувати ціни" оновить ціни на маркетплейсі', 'Фільтр "Тільки не опубліковані" допоможе не дублювати товари', 'Автосинхронізація налаштовується у вкладці "Налаштування API"'],
+    tips: [
+      'Кнопка "Синхронізувати ціни" оновить ціни на маркетплейсі',
+      'Фільтр "Тільки не опубліковані" допоможе не дублювати товари',
+      'Автосинхронізація налаштовується у вкладці "Налаштування API"',
+    ],
   },
   '/admin/settings': {
     title: 'Загальні налаштування',
@@ -251,7 +292,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Телефон має бути у форматі +380XXXXXXXXX',
       'IBAN перевіряється автоматично (UA + 27 цифр)',
     ],
-    tips: ['Зміни набувають чинності одразу для всіх відвідувачів', 'ЄДРПОУ має містити рівно 8 цифр'],
+    tips: [
+      'Зміни набувають чинності одразу для всіх відвідувачів',
+      'ЄДРПОУ має містити рівно 8 цифр',
+    ],
   },
   '/admin/payment-settings': {
     title: 'Платіжні системи',
@@ -262,7 +306,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Натисніть "Перевірити з\'єднання" для тесту',
       'Скопіюйте Webhook URL та вставте у кабінеті платіжної системи',
     ],
-    tips: ['Sandbox режим для LiqPay — тестові платежі без реальних грошей', 'Мінімальна сума для онлайн оплати обмежує дрібні транзакції'],
+    tips: [
+      'Sandbox режим для LiqPay — тестові платежі без реальних грошей',
+      'Мінімальна сума для онлайн оплати обмежує дрібні транзакції',
+    ],
   },
   '/admin/delivery-settings': {
     title: 'Служби доставки',
@@ -273,7 +320,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Натисніть "Перевірити з\'єднання" для тесту API ключа',
       'Задайте поріг безкоштовної доставки (опціонально)',
     ],
-    tips: ['ТТН створюється автоматично при зміні статусу на "Відправлено"', 'Фіксовану вартість можна задати замість розрахунку через API'],
+    tips: [
+      'ТТН створюється автоматично при зміні статусу на "Відправлено"',
+      'Фіксовану вартість можна задати замість розрахунку через API',
+    ],
   },
   '/admin/smtp-settings': {
     title: 'Email / SMTP',
@@ -284,7 +334,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Натисніть "Перевірити з\'єднання" для тесту',
       'Введіть email та надішліть тестовий лист',
     ],
-    tips: ['SSL/TLS зазвичай на порту 465, STARTTLS на 587', 'Для SendGrid/Mailgun використовуйте їхні SMTP дані'],
+    tips: [
+      'SSL/TLS зазвичай на порту 465, STARTTLS на 587',
+      'Для SendGrid/Mailgun використовуйте їхні SMTP дані',
+    ],
   },
   '/admin/homepage': {
     title: 'Блоки головної сторінки',
@@ -311,7 +364,7 @@ const HELP_DATA: Record<string, HelpSection> = {
     description: 'Управління кольоровою схемою та темами сайту.',
     steps: [
       'Натисніть "Кольори" для зміни кольорової палітри теми',
-      'Перегляньте прев\'ю змін перед збереженням',
+      "Перегляньте прев'ю змін перед збереженням",
       'Натисніть "Активувати" щоб застосувати тему на сайті',
       'Завантажте ZIP-файл для додавання нової теми',
     ],
@@ -332,7 +385,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Натисніть "Запустити аудит" для початку перевірки',
       'Перегляньте знайдені проблеми та рекомендації',
     ],
-    tips: ['Рекомендується запускати аудит після масових змін товарів', 'Товари без Meta Title втрачають позиції в пошуку'],
+    tips: [
+      'Рекомендується запускати аудит після масових змін товарів',
+      'Товари без Meta Title втрачають позиції в пошуку',
+    ],
   },
   '/admin/pallet-delivery': {
     title: 'Палетна доставка',
@@ -342,7 +398,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Задайте мін/макс вагу, базову ціну та ціну за кг',
       'Додайте регіони з множниками для різної вартості',
     ],
-    tips: ['Множник 1.5 для регіону означає +50% до базової ціни', 'Поріг безкоштовної доставки працює окремо від звичайної'],
+    tips: [
+      'Множник 1.5 для регіону означає +50% до базової ціни',
+      'Поріг безкоштовної доставки працює окремо від звичайної',
+    ],
   },
   '/admin/audit-log': {
     title: 'Журнал дій',
@@ -352,7 +411,10 @@ const HELP_DATA: Record<string, HelpSection> = {
       'Натисніть на запис для перегляду деталей',
       'Експортуйте лог у CSV для зовнішнього аналізу',
     ],
-    tips: ['Журнал зберігає всі зміни: створення, редагування, видалення', 'Корисно для аудиту та розслідування інцидентів'],
+    tips: [
+      'Журнал зберігає всі зміни: створення, редагування, видалення',
+      'Корисно для аудиту та розслідування інцидентів',
+    ],
   },
 
   // ── Detail pages ──
@@ -380,7 +442,7 @@ const HELP_DATA: Record<string, HelpSection> = {
     steps: [
       'Завантажте зображення натиснувши "+" у секції зображень',
       'Заповніть основну інформацію: назва, код, категорія',
-      'Встановіть ціни: роздріб та 3 рівні опту',
+      'Встановіть ціни: роздріб та 3 рівні гурту',
       'Додайте HTML-опис через WYSIWYG редактор',
       'Заповніть SEO поля (Meta Title до 70 символів, Description до 160)',
       'Натисніть "Зберегти зміни"',
@@ -393,10 +455,10 @@ const HELP_DATA: Record<string, HelpSection> = {
   },
   '/admin/users/': {
     title: 'Профіль користувача',
-    description: 'Детальна інформація про користувача: замовлення, лояльність, оптовий статус.',
+    description: 'Детальна інформація про користувача: замовлення, лояльність, гуртовий статус.',
     steps: [
       'Перегляньте історію замовлень клієнта',
-      'Змініть роль або оптову групу',
+      'Змініть роль або гуртову групу',
       'Заблокуйте або розблокуйте акаунт',
     ],
   },
@@ -407,9 +469,14 @@ export default function HelpPanel() {
   const [isOpen, setIsOpen] = useState(false);
 
   // Find help for current page (exact match or parent match)
-  const helpKey = pathname && HELP_DATA[pathname]
-    ? pathname
-    : pathname ? Object.keys(HELP_DATA).filter((k) => pathname.startsWith(k) && k !== '/admin').sort((a, b) => b.length - a.length)[0] || '/admin' : '/admin';
+  const helpKey =
+    pathname && HELP_DATA[pathname]
+      ? pathname
+      : pathname
+        ? Object.keys(HELP_DATA)
+            .filter((k) => pathname.startsWith(k) && k !== '/admin')
+            .sort((a, b) => b.length - a.length)[0] || '/admin'
+        : '/admin';
 
   const help = HELP_DATA[helpKey];
 
@@ -417,7 +484,10 @@ export default function HelpPanel() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) setIsOpen(false);
-      if (e.key === 'F1') { e.preventDefault(); setIsOpen((p) => !p); }
+      if (e.key === 'F1') {
+        e.preventDefault();
+        setIsOpen((p) => !p);
+      }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
@@ -445,13 +515,27 @@ export default function HelpPanel() {
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg)] px-6 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-primary)]/10">
-                  <svg className="h-5 w-5 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+                  <svg
+                    className="h-5 w-5 text-[var(--color-primary)]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"
+                    />
                   </svg>
                 </div>
                 <h2 className="text-lg font-bold">Довідка</h2>
               </div>
-              <button onClick={() => setIsOpen(false)} className="rounded-lg p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]" aria-label="Закрити">
+              <button
+                onClick={() => setIsOpen(false)}
+                className="rounded-lg p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+                aria-label="Закрити"
+              >
                 <Close size={20} />
               </button>
             </div>
@@ -460,14 +544,22 @@ export default function HelpPanel() {
               {/* Title & Description */}
               <div>
                 <h3 className="text-xl font-bold text-[var(--color-text)]">{help.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">{help.description}</p>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">
+                  {help.description}
+                </p>
               </div>
 
               {/* Steps */}
               {help.steps && help.steps.length > 0 && (
                 <div>
                   <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
                     Як користуватись
@@ -489,14 +581,27 @@ export default function HelpPanel() {
               {help.tips && help.tips.length > 0 && (
                 <div>
                   <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"
+                      />
                     </svg>
                     Підказки
                   </h4>
                   <ul className="space-y-2">
                     {help.tips.map((tip, i) => (
-                      <li key={i} className="flex gap-2.5 rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                      <li
+                        key={i}
+                        className="flex gap-2.5 rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800"
+                      >
                         <span className="shrink-0">💡</span>
                         <span>{tip}</span>
                       </li>
@@ -507,19 +612,27 @@ export default function HelpPanel() {
 
               {/* Keyboard shortcuts hint */}
               <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
-                <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">Гарячі клавіші</p>
+                <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                  Гарячі клавіші
+                </p>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">Відкрити довідку</span>
-                    <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-xs font-mono">F1</kbd>
+                    <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-xs font-mono">
+                      F1
+                    </kbd>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">Швидкий перехід</span>
-                    <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-xs font-mono">Ctrl+K</kbd>
+                    <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-xs font-mono">
+                      Ctrl+K
+                    </kbd>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">Закрити</span>
-                    <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-xs font-mono">Esc</kbd>
+                    <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-xs font-mono">
+                      Esc
+                    </kbd>
                   </div>
                 </div>
               </div>

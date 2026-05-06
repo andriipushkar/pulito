@@ -8,10 +8,12 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().default('redis://localhost:6380/0'),
 
-  JWT_SECRET: z.string().min(32).refine(
-    (s) => new Set(s).size >= 16,
-    { message: 'JWT_SECRET must have sufficient entropy (16+ unique chars)' }
-  ),
+  JWT_SECRET: z
+    .string()
+    .min(32)
+    .refine((s) => new Set(s).size >= 16, {
+      message: 'JWT_SECRET must have sufficient entropy (16+ unique chars)',
+    }),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('30d'),
 
@@ -42,6 +44,7 @@ const envSchema = z.object({
   MONOBANK_TOKEN: z.string().default(''),
   WAYFORPAY_MERCHANT_ACCOUNT: z.string().default(''),
   WAYFORPAY_SECRET_KEY: z.string().default(''),
+  REMOVEBG_API_KEY: z.string().default(''),
   TELEGRAM_BOT_TOKEN: z.string().default(''),
   TELEGRAM_CHANNEL_ID: z.string().default(''),
   TELEGRAM_MANAGER_CHAT_ID: z.string().default(''),

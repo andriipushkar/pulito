@@ -69,6 +69,22 @@
       -apple-system,
       sans-serif;
     line-height: 1.6;
+    font-size: clamp(0.9375rem, 0.85rem + 0.4vw, 1.0625rem);
+  }
+
+  h1 {
+    font-size: clamp(1.75rem, 1.3rem + 2.2vw, 3rem);
+    line-height: 1.15;
+  }
+
+  h2 {
+    font-size: clamp(1.375rem, 1.1rem + 1.4vw, 2.25rem);
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem);
+    line-height: 1.3;
   }
 
   a {
@@ -313,13 +329,13 @@
     line-height: 1.3;
   }
   .prose h1 {
-    font-size: 2em;
+    font-size: clamp(1.75rem, 1.3rem + 2.2vw, 3rem);
   }
   .prose h2 {
-    font-size: 1.5em;
+    font-size: clamp(1.375rem, 1.1rem + 1.4vw, 2.25rem);
   }
   .prose h3 {
-    font-size: 1.25em;
+    font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem);
   }
   .prose p {
     margin-bottom: 1em;
@@ -354,6 +370,92 @@
   .prose th {
     background: var(--color-bg-secondary);
     font-weight: 600;
+  }
+}
+
+/* Reduced motion: respect user's OS-level preference (WCAG 2.1 SC 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Dark theme: applied either by data-theme="dark" or via prefers-color-scheme
+ * when no explicit data-theme is set on <html>.
+ */
+:root[data-theme='dark'] {
+  --color-primary: #4ea3ff;
+  --color-primary-light: #82c0ff;
+  --color-primary-dark: #1565c0;
+  --color-primary-50: #0d2c4d;
+  --color-primary-100: #133a66;
+  --color-secondary: #ffd54f;
+  --color-accent: #ffb74d;
+  --color-danger: #ef5350;
+  --color-warning: #ffb74d;
+  --color-success: #66bb6a;
+  --color-info: #4ea3ff;
+
+  --color-bg: #0f172a;
+  --color-bg-secondary: #1e293b;
+  --color-bg-overlay: rgba(0, 0, 0, 0.65);
+  --color-text: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-border: #334155;
+
+  --color-discount: #ef5350;
+  --color-in-stock: #66bb6a;
+  --color-out-of-stock: #64748b;
+  --color-cta: #4ea3ff;
+
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.55), 0 8px 10px -6px rgba(0, 0, 0, 0.45);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  --shadow-brand: 0 4px 14px rgba(78, 163, 255, 0.35);
+  --shadow-brand-lg: 0 8px 24px rgba(78, 163, 255, 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --color-primary: #4ea3ff;
+    --color-primary-light: #82c0ff;
+    --color-primary-dark: #1565c0;
+    --color-primary-50: #0d2c4d;
+    --color-primary-100: #133a66;
+    --color-secondary: #ffd54f;
+    --color-accent: #ffb74d;
+    --color-danger: #ef5350;
+    --color-warning: #ffb74d;
+    --color-success: #66bb6a;
+    --color-info: #4ea3ff;
+
+    --color-bg: #0f172a;
+    --color-bg-secondary: #1e293b;
+    --color-bg-overlay: rgba(0, 0, 0, 0.65);
+    --color-text: #f1f5f9;
+    --color-text-secondary: #94a3b8;
+    --color-border: #334155;
+
+    --color-discount: #ef5350;
+    --color-in-stock: #66bb6a;
+    --color-out-of-stock: #64748b;
+    --color-cta: #4ea3ff;
+  }
+
+  html:not([data-theme='light']):not([data-theme='dark']) .glass,
+  html:not([data-theme='light']):not([data-theme='dark']) .glass-nav {
+    background: rgba(15, 23, 42, 0.72);
   }
 }
 

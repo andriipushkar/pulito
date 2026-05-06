@@ -46,11 +46,11 @@ const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   products_stock: 'Залишки товарів',
   orders_by_status: 'Замовлення за статусом',
   clients_activity: 'Активність клієнтів',
-  wholesale_report: 'Оптові продажі',
+  wholesale_report: 'Гуртові продажі',
   delivery_report: 'Звіт по доставках',
   financial_report: 'Фінансовий звіт',
   returns_cancellations: 'Повернення та скасування',
-  wholesale_groups: 'Звіт по оптових групах',
+  wholesale_groups: 'Звіт по гуртових групах',
   product_leaders: 'Товари-лідери та аутсайдери',
   manager_activity: 'Активність менеджерів',
   acquisition_channels: 'Канали залучення',
@@ -185,7 +185,7 @@ async function fetchProductsStock(params: ReportParams): Promise<RowData[]> {
     Категорія: p.category?.name || '',
     Залишок: p.quantity,
     'Роздрібна ціна': Number(Number(p.priceRetail).toFixed(2)),
-    'Оптова ціна': Number(Number(p.priceWholesale || 0).toFixed(2)),
+    'Гуртова ціна': Number(Number(p.priceWholesale || 0).toFixed(2)),
     'Продано (шт)': p._count.orderItems,
   }));
 }
@@ -210,7 +210,7 @@ async function fetchOrdersByStatus(params: ReportParams): Promise<RowData[]> {
     Статус: o.status,
     Клієнт: o.contactName,
     Телефон: o.contactPhone,
-    Тип: o.clientType === 'wholesale' ? 'Оптовий' : 'Роздрібний',
+    Тип: o.clientType === 'wholesale' ? 'Гуртовий' : 'Роздрібний',
     'Кількість товарів': o.itemsCount,
     Сума: Number(Number(o.totalAmount).toFixed(2)),
     Оплата: o.paymentMethod,
@@ -633,7 +633,7 @@ async function fetchSummaryReport(params: ReportParams): Promise<RowData[]> {
     { Показник: 'Повернуто', Значення: returnedOrders },
     { Показник: 'Середній чек', Значення: Number(avgCheck.toFixed(2)) },
     { Показник: 'Нових користувачів', Значення: newUsers },
-    { Показник: 'Оптових клієнтів', Значення: wholesalers },
+    { Показник: 'Гуртових клієнтів', Значення: wholesalers },
     { Показник: 'Активних товарів', Значення: totalProducts },
     { Показник: 'Немає в наявності', Значення: outOfStock },
   ];
@@ -835,7 +835,7 @@ const PDF_CONFIGS: Record<TemplateKey, PdfConfig> = {
     ],
   },
   wholesale_report: {
-    title: 'Оптові продажі',
+    title: 'Гуртові продажі',
     columns: [
       { label: '№', key: '№ замовлення', width: 85 },
       { label: 'Дата', key: 'Дата', width: 85 },
@@ -884,7 +884,7 @@ const PDF_CONFIGS: Record<TemplateKey, PdfConfig> = {
     ],
   },
   wholesale_groups: {
-    title: 'Звіт по оптових групах',
+    title: 'Звіт по гуртових групах',
     columns: [
       { label: 'Група', key: 'Група', width: 110 },
       { label: "Ім'я", key: "Ім'я", width: 150 },

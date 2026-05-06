@@ -60,11 +60,18 @@ model Order {
   contactName          String         @map("contact_name")
   contactPhone         String         @map("contact_phone")
   contactEmail         String         @map("contact_email")
+  companyName          String?        @map("company_name")
+  edrpou               String?
   deliveryMethod       DeliveryMethod @map("delivery_method")
   deliveryCity         String?        @map("delivery_city")
   deliveryWarehouseRef String?        @map("delivery_warehouse_ref")
   deliveryAddress      String?        @map("delivery_address")
+  deliveryStreetRef    String?        @map("delivery_street_ref")
+  deliveryBuilding     String?        @map("delivery_building")
+  deliveryFlat         String?        @map("delivery_flat")
   trackingNumber       String?        @map("tracking_number")
+  trackingStatus       String?        @map("tracking_status")
+  trackingStatusAt     DateTime?      @map("tracking_status_at")
   paymentMethod        PaymentMethod  @map("payment_method")
   paymentStatus        PaymentStatus  @default(pending) @map("payment_status")
   comment              String?

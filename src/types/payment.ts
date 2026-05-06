@@ -1,4 +1,10 @@
-export type PaymentProvider = 'liqpay' | 'monobank' | 'wayforpay';
+export type PaymentProvider =
+  | 'liqpay'
+  | 'liqpay_paypart'
+  | 'monobank'
+  | 'wayforpay'
+  | 'apple_pay'
+  | 'google_pay';
 
 export interface PaymentInitResult {
   redirectUrl: string;

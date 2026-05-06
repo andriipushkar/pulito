@@ -57,7 +57,7 @@ describe('autoTrackDeliveries', () => {
 
   it('should update order to completed when StatusCode is 9', async () => {
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 5 },
+      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 5, status: 'shipped' },
     ]);
     mockTrackParcel.mockResolvedValue([{ StatusCode: '9' }]);
     mockPrisma.order.update.mockResolvedValue({});
@@ -65,7 +65,9 @@ describe('autoTrackDeliveries', () => {
     const result = await autoTrackDeliveries();
 
     expect(result).toEqual({ checked: 1, updated: 1 });
-    expect(mockPrisma.order.update).toHaveBeenCalledWith({
+    // Two updates expected: 1) tracking status, 2) order completion.
+    expect(mockPrisma.order.update).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.order.update).toHaveBeenLastCalledWith({
       where: { id: 1 },
       data: {
         status: 'completed',
@@ -83,7 +85,7 @@ describe('autoTrackDeliveries', () => {
 
   it('should update order to completed when StatusCode is 11', async () => {
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: null },
+      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: null, status: 'shipped' },
     ]);
     mockTrackParcel.mockResolvedValue([{ StatusCode: '11' }]);
     mockPrisma.order.update.mockResolvedValue({});
@@ -94,18 +96,25 @@ describe('autoTrackDeliveries', () => {
 
   it('should not update when StatusCode is not 9 or 11 (e.g. 4 - in transit)', async () => {
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 1 },
+      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 1, status: 'shipped' },
     ]);
     mockTrackParcel.mockResolvedValue([{ StatusCode: '4' }]);
 
     const result = await autoTrackDeliveries();
     expect(result).toEqual({ checked: 1, updated: 0 });
-    expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    // We still persist the latest carrier status text — but no status transition.
+    const calls = mockPrisma.order.update.mock.calls;
+    expect(
+      calls.every((c: unknown[]) => {
+        const arg = c[0] as { data?: Record<string, unknown> };
+        return !arg?.data?.status;
+      }),
+    ).toBe(true);
   });
 
   it('should not update when StatusCode is 10 (returned)', async () => {
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 1 },
+      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 1, status: 'shipped' },
     ]);
     mockTrackParcel.mockResolvedValue([{ StatusCode: '10' }]);
 
@@ -115,7 +124,7 @@ describe('autoTrackDeliveries', () => {
 
   it('should skip when tracking result is empty array', async () => {
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 1 },
+      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 1, status: 'shipped' },
     ]);
     mockTrackParcel.mockResolvedValue([]);
 
@@ -125,7 +134,7 @@ describe('autoTrackDeliveries', () => {
 
   it('should skip when status is undefined (first element falsy)', async () => {
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 1 },
+      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 1, status: 'shipped' },
     ]);
     mockTrackParcel.mockResolvedValue([undefined]);
 
@@ -135,7 +144,7 @@ describe('autoTrackDeliveries', () => {
 
   it('should trigger notification path when userId is present and delivered', async () => {
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 42 },
+      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 42, status: 'shipped' },
     ]);
     mockTrackParcel.mockResolvedValue([{ StatusCode: '9' }]);
     mockPrisma.order.update.mockResolvedValue({});
@@ -148,7 +157,7 @@ describe('autoTrackDeliveries', () => {
 
   it('should skip notification path when userId is null', async () => {
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: null },
+      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: null, status: 'shipped' },
     ]);
     mockTrackParcel.mockResolvedValue([{ StatusCode: '9' }]);
     mockPrisma.order.update.mockResolvedValue({});
@@ -161,7 +170,7 @@ describe('autoTrackDeliveries', () => {
 
   it('should complete even if notification errors (fire-and-forget)', async () => {
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 42 },
+      { id: 1, orderNumber: 'ORD-1', trackingNumber: '123456', userId: 42, status: 'shipped' },
     ]);
     mockTrackParcel.mockResolvedValue([{ StatusCode: '9' }]);
     mockPrisma.order.update.mockResolvedValue({});
@@ -178,7 +187,9 @@ describe('autoTrackDeliveries', () => {
       { id: 1, orderNumber: 'ORD-1', trackingNumber: '111', userId: 1 },
       { id: 2, orderNumber: 'ORD-2', trackingNumber: '222', userId: 2 },
     ]);
-    mockTrackParcel.mockRejectedValueOnce(new Error('API down')).mockResolvedValueOnce([{ StatusCode: '9' }]);
+    mockTrackParcel
+      .mockRejectedValueOnce(new Error('API down'))
+      .mockResolvedValueOnce([{ StatusCode: '9' }]);
     mockPrisma.order.update.mockResolvedValue({});
 
     const result = await autoTrackDeliveries();

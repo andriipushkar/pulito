@@ -2,7 +2,7 @@
 
 ## Огляд
 
-Модуль реалізує повний цикл замовлення: створення, зміна статусу, валідація оптових правил, управління залишками, сповіщення через Telegram та нарахування балів лояльності.
+Модуль реалізує повний цикл замовлення: створення, зміна статусу, валідація гуртових правил, управління залишками, сповіщення через Telegram та нарахування балів лояльності.
 
 ## Статуси замовлення
 
@@ -15,16 +15,16 @@ new_order -> processing -> confirmed -> paid -> shipped -> completed
 
 ### Матриця переходів
 
-| Поточний статус | Дозволені переходи |
-|-----------------|-------------------|
-| `new_order` | `processing`, `cancelled` |
-| `processing` | `confirmed`, `cancelled` |
-| `confirmed` | `paid`, `shipped`, `cancelled` |
-| `paid` | `shipped`, `cancelled` |
-| `shipped` | `completed`, `returned` |
-| `completed` | `returned` |
-| `cancelled` | -- (фінальний) |
-| `returned` | -- (фінальний) |
+| Поточний статус | Дозволені переходи             |
+| --------------- | ------------------------------ |
+| `new_order`     | `processing`, `cancelled`      |
+| `processing`    | `confirmed`, `cancelled`       |
+| `confirmed`     | `paid`, `shipped`, `cancelled` |
+| `paid`          | `shipped`, `cancelled`         |
+| `shipped`       | `completed`, `returned`        |
+| `completed`     | `returned`                     |
+| `cancelled`     | -- (фінальний)                 |
+| `returned`      | -- (фінальний)                 |
 
 ### Права на зміну статусу
 
@@ -59,7 +59,7 @@ new_order -> processing -> confirmed -> paid -> shipped -> completed
 ### Процес створення
 
 1. **Перевірка кошика** -- не порожній
-2. **Валідація оптових правил** (для wholesale):
+2. **Валідація гуртових правил** (для wholesale):
    - `min_order_amount` -- мінімальна сума замовлення
    - `min_quantity` -- мінімальна кількість для товару
    - `multiplicity` -- кратність замовлення
@@ -72,35 +72,40 @@ new_order -> processing -> confirmed -> paid -> shipped -> completed
    - Сповіщення менеджера через Telegram (асинхронно)
 
 ### Номер замовлення
+
 Генерується автоматично: `YYYYMMDD-XXXX` (дата + 4 випадкові цифри).
 
 ### Гостьове замовлення
+
 Додатково приймає `items` -- масив `{ productId, quantity }`.
 
 ## Перегляд замовлень
 
 ### Клієнт
+
 - `GET /api/v1/orders` -- список (з пагінацією та фільтрами)
 - `GET /api/v1/orders/:id` -- деталі (перевірка власності)
 
 ### Адмін/Менеджер
+
 - `GET /api/v1/admin/orders` -- список всіх з пошуком
 - `GET /api/v1/admin/orders/:id` -- деталі будь-якого замовлення
 
 ### Фільтри (orderFilterSchema)
 
-| Параметр | Тип | Опис |
-|----------|-----|------|
-| `page` | number | Сторінка (за замовчуванням 1) |
-| `limit` | number | Кількість (1-100, за замовчуванням 20) |
-| `status` | enum | Фільтр за статусом |
-| `search` | string | Пошук (номер, ім'я, телефон) |
-| `dateFrom` | string | Дата від |
-| `dateTo` | string | Дата до |
+| Параметр   | Тип    | Опис                                   |
+| ---------- | ------ | -------------------------------------- |
+| `page`     | number | Сторінка (за замовчуванням 1)          |
+| `limit`    | number | Кількість (1-100, за замовчуванням 20) |
+| `status`   | enum   | Фільтр за статусом                     |
+| `search`   | string | Пошук (номер, ім'я, телефон)           |
+| `dateFrom` | string | Дата від                               |
+| `dateTo`   | string | Дата до                                |
 
 ## Зміна статусу
 
 **Endpoints:**
+
 - `PUT /api/v1/orders/:id/status` -- клієнт (тільки скасування)
 - `PUT /api/v1/admin/orders/:id/status` -- менеджер/адмін
 
@@ -127,6 +132,7 @@ new_order -> processing -> confirmed -> paid -> shipped -> completed
 Доступно тільки в статусах: `new_order`, `processing`, `confirmed`.
 
 ### Операції
+
 - **Видалення позиції:** повернення залишків на склад
 - **Зміна кількості:** перевірка наявності, коригування залишків
 - **Додавання нового товару:** перевірка наявності, декремент залишків
@@ -136,6 +142,7 @@ new_order -> processing -> confirmed -> paid -> shipped -> completed
 ## Історія статусів
 
 Кожна зміна статусу записується в `OrderStatusHistory`:
+
 - `oldStatus`, `newStatus`
 - `changedBy` -- ID користувача
 - `changeSource` -- `manager`, `client`, `system`, `cron`
@@ -144,15 +151,16 @@ new_order -> processing -> confirmed -> paid -> shipped -> completed
 
 ## Джерела замовлень
 
-| Джерело | Опис |
-|---------|------|
-| `web` | Через сайт (за замовчуванням) |
-| `telegram_bot` | Через Telegram бота |
-| `viber_bot` | Через Viber бота |
+| Джерело        | Опис                          |
+| -------------- | ----------------------------- |
+| `web`          | Через сайт (за замовчуванням) |
+| `telegram_bot` | Через Telegram бота           |
+| `viber_bot`    | Через Viber бота              |
 
 ## UTM-мітки
 
 Замовлення зберігає UTM-параметри для аналітики маркетингових кампаній:
+
 - `utmSource`, `utmMedium`, `utmCampaign`
 - `ipAddress`, `userAgent`
 

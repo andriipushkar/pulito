@@ -431,7 +431,7 @@
    **Очікуваний результат:** 4 колонки в 992px. Autocomplete dropdown: max-height ~300px, overflow-y scroll.
    **Статус:** ⬜
 
-### TC-AD-13.2 Оптові правила — таблиця (1280px)
+### TC-AD-13.2 Гуртові правила — таблиця (1280px)
 
 **Передумова:** Браузер Chrome, DevTools → viewport 1280px. URL: `/admin/wholesale-rules`. Авторизований як admin.
 **Кроки:**

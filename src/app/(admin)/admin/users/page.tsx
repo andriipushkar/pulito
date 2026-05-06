@@ -77,7 +77,7 @@ export default function AdminUsersPage() {
     if (debouncedSearch !== currentSearch) {
       updateFilter('search', debouncedSearch);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
   const hasFilters = !!(role || wholesaleStatus || wholesaleGroup || dateFrom || dateTo || search);
@@ -109,7 +109,18 @@ export default function AdminUsersPage() {
       })
       .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
-  }, [page, limit, role, wholesaleStatus, wholesaleGroup, dateFrom, dateTo, search, sortBy, sortOrder]);
+  }, [
+    page,
+    limit,
+    role,
+    wholesaleStatus,
+    wholesaleGroup,
+    dateFrom,
+    dateTo,
+    search,
+    sortBy,
+    sortOrder,
+  ]);
 
   useEffect(() => {
     loadUsers();
@@ -137,9 +148,10 @@ export default function AdminUsersPage() {
       wholesaleGroup: confirmAction.wholesaleGroup || 1,
     });
     if (res.success) {
-      toast.success(confirmAction.action === 'approve'
-        ? `Оптовий доступ надано для ${confirmAction.userName}`
-        : `Заявку відхилено для ${confirmAction.userName}`
+      toast.success(
+        confirmAction.action === 'approve'
+          ? `Гуртовий доступ надано для ${confirmAction.userName}`
+          : `Заявку відхилено для ${confirmAction.userName}`,
       );
       loadUsers();
     } else {
@@ -162,11 +174,16 @@ export default function AdminUsersPage() {
         credentials: 'include',
       });
 
-      if (!res.ok) { toast.error('Помилка експорту'); return; }
+      if (!res.ok) {
+        toast.error('Помилка експорту');
+        return;
+      }
 
       const blob = await res.blob();
       const disposition = res.headers.get('Content-Disposition');
-      const filename = disposition?.match(/filename="(.+)"/)?.[1] || `clients_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const filename =
+        disposition?.match(/filename="(.+)"/)?.[1] ||
+        `clients_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -237,7 +254,9 @@ export default function AdminUsersPage() {
       {showFilters && (
         <div className="mb-4 flex flex-wrap items-end gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Роль</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Роль
+            </label>
             <Select
               options={ROLE_OPTIONS}
               value={role}
@@ -246,7 +265,9 @@ export default function AdminUsersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Оптовий статус</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Гуртовий статус
+            </label>
             <Select
               options={WHOLESALE_OPTIONS}
               value={wholesaleStatus}
@@ -255,7 +276,9 @@ export default function AdminUsersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Оптова група</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Гуртова група
+            </label>
             <Select
               options={WHOLESALE_GROUP_OPTIONS}
               value={wholesaleGroup}
@@ -264,7 +287,9 @@ export default function AdminUsersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Зареєстрований від</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Зареєстрований від
+            </label>
             <input
               type="date"
               value={dateFrom}
@@ -273,7 +298,9 @@ export default function AdminUsersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Зареєстрований до</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Зареєстрований до
+            </label>
             <input
               type="date"
               value={dateTo}
@@ -303,10 +330,16 @@ export default function AdminUsersPage() {
               </thead>
               <tbody>
                 {users.map((u) => (
-                  <tr key={u.id} className="border-b border-[var(--color-border)] last:border-0 transition-colors hover:bg-[var(--color-bg-secondary)]">
+                  <tr
+                    key={u.id}
+                    className="border-b border-[var(--color-border)] last:border-0 transition-colors hover:bg-[var(--color-bg-secondary)]"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Link href={`/admin/users/${u.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
+                        <Link
+                          href={`/admin/users/${u.id}`}
+                          className="font-medium text-[var(--color-primary)] hover:underline"
+                        >
                           {u.fullName}
                         </Link>
                         {u.isBlocked && (
@@ -317,22 +350,34 @@ export default function AdminUsersPage() {
                       </div>
                       <p className="text-xs text-[var(--color-text-secondary)]">{u.email}</p>
                       {u.companyName && (
-                        <p className="text-xs text-[var(--color-text-secondary)]">{u.companyName}</p>
+                        <p className="text-xs text-[var(--color-text-secondary)]">
+                          {u.companyName}
+                        </p>
                       )}
                     </td>
                     <td className="px-4 py-3">{USER_ROLE_LABELS[u.role as UserRole]}</td>
                     <td className="px-4 py-3">
-                      <span className={u.wholesaleStatus === 'pending' ? 'font-semibold text-[var(--color-primary)]' : ''}>
+                      <span
+                        className={
+                          u.wholesaleStatus === 'pending'
+                            ? 'font-semibold text-[var(--color-primary)]'
+                            : ''
+                        }
+                      >
                         {WHOLESALE_STATUS_LABELS[u.wholesaleStatus as WholesaleStatus]}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       {u.wholesaleGroup ? (
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          u.wholesaleGroup === 1 ? 'bg-blue-100 text-blue-700' :
-                          u.wholesaleGroup === 2 ? 'bg-violet-100 text-violet-700' :
-                          'bg-amber-100 text-amber-700'
-                        }`}>
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            u.wholesaleGroup === 1
+                              ? 'bg-blue-100 text-blue-700'
+                              : u.wholesaleGroup === 2
+                                ? 'bg-violet-100 text-violet-700'
+                                : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
                           {WHOLESALE_GROUP_LABELS[u.wholesaleGroup as WholesaleGroup]}
                         </span>
                       ) : (
@@ -340,7 +385,9 @@ export default function AdminUsersPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">{u._count.orders}</td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(u.createdAt)}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                      {formatDate(u.createdAt)}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       {u.wholesaleStatus === 'pending' && (
                         <div className="flex items-center justify-end gap-1">
@@ -350,7 +397,9 @@ export default function AdminUsersPage() {
                             id={`wg-${u.id}`}
                           >
                             {Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => (
-                              <option key={v} value={v}>{l}</option>
+                              <option key={v} value={v}>
+                                {l}
+                              </option>
                             ))}
                           </select>
                           <Button
@@ -370,11 +419,13 @@ export default function AdminUsersPage() {
                           <Button
                             size="sm"
                             variant="danger"
-                            onClick={() => setConfirmAction({
-                              userId: u.id,
-                              action: 'reject',
-                              userName: u.fullName,
-                            })}
+                            onClick={() =>
+                              setConfirmAction({
+                                userId: u.id,
+                                action: 'reject',
+                                userName: u.fullName,
+                              })
+                            }
                           >
                             Ні
                           </Button>
@@ -385,7 +436,10 @@ export default function AdminUsersPage() {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                    <td
+                      colSpan={7}
+                      className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                    >
                       Користувачів не знайдено
                     </td>
                   </tr>
@@ -416,10 +470,13 @@ export default function AdminUsersPage() {
         onClose={() => setConfirmAction(null)}
         onConfirm={handleWholesaleConfirm}
         variant={confirmAction?.action === 'reject' ? 'danger' : 'default'}
-        title={confirmAction?.action === 'approve' ? 'Підтвердити оптовий доступ' : 'Відхилити заявку'}
-        message={confirmAction?.action === 'approve'
-          ? `Надати оптовий доступ користувачу "${confirmAction?.userName}"?`
-          : `Відхилити заявку на оптовий доступ від "${confirmAction?.userName}"?`
+        title={
+          confirmAction?.action === 'approve' ? 'Підтвердити гуртовий доступ' : 'Відхилити заявку'
+        }
+        message={
+          confirmAction?.action === 'approve'
+            ? `Надати гуртовий доступ користувачу "${confirmAction?.userName}"?`
+            : `Відхилити заявку на гуртовий доступ від "${confirmAction?.userName}"?`
         }
         confirmText={confirmAction?.action === 'approve' ? 'Так, підтвердити' : 'Так, відхилити'}
       />

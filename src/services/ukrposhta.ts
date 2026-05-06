@@ -1,9 +1,9 @@
-import { env } from '@/config/env';
+import { getUkrposhtaCreds } from '@/services/integration-credentials';
 
 export class UkrposhtaError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'UkrposhtaError';
@@ -29,7 +29,7 @@ export interface UkrposhtaTrackingStatus {
 }
 
 export async function trackParcel(barcode: string): Promise<UkrposhtaTrackingStatus> {
-  const token = env.UKRPOSHTA_BEARER_TOKEN;
+  const { bearerToken: token } = await getUkrposhtaCreds();
   if (!token) {
     throw new UkrposhtaError('Ukrposhta API token not configured');
   }
@@ -48,7 +48,7 @@ export async function trackParcel(barcode: string): Promise<UkrposhtaTrackingSta
     }
     throw new UkrposhtaError(
       `Помилка API Укрпошти: ${res.status}`,
-      res.status >= 500 ? 502 : res.status
+      res.status >= 500 ? 502 : res.status,
     );
   }
 
@@ -87,7 +87,7 @@ export interface UkrposhtaShipment {
  * Create a shipment via Ukrposhta eCom API.
  */
 export async function createShipment(input: CreateShipmentInput): Promise<UkrposhtaShipment> {
-  const token = env.UKRPOSHTA_BEARER_TOKEN;
+  const { bearerToken: token } = await getUkrposhtaCreds();
   if (!token) {
     throw new UkrposhtaError('Ukrposhta API token not configured');
   }
@@ -132,7 +132,7 @@ export async function createShipment(input: CreateShipmentInput): Promise<Ukrpos
     const text = await res.text().catch(() => '');
     throw new UkrposhtaError(
       `Помилка створення відправлення Укрпошта: ${res.status} ${text}`,
-      res.status >= 500 ? 502 : res.status
+      res.status >= 500 ? 502 : res.status,
     );
   }
 
@@ -140,10 +140,47 @@ export async function createShipment(input: CreateShipmentInput): Promise<Ukrpos
 }
 
 /**
+ * Search cities/settlements via Ukrposhta address-classifier API.
+ * Returns matching cities with their postal index for autofill on checkout.
+ */
+export async function searchCities(
+  query: string,
+): Promise<{ name: string; postcode: string; region: string }[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  // Public address-classifier API doesn't require auth.
+  const url = `https://www.ukrposhta.ua/address-classifier-ws/get_city_by_region_id_and_district_id_and_city_ua?city_ua=${encodeURIComponent(trimmed)}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    throw new UkrposhtaError(
+      `Помилка пошуку міст: ${res.status}`,
+      res.status >= 500 ? 502 : res.status,
+    );
+  }
+  const data = (await res.json()) as {
+    Entries?: { Entry?: { CITY_UA?: string; POSTCODE?: string; REGION_UA?: string }[] };
+  };
+  const entries = data.Entries?.Entry ?? [];
+  const seen = new Set<string>();
+  const result: { name: string; postcode: string; region: string }[] = [];
+  for (const e of entries) {
+    const name = e.CITY_UA ?? '';
+    const postcode = e.POSTCODE ?? '';
+    const key = `${name}|${postcode}`;
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    result.push({ name, postcode, region: e.REGION_UA ?? '' });
+    if (result.length >= 25) break;
+  }
+  return result;
+}
+
+/**
  * Get shipment label PDF URL.
  */
 export async function getShipmentLabel(shipmentUuid: string): Promise<Buffer> {
-  const token = env.UKRPOSHTA_BEARER_TOKEN;
+  const { bearerToken: token } = await getUkrposhtaCreds();
   if (!token) {
     throw new UkrposhtaError('Ukrposhta API token not configured');
   }

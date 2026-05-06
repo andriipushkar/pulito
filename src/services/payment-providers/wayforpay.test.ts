@@ -9,6 +9,11 @@ vi.mock('@/config/env', () => ({
   },
 }));
 
+const wfpCreds = { merchantAccount: 'test_merchant', secretKey: 'test_secret_key' };
+vi.mock('@/services/integration-credentials', () => ({
+  getWayForPayCreds: vi.fn(async () => wfpCreds),
+}));
+
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
@@ -34,7 +39,11 @@ describe('WayForPay provider', () => {
     });
 
     const result = await createPayment(
-      1, 500, 'Test order', 'http://localhost/result', 'http://localhost/webhook'
+      1,
+      500,
+      'Test order',
+      'http://localhost/result',
+      'http://localhost/webhook',
     );
 
     expect(result.redirectUrl).toBe('https://secure.wayforpay.com/invoice/test123');
@@ -44,7 +53,7 @@ describe('WayForPay provider', () => {
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
-      })
+      }),
     );
 
     // Verify request body
@@ -60,23 +69,22 @@ describe('WayForPay provider', () => {
   });
 
   it('should throw on missing credentials', async () => {
-    const envMod = await import('@/config/env');
-    const origAccount = envMod.env.WAYFORPAY_MERCHANT_ACCOUNT;
-    const origKey = envMod.env.WAYFORPAY_SECRET_KEY;
-    (envMod.env as unknown as Record<string, string>).WAYFORPAY_MERCHANT_ACCOUNT = '';
-    (envMod.env as unknown as Record<string, string>).WAYFORPAY_SECRET_KEY = '';
+    const origAccount = wfpCreds.merchantAccount;
+    const origKey = wfpCreds.secretKey;
+    wfpCreds.merchantAccount = '';
+    wfpCreds.secretKey = '';
 
     try {
       const { createPayment, WayForPayError } = await import('./wayforpay');
-      await expect(
-        createPayment(1, 100, 'test', 'http://r', 'http://s')
-      ).rejects.toThrow(WayForPayError);
-      await expect(
-        createPayment(1, 100, 'test', 'http://r', 'http://s')
-      ).rejects.toThrow('WayForPay credentials not configured');
+      await expect(createPayment(1, 100, 'test', 'http://r', 'http://s')).rejects.toThrow(
+        WayForPayError,
+      );
+      await expect(createPayment(1, 100, 'test', 'http://r', 'http://s')).rejects.toThrow(
+        'WayForPay credentials not configured',
+      );
     } finally {
-      (envMod.env as unknown as Record<string, string>).WAYFORPAY_MERCHANT_ACCOUNT = origAccount;
-      (envMod.env as unknown as Record<string, string>).WAYFORPAY_SECRET_KEY = origKey;
+      wfpCreds.merchantAccount = origAccount;
+      wfpCreds.secretKey = origKey;
     }
   });
 
@@ -90,7 +98,7 @@ describe('WayForPay provider', () => {
     });
 
     await expect(
-      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost')
+      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost'),
     ).rejects.toThrow(WayForPayError);
   });
 
@@ -106,7 +114,7 @@ describe('WayForPay provider', () => {
     });
 
     await expect(
-      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost')
+      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost'),
     ).rejects.toThrow('Invalid merchant');
   });
 
@@ -121,7 +129,7 @@ describe('WayForPay provider', () => {
     });
 
     await expect(
-      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost')
+      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost'),
     ).rejects.toThrow('WayForPay error: 4100');
   });
 
@@ -131,7 +139,9 @@ describe('WayForPay provider', () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
-      text: async () => { throw new Error('parse error'); },
+      text: async () => {
+        throw new Error('parse error');
+      },
     });
 
     try {
@@ -164,7 +174,7 @@ describe('WayForPay provider', () => {
       const callbackData = {
         merchantAccount: 'test_merchant',
         orderReference: 'order_42_1700000000',
-        amount: 250.50,
+        amount: 250.5,
         currency: 'UAH',
         authCode: '123456',
         cardPan: '****1234',
@@ -187,7 +197,7 @@ describe('WayForPay provider', () => {
       ];
       callbackData.merchantSignature = createHmacSignature(signatureData);
 
-      const result = verifyCallback(callbackData);
+      const result = await verifyCallback(callbackData);
       expect(result.orderId).toBe(42);
       expect(result.status).toBe('success');
       expect(result.transactionId).toBe('98765');
@@ -219,7 +229,7 @@ describe('WayForPay provider', () => {
         String(callbackData.reasonCode),
       ]);
 
-      const result = verifyCallback(callbackData);
+      const result = await verifyCallback(callbackData);
       expect(result.status).toBe('failure');
     });
 
@@ -249,7 +259,7 @@ describe('WayForPay provider', () => {
         String(callbackData.reasonCode),
       ]);
 
-      const result = verifyCallback(callbackData);
+      const result = await verifyCallback(callbackData);
       expect(result.status).toBe('failure');
     });
 
@@ -279,7 +289,7 @@ describe('WayForPay provider', () => {
         String(callbackData.reasonCode),
       ]);
 
-      const result = verifyCallback(callbackData);
+      const result = await verifyCallback(callbackData);
       expect(result.status).toBe('failure');
     });
 
@@ -309,7 +319,7 @@ describe('WayForPay provider', () => {
         String(callbackData.reasonCode),
       ]);
 
-      const result = verifyCallback(callbackData);
+      const result = await verifyCallback(callbackData);
       expect(result.status).toBe('failure');
     });
 
@@ -339,7 +349,7 @@ describe('WayForPay provider', () => {
         String(callbackData.reasonCode),
       ]);
 
-      const result = verifyCallback(callbackData);
+      const result = await verifyCallback(callbackData);
       expect(result.status).toBe('processing');
     });
 
@@ -358,8 +368,7 @@ describe('WayForPay provider', () => {
         merchantSignature: 'invalid-signature',
       };
 
-      expect(() => verifyCallback(callbackData)).toThrow(WayForPayError);
-      expect(() => verifyCallback(callbackData)).toThrow('Invalid WayForPay signature');
+      await expect(verifyCallback(callbackData)).rejects.toThrow('Invalid WayForPay signature');
     });
 
     it('should throw for invalid orderReference format', async () => {
@@ -388,8 +397,9 @@ describe('WayForPay provider', () => {
         String(callbackData.reasonCode),
       ]);
 
-      expect(() => verifyCallback(callbackData)).toThrow(WayForPayError);
-      expect(() => verifyCallback(callbackData)).toThrow('Invalid orderReference in callback');
+      await expect(verifyCallback(callbackData)).rejects.toThrow(
+        'Invalid orderReference in callback',
+      );
     });
 
     it('should use orderReference as transactionId when transactionId is absent', async () => {
@@ -418,14 +428,13 @@ describe('WayForPay provider', () => {
         String(callbackData.reasonCode),
       ]);
 
-      const result = verifyCallback(callbackData);
+      const result = await verifyCallback(callbackData);
       expect(result.transactionId).toBe('order_20_1700000000');
     });
 
     it('should throw when secret key is not configured', async () => {
-      const envMod = await import('@/config/env');
-      const origKey = envMod.env.WAYFORPAY_SECRET_KEY;
-      (envMod.env as unknown as Record<string, string>).WAYFORPAY_SECRET_KEY = '';
+      const origKey = wfpCreds.secretKey;
+      wfpCreds.secretKey = '';
 
       try {
         const { verifyCallback, WayForPayError } = await import('./wayforpay');
@@ -440,11 +449,43 @@ describe('WayForPay provider', () => {
           merchantSignature: 'sig',
         };
 
-        expect(() => verifyCallback(callbackData as any)).toThrow(WayForPayError);
-        expect(() => verifyCallback(callbackData as any)).toThrow('WayForPay secret key not configured');
+        await expect(verifyCallback(callbackData as any)).rejects.toThrow(WayForPayError);
+        await expect(verifyCallback(callbackData as any)).rejects.toThrow(
+          'WayForPay secret key not configured',
+        );
       } finally {
-        (envMod.env as unknown as Record<string, string>).WAYFORPAY_SECRET_KEY = origKey;
+        wfpCreds.secretKey = origKey;
       }
+    });
+  });
+
+  describe('checkTransactionStatus', () => {
+    it('returns success on Approved status', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ transactionStatus: 'Approved', amount: 500 }),
+      });
+      const { checkTransactionStatus } = await import('./wayforpay');
+      const r = await checkTransactionStatus('order_1_123');
+      expect(r.status).toBe('success');
+      expect(r.amount).toBe(500);
+    });
+
+    it('returns failure on Declined', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ transactionStatus: 'Declined' }),
+      });
+      const { checkTransactionStatus } = await import('./wayforpay');
+      const r = await checkTransactionStatus('order_1_123');
+      expect(r.status).toBe('failure');
+    });
+
+    it('returns processing on bad response', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false } as Response);
+      const { checkTransactionStatus } = await import('./wayforpay');
+      const r = await checkTransactionStatus('order_1_123');
+      expect(r.status).toBe('processing');
     });
   });
 
@@ -452,7 +493,7 @@ describe('WayForPay provider', () => {
     it('should generate correct response format with accept status', async () => {
       const { createCallbackResponse } = await import('./wayforpay');
 
-      const response = createCallbackResponse('order_1_1700000000');
+      const response = await createCallbackResponse('order_1_1700000000');
       const parsed = JSON.parse(response);
 
       expect(parsed.orderReference).toBe('order_1_1700000000');
@@ -472,7 +513,7 @@ describe('WayForPay provider', () => {
     it('should generate correct response format with refuse status', async () => {
       const { createCallbackResponse } = await import('./wayforpay');
 
-      const response = createCallbackResponse('order_2_1700000000', 'refuse');
+      const response = await createCallbackResponse('order_2_1700000000', 'refuse');
       const parsed = JSON.parse(response);
 
       expect(parsed.orderReference).toBe('order_2_1700000000');

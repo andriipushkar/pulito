@@ -39,7 +39,7 @@ async function main() {
     },
     {
       email: 'wholesale1@pulito.trade',
-      fullName: 'Оптовий клієнт (група 1)',
+      fullName: 'Гуртовий клієнт (група 1)',
       role: 'wholesaler' as const,
       phone: '+380504444444',
       wholesaleStatus: 'approved' as const,
@@ -47,7 +47,7 @@ async function main() {
     },
     {
       email: 'wholesale2@pulito.trade',
-      fullName: 'Оптовий клієнт (група 2)',
+      fullName: 'Гуртовий клієнт (група 2)',
       role: 'wholesaler' as const,
       phone: '+380505555555',
       wholesaleStatus: 'approved' as const,
@@ -55,7 +55,7 @@ async function main() {
     },
     {
       email: 'wholesale3@pulito.trade',
-      fullName: 'Оптовий клієнт (група 3)',
+      fullName: 'Гуртовий клієнт (група 3)',
       role: 'wholesaler' as const,
       phone: '+380506666666',
       wholesaleStatus: 'approved' as const,

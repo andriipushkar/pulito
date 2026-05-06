@@ -13,7 +13,13 @@ export default function PricelistPage() {
     <div>
       <PageHeader
         icon={
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -34,7 +40,13 @@ export default function PricelistPage() {
         >
           <div className="relative flex flex-col items-center gap-4 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <svg
+                className="h-8 w-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -43,7 +55,9 @@ export default function PricelistPage() {
               </svg>
             </div>
             <div>
-              <span className="text-base font-bold text-[var(--color-text)]">Роздрібний прайс-лист</span>
+              <span className="text-base font-bold text-[var(--color-text)]">
+                Роздрібний прайс-лист
+              </span>
               <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Завантажити PDF</p>
             </div>
             <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
@@ -61,7 +75,13 @@ export default function PricelistPage() {
           >
             <div className="relative flex flex-col items-center gap-4 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg
+                  className="h-8 w-8"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -70,7 +90,9 @@ export default function PricelistPage() {
                 </svg>
               </div>
               <div>
-                <span className="text-base font-bold text-[var(--color-text)]">Оптовий прайс-лист</span>
+                <span className="text-base font-bold text-[var(--color-text)]">
+                  Гуртовий прайс-лист
+                </span>
                 <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Завантажити PDF</p>
               </div>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
@@ -82,7 +104,13 @@ export default function PricelistPage() {
           <div className="relative overflow-hidden rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] p-6 opacity-60">
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
-                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg
+                  className="h-8 w-8"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -91,9 +119,11 @@ export default function PricelistPage() {
                 </svg>
               </div>
               <div>
-                <span className="text-base font-bold text-[var(--color-text-secondary)]">Оптовий прайс-лист</span>
+                <span className="text-base font-bold text-[var(--color-text-secondary)]">
+                  Гуртовий прайс-лист
+                </span>
                 <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                  Доступний для оптових клієнтів
+                  Доступний для гуртових клієнтів
                 </p>
               </div>
               <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-500">

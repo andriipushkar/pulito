@@ -6,21 +6,21 @@
 
 ## Способи оплати
 
-| Метод | Код | Опис |
-|-------|-----|------|
-| Накладений платіж | `cod` | Оплата при отриманні |
-| Банківський переказ | `bank_transfer` | Рахунок-фактура (для оптовиків) |
-| Онлайн-оплата | `online` | LiqPay або Monobank |
-| Передоплата на картку | `card_prepay` | Переказ на картку |
+| Метод                 | Код             | Опис                              |
+| --------------------- | --------------- | --------------------------------- |
+| Накладений платіж     | `cod`           | Оплата при отриманні              |
+| Банківський переказ   | `bank_transfer` | Рахунок-фактура (для гуртівників) |
+| Онлайн-оплата         | `online`        | LiqPay або Monobank               |
+| Передоплата на картку | `card_prepay`   | Переказ на картку                 |
 
 ## Статуси оплати
 
-| Статус | Опис |
-|--------|------|
-| `pending` | Очікує оплати |
-| `paid` | Оплачено |
-| `partial` | Часткова оплата |
-| `refunded` | Повернено |
+| Статус     | Опис            |
+| ---------- | --------------- |
+| `pending`  | Очікує оплати   |
+| `paid`     | Оплачено        |
+| `partial`  | Часткова оплата |
+| `refunded` | Повернено       |
 
 ## Модель Payment (Prisma)
 
@@ -56,10 +56,11 @@ Payment {
 6. Повернення URL для переадресації клієнта
 
 ### Результат
+
 ```ts
 interface PaymentInitResult {
-  paymentUrl: string;  // URL для переадресації
-  paymentId?: string;  // ID транзакції провайдера
+  paymentUrl: string; // URL для переадресації
+  paymentId?: string; // ID транзакції провайдера
 }
 ```
 
@@ -68,6 +69,7 @@ interface PaymentInitResult {
 **Сервіс:** `handlePaymentCallback(provider, callbackResult)`
 
 ### Webhook URLs
+
 - LiqPay: `POST /api/webhooks/liqpay`
 - Monobank: `POST /api/webhooks/monobank`
 
@@ -75,6 +77,7 @@ interface PaymentInitResult {
 
 1. Верифікація підпису від провайдера
 2. Парсинг результату:
+
 ```ts
 interface PaymentCallbackResult {
   orderId: number;
@@ -83,6 +86,7 @@ interface PaymentCallbackResult {
   rawData: unknown;
 }
 ```
+
 3. Оновлення Payment: статус, transactionId, callbackData, paidAt
 4. При успішній оплаті:
    - Оновлення `paymentStatus` замовлення на `paid`
@@ -93,6 +97,7 @@ interface PaymentCallbackResult {
 ### LiqPay
 
 **Змінні:**
+
 - `LIQPAY_PUBLIC_KEY`
 - `LIQPAY_PRIVATE_KEY`
 
@@ -101,6 +106,7 @@ interface PaymentCallbackResult {
 ### Monobank
 
 **Змінні:**
+
 - `MONOBANK_TOKEN`
 
 **Модуль:** `src/services/payment-providers/monobank.ts`

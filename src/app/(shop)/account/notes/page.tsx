@@ -57,7 +57,7 @@ export default function AccountNotesPage() {
   if (user?.role !== 'wholesaler' && user?.role !== 'admin') {
     return (
       <div className="py-8 text-center text-[var(--color-text-secondary)]">
-        Розділ доступний тільки для оптових клієнтів
+        Розділ доступний тільки для гуртових клієнтів
       </div>
     );
   }

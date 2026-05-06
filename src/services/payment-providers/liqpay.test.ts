@@ -8,11 +8,25 @@ vi.mock('@/config/env', () => ({
   },
 }));
 
+const liqpayCreds: {
+  publicKey: string;
+  privateKey: string;
+  sandbox?: boolean;
+  paypartCount?: number;
+} = { publicKey: 'sandbox_public', privateKey: 'sandbox_private', sandbox: false, paypartCount: 3 };
+vi.mock('@/services/integration-credentials', () => ({
+  getLiqPayCreds: vi.fn(async () => liqpayCreds),
+}));
+
 describe('LiqPay provider', () => {
   it('should create payment URL', async () => {
     const { createPayment } = await import('./liqpay');
     const result = await createPayment(
-      1, 250.50, 'Test order', 'http://localhost/result', 'http://localhost/callback'
+      1,
+      250.5,
+      'Test order',
+      'http://localhost/result',
+      'http://localhost/callback',
     );
     expect(result.redirectUrl).toContain('https://www.liqpay.ua/api/3/checkout');
     expect(result.redirectUrl).toContain('data=');
@@ -37,7 +51,7 @@ describe('LiqPay provider', () => {
     const signString = 'sandbox_private' + data + 'sandbox_private';
     const signature = crypto.createHash('sha1').update(signString).digest('base64');
 
-    const result = verifyCallback(data, signature);
+    const result = await verifyCallback(data, signature);
     expect(result.orderId).toBe(42);
     expect(result.status).toBe('success');
     expect(result.transactionId).toBe('67890');
@@ -47,7 +61,7 @@ describe('LiqPay provider', () => {
     const { verifyCallback, LiqPayError } = await import('./liqpay');
     const data = Buffer.from(JSON.stringify({ order_id: 'order_1' })).toString('base64');
 
-    expect(() => verifyCallback(data, 'invalid-signature')).toThrow(LiqPayError);
+    await expect(verifyCallback(data, 'invalid-signature')).rejects.toThrow(LiqPayError);
   });
 
   it('should handle sandbox status as success', async () => {
@@ -57,7 +71,7 @@ describe('LiqPay provider', () => {
     const signString = 'sandbox_private' + data + 'sandbox_private';
     const signature = crypto.createHash('sha1').update(signString).digest('base64');
 
-    const result = verifyCallback(data, signature);
+    const result = await verifyCallback(data, signature);
     expect(result.status).toBe('success');
   });
 
@@ -68,7 +82,7 @@ describe('LiqPay provider', () => {
     const signString = 'sandbox_private' + data + 'sandbox_private';
     const signature = crypto.createHash('sha1').update(signString).digest('base64');
 
-    const result = verifyCallback(data, signature);
+    const result = await verifyCallback(data, signature);
     expect(result.status).toBe('failure');
   });
 
@@ -79,7 +93,7 @@ describe('LiqPay provider', () => {
     const signString = 'sandbox_private' + data + 'sandbox_private';
     const signature = crypto.createHash('sha1').update(signString).digest('base64');
 
-    const result = verifyCallback(data, signature);
+    const result = await verifyCallback(data, signature);
     expect(result.status).toBe('failure');
   });
 
@@ -90,7 +104,7 @@ describe('LiqPay provider', () => {
     const signString = 'sandbox_private' + data + 'sandbox_private';
     const signature = crypto.createHash('sha1').update(signString).digest('base64');
 
-    const result = verifyCallback(data, signature);
+    const result = await verifyCallback(data, signature);
     expect(result.status).toBe('failure');
   });
 
@@ -101,7 +115,7 @@ describe('LiqPay provider', () => {
     const signString = 'sandbox_private' + data + 'sandbox_private';
     const signature = crypto.createHash('sha1').update(signString).digest('base64');
 
-    const result = verifyCallback(data, signature);
+    const result = await verifyCallback(data, signature);
     expect(result.status).toBe('processing');
   });
 
@@ -112,34 +126,39 @@ describe('LiqPay provider', () => {
     const signString = 'sandbox_private' + data + 'sandbox_private';
     const signature = crypto.createHash('sha1').update(signString).digest('base64');
 
-    expect(() => verifyCallback(data, signature)).toThrow(LiqPayError);
-    expect(() => verifyCallback(data, signature)).toThrow('Invalid order_id in callback');
+    await expect(verifyCallback(data, signature)).rejects.toThrow(LiqPayError);
+    await expect(verifyCallback(data, signature)).rejects.toThrow('Invalid order_id in callback');
   });
 
   it('should use transaction_id when available', async () => {
     const { verifyCallback } = await import('./liqpay');
-    const payload = { order_id: 'order_15', status: 'success', transaction_id: 777, payment_id: 888 };
+    const payload = {
+      order_id: 'order_15',
+      status: 'success',
+      transaction_id: 777,
+      payment_id: 888,
+    };
     const data = Buffer.from(JSON.stringify(payload)).toString('base64');
     const signString = 'sandbox_private' + data + 'sandbox_private';
     const signature = crypto.createHash('sha1').update(signString).digest('base64');
 
-    const result = verifyCallback(data, signature);
+    const result = await verifyCallback(data, signature);
     expect(result.transactionId).toBe('777');
   });
 
   it('should handle missing keys', async () => {
-    const envMod = await import('@/config/env');
-    const origPublic = envMod.env.LIQPAY_PUBLIC_KEY;
-    const origPrivate = envMod.env.LIQPAY_PRIVATE_KEY;
-    (envMod.env as unknown as Record<string, string>).LIQPAY_PUBLIC_KEY = '';
-    (envMod.env as unknown as Record<string, string>).LIQPAY_PRIVATE_KEY = '';
-
+    const origPub = liqpayCreds.publicKey;
+    const origPriv = liqpayCreds.privateKey;
+    liqpayCreds.publicKey = '';
+    liqpayCreds.privateKey = '';
     try {
       const { createPayment, LiqPayError } = await import('./liqpay');
-      await expect(createPayment(1, 100, 'test', 'http://r', 'http://s')).rejects.toThrow(LiqPayError);
+      await expect(createPayment(1, 100, 'test', 'http://r', 'http://s')).rejects.toThrow(
+        LiqPayError,
+      );
     } finally {
-      (envMod.env as unknown as Record<string, string>).LIQPAY_PUBLIC_KEY = origPublic;
-      (envMod.env as unknown as Record<string, string>).LIQPAY_PRIVATE_KEY = origPrivate;
+      liqpayCreds.publicKey = origPub;
+      liqpayCreds.privateKey = origPriv;
     }
   });
 
@@ -151,6 +170,82 @@ describe('LiqPay provider', () => {
     expect(err).toBeInstanceOf(Error);
   });
 
+  it('createApplePayPayment encodes paytypes=apay', async () => {
+    const { createApplePayPayment } = await import('./liqpay');
+    const r = await createApplePayPayment(7, 100, 'order', 'http://r', 'http://s');
+    const url = new URL(r.redirectUrl);
+    const data = JSON.parse(
+      Buffer.from(decodeURIComponent(url.searchParams.get('data')!), 'base64').toString(),
+    );
+    expect(data.paytypes).toBe('apay');
+    expect(data.action).toBe('pay');
+  });
+
+  it('createGooglePayPayment encodes paytypes=gpay', async () => {
+    const { createGooglePayPayment } = await import('./liqpay');
+    const r = await createGooglePayPayment(8, 100, 'order', 'http://r', 'http://s');
+    const url = new URL(r.redirectUrl);
+    const data = JSON.parse(
+      Buffer.from(decodeURIComponent(url.searchParams.get('data')!), 'base64').toString(),
+    );
+    expect(data.paytypes).toBe('gpay');
+  });
+
+  it('createPaypartPayment encodes paytypes=paypart with instalment_count', async () => {
+    const orig = liqpayCreds.paypartCount;
+    liqpayCreds.paypartCount = 6;
+    try {
+      const { createPaypartPayment } = await import('./liqpay');
+      const r = await createPaypartPayment(9, 100, 'order', 'http://r', 'http://s');
+      const url = new URL(r.redirectUrl);
+      const data = JSON.parse(
+        Buffer.from(decodeURIComponent(url.searchParams.get('data')!), 'base64').toString(),
+      );
+      expect(data.paytypes).toBe('paypart');
+      expect(data.instalment_count).toBe(6);
+    } finally {
+      liqpayCreds.paypartCount = orig;
+    }
+  });
+
+  it('createPayment respects sandbox flag', async () => {
+    liqpayCreds.sandbox = true;
+    try {
+      const { createPayment } = await import('./liqpay');
+      const r = await createPayment(10, 50, 'sandbox order', 'http://r', 'http://s');
+      const url = new URL(r.redirectUrl);
+      const data = JSON.parse(
+        Buffer.from(decodeURIComponent(url.searchParams.get('data')!), 'base64').toString(),
+      );
+      expect(data.sandbox).toBe(1);
+    } finally {
+      liqpayCreds.sandbox = false;
+    }
+  });
+
+  it('checkPaymentStatus parses success', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: 'success', amount: 100 }),
+    } as Response);
+    const { checkPaymentStatus } = await import('./liqpay');
+    const r = await checkPaymentStatus(1);
+    expect(r.status).toBe('success');
+    expect(r.amount).toBe(100);
+    fetchSpy.mockRestore();
+  });
+
+  it('checkPaymentStatus parses failure', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: 'failure' }),
+    } as Response);
+    const { checkPaymentStatus } = await import('./liqpay');
+    const r = await checkPaymentStatus(1);
+    expect(r.status).toBe('failure');
+    fetchSpy.mockRestore();
+  });
+
   it('should return empty string for transactionId when both transaction_id and payment_id are absent', async () => {
     const { verifyCallback } = await import('./liqpay');
     const payload = { order_id: 'order_20', status: 'success' };
@@ -158,7 +253,7 @@ describe('LiqPay provider', () => {
     const signString = 'sandbox_private' + data + 'sandbox_private';
     const signature = crypto.createHash('sha1').update(signString).digest('base64');
 
-    const result = verifyCallback(data, signature);
+    const result = await verifyCallback(data, signature);
     expect(result.transactionId).toBe('');
     expect(result.orderId).toBe(20);
     expect(result.status).toBe('success');

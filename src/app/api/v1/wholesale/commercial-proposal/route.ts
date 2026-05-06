@@ -7,10 +7,14 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { z } from 'zod';
 
 const proposalSchema = z.object({
-  items: z.array(z.object({
-    code: z.string().min(1),
-    quantity: z.number().int().positive(),
-  })).min(1),
+  items: z
+    .array(
+      z.object({
+        code: z.string().min(1),
+        quantity: z.number().int().positive(),
+      }),
+    )
+    .min(1),
   comment: z.string().max(500).optional(),
   validDays: z.number().int().min(1).max(90).optional(),
 });
@@ -29,8 +33,11 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
       select: { fullName: true, companyName: true, wholesaleGroup: true, role: true },
     });
 
-    if (!userData || (userData.role !== 'wholesaler' && userData.role !== 'admin' && userData.role !== 'manager')) {
-      return errorResponse('Доступно тільки для оптових покупців', 403);
+    if (
+      !userData ||
+      (userData.role !== 'wholesaler' && userData.role !== 'admin' && userData.role !== 'manager')
+    ) {
+      return errorResponse('Доступно тільки для гуртових покупців', 403);
     }
 
     const resolved = await resolveBulkOrder(parsed.data.items, userData.wholesaleGroup);
@@ -54,7 +61,11 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
       comment: parsed.data.comment,
     });
 
-    return successResponse({ url, totalAmount: resolved.totalAmount, itemsCount: resolved.items.length });
+    return successResponse({
+      url,
+      totalAmount: resolved.totalAmount,
+      itemsCount: resolved.items.length,
+    });
   } catch {
     return errorResponse('Помилка генерації пропозиції', 500);
   }

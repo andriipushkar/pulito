@@ -19,19 +19,39 @@ export async function POST(request: NextRequest) {
     const signature = formData.get('signature') as string;
 
     if (!data || !signature) {
-      logWebhook({ source: 'liqpay', event: 'missing_params', statusCode: 400, error: 'Missing data or signature' }).catch(() => {});
+      logWebhook({
+        source: 'liqpay',
+        event: 'missing_params',
+        statusCode: 400,
+        error: 'Missing data or signature',
+      }).catch(() => {});
       return new Response('Missing data or signature', { status: 400 });
     }
 
-    const callbackResult = verifyCallback(data, signature);
+    const callbackResult = await verifyCallback(data, signature);
     await handlePaymentCallback('liqpay', callbackResult);
 
-    logWebhook({ source: 'liqpay', event: 'payment_callback', payload: { orderId: callbackResult.orderId, status: callbackResult.status }, statusCode: 200, durationMs: Date.now() - startTime }).catch(() => {});
+    logWebhook({
+      source: 'liqpay',
+      event: 'payment_callback',
+      payload: { orderId: callbackResult.orderId, status: callbackResult.status },
+      statusCode: 200,
+      durationMs: Date.now() - startTime,
+    }).catch(() => {});
     return new Response('OK', { status: 200 });
   } catch (error) {
-    const isSignatureError = String(error).includes('підпис') || String(error).includes('signature') || String(error).includes('Signature');
+    const isSignatureError =
+      String(error).includes('підпис') ||
+      String(error).includes('signature') ||
+      String(error).includes('Signature');
     logger.error('LiqPay webhook error', { error: String(error) });
-    logWebhook({ source: 'liqpay', event: isSignatureError ? 'signature_failed' : 'error', statusCode: isSignatureError ? 403 : 500, error: String(error), durationMs: Date.now() - startTime }).catch(() => {});
+    logWebhook({
+      source: 'liqpay',
+      event: isSignatureError ? 'signature_failed' : 'error',
+      statusCode: isSignatureError ? 403 : 500,
+      error: String(error),
+      durationMs: Date.now() - startTime,
+    }).catch(() => {});
     return new Response('Error', { status: 200 });
   }
 }

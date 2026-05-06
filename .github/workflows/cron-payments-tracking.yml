@@ -1,0 +1,79 @@
+name: Cron — Payments & Tracking
+
+# Payment reconciliation reaches out to providers every 15 min for stuck pending
+# payments. Auto-tracking polls Nova Poshta every 30 min to keep order status
+# in sync. Both jobs are idempotent and safe to retry.
+#
+# NOTE: GitHub Actions cron is best-effort and can be delayed during high load.
+# For tighter SLAs, replace with a self-hosted cron or Vercel Cron.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # every 15 minutes
+  workflow_dispatch:
+
+jobs:
+  payment-reconciliation:
+    name: Reconcile stuck payments
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger reconciliation
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+        run: |
+          RESPONSE=$(curl -sf -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer ${APP_SECRET}" \
+            "${PRODUCTION_URL}/api/v1/cron/payment-reconciliation" 2>&1) || true
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          echo "HTTP status: $HTTP_CODE"
+          echo "Body: $BODY"
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Reconciliation: OK"
+          else
+            echo "::error::Reconciliation failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+  # Runs every 30 min — only on minute :00 and :30 of each hour.
+  auto-tracking:
+    name: Auto-update NP tracking
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event_name == 'workflow_dispatch' || (github.event.schedule == '*/15 * * * *' && (fromJSON(format('[{0}]', github.run_attempt)) != null))
+    steps:
+      - name: Skip on odd 15-min slots
+        id: gate
+        run: |
+          MIN=$(date -u +%M)
+          if [ "$MIN" = "00" ] || [ "$MIN" = "30" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger NP auto-tracking
+        if: steps.gate.outputs.run == 'true'
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+        run: |
+          RESPONSE=$(curl -sf -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer ${APP_SECRET}" \
+            "${PRODUCTION_URL}/api/v1/cron/auto-tracking" 2>&1) || true
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          echo "HTTP status: $HTTP_CODE"
+          echo "Body: $BODY"
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Auto-tracking: OK"
+          else
+            echo "::error::Auto-tracking failed with HTTP $HTTP_CODE"
+            exit 1
+          fi

@@ -10,7 +10,7 @@
 
 **Базова ставка:** 1 бал за 1 грн (BASE_POINTS_RATE = 1)
 
-**Множник рівня:** бали = orderAmount * BASE_POINTS_RATE * levelMultiplier
+**Множник рівня:** бали = orderAmount _ BASE_POINTS_RATE _ levelMultiplier
 
 Бали нараховуються автоматично при зміні статусу замовлення на `completed`.
 
@@ -40,6 +40,7 @@ LoyaltyLevel {
 ### Автоматичний перехід
 
 Після кожного нарахування балів викликається `recalculateLevel(userId)`:
+
 1. Завантажує всі рівні (sorted by sortOrder)
 2. Порівнює `totalSpent` з `minSpent` кожного рівня
 3. Призначає найвищий досягнутий рівень
@@ -75,13 +76,13 @@ LoyaltyTransaction {
 
 ### Типи транзакцій
 
-| Тип | Опис | Знак |
-|-----|------|------|
-| `earn` | Нарахування за замовлення | + |
-| `spend` | Списання при замовленні | - |
-| `manual_add` | Ручне нарахування (адмін) | + |
-| `manual_deduct` | Ручне списання (адмін) | - |
-| `expire` | Закінчення терміну | - |
+| Тип             | Опис                      | Знак |
+| --------------- | ------------------------- | ---- |
+| `earn`          | Нарахування за замовлення | +    |
+| `spend`         | Списання при замовленні   | -    |
+| `manual_add`    | Ручне нарахування (адмін) | +    |
+| `manual_deduct` | Ручне списання (адмін)    | -    |
+| `expire`        | Закінчення терміну        | -    |
 
 ## API лояльності
 
@@ -90,6 +91,7 @@ LoyaltyTransaction {
 **Дашборд лояльності:** `GET /api/v1/me/loyalty`
 
 Повертає:
+
 ```json
 {
   "account": { "points": 500, "totalSpent": 15000, "level": "silver" },
@@ -104,6 +106,7 @@ LoyaltyTransaction {
 ### Адмін ендпоінти
 
 **Ручна корекція:** `POST /api/v1/admin/loyalty/adjust`
+
 ```json
 {
   "userId": 123,
@@ -114,12 +117,31 @@ LoyaltyTransaction {
 ```
 
 **Налаштування рівнів:** `PUT /api/v1/admin/loyalty/levels`
+
 ```json
 {
   "levels": [
-    { "name": "bronze", "minSpent": 0, "pointsMultiplier": 1, "discountPercent": 0, "sortOrder": 0 },
-    { "name": "silver", "minSpent": 10000, "pointsMultiplier": 1.5, "discountPercent": 3, "sortOrder": 1 },
-    { "name": "gold", "minSpent": 50000, "pointsMultiplier": 2, "discountPercent": 5, "sortOrder": 2 }
+    {
+      "name": "bronze",
+      "minSpent": 0,
+      "pointsMultiplier": 1,
+      "discountPercent": 0,
+      "sortOrder": 0
+    },
+    {
+      "name": "silver",
+      "minSpent": 10000,
+      "pointsMultiplier": 1.5,
+      "discountPercent": 3,
+      "sortOrder": 1
+    },
+    {
+      "name": "gold",
+      "minSpent": 50000,
+      "pointsMultiplier": 2,
+      "discountPercent": 5,
+      "sortOrder": 2
+    }
   ]
 }
 ```
@@ -142,10 +164,12 @@ PersonalPrice {
 ```
 
 ### Пріоритет
+
 1. Фіксована ціна (`fixedPrice`) -- найвищий
 2. Знижка (`discountPercent`) -- від роздрібної ціни
 
 ### Перевірка діапазону дат
+
 Ціна активна тільки якщо `validFrom <= now <= validUntil` (або якщо дати не вказані).
 
 ### Адмін-панель
@@ -178,10 +202,10 @@ Referral {
 registered -> first_order -> bonus_granted
 ```
 
-| Статус | Опис |
-|--------|------|
-| `registered` | Запрошений зареєструвався |
-| `first_order` | Зробив перше замовлення |
+| Статус          | Опис                      |
+| --------------- | ------------------------- |
+| `registered`    | Запрошений зареєструвався |
+| `first_order`   | Зробив перше замовлення   |
 | `bonus_granted` | Бонус нараховано рефереру |
 
 ### Процес
@@ -197,9 +221,11 @@ registered -> first_order -> bonus_granted
 ### Ендпоінти
 
 **Клієнт:**
+
 - `GET /api/v1/me/referral` -- мій реферальний код та статистика
 
 **Адмін:**
+
 - `GET /api/v1/admin/referrals` -- список всіх рефералів
 
 ## Промо-товари
@@ -220,7 +246,7 @@ registered -> first_order -> bonus_granted
 - Telegram bot: `/promo` -- акційні товари
 - Viber bot: кнопка "Акції"
 
-## Оптові правила
+## Гуртові правила
 
 ### Модель WholesaleRule
 
@@ -235,11 +261,11 @@ WholesaleRule {
 
 ### Типи правил
 
-| Тип | Опис | Приклад |
-|-----|------|---------|
-| `min_order_amount` | Мінімальна сума | value=5000 -- мін. 5000 грн |
-| `min_quantity` | Мінімальна кількість | value=10 -- мін. 10 шт. |
-| `multiplicity` | Кратність | value=6 -- тільки по 6, 12, 18... |
+| Тип                | Опис                 | Приклад                           |
+| ------------------ | -------------------- | --------------------------------- |
+| `min_order_amount` | Мінімальна сума      | value=5000 -- мін. 5000 грн       |
+| `min_quantity`     | Мінімальна кількість | value=10 -- мін. 10 шт.           |
+| `multiplicity`     | Кратність            | value=6 -- тільки по 6, 12, 18... |
 
 ### Адмін-панель
 
@@ -258,4 +284,4 @@ WholesaleRule {
 - `src/app/(admin)/admin/loyalty/page.tsx` -- адмін лояльності
 - `src/app/(admin)/admin/personal-prices/page.tsx` -- адмін персональних цін
 - `src/app/(admin)/admin/referrals/page.tsx` -- адмін рефералів
-- `src/app/(admin)/admin/wholesale-rules/page.tsx` -- адмін оптових правил
+- `src/app/(admin)/admin/wholesale-rules/page.tsx` -- адмін гуртових правил

@@ -22,7 +22,7 @@ export const openApiDocument = {
   openapi: '3.0.3',
   info: {
     title: 'Pulito Trade API',
-    description: 'REST API для інтернет-магазину побутової хімії (оптово-роздрібна платформа)',
+    description: 'REST API для інтернет-магазину побутової хімії (гуртово-роздрібна платформа)',
     version: '1.0.0',
     contact: {
       name: 'Pulito Trade',

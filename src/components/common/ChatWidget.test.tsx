@@ -40,7 +40,7 @@ describe('ChatWidget', () => {
     fireEvent.click(container.querySelector('button')!);
     expect(document.body.textContent).toContain('Як зробити замовлення?');
     expect(document.body.textContent).toContain('Які способи доставки доступні?');
-    expect(document.body.textContent).toContain('Як стати оптовим клієнтом?');
+    expect(document.body.textContent).toContain('Як стати гуртовим клієнтом?');
     expect(document.body.textContent).toContain('Як повернути товар?');
     expect(document.body.textContent).toContain('Які способи оплати?');
   });

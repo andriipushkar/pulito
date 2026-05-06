@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { env } from '@/config/env';
+import { getLiqPayCreds } from '@/services/integration-credentials';
 import { logger } from '@/lib/logger';
 import type {
   PaymentInitResult,
@@ -20,10 +20,15 @@ export class LiqPayError extends Error {
   }
 }
 
-function createSignature(data: string): string {
-  const privateKey = env.LIQPAY_PRIVATE_KEY;
+function createSignature(data: string, privateKey: string): string {
   const signString = privateKey + data + privateKey;
   return crypto.createHash('sha1').update(signString).digest('base64');
+}
+
+function buildCheckoutUrl(params: Record<string, unknown>, privateKey: string): string {
+  const data = Buffer.from(JSON.stringify(params)).toString('base64');
+  const signature = createSignature(data, privateKey);
+  return `${CHECKOUT_URL}?data=${encodeURIComponent(data)}&signature=${encodeURIComponent(signature)}`;
 }
 
 export async function createPayment(
@@ -33,12 +38,12 @@ export async function createPayment(
   resultUrl: string,
   serverUrl: string,
 ): Promise<PaymentInitResult> {
-  const publicKey = env.LIQPAY_PUBLIC_KEY;
-  if (!publicKey || !env.LIQPAY_PRIVATE_KEY) {
+  const { publicKey, privateKey, sandbox } = await getLiqPayCreds();
+  if (!publicKey || !privateKey) {
     throw new LiqPayError('LiqPay keys not configured');
   }
 
-  const params = {
+  const params: Record<string, unknown> = {
     public_key: publicKey,
     version: 3,
     action: 'pay',
@@ -49,18 +54,113 @@ export async function createPayment(
     result_url: resultUrl,
     server_url: serverUrl,
   };
+  if (sandbox) params.sandbox = 1;
 
+  return { redirectUrl: buildCheckoutUrl(params, privateKey) };
+}
+
+async function createPaymentWithPaytypes(
+  orderId: number,
+  amount: number,
+  description: string,
+  resultUrl: string,
+  serverUrl: string,
+  paytypes: string,
+  extra?: Record<string, unknown>,
+): Promise<PaymentInitResult> {
+  const { publicKey, privateKey, sandbox } = await getLiqPayCreds();
+  if (!publicKey || !privateKey) {
+    throw new LiqPayError('LiqPay keys not configured');
+  }
+
+  const params: Record<string, unknown> = {
+    public_key: publicKey,
+    version: 3,
+    action: 'pay',
+    amount,
+    currency: 'UAH',
+    description,
+    order_id: `order_${orderId}`,
+    result_url: resultUrl,
+    server_url: serverUrl,
+    paytypes,
+    ...(extra ?? {}),
+  };
+  if (sandbox) params.sandbox = 1;
+
+  return { redirectUrl: buildCheckoutUrl(params, privateKey) };
+}
+
+export async function createApplePayPayment(
+  orderId: number,
+  amount: number,
+  description: string,
+  resultUrl: string,
+  serverUrl: string,
+): Promise<PaymentInitResult> {
+  return createPaymentWithPaytypes(orderId, amount, description, resultUrl, serverUrl, 'apay');
+}
+
+export async function createGooglePayPayment(
+  orderId: number,
+  amount: number,
+  description: string,
+  resultUrl: string,
+  serverUrl: string,
+): Promise<PaymentInitResult> {
+  return createPaymentWithPaytypes(orderId, amount, description, resultUrl, serverUrl, 'gpay');
+}
+
+/**
+ * "Оплата частинами" від ПриватБанку через LiqPay.
+ * paytypes='paypart' пропонує клієнту розбити платіж на N місяців без переплат
+ * (умови розстрочки залежать від клієнтського банку — ПриватБанк бере комісію
+ * з мерчанта).
+ */
+export async function createPaypartPayment(
+  orderId: number,
+  amount: number,
+  description: string,
+  resultUrl: string,
+  serverUrl: string,
+): Promise<PaymentInitResult> {
+  const { paypartCount } = await getLiqPayCreds();
+  return createPaymentWithPaytypes(orderId, amount, description, resultUrl, serverUrl, 'paypart', {
+    instalment_count: paypartCount,
+  });
+}
+
+export async function checkPaymentStatus(
+  orderId: number,
+): Promise<{ status: 'success' | 'failure' | 'processing'; amount?: number }> {
+  const { publicKey, privateKey } = await getLiqPayCreds();
+  if (!publicKey || !privateKey) return { status: 'processing' };
+
+  const params = {
+    public_key: publicKey,
+    version: 3,
+    action: 'status',
+    order_id: `order_${orderId}`,
+  };
   const data = Buffer.from(JSON.stringify(params)).toString('base64');
-  const signature = createSignature(data);
+  const signature = createSignature(data, privateKey);
 
-  const redirectUrl = `${CHECKOUT_URL}?data=${encodeURIComponent(data)}&signature=${encodeURIComponent(signature)}`;
-
-  return { redirectUrl };
+  const res = await fetch('https://www.liqpay.ua/api/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `data=${encodeURIComponent(data)}&signature=${encodeURIComponent(signature)}`,
+  });
+  if (!res.ok) return { status: 'processing' };
+  const body: { status?: string; amount?: number } = await res.json();
+  let status: 'success' | 'failure' | 'processing' = 'processing';
+  if (body.status === 'success' || body.status === 'sandbox') status = 'success';
+  else if (body.status === 'failure' || body.status === 'error' || body.status === 'reversed')
+    status = 'failure';
+  return { status, amount: body.amount };
 }
 
 export async function refundPayment(orderId: number, amount: number): Promise<RefundResult> {
-  const publicKey = env.LIQPAY_PUBLIC_KEY;
-  const privateKey = env.LIQPAY_PRIVATE_KEY;
+  const { publicKey, privateKey } = await getLiqPayCreds();
   if (!publicKey || !privateKey) {
     throw new LiqPayError('LiqPay keys not configured');
   }
@@ -75,7 +175,7 @@ export async function refundPayment(orderId: number, amount: number): Promise<Re
   };
 
   const data = Buffer.from(JSON.stringify(params)).toString('base64');
-  const signature = createSignature(data);
+  const signature = createSignature(data, privateKey);
 
   const res = await fetch('https://www.liqpay.ua/api/request', {
     method: 'POST',
@@ -101,8 +201,15 @@ export async function refundPayment(orderId: number, amount: number): Promise<Re
   };
 }
 
-export function verifyCallback(data: string, signature: string): PaymentCallbackResult {
-  const expectedSignature = createSignature(data);
+export async function verifyCallback(
+  data: string,
+  signature: string,
+): Promise<PaymentCallbackResult> {
+  const { privateKey } = await getLiqPayCreds();
+  if (!privateKey) {
+    throw new LiqPayError('LiqPay keys not configured', 500);
+  }
+  const expectedSignature = createSignature(data, privateKey);
 
   if (signature !== expectedSignature) {
     throw new LiqPayError('Invalid LiqPay signature', 403);

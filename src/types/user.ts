@@ -10,7 +10,7 @@ export const WHOLESALE_GROUP_LABELS: Record<WholesaleGroup, string> = {
 
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
   client: 'Клієнт',
-  wholesaler: 'Оптовик',
+  wholesaler: 'Гуртівник',
   manager: 'Менеджер',
   admin: 'Адміністратор',
 };

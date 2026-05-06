@@ -33,8 +33,9 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
   });
 
   if (!current) return errorResponse('Користувача не знайдено', 404);
-  if (current.role === 'wholesaler') return errorResponse('Ви вже оптовий клієнт', 400);
-  if (current.wholesaleStatus === 'pending') return errorResponse('Заявка вже подана і очікує розгляду', 400);
+  if (current.role === 'wholesaler') return errorResponse('Ви вже гуртовий клієнт', 400);
+  if (current.wholesaleStatus === 'pending')
+    return errorResponse('Заявка вже подана і очікує розгляду', 400);
 
   const body = await request.json();
   const {
@@ -77,22 +78,26 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
   // Notify managers via Telegram
   try {
     const msgLines = [
-      `Заявка на оптового клієнта`,
+      `Заявка на гуртового клієнта`,
       `🏢 ${companyName}`,
       edrpou ? `ЄДРПОУ: ${edrpou}` : '',
       wholesaleMonthlyVol ? `📦 Обсяг: ${wholesaleMonthlyVol}` : '',
       comment || '',
-    ].filter(Boolean).join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     await notifyManagerFeedback({
       type: 'form',
       name: contactPersonName,
       phone: contactPersonPhone,
       email: user.email,
-      subject: 'Заявка на оптового клієнта',
+      subject: 'Заявка на гуртового клієнта',
       message: msgLines,
     });
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
 
   return successResponse(updated);
 });

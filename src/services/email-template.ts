@@ -369,16 +369,16 @@ export async function sendWholesaleApproved(data: {
   }
 
   const content = `
-    <h2 style="margin:0 0 16px;color:#1e293b">Оптовий статус підтверджено!</h2>
+    <h2 style="margin:0 0 16px;color:#1e293b">Гуртовий статус підтверджено!</h2>
     <p style="color:#475569">Шановна компаніє ${data.companyName},</p>
-    <p style="color:#475569">Ваш запит на оптовий статус схвалено. Тепер вам доступні оптові ціни та розширений функціонал.</p>
+    <p style="color:#475569">Ваш запит на гуртовий статус схвалено. Тепер вам доступні гуртові ціни та розширений функціонал.</p>
     ${managerInfo}
     ${button('Перейти до кабінету', `${env.APP_URL}/account`)}
   `;
 
   await sendEmail({
     to: data.to,
-    subject: 'Оптовий статус підтверджено — Pulito Trade',
+    subject: 'Гуртовий статус підтверджено — Pulito Trade',
     html: baseLayout(content),
   });
 }
@@ -400,9 +400,9 @@ export async function sendWholesaleRejected(data: {
   }
 
   const content = `
-    <h2 style="margin:0 0 16px;color:#1e293b">Запит на оптовий статус відхилено</h2>
+    <h2 style="margin:0 0 16px;color:#1e293b">Запит на гуртовий статус відхилено</h2>
     <p style="color:#475569">Шановна компаніє ${data.companyName},</p>
-    <p style="color:#475569">На жаль, ваш запит на оптовий статус було відхилено.</p>
+    <p style="color:#475569">На жаль, ваш запит на гуртовий статус було відхилено.</p>
     <p style="color:#475569">Причина: <strong>${data.reason}</strong></p>
     <p style="color:#475569">Якщо ви вважаєте це помилкою або маєте додаткові запитання, будь ласка, зверніться до нашої служби підтримки.</p>
     ${button("Зв'язатися з нами", `${env.APP_URL}/contact`)}
@@ -410,7 +410,7 @@ export async function sendWholesaleRejected(data: {
 
   await sendEmail({
     to: data.to,
-    subject: 'Запит на оптовий статус відхилено — Pulito Trade',
+    subject: 'Запит на гуртовий статус відхилено — Pulito Trade',
     html: baseLayout(content),
   });
 }
@@ -429,7 +429,7 @@ export async function sendNewOrderToManager(data: {
     order_number: data.orderNumber,
     customer_name: data.customerName,
     customer_phone: data.customerPhone,
-    customer_type: data.customerType === 'wholesaler' ? 'Оптовик' : 'Клієнт',
+    customer_type: data.customerType === 'wholesaler' ? 'Гуртівник' : 'Клієнт',
     total: data.total.toFixed(2),
     item_count: String(data.itemCount),
     order_url: `${env.APP_URL}/admin/orders/${data.orderId}`,
@@ -440,7 +440,7 @@ export async function sendNewOrderToManager(data: {
     return;
   }
 
-  const customerLabel = data.customerType === 'wholesaler' ? 'Оптовик' : 'Клієнт';
+  const customerLabel = data.customerType === 'wholesaler' ? 'Гуртівник' : 'Клієнт';
   const content = `
     <h2 style="margin:0 0 16px;color:#1e293b">Нове замовлення #${data.orderNumber}</h2>
     <p style="color:#475569"><strong>Тип:</strong> ${customerLabel}</p>
@@ -482,7 +482,7 @@ export async function sendWholesaleRequestToManager(data: {
   }
 
   const content = `
-    <h2 style="margin:0 0 16px;color:#1e293b">Новий запит на оптовий статус</h2>
+    <h2 style="margin:0 0 16px;color:#1e293b">Новий запит на гуртовий статус</h2>
     <p style="color:#475569"><strong>Компанія:</strong> ${data.companyName}</p>
     <p style="color:#475569"><strong>Контактна особа:</strong> ${data.contactName}</p>
     <p style="color:#475569"><strong>Email:</strong> <a href="mailto:${data.contactEmail}">${data.contactEmail}</a></p>
@@ -493,7 +493,7 @@ export async function sendWholesaleRequestToManager(data: {
 
   await sendEmail({
     to: data.to,
-    subject: `Новий запит на оптовий статус — ${data.companyName}`,
+    subject: `Новий запит на гуртовий статус — ${data.companyName}`,
     html: baseLayout(content),
   });
 }

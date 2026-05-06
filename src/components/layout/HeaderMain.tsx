@@ -156,7 +156,7 @@ export default function HeaderMain({ categories: _categories, shrink }: HeaderMa
               <IconButton icon={<User size={20} />} label={user ? 'Профіль' : 'Увійти'} />
               {user?.role === 'wholesaler' && (
                 <span className="hidden rounded-full bg-gradient-to-r from-[var(--color-gold-dark)] to-[var(--color-gold)] px-2 py-0.5 text-[10px] font-semibold text-white shadow-[var(--shadow-gold)] lg:inline-block">
-                  Оптовий клієнт
+                  Гуртовий клієнт
                 </span>
               )}
             </Link>

@@ -70,7 +70,7 @@ export async function generatePriceList(options: PriceListOptions): Promise<stri
   drawHeader(doc, company);
   drawDocTitle(
     doc,
-    type === 'wholesale' ? 'Оптовий прайс-лист' : 'Роздрібний прайс-лист',
+    type === 'wholesale' ? 'Гуртовий прайс-лист' : 'Роздрібний прайс-лист',
     company.description,
     new Date().toLocaleDateString('uk-UA'),
   );

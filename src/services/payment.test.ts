@@ -36,6 +36,9 @@ vi.mock('@/config/env', () => ({
 
 vi.mock('./payment-providers/liqpay', () => ({
   createPayment: vi.fn(),
+  createPaypartPayment: vi.fn(),
+  createApplePayPayment: vi.fn(),
+  createGooglePayPayment: vi.fn(),
   refundPayment: vi.fn(),
 }));
 
@@ -47,6 +50,19 @@ vi.mock('./payment-providers/monobank', () => ({
 vi.mock('./payment-providers/wayforpay', () => ({
   createPayment: vi.fn(),
   refundPayment: vi.fn(),
+}));
+
+const credsMock = vi.hoisted(() => ({
+  liq: { publicKey: '', privateKey: '' },
+  wfp: { merchantAccount: '', secretKey: '' },
+}));
+
+vi.mock('./integration-credentials', () => ({
+  getLiqPayCreds: vi.fn(async () => credsMock.liq),
+  getWayForPayCreds: vi.fn(async () => credsMock.wfp),
+  getMonobankCreds: vi.fn(async () => ({ token: '' })),
+  getNovaPoshtaCreds: vi.fn(async () => ({ apiKey: '' })),
+  getUkrposhtaCreds: vi.fn(async () => ({ bearerToken: '' })),
 }));
 
 import { prisma } from '@/lib/prisma';
@@ -644,5 +660,93 @@ describe('refundPayment', () => {
 
     expect(result.success).toBe(false);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('initiatePayment — apple_pay / google_pay routing', () => {
+  const orderMock = {
+    id: 1,
+    orderNumber: 'ORD-1',
+    totalAmount: 500,
+    paymentMethod: 'online',
+    paymentStatus: 'pending',
+    payment: null,
+  };
+
+  beforeEach(() => {
+    (mockPrisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(orderMock);
+    (mockPrisma.payment.upsert as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    credsMock.liq = { publicKey: '', privateKey: '' };
+    credsMock.wfp = { merchantAccount: '', secretKey: '' };
+  });
+
+  it('apple_pay routes to WayForPay when WFP is configured', async () => {
+    credsMock.wfp = { merchantAccount: 'merch', secretKey: 'sec' };
+    mockWayforpay.createPayment.mockResolvedValue({
+      redirectUrl: 'https://wfp/pay',
+      paymentId: 'pid',
+    });
+
+    const r = await initiatePayment(1, 'apple_pay');
+
+    expect(mockWayforpay.createPayment).toHaveBeenCalledWith(
+      1,
+      500,
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      { paymentSystems: 'applePay' },
+    );
+    expect(r.redirectUrl).toBe('https://wfp/pay');
+    // payment record should reference wayforpay (not "apple_pay")
+    const upsertArg = (mockPrisma.payment.upsert as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(upsertArg.create.paymentProvider).toBe('wayforpay');
+  });
+
+  it('apple_pay falls back to LiqPay when WFP not configured', async () => {
+    credsMock.liq = { publicKey: 'pub', privateKey: 'priv' };
+    const liqpayMod = liqpay as unknown as { createApplePayPayment: ReturnType<typeof vi.fn> };
+    liqpayMod.createApplePayPayment.mockResolvedValue({ redirectUrl: 'https://liq/apay' });
+
+    await initiatePayment(1, 'apple_pay');
+
+    expect(liqpayMod.createApplePayPayment).toHaveBeenCalled();
+    const upsertArg = (mockPrisma.payment.upsert as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(upsertArg.create.paymentProvider).toBe('liqpay');
+  });
+
+  it('google_pay routes to WFP with paymentSystems=googlePay', async () => {
+    credsMock.wfp = { merchantAccount: 'merch', secretKey: 'sec' };
+    mockWayforpay.createPayment.mockResolvedValue({ redirectUrl: 'https://wfp/gp' });
+
+    await initiatePayment(1, 'google_pay');
+
+    expect(mockWayforpay.createPayment).toHaveBeenCalledWith(
+      1,
+      500,
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      { paymentSystems: 'googlePay' },
+    );
+  });
+
+  it('apple_pay throws when no gateway is configured', async () => {
+    await expect(initiatePayment(1, 'apple_pay')).rejects.toThrow('Apple Pay недоступний');
+  });
+
+  it('google_pay throws when no gateway is configured', async () => {
+    await expect(initiatePayment(1, 'google_pay')).rejects.toThrow('Google Pay недоступний');
+  });
+
+  it('liqpay_paypart routes to dedicated function and stores as liqpay', async () => {
+    const liqpayMod = liqpay as unknown as { createPaypartPayment: ReturnType<typeof vi.fn> };
+    liqpayMod.createPaypartPayment.mockResolvedValue({ redirectUrl: 'https://liq/pp' });
+
+    await initiatePayment(1, 'liqpay_paypart');
+
+    expect(liqpayMod.createPaypartPayment).toHaveBeenCalled();
+    const upsertArg = (mockPrisma.payment.upsert as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(upsertArg.create.paymentProvider).toBe('liqpay');
   });
 });

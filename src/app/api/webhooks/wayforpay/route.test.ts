@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/payment-providers/wayforpay', () => ({
   verifyCallback: vi.fn(),
   createCallbackResponse: vi.fn(),
@@ -12,12 +21,16 @@ import { verifyCallback, createCallbackResponse } from '@/services/payment-provi
 import { handlePaymentCallback } from '@/services/payment';
 
 describe('POST /api/webhooks/wayforpay', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('processes callback on success', async () => {
-    vi.mocked(verifyCallback).mockReturnValue({ orderId: 1, status: 'success' } as any);
+    vi.mocked(verifyCallback).mockResolvedValue({ orderId: 1, status: 'success' } as any);
     vi.mocked(handlePaymentCallback).mockResolvedValue(undefined);
-    vi.mocked(createCallbackResponse).mockReturnValue('{"orderReference":"order_1_123","status":"accept","time":123,"signature":"sig"}');
+    vi.mocked(createCallbackResponse).mockResolvedValue(
+      '{"orderReference":"order_1_123","status":"accept","time":123,"signature":"sig"}',
+    );
 
     const req = new Request('http://localhost', {
       method: 'POST',
@@ -58,7 +71,9 @@ describe('POST /api/webhooks/wayforpay', () => {
   });
 
   it('returns 200 on error to prevent retries', async () => {
-    vi.mocked(verifyCallback).mockImplementation(() => { throw new Error('invalid signature'); });
+    vi.mocked(verifyCallback).mockImplementation(() => {
+      throw new Error('invalid signature');
+    });
 
     const req = new Request('http://localhost', {
       method: 'POST',

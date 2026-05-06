@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
-  "description": "Інтернет-магазин побутової хімії (оптово-роздрібна платформа)",
+  "description": "Інтернет-магазин побутової хімії (гуртово-роздрібна платформа)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -22,7 +22,7 @@ export const TEST_USERS = {
   wholesale: {
     email: 'wholesale1@pulito.trade',
     password: TEST_PASSWORD,
-    fullName: 'Оптовий клієнт (група 1)',
+    fullName: 'Гуртовий клієнт (група 1)',
   },
 };
 

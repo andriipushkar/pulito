@@ -1,9 +1,9 @@
-import { env } from '@/config/env';
+import { getNovaPoshtaCreds } from '@/services/integration-credentials';
 
 export class NovaPoshtaError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'NovaPoshtaError';
@@ -22,9 +22,9 @@ interface NovaPoshtaResponse {
 async function callApi(
   modelName: string,
   calledMethod: string,
-  methodProperties: Record<string, unknown> = {}
+  methodProperties: Record<string, unknown> = {},
 ): Promise<Record<string, unknown>[]> {
-  const apiKey = env.NOVA_POSHTA_API_KEY;
+  const { apiKey } = await getNovaPoshtaCreds();
   if (!apiKey) {
     throw new NovaPoshtaError('Nova Poshta API key not configured');
   }
@@ -45,7 +45,7 @@ async function callApi(
   if (!data.success) {
     throw new NovaPoshtaError(
       data.errors.join(', ') || 'Помилка API Нової Пошти',
-      res.ok ? 400 : res.status
+      res.ok ? 400 : res.status,
     );
   }
 
@@ -57,6 +57,19 @@ export async function searchCities(query: string) {
     CityName: query,
     Limit: '20',
     Page: '1',
+  });
+}
+
+/**
+ * Search streets within a settlement for D2D (door-to-door) address delivery.
+ * Returns array of streets with their Ref UUIDs that NP API requires for TTN creation.
+ */
+export async function searchStreets(settlementRef: string, query: string) {
+  if (!query || query.length < 2) return [];
+  return callApi('Address', 'searchSettlementStreets', {
+    StreetName: query,
+    SettlementRef: settlementRef,
+    Limit: '20',
   });
 }
 
@@ -95,7 +108,9 @@ export interface DeliveryCostEstimate {
 /**
  * Estimate delivery cost via Nova Poshta getDocumentPrice API.
  */
-export async function estimateDeliveryCost(input: EstimateDeliveryInput): Promise<DeliveryCostEstimate> {
+export async function estimateDeliveryCost(
+  input: EstimateDeliveryInput,
+): Promise<DeliveryCostEstimate> {
   const data = await callApi('InternetDocument', 'getDocumentPrice', {
     CitySender: input.citySender,
     CityRecipient: input.cityRecipient,
@@ -125,8 +140,14 @@ export interface CreateTTNInput {
   recipientName: string;
   recipientPhone: string;
   recipientCityRef: string;
+  /** UUID of warehouse / поштомат — for WarehouseWarehouse / WarehouseDoors. */
   recipientWarehouseRef?: string;
+  /** Pre-built RecipientAddress UUID — alternative to streetRef + building + flat. */
   recipientAddressRef?: string;
+  /** D2D structured fields (used when serviceType is WarehouseDoors / DoorsDoors). */
+  recipientStreetRef?: string;
+  recipientBuilding?: string;
+  recipientFlat?: string;
   payerType: 'Sender' | 'Recipient' | 'ThirdPerson';
   paymentMethod: 'Cash' | 'NonCash';
   cargoType: 'Cargo' | 'Documents' | 'TiresWheels' | 'Pallet' | 'Parcel';
@@ -135,6 +156,8 @@ export interface CreateTTNInput {
   description: string;
   cost: number;
   serviceType: 'WarehouseWarehouse' | 'WarehouseDoors' | 'DoorsWarehouse' | 'DoorsDoors';
+  /** Cash-on-delivery: Nova Poshta collects this amount from recipient and returns it to sender. */
+  codAmount?: number;
 }
 
 /**
@@ -147,12 +170,18 @@ export async function createInternetDocument(input: CreateTTNInput): Promise<{
   costOnSite: number;
   estimatedDeliveryDate: string;
 }> {
-  const data = await callApi('InternetDocument', 'save', {
+  const isD2D = input.serviceType === 'WarehouseDoors' || input.serviceType === 'DoorsDoors';
+
+  const props: Record<string, unknown> = {
     SenderWarehouseIndex: '',
     RecipientWarehouseIndex: '',
     PayerType: input.payerType,
     PaymentMethod: input.paymentMethod,
-    DateTime: new Date().toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    DateTime: new Date().toLocaleDateString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }),
     CargoType: input.cargoType,
     Weight: String(input.weight),
     SeatsAmount: String(input.seatsAmount),
@@ -171,7 +200,30 @@ export async function createInternetDocument(input: CreateTTNInput): Promise<{
     RecipientsPhone: input.recipientPhone,
     RecipientAddress: input.recipientWarehouseRef || input.recipientAddressRef || '',
     RecipientName: input.recipientName,
-  });
+  };
+
+  // D2D address delivery — pass street/building/flat instead of warehouse ref.
+  if (isD2D) {
+    props.RecipientCity = input.recipientCityRef;
+    if (input.recipientStreetRef) props.RecipientStreet = input.recipientStreetRef;
+    if (input.recipientBuilding) props.RecipientHouse = input.recipientBuilding;
+    if (input.recipientFlat) props.RecipientFlat = input.recipientFlat;
+    // Address ref takes priority if provided
+    if (input.recipientAddressRef) props.RecipientAddress = input.recipientAddressRef;
+  }
+
+  // Накладений платіж — отримувач платить готівкою при отриманні, сума повертається відправнику.
+  if (input.codAmount && input.codAmount > 0) {
+    props.BackwardDeliveryData = [
+      {
+        PayerType: 'Recipient',
+        CargoType: 'Money',
+        RedeliveryString: String(input.codAmount),
+      },
+    ];
+  }
+
+  const data = await callApi('InternetDocument', 'save', props);
 
   const doc = data[0];
   if (!doc) {

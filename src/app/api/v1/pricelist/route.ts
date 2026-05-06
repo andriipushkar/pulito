@@ -15,18 +15,16 @@ export const GET = withOptionalAuth(async (request: NextRequest, { user }) => {
     // Wholesale pricelist requires wholesaler or manager role
     if (type === 'wholesale') {
       if (!user) {
-        return errorResponse('Для оптового прайс-листа потрібна авторизація', 401);
+        return errorResponse('Для гуртового прайс-листа потрібна авторизація', 401);
       }
       if (user.role !== 'wholesaler' && user.role !== 'manager' && user.role !== 'admin') {
-        return errorResponse('Недостатньо прав для оптового прайс-листа', 403);
+        return errorResponse('Недостатньо прав для гуртового прайс-листа', 403);
       }
     }
 
     const buffer = await generatePricelist(type);
 
-    const filename = type === 'wholesale'
-      ? 'pricelist_wholesale.pdf'
-      : 'pricelist_retail.pdf';
+    const filename = type === 'wholesale' ? 'pricelist_wholesale.pdf' : 'pricelist_retail.pdf';
 
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,

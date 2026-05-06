@@ -10,7 +10,12 @@ interface ReportTemplate {
   key: string;
   label: string;
   description: string;
-  fields: { name: string; label: string; type: 'date' | 'select'; options?: { value: string; label: string }[] }[];
+  fields: {
+    name: string;
+    label: string;
+    type: 'date' | 'select';
+    options?: { value: string; label: string }[];
+  }[];
 }
 
 const REPORT_TEMPLATES: ReportTemplate[] = [
@@ -40,7 +45,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       { name: 'dateFrom', label: 'Дата з', type: 'date' },
       { name: 'dateTo', label: 'Дата по', type: 'date' },
       {
-        name: 'status', label: 'Статус', type: 'select',
+        name: 'status',
+        label: 'Статус',
+        type: 'select',
         options: [
           { value: '', label: 'Всі' },
           { value: 'new_order', label: 'Нові' },
@@ -64,8 +71,8 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
   },
   {
     key: 'wholesale_report',
-    label: 'Оптові продажі',
-    description: 'Деталізований звіт по оптових замовленнях та клієнтах',
+    label: 'Гуртові продажі',
+    description: 'Деталізований звіт по гуртових замовленнях та клієнтах',
     fields: [
       { name: 'dateFrom', label: 'Дата з', type: 'date' },
       { name: 'dateTo', label: 'Дата по', type: 'date' },
@@ -100,7 +107,7 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
   },
   {
     key: 'wholesale_groups',
-    label: 'Звіт по оптових групах',
+    label: 'Звіт по гуртових групах',
     description: 'Порівняння груп: Дрібний опт, Середній опт, Великий опт',
     fields: [
       { name: 'dateFrom', label: 'Дата з', type: 'date' },
@@ -174,7 +181,7 @@ const CUSTOM_REPORT_FIELDS: Record<string, { key: string; label: string }[]> = {
     { key: 'name', label: 'Назва' },
     { key: 'slug', label: 'Slug' },
     { key: 'priceRetail', label: 'Роздрібна ціна' },
-    { key: 'priceWholesale', label: 'Оптова ціна' },
+    { key: 'priceWholesale', label: 'Гуртова ціна' },
     { key: 'quantity', label: 'Залишок' },
     { key: 'category', label: 'Категорія' },
     { key: 'isActive', label: 'Активний' },
@@ -190,7 +197,7 @@ const CUSTOM_REPORT_FIELDS: Record<string, { key: string; label: string }[]> = {
     { key: 'createdAt', label: 'Дата реєстрації' },
     { key: 'ordersCount', label: 'Кількість замовлень' },
     { key: 'totalSpent', label: 'Загальна сума' },
-    { key: 'wholesaleGroup', label: 'Оптова група' },
+    { key: 'wholesaleGroup', label: 'Гуртова група' },
     { key: 'companyName', label: 'Компанія' },
     { key: 'isBlocked', label: 'Заблокований' },
   ],
@@ -323,7 +330,9 @@ export default function AdminReportsPage() {
                 }`}
               >
                 <p className="text-sm font-semibold">{tpl.label}</p>
-                <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{tpl.description}</p>
+                <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+                  {tpl.description}
+                </p>
               </button>
             ))}
           </div>
@@ -333,7 +342,9 @@ export default function AdminReportsPage() {
             {selectedTemplate ? (
               <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
                 <h3 className="mb-4 text-lg font-semibold">{selectedTemplate.label}</h3>
-                <p className="mb-4 text-sm text-[var(--color-text-secondary)]">{selectedTemplate.description}</p>
+                <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
+                  {selectedTemplate.description}
+                </p>
 
                 <div className="mb-6 grid gap-4 sm:grid-cols-2">
                   {selectedTemplate.fields.map((field) => (
@@ -343,7 +354,9 @@ export default function AdminReportsPage() {
                           label={field.label}
                           type="date"
                           value={formValues[field.name] || ''}
-                          onChange={(e) => setFormValues({ ...formValues, [field.name]: e.target.value })}
+                          onChange={(e) =>
+                            setFormValues({ ...formValues, [field.name]: e.target.value })
+                          }
                         />
                       ) : field.type === 'select' && field.options ? (
                         <div>
@@ -351,7 +364,9 @@ export default function AdminReportsPage() {
                           <Select
                             options={field.options}
                             value={formValues[field.name] || ''}
-                            onChange={(e) => setFormValues({ ...formValues, [field.name]: e.target.value })}
+                            onChange={(e) =>
+                              setFormValues({ ...formValues, [field.name]: e.target.value })
+                            }
                           />
                         </div>
                       ) : null}
@@ -360,16 +375,37 @@ export default function AdminReportsPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => handleGenerate('xlsx')} isLoading={isGenerating}>Завантажити XLSX</Button>
-                  <Button variant="outline" onClick={() => handleGenerate('csv')} isLoading={isGenerating}>CSV</Button>
-                  <Button variant="outline" onClick={() => handleGenerate('pdf')} isLoading={isGenerating}>PDF</Button>
+                  <Button onClick={() => handleGenerate('xlsx')} isLoading={isGenerating}>
+                    Завантажити XLSX
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleGenerate('csv')}
+                    isLoading={isGenerating}
+                  >
+                    CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleGenerate('pdf')}
+                    isLoading={isGenerating}
+                  >
+                    PDF
+                  </Button>
                 </div>
 
                 {error && <p className="mt-3 text-sm text-[var(--color-danger)]">{error}</p>}
                 {downloadUrl && (
                   <p className="mt-3 text-sm text-green-600">
                     Звіт згенеровано.{' '}
-                    <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="underline">Завантажити</a>
+                    <a
+                      href={downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      Завантажити
+                    </a>
                   </p>
                 )}
               </div>
@@ -395,7 +431,10 @@ export default function AdminReportsPage() {
               {CUSTOM_REPORT_ENTITIES.map((e) => (
                 <button
                   key={e.value}
-                  onClick={() => { setCustomEntity(e.value); setCustomFields(new Set()); }}
+                  onClick={() => {
+                    setCustomEntity(e.value);
+                    setCustomFields(new Set());
+                  }}
                   className={`rounded-[var(--radius)] border px-4 py-2 text-sm font-medium transition-colors ${
                     customEntity === e.value
                       ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)]'
@@ -412,7 +451,12 @@ export default function AdminReportsPage() {
           <div className="mb-6">
             <div className="mb-2 flex items-center justify-between">
               <label className="text-sm font-medium">Поля ({customFields.size} обрано)</label>
-              <button onClick={selectAllFields} className="text-xs text-[var(--color-primary)] hover:underline">Обрати всі</button>
+              <button
+                onClick={selectAllFields}
+                className="text-xs text-[var(--color-primary)] hover:underline"
+              >
+                Обрати всі
+              </button>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {(CUSTOM_REPORT_FIELDS[customEntity] || []).map((field) => (
@@ -440,8 +484,18 @@ export default function AdminReportsPage() {
           <div className="mb-6">
             <label className="mb-2 block text-sm font-medium">Фільтри</label>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Input label="Дата з" type="date" value={customDateFrom} onChange={(e) => setCustomDateFrom(e.target.value)} />
-              <Input label="Дата по" type="date" value={customDateTo} onChange={(e) => setCustomDateTo(e.target.value)} />
+              <Input
+                label="Дата з"
+                type="date"
+                value={customDateFrom}
+                onChange={(e) => setCustomDateFrom(e.target.value)}
+              />
+              <Input
+                label="Дата по"
+                type="date"
+                value={customDateTo}
+                onChange={(e) => setCustomDateTo(e.target.value)}
+              />
               {customEntity === 'orders' && (
                 <div>
                   <label className="mb-1 block text-sm font-medium">Статус</label>
@@ -465,23 +519,36 @@ export default function AdminReportsPage() {
 
           {/* Generate */}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => handleCustomGenerate('xlsx')} isLoading={isGenerating} disabled={customFields.size === 0}>
+            <Button
+              onClick={() => handleCustomGenerate('xlsx')}
+              isLoading={isGenerating}
+              disabled={customFields.size === 0}
+            >
               Завантажити XLSX
             </Button>
-            <Button variant="outline" onClick={() => handleCustomGenerate('csv')} isLoading={isGenerating} disabled={customFields.size === 0}>
+            <Button
+              variant="outline"
+              onClick={() => handleCustomGenerate('csv')}
+              isLoading={isGenerating}
+              disabled={customFields.size === 0}
+            >
               CSV
             </Button>
           </div>
 
           {customFields.size === 0 && (
-            <p className="mt-3 text-xs text-[var(--color-text-secondary)]">Оберіть хоча б одне поле для генерації звіту</p>
+            <p className="mt-3 text-xs text-[var(--color-text-secondary)]">
+              Оберіть хоча б одне поле для генерації звіту
+            </p>
           )}
 
           {error && <p className="mt-3 text-sm text-[var(--color-danger)]">{error}</p>}
           {downloadUrl && (
             <p className="mt-3 text-sm text-green-600">
               Звіт згенеровано.{' '}
-              <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="underline">Завантажити</a>
+              <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                Завантажити
+              </a>
             </p>
           )}
         </div>

@@ -8,6 +8,7 @@ import Image from 'next/image';
 import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
+import PaginationLinks from '@/components/seo/PaginationLinks';
 import { prisma } from '@/lib/prisma';
 
 const baseUrl = process.env.APP_URL || 'http://localhost:3000';
@@ -124,6 +125,7 @@ export default async function NewsPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
         />
       )}
+      <PaginationLinks currentPage={page} totalPages={totalPages} baseUrl={`${baseUrl}/news`} />
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       <h1 className="mb-6 text-2xl font-bold">Новини та акції</h1>

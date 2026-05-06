@@ -13,7 +13,13 @@ import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
 } from '@/types/order';
-import type { OrderListItem, OrderStatus, PaymentStatus, PaymentMethod, DeliveryMethod } from '@/types/order';
+import type {
+  OrderListItem,
+  OrderStatus,
+  PaymentStatus,
+  PaymentMethod,
+  DeliveryMethod,
+} from '@/types/order';
 import Select from '@/components/ui/Select';
 import Pagination from '@/components/ui/Pagination';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -98,7 +104,61 @@ export default function AdminOrdersPage() {
   const [quickStatusUpdating, setQuickStatusUpdating] = useState(false);
   const [newOrdersBadge, setNewOrdersBadge] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
-  const [confirmStatusChange, setConfirmStatusChange] = useState<{orderId: number; status: string} | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isBulkTtnRunning, setIsBulkTtnRunning] = useState(false);
+
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === orders.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(orders.map((o) => o.id)));
+  };
+
+  const handleBulkTtn = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkTtnRunning(true);
+    try {
+      const res = await apiClient.post<{
+        ok: { orderNumber: string; trackingNumber: string }[];
+        failed: { orderNumber: string; error: string }[];
+      }>('/api/v1/admin/orders/bulk-ttn', { orderIds: Array.from(selectedIds) });
+      if (res.success && res.data) {
+        const { ok, failed } = res.data;
+        if (ok.length > 0) {
+          toast.success(`Створено ${ok.length} ТТН`);
+        }
+        if (failed.length > 0) {
+          toast.error(
+            `Не створено ${failed.length}: ${failed
+              .slice(0, 3)
+              .map((f) => `#${f.orderNumber} (${f.error})`)
+              .join('; ')}${failed.length > 3 ? '…' : ''}`,
+            { duration: 8000 },
+          );
+        }
+        setSelectedIds(new Set());
+        // Refresh list to show new tracking numbers
+        loadOrders();
+      } else {
+        toast.error(res.error || 'Помилка масового створення ТТН');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    } finally {
+      setIsBulkTtnRunning(false);
+    }
+  };
+  const [confirmStatusChange, setConfirmStatusChange] = useState<{
+    orderId: number;
+    status: string;
+  } | null>(null);
   const lastKnownNewRef = useRef<number | null>(null);
 
   const page = Number(searchParams.get('page')) || 1;
@@ -121,10 +181,18 @@ export default function AdminOrdersPage() {
     if (debouncedSearch !== currentSearch) {
       updateFilter('search', debouncedSearch);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
-  const hasFilters = !!(status || clientType || paymentMethod || deliveryMethod || dateFrom || dateTo || search);
+  const hasFilters = !!(
+    status ||
+    clientType ||
+    paymentMethod ||
+    deliveryMethod ||
+    dateFrom ||
+    dateTo ||
+    search
+  );
 
   const loadOrders = useCallback(() => {
     setIsLoading(true);
@@ -154,7 +222,19 @@ export default function AdminOrdersPage() {
       })
       .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
-  }, [page, limit, status, clientType, paymentMethod, deliveryMethod, dateFrom, dateTo, search, sortBy, sortOrder]);
+  }, [
+    page,
+    limit,
+    status,
+    clientType,
+    paymentMethod,
+    deliveryMethod,
+    dateFrom,
+    dateTo,
+    search,
+    sortBy,
+    sortOrder,
+  ]);
 
   useEffect(() => {
     loadOrders();
@@ -207,9 +287,13 @@ export default function AdminOrdersPage() {
   const handleQuickStatusConfirm = async () => {
     if (!confirmStatusChange) return;
     setQuickStatusUpdating(true);
-    const res = await apiClient.put(`/api/v1/admin/orders/${confirmStatusChange.orderId}/status`, { status: confirmStatusChange.status });
+    const res = await apiClient.put(`/api/v1/admin/orders/${confirmStatusChange.orderId}/status`, {
+      status: confirmStatusChange.status,
+    });
     if (res.success) {
-      toast.success(`Статус змінено на "${ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus]}"`);
+      toast.success(
+        `Статус змінено на "${ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus]}"`,
+      );
       loadOrders();
       loadStats();
     } else {
@@ -248,7 +332,9 @@ export default function AdminOrdersPage() {
 
       const blob = await res.blob();
       const disposition = res.headers.get('Content-Disposition');
-      const filename = disposition?.match(/filename="(.+)"/)?.[1] || `orders_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const filename =
+        disposition?.match(/filename="(.+)"/)?.[1] ||
+        `orders_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -280,11 +366,16 @@ export default function AdminOrdersPage() {
 
   const paymentStatusColor = (s: string) => {
     switch (s) {
-      case 'paid': return 'bg-green-100 text-green-700';
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
-      case 'partial': return 'bg-blue-100 text-blue-700';
-      case 'refunded': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'paid':
+        return 'bg-green-100 text-green-700';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'partial':
+        return 'bg-blue-100 text-blue-700';
+      case 'refunded':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
     }
   };
 
@@ -390,7 +481,9 @@ export default function AdminOrdersPage() {
       {showFilters && (
         <div className="mb-4 flex flex-wrap items-end gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Статус</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Статус
+            </label>
             <Select
               options={STATUS_OPTIONS}
               value={status}
@@ -399,7 +492,9 @@ export default function AdminOrdersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Тип клієнта</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Тип клієнта
+            </label>
             <Select
               options={CLIENT_TYPE_OPTIONS}
               value={clientType}
@@ -408,7 +503,9 @@ export default function AdminOrdersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Спосіб оплати</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Спосіб оплати
+            </label>
             <Select
               options={PAYMENT_METHOD_OPTIONS}
               value={paymentMethod}
@@ -417,7 +514,9 @@ export default function AdminOrdersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Доставка</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Доставка
+            </label>
             <Select
               options={DELIVERY_METHOD_OPTIONS}
               value={deliveryMethod}
@@ -426,7 +525,9 @@ export default function AdminOrdersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Дата від</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Дата від
+            </label>
             <input
               type="date"
               value={dateFrom}
@@ -435,7 +536,9 @@ export default function AdminOrdersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">Дата до</label>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Дата до
+            </label>
             <input
               type="date"
               value={dateTo}
@@ -446,14 +549,43 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
+      {selectedIds.size > 0 && (
+        <div className="mb-3 flex items-center justify-between rounded-[var(--radius)] border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 px-4 py-2">
+          <span className="text-sm">
+            Вибрано: <strong>{selectedIds.size}</strong>
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleBulkTtn} isLoading={isBulkTtnRunning}>
+              Створити ТТН (НП)
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={isBulkTtnRunning}
+            >
+              Скасувати вибір
+            </Button>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
-        <AdminTableSkeleton rows={10} columns={7} />
+        <AdminTableSkeleton rows={10} columns={8} />
       ) : (
         <>
           <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+                  <th className="w-10 px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={orders.length > 0 && selectedIds.size === orders.length}
+                      onChange={toggleSelectAll}
+                      aria-label="Вибрати всі"
+                    />
+                  </th>
                   <th className="px-3 py-3 text-left font-medium">Замовлення</th>
                   <th className="px-3 py-3 text-left font-medium">Клієнт</th>
                   <th className="px-3 py-3 text-left font-medium">Статус</th>
@@ -471,6 +603,14 @@ export default function AdminOrdersPage() {
                       key={order.id}
                       className="border-b border-[var(--color-border)] last:border-0 transition-colors hover:bg-[var(--color-bg-secondary)]"
                     >
+                      <td className="px-3 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(order.id)}
+                          onChange={() => toggleSelected(order.id)}
+                          aria-label={`Вибрати замовлення ${order.orderNumber}`}
+                        />
+                      </td>
                       <td className="px-3 py-3">
                         <Link
                           href={`/admin/orders/${order.id}`}
@@ -483,13 +623,20 @@ export default function AdminOrdersPage() {
                         </p>
                         {order.itemsCount > 0 && (
                           <p className="text-[11px] text-[var(--color-text-secondary)]">
-                            {order.itemsCount} {order.itemsCount === 1 ? 'товар' : order.itemsCount < 5 ? 'товари' : 'товарів'}
+                            {order.itemsCount}{' '}
+                            {order.itemsCount === 1
+                              ? 'товар'
+                              : order.itemsCount < 5
+                                ? 'товари'
+                                : 'товарів'}
                           </p>
                         )}
                       </td>
                       <td className="px-3 py-3">
                         <p className="font-medium text-sm">{order.contactName}</p>
-                        <p className="text-xs text-[var(--color-text-secondary)]">{order.contactPhone}</p>
+                        <p className="text-xs text-[var(--color-text-secondary)]">
+                          {order.contactPhone}
+                        </p>
                         {order.clientType === 'wholesale' && (
                           <span className="mt-0.5 inline-block rounded bg-[var(--color-primary)]/10 px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-primary)]">
                             ОПТ
@@ -517,7 +664,9 @@ export default function AdminOrdersPage() {
                         </span>
                       </td>
                       <td className="px-3 py-3">
-                        <p className="text-xs">{DELIVERY_METHOD_LABELS[order.deliveryMethod as DeliveryMethod]}</p>
+                        <p className="text-xs">
+                          {DELIVERY_METHOD_LABELS[order.deliveryMethod as DeliveryMethod]}
+                        </p>
                         {order.trackingNumber && (
                           <p className="mt-0.5 text-[11px] font-medium text-[var(--color-primary)]">
                             TTH: {order.trackingNumber}
@@ -525,7 +674,9 @@ export default function AdminOrdersPage() {
                         )}
                       </td>
                       <td className="px-3 py-3 text-right">
-                        <span className="font-bold">{Number(order.totalAmount).toFixed(2)} &#8372;</span>
+                        <span className="font-bold">
+                          {Number(order.totalAmount).toFixed(2)} &#8372;
+                        </span>
                       </td>
                       <td className="px-3 py-3 text-center">
                         {transitions.length > 0 && (
@@ -568,8 +719,19 @@ export default function AdminOrdersPage() {
                                 title="Швидка зміна статусу"
                                 className="rounded p-1 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-primary)]"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M12 20h9" /><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z" />
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M12 20h9" />
+                                  <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z" />
                                 </svg>
                               </button>
                             )}
@@ -616,7 +778,11 @@ export default function AdminOrdersPage() {
         onConfirm={handleQuickStatusConfirm}
         variant="warning"
         title="Зміна статусу"
-        message={confirmStatusChange ? `Змінити статус замовлення на "${ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus]}"?` : ''}
+        message={
+          confirmStatusChange
+            ? `Змінити статус замовлення на "${ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus]}"?`
+            : ''
+        }
         confirmText="Так, змінити"
         isLoading={quickStatusUpdating}
       />

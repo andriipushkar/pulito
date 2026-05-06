@@ -14,6 +14,7 @@ import ProductCard from '@/components/product/ProductCard';
 import ProductCardSkeleton from '@/components/product/ProductCardSkeleton';
 import CatalogClient from './CatalogClient';
 import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
+import PaginationLinks from '@/components/seo/PaginationLinks';
 import { getProducts } from '@/services/product';
 import { getCategories, getCategoryBySlug } from '@/services/category';
 import { prisma } from '@/lib/prisma';
@@ -166,6 +167,12 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
         />
       )}
       <BreadcrumbJsonLd items={breadcrumbJsonLdItems} />
+      <PaginationLinks
+        currentPage={page}
+        totalPages={totalPages}
+        baseUrl={`${baseUrl}/catalog`}
+        searchParams={currentSearchParams}
+      />
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       <h1 className="mb-6 text-2xl font-bold">

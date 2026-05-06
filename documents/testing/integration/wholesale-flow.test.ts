@@ -13,7 +13,7 @@ describe('Wholesale flow (real DB)', () => {
 
     admin = await createTestUser({ fullName: 'Адмін', role: 'admin' });
     product = await createTestProduct({
-      name: 'Оптовий товар',
+      name: 'Гуртовий товар',
       priceRetail: 100.0,
       priceWholesale: 75.0,
       priceWholesale2: 65.0,
@@ -30,7 +30,7 @@ describe('Wholesale flow (real DB)', () => {
   it('should register user, request wholesale, admin approves, verify prices', async () => {
     // 1. Register a new user (client role by default)
     const wholesaleUser = await createTestUser({
-      fullName: 'Оптовий Покупець',
+      fullName: 'Гуртовий Покупець',
       phone: '+380501234567',
       companyName: 'ТОВ "Чисто"',
       edrpou: '12345678',
@@ -110,7 +110,7 @@ describe('Wholesale flow (real DB)', () => {
 
   it('should reject a wholesale request', async () => {
     const user = await createTestUser({
-      fullName: 'Відмовлений Оптовик',
+      fullName: 'Відмовлений Гуртівник',
       companyName: 'ФОП Тест',
     });
 

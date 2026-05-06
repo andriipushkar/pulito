@@ -248,7 +248,7 @@ export default function AccountDashboard() {
             </div>
             <div>
               <span className="text-sm font-semibold text-[var(--color-text)]">
-                Станьте оптовим клієнтом
+                Станьте гуртовим клієнтом
               </span>
               <span className="ml-2 hidden text-xs text-[var(--color-text-secondary)] sm:inline">
                 Знижки до 30%

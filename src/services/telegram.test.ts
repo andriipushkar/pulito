@@ -77,9 +77,7 @@ describe('sendClientNotification', () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.reply_markup).toBeDefined();
-    expect(body.reply_markup.inline_keyboard[0][0].url).toBe(
-      'https://shop.test/orders/123',
-    );
+    expect(body.reply_markup.inline_keyboard[0][0].url).toBe('https://shop.test/orders/123');
   });
 
   it('should not include reply_markup when link is not provided', async () => {
@@ -152,7 +150,7 @@ describe('notifyManagerNewOrder', () => {
     await notifyManagerNewOrder({ ...order, clientType: 'wholesale' });
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.text).toContain('Оптовий');
+    expect(body.text).toContain('Гуртовий');
   });
 
   it('should skip when no TELEGRAM_MANAGER_CHAT_ID', async () => {
@@ -241,13 +239,7 @@ describe('notifyClientStatusChange', () => {
       telegramChatId: BigInt(777),
     } as never);
 
-    await notifyClientStatusChange(
-      1,
-      'ORD-005',
-      'paid',
-      'shipped',
-      '20450000000001',
-    );
+    await notifyClientStatusChange(1, 'ORD-005', 'paid', 'shipped', '20450000000001');
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.text).toContain('Відправлено');
@@ -260,13 +252,7 @@ describe('notifyClientStatusChange', () => {
       telegramChatId: BigInt(777),
     } as never);
 
-    await notifyClientStatusChange(
-      1,
-      'ORD-006',
-      'new_order',
-      'processing',
-      '20450000000001',
-    );
+    await notifyClientStatusChange(1, 'ORD-006', 'new_order', 'processing', '20450000000001');
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.text).not.toContain('ТТН');
@@ -304,9 +290,7 @@ describe('notifyClientStatusChange', () => {
     await notifyClientStatusChange(1, 'ORD-009', 'new_order', 'confirmed');
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.reply_markup.inline_keyboard[0][0].url).toBe(
-      'https://shop.test/account/orders',
-    );
+    expect(body.reply_markup.inline_keyboard[0][0].url).toBe('https://shop.test/account/orders');
   });
 });
 
@@ -389,11 +373,7 @@ describe('generateLinkToken', () => {
     expect(typeof token).toBe('string');
     expect(token.length).toBe(32); // 16 random bytes -> 32 hex chars
 
-    expect(mockRedis.setex).toHaveBeenCalledWith(
-      `tg_link:${token}`,
-      600,
-      '555',
-    );
+    expect(mockRedis.setex).toHaveBeenCalledWith(`tg_link:${token}`, 600, '555');
   });
 
   it('should generate unique tokens on each call', async () => {
@@ -570,8 +550,7 @@ describe('handleTelegramUpdate', () => {
 
     // Should call answerCallbackQuery
     const answerCall = fetchMock.mock.calls.find(
-      (call: unknown[]) =>
-        typeof call[0] === 'string' && call[0].includes('/answerCallbackQuery'),
+      (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('/answerCallbackQuery'),
     );
     expect(answerCall).toBeDefined();
     const answerBody = JSON.parse(answerCall![1].body);
@@ -630,8 +609,7 @@ describe('handleTelegramUpdate', () => {
 
     // Should call answerInlineQuery
     const inlineCall = fetchMock.mock.calls.find(
-      (call: unknown[]) =>
-        typeof call[0] === 'string' && call[0].includes('/answerInlineQuery'),
+      (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('/answerInlineQuery'),
     );
     expect(inlineCall).toBeDefined();
     const inlineBody = JSON.parse(inlineCall![1].body);
@@ -652,8 +630,7 @@ describe('handleTelegramUpdate', () => {
     });
 
     const inlineCall = fetchMock.mock.calls.find(
-      (call: unknown[]) =>
-        typeof call[0] === 'string' && call[0].includes('/answerInlineQuery'),
+      (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('/answerInlineQuery'),
     );
     expect(inlineCall).toBeDefined();
     const inlineBody = JSON.parse(inlineCall![1].body);
@@ -678,9 +655,7 @@ describe('handleTelegramUpdate', () => {
     // Use a callback_query path which is fully awaited inside the try/catch.
     // The /start path uses `return handleStart(...)` (un-awaited return),
     // so errors from it propagate through the promise chain.
-    mockPrisma.siteSetting.findUnique.mockRejectedValue(
-      new Error('DB down'),
-    );
+    mockPrisma.siteSetting.findUnique.mockRejectedValue(new Error('DB down'));
 
     await expect(
       handleTelegramUpdate({
@@ -803,7 +778,7 @@ describe('notifyClientStatusChange - error handling', () => {
     fetchMock.mockRejectedValueOnce(new Error('network error'));
 
     await expect(
-      notifyClientStatusChange(1, 'ORD-010', 'new_order', 'confirmed')
+      notifyClientStatusChange(1, 'ORD-010', 'new_order', 'confirmed'),
     ).resolves.toBeUndefined();
   });
 
@@ -832,7 +807,7 @@ describe('notifyManagerFeedback - error handling', () => {
         type: 'form',
         name: 'Test',
         message: 'Test message',
-      })
+      }),
     ).resolves.toBeUndefined();
   });
 });
@@ -1038,7 +1013,7 @@ describe('handleTelegramUpdate - additional paths', () => {
 
     expect(fetchMock).toHaveBeenCalled();
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.text).toContain('Оптові ціни доступні тільки');
+    expect(body.text).toContain('Гуртові ціни доступні тільки');
   });
 
   it('should handle feedback submission when user is awaiting feedback', async () => {
@@ -1344,7 +1319,12 @@ describe('handleTelegramUpdate - additional paths', () => {
   });
 
   it('should handle callback query for settings_notif:on', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Test', role: 'client', email: 'test@test.com' } as never);
+    mockPrisma.user.findFirst.mockResolvedValue({
+      id: 1,
+      fullName: 'Test',
+      role: 'client',
+      email: 'test@test.com',
+    } as never);
     mockPrisma.user.findUnique.mockResolvedValue({ notificationPrefs: {} } as never);
     mockPrisma.user.update.mockResolvedValue({} as never);
 
@@ -1367,8 +1347,15 @@ describe('handleTelegramUpdate - additional paths', () => {
   });
 
   it('should handle callback query for settings_notif:off', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ id: 1, fullName: 'Test', role: 'client', email: 'test@test.com' } as never);
-    mockPrisma.user.findUnique.mockResolvedValue({ notificationPrefs: { telegram: true } } as never);
+    mockPrisma.user.findFirst.mockResolvedValue({
+      id: 1,
+      fullName: 'Test',
+      role: 'client',
+      email: 'test@test.com',
+    } as never);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      notificationPrefs: { telegram: true },
+    } as never);
     mockPrisma.user.update.mockResolvedValue({} as never);
 
     await handleTelegramUpdate({
@@ -1644,8 +1631,24 @@ describe('handleTelegramUpdate - handleCategoryProducts with products', () => {
 
   it('should display products with images and pagination', async () => {
     mockPrisma.product.findMany.mockResolvedValue([
-      { id: 1, name: 'Prod 1', slug: 'prod-1', priceRetail: 99.99, isPromo: true, code: 'P1', imagePath: '/img/p1.jpg' },
-      { id: 2, name: 'Prod 2', slug: 'prod-2', priceRetail: 49.50, isPromo: false, code: 'P2', imagePath: null },
+      {
+        id: 1,
+        name: 'Prod 1',
+        slug: 'prod-1',
+        priceRetail: 99.99,
+        isPromo: true,
+        code: 'P1',
+        imagePath: '/img/p1.jpg',
+      },
+      {
+        id: 2,
+        name: 'Prod 2',
+        slug: 'prod-2',
+        priceRetail: 49.5,
+        isPromo: false,
+        code: 'P2',
+        imagePath: null,
+      },
     ] as never);
     mockPrisma.product.count.mockResolvedValue(10 as never);
 
@@ -1705,7 +1708,15 @@ describe('handleTelegramUpdate - handlePromo with products', () => {
 
   it('should display promo products with old price and pagination', async () => {
     mockPrisma.product.findMany.mockResolvedValue([
-      { id: 1, name: 'Promo 1', slug: 'promo-1', priceRetail: 80, priceRetailOld: 100, code: 'PR1', imagePath: '/img/pr1.jpg' },
+      {
+        id: 1,
+        name: 'Promo 1',
+        slug: 'promo-1',
+        priceRetail: 80,
+        priceRetailOld: 100,
+        code: 'PR1',
+        imagePath: '/img/pr1.jpg',
+      },
     ] as never);
     mockPrisma.product.count.mockResolvedValue(10 as never);
 
@@ -1754,7 +1765,15 @@ describe('handleTelegramUpdate - handlePromo with products', () => {
 
   it('should display promo product without old price', async () => {
     mockPrisma.product.findMany.mockResolvedValue([
-      { id: 1, name: 'Promo NoOld', slug: 'promo-noold', priceRetail: 50, priceRetailOld: null, code: 'PR2', imagePath: null },
+      {
+        id: 1,
+        name: 'Promo NoOld',
+        slug: 'promo-noold',
+        priceRetail: 50,
+        priceRetailOld: null,
+        code: 'PR2',
+        imagePath: null,
+      },
     ] as never);
     mockPrisma.product.count.mockResolvedValue(1 as never);
 
@@ -1788,11 +1807,26 @@ describe('handleTelegramUpdate - handleOrders with orders', () => {
 
   it('should display user orders with emoji status', async () => {
     mockPrisma.user.findFirst.mockResolvedValue({
-      id: 1, fullName: 'Test', role: 'client', email: 'test@test.com',
+      id: 1,
+      fullName: 'Test',
+      role: 'client',
+      email: 'test@test.com',
     } as never);
     mockPrisma.order.findMany.mockResolvedValue([
-      { id: 1, orderNumber: 'O-001', status: 'shipped', totalAmount: 500, createdAt: new Date('2025-01-01') },
-      { id: 2, orderNumber: 'O-002', status: 'unknown_status', totalAmount: 200, createdAt: new Date('2025-01-02') },
+      {
+        id: 1,
+        orderNumber: 'O-001',
+        status: 'shipped',
+        totalAmount: 500,
+        createdAt: new Date('2025-01-01'),
+      },
+      {
+        id: 2,
+        orderNumber: 'O-002',
+        status: 'unknown_status',
+        totalAmount: 200,
+        createdAt: new Date('2025-01-02'),
+      },
     ] as never);
 
     await handleTelegramUpdate({
@@ -1813,7 +1847,10 @@ describe('handleTelegramUpdate - handleOrders with orders', () => {
 
   it('should show empty orders message', async () => {
     mockPrisma.user.findFirst.mockResolvedValue({
-      id: 1, fullName: 'Test', role: 'client', email: 'test@test.com',
+      id: 1,
+      fullName: 'Test',
+      role: 'client',
+      email: 'test@test.com',
     } as never);
     mockPrisma.order.findMany.mockResolvedValue([] as never);
 
@@ -1876,7 +1913,15 @@ describe('handleTelegramUpdate - handleNew with products', () => {
 
   it('should display new products with images', async () => {
     mockPrisma.product.findMany.mockResolvedValue([
-      { id: 1, name: 'New Item', slug: 'new-item', priceRetail: 100, code: 'N1', imagePath: '/img/new.jpg', createdAt: new Date() },
+      {
+        id: 1,
+        name: 'New Item',
+        slug: 'new-item',
+        priceRetail: 100,
+        code: 'N1',
+        imagePath: '/img/new.jpg',
+        createdAt: new Date(),
+      },
     ] as never);
 
     await handleTelegramUpdate({
@@ -1905,7 +1950,15 @@ describe('handleTelegramUpdate - handlePopular with products', () => {
 
   it('should display popular products with images', async () => {
     mockPrisma.product.findMany.mockResolvedValue([
-      { id: 1, name: 'Popular', slug: 'popular', priceRetail: 50, code: 'POP1', imagePath: '/img/pop.jpg', ordersCount: 100 },
+      {
+        id: 1,
+        name: 'Popular',
+        slug: 'popular',
+        priceRetail: 50,
+        code: 'POP1',
+        imagePath: '/img/pop.jpg',
+        ordersCount: 100,
+      },
     ] as never);
 
     await handleTelegramUpdate({
@@ -1934,7 +1987,10 @@ describe('handleTelegramUpdate - handleSettings with linked user', () => {
 
   it('should show settings with telegram enabled', async () => {
     mockPrisma.user.findFirst.mockResolvedValue({
-      id: 1, fullName: 'Test', role: 'client', email: 'test@test.com',
+      id: 1,
+      fullName: 'Test',
+      role: 'client',
+      email: 'test@test.com',
     } as never);
     mockPrisma.user.findUnique.mockResolvedValue({
       notificationPrefs: { telegram: true },
@@ -1957,7 +2013,10 @@ describe('handleTelegramUpdate - handleSettings with linked user', () => {
 
   it('should show settings with telegram disabled', async () => {
     mockPrisma.user.findFirst.mockResolvedValue({
-      id: 1, fullName: 'Test', role: 'client', email: 'test@test.com',
+      id: 1,
+      fullName: 'Test',
+      role: 'client',
+      email: 'test@test.com',
     } as never);
     mockPrisma.user.findUnique.mockResolvedValue({
       notificationPrefs: { telegram: false },
@@ -1980,7 +2039,10 @@ describe('handleTelegramUpdate - handleSettings with linked user', () => {
 
   it('should show settings with null notificationPrefs', async () => {
     mockPrisma.user.findFirst.mockResolvedValue({
-      id: 1, fullName: 'Test', role: 'client', email: 'test@test.com',
+      id: 1,
+      fullName: 'Test',
+      role: 'client',
+      email: 'test@test.com',
     } as never);
     mockPrisma.user.findUnique.mockResolvedValue({
       notificationPrefs: null,
@@ -2045,7 +2107,10 @@ describe('handleTelegramUpdate - handleWholesalePrices', () => {
 
   it('should show wholesale prices for wholesale user', async () => {
     mockPrisma.user.findFirst.mockResolvedValue({
-      id: 1, fullName: 'Wholesaler', role: 'wholesaler', email: 'w@test.com',
+      id: 1,
+      fullName: 'Wholesaler',
+      role: 'wholesaler',
+      email: 'w@test.com',
     } as never);
     mockPrisma.product.findMany.mockResolvedValue([
       { name: 'Prod', slug: 'prod', priceRetail: 100, priceWholesale: 80, code: 'W1' },
@@ -2063,12 +2128,15 @@ describe('handleTelegramUpdate - handleWholesalePrices', () => {
     });
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.text).toContain('Оптові ціни');
+    expect(body.text).toContain('Гуртові ціни');
   });
 
   it('should show wholesale prices with null priceWholesale (uses retail)', async () => {
     mockPrisma.user.findFirst.mockResolvedValue({
-      id: 1, fullName: 'Wholesaler', role: 'wholesaler', email: 'w@test.com',
+      id: 1,
+      fullName: 'Wholesaler',
+      role: 'wholesaler',
+      email: 'w@test.com',
     } as never);
     mockPrisma.product.findMany.mockResolvedValue([
       { name: 'Prod', slug: 'prod', priceRetail: 100, priceWholesale: null, code: 'W2' },
@@ -2091,7 +2159,10 @@ describe('handleTelegramUpdate - handleWholesalePrices', () => {
 
   it('should show empty wholesale prices message', async () => {
     mockPrisma.user.findFirst.mockResolvedValue({
-      id: 1, fullName: 'Wholesaler', role: 'wholesaler', email: 'w@test.com',
+      id: 1,
+      fullName: 'Wholesaler',
+      role: 'wholesaler',
+      email: 'w@test.com',
     } as never);
     mockPrisma.product.findMany.mockResolvedValue([] as never);
 
@@ -2219,7 +2290,14 @@ describe('handleTelegramUpdate - category products pagination back button', () =
 describe('handleTelegramUpdate - promo pagination back button', () => {
   it('should show back pagination for promo when offset > 0', async () => {
     const products = [
-      { name: 'Promo', slug: 'promo-1', code: 'PR1', priceRetail: 100, imagePath: null, isPromo: true },
+      {
+        name: 'Promo',
+        slug: 'promo-1',
+        code: 'PR1',
+        priceRetail: 100,
+        imagePath: null,
+        isPromo: true,
+      },
     ];
     mockPrisma.product.findMany.mockResolvedValue(products as never);
     mockPrisma.product.count.mockResolvedValue(20 as never);
@@ -2254,23 +2332,25 @@ describe('handleTelegramUpdate - error in message handler', () => {
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await expect(handleTelegramUpdate({
-      update_id: 302,
-      callback_query: {
-        id: 'cq1',
-        data: 'menu',
-        from: { id: 600, first_name: 'Test' },
-        message: {
-          message_id: 100,
-          chat: { id: 600, type: 'private' },
-          date: Date.now(),
+    await expect(
+      handleTelegramUpdate({
+        update_id: 302,
+        callback_query: {
+          id: 'cq1',
+          data: 'menu',
           from: { id: 600, first_name: 'Test' },
-        } as any,
-      },
-    })).resolves.toBeUndefined();
+          message: {
+            message_id: 100,
+            chat: { id: 600, type: 'private' },
+            date: Date.now(),
+            from: { id: 600, first_name: 'Test' },
+          } as any,
+        },
+      }),
+    ).resolves.toBeUndefined();
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('"message":"Telegram webhook error"')
+      expect.stringContaining('"message":"Telegram webhook error"'),
     );
     consoleSpy.mockRestore();
   });

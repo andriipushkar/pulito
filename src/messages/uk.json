@@ -55,7 +55,7 @@
     "outOfStock": "Немає в наявності",
     "price": "Ціна",
     "retailPrice": "Роздрібна ціна",
-    "wholesalePrice": "Оптова ціна",
+    "wholesalePrice": "Гуртова ціна",
     "description": "Опис",
     "characteristics": "Характеристики",
     "reviews": "Відгуки",
@@ -254,7 +254,7 @@
     "noChallenges": "Наразі немає активних челенджів"
   },
   "wholesale": {
-    "bulkOrder": "Оптове замовлення по артикулах",
+    "bulkOrder": "Гуртове замовлення по артикулах",
     "enterArticles": "Введіть артикули товарів",
     "format": "Формат: код артикулу, кількість",
     "calculate": "Розрахувати",

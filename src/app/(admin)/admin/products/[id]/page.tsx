@@ -59,7 +59,18 @@ export default function AdminProductDetailPage() {
   const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [bgRemovalAvailable, setBgRemovalAvailable] = useState(false);
+  const [removeBgEnabled, setRemoveBgEnabled] = useState(true);
   const { isUploading, progress, upload: uploadWithProgress } = useUploadProgress();
+
+  useEffect(() => {
+    apiClient
+      .get<{ backgroundRemoval: boolean }>('/api/v1/admin/upload/capabilities')
+      .then((res) => {
+        if (res.success && res.data) setBgRemovalAvailable(res.data.backgroundRemoval);
+      })
+      .catch(() => {});
+  }, []);
   const { errors, validateAll, clearError } = useFormValidation({
     name: { required: "Назва обов'язкова", minLength: { value: 2, message: 'Мінімум 2 символи' } },
     code: { required: "Код обов'язковий" },
@@ -151,6 +162,9 @@ export default function AdminProductDetailPage() {
     const formData = new FormData();
     for (let i = 0; i < files.length; i++) {
       formData.append('images', files[i]);
+    }
+    if (bgRemovalAvailable && removeBgEnabled) {
+      formData.append('removeBg', 'true');
     }
 
     try {
@@ -261,6 +275,22 @@ export default function AdminProductDetailPage() {
             <span className="text-2xl">{isUploading ? '⏳' : '+'}</span>
           </label>
         </div>
+        {bgRemovalAvailable && (
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={removeBgEnabled}
+              onChange={(e) => setRemoveBgEnabled(e.target.checked)}
+              className="accent-[var(--color-primary)]"
+            />
+            <span>
+              Автоматично видалити фон при завантаженні
+              <span className="ml-1 text-xs text-[var(--color-text-secondary)]">
+                (товар автоматично розмішується на фоні сайту)
+              </span>
+            </span>
+          </label>
+        )}
         <UploadProgress progress={progress} isUploading={isUploading} />
       </div>
 

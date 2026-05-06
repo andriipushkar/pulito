@@ -55,10 +55,25 @@ export default function StatusPage() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  if (isLoading) return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
 
-  const statusLabel = user?.wholesaleStatus === 'approved' ? 'Оптовик' : user?.wholesaleStatus === 'pending' ? 'Очікує підтвердження' : 'Клієнт';
-  const statusColor = user?.wholesaleStatus === 'approved' ? 'bg-green-100 text-green-800' : user?.wholesaleStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800';
+  const statusLabel =
+    user?.wholesaleStatus === 'approved'
+      ? 'Гуртівник'
+      : user?.wholesaleStatus === 'pending'
+        ? 'Очікує підтвердження'
+        : 'Клієнт';
+  const statusColor =
+    user?.wholesaleStatus === 'approved'
+      ? 'bg-green-100 text-green-800'
+      : user?.wholesaleStatus === 'pending'
+        ? 'bg-yellow-100 text-yellow-800'
+        : 'bg-gray-100 text-gray-800';
 
   const globalRules = rules.filter((r) => !r.productId && r.isActive);
   const productRules = rules.filter((r) => r.productId && r.isActive);
@@ -90,7 +105,9 @@ export default function StatusPage() {
             </div>
             <div>
               <p className="text-sm text-[var(--color-text-secondary)]">Дата отримання статусу</p>
-              <p className="text-xl font-bold">{stats.memberSince ? formatDate(stats.memberSince) : '—'}</p>
+              <p className="text-xl font-bold">
+                {stats.memberSince ? formatDate(stats.memberSince) : '—'}
+              </p>
             </div>
           </div>
         )}
@@ -102,11 +119,16 @@ export default function StatusPage() {
           <h3 className="mb-3 font-semibold">Загальні правила</h3>
           <div className="space-y-2">
             {globalRules.map((rule) => (
-              <div key={rule.id} className="flex items-center justify-between rounded-[var(--radius)] border border-[var(--color-border)] px-4 py-3">
+              <div
+                key={rule.id}
+                className="flex items-center justify-between rounded-[var(--radius)] border border-[var(--color-border)] px-4 py-3"
+              >
                 <span className="text-sm">{RULE_LABELS[rule.ruleType]}</span>
                 <span className="font-semibold">
-                  {rule.ruleType === 'min_order_amount' && `${Number(rule.value).toFixed(0)} ${RULE_UNITS[rule.ruleType]}`}
-                  {rule.ruleType !== 'min_order_amount' && `${Number(rule.value)} ${RULE_UNITS[rule.ruleType]}`}
+                  {rule.ruleType === 'min_order_amount' &&
+                    `${Number(rule.value).toFixed(0)} ${RULE_UNITS[rule.ruleType]}`}
+                  {rule.ruleType !== 'min_order_amount' &&
+                    `${Number(rule.value)} ${RULE_UNITS[rule.ruleType]}`}
                 </span>
               </div>
             ))}
@@ -131,8 +153,12 @@ export default function StatusPage() {
                 {productRules.map((rule) => (
                   <tr key={rule.id} className="border-b border-[var(--color-border)]">
                     <td className="py-2 pr-4">{rule.productName || `Товар #${rule.productId}`}</td>
-                    <td className="py-2 pr-4 text-[var(--color-text-secondary)]">{RULE_LABELS[rule.ruleType]}</td>
-                    <td className="py-2 font-semibold">{Number(rule.value)} {RULE_UNITS[rule.ruleType]}</td>
+                    <td className="py-2 pr-4 text-[var(--color-text-secondary)]">
+                      {RULE_LABELS[rule.ruleType]}
+                    </td>
+                    <td className="py-2 font-semibold">
+                      {Number(rule.value)} {RULE_UNITS[rule.ruleType]}
+                    </td>
                   </tr>
                 ))}
               </tbody>

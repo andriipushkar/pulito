@@ -25,7 +25,7 @@ test.describe('Account Manager', () => {
 
       // Non-wholesale user should see a restriction or empty state
       const restrictionMsg = page
-        .locator('text=/менеджер|доступ|оптов|wholesale|недоступн/i')
+        .locator('text=/менеджер|доступ|гуртов|wholesale|недоступн/i')
         .first();
       const hasRestriction = await restrictionMsg.isVisible({ timeout: 5000 }).catch(() => false);
 

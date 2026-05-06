@@ -64,7 +64,19 @@ vi.mock('@/lib/storage', () => ({
   isCloudStorageEnabled: mockIsCloudStorageEnabled,
 }));
 
-import { processProductImage, deleteProductImage, matchImagesFromDirectory, ImageError } from './image';
+const mockRemoveBackground = vi.hoisted(() => vi.fn());
+const mockIsBgEnabled = vi.hoisted(() => vi.fn(() => false));
+vi.mock('@/services/background-removal', () => ({
+  removeBackground: mockRemoveBackground,
+  isBackgroundRemovalEnabled: mockIsBgEnabled,
+}));
+
+import {
+  processProductImage,
+  deleteProductImage,
+  matchImagesFromDirectory,
+  ImageError,
+} from './image';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -80,6 +92,7 @@ beforeEach(() => {
     composite: vi.fn().mockReturnThis(),
     toBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-image')),
   };
+  Object.assign(instance, { flatten: vi.fn().mockReturnThis() });
   mockSharp.mockReturnValue(instance as never);
 });
 
@@ -119,26 +132,85 @@ describe('processProductImage', () => {
   });
 
   it('should reject unsupported image formats', async () => {
-    await expect(
-      processProductImage(fakeBuffer, 'image/gif', 'anim.gif', 1)
-    ).rejects.toThrow(ImageError);
-    await expect(
-      processProductImage(fakeBuffer, 'image/gif', 'anim.gif', 1)
-    ).rejects.toThrow('Непідтримуваний формат');
+    await expect(processProductImage(fakeBuffer, 'image/gif', 'anim.gif', 1)).rejects.toThrow(
+      ImageError,
+    );
+    await expect(processProductImage(fakeBuffer, 'image/gif', 'anim.gif', 1)).rejects.toThrow(
+      'Непідтримуваний формат',
+    );
   });
 
   it('should reject files exceeding 5MB', async () => {
     const largeBuffer = Buffer.alloc(6 * 1024 * 1024);
-    await expect(
-      processProductImage(largeBuffer, 'image/jpeg', 'big.jpg', 1)
-    ).rejects.toThrow('Максимальний розмір файлу: 5 МБ');
+    await expect(processProductImage(largeBuffer, 'image/jpeg', 'big.jpg', 1)).rejects.toThrow(
+      'Максимальний розмір файлу: 5 МБ',
+    );
   });
 
   it('should reject files that fail content validation', async () => {
     mockValidateFileType.mockResolvedValueOnce({ valid: false });
-    await expect(
-      processProductImage(fakeBuffer, 'image/jpeg', 'fake.jpg', 1)
-    ).rejects.toThrow('Вміст файлу не відповідає заявленому формату');
+    await expect(processProductImage(fakeBuffer, 'image/jpeg', 'fake.jpg', 1)).rejects.toThrow(
+      'Вміст файлу не відповідає заявленому формату',
+    );
+  });
+
+  it('should reject images smaller than 300×300 (A1)', async () => {
+    const smallInstance = {
+      metadata: vi.fn().mockResolvedValue({ width: 200, height: 200 }),
+      resize: vi.fn().mockReturnThis(),
+      blur: vi.fn().mockReturnThis(),
+      webp: vi.fn().mockReturnThis(),
+      flatten: vi.fn().mockReturnThis(),
+      composite: vi.fn().mockReturnThis(),
+      toBuffer: vi.fn().mockResolvedValue(Buffer.from('x')),
+    };
+    mockSharp.mockReturnValue(smallInstance as never);
+    await expect(processProductImage(fakeBuffer, 'image/jpeg', 'tiny.jpg', 1)).rejects.toThrow(
+      'Мінімальний розмір фото: 300×300 px',
+    );
+  });
+
+  it('should accept exactly 300×300 image', async () => {
+    const minInstance = {
+      metadata: vi.fn().mockResolvedValue({ width: 300, height: 300 }),
+      resize: vi.fn().mockReturnThis(),
+      blur: vi.fn().mockReturnThis(),
+      webp: vi.fn().mockReturnThis(),
+      flatten: vi.fn().mockReturnThis(),
+      composite: vi.fn().mockReturnThis(),
+      toBuffer: vi.fn().mockResolvedValue(Buffer.from('x')),
+    };
+    mockSharp.mockReturnValue(minInstance as never);
+    await processProductImage(fakeBuffer, 'image/jpeg', 'min.jpg', 1);
+    expect(mockPrisma.productImage.create).toHaveBeenCalled();
+  });
+
+  it('falls back to padding when removeBg=true but service returns null (A3)', async () => {
+    mockIsBgEnabled.mockReturnValue(true);
+    mockRemoveBackground.mockResolvedValueOnce(null);
+    await processProductImage(fakeBuffer, 'image/jpeg', 'p.jpg', 1, false, { removeBg: true });
+    // image still saved despite BG removal failure
+    expect(mockPrisma.productImage.create).toHaveBeenCalled();
+    // service was attempted
+    expect(mockRemoveBackground).toHaveBeenCalled();
+  });
+
+  it('skips background removal when service is disabled', async () => {
+    mockIsBgEnabled.mockReturnValue(false);
+    mockRemoveBackground.mockClear();
+    await processProductImage(fakeBuffer, 'image/jpeg', 'p.jpg', 1, false, { removeBg: true });
+    expect(mockRemoveBackground).not.toHaveBeenCalled();
+  });
+
+  it('uses cutout when bg removal succeeds', async () => {
+    mockIsBgEnabled.mockReturnValue(true);
+    const cutout = Buffer.from('png-with-alpha');
+    mockRemoveBackground.mockResolvedValueOnce(cutout);
+    await processProductImage(fakeBuffer, 'image/jpeg', 'p.jpg', 1, false, { removeBg: true });
+    expect(mockRemoveBackground).toHaveBeenCalledWith(fakeBuffer, 'image/jpeg');
+    // Sharp should be invoked with the cutout buffer for variant generation
+    const calls = mockSharp.mock.calls.map((c: unknown[]) => c[0]);
+    expect(calls).toContain(cutout);
   });
 
   it('should throw 404 when product is not found', async () => {
@@ -187,7 +259,7 @@ describe('processProductImage', () => {
       expect.objectContaining({
         where: { id: 1 },
         data: expect.objectContaining({ imagePath: expect.any(String) }),
-      })
+      }),
     );
   });
 

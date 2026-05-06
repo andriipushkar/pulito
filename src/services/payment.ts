@@ -12,6 +12,7 @@ import type {
 import * as liqpay from './payment-providers/liqpay';
 import * as monobank from './payment-providers/monobank';
 import * as wayforpay from './payment-providers/wayforpay';
+import { getLiqPayCreds, getWayForPayCreds } from './integration-credentials';
 
 const WEBHOOK_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
@@ -59,12 +60,45 @@ export async function initiatePayment(
 
   let result: PaymentInitResult;
 
+  // Resolve underlying provider for refund routing.
+  let providerKey: PaymentProvider = provider;
+
   if (provider === 'liqpay') {
     const serverUrl = `${env.APP_URL}/api/webhooks/liqpay`;
     result = await liqpay.createPayment(orderId, amount, description, resultUrl, serverUrl);
+  } else if (provider === 'liqpay_paypart') {
+    const serverUrl = `${env.APP_URL}/api/webhooks/liqpay`;
+    result = await liqpay.createPaypartPayment(orderId, amount, description, resultUrl, serverUrl);
+    providerKey = 'liqpay';
   } else if (provider === 'monobank') {
     const webhookUrl = `${env.APP_URL}/api/webhooks/monobank`;
     result = await monobank.createPayment(orderId, amount, description, resultUrl, webhookUrl);
+  } else if (provider === 'apple_pay' || provider === 'google_pay') {
+    // Route to whichever underlying gateway is configured. WayForPay first
+    // (more polished Apple/Google Pay flow), LiqPay as fallback.
+    const wfp = await getWayForPayCreds();
+    const lp = await getLiqPayCreds();
+    if (wfp.merchantAccount && wfp.secretKey) {
+      const serviceUrl = `${env.APP_URL}/api/webhooks/wayforpay`;
+      result = await wayforpay.createPayment(orderId, amount, description, resultUrl, serviceUrl, {
+        paymentSystems: provider === 'apple_pay' ? 'applePay' : 'googlePay',
+      });
+      providerKey = 'wayforpay';
+    } else if (lp.publicKey && lp.privateKey) {
+      const serverUrl = `${env.APP_URL}/api/webhooks/liqpay`;
+      result =
+        provider === 'apple_pay'
+          ? await liqpay.createApplePayPayment(orderId, amount, description, resultUrl, serverUrl)
+          : await liqpay.createGooglePayPayment(orderId, amount, description, resultUrl, serverUrl);
+      providerKey = 'liqpay';
+    } else {
+      throw new PaymentError(
+        provider === 'apple_pay'
+          ? 'Apple Pay недоступний — потрібен налаштований WayForPay або LiqPay'
+          : 'Google Pay недоступний — потрібен налаштований WayForPay або LiqPay',
+        400,
+      );
+    }
   } else {
     const serviceUrl = `${env.APP_URL}/api/webhooks/wayforpay`;
     result = await wayforpay.createPayment(orderId, amount, description, resultUrl, serviceUrl);
@@ -74,7 +108,7 @@ export async function initiatePayment(
   await prisma.payment.upsert({
     where: { orderId },
     update: {
-      paymentProvider: provider,
+      paymentProvider: providerKey,
       transactionId: result.paymentId || null,
     },
     create: {
@@ -82,7 +116,7 @@ export async function initiatePayment(
       paymentMethod: 'online',
       paymentStatus: 'pending',
       amount,
-      paymentProvider: provider,
+      paymentProvider: providerKey,
       transactionId: result.paymentId || null,
     },
   });

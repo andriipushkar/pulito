@@ -2,12 +2,17 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { invalidateSettingsCache } from '@/services/settings';
 
 const PAYMENT_SETTINGS_KEYS = [
   'payment_liqpay_enabled',
   'payment_liqpay_public_key',
   'payment_liqpay_private_key',
   'payment_liqpay_sandbox',
+  'payment_liqpay_paypart_enabled',
+  'payment_liqpay_paypart_count',
+  'payment_apple_pay_enabled',
+  'payment_google_pay_enabled',
   'payment_monobank_enabled',
   'payment_monobank_token',
   'payment_wayforpay_enabled',
@@ -32,7 +37,10 @@ function maskValue(key: string, value: string): string {
   return value.slice(0, 4) + '••••••••' + value.slice(-4);
 }
 
-export const GET = withRole('admin', 'manager')(async () => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async () => {
   try {
     const settings = await prisma.siteSetting.findMany({
       where: { key: { in: [...PAYMENT_SETTINGS_KEYS] } },
@@ -55,7 +63,7 @@ export const PUT = withRole('admin')(async (request: NextRequest, { user }) => {
     const body = await request.json();
 
     for (const [key, value] of Object.entries(body)) {
-      if (!PAYMENT_SETTINGS_KEYS.includes(key as typeof PAYMENT_SETTINGS_KEYS[number])) continue;
+      if (!PAYMENT_SETTINGS_KEYS.includes(key as (typeof PAYMENT_SETTINGS_KEYS)[number])) continue;
 
       const strValue = String(value);
       // Don't overwrite with masked value
@@ -68,6 +76,7 @@ export const PUT = withRole('admin')(async (request: NextRequest, { user }) => {
       });
     }
 
+    await invalidateSettingsCache();
     return successResponse({ saved: true });
   } catch {
     return errorResponse('Помилка збереження налаштувань', 500);

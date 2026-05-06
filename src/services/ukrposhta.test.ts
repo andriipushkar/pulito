@@ -40,7 +40,7 @@ describe('ukrposhta service', () => {
         headers: expect.objectContaining({
           Authorization: 'Bearer test-token',
         }),
-      })
+      }),
     );
   });
 
@@ -152,7 +152,7 @@ describe('ukrposhta service', () => {
       expect(result.uuid).toBe('uuid-123');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/shipments'),
-        expect.objectContaining({ method: 'POST' })
+        expect.objectContaining({ method: 'POST' }),
       );
 
       // Verify deliveryType defaults to W2W
@@ -229,7 +229,9 @@ describe('ukrposhta service', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
-        text: async () => { throw new Error('fail'); },
+        text: async () => {
+          throw new Error('fail');
+        },
       });
 
       try {
@@ -275,7 +277,7 @@ describe('ukrposhta service', () => {
           width: 10,
           height: 10,
           declaredValue: 100,
-        })
+        }),
       ).rejects.toThrow('Ukrposhta API token not configured');
 
       (env as unknown as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = original;
@@ -299,7 +301,7 @@ describe('ukrposhta service', () => {
         expect.stringContaining('/shipments/uuid-123/label'),
         expect.objectContaining({
           headers: expect.objectContaining({ Accept: 'application/pdf' }),
-        })
+        }),
       );
     });
 
@@ -328,6 +330,63 @@ describe('ukrposhta service', () => {
       await expect(getShipmentLabel('uuid')).rejects.toThrow('Ukrposhta API token not configured');
 
       (env as unknown as Record<string, string>).UKRPOSHTA_BEARER_TOKEN = original;
+    });
+  });
+
+  describe('searchCities (address-classifier)', () => {
+    it('returns deduped cities with name + postcode + region', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          Entries: {
+            Entry: [
+              { CITY_UA: 'Київ', POSTCODE: '01001', REGION_UA: 'Київська' },
+              { CITY_UA: 'Київ', POSTCODE: '01001', REGION_UA: 'Київська' }, // dupe
+              { CITY_UA: 'Львів', POSTCODE: '79000', REGION_UA: 'Львівська' },
+            ],
+          },
+        }),
+      });
+      const { searchCities } = await import('./ukrposhta');
+      const result = await searchCities('Кий');
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({ name: 'Київ', postcode: '01001', region: 'Київська' });
+    });
+
+    it('returns empty array on short query', async () => {
+      const { searchCities } = await import('./ukrposhta');
+      expect(await searchCities('а')).toEqual([]);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('returns empty array when API returns no entries', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+      const { searchCities } = await import('./ukrposhta');
+      const result = await searchCities('Невідомо');
+      expect(result).toEqual([]);
+    });
+
+    it('throws UkrposhtaError on HTTP error', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 503 });
+      const { searchCities, UkrposhtaError } = await import('./ukrposhta');
+      await expect(searchCities('Київ')).rejects.toThrow(UkrposhtaError);
+    });
+
+    it('caps results at 25', async () => {
+      const entries = Array.from({ length: 30 }, (_, i) => ({
+        CITY_UA: `Місто ${i}`,
+        POSTCODE: `${i}00`,
+        REGION_UA: 'Тест',
+      }));
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ Entries: { Entry: entries } }),
+      });
+      const { searchCities } = await import('./ukrposhta');
+      const result = await searchCities('Місто');
+      expect(result).toHaveLength(25);
     });
   });
 });

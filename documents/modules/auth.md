@@ -6,18 +6,19 @@
 
 ## Ролі користувачів
 
-| Роль | Опис | Доступ |
-|------|------|--------|
-| `client` | Роздрібний клієнт | Каталог, кошик, замовлення, особистий кабінет |
-| `wholesaler` | Оптовий клієнт | Все що client + оптові ціни, спеціальні правила |
-| `manager` | Менеджер магазину | Управління замовленнями, товарами, користувачами |
-| `admin` | Адміністратор | Повний доступ до всіх функцій |
+| Роль         | Опис              | Доступ                                           |
+| ------------ | ----------------- | ------------------------------------------------ |
+| `client`     | Роздрібний клієнт | Каталог, кошик, замовлення, особистий кабінет    |
+| `wholesaler` | Гуртовий клієнт   | Все що client + гуртові ціни, спеціальні правила |
+| `manager`    | Менеджер магазину | Управління замовленнями, товарами, користувачами |
+| `admin`      | Адміністратор     | Повний доступ до всіх функцій                    |
 
 ## Реєстрація
 
 **Endpoint:** `POST /api/v1/auth/register`
 
 **Вхідні дані (registerSchema):**
+
 ```json
 {
   "email": "user@example.com",
@@ -29,6 +30,7 @@
 ```
 
 **Процес:**
+
 1. Перевірка унікальності email
 2. Хешування пароля (bcrypt, 10 rounds)
 3. Генерація унікального реферального коду для нового користувача
@@ -37,6 +39,7 @@
 6. Надсилання листа верифікації (асинхронно)
 
 **Відповідь (201):**
+
 ```json
 {
   "success": true,
@@ -46,6 +49,7 @@
   }
 }
 ```
+
 Refresh-токен встановлюється через `Set-Cookie` (httpOnly).
 
 ## Логін
@@ -53,6 +57,7 @@ Refresh-токен встановлюється через `Set-Cookie` (httpOnl
 **Endpoint:** `POST /api/v1/auth/login`
 
 **Вхідні дані:**
+
 ```json
 {
   "email": "user@example.com",
@@ -61,6 +66,7 @@ Refresh-токен встановлюється через `Set-Cookie` (httpOnl
 ```
 
 **Процес:**
+
 1. Пошук користувача за email
 2. Перевірка пароля через bcrypt
 3. Створення пари токенів з записом IP та device info
@@ -68,12 +74,14 @@ Refresh-токен встановлюється через `Set-Cookie` (httpOnl
 ## JWT-токени
 
 ### Access Token
+
 - Підписується через `jsonwebtoken` з `JWT_SECRET`
 - TTL: `JWT_ACCESS_TTL` (за замовчуванням 15 хв)
 - Payload (`JwtAccessPayload`): `sub` (userId), `email`, `role`, `type: 'access'`
 - Передається в заголовку: `Authorization: Bearer <token>`
 
 ### Refresh Token
+
 - TTL: `JWT_REFRESH_TTL` (за замовчуванням 30 днів)
 - Payload (`JwtRefreshPayload`): `sub` (userId), `type: 'refresh'`
 - Зберігається в httpOnly cookie `refresh_token`
@@ -84,6 +92,7 @@ Refresh-токен встановлюється через `Set-Cookie` (httpOnl
 **Endpoint:** `POST /api/v1/auth/refresh`
 
 Процес rotation:
+
 1. Верифікація refresh-токена з cookie
 2. Перевірка хешу в базі (не відкликаний)
 3. Відкликання старого refresh-токена
@@ -92,6 +101,7 @@ Refresh-токен встановлюється через `Set-Cookie` (httpOnl
 ### Blacklisting
 
 При логауті access-токен потрапляє до Redis blacklist:
+
 - Ключ: `bl:<sha256(token)>`
 - TTL: залишковий час життя токена
 - Перевіряється middleware при кожному запиті
@@ -114,6 +124,7 @@ Refresh-токен встановлюється через `Set-Cookie` (httpOnl
 **Endpoint:** `GET /api/v1/auth/verify-email?token=<token>`
 
 **Процес:**
+
 1. При реєстрації генерується 32-байтний hex-токен
 2. Зберігається в Redis: `verify:<token>` -> userId (TTL 24 години)
 3. Надсилається email з посиланням
@@ -150,6 +161,7 @@ Refresh-токен встановлюється через `Set-Cookie` (httpOnl
 **Endpoint:** `POST /api/v1/auth/google`
 
 **Процес (`loginWithGoogle`):**
+
 1. Пошук за `googleId` -- якщо знайдено, логін
 2. Пошук за `email` -- якщо знайдено, прив'язка Google ID
 3. Інакше -- створення нового акаунту (isVerified = true, генерація реферального коду)
@@ -158,14 +170,18 @@ Refresh-токен встановлюється через `Set-Cookie` (httpOnl
 ## Auth Middleware
 
 ### withAuth
+
 Обгортка для захищених ендпоінтів:
+
 1. Витягує токен з `Authorization: Bearer <token>`
 2. Верифікує через `verifyAccessToken()`
 3. Перевіряє blacklist в Redis
 4. Додає `user` до контексту хендлера
 
 ### withRole
+
 Обгортка для рольового доступу:
+
 ```ts
 // Тільки admin
 export const GET = withRole('admin')(handler);
@@ -175,18 +191,21 @@ export const GET = withRole('admin', 'manager')(handler);
 ```
 
 **Відповіді помилок:**
+
 - `401` -- токен не надано, невалідний або відкликаний
 - `403` -- недостатньо прав (роль не відповідає)
 
 ## Прив'язка месенджерів
 
 ### Telegram
+
 - Бот генерує одноразовий токен (Redis, TTL 10 хв)
 - Користувач переходить за посиланням на сайт
 - Сайт викликає `linkTelegramAccount(userId, token)`
 - Записує `telegramChatId` в User
 
 ### Viber
+
 - Користувач надсилає `/link email@example.com`
 - Генерується 6-значний код (Redis, TTL 10 хв)
 - Користувач вводить код у чаті

@@ -57,6 +57,15 @@ vi.mock('@/services/loyalty', () => ({
   adjustPoints: vi.fn().mockResolvedValue(undefined),
 }));
 
+const pdfMock = vi.hoisted(() => ({ generateInvoicePdf: vi.fn() }));
+vi.mock('@/services/pdf', () => pdfMock);
+
+const emailMock = vi.hoisted(() => ({ sendEmail: vi.fn() }));
+vi.mock('@/services/email', () => emailMock);
+
+const fsMock = vi.hoisted(() => ({ readFile: vi.fn() }));
+vi.mock('fs/promises', () => fsMock);
+
 import { prisma } from '@/lib/prisma';
 import {
   createOrder,
@@ -172,11 +181,12 @@ const makeOrderDetail = (overrides?: Record<string, unknown>) => ({
   ...overrides,
 });
 
-const makeFilters = (overrides?: Partial<OrderFilterInput>) => ({
-  page: 1,
-  limit: 20,
-  ...overrides,
-} as OrderFilterInput);
+const makeFilters = (overrides?: Partial<OrderFilterInput>) =>
+  ({
+    page: 1,
+    limit: 20,
+    ...overrides,
+  }) as OrderFilterInput;
 
 // ---------------------------------------------------------------------------
 // createOrder
@@ -203,13 +213,13 @@ describe('createOrder', () => {
       expect.objectContaining({
         where: { id: 1, quantity: { gte: 2 } },
         data: { quantity: { decrement: 2 } },
-      })
+      }),
     );
     expect(mockPrisma.product.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 2, quantity: { gte: 3 } },
         data: { quantity: { decrement: 3 } },
-      })
+      }),
     );
     // Order created
     expect(mockPrisma.order.create).toHaveBeenCalledTimes(1);
@@ -317,10 +327,10 @@ describe('getUserOrders', () => {
         orderBy: { createdAt: 'desc' },
         skip: 0,
         take: 20,
-      })
+      }),
     );
     expect(mockPrisma.order.count).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: 1 } })
+      expect.objectContaining({ where: { userId: 1 } }),
     );
   });
 
@@ -333,7 +343,7 @@ describe('getUserOrders', () => {
     expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { userId: 1, status: 'processing' },
-      })
+      }),
     );
   });
 
@@ -347,7 +357,7 @@ describe('getUserOrders', () => {
       expect.objectContaining({
         skip: 20,
         take: 10,
-      })
+      }),
     );
   });
 });
@@ -365,7 +375,7 @@ describe('getOrderById', () => {
 
     expect(result).toEqual(order);
     expect(mockPrisma.order.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 1 } })
+      expect.objectContaining({ where: { id: 1 } }),
     );
   });
 
@@ -409,7 +419,7 @@ describe('getOrderByNumber', () => {
 
     expect(result).toEqual(order);
     expect(mockPrisma.order.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { orderNumber: '20260222-0001' } })
+      expect.objectContaining({ where: { orderNumber: '20260222-0001' } }),
     );
   });
 
@@ -457,7 +467,7 @@ describe('updateOrderStatus', () => {
             }),
           },
         }),
-      })
+      }),
     );
   });
 
@@ -544,16 +554,16 @@ describe('updateOrderStatus', () => {
     };
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
 
-    await expect(
-      updateOrderStatus(1, 'cancelled', 5, 'client_action')
-    ).rejects.toThrow(OrderError);
+    await expect(updateOrderStatus(1, 'cancelled', 5, 'client_action')).rejects.toThrow(OrderError);
 
     try {
       await updateOrderStatus(1, 'cancelled', 5, 'client_action');
     } catch (err) {
       expect(err).toBeInstanceOf(OrderError);
       expect((err as OrderError).statusCode).toBe(403);
-      expect((err as OrderError).message).toContain('Ви можете скасувати замовлення лише в статусах');
+      expect((err as OrderError).message).toContain(
+        'Ви можете скасувати замовлення лише в статусах',
+      );
     }
   });
 
@@ -566,9 +576,9 @@ describe('updateOrderStatus', () => {
     };
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
 
-    await expect(
-      updateOrderStatus(1, 'processing', 5, 'client_action')
-    ).rejects.toThrow(OrderError);
+    await expect(updateOrderStatus(1, 'processing', 5, 'client_action')).rejects.toThrow(
+      OrderError,
+    );
 
     try {
       await updateOrderStatus(1, 'processing', 5, 'client_action');
@@ -672,7 +682,7 @@ describe('updateOrderStatus', () => {
             }),
           },
         }),
-      })
+      }),
     );
   });
 
@@ -697,7 +707,7 @@ describe('updateOrderStatus', () => {
           cancelledReason: 'Клієнт передумав',
           cancelledBy: 'manager',
         }),
-      })
+      }),
     );
   });
 
@@ -753,9 +763,7 @@ describe('updateOrderStatus', () => {
       };
       mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
 
-      await expect(
-        updateOrderStatus(1, 'processing', 10, 'manager')
-      ).rejects.toThrow(OrderError);
+      await expect(updateOrderStatus(1, 'processing', 10, 'manager')).rejects.toThrow(OrderError);
     }
   });
 });
@@ -824,9 +832,7 @@ describe('editOrderItems', () => {
 
       mockPrisma.order.findUnique.mockResolvedValue(order as never);
       mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-      mockPrisma.orderItem.findMany.mockResolvedValue([
-        { quantity: 2, subtotal: 200 },
-      ] as never);
+      mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 2, subtotal: 200 }] as never);
       mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
       mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
 
@@ -896,9 +902,7 @@ describe('editOrderItems', () => {
     mockPrisma.product.findUnique.mockResolvedValue({ quantity: 10 } as never);
     mockPrisma.product.update.mockResolvedValue({} as never);
     mockPrisma.orderItem.update.mockResolvedValue({} as never);
-    mockPrisma.orderItem.findMany.mockResolvedValue([
-      { quantity: 5, subtotal: 500 },
-    ] as never);
+    mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 5, subtotal: 500 }] as never);
     mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
     mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
 
@@ -936,9 +940,7 @@ describe('editOrderItems', () => {
     mockPrisma.product.findUnique.mockResolvedValue(product as never);
     mockPrisma.product.update.mockResolvedValue({} as never);
     mockPrisma.orderItem.create.mockResolvedValue({} as never);
-    mockPrisma.orderItem.findMany.mockResolvedValue([
-      { quantity: 3, subtotal: 600 },
-    ] as never);
+    mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 3, subtotal: 600 }] as never);
     mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
     mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
 
@@ -988,7 +990,7 @@ describe('editOrderItems', () => {
           totalAmount: 350,
           itemsCount: 5,
         }),
-      })
+      }),
     );
   });
 
@@ -1043,11 +1045,9 @@ describe('getAllOrders', () => {
         orderBy: { createdAt: 'desc' },
         skip: 0,
         take: 20,
-      })
+      }),
     );
-    expect(mockPrisma.order.count).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} })
-    );
+    expect(mockPrisma.order.count).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
   });
 
   it('should apply status filter', async () => {
@@ -1059,7 +1059,7 @@ describe('getAllOrders', () => {
     expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { status: 'shipped' },
-      })
+      }),
     );
   });
 
@@ -1077,7 +1077,7 @@ describe('getAllOrders', () => {
             lte: new Date('2026-01-31'),
           },
         },
-      })
+      }),
     );
   });
 
@@ -1091,7 +1091,7 @@ describe('getAllOrders', () => {
       expect.objectContaining({
         skip: 40,
         take: 10,
-      })
+      }),
     );
   });
 
@@ -1109,7 +1109,7 @@ describe('getAllOrders', () => {
           contactEmail: true,
           user: { select: { id: true, fullName: true, email: true, role: true } },
         }),
-      })
+      }),
     );
   });
 });
@@ -1147,7 +1147,9 @@ describe('createOrder - wholesale per-product rules', () => {
     // No global rules, per-product rule: min_quantity 5
     mockPrisma.wholesaleRule.findMany
       .mockResolvedValueOnce([] as never)
-      .mockResolvedValueOnce([{ id: 2, isActive: true, productId: 1, ruleType: 'min_quantity', value: 5 }] as never);
+      .mockResolvedValueOnce([
+        { id: 2, isActive: true, productId: 1, ruleType: 'min_quantity', value: 5 },
+      ] as never);
 
     try {
       await createOrder(null, checkout, cartItems, 'wholesale');
@@ -1174,7 +1176,9 @@ describe('createOrder - wholesale per-product rules', () => {
 
     mockPrisma.wholesaleRule.findMany
       .mockResolvedValueOnce([] as never)
-      .mockResolvedValueOnce([{ id: 3, isActive: true, productId: 1, ruleType: 'multiplicity', value: 2 }] as never);
+      .mockResolvedValueOnce([
+        { id: 3, isActive: true, productId: 1, ruleType: 'multiplicity', value: 2 },
+      ] as never);
 
     try {
       await createOrder(null, checkout, cartItems, 'wholesale');
@@ -1199,7 +1203,7 @@ describe('getUserOrders - date filters', () => {
         where: expect.objectContaining({
           createdAt: expect.objectContaining({ gte: new Date('2026-01-01') }),
         }),
-      })
+      }),
     );
   });
 
@@ -1214,7 +1218,7 @@ describe('getUserOrders - date filters', () => {
         where: expect.objectContaining({
           createdAt: expect.objectContaining({ lte: new Date('2026-12-31') }),
         }),
-      })
+      }),
     );
   });
 
@@ -1229,7 +1233,7 @@ describe('getUserOrders - date filters', () => {
         where: expect.objectContaining({
           createdAt: { gte: new Date('2026-01-01'), lte: new Date('2026-12-31') },
         }),
-      })
+      }),
     );
   });
 });
@@ -1251,7 +1255,7 @@ describe('getAllOrders - search filter', () => {
             { trackingNumber: { contains: 'Тест', mode: 'insensitive' } },
           ],
         }),
-      })
+      }),
     );
   });
 });
@@ -1266,9 +1270,9 @@ describe('updateOrderStatus - client not owner', () => {
     };
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
 
-    await expect(
-      updateOrderStatus(1, 'cancelled', 5, 'client_action')
-    ).rejects.toThrow('Замовлення не знайдено');
+    await expect(updateOrderStatus(1, 'cancelled', 5, 'client_action')).rejects.toThrow(
+      'Замовлення не знайдено',
+    );
   });
 });
 
@@ -1338,7 +1342,9 @@ describe('editOrderItems - insufficient stock on increase', () => {
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.findUnique.mockResolvedValue(null as never);
 
-    await expect(editOrderItems(1, [{ productId: 999, quantity: 1 }], 10)).rejects.toThrow('Товар не знайдено');
+    await expect(editOrderItems(1, [{ productId: 999, quantity: 1 }], 10)).rejects.toThrow(
+      'Товар не знайдено',
+    );
   });
 
   it('should throw 400 when adding product with insufficient stock', async () => {
@@ -1351,10 +1357,16 @@ describe('editOrderItems - insufficient stock on increase', () => {
     mockPrisma.order.findUnique.mockResolvedValue(order as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.findUnique.mockResolvedValue({
-      id: 5, code: 'SKU-005', name: 'Товар', priceRetail: 100, quantity: 2,
+      id: 5,
+      code: 'SKU-005',
+      name: 'Товар',
+      priceRetail: 100,
+      quantity: 2,
     } as never);
 
-    await expect(editOrderItems(1, [{ productId: 5, quantity: 10 }], 10)).rejects.toThrow('Недостатньо товару');
+    await expect(editOrderItems(1, [{ productId: 5, quantity: 10 }], 10)).rejects.toThrow(
+      'Недостатньо товару',
+    );
   });
 
   it('should skip non-existent items during quantity update', async () => {
@@ -1362,7 +1374,16 @@ describe('editOrderItems - insufficient stock on increase', () => {
       id: 1,
       status: 'new_order',
       items: [
-        { id: 10, productId: 1, productCode: 'SKU', productName: 'T', priceAtOrder: 100, quantity: 2, subtotal: 200, isPromo: false },
+        {
+          id: 10,
+          productId: 1,
+          productCode: 'SKU',
+          productName: 'T',
+          priceAtOrder: 100,
+          quantity: 2,
+          subtotal: 200,
+          isPromo: false,
+        },
       ],
     };
 
@@ -1385,7 +1406,16 @@ describe('editOrderItems - insufficient stock on increase', () => {
       id: 1,
       status: 'new_order',
       items: [
-        { id: 10, productId: 1, productCode: 'SKU', productName: 'T', priceAtOrder: 100, quantity: 5, subtotal: 500, isPromo: false },
+        {
+          id: 10,
+          productId: 1,
+          productCode: 'SKU',
+          productName: 'T',
+          priceAtOrder: 100,
+          quantity: 5,
+          subtotal: 500,
+          isPromo: false,
+        },
       ],
     };
 
@@ -1411,7 +1441,16 @@ describe('editOrderItems - insufficient stock on increase', () => {
       id: 1,
       status: 'new_order',
       items: [
-        { id: 10, productId: null, productCode: null, productName: 'Custom', priceAtOrder: 100, quantity: 1, subtotal: 100, isPromo: false },
+        {
+          id: 10,
+          productId: null,
+          productCode: null,
+          productName: 'Custom',
+          priceAtOrder: 100,
+          quantity: 1,
+          subtotal: 100,
+          isPromo: false,
+        },
       ],
     };
 
@@ -1434,7 +1473,16 @@ describe('editOrderItems - insufficient stock on increase', () => {
       id: 1,
       status: 'new_order',
       items: [
-        { id: 10, productId: 1, productCode: 'SKU', productName: 'T', priceAtOrder: 100, quantity: 5, subtotal: 500, isPromo: false },
+        {
+          id: 10,
+          productId: 1,
+          productCode: 'SKU',
+          productName: 'T',
+          priceAtOrder: 100,
+          quantity: 5,
+          subtotal: 500,
+          isPromo: false,
+        },
       ],
     };
 
@@ -1458,7 +1506,16 @@ describe('editOrderItems - insufficient stock on increase', () => {
       id: 1,
       status: 'new_order',
       items: [
-        { id: 10, productId: null, productCode: null, productName: 'Custom', priceAtOrder: 50, quantity: 2, subtotal: 100, isPromo: false },
+        {
+          id: 10,
+          productId: null,
+          productCode: null,
+          productName: 'Custom',
+          priceAtOrder: 50,
+          quantity: 2,
+          subtotal: 100,
+          isPromo: false,
+        },
       ],
     };
 
@@ -1751,7 +1808,11 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
     // The chain uses the real loyalty module (dynamic import bypasses vi.mock)
     // so we need loyaltyAccount mock to be set up
     (mockPrisma as any).loyaltyAccount.findUnique.mockResolvedValue({
-      id: 1, userId: 99, points: 500, totalSpent: 1000, level: 'bronze',
+      id: 1,
+      userId: 99,
+      points: 500,
+      totalSpent: 1000,
+      level: 'bronze',
     } as never);
     (mockPrisma as any).loyaltyAccount.update.mockResolvedValue({} as never);
     (mockPrisma as any).loyaltyTransaction.create.mockResolvedValue({} as never);
@@ -1766,24 +1827,31 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
     expect(result.status).toBe('completed');
 
     // Wait for fire-and-forget chain to settle
-    await vi.waitFor(() => {
-      expect(mockPrisma.referral.update.mock.calls.length).toBeGreaterThanOrEqual(2);
-    }, { timeout: 2000, interval: 20 });
+    await vi.waitFor(
+      () => {
+        expect(mockPrisma.referral.update.mock.calls.length).toBeGreaterThanOrEqual(2);
+      },
+      { timeout: 2000, interval: 20 },
+    );
 
     const updateCalls = mockPrisma.referral.update.mock.calls;
     expect(updateCalls.length).toBe(2);
-    expect(updateCalls[0][0]).toEqual(expect.objectContaining({
-      where: { id: 10 },
-      data: expect.objectContaining({ status: 'first_order' }),
-    }));
-    expect(updateCalls[1][0]).toEqual(expect.objectContaining({
-      where: { id: 10 },
-      data: expect.objectContaining({
-        status: 'bonus_granted',
-        bonusType: 'points',
-        bonusValue: 100,
+    expect(updateCalls[0][0]).toEqual(
+      expect.objectContaining({
+        where: { id: 10 },
+        data: expect.objectContaining({ status: 'first_order' }),
       }),
-    }));
+    );
+    expect(updateCalls[1][0]).toEqual(
+      expect.objectContaining({
+        where: { id: 10 },
+        data: expect.objectContaining({
+          status: 'bonus_granted',
+          bonusType: 'points',
+          bonusValue: 100,
+        }),
+      }),
+    );
   });
 
   it('should not process referral bonus when no referral exists', async () => {
@@ -1821,5 +1889,122 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
 
     // referral.update should NOT be called when no referral exists
     expect(mockPrisma.referral.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateOrderStatus — B2B auto-invoice email on confirmed', () => {
+  beforeEach(() => {
+    pdfMock.generateInvoicePdf.mockReset();
+    emailMock.sendEmail.mockReset();
+    fsMock.readFile.mockReset();
+    fsMock.readFile.mockResolvedValue(Buffer.from('PDF-bytes'));
+  });
+
+  const setupOrderConfirmedTransition = (orderOverrides: Record<string, unknown> = {}) => {
+    mockPrisma.order.findUnique.mockResolvedValue({
+      id: 1,
+      status: 'processing',
+      userId: null,
+      items: [],
+    } as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.update.mockResolvedValue(
+      makeOrderDetail({
+        status: 'confirmed',
+        contactEmail: 'b2b@example.com',
+        ...orderOverrides,
+      }) as never,
+    );
+  };
+
+  it('sends invoice email when companyName is set and status → confirmed', async () => {
+    setupOrderConfirmedTransition({ companyName: 'ТОВ "Тест"', edrpou: '12345678' });
+    pdfMock.generateInvoicePdf.mockResolvedValue('/uploads/invoices/inv.pdf');
+
+    await updateOrderStatus(1, 'confirmed', 10, 'manager');
+    await vi.waitFor(() => expect(pdfMock.generateInvoicePdf).toHaveBeenCalledWith(1), {
+      timeout: 1000,
+    });
+    expect(emailMock.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'b2b@example.com',
+        attachments: expect.arrayContaining([
+          expect.objectContaining({
+            filename: expect.stringContaining('invoice_'),
+            contentType: 'application/pdf',
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it('escapes companyName in HTML body to prevent XSS', async () => {
+    setupOrderConfirmedTransition({
+      companyName: '<script>alert(1)</script>',
+      edrpou: '12345678',
+    });
+    pdfMock.generateInvoicePdf.mockResolvedValue('/uploads/invoices/inv.pdf');
+
+    await updateOrderStatus(1, 'confirmed', 10, 'manager');
+    await vi.waitFor(() => expect(emailMock.sendEmail).toHaveBeenCalled(), { timeout: 1000 });
+
+    const emailArgs = emailMock.sendEmail.mock.calls[0][0];
+    expect(emailArgs.html).not.toContain('<script>alert(1)</script>');
+    expect(emailArgs.html).toContain('&lt;script&gt;');
+  });
+
+  it('does NOT send email for retail order without companyName/edrpou', async () => {
+    setupOrderConfirmedTransition({ companyName: null, edrpou: null });
+    pdfMock.generateInvoicePdf.mockResolvedValue('/uploads/invoices/inv.pdf');
+
+    await updateOrderStatus(1, 'confirmed', 10, 'manager');
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(emailMock.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('does NOT send email when contactEmail missing', async () => {
+    setupOrderConfirmedTransition({
+      companyName: 'ТОВ',
+      edrpou: '12345678',
+      contactEmail: '',
+    });
+
+    await updateOrderStatus(1, 'confirmed', 10, 'manager');
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(emailMock.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('does NOT send email on non-confirmed status transitions', async () => {
+    mockPrisma.order.findUnique.mockResolvedValue({
+      id: 1,
+      status: 'new_order',
+      userId: null,
+      items: [],
+    } as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.update.mockResolvedValue(
+      makeOrderDetail({
+        status: 'processing',
+        companyName: 'ТОВ',
+        edrpou: '12345678',
+      }) as never,
+    );
+
+    await updateOrderStatus(1, 'processing', 10, 'manager');
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(emailMock.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('survives PDF generation failure (logged but not thrown)', async () => {
+    setupOrderConfirmedTransition({ companyName: 'ТОВ', edrpou: '12345678' });
+    pdfMock.generateInvoicePdf.mockRejectedValue(new Error('PDF lib crash'));
+
+    // Should not reject — email is best-effort
+    await expect(updateOrderStatus(1, 'confirmed', 10, 'manager')).resolves.toBeDefined();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(emailMock.sendEmail).not.toHaveBeenCalled();
   });
 });

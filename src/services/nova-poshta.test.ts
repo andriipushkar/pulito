@@ -54,7 +54,7 @@ describe('searchCities', () => {
       expect.objectContaining({
         method: 'POST',
         body: expect.stringContaining('"CityName":"Київ"'),
-      })
+      }),
     );
   });
 
@@ -184,7 +184,7 @@ describe('estimateDeliveryCost', () => {
         weight: 1,
         serviceType: 'WarehouseWarehouse',
         cost: 100,
-      })
+      }),
     ).rejects.toThrow('Не вдалося розрахувати вартість доставки');
   });
 
@@ -239,12 +239,14 @@ describe('createInternetDocument', () => {
   };
 
   it('should return document details on success', async () => {
-    mockApiResponse([{
-      IntDocNumber: '20450000000099',
-      Ref: 'doc-ref-123',
-      CostOnSite: 85,
-      EstimatedDeliveryDate: '28.12.2025',
-    }]);
+    mockApiResponse([
+      {
+        IntDocNumber: '20450000000099',
+        Ref: 'doc-ref-123',
+        CostOnSite: 85,
+        EstimatedDeliveryDate: '28.12.2025',
+      },
+    ]);
 
     const result = await createInternetDocument(defaultInput);
 
@@ -270,6 +272,68 @@ describe('createInternetDocument', () => {
       costOnSite: 0,
       estimatedDeliveryDate: '',
     });
+  });
+});
+
+describe('createInternetDocument — COD + D2D variants', () => {
+  const baseInput = {
+    senderRef: 'sender-ref',
+    senderAddressRef: 'sender-addr',
+    senderContactRef: 'sender-contact',
+    senderPhone: '+380991234567',
+    recipientName: 'Тест',
+    recipientPhone: '+380997654321',
+    recipientCityRef: 'city-ref',
+    recipientWarehouseRef: 'wh-ref',
+    payerType: 'Recipient' as const,
+    paymentMethod: 'Cash' as const,
+    cargoType: 'Parcel' as const,
+    weight: 1,
+    seatsAmount: 1,
+    description: 'Test',
+    cost: 250,
+    serviceType: 'WarehouseWarehouse' as const,
+  };
+
+  it('passes BackwardDeliveryData when codAmount is set', async () => {
+    mockApiResponse([{ IntDocNumber: '1', Ref: 'r' }]);
+    await createInternetDocument({ ...baseInput, codAmount: 250 });
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+    expect(callBody.methodProperties.BackwardDeliveryData).toEqual([
+      { PayerType: 'Recipient', CargoType: 'Money', RedeliveryString: '250' },
+    ]);
+  });
+
+  it('omits BackwardDeliveryData when codAmount is 0/undefined', async () => {
+    mockApiResponse([{ IntDocNumber: '1', Ref: 'r' }]);
+    await createInternetDocument(baseInput);
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+    expect(callBody.methodProperties.BackwardDeliveryData).toBeUndefined();
+  });
+
+  it('passes structured address fields for D2D (WarehouseDoors)', async () => {
+    mockApiResponse([{ IntDocNumber: '1', Ref: 'r' }]);
+    await createInternetDocument({
+      ...baseInput,
+      serviceType: 'WarehouseDoors',
+      recipientWarehouseRef: undefined,
+      recipientStreetRef: 'street-uuid',
+      recipientBuilding: '12А',
+      recipientFlat: '5',
+    });
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+    expect(callBody.methodProperties.RecipientStreet).toBe('street-uuid');
+    expect(callBody.methodProperties.RecipientHouse).toBe('12А');
+    expect(callBody.methodProperties.RecipientFlat).toBe('5');
+    expect(callBody.methodProperties.ServiceType).toBe('WarehouseDoors');
+  });
+
+  it('does not add structured address fields for warehouse delivery', async () => {
+    mockApiResponse([{ IntDocNumber: '1', Ref: 'r' }]);
+    await createInternetDocument(baseInput);
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+    expect(callBody.methodProperties.RecipientStreet).toBeUndefined();
+    expect(callBody.methodProperties.RecipientHouse).toBeUndefined();
   });
 });
 

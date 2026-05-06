@@ -3,7 +3,14 @@ import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import { env } from '@/config/env';
 import {
-  BRAND, PAGE, setupDoc, drawHeader, drawDocTitle, drawSectionTitle, drawFooter, getCompanyInfo,
+  BRAND,
+  PAGE,
+  setupDoc,
+  drawHeader,
+  drawDocTitle,
+  drawSectionTitle,
+  drawFooter,
+  getCompanyInfo,
 } from '@/lib/pdf-theme';
 
 interface ManualSection {
@@ -53,8 +60,8 @@ const SECTIONS: ManualSection[] = [
     title: '5. Клієнти',
     content: [
       'Розділ "Клієнти" містить базу всіх зареєстрованих користувачів.',
-      'Типи клієнтів: роздрібний, оптовий (потребує підтвердження менеджером).',
-      'Для оптових клієнтів можна налаштувати персональні ціни та групи знижок.',
+      'Типи клієнтів: роздрібний, гуртовий (потребує підтвердження менеджером).',
+      'Для гуртових клієнтів можна налаштувати персональні ціни та групи знижок.',
       'Історія замовлень, бонусні бали та реферальна статистика доступні у профілі клієнта.',
     ],
   },
@@ -129,7 +136,7 @@ const SECTIONS: ManualSection[] = [
   {
     title: '14. Прайс-листи та каталоги',
     content: [
-      'Генерація прайс-листів: Адмін → Прайс-листи → Генерувати (роздрібний або оптовий).',
+      'Генерація прайс-листів: Адмін → Прайс-листи → Генерувати (роздрібний або гуртовий).',
       'Ілюстрований каталог товарів генерується з розбивкою по категоріях.',
       'Файли зберігаються у форматі PDF і доступні для завантаження.',
     ],
@@ -176,10 +183,13 @@ export async function generateUserManual(): Promise<string> {
 
   doc.moveDown(2);
   doc.font('Regular').fontSize(11).fillColor(BRAND.textSecondary);
-  doc.text('Цей документ містить покрокову інструкцію з управління інтернет-магазином через адмін-панель.', {
-    align: 'center',
-    width: PAGE.contentWidth,
-  });
+  doc.text(
+    'Цей документ містить покрокову інструкцію з управління інтернет-магазином через адмін-панель.',
+    {
+      align: 'center',
+      width: PAGE.contentWidth,
+    },
+  );
   doc.moveDown(1);
   doc.text('Для менеджерів та адміністраторів.', { align: 'center' });
 
@@ -215,10 +225,18 @@ export async function generateUserManual(): Promise<string> {
 
       if (isBullet) {
         const [label, ...rest] = paragraph.split(':');
-        doc.font('Bold').fontSize(10).fillColor(BRAND.text).text(`• ${label}:`, 50, doc.y, { continued: true });
+        doc
+          .font('Bold')
+          .fontSize(10)
+          .fillColor(BRAND.text)
+          .text(`• ${label}:`, 50, doc.y, { continued: true });
         doc.font('Regular').fillColor(BRAND.textSecondary).text(rest.join(':'), { width: 480 });
       } else {
-        doc.font('Regular').fontSize(10).fillColor(BRAND.text).text(`• ${paragraph}`, 50, doc.y, { width: 480 });
+        doc
+          .font('Regular')
+          .fontSize(10)
+          .fillColor(BRAND.text)
+          .text(`• ${paragraph}`, 50, doc.y, { width: 480 });
       }
       doc.moveDown(0.5);
     }
@@ -229,7 +247,11 @@ export async function generateUserManual(): Promise<string> {
   doc.addPage();
   drawHeader(doc, company);
   doc.moveDown(4);
-  doc.font('Bold').fontSize(16).fillColor(BRAND.primary).text('Потрібна допомога?', { align: 'center' });
+  doc
+    .font('Bold')
+    .fontSize(16)
+    .fillColor(BRAND.primary)
+    .text('Потрібна допомога?', { align: 'center' });
   doc.moveDown(1);
   doc.font('Regular').fontSize(11).fillColor(BRAND.textSecondary);
   if (company.email) {

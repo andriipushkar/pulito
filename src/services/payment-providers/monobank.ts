@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { env } from '@/config/env';
+import { getMonobankCreds } from '@/services/integration-credentials';
 import { logger } from '@/lib/logger';
 import type {
   PaymentInitResult,
@@ -29,8 +29,9 @@ async function getMonoPubKey(): Promise<crypto.KeyObject> {
     return cachedPubKey.key;
   }
 
+  const { token } = await getMonobankCreds();
   const res = await fetch(MONO_PUBKEY_URL, {
-    headers: { 'X-Token': env.MONOBANK_TOKEN },
+    headers: { 'X-Token': token },
   });
 
   if (!res.ok) {
@@ -55,7 +56,7 @@ export async function createPayment(
   redirectUrl: string,
   webhookUrl: string,
 ): Promise<PaymentInitResult> {
-  const token = env.MONOBANK_TOKEN;
+  const { token } = await getMonobankCreds();
   if (!token) {
     throw new MonobankError('Monobank token not configured');
   }
@@ -94,8 +95,26 @@ export async function createPayment(
   };
 }
 
+export async function checkInvoiceStatus(
+  invoiceId: string,
+): Promise<{ status: 'success' | 'failure' | 'processing'; amount?: number }> {
+  const { token } = await getMonobankCreds();
+  if (!token) return { status: 'processing' };
+
+  const res = await fetch(`${API_BASE}/invoice/status?invoiceId=${encodeURIComponent(invoiceId)}`, {
+    headers: { 'X-Token': token },
+  });
+  if (!res.ok) return { status: 'processing' };
+  const data: { status?: string; amount?: number } = await res.json();
+  let status: 'success' | 'failure' | 'processing' = 'processing';
+  if (data.status === 'success') status = 'success';
+  else if (data.status === 'failure' || data.status === 'expired' || data.status === 'reversed')
+    status = 'failure';
+  return { status, amount: typeof data.amount === 'number' ? data.amount / 100 : undefined };
+}
+
 export async function refundPayment(invoiceId: string, amount: number): Promise<RefundResult> {
-  const token = env.MONOBANK_TOKEN;
+  const { token } = await getMonobankCreds();
   if (!token) {
     throw new MonobankError('Monobank token not configured');
   }

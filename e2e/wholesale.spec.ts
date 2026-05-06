@@ -6,7 +6,7 @@ test.describe('Wholesale Flow', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Look for wholesale/opt registration toggle or link
-    const wholesaleOption = page.locator('text=/оптов|wholesale|ФОП|ТОВ/i').first();
+    const wholesaleOption = page.locator('text=/гуртов|wholesale|ФОП|ТОВ/i').first();
     const hasWholesale = await wholesaleOption.isVisible({ timeout: 3000 }).catch(() => false);
 
     // Page should at least load

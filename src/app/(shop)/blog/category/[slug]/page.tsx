@@ -7,6 +7,7 @@ import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
 import BlogCard from '@/components/blog/BlogCard';
+import PaginationLinks from '@/components/seo/PaginationLinks';
 import Link from 'next/link';
 import { getPublishedPosts, getCategories } from '@/services/blog';
 import { prisma } from '@/lib/prisma';
@@ -85,6 +86,11 @@ export default async function BlogCategoryPage({ params, searchParams }: BlogCat
 
   return (
     <Container className="py-6">
+      <PaginationLinks
+        currentPage={page}
+        totalPages={totalPages}
+        baseUrl={`${baseUrl}/blog/category/${slug}`}
+      />
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       <h1 className="mb-6 text-2xl font-bold">{category.name}</h1>

@@ -59,6 +59,8 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
 
   useEffect(() => {
     apiClient
@@ -70,6 +72,25 @@ export default function OrderDetailPage() {
       })
       .finally(() => setIsLoading(false));
   }, [id]);
+
+  const handlePayNow = async (provider: string) => {
+    setIsPaying(true);
+    setPayError(null);
+    try {
+      const res = await apiClient.post<{ redirectUrl: string }>(`/api/v1/orders/${id}/pay`, {
+        provider,
+      });
+      if (res.success && res.data?.redirectUrl) {
+        window.location.href = res.data.redirectUrl;
+        return;
+      }
+      setPayError(res.error || 'Не вдалося ініціювати оплату');
+    } catch {
+      setPayError('Помилка мережі');
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   const handleCancel = async () => {
     if (!confirm('Ви впевнені, що хочете скасувати це замовлення?')) return;
@@ -178,12 +199,38 @@ export default function OrderDetailPage() {
         {/* Action buttons */}
         <div className="mt-5 flex flex-wrap gap-3 border-t border-[var(--color-border)]/60 pt-5">
           <PrintableOrder order={order} />
+          {order.paymentMethod === 'online' &&
+            order.paymentStatus !== 'paid' &&
+            order.status !== 'cancelled' && (
+              <>
+                <Button size="sm" onClick={() => handlePayNow('liqpay')} isLoading={isPaying}>
+                  Сплатити LiqPay
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handlePayNow('monobank')}
+                  isLoading={isPaying}
+                >
+                  Сплатити Monobank
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handlePayNow('wayforpay')}
+                  isLoading={isPaying}
+                >
+                  Сплатити WayForPay
+                </Button>
+              </>
+            )}
           {canCancel && (
             <Button variant="danger" size="sm" onClick={handleCancel} isLoading={isCancelling}>
               Скасувати замовлення
             </Button>
           )}
         </div>
+        {payError && <p className="mt-2 text-sm text-[var(--color-danger)]">{payError}</p>}
       </div>
 
       {/* ── Info (two-column layout) ── */}
@@ -216,9 +263,22 @@ export default function OrderDetailPage() {
                 </p>
               )}
               {order.trackingNumber && (
-                <p className="mt-2 font-mono text-base font-bold tracking-wide text-[var(--color-primary)]">
-                  ТТН: {order.trackingNumber}
-                </p>
+                <>
+                  <p className="mt-2 font-mono text-base font-bold tracking-wide text-[var(--color-primary)]">
+                    ТТН: {order.trackingNumber}
+                  </p>
+                  {order.trackingStatus && (
+                    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                      Статус:{' '}
+                      <span className="font-medium text-[var(--color-text)]">
+                        {order.trackingStatus}
+                      </span>
+                      {order.trackingStatusAt && (
+                        <> · оновлено {new Date(order.trackingStatusAt).toLocaleString('uk-UA')}</>
+                      )}
+                    </p>
+                  )}
+                </>
               )}
             </div>
             {order.comment && (

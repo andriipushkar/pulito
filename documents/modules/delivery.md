@@ -2,16 +2,16 @@
 
 ## Огляд
 
-Підтримка кількох способів доставки: Нова Пошта (основний), Укрпошта, самовивіз та палетна доставка для оптових клієнтів.
+Підтримка кількох способів доставки: Нова Пошта (основний), Укрпошта, самовивіз та палетна доставка для гуртових клієнтів.
 
 ## Способи доставки
 
-| Метод | Код | Опис |
-|-------|-----|------|
-| Нова Пошта | `nova_poshta` | Основний спосіб, повна інтеграція з API |
-| Укрпошта | `ukrposhta` | Альтернативний спосіб |
-| Самовивіз | `pickup` | Зі складу/магазину |
-| Палетна доставка | `pallet` | Для великих оптових замовлень |
+| Метод            | Код           | Опис                                    |
+| ---------------- | ------------- | --------------------------------------- |
+| Нова Пошта       | `nova_poshta` | Основний спосіб, повна інтеграція з API |
+| Укрпошта         | `ukrposhta`   | Альтернативний спосіб                   |
+| Самовивіз        | `pickup`      | Зі складу/магазину                      |
+| Палетна доставка | `pallet`      | Для великих гуртових замовлень          |
 
 ## Статуси доставки
 
@@ -51,30 +51,35 @@ Delivery {
 ### Функції
 
 **Пошук міст:**
+
 ```ts
 searchCities(query: string): Promise<Record<string, unknown>[]>
 // modelName: 'Address', calledMethod: 'searchSettlements'
 ```
 
 **Список відділень:**
+
 ```ts
 getWarehouses(cityRef: string, search?: string): Promise<Record<string, unknown>[]>
 // modelName: 'Address', calledMethod: 'getWarehouses'
 ```
 
 **Відстеження:**
+
 ```ts
 trackParcel(ttn: string): Promise<Record<string, unknown>[]>
 // modelName: 'TrackingDocument', calledMethod: 'getStatusDocuments'
 ```
 
 **Розрахунок вартості:**
+
 ```ts
 estimateDeliveryCost(input: EstimateDeliveryInput): Promise<DeliveryCostEstimate>
 // modelName: 'InternetDocument', calledMethod: 'getDocumentPrice'
 ```
 
 Вхідні параметри:
+
 - `citySender`, `cityRecipient` -- Ref міста відправника/отримувача
 - `weight` -- вага (кг)
 - `serviceType` -- `WarehouseWarehouse`, `WarehouseDoors`, `DoorsWarehouse`, `DoorsDoors`
@@ -84,6 +89,7 @@ estimateDeliveryCost(input: EstimateDeliveryInput): Promise<DeliveryCostEstimate
 Результат: `{ cost, estimatedDays }`
 
 **Створення ТТН (експрес-накладної):**
+
 ```ts
 createInternetDocument(input: CreateTTNInput): Promise<{
   intDocNumber: string;
@@ -104,6 +110,7 @@ createInternetDocument(input: CreateTTNInput): Promise<{
 - `GET /api/v1/nova-poshta/track/:ttn` -- відстеження
 
 ### Обробка помилок
+
 `NovaPoshtaError` з кодом статусу та повідомленням від API.
 
 ## Укрпошта
@@ -120,29 +127,30 @@ createInternetDocument(input: CreateTTNInput): Promise<{
 
 ```ts
 interface PalletConfig {
-  enabled: boolean;            // вкл/викл
-  minWeightKg: number;         // мінімальна вага (100 кг)
-  maxWeightKg: number;         // максимальна вага (5000 кг)
-  basePrice: number;           // базова вартість (1500 грн)
-  pricePerKg: number;          // ціна за кг (3 грн/кг)
-  regions: {                   // регіональні множники
+  enabled: boolean; // вкл/викл
+  minWeightKg: number; // мінімальна вага (100 кг)
+  maxWeightKg: number; // максимальна вага (5000 кг)
+  basePrice: number; // базова вартість (1500 грн)
+  pricePerKg: number; // ціна за кг (3 грн/кг)
+  regions: {
+    // регіональні множники
     name: string;
     multiplier: number;
   }[];
   freeDeliveryThreshold: number; // поріг безкоштовної доставки (50000 грн)
-  estimatedDays: string;        // орієнтовний термін ("3-5")
+  estimatedDays: string; // орієнтовний термін ("3-5")
 }
 ```
 
 ### Регіони (за замовчуванням)
 
-| Регіон | Множник |
-|--------|---------|
-| Київ та область | 1.0 |
-| Центральна Україна | 1.1 |
-| Захід | 1.3 |
-| Схід | 1.2 |
-| Південь | 1.2 |
+| Регіон             | Множник |
+| ------------------ | ------- |
+| Київ та область    | 1.0     |
+| Центральна Україна | 1.1     |
+| Захід              | 1.3     |
+| Схід               | 1.2     |
+| Південь            | 1.2     |
 
 ### Розрахунок вартості
 
@@ -159,6 +167,7 @@ cost = (basePrice + weightKg * pricePerKg) * regionMultiplier
 **Функція:** `validatePalletOrder(totalWeightKg, region?)`
 
 Перевіряє:
+
 - Увімкненість палетної доставки
 - Мінімальну/максимальну вагу
 - Підтримку регіону

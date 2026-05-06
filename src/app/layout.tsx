@@ -12,6 +12,7 @@ import CookieBanner from '@/components/ui/CookieBanner';
 import WebVitalsReporter from '@/components/common/WebVitalsReporter';
 import Toaster from '@/components/common/Toaster';
 import { getSettings } from '@/services/settings';
+import { getActiveTheme } from '@/services/theme';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'cyrillic-ext'],
@@ -27,16 +28,19 @@ const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSettings();
+  const title =
+    settings.default_seo_title || `${settings.site_name} — Інтернет-магазин побутової хімії`;
+  const description =
+    settings.default_seo_description ||
+    'Гуртово-роздрібний інтернет-магазин побутової хімії. Широкий асортимент, вигідні ціни, швидка доставка по Україні.';
   return {
+    metadataBase: new URL(baseUrl),
     title: {
-      default:
-        settings.default_seo_title || `${settings.site_name} — Інтернет-магазин побутової хімії`,
+      default: title,
       template: `%s | ${settings.site_name}`,
     },
-    description:
-      settings.default_seo_description ||
-      'Оптово-роздрібний інтернет-магазин побутової хімії. Широкий асортимент, вигідні ціни, швидка доставка по Україні.',
-    keywords: ['побутова хімія', 'миючі засоби', 'купити', 'оптом', 'інтернет-магазин', 'Україна'],
+    description,
+    keywords: ['побутова хімія', 'миючі засоби', 'купити', 'гуртом', 'інтернет-магазин', 'Україна'],
     robots: {
       index: true,
       follow: true,
@@ -50,6 +54,14 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       locale: 'uk_UA',
       siteName: settings.site_name,
+      title,
+      description,
+      url: baseUrl,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
     },
     alternates: {
       canonical: baseUrl,
@@ -68,11 +80,18 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [locale, messages, settings] = await Promise.all([
+  const [locale, messages, settings, activeTheme] = await Promise.all([
     getLocale(),
     getMessages(),
     getSettings(),
+    getActiveTheme().catch(() => null),
   ]);
+
+  const themeCss = activeTheme
+    ? `:root{${Object.entries(activeTheme.cssVariables)
+        .map(([k, v]) => `${k}:${v}`)
+        .join(';')}}`
+    : '';
 
   const webSiteJsonLd = {
     '@context': 'https://schema.org',
@@ -128,6 +147,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           title={`${settings.site_name} — Нові товари`}
           href="/feed.xml"
         />
+        {themeCss ? (
+          <style id="active-theme" dangerouslySetInnerHTML={{ __html: themeCss }} />
+        ) : null}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}

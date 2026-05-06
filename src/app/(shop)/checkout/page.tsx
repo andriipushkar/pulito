@@ -19,6 +19,7 @@ import StepConfirmation from '@/components/checkout/StepConfirmation';
 import OrderSuccess from '@/components/checkout/OrderSuccess';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
 import { trackEvent } from '@/lib/event-tracker';
+import type { CheckoutConfig } from '@/services/checkout-config';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -30,16 +31,58 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [loyaltyPointsToSpend, setLoyaltyPointsToSpend] = useState(0);
-  const [formData, setFormData] = useState<Partial<CheckoutInput>>(() => ({
-    contactName: user?.fullName || '',
-    contactEmail: user?.email || '',
-    contactPhone: '',
-    deliveryMethod: undefined,
-    paymentMethod: undefined,
-    comment: '',
-  }));
+  const [config, setConfig] = useState<CheckoutConfig | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<
+    {
+      deliveryMethod: string;
+      city: string;
+      address: string;
+      warehouseRef: string | null;
+    }[]
+  >([]);
+  const [formData, setFormData] = useState<Partial<CheckoutInput> & { paymentNote?: string }>(
+    () => ({
+      contactName: user?.fullName || '',
+      contactEmail: user?.email || '',
+      contactPhone: '',
+      deliveryMethod: undefined,
+      paymentMethod: undefined,
+      comment: '',
+      paymentNote: '',
+    }),
+  );
 
   const cartTotal = total();
+
+  useEffect(() => {
+    apiClient
+      .get<CheckoutConfig>('/api/v1/checkout/config')
+      .then((res) => {
+        if (res.success && res.data) setConfig(res.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Load saved addresses for authenticated users (autofill from past orders).
+  useEffect(() => {
+    if (!user) return;
+    apiClient
+      .get<typeof savedAddresses>('/api/v1/me/saved-addresses')
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) setSavedAddresses(res.data);
+      })
+      .catch(() => {});
+  }, [user]);
+
+  const applyAddress = (addr: (typeof savedAddresses)[0]) => {
+    setFormData((prev) => ({
+      ...prev,
+      deliveryMethod: addr.deliveryMethod as CheckoutInput['deliveryMethod'],
+      deliveryCity: addr.city,
+      deliveryAddress: addr.address,
+      deliveryWarehouseRef: addr.warehouseRef ?? '',
+    }));
+  };
 
   // Fetch loyalty balance for authenticated users
   useEffect(() => {
@@ -87,21 +130,39 @@ export default function CheckoutPage() {
     }
 
     if (stepNumber === 2) {
-      if (!formData.deliveryMethod) {
-        newErrors.deliveryMethod = 'Оберіть спосіб доставки';
-      }
-      const needsAddress =
-        formData.deliveryMethod === 'nova_poshta' || formData.deliveryMethod === 'ukrposhta';
-      if (needsAddress && !formData.deliveryCity) {
-        newErrors.deliveryCity = 'Вкажіть місто';
-      }
-      if (needsAddress && !formData.deliveryAddress) {
-        newErrors.deliveryAddress = 'Вкажіть адресу';
+      if (config?.delivery.manualMode) {
+        if (!formData.deliveryAddress || formData.deliveryAddress.trim().length < 5) {
+          newErrors.deliveryAddress = 'Опишіть, як вам зручно отримати товар (мінімум 5 символів)';
+        }
+      } else {
+        if (!formData.deliveryMethod) {
+          newErrors.deliveryMethod = 'Оберіть спосіб доставки';
+        }
+        if (formData.deliveryMethod === 'nova_poshta') {
+          if (!formData.deliveryCity) newErrors.deliveryCity = 'Оберіть місто зі списку';
+          // Two valid modes: warehouseRef (відділення) OR streetRef+building (D2D).
+          const hasWarehouse = !!formData.deliveryWarehouseRef;
+          const hasD2D = !!formData.deliveryStreetRef && !!formData.deliveryBuilding;
+          if (!hasWarehouse && !hasD2D) {
+            if (formData.deliveryStreetRef && !formData.deliveryBuilding) {
+              newErrors.deliveryBuilding = 'Вкажіть будинок';
+            } else {
+              newErrors.deliveryAddress = 'Оберіть відділення або заповніть адресу';
+            }
+          }
+        } else if (formData.deliveryMethod === 'ukrposhta') {
+          if (!formData.deliveryCity) newErrors.deliveryCity = 'Вкажіть місто';
+          if (!formData.deliveryAddress) newErrors.deliveryAddress = 'Вкажіть адресу';
+        }
       }
     }
 
     if (stepNumber === 3) {
-      if (!formData.paymentMethod) {
+      if (config?.payment.manualMode) {
+        if (!formData.paymentNote || formData.paymentNote.trim().length < 3) {
+          newErrors.paymentNote = 'Опишіть, як вам зручно оплатити';
+        }
+      } else if (!formData.paymentMethod) {
         newErrors.paymentMethod = 'Оберіть спосіб оплати';
       }
     }
@@ -121,8 +182,21 @@ export default function CheckoutPage() {
   };
 
   const handleSubmit = async () => {
+    const deliveryManual = !!config?.delivery.manualMode;
+    const paymentManual = !!config?.payment.manualMode;
+
+    const mergedComment =
+      paymentManual && formData.paymentNote
+        ? `[Оплата (зазначив клієнт)]: ${formData.paymentNote.trim()}${formData.comment ? `\n\n${formData.comment}` : ''}`
+        : formData.comment;
+
+    const { paymentNote: _ignored, ...rest } = formData;
     const submitData = {
-      ...formData,
+      ...rest,
+      deliveryMethod: deliveryManual ? 'pickup' : formData.deliveryMethod,
+      paymentMethod: paymentManual ? 'cod' : formData.paymentMethod,
+      paymentProvider: paymentManual ? undefined : formData.paymentProvider,
+      comment: mergedComment,
       loyaltyPointsToSpend: loyaltyPointsToSpend > 0 ? loyaltyPointsToSpend : undefined,
     };
 
@@ -241,8 +315,45 @@ export default function CheckoutPage() {
         {/* Left: form steps */}
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
           {step === 1 && <StepContacts data={formData} errors={errors} onChange={handleChange} />}
-          {step === 2 && <StepDelivery data={formData} errors={errors} onChange={handleChange} />}
-          {step === 3 && <StepPayment data={formData} errors={errors} onChange={handleChange} />}
+          {step === 2 && (
+            <>
+              {savedAddresses.length > 0 && (
+                <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+                  <p className="mb-2 text-xs font-medium text-[var(--color-text-secondary)]">
+                    Збережені адреси з минулих замовлень
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {savedAddresses.map((a, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => applyAddress(a)}
+                        className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1 text-xs hover:border-[var(--color-primary)]"
+                      >
+                        {a.city} — {a.address}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <StepDelivery
+                data={formData}
+                errors={errors}
+                onChange={handleChange}
+                cartTotal={cartTotal}
+                config={config}
+              />
+            </>
+          )}
+          {step === 3 && (
+            <StepPayment
+              data={formData}
+              errors={errors}
+              onChange={handleChange}
+              config={config}
+              cartTotal={cartTotal}
+            />
+          )}
           {step === 4 && (
             <StepConfirmation
               data={formData}
@@ -251,6 +362,7 @@ export default function CheckoutPage() {
               loyaltyPoints={loyaltyPoints}
               loyaltyPointsToSpend={loyaltyPointsToSpend}
               onLoyaltyPointsChange={handleLoyaltyPointsChange}
+              config={config}
             />
           )}
 

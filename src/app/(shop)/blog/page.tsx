@@ -9,6 +9,7 @@ import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
 import BlogCard from '@/components/blog/BlogCard';
 import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
+import PaginationLinks from '@/components/seo/PaginationLinks';
 import { getPublishedPosts, getCategories } from '@/services/blog';
 
 const baseUrl = process.env.APP_URL || 'http://localhost:3000';
@@ -96,6 +97,12 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
         items={breadcrumbs
           .filter((b) => b.href)
           .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }))}
+      />
+      <PaginationLinks
+        currentPage={page}
+        totalPages={totalPages}
+        baseUrl={`${baseUrl}/blog`}
+        searchParams={currentSearchParams}
       />
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 

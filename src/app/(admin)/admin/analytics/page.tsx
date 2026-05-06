@@ -638,7 +638,7 @@ function ClientsView({ data }: { data: unknown }) {
           </div>
         </div>
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="text-xs text-[var(--color-text-secondary)]">Оптовиків</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">Гуртівників</p>
           <p className="text-2xl font-bold">{d.wholesalers}</p>
         </div>
       </div>
@@ -646,7 +646,7 @@ function ClientsView({ data }: { data: unknown }) {
       {/* Wholesale group comparison */}
       {d.wholesaleGroupStats && d.wholesaleGroupStats.length > 0 && (
         <div className="mb-6">
-          <h3 className="mb-3 text-sm font-semibold">Порівняння оптових груп</h3>
+          <h3 className="mb-3 text-sm font-semibold">Порівняння гуртових груп</h3>
           <div className="grid gap-4 sm:grid-cols-3">
             {d.wholesaleGroupStats.map((gs) => (
               <div

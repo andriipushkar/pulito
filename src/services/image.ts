@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
 import { validateFileType } from '@/utils/file-validation';
 import { uploadFile, isCloudStorageEnabled } from '@/lib/storage';
+import { removeBackground, isBackgroundRemovalEnabled } from '@/services/background-removal';
 
 const WATERMARK_TEXT = process.env.WATERMARK_TEXT || 'pulito.trade';
 const WATERMARK_ENABLED = process.env.WATERMARK_ENABLED !== 'false'; // enabled by default
@@ -26,8 +27,13 @@ const SIZES = {
   blur: { width: 20, height: 20 },
 } as const;
 
+// Padding background — matches --color-bg-secondary so the auto-padded canvas
+// blends seamlessly with product card containers on the site.
+const PAD_BACKGROUND = { r: 245, g: 245, b: 245, alpha: 1 };
+
 const ALLOWED_FORMATS = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MIN_DIMENSION = 300; // px — smaller uploads would look pixelated when padded to 800px
 
 function getUploadDir(): string {
   return env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
@@ -47,6 +53,7 @@ export async function processProductImage(
   originalFilename: string,
   productId: number,
   isMain = false,
+  options: { removeBg?: boolean } = {},
 ) {
   if (!ALLOWED_FORMATS.includes(mimeType)) {
     throw new ImageError('Непідтримуваний формат. Дозволені: JPG, PNG, WebP', 400);
@@ -75,6 +82,32 @@ export async function processProductImage(
   await ensureDir(imageDir);
 
   const metadata = await sharp(fileBuffer).metadata();
+
+  // Reject too-small uploads — when padded to 800x800 they look low-res.
+  const srcW = metadata.width ?? 0;
+  const srcH = metadata.height ?? 0;
+  if (srcW < MIN_DIMENSION || srcH < MIN_DIMENSION) {
+    throw new ImageError(
+      `Мінімальний розмір фото: ${MIN_DIMENSION}×${MIN_DIMENSION} px. Ваше: ${srcW}×${srcH} px.`,
+      400,
+    );
+  }
+
+  // Optional automatic background removal — replaces fileBuffer with a PNG
+  // that has transparent background. Subsequent variants composite the PNG
+  // onto PAD_BACKGROUND so the WebP output blends seamlessly with the site.
+  let processBuffer = fileBuffer;
+  let processMime = mimeType;
+  let bgRemoved = false;
+  if (options.removeBg && isBackgroundRemovalEnabled()) {
+    const cutout = await removeBackground(fileBuffer, mimeType);
+    if (cutout) {
+      processBuffer = cutout;
+      processMime = 'image/png';
+      bgRemoved = true;
+    }
+  }
+
   const timestamp = Date.now();
   const baseName = `${product.code}_${timestamp}`;
 
@@ -94,10 +127,20 @@ export async function processProductImage(
       const filename = `${baseName}_${size.width}x${size.height}.webp`;
       const filePath = path.join(imageDir, filename);
 
-      let pipeline = sharp(fileBuffer).resize(size.width, size.height, {
-        fit: 'inside',
-        withoutEnlargement: true,
+      // fit:'contain' keeps original aspect ratio AND pads the result to the
+      // exact target square with PAD_BACKGROUND. So a 1024×800 photo becomes
+      // a true 800×800 with grey strips top/bottom — site renders it without
+      // any "gaps" because the canvas already matches the container.
+      // When background was removed (PNG with alpha), `flatten` composites
+      // the cutout onto PAD_BACKGROUND so transparent areas become uniform.
+      let pipeline = sharp(processBuffer).resize(size.width, size.height, {
+        fit: 'contain',
+        background: PAD_BACKGROUND,
+        withoutEnlargement: false,
       });
+      if (bgRemoved) {
+        pipeline = pipeline.flatten({ background: PAD_BACKGROUND });
+      }
 
       if (key === 'blur') {
         pipeline = pipeline.blur(5).webp({ quality: 20 });

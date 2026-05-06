@@ -19,10 +19,15 @@ export const checkoutSchema = z.object({
   deliveryCity: z.string().optional(),
   deliveryWarehouseRef: z.string().optional(),
   deliveryAddress: z.string().optional(),
+  deliveryStreetRef: z.string().optional(),
+  deliveryBuilding: z.string().optional(),
+  deliveryFlat: z.string().optional(),
   paymentMethod: z.enum(['cod', 'bank_transfer', 'online', 'card_prepay']),
   comment: z.string().max(500).optional(),
   loyaltyPointsToSpend: z.number().int().min(0).optional(),
-  paymentProvider: z.enum(['liqpay', 'monobank', 'wayforpay']).optional(),
+  paymentProvider: z
+    .enum(['liqpay', 'liqpay_paypart', 'monobank', 'wayforpay', 'apple_pay', 'google_pay'])
+    .optional(),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
@@ -41,10 +46,18 @@ export type GuestCheckoutInput = z.infer<typeof guestCheckoutSchema>;
 export const orderFilterSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.enum([
-    'new_order', 'processing', 'confirmed', 'paid',
-    'shipped', 'completed', 'cancelled', 'returned',
-  ]).optional(),
+  status: z
+    .enum([
+      'new_order',
+      'processing',
+      'confirmed',
+      'paid',
+      'shipped',
+      'completed',
+      'cancelled',
+      'returned',
+    ])
+    .optional(),
   search: z.string().optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
@@ -58,8 +71,14 @@ export type OrderFilterInput = z.infer<typeof orderFilterSchema>;
 
 export const updateOrderStatusSchema = z.object({
   status: z.enum([
-    'new_order', 'processing', 'confirmed', 'paid',
-    'shipped', 'completed', 'cancelled', 'returned',
+    'new_order',
+    'processing',
+    'confirmed',
+    'paid',
+    'shipped',
+    'completed',
+    'cancelled',
+    'returned',
   ]),
   comment: z.string().max(500).optional(),
 });

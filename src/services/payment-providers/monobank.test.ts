@@ -4,6 +4,11 @@ vi.mock('@/config/env', () => ({
   env: { MONOBANK_TOKEN: 'test-mono-token' },
 }));
 
+const monoCreds = { token: 'test-mono-token' };
+vi.mock('@/services/integration-credentials', () => ({
+  getMonobankCreds: vi.fn(async () => monoCreds),
+}));
+
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
@@ -24,7 +29,11 @@ describe('Monobank provider', () => {
     });
 
     const result = await createPayment(
-      1, 500, 'Test', 'http://localhost/result', 'http://localhost/webhook'
+      1,
+      500,
+      'Test',
+      'http://localhost/result',
+      'http://localhost/webhook',
     );
 
     expect(result.redirectUrl).toBe('https://pay.monobank.ua/inv_123');
@@ -34,7 +43,7 @@ describe('Monobank provider', () => {
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ 'X-Token': 'test-mono-token' }),
-      })
+      }),
     );
 
     // Verify amount is in kopecks
@@ -53,7 +62,7 @@ describe('Monobank provider', () => {
     });
 
     await expect(
-      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost')
+      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost'),
     ).rejects.toThrow(MonobankError);
   });
 
@@ -67,7 +76,7 @@ describe('Monobank provider', () => {
     });
 
     await expect(
-      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost')
+      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost'),
     ).rejects.toThrow('Bad request');
   });
 
@@ -77,7 +86,9 @@ describe('Monobank provider', () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
-      json: async () => { throw new Error('invalid json'); },
+      json: async () => {
+        throw new Error('invalid json');
+      },
     });
 
     try {
@@ -88,16 +99,16 @@ describe('Monobank provider', () => {
   });
 
   it('should throw when token not configured', async () => {
-    const { env } = await import('@/config/env');
-    const original = env.MONOBANK_TOKEN;
-    (env as unknown as Record<string, string>).MONOBANK_TOKEN = '';
-
-    const { createPayment } = await import('./monobank');
-    await expect(
-      createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost')
-    ).rejects.toThrow('Monobank token not configured');
-
-    (env as unknown as Record<string, string>).MONOBANK_TOKEN = original;
+    const original = monoCreds.token;
+    monoCreds.token = '';
+    try {
+      const { createPayment } = await import('./monobank');
+      await expect(
+        createPayment(1, 100, 'Test', 'http://localhost', 'http://localhost'),
+      ).rejects.toThrow('Monobank token not configured');
+    } finally {
+      monoCreds.token = original;
+    }
   });
 
   describe('MonobankError', () => {
@@ -131,7 +142,7 @@ describe('Monobank provider', () => {
       });
 
       await expect(freshMod.verifyCallback('{}', 'sig')).rejects.toThrow(
-        'Failed to get Monobank public key'
+        'Failed to get Monobank public key',
       );
     });
 
@@ -139,7 +150,9 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync } = crypto;
       const { publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString('base64');
+      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
+        'base64',
+      );
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -153,17 +166,25 @@ describe('Monobank provider', () => {
         json: async () => ({ key: pubKeyBase64 }),
       });
 
-      const body = JSON.stringify({ reference: 'order_123', status: 'success', invoiceId: 'inv_1' });
+      const body = JSON.stringify({
+        reference: 'order_123',
+        status: 'success',
+        invoiceId: 'inv_1',
+      });
       const wrongSignature = Buffer.from('invalid').toString('base64');
 
-      await expect(freshMod.verifyCallback(body, wrongSignature)).rejects.toThrow('Invalid Monobank signature');
+      await expect(freshMod.verifyCallback(body, wrongSignature)).rejects.toThrow(
+        'Invalid Monobank signature',
+      );
     });
 
     it('should parse valid callback with success status', async () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString('base64');
+      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
+        'base64',
+      );
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -177,7 +198,11 @@ describe('Monobank provider', () => {
         json: async () => ({ key: pubKeyBase64 }),
       });
 
-      const body = JSON.stringify({ reference: 'order_42', status: 'success', invoiceId: 'inv_99' });
+      const body = JSON.stringify({
+        reference: 'order_42',
+        status: 'success',
+        invoiceId: 'inv_99',
+      });
       const signature = sign('SHA256', Buffer.from(body), privateKey).toString('base64');
 
       const result = await freshMod.verifyCallback(body, signature);
@@ -191,7 +216,9 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString('base64');
+      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
+        'base64',
+      );
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -205,7 +232,11 @@ describe('Monobank provider', () => {
         json: async () => ({ key: pubKeyBase64 }),
       });
 
-      const body = JSON.stringify({ reference: 'order_10', status: 'failure', invoiceId: 'inv_10' });
+      const body = JSON.stringify({
+        reference: 'order_10',
+        status: 'failure',
+        invoiceId: 'inv_10',
+      });
       const signature = sign('SHA256', Buffer.from(body), privateKey).toString('base64');
 
       const result = await freshMod.verifyCallback(body, signature);
@@ -216,7 +247,9 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString('base64');
+      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
+        'base64',
+      );
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -230,7 +263,11 @@ describe('Monobank provider', () => {
         json: async () => ({ key: pubKeyBase64 }),
       });
 
-      const body = JSON.stringify({ reference: 'order_10', status: 'processing', invoiceId: 'inv_10' });
+      const body = JSON.stringify({
+        reference: 'order_10',
+        status: 'processing',
+        invoiceId: 'inv_10',
+      });
       const signature = sign('SHA256', Buffer.from(body), privateKey).toString('base64');
 
       const result = await freshMod.verifyCallback(body, signature);
@@ -241,7 +278,9 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString('base64');
+      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
+        'base64',
+      );
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -255,7 +294,11 @@ describe('Monobank provider', () => {
         json: async () => ({ key: pubKeyBase64 }),
       });
 
-      const body = JSON.stringify({ reference: 'order_10', status: 'reversed', invoiceId: 'inv_10' });
+      const body = JSON.stringify({
+        reference: 'order_10',
+        status: 'reversed',
+        invoiceId: 'inv_10',
+      });
       const signature = sign('SHA256', Buffer.from(body), privateKey).toString('base64');
 
       const result = await freshMod.verifyCallback(body, signature);
@@ -266,7 +309,9 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString('base64');
+      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
+        'base64',
+      );
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -280,11 +325,15 @@ describe('Monobank provider', () => {
         json: async () => ({ key: pubKeyBase64 }),
       });
 
-      const body = JSON.stringify({ reference: 'order_abc', status: 'success', invoiceId: 'inv_10' });
+      const body = JSON.stringify({
+        reference: 'order_abc',
+        status: 'success',
+        invoiceId: 'inv_10',
+      });
       const signature = sign('SHA256', Buffer.from(body), privateKey).toString('base64');
 
       await expect(freshMod.verifyCallback(body, signature)).rejects.toThrow(
-        'Invalid reference in callback'
+        'Invalid reference in callback',
       );
     });
 
@@ -292,7 +341,9 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString('base64');
+      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
+        'base64',
+      );
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -319,6 +370,36 @@ describe('Monobank provider', () => {
       expect(result.orderId).toBe(2);
       // fetch was called only once for pubkey (plus any prior calls)
       expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('checkInvoiceStatus', () => {
+    it('returns success when invoice is paid', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'success', amount: 12345 }),
+      });
+      const { checkInvoiceStatus } = await import('./monobank');
+      const r = await checkInvoiceStatus('inv_xyz');
+      expect(r.status).toBe('success');
+      expect(r.amount).toBe(123.45);
+    });
+
+    it('returns failure on expired/reversed', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'expired' }),
+      });
+      const { checkInvoiceStatus } = await import('./monobank');
+      const r = await checkInvoiceStatus('inv_xyz');
+      expect(r.status).toBe('failure');
+    });
+
+    it('returns processing on network failure', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false } as Response);
+      const { checkInvoiceStatus } = await import('./monobank');
+      const r = await checkInvoiceStatus('inv_xyz');
+      expect(r.status).toBe('processing');
     });
   });
 });

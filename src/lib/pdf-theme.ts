@@ -71,6 +71,12 @@ export async function getCompanyInfo() {
     website: s.site_email?.split('@')[1] || 'pulito.trade',
     phone: s.site_phone_display || '',
     email: s.site_email || '',
+    legalName: s.company_legal_name || '',
+    edrpou: s.company_edrpou || '',
+    ipn: s.company_ipn || '',
+    iban: s.company_iban || '',
+    bank: s.company_bank || '',
+    legalAddress: s.company_legal_address || '',
   };
 }
 

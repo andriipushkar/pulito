@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { env } from '@/config/env';
+import { getWayForPayCreds } from '@/services/integration-credentials';
 import { logger } from '@/lib/logger';
 import type {
   PaymentInitResult,
@@ -20,9 +21,9 @@ export class WayForPayError extends Error {
   }
 }
 
-function createSignature(data: string[]): string {
+function createSignature(data: string[], secretKey: string): string {
   const signString = data.join(';');
-  return crypto.createHmac('md5', env.WAYFORPAY_SECRET_KEY).update(signString).digest('hex');
+  return crypto.createHmac('md5', secretKey).update(signString).digest('hex');
 }
 
 export async function createPayment(
@@ -31,9 +32,9 @@ export async function createPayment(
   description: string,
   resultUrl: string,
   serviceUrl: string,
+  options?: { paymentSystems?: string },
 ): Promise<PaymentInitResult> {
-  const merchantAccount = env.WAYFORPAY_MERCHANT_ACCOUNT;
-  const secretKey = env.WAYFORPAY_SECRET_KEY;
+  const { merchantAccount, secretKey } = await getWayForPayCreds();
 
   if (!merchantAccount || !secretKey) {
     throw new WayForPayError('WayForPay credentials not configured');
@@ -59,7 +60,7 @@ export async function createPayment(
     ...productCount.map(String),
     ...productPrice.map(String),
   ];
-  const signature = createSignature(signatureData);
+  const signature = createSignature(signatureData, secretKey);
 
   const res = await fetch(API_PURCHASE_URL, {
     method: 'POST',
@@ -81,7 +82,7 @@ export async function createPayment(
       returnUrl: resultUrl,
       serviceUrl,
       language: 'UA',
-      paymentSystems: 'card;privat24;googlePay;applePay;masterPass',
+      paymentSystems: options?.paymentSystems ?? 'card;privat24;googlePay;applePay;masterPass',
     }),
   });
 
@@ -102,20 +103,54 @@ export async function createPayment(
   };
 }
 
+export async function checkTransactionStatus(
+  orderReference: string,
+): Promise<{ status: 'success' | 'failure' | 'processing'; amount?: number }> {
+  const { merchantAccount, secretKey } = await getWayForPayCreds();
+  if (!merchantAccount || !secretKey) return { status: 'processing' };
+
+  const orderDate = Math.floor(Date.now() / 1000);
+  // Signature for CHECK_STATUS: merchantAccount;orderReference;orderDate
+  const signatureData = [merchantAccount, orderReference, String(orderDate)];
+  const signature = createSignature(signatureData, secretKey);
+
+  const res = await fetch(API_PURCHASE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      transactionType: 'CHECK_STATUS',
+      merchantAccount,
+      orderReference,
+      apiVersion: 1,
+      merchantSignature: signature,
+    }),
+  });
+  if (!res.ok) return { status: 'processing' };
+  const body: { transactionStatus?: string; amount?: number } = await res.json();
+  let status: 'success' | 'failure' | 'processing' = 'processing';
+  if (body.transactionStatus === 'Approved') status = 'success';
+  else if (
+    body.transactionStatus === 'Declined' ||
+    body.transactionStatus === 'Expired' ||
+    body.transactionStatus === 'Voided'
+  )
+    status = 'failure';
+  return { status, amount: body.amount };
+}
+
 export async function refundPayment(
   orderReference: string,
   amount: number,
   _transactionId: string,
 ): Promise<RefundResult> {
-  const merchantAccount = env.WAYFORPAY_MERCHANT_ACCOUNT;
-  const secretKey = env.WAYFORPAY_SECRET_KEY;
+  const { merchantAccount, secretKey } = await getWayForPayCreds();
 
   if (!merchantAccount || !secretKey) {
     throw new WayForPayError('WayForPay credentials not configured');
   }
 
   const signatureData = [merchantAccount, orderReference, String(amount), 'UAH'];
-  const signature = createSignature(signatureData);
+  const signature = createSignature(signatureData, secretKey);
 
   const res = await fetch(API_PURCHASE_URL, {
     method: 'POST',
@@ -150,8 +185,8 @@ export async function refundPayment(
   };
 }
 
-export function verifyCallback(body: WayForPayCallbackData): PaymentCallbackResult {
-  const secretKey = env.WAYFORPAY_SECRET_KEY;
+export async function verifyCallback(body: WayForPayCallbackData): Promise<PaymentCallbackResult> {
+  const { secretKey } = await getWayForPayCreds();
   if (!secretKey) {
     throw new WayForPayError('WayForPay secret key not configured', 500);
   }
@@ -167,7 +202,7 @@ export function verifyCallback(body: WayForPayCallbackData): PaymentCallbackResu
     body.transactionStatus,
     String(body.reasonCode),
   ];
-  const expectedSignature = createSignature(signatureData);
+  const expectedSignature = createSignature(signatureData, secretKey);
 
   if (body.merchantSignature !== expectedSignature) {
     throw new WayForPayError('Invalid WayForPay signature', 403);
@@ -205,13 +240,17 @@ export function verifyCallback(body: WayForPayCallbackData): PaymentCallbackResu
 /**
  * Generate response for WayForPay callback (must return specific JSON format)
  */
-export function createCallbackResponse(
+export async function createCallbackResponse(
   orderReference: string,
   status: 'accept' | 'refuse' = 'accept',
-): string {
+): Promise<string> {
+  const { secretKey } = await getWayForPayCreds();
+  if (!secretKey) {
+    throw new WayForPayError('WayForPay secret key not configured', 500);
+  }
   const time = Math.floor(Date.now() / 1000);
   const signatureData = [orderReference, status, String(time)];
-  const signature = createSignature(signatureData);
+  const signature = createSignature(signatureData, secretKey);
 
   return JSON.stringify({
     orderReference,

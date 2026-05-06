@@ -25,7 +25,10 @@ const RULE_TYPE_LABELS: Record<string, string> = {
   multiplicity: 'Кратність замовлення',
 };
 
-const RULE_TYPE_OPTIONS = Object.entries(RULE_TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }));
+const RULE_TYPE_OPTIONS = Object.entries(RULE_TYPE_LABELS).map(([v, l]) => ({
+  value: v,
+  label: l,
+}));
 
 export default function AdminWholesaleRulesPage() {
   const [rules, setRules] = useState<WholesaleRule[]>([]);
@@ -33,7 +36,12 @@ export default function AdminWholesaleRulesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [form, setForm] = useState({ ruleType: 'min_order_amount', productId: '', value: '', isActive: true });
+  const [form, setForm] = useState({
+    ruleType: 'min_order_amount',
+    productId: '',
+    value: '',
+    isActive: true,
+  });
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadRules = () => {
@@ -48,7 +56,9 @@ export default function AdminWholesaleRulesPage() {
       .finally(() => setIsLoading(false));
   };
 
-  useEffect(() => { loadRules(); }, []);
+  useEffect(() => {
+    loadRules();
+  }, []);
 
   const resetForm = () => {
     setForm({ ruleType: 'min_order_amount', productId: '', value: '', isActive: true });
@@ -113,7 +123,9 @@ export default function AdminWholesaleRulesPage() {
   };
 
   const handleToggle = async (rule: WholesaleRule) => {
-    const res = await apiClient.put(`/api/v1/admin/wholesale-rules/${rule.id}`, { isActive: !rule.isActive });
+    const res = await apiClient.put(`/api/v1/admin/wholesale-rules/${rule.id}`, {
+      isActive: !rule.isActive,
+    });
     if (res.success) toast.success(rule.isActive ? 'Правило вимкнено' : 'Правило увімкнено');
     loadRules();
   };
@@ -121,16 +133,27 @@ export default function AdminWholesaleRulesPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Оптові правила</h2>
-        <Button onClick={() => { resetForm(); setShowForm(true); }}>Додати правило</Button>
+        <h2 className="text-xl font-bold">Гуртові правила</h2>
+        <Button
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+        >
+          Додати правило
+        </Button>
       </div>
 
       {showForm && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">{editingId ? 'Редагувати' : 'Нове правило'}</h3>
+          <h3 className="mb-3 text-sm font-semibold">
+            {editingId ? 'Редагувати' : 'Нове правило'}
+          </h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">Тип правила</label>
+              <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
+                Тип правила
+              </label>
               <Select
                 options={RULE_TYPE_OPTIONS}
                 value={form.ruleType}
@@ -153,7 +176,12 @@ export default function AdminWholesaleRulesPage() {
             />
             <div className="flex items-end gap-2">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="accent-[var(--color-primary)]" />
+                <input
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                  className="accent-[var(--color-primary)]"
+                />
                 Активне
               </label>
             </div>
@@ -162,7 +190,9 @@ export default function AdminWholesaleRulesPage() {
             <Button onClick={handleSave} isLoading={isSaving} disabled={!form.value}>
               {editingId ? 'Зберегти' : 'Створити'}
             </Button>
-            <Button variant="outline" onClick={resetForm}>Скасувати</Button>
+            <Button variant="outline" onClick={resetForm}>
+              Скасувати
+            </Button>
           </div>
         </div>
       )}
@@ -183,25 +213,48 @@ export default function AdminWholesaleRulesPage() {
             </thead>
             <tbody>
               {rules.map((rule) => (
-                <tr key={rule.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
+                <tr
+                  key={rule.id}
+                  className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]"
+                >
                   <td className="px-4 py-3">{RULE_TYPE_LABELS[rule.ruleType]}</td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                     {rule.product ? `${rule.product.name} (${rule.product.code})` : 'Всі товари'}
                   </td>
                   <td className="px-4 py-3 text-right font-semibold">{Number(rule.value)}</td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => handleToggle(rule)} className={`rounded-full px-2 py-0.5 text-xs font-medium ${rule.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    <button
+                      onClick={() => handleToggle(rule)}
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${rule.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                    >
                       {rule.isActive ? 'Активне' : 'Вимкнене'}
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleEdit(rule)} className="mr-2 text-xs text-[var(--color-primary)] hover:underline">Редагувати</button>
-                    <button onClick={() => handleDelete(rule.id)} className="text-xs text-[var(--color-danger)] hover:underline">Видалити</button>
+                    <button
+                      onClick={() => handleEdit(rule)}
+                      className="mr-2 text-xs text-[var(--color-primary)] hover:underline"
+                    >
+                      Редагувати
+                    </button>
+                    <button
+                      onClick={() => handleDelete(rule.id)}
+                      className="text-xs text-[var(--color-danger)] hover:underline"
+                    >
+                      Видалити
+                    </button>
                   </td>
                 </tr>
               ))}
               {rules.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">Правил немає</td></tr>
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                  >
+                    Правил немає
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

@@ -2,16 +2,16 @@
 
 ## Enterprise-grade e-commerce для FMCG ринку
 
-Оптово-роздрібна платформа на Next.js 16 з multi-tenancy, SaaS billing, 20+ інтеграціями, B2B-ціноутворенням та повним тестовим покриттям. 175K рядків TypeScript. Готова до production.
+Гуртово-роздрібна платформа на Next.js 16 з multi-tenancy, SaaS billing, 20+ інтеграціями, B2B-ціноутворенням та повним тестовим покриттям. 175K рядків TypeScript. Готова до production.
 
-| Метрика | Значення |
-|---------|---------|
-| Рядків TypeScript | 175K |
-| API endpoints | 307 |
-| Pages (42+60) | 102 |
-| DB models | 94 |
-| Test:Code ratio | 97% |
-| Рядків документації | 26K |
+| Метрика             | Значення |
+| ------------------- | -------- |
+| Рядків TypeScript   | 175K     |
+| API endpoints       | 307      |
+| Pages (42+60)       | 102      |
+| DB models           | 94       |
+| Test:Code ratio     | 97%      |
+| Рядків документації | 26K      |
 
 ---
 
@@ -21,42 +21,42 @@
 
 ### Frontend
 
-| Технологія | Опис |
-|-----------|------|
-| Next.js 16 | App Router, RSC, Server Actions, ISR |
-| React 19 | Server Components, Suspense, streaming |
-| TypeScript 5.9 | strict mode, 100% typed |
-| Tailwind CSS 4 | utility-first + CSS variables |
-| SWR | client-side data fetching з cache |
-| Recharts | interactive analytics charts |
-| embla-carousel | touch-friendly carousels |
-| @dnd-kit | drag-and-drop sortable |
+| Технологія     | Опис                                   |
+| -------------- | -------------------------------------- |
+| Next.js 16     | App Router, RSC, Server Actions, ISR   |
+| React 19       | Server Components, Suspense, streaming |
+| TypeScript 5.9 | strict mode, 100% typed                |
+| Tailwind CSS 4 | utility-first + CSS variables          |
+| SWR            | client-side data fetching з cache      |
+| Recharts       | interactive analytics charts           |
+| embla-carousel | touch-friendly carousels               |
+| @dnd-kit       | drag-and-drop sortable                 |
 
 ### Backend
 
-| Технологія | Опис |
-|-----------|------|
-| PostgreSQL 16 | primary DB, tsvector search |
-| Prisma 7.4 | ORM, 22 schema files, 94 models |
-| Redis 7 | cache, sessions, rate limiting |
-| BullMQ | async job queues (email, push) |
-| PgBouncer | connection pooling (transaction mode) |
-| Typesense 27 | fulltext search, typo tolerance |
-| Sharp | image processing (WebP, AVIF, watermark) |
-| PDFKit | invoice/catalog/report PDF generation |
+| Технологія    | Опис                                     |
+| ------------- | ---------------------------------------- |
+| PostgreSQL 16 | primary DB, tsvector search              |
+| Prisma 7.4    | ORM, 22 schema files, 94 models          |
+| Redis 7       | cache, sessions, rate limiting           |
+| BullMQ        | async job queues (email, push)           |
+| PgBouncer     | connection pooling (transaction mode)    |
+| Typesense 27  | fulltext search, typo tolerance          |
+| Sharp         | image processing (WebP, AVIF, watermark) |
+| PDFKit        | invoice/catalog/report PDF generation    |
 
 ### DevOps & Quality
 
-| Технологія | Опис |
-|-----------|------|
+| Технологія     | Опис                                              |
+| -------------- | ------------------------------------------------- |
 | Docker Compose | 5 services (app, PG, PgBouncer, Redis, Typesense) |
-| PM2 | process manager, cluster mode |
-| Nginx | reverse proxy, SSL, gzip |
-| GitHub Actions | CI/CD (lint → test → build) |
-| Vitest | 659 unit test files |
-| Playwright | 61 E2E specs |
-| k6 | load testing (smoke/stress/spike) |
-| Sentry + Axiom | error tracking + logging |
+| PM2            | process manager, cluster mode                     |
+| Nginx          | reverse proxy, SSL, gzip                          |
+| GitHub Actions | CI/CD (lint → test → build)                       |
+| Vitest         | 659 unit test files                               |
+| Playwright     | 61 E2E specs                                      |
+| k6             | load testing (smoke/stress/spike)                 |
+| Sentry + Axiom | error tracking + logging                          |
 
 **37 dependencies + 30 devDependencies.** Додатково: Zod 4 (validation), Nodemailer 8 (SMTP), web-push (VAPID), bcryptjs, jsonwebtoken (RS256), QRCode, xlsx (Excel import/export), isomorphic-dompurify (XSS prevention), next-intl (i18n), @aws-sdk/client-s3 (Cloudflare R2).
 
@@ -94,28 +94,28 @@
 - Реферальна програма: код, посилання, статистика рефералів, бонуси
 - Множинні вішлісти (CRUD) + перенос у кошик
 - Сповіщення з типами, бейджами, «позначити все як прочитане»
-- Фінанси (оптові): загальна сума, графіки, PDF-документи
+- Фінанси (гуртові): загальна сума, графіки, PDF-документи
 - Персональний менеджер (контакти, дзвінок, email)
 - Швидке замовлення: ввід кодів + drag-and-drop CSV
-- Bulk order (масове оптове замовлення з Excel/CSV)
+- Bulk order (масове гуртове замовлення з Excel/CSV)
 - Підписки (Subscribe & Save), прогнози покупок (prediction reminders)
-- Прайс-листи (PDF, роздрібний + оптовий), нотатки до товарів
+- Прайс-листи (PDF, роздрібний + гуртовий), нотатки до товарів
 - GDPR: self-delete акаунту + data export
 
 ### B2B / Wholesale engine
 
-| Функція | Опис |
-|---------|------|
-| 3 рівні оптових цін | wholesale 1/2/3 + персональне ціноутворення per-client |
-| Оптовий запит | заявка через форму, одобрення менеджером |
-| Volume pricing engine | автоматична знижка при великих кількостях |
-| Bulk order | масове замовлення: ввід кодів, CSV import |
-| Швидке замовлення | drag-and-drop CSV з кодами товарів |
-| Комерційна пропозиція | PDF генерація з брендуванням |
-| Кредитний ліміт | відстрочка оплати для VIP оптовиків |
-| Палетна доставка | розрахунок по вазі та регіону |
-| Прайс-листи | PDF (роздрібний + оптовий + ілюстрований каталог) |
-| Персональний менеджер | прикріплення до B2B-клієнта |
+| Функція               | Опис                                                   |
+| --------------------- | ------------------------------------------------------ |
+| 3 рівні гуртових цін  | wholesale 1/2/3 + персональне ціноутворення per-client |
+| Гуртовий запит        | заявка через форму, одобрення менеджером               |
+| Volume pricing engine | автоматична знижка при великих кількостях              |
+| Bulk order            | масове замовлення: ввід кодів, CSV import              |
+| Швидке замовлення     | drag-and-drop CSV з кодами товарів                     |
+| Комерційна пропозиція | PDF генерація з брендуванням                           |
+| Кредитний ліміт       | відстрочка оплати для VIP гуртівників                  |
+| Палетна доставка      | розрахунок по вазі та регіону                          |
+| Прайс-листи           | PDF (роздрібний + гуртовий + ілюстрований каталог)     |
+| Персональний менеджер | прикріплення до B2B-клієнта                            |
 
 ### Адмін-панель (60 сторінок)
 
@@ -126,7 +126,7 @@
 - Імпорт з Excel з preview та валідацією
 - Категорії (дерево, merge, slug)
 - Склади (multi-warehouse): CRUD, залишки per-warehouse
-- Користувачі: ролі, блокування, оптовий статус
+- Користувачі: ролі, блокування, гуртовий статус
 - Повернення: обробка return requests
 - Audit log: всі дії з фільтрацією
 
@@ -148,7 +148,7 @@
 - Email-шаблони, кампанії, послідовності
 - Публікації в соцмережі
 - Модерація відгуків, feedback
-- Купони, персональні ціни, оптові правила
+- Купони, персональні ціни, гуртові правила
 - Live chat (WebSocket rooms)
 - 3 теми оформлення, SEO-шаблони, SEO-аудит
 
@@ -158,22 +158,22 @@
 
 Всі основні сервіси українського e-commerce ринку підключені з webhook-ами та sandbox-тестуванням.
 
-| Категорія | Сервіси | Що робить |
-|-----------|---------|-----------|
-| Оплата | LiqPay, Monobank, WayForPay | Redirect flow, webhook callbacks, часткове повернення, повторна оплата |
-| Доставка | Нова Пошта, Укрпошта, Самовивіз, Палетна | Пошук міст/відділень, ТТН, трекінг, розрахунок вартості, кур'єрська |
-| Боти | Telegram Bot, Viber Bot | Каталог, пошук, прив'язка акаунту, нотифікації замовлень, FAQ, inline-кнопки |
-| Соцмережі | Facebook, Instagram | Публікація постів, CAPI server-side tracking, Pixel, insights, token refresh |
-| Маркетплейси | Prom.ua, Rozetka, OLX, Epicentr K | Sync: ціни, залишки, замовлення, повернення (cron кожні 6 годин) |
-| Email | SMTP (Gmail, SendGrid, AWS SES) | Transactional, campaigns, sequences, HTML-шаблони, abandoned cart |
-| Пошук | Typesense 27 | Fulltext search, typo tolerance, facets, instant search, reindex cron |
-| Auth | Google OAuth 2.0 | Login/Register, link/unlink, avatar sync, callback handling |
-| Analytics | GA4, Facebook Pixel, CAPI | Server-side (Measurement Protocol), client-side gtag, conversion tracking |
-| Monitoring | Sentry, Axiom, UptimeRobot | Error tracking (client+server), structured JSON logging, uptime alerts |
-| CDN/Storage | Cloudflare, R2 (S3) | CDN caching, image offload to R2, SSL, WAF, DDoS, Page Rules |
-| ERP | 1С / BAS | Sync: товари, ціни, залишки, замовлення (4 REST API endpoints) |
-| Push | Web Push (VAPID) | Service Worker, subscribe/unsubscribe, admin broadcast, offline page |
-| SEO | Google Search Console, Merchant Center | Sitemap, robots.txt, JSON-LD (Product, FAQ, Organization), Google Shopping feed, OG images |
+| Категорія    | Сервіси                                  | Що робить                                                                                  |
+| ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Оплата       | LiqPay, Monobank, WayForPay              | Redirect flow, webhook callbacks, часткове повернення, повторна оплата                     |
+| Доставка     | Нова Пошта, Укрпошта, Самовивіз, Палетна | Пошук міст/відділень, ТТН, трекінг, розрахунок вартості, кур'єрська                        |
+| Боти         | Telegram Bot, Viber Bot                  | Каталог, пошук, прив'язка акаунту, нотифікації замовлень, FAQ, inline-кнопки               |
+| Соцмережі    | Facebook, Instagram                      | Публікація постів, CAPI server-side tracking, Pixel, insights, token refresh               |
+| Маркетплейси | Prom.ua, Rozetka, OLX, Epicentr K        | Sync: ціни, залишки, замовлення, повернення (cron кожні 6 годин)                           |
+| Email        | SMTP (Gmail, SendGrid, AWS SES)          | Transactional, campaigns, sequences, HTML-шаблони, abandoned cart                          |
+| Пошук        | Typesense 27                             | Fulltext search, typo tolerance, facets, instant search, reindex cron                      |
+| Auth         | Google OAuth 2.0                         | Login/Register, link/unlink, avatar sync, callback handling                                |
+| Analytics    | GA4, Facebook Pixel, CAPI                | Server-side (Measurement Protocol), client-side gtag, conversion tracking                  |
+| Monitoring   | Sentry, Axiom, UptimeRobot               | Error tracking (client+server), structured JSON logging, uptime alerts                     |
+| CDN/Storage  | Cloudflare, R2 (S3)                      | CDN caching, image offload to R2, SSL, WAF, DDoS, Page Rules                               |
+| ERP          | 1С / BAS                                 | Sync: товари, ціни, залишки, замовлення (4 REST API endpoints)                             |
+| Push         | Web Push (VAPID)                         | Service Worker, subscribe/unsubscribe, admin broadcast, offline page                       |
+| SEO          | Google Search Console, Merchant Center   | Sitemap, robots.txt, JSON-LD (Product, FAQ, Organization), Google Shopping feed, OG images |
 
 ---
 
@@ -181,41 +181,41 @@
 
 97% test:code ratio. 100% покриття на всіх шарах. 1,177 мануальних тест-кейсів з покроковими інструкціями.
 
-| Метрика | Значення |
-|---------|---------|
-| Test:Code ratio | 97% |
-| Unit test files | 659 |
-| E2E specs (Playwright) | 61 |
-| Manual test cases | 1,177 |
-| Integration tests | 19 |
-| Load test scripts (k6) | 4 |
+| Метрика                | Значення |
+| ---------------------- | -------- |
+| Test:Code ratio        | 97%      |
+| Unit test files        | 659      |
+| E2E specs (Playwright) | 61       |
+| Manual test cases      | 1,177    |
+| Integration tests      | 19       |
+| Load test scripts (k6) | 4        |
 
 ### Automated coverage (100%)
 
-| Layer | Coverage |
-|-------|----------|
-| Services (business logic) | 92 / 92 |
+| Layer                       | Coverage  |
+| --------------------------- | --------- |
+| Services (business logic)   | 92 / 92   |
 | API routes (REST endpoints) | 307 / 307 |
-| React components | 138 / 137 |
-| Cron jobs | 31 / 31 |
-| Validators (Zod schemas) | 25 / 25 |
-| Hooks | 17 / 17 |
-| Lib utilities | 18 / 18 |
-| Middleware | 5 / 5 |
-| Providers | 4 / 4 |
+| React components            | 138 / 137 |
+| Cron jobs                   | 31 / 31   |
+| Validators (Zod schemas)    | 25 / 25   |
+| Hooks                       | 17 / 17   |
+| Lib utilities               | 18 / 18   |
+| Middleware                  | 5 / 5     |
+| Providers                   | 4 / 4     |
 
 ### Manual tests (1,177 TC / 30 files)
 
-| Block | TC |
-|-------|-----|
-| Auth, catalog, cart, checkout, payments, delivery | 238 |
-| User account (19 pages) | 83 |
-| Admin: orders, products, analytics, content, settings | 247 |
-| Bots, marketplaces, SEO, security, pricing, cron | 177 |
+| Block                                                         | TC  |
+| ------------------------------------------------------------- | --- |
+| Auth, catalog, cart, checkout, payments, delivery             | 238 |
+| User account (19 pages)                                       | 83  |
+| Admin: orders, products, analytics, content, settings         | 247 |
+| Bots, marketplaces, SEO, security, pricing, cron              | 177 |
 | New admin: billing, blog, campaigns, integrations, warehouses | 148 |
-| Shop extras: calculator, bundles, pages, reorder, GDPR | 46 |
-| Shop responsive (desktop 109 + mobile 100 TC) | 209 |
-| Admin responsive (desktop 57 + mobile 50 TC) | 107 |
+| Shop extras: calculator, bundles, pages, reorder, GDPR        | 46  |
+| Shop responsive (desktop 109 + mobile 100 TC)                 | 209 |
+| Admin responsive (desktop 57 + mobile 50 TC)                  | 107 |
 
 Формат кожного TC: Передумова → Кроки → Тестові дані → Очікуваний результат → Статус
 
@@ -229,30 +229,30 @@
 
 ### Setup guides (29 files / 4,551 lines)
 
-| # | Тема |
-|---|------|
-| 01 | Local development (Docker, .env, Prisma, dev server) |
-| 02 | Production VPS (Node, PM2, Nginx, SSL, Firewall, 31 cron jobs) |
-| 03–04 | Telegram + Viber Bot (BotFather, webhook, команди) |
-| 05 | Payment providers (LiqPay, Monobank, WayForPay — sandbox + prod) |
-| 06 | Delivery (Нова Пошта, Укрпошта API) |
-| 07–09 | Email SMTP, Google OAuth, Instagram API |
-| 10–14 | Monitoring, Backups, SEO/Analytics, Push, Typesense |
-| 15 | Marketplaces (OLX, Rozetka, Prom, Epicentr K) |
-| 16–18 | Database/Prisma, Env reference (73 vars), JWT RS256 |
-| 19–22 | 1C integration, Multi-tenancy, Billing, Custom domains |
-| 23–25 | Email campaigns, Feature flags, GDPR/Privacy |
+| #     | Тема                                                             |
+| ----- | ---------------------------------------------------------------- |
+| 01    | Local development (Docker, .env, Prisma, dev server)             |
+| 02    | Production VPS (Node, PM2, Nginx, SSL, Firewall, 31 cron jobs)   |
+| 03–04 | Telegram + Viber Bot (BotFather, webhook, команди)               |
+| 05    | Payment providers (LiqPay, Monobank, WayForPay — sandbox + prod) |
+| 06    | Delivery (Нова Пошта, Укрпошта API)                              |
+| 07–09 | Email SMTP, Google OAuth, Instagram API                          |
+| 10–14 | Monitoring, Backups, SEO/Analytics, Push, Typesense              |
+| 15    | Marketplaces (OLX, Rozetka, Prom, Epicentr K)                    |
+| 16–18 | Database/Prisma, Env reference (73 vars), JWT RS256              |
+| 19–22 | 1C integration, Multi-tenancy, Billing, Custom domains           |
+| 23–25 | Email campaigns, Feature flags, GDPR/Privacy                     |
 
 ### Решта документації
 
-| Розділ | Files | Lines |
-|--------|-------|-------|
-| Testing (manual + integration) | 31 | 13,884 |
-| Architecture (ADR, DB schema) | 8 | 897 |
-| Guides (user + admin) | 5 | 1,995 |
-| Modules (orders, products, analytics...) | 10 | 1,886 |
-| Operations (runbook, troubleshooting) | 3 | 515 |
-| Project (changelog, overview) | 2 | 2,530 |
+| Розділ                                   | Files | Lines  |
+| ---------------------------------------- | ----- | ------ |
+| Testing (manual + integration)           | 31    | 13,884 |
+| Architecture (ADR, DB schema)            | 8     | 897    |
+| Guides (user + admin)                    | 5     | 1,995  |
+| Modules (orders, products, analytics...) | 10    | 1,886  |
+| Operations (runbook, troubleshooting)    | 3     | 515    |
+| Project (changelog, overview)            | 2     | 2,530  |
 
 Також: nginx.conf.example, Dockerfile (multi-stage), docker-compose.yml, .env.example (73 змінних з коментарями), test-accounts.md (16 тестових акаунтів для всіх ролей).
 
@@ -262,28 +262,28 @@
 
 Повна перевірка готовності до промислової експлуатації.
 
-| Критерій | Статус | Деталі |
-|----------|--------|--------|
-| Unit test coverage | 100% | All layers: services, routes, components, hooks, lib, middleware, cron, validators, providers |
-| E2E test coverage | 61 specs | All critical user flows + admin flows + edge cases |
-| Manual test plan | 1,177 TC | 30 files, desktop + mobile responsive for shop AND admin |
-| Setup documentation | 29 guides | From local dev to production + all 20+ integrations |
-| Docker | Ready | Multi-stage build, healthcheck, standalone output, ~60MB image |
-| CI/CD | GitHub Actions | Lint → test → build pipeline + automated backups |
-| Security headers | 12 headers | CSP+nonce, HSTS, COEP, COOP, X-Frame-Options DENY, X-Content-Type-Options |
-| Rate limiting | Dual | Edge middleware (per-instance) + Redis (cluster-safe, per-endpoint) |
-| CSRF protection | Active | Origin + X-Requested-With verification |
-| XSS prevention | DOMPurify | isomorphic-dompurify sanitization for all user content |
-| Error monitoring | Sentry | Client + Server, CSP reporting, source maps |
-| Logging | Axiom | Structured JSON, request correlation IDs (X-Request-Id) |
-| Backups | Automated | pg_dump cron + R2 offsite + 30-day retention |
-| Load testing | k6 | Smoke, load, stress, spike scenarios |
-| i18n | uk/en | next-intl, ready for PL/RO/CZ expansion |
-| PWA | Full | Service Worker, offline page, manifest, install banner, push notifications |
-| SEO | Complete | Sitemap (chunked), robots.txt, JSON-LD (Product, FAQ, Organization), OG, Google Shopping feed |
-| Performance | Optimized | Image WebP/AVIF, CDN (Cloudflare), PgBouncer pooling, Redis cache, ISR, standalone output |
-| GDPR compliance | Compliant | Cookie consent banner (3 categories), data export, account self-delete, retention policies |
-| Idempotency | Active | X-Idempotency-Key for order creation (prevents double-submit) |
+| Критерій            | Статус         | Деталі                                                                                        |
+| ------------------- | -------------- | --------------------------------------------------------------------------------------------- |
+| Unit test coverage  | 100%           | All layers: services, routes, components, hooks, lib, middleware, cron, validators, providers |
+| E2E test coverage   | 61 specs       | All critical user flows + admin flows + edge cases                                            |
+| Manual test plan    | 1,177 TC       | 30 files, desktop + mobile responsive for shop AND admin                                      |
+| Setup documentation | 29 guides      | From local dev to production + all 20+ integrations                                           |
+| Docker              | Ready          | Multi-stage build, healthcheck, standalone output, ~60MB image                                |
+| CI/CD               | GitHub Actions | Lint → test → build pipeline + automated backups                                              |
+| Security headers    | 12 headers     | CSP+nonce, HSTS, COEP, COOP, X-Frame-Options DENY, X-Content-Type-Options                     |
+| Rate limiting       | Dual           | Edge middleware (per-instance) + Redis (cluster-safe, per-endpoint)                           |
+| CSRF protection     | Active         | Origin + X-Requested-With verification                                                        |
+| XSS prevention      | DOMPurify      | isomorphic-dompurify sanitization for all user content                                        |
+| Error monitoring    | Sentry         | Client + Server, CSP reporting, source maps                                                   |
+| Logging             | Axiom          | Structured JSON, request correlation IDs (X-Request-Id)                                       |
+| Backups             | Automated      | pg_dump cron + R2 offsite + 30-day retention                                                  |
+| Load testing        | k6             | Smoke, load, stress, spike scenarios                                                          |
+| i18n                | uk/en          | next-intl, ready for PL/RO/CZ expansion                                                       |
+| PWA                 | Full           | Service Worker, offline page, manifest, install banner, push notifications                    |
+| SEO                 | Complete       | Sitemap (chunked), robots.txt, JSON-LD (Product, FAQ, Organization), OG, Google Shopping feed |
+| Performance         | Optimized      | Image WebP/AVIF, CDN (Cloudflare), PgBouncer pooling, Redis cache, ISR, standalone output     |
+| GDPR compliance     | Compliant      | Cookie consent banner (3 categories), data export, account self-delete, retention policies    |
+| Idempotency         | Active         | X-Idempotency-Key for order creation (prevents double-submit)                                 |
 
 **Verdict:** Платформа повністю готова до production. Рівень тестового покриття та документації перевершує 95% комерційних SaaS-продуктів на українському ринку. Жодних блокуючих проблем для запуску.
 
@@ -303,23 +303,23 @@
 
 ### SaaS capabilities
 
-| Функція | Опис |
-|---------|------|
-| Multi-tenancy | Tenant isolation, per-tenant Prisma context, subdomain routing |
-| Billing | 3 plani (Basic/Pro/Enterprise), invoices, plan change, usage metering |
-| Custom Domains | DNS verification, auto SSL, Nginx per-tenant config |
-| Feature Flags | Per-tenant feature control, gradual rollout, admin UI |
-| White-label | 3 themes, custom branding, domain mapping |
-| Usage Meter | Products/orders limit tracking with color thresholds |
+| Функція        | Опис                                                                  |
+| -------------- | --------------------------------------------------------------------- |
+| Multi-tenancy  | Tenant isolation, per-tenant Prisma context, subdomain routing        |
+| Billing        | 3 plani (Basic/Pro/Enterprise), invoices, plan change, usage metering |
+| Custom Domains | DNS verification, auto SSL, Nginx per-tenant config                   |
+| Feature Flags  | Per-tenant feature control, gradual rollout, admin UI                 |
+| White-label    | 3 themes, custom branding, domain mapping                             |
+| Usage Meter    | Products/orders limit tracking with color thresholds                  |
 
 ### Ринкове позиціонування
 
-| Модель | Вартість |
-|--------|---------|
-| Вартість розробки з нуля | $70K–420K |
-| SaaS ціна per tenant | $99–499/міс |
-| Self-hosted ліцензія | $5K–15K |
-| Повний продаж проєкту | $50K–120K |
+| Модель                   | Вартість    |
+| ------------------------ | ----------- |
+| Вартість розробки з нуля | $70K–420K   |
+| SaaS ціна per tenant     | $99–499/міс |
+| Self-hosted ліцензія     | $5K–15K     |
+| Повний продаж проєкту    | $50K–120K   |
 
 **Цільові ринки:** FMCG-дистриб'ютори (~200), виробники побутової хімії (~50), інтернет-магазини на OpenCart/WP (~500+), web-студії (white-label), міжнародна експансія (PL/RO/CZ — i18n ready).
 
@@ -364,5 +364,5 @@
 
 ---
 
-*Clean Shop Platform Analysis — Generated March 24, 2026*
-*Next.js 16 — React 19 — TypeScript 5.9 — PostgreSQL 16 — Prisma 7.4 — Redis 7 — Typesense 27*
+_Clean Shop Platform Analysis — Generated March 24, 2026_
+_Next.js 16 — React 19 — TypeScript 5.9 — PostgreSQL 16 — Prisma 7.4 — Redis 7 — Typesense 27_

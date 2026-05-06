@@ -101,7 +101,7 @@ export async function exportOrders(params: ExportOrdersParams = {}) {
     Клієнт: o.contactName,
     Телефон: o.contactPhone,
     Email: o.contactEmail || '',
-    Тип: o.clientType === 'wholesale' ? 'Оптовий' : 'Роздрібний',
+    Тип: o.clientType === 'wholesale' ? 'Гуртовий' : 'Роздрібний',
     Статус: STATUS_LABELS[o.status] || o.status,
     Оплата: PAYMENT_LABELS[o.paymentMethod] || o.paymentMethod,
     'Статус оплати': PAYMENT_STATUS[o.paymentStatus] || o.paymentStatus,
@@ -161,7 +161,7 @@ export async function exportClients(params: ExportClientsParams = {}) {
     Компанія: u.companyName || '',
     ЄДРПОУ: u.edrpou || '',
     Роль: u.role,
-    'Оптовий статус': u.wholesaleStatus || '',
+    'Гуртовий статус': u.wholesaleStatus || '',
     'Дата реєстрації': u.createdAt.toLocaleDateString('uk-UA'),
     'К-ть замовлень': u._count.orders,
   }));

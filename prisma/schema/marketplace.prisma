@@ -89,6 +89,31 @@ model PublicationImage {
 }
 
 // ─────────────────────────────────────
+// Publication Templates (reusable blueprints for posts)
+// ─────────────────────────────────────
+model PublicationTemplate {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  description     String?
+  // Allowed channels list, e.g. ["telegram","instagram"]
+  channels        Json
+  titleTemplate   String?  @map("title_template")
+  contentTemplate String   @map("content_template")
+  hashtagsTemplate String? @map("hashtags_template")
+  // Channel-specific overrides: { telegram: {title,content,hashtags}, ... }
+  channelContents Json?    @map("channel_contents")
+  buttons         Json?
+  firstComment    String?  @map("first_comment")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdBy       Int?     @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@map("publication_templates")
+}
+
+// ─────────────────────────────────────
 // Marketplace Integrations (Rozetka, Prom.ua)
 // ─────────────────────────────────────
 model MarketplaceConnection {

@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger';
 export class OrderError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'OrderError';
@@ -62,6 +62,13 @@ const orderDetailSelect = {
   deliveryCity: true,
   deliveryAddress: true,
   deliveryWarehouseRef: true,
+  deliveryStreetRef: true,
+  deliveryBuilding: true,
+  deliveryFlat: true,
+  trackingStatus: true,
+  trackingStatusAt: true,
+  companyName: true,
+  edrpou: true,
   comment: true,
   managerComment: true,
   source: true,
@@ -110,7 +117,7 @@ const orderDetailSelect = {
 } satisfies Prisma.OrderSelect;
 
 /**
- * @description Створює замовлення з товарів кошика, валідує оптові правила та зменшує залишки на складі.
+ * @description Створює замовлення з товарів кошика, валідує гуртові правила та зменшує залишки на складі.
  * @param userId - Ідентифікатор користувача (null для гостя)
  * @param checkout - Дані оформлення замовлення (контакти, доставка, оплата)
  * @param cartItems - Масив товарів для замовлення
@@ -128,7 +135,7 @@ export async function createOrder(
     quantity: number;
     isPromo: boolean;
   }[],
-  clientType: 'retail' | 'wholesale'
+  clientType: 'retail' | 'wholesale',
 ) {
   if (cartItems.length === 0) {
     throw new OrderError('Кошик порожній', 400);
@@ -146,7 +153,7 @@ export async function createOrder(
       if (totalAmount < Number(rule.value)) {
         throw new OrderError(
           `Мінімальна сума замовлення: ${Number(rule.value).toFixed(2)} ₴. Ваша сума: ${totalAmount.toFixed(2)} ₴`,
-          400
+          400,
         );
       }
     }
@@ -161,13 +168,13 @@ export async function createOrder(
         if (rule.ruleType === 'min_quantity' && item.quantity < Number(rule.value)) {
           throw new OrderError(
             `Мінімальна кількість для "${item.productName}": ${Number(rule.value)} шт.`,
-            400
+            400,
           );
         }
         if (rule.ruleType === 'multiplicity' && item.quantity % Number(rule.value) !== 0) {
           throw new OrderError(
             `"${item.productName}" замовляється кратно ${Number(rule.value)} шт.`,
-            400
+            400,
           );
         }
       }
@@ -191,10 +198,7 @@ export async function createOrder(
       });
 
       if (updated.count === 0) {
-        throw new OrderError(
-          `Товар "${item.productName}" недоступний у потрібній кількості`,
-          400
-        );
+        throw new OrderError(`Товар "${item.productName}" недоступний у потрібній кількості`, 400);
       }
     }
 
@@ -212,10 +216,15 @@ export async function createOrder(
         contactName: checkout.contactName,
         contactPhone: checkout.contactPhone,
         contactEmail: checkout.contactEmail,
+        companyName: checkout.companyName,
+        edrpou: checkout.edrpou,
         deliveryMethod: checkout.deliveryMethod,
         deliveryCity: checkout.deliveryCity,
         deliveryWarehouseRef: checkout.deliveryWarehouseRef,
         deliveryAddress: checkout.deliveryAddress,
+        deliveryStreetRef: checkout.deliveryStreetRef,
+        deliveryBuilding: checkout.deliveryBuilding,
+        deliveryFlat: checkout.deliveryFlat,
         paymentMethod: checkout.paymentMethod,
         paymentStatus: 'pending',
         comment: checkout.comment,
@@ -250,9 +259,7 @@ export async function createOrder(
   }
 
   // Notify manager about new order via Telegram (non-blocking)
-  import('@/services/telegram')
-    .then((mod) => mod.notifyManagerNewOrder(order))
-    .catch(() => {});
+  import('@/services/telegram').then((mod) => mod.notifyManagerNewOrder(order)).catch(() => {});
 
   return order;
 }
@@ -342,7 +349,7 @@ export async function updateOrderStatus(
   newStatus: string,
   changedBy: number | null,
   changeSource: 'manager' | 'client_action' | 'system' | 'cron',
-  comment?: string
+  comment?: string,
 ) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -362,10 +369,7 @@ export async function updateOrderStatus(
   const allowed = ALLOWED_TRANSITIONS[currentStatus] || [];
 
   if (!allowed.includes(newStatus)) {
-    throw new OrderError(
-      `Неможливо змінити статус з "${currentStatus}" на "${newStatus}"`,
-      400
-    );
+    throw new OrderError(`Неможливо змінити статус з "${currentStatus}" на "${newStatus}"`, 400);
   }
 
   // Client can only cancel their own orders
@@ -374,7 +378,10 @@ export async function updateOrderStatus(
       throw new OrderError('Замовлення не знайдено', 404);
     }
     if (newStatus !== 'cancelled' || !CLIENT_CANCELLABLE.includes(currentStatus)) {
-      throw new OrderError('Ви можете скасувати замовлення лише в статусах "Нове" або "В обробці"', 403);
+      throw new OrderError(
+        'Ви можете скасувати замовлення лише в статусах "Нове" або "В обробці"',
+        403,
+      );
     }
   }
 
@@ -413,48 +420,76 @@ export async function updateOrderStatus(
     });
   });
 
-  // Auto-create TTN when status changes to "shipped" (Nova Poshta only)
-  if (newStatus === 'shipped' && !updated.trackingNumber && updated.deliveryMethod === 'nova_poshta') {
-    import('@/services/nova-poshta').then(async (np) => {
-      try {
-        // Read Nova Poshta sender config from site settings
-        const settings = await prisma.siteSetting.findMany({
-          where: { key: { startsWith: 'delivery_nova_poshta_' } },
-        });
-        const config: Record<string, string> = {};
-        settings.forEach((s) => { config[s.key.replace('delivery_nova_poshta_', '')] = s.value; });
-        if (!config.api_key) return;
-
-        const result = await np.createInternetDocument({
-          senderRef: config.sender_ref || '',
-          senderAddressRef: config.sender_warehouse_ref || '',
-          senderContactRef: config.sender_ref || '',
-          senderPhone: config.sender_phone || '',
-          recipientName: updated.contactName,
-          recipientPhone: updated.contactPhone,
-          recipientCityRef: updated.deliveryCity || '',
-          recipientWarehouseRef: updated.deliveryWarehouseRef || undefined,
-          payerType: updated.paymentStatus === 'paid' ? 'Sender' : 'Recipient',
-          paymentMethod: updated.paymentStatus === 'paid' ? 'NonCash' : 'Cash',
-          cargoType: 'Parcel',
-          weight: Math.max(0.5, updated.items.reduce((sum: number, item: { quantity: number }) => sum + item.quantity * 0.3, 0)),
-          seatsAmount: 1,
-          description: `Замовлення #${updated.orderNumber}`,
-          cost: Number(updated.totalAmount),
-          serviceType: 'WarehouseWarehouse',
-        });
-
-        if (result.intDocNumber) {
-          await prisma.order.update({
-            where: { id: orderId },
-            data: { trackingNumber: result.intDocNumber },
+  // Auto-create TTN when status changes to "confirmed" or "shipped" (Nova Poshta only).
+  // We fire on confirmed so TTN exists ASAP — менеджеру більше не треба клацати "Створити ТТН".
+  if (
+    (newStatus === 'confirmed' || newStatus === 'shipped') &&
+    !updated.trackingNumber &&
+    updated.deliveryMethod === 'nova_poshta'
+  ) {
+    import('@/services/nova-poshta')
+      .then(async (np) => {
+        try {
+          // Read Nova Poshta sender config from site settings
+          const settings = await prisma.siteSetting.findMany({
+            where: { key: { startsWith: 'delivery_nova_poshta_' } },
           });
-          logger.info('Auto-created TTN', { ttn: result.intDocNumber, orderNumber: updated.orderNumber });
+          const config: Record<string, string> = {};
+          settings.forEach((s) => {
+            config[s.key.replace('delivery_nova_poshta_', '')] = s.value;
+          });
+          if (!config.api_key) return;
+
+          // For COD orders the recipient pays at warehouse — pass cod amount so NP collects it.
+          const isCOD = updated.paymentMethod === 'cod' && updated.paymentStatus !== 'paid';
+          const codAmount = isCOD ? Number(updated.totalAmount) : undefined;
+          // D2D if structured street/building present; otherwise warehouse delivery.
+          const isD2D = !!updated.deliveryStreetRef && !!updated.deliveryBuilding;
+
+          const result = await np.createInternetDocument({
+            senderRef: config.sender_ref || '',
+            senderAddressRef: config.sender_warehouse_ref || '',
+            senderContactRef: config.sender_ref || '',
+            senderPhone: config.sender_phone || '',
+            recipientName: updated.contactName,
+            recipientPhone: updated.contactPhone,
+            recipientCityRef: updated.deliveryCity || '',
+            recipientWarehouseRef: !isD2D ? updated.deliveryWarehouseRef || undefined : undefined,
+            recipientStreetRef: isD2D ? updated.deliveryStreetRef || undefined : undefined,
+            recipientBuilding: isD2D ? updated.deliveryBuilding || undefined : undefined,
+            recipientFlat: isD2D ? updated.deliveryFlat || undefined : undefined,
+            payerType: updated.paymentStatus === 'paid' ? 'Sender' : 'Recipient',
+            paymentMethod: updated.paymentStatus === 'paid' ? 'NonCash' : 'Cash',
+            cargoType: 'Parcel',
+            weight: Math.max(
+              0.5,
+              updated.items.reduce(
+                (sum: number, item: { quantity: number }) => sum + item.quantity * 0.3,
+                0,
+              ),
+            ),
+            seatsAmount: 1,
+            description: `Замовлення #${updated.orderNumber}`,
+            cost: Number(updated.totalAmount),
+            serviceType: isD2D ? 'WarehouseDoors' : 'WarehouseWarehouse',
+            codAmount,
+          });
+
+          if (result.intDocNumber) {
+            await prisma.order.update({
+              where: { id: orderId },
+              data: { trackingNumber: result.intDocNumber },
+            });
+            logger.info('Auto-created TTN', {
+              ttn: result.intDocNumber,
+              orderNumber: updated.orderNumber,
+            });
+          }
+        } catch (err) {
+          logger.error('Auto-TTN failed', { orderNumber: updated.orderNumber, error: String(err) });
         }
-      } catch (err) {
-        logger.error('Auto-TTN failed', { orderNumber: updated.orderNumber, error: String(err) });
-      }
-    }).catch(() => {}); // Auto-TTN is best-effort, don't fail the status change
+      })
+      .catch(() => {}); // Auto-TTN is best-effort, don't fail the status change
   }
 
   // Notify client about status change via Telegram
@@ -466,18 +501,71 @@ export async function updateOrderStatus(
           updated.orderNumber,
           currentStatus,
           newStatus,
-          updated.trackingNumber
-        )
+          updated.trackingNumber,
+        ),
       )
+      .catch(() => {});
+  }
+
+  // B2B: when confirmed, auto-generate invoice PDF and email it to legal-entity buyer.
+  if (
+    newStatus === 'confirmed' &&
+    (updated.companyName || updated.edrpou) &&
+    updated.contactEmail
+  ) {
+    Promise.all([import('@/services/pdf'), import('@/services/email')])
+      .then(async ([pdfMod, emailMod]) => {
+        try {
+          const url = await pdfMod.generateInvoicePdf(orderId);
+          const fs = await import('fs/promises');
+          const path = await import('path');
+          const fullPath = path.join(
+            process.env.UPLOAD_DIR || './uploads',
+            url.replace('/uploads/', ''),
+          );
+          const content = await fs.readFile(fullPath);
+
+          // Escape user-provided fields before embedding into HTML email body
+          // to prevent XSS via crafted companyName.
+          const escapeHtml = (s: string): string =>
+            s
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
+
+          const safeCompany = updated.companyName ? escapeHtml(updated.companyName) : '';
+          const safeOrderNumber = escapeHtml(updated.orderNumber);
+
+          await emailMod.sendEmail({
+            to: updated.contactEmail,
+            subject: `Рахунок-фактура за замовленням #${updated.orderNumber}`,
+            html: `<p>Доброго дня${safeCompany ? `, ${safeCompany}` : ''}!</p>
+              <p>У вкладенні — рахунок-фактура за замовленням <strong>#${safeOrderNumber}</strong>.</p>
+              <p>Реквізити для оплати вказані у документі. У разі питань — звертайтесь.</p>`,
+            attachments: [
+              {
+                filename: `invoice_${updated.orderNumber}.pdf`,
+                content,
+                contentType: 'application/pdf',
+              },
+            ],
+          });
+        } catch (err) {
+          logger.error('B2B auto-invoice email failed', {
+            orderNumber: updated.orderNumber,
+            error: String(err),
+          });
+        }
+      })
       .catch(() => {});
   }
 
   // Loyalty: earn points on completion, handle referral status
   if (newStatus === 'completed' && order.userId) {
     import('@/services/loyalty')
-      .then((mod) =>
-        mod.earnPoints(order.userId!, orderId, Number(updated.totalAmount))
-      )
+      .then((mod) => mod.earnPoints(order.userId!, orderId, Number(updated.totalAmount)))
       .catch(() => {});
 
     // Update referral status and award referrer bonus
@@ -553,7 +641,7 @@ export async function updateOrderStatus(
 export async function editOrderItems(
   orderId: number,
   items: { itemId?: number; productId?: number; quantity: number; remove?: boolean }[],
-  changedBy: number
+  changedBy: number,
 ) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -587,7 +675,10 @@ export async function editOrderItems(
 
   // Can only edit items in early statuses
   if (!['new_order', 'processing', 'confirmed'].includes(order.status)) {
-    throw new OrderError('Редагування позицій можливе тільки для замовлень у статусах: Нове, В обробці, Підтверджено', 400);
+    throw new OrderError(
+      'Редагування позицій можливе тільки для замовлень у статусах: Нове, В обробці, Підтверджено',
+      400,
+    );
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -754,13 +845,7 @@ export async function getOrderStats() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [
-    totalNew,
-    totalProcessing,
-    totalToday,
-    revenueToday,
-    totalUnpaid,
-  ] = await Promise.all([
+  const [totalNew, totalProcessing, totalToday, revenueToday, totalUnpaid] = await Promise.all([
     prisma.order.count({ where: { status: 'new_order' } }),
     prisma.order.count({ where: { status: 'processing' } }),
     prisma.order.count({ where: { createdAt: { gte: today } } }),
@@ -769,7 +854,10 @@ export async function getOrderStats() {
       _sum: { totalAmount: true },
     }),
     prisma.order.count({
-      where: { paymentStatus: 'pending', status: { notIn: ['cancelled', 'returned', 'completed'] } },
+      where: {
+        paymentStatus: 'pending',
+        status: { notIn: ['cancelled', 'returned', 'completed'] },
+      },
     }),
   ]);
 

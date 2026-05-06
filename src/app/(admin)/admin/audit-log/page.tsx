@@ -33,12 +33,12 @@ const ACTION_OPTIONS = [
   { value: 'user_unblock', label: 'Розблокування' },
   { value: 'user_edit', label: 'Редагування користувача' },
   { value: 'password_reset', label: 'Скидання пароля' },
-  { value: 'wholesale_approve', label: 'Схвалення оптовика' },
-  { value: 'wholesale_reject', label: 'Відхилення оптовика' },
+  { value: 'wholesale_approve', label: 'Схвалення гуртівника' },
+  { value: 'wholesale_reject', label: 'Відхилення гуртівника' },
 ];
 
 const ENTITY_OPTIONS = [
-  { value: '', label: 'Всі об\'єкти' },
+  { value: '', label: "Всі об'єкти" },
   { value: 'order', label: 'Замовлення' },
   { value: 'product', label: 'Товар' },
   { value: 'user', label: 'Користувач' },
@@ -80,7 +80,9 @@ export default function AdminAuditLogPage() {
       .finally(() => setIsLoading(false));
   }, [page, limit, actionFilter, entityFilter, dateFrom, dateTo, ipSearch]);
 
-  useEffect(() => { loadLogs(); }, [loadLogs]);
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const resetFilters = () => {
     setActionFilter('');
@@ -93,9 +95,18 @@ export default function AdminAuditLogPage() {
 
   const exportCsv = () => {
     if (logs.length === 0) return;
-    const header = 'ID,Дата,Користувач,Email,Тип дії,Об\'єкт,ID об\'єкта,IP';
+    const header = "ID,Дата,Користувач,Email,Тип дії,Об'єкт,ID об'єкта,IP";
     const rows = logs.map((l) =>
-      [l.id, l.createdAt, l.user?.fullName || '', l.user?.email || '', l.actionType, l.entityType || '', l.entityId || '', l.ipAddress || ''].join(',')
+      [
+        l.id,
+        l.createdAt,
+        l.user?.fullName || '',
+        l.user?.email || '',
+        l.actionType,
+        l.entityType || '',
+        l.entityId || '',
+        l.ipAddress || '',
+      ].join(','),
     );
     const csv = [header, ...rows].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -131,28 +142,69 @@ export default function AdminAuditLogPage() {
               <label className="mb-1 block text-xs font-medium">Тип дії</label>
               <select
                 value={actionFilter}
-                onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setActionFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
               >
-                {ACTION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {ACTION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium">Тип об&apos;єкта</label>
               <select
                 value={entityFilter}
-                onChange={(e) => { setEntityFilter(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setEntityFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
               >
-                {ENTITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {ENTITY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </div>
-            <Input label="Дата з" type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} />
-            <Input label="Дата по" type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} />
-            <Input label="IP адреса" value={ipSearch} onChange={(e) => { setIpSearch(e.target.value); setPage(1); }} placeholder="Пошук по IP..." />
+            <Input
+              label="Дата з"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setPage(1);
+              }}
+            />
+            <Input
+              label="Дата по"
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setPage(1);
+              }}
+            />
+            <Input
+              label="IP адреса"
+              value={ipSearch}
+              onChange={(e) => {
+                setIpSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Пошук по IP..."
+            />
           </div>
           {hasActiveFilters && (
-            <button onClick={resetFilters} className="mt-3 text-xs text-[var(--color-primary)] hover:underline">
+            <button
+              onClick={resetFilters}
+              className="mt-3 text-xs text-[var(--color-primary)] hover:underline"
+            >
               Скинути фільтри
             </button>
           )}
@@ -160,7 +212,9 @@ export default function AdminAuditLogPage() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Spinner size="md" /></div>
+        <div className="flex justify-center py-12">
+          <Spinner size="md" />
+        </div>
       ) : (
         <>
           <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)]">
@@ -178,15 +232,24 @@ export default function AdminAuditLogPage() {
               <tbody>
                 {logs.map((log) => (
                   <tr key={log.id} className="border-t border-[var(--color-border)]">
-                    <td className="px-4 py-2 text-xs whitespace-nowrap">{new Date(log.createdAt).toLocaleString('uk-UA')}</td>
-                    <td className="px-4 py-2 text-xs">{log.user?.fullName || log.user?.email || 'Система'}</td>
+                    <td className="px-4 py-2 text-xs whitespace-nowrap">
+                      {new Date(log.createdAt).toLocaleString('uk-UA')}
+                    </td>
+                    <td className="px-4 py-2 text-xs">
+                      {log.user?.fullName || log.user?.email || 'Система'}
+                    </td>
                     <td className="px-4 py-2">
                       <span className="rounded bg-[var(--color-bg-secondary)] px-1.5 py-0.5 text-xs font-medium">
-                        {ACTION_OPTIONS.find((a) => a.value === log.actionType)?.label || log.actionType}
+                        {ACTION_OPTIONS.find((a) => a.value === log.actionType)?.label ||
+                          log.actionType}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-xs">{log.entityType ? `${log.entityType} #${log.entityId}` : '—'}</td>
-                    <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">{log.ipAddress || '—'}</td>
+                    <td className="px-4 py-2 text-xs">
+                      {log.entityType ? `${log.entityType} #${log.entityId}` : '—'}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">
+                      {log.ipAddress || '—'}
+                    </td>
                     <td className="px-4 py-2 text-xs max-w-[200px] truncate text-[var(--color-text-secondary)]">
                       {log.details ? JSON.stringify(log.details) : '—'}
                     </td>
@@ -197,18 +260,42 @@ export default function AdminAuditLogPage() {
           </div>
 
           <div className="mt-4 flex items-center justify-between">
-            <PageSizeSelector value={limit} onChange={(size) => { setLimit(size); setPage(1); }} />
+            <PageSizeSelector
+              value={limit}
+              onChange={(size) => {
+                setLimit(size);
+                setPage(1);
+              }}
+            />
             {total > limit && (
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Попередня</Button>
-                <span className="text-sm text-[var(--color-text-secondary)]">Стор. {page} з {Math.ceil(total / limit)}</span>
-                <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / limit)} onClick={() => setPage(page + 1)}>Наступна</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  Попередня
+                </Button>
+                <span className="text-sm text-[var(--color-text-secondary)]">
+                  Стор. {page} з {Math.ceil(total / limit)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= Math.ceil(total / limit)}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Наступна
+                </Button>
               </div>
             )}
           </div>
 
           {logs.length === 0 && (
-            <div className="py-8 text-center text-[var(--color-text-secondary)]">Журнал порожній</div>
+            <div className="py-8 text-center text-[var(--color-text-secondary)]">
+              Журнал порожній
+            </div>
           )}
         </>
       )}

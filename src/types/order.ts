@@ -96,6 +96,8 @@ export interface OrderDetail extends OrderListItem {
   deliveryCity: string | null;
   deliveryAddress: string | null;
   deliveryWarehouseRef: string | null;
+  trackingStatus: string | null;
+  trackingStatusAt: string | Date | null;
   comment: string | null;
   managerComment: string | null;
   source: string;
@@ -105,7 +107,13 @@ export interface OrderDetail extends OrderListItem {
     transactionId: string | null;
     paidAt: string | Date | null;
   } | null;
-  user: { id: number; fullName: string; email: string; role: string; wholesaleGroup: number | null } | null;
+  user: {
+    id: number;
+    fullName: string;
+    email: string;
+    role: string;
+    wholesaleGroup: number | null;
+  } | null;
   items: OrderItemData[];
   statusHistory: {
     id: number;

@@ -243,7 +243,7 @@ describe('generateReport', () => {
       expect(rows[0]['Назва']).toBe('Ariel');
       expect(rows[0]['Залишок']).toBe(50);
       expect(rows[0]['Роздрібна ціна']).toBe(200);
-      expect(rows[0]['Оптова ціна']).toBe(180);
+      expect(rows[0]['Гуртова ціна']).toBe(180);
       expect(rows[0]['Продано (шт)']).toBe(10);
     });
   });
@@ -262,24 +262,25 @@ describe('generateReport', () => {
   describe('summary_report', () => {
     it('should aggregate key metrics', async () => {
       mockPrisma.order.count
-        .mockResolvedValueOnce(100)  // total orders
-        .mockResolvedValueOnce(5)    // cancelled
-        .mockResolvedValueOnce(2);   // returned
+        .mockResolvedValueOnce(100) // total orders
+        .mockResolvedValueOnce(5) // cancelled
+        .mockResolvedValueOnce(2); // returned
       mockPrisma.order.aggregate
-        .mockResolvedValueOnce({ _sum: { totalAmount: 50000 } })   // revenue
-        .mockResolvedValueOnce({ _sum: { discountAmount: 2000 } })  // discounts
-        .mockResolvedValueOnce({ _sum: { deliveryCost: 3000 } });   // delivery
+        .mockResolvedValueOnce({ _sum: { totalAmount: 50000 } }) // revenue
+        .mockResolvedValueOnce({ _sum: { discountAmount: 2000 } }) // discounts
+        .mockResolvedValueOnce({ _sum: { deliveryCost: 3000 } }); // delivery
       mockPrisma.user.count
-        .mockResolvedValueOnce(25)   // new users
-        .mockResolvedValueOnce(10);  // wholesalers
+        .mockResolvedValueOnce(25) // new users
+        .mockResolvedValueOnce(10); // wholesalers
       mockPrisma.product.count
-        .mockResolvedValueOnce(200)  // active products
-        .mockResolvedValueOnce(15);  // out of stock
+        .mockResolvedValueOnce(200) // active products
+        .mockResolvedValueOnce(15); // out of stock
 
       await generateReport('summary_report', 'xlsx', {});
 
       const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
-      const findRow = (label: string) => rows.find((r: Record<string, unknown>) => r['Показник'] === label);
+      const findRow = (label: string) =>
+        rows.find((r: Record<string, unknown>) => r['Показник'] === label);
 
       expect(findRow('Виручка')['Значення']).toBe(50000);
       expect(findRow('Знижки')['Значення']).toBe(2000);
@@ -294,7 +295,9 @@ describe('generateReport', () => {
 
     it('should handle zero orders (avoid division by zero)', async () => {
       mockPrisma.order.count.mockResolvedValue(0);
-      mockPrisma.order.aggregate.mockResolvedValue({ _sum: { totalAmount: null, discountAmount: null, deliveryCost: null } });
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalAmount: null, discountAmount: null, deliveryCost: null },
+      });
       mockPrisma.user.count.mockResolvedValue(0);
       mockPrisma.product.count.mockResolvedValue(0);
 
@@ -359,10 +362,9 @@ describe('generateReport', () => {
 
       await generateReport('sales_summary', 'xlsx', {});
 
-      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('reports'),
-        { recursive: true }
-      );
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(expect.stringContaining('reports'), {
+        recursive: true,
+      });
     });
 
     it('should not create directory if it already exists', async () => {
