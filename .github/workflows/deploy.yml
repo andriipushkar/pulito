@@ -1,0 +1,283 @@
+name: Deploy to production
+
+# Auto-deploy when main branch is updated. Includes:
+#   - Pre-deploy DB backup (so rollback is possible)
+#   - Atomic release switching via symlink
+#   - Prisma migrate deploy
+#   - PM2 graceful reload (zero-downtime)
+#   - Health check with auto-rollback on failure
+#   - Cleanup of old releases (keeps last 5)
+#   - Telegram alerts on success/failure
+#
+# Required GitHub Secrets (Settings → Secrets → Actions → New):
+#   SERVER_HOST            — IP or hostname of production server
+#   SERVER_USER            — SSH user (typically `deploy` or `root`)
+#   SSH_PRIVATE_KEY        — private SSH key for that user (full content)
+#   PRODUCTION_URL         — public URL, e.g. https://shop.example.com
+#   TELEGRAM_BOT_TOKEN     — (optional) bot for deploy notifications
+#   TELEGRAM_ADMIN_CHAT_ID — (optional) chat where alerts go
+#
+# Required server prerequisites (one-time setup):
+#   - /app/releases/         — directory for individual releases
+#   - /app/current           — symlink to active release
+#   - /app/uploads/          — persistent uploads (symlinked into each release)
+#   - /app/backups/          — pg_dump output
+#   - /app/.env              — production env (NOT in git, NOT inside release)
+#   - PM2 process named `clean-shop` already running and saved
+#   - postgres client + prisma CLI accessible
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_backup:
+        description: 'Skip pre-deploy DB backup (DANGEROUS — only use if just-redeployed)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never abort a deploy mid-flight
+
+jobs:
+  # ─── 1. Quick smoke test before touching production ──────────────────
+  pre-deploy-checks:
+    name: Pre-deploy checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Build (catches compile errors before touching prod)
+        run: npm run build
+        env:
+          # Build needs *some* env, but doesn't access prod resources.
+          NODE_ENV: production
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ci-build-only-fake-secret-min-32-chars
+          APP_SECRET: ci-build-only-fake-secret-min-32-chars
+          APP_URL: https://example.com
+
+  # ─── 2. Actual deploy ────────────────────────────────────────────────
+  deploy:
+    name: Deploy
+    needs: pre-deploy-checks
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      release_id: ${{ steps.deploy.outputs.release_id }}
+      previous_release: ${{ steps.deploy.outputs.previous_release }}
+    steps:
+      - name: Deploy via SSH
+        id: deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: SKIP_BACKUP
+          script_stop: true # abort on first failure
+          script: |
+            set -euo pipefail
+
+            APP_DIR=/app
+            RELEASES_DIR=$APP_DIR/releases
+            CURRENT_LINK=$APP_DIR/current
+            UPLOADS_DIR=$APP_DIR/uploads
+            BACKUP_DIR=$APP_DIR/backups
+            REPO_URL=https://github.com/${{ github.repository }}.git
+            COMMIT_SHA=${{ github.sha }}
+            RELEASE_ID=$(date -u +%Y%m%d-%H%M%S)-${COMMIT_SHA:0:7}
+            RELEASE_DIR=$RELEASES_DIR/$RELEASE_ID
+
+            # Capture previous release for rollback
+            PREV_RELEASE=$(readlink -f "$CURRENT_LINK" 2>/dev/null || echo "")
+            echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+            echo "previous_release=$PREV_RELEASE" >> "$GITHUB_OUTPUT"
+
+            mkdir -p "$RELEASES_DIR" "$UPLOADS_DIR" "$BACKUP_DIR"
+
+            echo "═════════════════════════════════════════"
+            echo "Release ID:       $RELEASE_ID"
+            echo "Previous release: ${PREV_RELEASE:-none}"
+            echo "Commit:           $COMMIT_SHA"
+            echo "═════════════════════════════════════════"
+
+            # ─── Step 1: Backup DB ─────────────────────────────────────
+            if [ "${SKIP_BACKUP:-false}" != "true" ]; then
+              echo "[1/7] Backing up database…"
+              # DATABASE_URL must be exported in /etc/profile.d/ or systemd env
+              source $APP_DIR/.env || { echo "FATAL: /app/.env not readable"; exit 1; }
+              BACKUP_FILE=$BACKUP_DIR/predeploy-$RELEASE_ID.sql.gz
+              pg_dump "$DATABASE_URL" | gzip > "$BACKUP_FILE"
+              echo "  → $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+            else
+              echo "[1/7] SKIPPED backup (manual override)"
+            fi
+
+            # ─── Step 2: Clone new release ─────────────────────────────
+            echo "[2/7] Cloning $COMMIT_SHA into $RELEASE_DIR…"
+            git clone --depth 1 --branch main "$REPO_URL" "$RELEASE_DIR"
+            cd "$RELEASE_DIR"
+            git checkout "$COMMIT_SHA"
+
+            # Symlink shared resources (uploads + .env stay outside release)
+            ln -sfn "$UPLOADS_DIR" "$RELEASE_DIR/uploads"
+            ln -sfn "$APP_DIR/.env" "$RELEASE_DIR/.env"
+
+            # ─── Step 3: Install + build ───────────────────────────────
+            echo "[3/7] Installing dependencies…"
+            npm ci --no-audit --no-fund
+
+            echo "[4/7] Generating Prisma client…"
+            npx prisma generate
+
+            echo "[5/7] Building Next.js…"
+            npm run build
+
+            # ─── Step 4: Run migrations ────────────────────────────────
+            # Migrations are idempotent — safe to run, never reverts existing data.
+            # If a migration fails, deploy aborts BEFORE switching symlink.
+            echo "[6/7] Applying database migrations…"
+            npx prisma migrate deploy
+
+            # ─── Step 5: Atomic switch + graceful reload ───────────────
+            echo "[7/7] Switching symlink + reloading PM2…"
+            ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+
+            # PM2 reload waits for in-flight requests to finish before swapping.
+            # Falls back to systemctl if PM2 isn't used.
+            pm2 reload clean-shop --update-env 2>/dev/null \
+              || systemctl restart clean-shop
+
+            echo "✓ Switched to $RELEASE_ID"
+
+  # ─── 3. Health check + auto-rollback ─────────────────────────────────
+  verify:
+    name: Health check & rollback if needed
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Wait for warmup
+        run: sleep 30
+
+      - name: Health check (5 attempts over 50s)
+        id: health
+        run: |
+          set +e
+          for i in 1 2 3 4 5; do
+            HTTP=$(curl -sfo /dev/null -w "%{http_code}" --max-time 10 \
+              "${{ secrets.PRODUCTION_URL }}/api/v1/health")
+            echo "Attempt $i: HTTP $HTTP"
+            if [ "$HTTP" = "200" ]; then
+              echo "ok=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Auto-rollback on failure
+        if: failure() && needs.deploy.outputs.previous_release != ''
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+            echo "🚨 Health check failed — rolling back"
+            ln -sfn "${{ needs.deploy.outputs.previous_release }}" /app/current
+            pm2 reload clean-shop --update-env 2>/dev/null \
+              || systemctl restart clean-shop
+            echo "✓ Rolled back to: ${{ needs.deploy.outputs.previous_release }}"
+            echo "⚠️  Note: this rolls back CODE only. If DB migrations were applied,"
+            echo "    they remain. Restore from /app/backups/predeploy-* if needed."
+
+  # ─── 4. Cleanup old releases ─────────────────────────────────────────
+  cleanup:
+    name: Cleanup old releases
+    needs: verify
+    if: success()
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+            cd /app/releases
+            # Keep 5 most recent releases; delete older
+            COUNT=$(ls -1 | wc -l)
+            if [ "$COUNT" -gt 5 ]; then
+              ls -1t | tail -n +6 | xargs -I {} rm -rf {}
+              echo "Removed $((COUNT - 5)) old release(s)"
+            fi
+            # Trim DB backups older than 14 days
+            find /app/backups -name "predeploy-*.sql.gz" -mtime +14 -delete
+
+  # ─── 5. Telegram notifications ───────────────────────────────────────
+  notify-success:
+    name: Notify success
+    needs: [deploy, verify]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Telegram → success
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+            echo "Telegram secrets not configured — skipping"
+            exit 0
+          fi
+          MESSAGE="✅ *Deploy успішний*
+          Release: \`${{ needs.deploy.outputs.release_id }}\`
+          Commit: \`${{ github.sha }}\`
+          Author: ${{ github.actor }}
+          [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d chat_id="${CHAT_ID}" \
+            -d parse_mode="Markdown" \
+            -d text="${MESSAGE}" || true
+
+  notify-failure:
+    name: Notify failure
+    needs: [deploy, verify]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Telegram → failure
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then exit 0; fi
+          MESSAGE="🚨 *Deploy ПРОВАЛИВСЯ*
+          Release: \`${{ needs.deploy.outputs.release_id }}\`
+          Commit: \`${{ github.sha }}\`
+          Author: ${{ github.actor }}
+          Перевір логи негайно. Auto-rollback виконано якщо була попередня версія.
+          [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d chat_id="${CHAT_ID}" \
+            -d parse_mode="Markdown" \
+            -d text="${MESSAGE}" || true

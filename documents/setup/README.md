@@ -4,10 +4,11 @@
 
 ## Швидкий старт
 
-| Крок | Файл                                               | Що налаштувати                         |
-| ---- | -------------------------------------------------- | -------------------------------------- |
-| 1    | [01-local-development.md](01-local-development.md) | Запуск локально (Docker, .env, Prisma) |
-| 2    | [02-production-vps.md](02-production-vps.md)       | Деплой на VPS (Node, PM2, Nginx, SSL)  |
+| Крок | Файл                                                       | Що налаштувати                                             |
+| ---- | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| 1    | [01-local-development.md](01-local-development.md)         | Запуск локально (Docker, .env, Prisma)                     |
+| 2    | [02-production-vps.md](02-production-vps.md)               | Деплой на VPS (Node, PM2, Nginx, SSL)                      |
+| 3    | [29-github-actions-deploy.md](29-github-actions-deploy.md) | Auto-deploy через GitHub Actions (zero-downtime, rollback) |
 
 ## Інтеграції
 
