@@ -97,7 +97,7 @@
 
 | Змінна              | Гайд                                                 | Опис                                                                              |
 | ------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `REMOVEBG_API_KEY`  | [10-background-removal.md](10-background-removal.md) | API ключ remove.bg для авто-видалення фону при завантаженні фото товару (опційно) |
+| `REMOVEBG_API_KEY`  | [26-background-removal.md](26-background-removal.md) | API ключ remove.bg для авто-видалення фону при завантаженні фото товару (опційно) |
 | `WATERMARK_TEXT`    |                                                      | Текст водяного знаку на варіантах фото (default `pulito.trade`)                   |
 | `WATERMARK_ENABLED` |                                                      | `false` — вимкнути watermark (default `true`)                                     |
 
