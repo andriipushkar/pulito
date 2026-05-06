@@ -71,7 +71,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
   }
 }
 
-const STORAGE_KEY = 'clean-shop-cart';
+const STORAGE_KEY = 'pulito-cart';
 const CART_API_KEY = '/api/v1/cart';
 
 interface CartContextValue {

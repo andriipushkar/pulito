@@ -49,7 +49,7 @@ describe('useWishlist', () => {
   });
 
   it('reads wishlist count from localStorage for anonymous user', async () => {
-    localStorage.setItem('clean-shop-wishlist', JSON.stringify([1, 2, 3]));
+    localStorage.setItem('pulito-wishlist', JSON.stringify([1, 2, 3]));
 
     const { result } = renderHook(() => useWishlist());
 
@@ -87,7 +87,7 @@ describe('useWishlist', () => {
   });
 
   it('handles invalid localStorage data gracefully', async () => {
-    localStorage.setItem('clean-shop-wishlist', 'not-json');
+    localStorage.setItem('pulito-wishlist', 'not-json');
 
     const { result } = renderHook(() => useWishlist());
 
@@ -99,7 +99,7 @@ describe('useWishlist', () => {
   });
 
   it('handles non-array localStorage data', async () => {
-    localStorage.setItem('clean-shop-wishlist', JSON.stringify({ foo: 'bar' }));
+    localStorage.setItem('pulito-wishlist', JSON.stringify({ foo: 'bar' }));
 
     const { result } = renderHook(() => useWishlist());
 

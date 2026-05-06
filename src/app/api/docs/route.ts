@@ -4,7 +4,7 @@ export async function GET() {
   const html = `<!DOCTYPE html>
 <html>
 <head>
-  <title>Clean Shop API</title>
+  <title>Pulito API</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
 </head>
 <body>

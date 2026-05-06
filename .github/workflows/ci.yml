@@ -229,13 +229,13 @@ jobs:
           context: .
           push: false
           load: true
-          tags: clean-shop:ci-${{ github.sha }}
+          tags: pulito:ci-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Verify Docker image
         run: |
-          docker images clean-shop:ci-${{ github.sha }}
+          docker images pulito:ci-${{ github.sha }}
           echo "Docker image built successfully"
 
   # ─── E2E Tests ──────────────────────────────────────────────────────
@@ -372,7 +372,7 @@ jobs:
             ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
 
           ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd ${DEPLOY_PATH} && npm ci --production && npx prisma migrate deploy && pm2 restart clean-shop-staging || pm2 start npm --name clean-shop-staging -- start"
+            "cd ${DEPLOY_PATH} && npm ci --production && npx prisma migrate deploy && pm2 restart pulito-staging || pm2 start npm --name pulito-staging -- start"
 
       - name: Verify database backup works
         env:
@@ -450,7 +450,7 @@ jobs:
             ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
 
           ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd ${DEPLOY_PATH} && npm ci --production && npx prisma migrate deploy && pm2 restart clean-shop || pm2 start npm --name clean-shop -- start"
+            "cd ${DEPLOY_PATH} && npm ci --production && npx prisma migrate deploy && pm2 restart pulito || pm2 start npm --name pulito -- start"
 
       - name: Verify database backup works
         env:

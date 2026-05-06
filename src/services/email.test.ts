@@ -5,7 +5,7 @@ vi.hoisted(() => {
   process.env.SMTP_PORT = '587';
   process.env.SMTP_USER = 'test@test.com';
   process.env.SMTP_PASS = 'password';
-  process.env.SMTP_FROM = '"Clean Shop" <noreply@clean-shop.ua>';
+  process.env.SMTP_FROM = '"Pulito" <noreply@pulito.trade>';
   process.env.APP_URL = 'http://localhost:3000';
 });
 
@@ -25,7 +25,7 @@ vi.mock('@/config/env', () => ({
     SMTP_PORT: 587,
     SMTP_USER: 'test@test.com',
     SMTP_PASS: 'password',
-    SMTP_FROM: '"Clean Shop" <noreply@clean-shop.ua>',
+    SMTP_FROM: '"Pulito" <noreply@pulito.trade>',
     APP_URL: 'http://localhost:3000',
   },
 }));
@@ -77,7 +77,7 @@ describe('sendEmail', () => {
     expect(mockSendMail).toHaveBeenCalledTimes(1);
     expect(mockSendMail).toHaveBeenCalledWith(
       expect.objectContaining({
-        from: '"Clean Shop" <noreply@clean-shop.ua>',
+        from: '"Pulito" <noreply@pulito.trade>',
         to: 'user@example.com',
         subject: 'Test Subject',
         html: '<p>Hello</p>',

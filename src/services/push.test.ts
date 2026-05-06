@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.hoisted(() => {
   process.env.VAPID_PUBLIC_KEY = 'test-vapid-public-key';
   process.env.VAPID_PRIVATE_KEY = 'test-vapid-private-key';
-  process.env.VAPID_EMAIL = 'mailto:test@clean-shop.ua';
+  process.env.VAPID_EMAIL = 'mailto:test@pulito.trade';
 });
 
 const mockSendNotification = vi.fn();
@@ -30,7 +30,13 @@ import type { MockPrismaClient } from '@/test/prisma-mock';
 
 const mockPrisma = prisma as unknown as MockPrismaClient;
 
-import { subscribePush, unsubscribePush, sendPushNotification, sendPushToAll, getVapidPublicKey } from './push';
+import {
+  subscribePush,
+  unsubscribePush,
+  sendPushNotification,
+  sendPushToAll,
+  getVapidPublicKey,
+} from './push';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -98,7 +104,7 @@ describe('sendPushNotification', () => {
     expect(mockSendNotification).toHaveBeenCalledTimes(2);
     expect(mockSendNotification).toHaveBeenCalledWith(
       { endpoint: 'https://push.example.com/sub1', keys: { p256dh: 'key1', auth: 'auth1' } },
-      expect.stringContaining('Order shipped')
+      expect.stringContaining('Order shipped'),
     );
   });
 
@@ -111,9 +117,7 @@ describe('sendPushNotification', () => {
   });
 
   it('should use default url and icon when not provided', async () => {
-    const subs = [
-      { endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' },
-    ];
+    const subs = [{ endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' }];
     mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as never);
     mockSendNotification.mockResolvedValue({});
 
@@ -130,9 +134,7 @@ describe('sendPushNotification', () => {
       { endpoint: 'https://push.example.com/expired', p256dh: 'key2', auth: 'auth2' },
     ];
     mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as never);
-    mockSendNotification
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce({ statusCode: 410 });
+    mockSendNotification.mockResolvedValueOnce({}).mockRejectedValueOnce({ statusCode: 410 });
     mockPrisma.pushSubscription.deleteMany.mockResolvedValue({ count: 1 } as never);
 
     await sendPushNotification(1, { title: 'Test', body: 'Body' });
@@ -143,9 +145,7 @@ describe('sendPushNotification', () => {
   });
 
   it('should not cleanup subscriptions when no 410 errors occur', async () => {
-    const subs = [
-      { endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' },
-    ];
+    const subs = [{ endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' }];
     mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as never);
     mockSendNotification.mockResolvedValue({});
 
@@ -155,9 +155,7 @@ describe('sendPushNotification', () => {
   });
 
   it('should not delete subscriptions failing with non-410 errors', async () => {
-    const subs = [
-      { endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' },
-    ];
+    const subs = [{ endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' }];
     mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as never);
     mockSendNotification.mockRejectedValue({ statusCode: 500 });
 
@@ -196,9 +194,7 @@ describe('sendPushToAll', () => {
       { endpoint: 'https://push.example.com/expired', p256dh: 'key2', auth: 'auth2' },
     ];
     mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as never);
-    mockSendNotification
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce({ statusCode: 410 });
+    mockSendNotification.mockResolvedValueOnce({}).mockRejectedValueOnce({ statusCode: 410 });
     mockPrisma.pushSubscription.deleteMany.mockResolvedValue({ count: 1 } as never);
 
     await sendPushToAll({ title: 'Promo', body: 'Sale!' });
@@ -247,9 +243,7 @@ describe('sendPushNotification - no VAPID keys', () => {
 
 describe('sendPushToAll - no expired subscriptions', () => {
   it('should not cleanup when no 410 errors', async () => {
-    const subs = [
-      { endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' },
-    ];
+    const subs = [{ endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' }];
     mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as never);
     mockSendNotification.mockResolvedValue({});
 
@@ -259,9 +253,7 @@ describe('sendPushToAll - no expired subscriptions', () => {
   });
 
   it('should use default url and icon', async () => {
-    const subs = [
-      { endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' },
-    ];
+    const subs = [{ endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' }];
     mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as never);
     mockSendNotification.mockResolvedValue({});
 
@@ -273,9 +265,7 @@ describe('sendPushToAll - no expired subscriptions', () => {
   });
 
   it('should ignore non-410 errors during batch send', async () => {
-    const subs = [
-      { endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' },
-    ];
+    const subs = [{ endpoint: 'https://push.example.com/sub1', p256dh: 'key1', auth: 'auth1' }];
     mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as never);
     mockSendNotification.mockRejectedValue({ statusCode: 500 });
 

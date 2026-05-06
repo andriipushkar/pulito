@@ -124,12 +124,12 @@ describe('useComparison', () => {
       result.current.add(2);
     });
 
-    const stored = JSON.parse(localStorage.getItem('clean-shop-comparison')!);
+    const stored = JSON.parse(localStorage.getItem('pulito-comparison')!);
     expect(stored).toEqual([1, 2]);
   });
 
   it('loads from localStorage on mount', () => {
-    localStorage.setItem('clean-shop-comparison', JSON.stringify([10, 20]));
+    localStorage.setItem('pulito-comparison', JSON.stringify([10, 20]));
 
     const { result } = renderHook(() => useComparison());
 
@@ -158,7 +158,7 @@ describe('useComparison', () => {
       result.current.clear();
     });
 
-    const stored = JSON.parse(localStorage.getItem('clean-shop-comparison')!);
+    const stored = JSON.parse(localStorage.getItem('pulito-comparison')!);
     expect(stored).toEqual([]);
   });
 });

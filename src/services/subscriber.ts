@@ -8,7 +8,7 @@ import { env } from '@/config/env';
  * Uses HMAC-SHA256 so the token cannot be forged without the secret.
  */
 export function generateUnsubscribeToken(email: string): string {
-  const secret = env.APP_URL || 'clean-shop-unsubscribe';
+  const secret = env.APP_URL || 'pulito-unsubscribe';
   return createHmac('sha256', secret).update(email.toLowerCase()).digest('hex');
 }
 

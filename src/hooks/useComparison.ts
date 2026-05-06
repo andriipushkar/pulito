@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-const STORAGE_KEY = 'clean-shop-comparison';
+const STORAGE_KEY = 'pulito-comparison';
 const MAX_ITEMS = 4;
 
 function getStoredIds(): number[] {
@@ -53,13 +53,25 @@ export function useComparison() {
 
   const has = useCallback((productId: number) => ids.includes(productId), [ids]);
 
-  const toggle = useCallback((productId: number) => {
-    if (ids.includes(productId)) {
-      remove(productId);
-    } else {
-      add(productId);
-    }
-  }, [ids, add, remove]);
+  const toggle = useCallback(
+    (productId: number) => {
+      if (ids.includes(productId)) {
+        remove(productId);
+      } else {
+        add(productId);
+      }
+    },
+    [ids, add, remove],
+  );
 
-  return { ids, count: ids.length, add, remove, clear, has, toggle, isFull: ids.length >= MAX_ITEMS };
+  return {
+    ids,
+    count: ids.length,
+    add,
+    remove,
+    clear,
+    has,
+    toggle,
+    isFull: ids.length >= MAX_ITEMS,
+  };
 }

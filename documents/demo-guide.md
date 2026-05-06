@@ -6,14 +6,14 @@
 
 ### Test Accounts
 
-| Role           | Email                   | Password  | What you can see                             |
-| -------------- | ----------------------- | --------- | -------------------------------------------- |
-| **Admin**      | andriipushkar@gmail.com | Admin123! | Full admin panel (60 pages), all settings    |
-| **Admin 2**    | admin@clean-shop.ua     | Test1234! | Second admin account                         |
-| **Manager**    | manager@clean-shop.ua   | Test1234! | Order management, limited admin              |
-| **Wholesaler** | wholesaler@test.ua      | Test1234! | B2B prices, bulk order, finance, quick order |
-| **Client**     | client@test.ua          | Test1234! | Regular shop experience                      |
-| **Blocked**    | blocked@test.ua         | Test1234! | Error: account blocked                       |
+| Role           | Email                | Password  | What you can see                             |
+| -------------- | -------------------- | --------- | -------------------------------------------- |
+| **Admin**      | admin@example.com    | Test1234! | Full admin panel (60 pages), all settings    |
+| **Admin 2**    | admin@pulito.trade   | Test1234! | Second admin account                         |
+| **Manager**    | manager@pulito.trade | Test1234! | Order management, limited admin              |
+| **Wholesaler** | wholesaler@test.ua   | Test1234! | B2B prices, bulk order, finance, quick order |
+| **Client**     | client@test.ua       | Test1234! | Regular shop experience                      |
+| **Blocked**    | blocked@test.ua      | Test1234! | Error: account blocked                       |
 
 ### Demo Walkthrough (15 minutes)
 
@@ -58,7 +58,7 @@
 
 ```bash
 # 1. Clone
-git clone https://github.com/andriipushkar/clean.git
+git clone https://github.com/andriipushkar/pulito.git
 cd clean
 
 # 2. Install

@@ -16,7 +16,7 @@ import { apiClient } from '@/lib/api-client';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import type { ProductListItem } from '@/types/product';
 
-const WISHLIST_STORAGE_KEY = 'clean-shop-wishlist';
+const WISHLIST_STORAGE_KEY = 'pulito-wishlist';
 
 function getLocalWishlist(): number[] {
   try {

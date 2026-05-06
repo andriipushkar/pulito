@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { useAuth } from '@/hooks/useAuth';
 import { fetcher } from '@/lib/swr';
 
-const LOCAL_STORAGE_KEY = 'clean-shop-wishlist';
+const LOCAL_STORAGE_KEY = 'pulito-wishlist';
 
 function getLocalWishlistCount(): number {
   try {
@@ -24,11 +24,11 @@ export function useWishlist() {
   const [localCount, setLocalCount] = useState(0);
 
   // SWR for authenticated users
-  const { data } = useSWR<{ count: number }>(
-    user ? '/api/v1/me/wishlists/count' : null,
-    fetcher,
-    { refreshInterval: 60000, revalidateOnFocus: true, dedupingInterval: 10000 }
-  );
+  const { data } = useSWR<{ count: number }>(user ? '/api/v1/me/wishlists/count' : null, fetcher, {
+    refreshInterval: 60000,
+    revalidateOnFocus: true,
+    dedupingInterval: 10000,
+  });
 
   // Sync local count for anonymous users
   useEffect(() => {

@@ -88,10 +88,10 @@
 ### TC-VB-3.1 Прив'язка через email
 
 **Передумова:** Акаунт на сайті існує
-**Тестові дані:** `/link andriipushkar@gmail.com`
+**Тестові дані:** `/link admin@example.com`
 **Кроки:**
 
-1. Надіслати `/link andriipushkar@gmail.com`
+1. Надіслати `/link admin@example.com`
 2. Бот надішле 6-значний код
 3. Перевірити email — код прийшов
 4. Ввести код у боті

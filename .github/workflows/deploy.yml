@@ -23,7 +23,7 @@ name: Deploy to production
 #   - /app/uploads/          — persistent uploads (symlinked into each release)
 #   - /app/backups/          — pg_dump output
 #   - /app/.env              — production env (NOT in git, NOT inside release)
-#   - PM2 process named `clean-shop` already running and saved
+#   - PM2 process named `pulito` already running and saved
 #   - postgres client + prisma CLI accessible
 
 on:
@@ -159,8 +159,8 @@ jobs:
 
             # PM2 reload waits for in-flight requests to finish before swapping.
             # Falls back to systemctl if PM2 isn't used.
-            pm2 reload clean-shop --update-env 2>/dev/null \
-              || systemctl restart clean-shop
+            pm2 reload pulito --update-env 2>/dev/null \
+              || systemctl restart pulito
 
             echo "✓ Switched to $RELEASE_ID"
 
@@ -202,8 +202,8 @@ jobs:
             set -euo pipefail
             echo "🚨 Health check failed — rolling back"
             ln -sfn "${{ needs.deploy.outputs.previous_release }}" /app/current
-            pm2 reload clean-shop --update-env 2>/dev/null \
-              || systemctl restart clean-shop
+            pm2 reload pulito --update-env 2>/dev/null \
+              || systemctl restart pulito
             echo "✓ Rolled back to: ${{ needs.deploy.outputs.previous_release }}"
             echo "⚠️  Note: this rolls back CODE only. If DB migrations were applied,"
             echo "    they remain. Restore from /app/backups/predeploy-* if needed."

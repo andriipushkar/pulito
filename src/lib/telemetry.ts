@@ -36,7 +36,7 @@ export async function initTelemetry() {
 
     const sdk = new NodeSDK({
       resource: new Resource({
-        'service.name': 'clean-shop',
+        'service.name': 'pulito',
         'service.version': process.env.npm_package_version || '1.0.0',
         'deployment.environment': process.env.NODE_ENV || 'development',
       }),
@@ -81,7 +81,7 @@ export async function createSpan<T>(name: string, fn: () => T | Promise<T>): Pro
         ) => R;
       };
     };
-    const tracer = trace.getTracer('clean-shop');
+    const tracer = trace.getTracer('pulito');
     return tracer.startActiveSpan(name, async (span) => {
       try {
         const result = await fn();

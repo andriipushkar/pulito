@@ -29,7 +29,7 @@ ln -sfn "$NEW_RELEASE" "$CURRENT_LINK"
 
 # Step 2: Restart application
 echo "[2/4] Restarting application..."
-pm2 reload clean-shop --update-env 2>/dev/null || systemctl restart clean-shop 2>/dev/null || true
+pm2 reload pulito --update-env 2>/dev/null || systemctl restart pulito 2>/dev/null || true
 
 # Step 3: Wait and check health
 echo "[3/4] Waiting ${CANARY_WAIT}s for health check..."
@@ -62,7 +62,7 @@ else
 
   if [ -n "$PREV_RELEASE" ] && [ -d "$PREV_RELEASE" ]; then
     ln -sfn "$PREV_RELEASE" "$CURRENT_LINK"
-    pm2 reload clean-shop --update-env 2>/dev/null || systemctl restart clean-shop 2>/dev/null || true
+    pm2 reload pulito --update-env 2>/dev/null || systemctl restart pulito 2>/dev/null || true
     echo "Rolled back to: $PREV_RELEASE"
   else
     echo "ERROR: No previous release to rollback to!"

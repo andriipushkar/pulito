@@ -1,5 +1,5 @@
 /**
- * OpenAPI 3.0 base document for Clean Shop API.
+ * OpenAPI 3.0 base document for Pulito API.
  * Used by the /api-docs endpoint and generate-openapi script.
  *
  * Uses Zod 4 built-in z.toJSONSchema() to auto-generate request body schemas

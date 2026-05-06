@@ -7,7 +7,7 @@ export const contentType = 'image/png';
 
 export default async function OpengraphImage() {
   const settings = await getSettings().catch(() => null);
-  const siteName = settings?.site_name ?? 'Clean Shop';
+  const siteName = settings?.site_name ?? 'Pulito';
   const tagline =
     settings?.default_seo_description ??
     'Гуртово-роздрібний інтернет-магазин побутової хімії. Швидка доставка по Україні.';

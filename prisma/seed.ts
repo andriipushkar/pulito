@@ -12,16 +12,16 @@ async function main() {
   console.log('Seeding database...');
 
   // --- Users ---
-  const adminPassword = await hash('Admin123!', 12);
+  const adminPassword = await hash('Test1234!', 12);
   const managerPassword = await hash('Manager123!', 12);
   const clientPassword = await hash('Client123!', 12);
   const wholesalerPassword = await hash('Wholesaler123!', 12);
 
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@clean-shop.ua' },
+    where: { email: 'admin@pulito.trade' },
     update: {},
     create: {
-      email: 'admin@clean-shop.ua',
+      email: 'admin@pulito.trade',
       passwordHash: adminPassword,
       fullName: 'Адміністратор',
       phone: '+380501234567',
@@ -32,10 +32,10 @@ async function main() {
   console.log(`  Admin: ${admin.email}`);
 
   const manager = await prisma.user.upsert({
-    where: { email: 'manager@clean-shop.ua' },
+    where: { email: 'manager@pulito.trade' },
     update: {},
     create: {
-      email: 'manager@clean-shop.ua',
+      email: 'manager@pulito.trade',
       passwordHash: managerPassword,
       fullName: 'Менеджер Олена',
       phone: '+380507654321',
@@ -1203,8 +1203,8 @@ async function main() {
   console.log('\nSeeding complete!');
   console.log('---');
   console.log('Test accounts:');
-  console.log('  Admin:      admin@clean-shop.ua / Admin123!');
-  console.log('  Manager:    manager@clean-shop.ua / Manager123!');
+  console.log('  Admin:      admin@pulito.trade / Test1234!');
+  console.log('  Manager:    manager@pulito.trade / Manager123!');
   console.log('  Client:     client@test.ua / Client123!');
   console.log('  Wholesaler: wholesaler@test.ua / Wholesaler123!');
 }

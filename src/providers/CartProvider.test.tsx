@@ -5,7 +5,9 @@ import userEvent from '@testing-library/user-event';
 import { useContext } from 'react';
 import CartProvider, { CartContext, type CartItem } from './CartProvider';
 
-const mockAuthValue = { user: null as { id: number; email: string; role: string; fullName: string } | null };
+const mockAuthValue = {
+  user: null as { id: number; email: string; role: string; fullName: string } | null,
+};
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => mockAuthValue,
 }));
@@ -33,20 +35,49 @@ const makeItem = (overrides: Partial<CartItem> = {}): CartItem => ({
 });
 
 function TestConsumer() {
-  const { items, itemCount, total, addItem, removeItem, updateQuantity, clearCart } = useContext(CartContext);
+  const { items, itemCount, total, addItem, removeItem, updateQuantity, clearCart } =
+    useContext(CartContext);
   return (
     <div>
       <div data-testid="count">{itemCount}</div>
       <div data-testid="items">{JSON.stringify(items)}</div>
       <div data-testid="total">{total()}</div>
       <div data-testid="total-wholesale">{total('wholesaler')}</div>
-      <button data-testid="add" onClick={() => addItem(makeItem())}>Add</button>
-      <button data-testid="add-second" onClick={() => addItem(makeItem({ productId: 2, name: 'Second', slug: 'second', code: 'S01', priceRetail: 200, quantity: 1 }))}>Add Second</button>
-      <button data-testid="remove" onClick={() => removeItem(1)}>Remove</button>
-      <button data-testid="update" onClick={() => updateQuantity(1, 5)}>Update Qty</button>
-      <button data-testid="update-over-max" onClick={() => updateQuantity(1, 99)}>Update Over Max</button>
-      <button data-testid="update-below-min" onClick={() => updateQuantity(1, 0)}>Update Below Min</button>
-      <button data-testid="clear" onClick={() => clearCart()}>Clear</button>
+      <button data-testid="add" onClick={() => addItem(makeItem())}>
+        Add
+      </button>
+      <button
+        data-testid="add-second"
+        onClick={() =>
+          addItem(
+            makeItem({
+              productId: 2,
+              name: 'Second',
+              slug: 'second',
+              code: 'S01',
+              priceRetail: 200,
+              quantity: 1,
+            }),
+          )
+        }
+      >
+        Add Second
+      </button>
+      <button data-testid="remove" onClick={() => removeItem(1)}>
+        Remove
+      </button>
+      <button data-testid="update" onClick={() => updateQuantity(1, 5)}>
+        Update Qty
+      </button>
+      <button data-testid="update-over-max" onClick={() => updateQuantity(1, 99)}>
+        Update Over Max
+      </button>
+      <button data-testid="update-below-min" onClick={() => updateQuantity(1, 0)}>
+        Update Below Min
+      </button>
+      <button data-testid="clear" onClick={() => clearCart()}>
+        Clear
+      </button>
     </div>
   );
 }
@@ -66,7 +97,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     expect(screen.getByTestId('items').textContent).toBe('[]');
@@ -79,7 +110,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
@@ -97,7 +128,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
@@ -116,7 +147,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
@@ -138,7 +169,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
@@ -156,7 +187,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
@@ -174,7 +205,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
@@ -192,7 +223,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
@@ -215,7 +246,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
@@ -231,7 +262,7 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
@@ -247,13 +278,13 @@ describe('CartProvider', () => {
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await user.click(screen.getByTestId('add'));
 
     await waitFor(() => {
-      const stored = localStorage.getItem('clean-shop-cart');
+      const stored = localStorage.getItem('pulito-cart');
       expect(stored).toBeTruthy();
       const parsed = JSON.parse(stored!);
       expect(parsed).toHaveLength(1);
@@ -262,12 +293,12 @@ describe('CartProvider', () => {
 
   it('loads from localStorage for anonymous users', async () => {
     const savedItems = [makeItem({ quantity: 3 })];
-    localStorage.setItem('clean-shop-cart', JSON.stringify(savedItems));
+    localStorage.setItem('pulito-cart', JSON.stringify(savedItems));
 
     render(
       <CartProvider>
         <TestConsumer />
-      </CartProvider>
+      </CartProvider>,
     );
 
     await waitFor(() => {

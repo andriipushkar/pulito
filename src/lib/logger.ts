@@ -8,11 +8,12 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 const configuredLevel: LogLevel =
-  (process.env.LOG_LEVEL as LogLevel) || (process.env.NODE_ENV === 'development' ? 'debug' : 'info');
+  (process.env.LOG_LEVEL as LogLevel) ||
+  (process.env.NODE_ENV === 'development' ? 'debug' : 'info');
 
 // Axiom cloud logging (free tier: 500MB/month, 30 days retention)
 const AXIOM_TOKEN = process.env.AXIOM_TOKEN || '';
-const AXIOM_DATASET = process.env.AXIOM_DATASET || 'clean-shop';
+const AXIOM_DATASET = process.env.AXIOM_DATASET || 'pulito';
 const AXIOM_ENABLED = !!AXIOM_TOKEN;
 
 // Buffer for batching Axiom sends (reduces HTTP overhead)

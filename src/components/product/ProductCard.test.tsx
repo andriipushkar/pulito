@@ -245,36 +245,36 @@ describe('ProductCard', () => {
     const { getAllByLabelText } = render(<ProductCard product={makeProduct()} />);
     const wishBtn = getAllByLabelText('Додати в обране')[0];
     fireEvent.click(wishBtn);
-    const stored = JSON.parse(localStorage.getItem('clean-shop-wishlist') || '[]');
+    const stored = JSON.parse(localStorage.getItem('pulito-wishlist') || '[]');
     expect(stored).toContain(1);
   });
 
   it('removes from wishlist on second click (localStorage)', async () => {
-    localStorage.setItem('clean-shop-wishlist', JSON.stringify([1]));
+    localStorage.setItem('pulito-wishlist', JSON.stringify([1]));
     const { getAllByLabelText } = render(<ProductCard product={makeProduct()} />);
     await waitFor(() => {
       const wishBtn = getAllByLabelText('Видалити з обраного');
       expect(wishBtn.length).toBeGreaterThan(0);
     });
     fireEvent.click(getAllByLabelText('Видалити з обраного')[0]);
-    const stored = JSON.parse(localStorage.getItem('clean-shop-wishlist') || '[]');
+    const stored = JSON.parse(localStorage.getItem('pulito-wishlist') || '[]');
     expect(stored).not.toContain(1);
   });
 
   it('does not duplicate id in localStorage wishlist', () => {
-    localStorage.setItem('clean-shop-wishlist', JSON.stringify([1]));
+    localStorage.setItem('pulito-wishlist', JSON.stringify([1]));
     const { getAllByLabelText } = render(<ProductCard product={makeProduct()} />);
     // It's already in wishlist, so clicking add again shouldn't duplicate
     // First render reads wishlist=1 -> isWished=true
     // We need a product not in wishlist
     cleanup();
-    localStorage.setItem('clean-shop-wishlist', JSON.stringify([1]));
+    localStorage.setItem('pulito-wishlist', JSON.stringify([1]));
     const { getAllByLabelText: getButtons } = render(
       <ProductCard product={makeProduct({ id: 2 })} />,
     );
     const wishBtn = getButtons('Додати в обране')[0];
     fireEvent.click(wishBtn);
-    const stored = JSON.parse(localStorage.getItem('clean-shop-wishlist') || '[]');
+    const stored = JSON.parse(localStorage.getItem('pulito-wishlist') || '[]');
     expect(stored).toEqual([1, 2]);
   });
 
@@ -475,13 +475,13 @@ describe('ProductCard', () => {
   });
 
   it('handles malformed localStorage JSON gracefully', () => {
-    localStorage.setItem('clean-shop-wishlist', 'not-json');
+    localStorage.setItem('pulito-wishlist', 'not-json');
     const { container } = render(<ProductCard product={makeProduct()} />);
     expect(container).toBeTruthy();
   });
 
   it('handles non-array localStorage value gracefully', () => {
-    localStorage.setItem('clean-shop-wishlist', JSON.stringify({ foo: 'bar' }));
+    localStorage.setItem('pulito-wishlist', JSON.stringify({ foo: 'bar' }));
     const { container } = render(<ProductCard product={makeProduct()} />);
     expect(container).toBeTruthy();
   });

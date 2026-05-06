@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './useAuth';
 import { apiClient } from '@/lib/api-client';
 
-const STORAGE_KEY = 'clean-shop-recently-viewed';
+const STORAGE_KEY = 'pulito-recently-viewed';
 const MAX_ITEMS = 15;
 
 export function useRecentlyViewed() {
@@ -52,7 +52,7 @@ export function useRecentlyViewed() {
         apiClient.post('/api/v1/me/recently-viewed', { productId }).catch(() => {});
       }
     },
-    [user]
+    [user],
   );
 
   const getItems = useCallback(() => ids, [ids]);

@@ -2,38 +2,38 @@
 
 ## Структура тестів
 
-| Файл | Блок | TC | Пріоритет |
-|------|------|----|-----------|
-| `01-auth.md` | Реєстрація, вхід, Google OAuth, 2FA, відновлення паролю | 25 | Критичний |
-| `02-catalog-search.md` | Каталог, фільтри, пошук, картка товару | 44 | Критичний |
-| `03-cart-checkout.md` | Кошик, оформлення, оплата, доставка | 64 | Критичний |
-| `04-user-account.md` | Особистий кабінет, замовлення, адреси, налаштування | 83 | Високий |
-| `05-loyalty-referral.md` | Лояльність, бали, реферальна програма, вішлісти | 20 | Високий |
-| `06-admin-orders.md` | Адмін: замовлення, статуси, документи, експорт | 43 | Критичний |
-| `07-admin-products.md` | Адмін: товари, імпорт, категорії, зображення | 56 | Критичний |
-| `08-admin-analytics.md` | Адмін: аналітика, звіти, PDF, дашборд | 43 | Високий |
-| `09-admin-content.md` | Адмін: сторінки, банери, FAQ, email-шаблони | 50 | Середній |
-| `10-admin-settings.md` | Адмін: налаштування, оплата, доставка, боти | 55 | Середній |
-| `11-seo-performance.md` | SEO, sitemap, OG images, Web Vitals, кешування | 20 | Високий |
-| `12-security.md` | CSRF, rate limits, 2FA, upload санітизація, XSS | 25 | Високий |
-| `13-mobile.md` | Адаптивність, PWA, touch-взаємодія | 10 | Високий |
-| `14-error-cron.md` | Error pages (404/500), maintenance mode, health check, cron jobs | 9 | Середній |
-| `15-telegram-bot.md` | Telegram: команди, каталог, пошук, прив'язка, сповіщення | 20 | Високий |
-| `16-viber-bot.md` | Viber: меню, каталог, FAQ, прив'язка, трекінг | 19 | Високий |
-| `17-payments.md` | LiqPay, Monobank, WayForPay: повний цикл оплати | 24 | Критичний |
-| `18-delivery.md` | Нова Пошта, Укрпошта, палетна: пошук, ТТН, розрахунок | 17 | Критичний |
-| `19-marketplaces.md` | OLX, Rozetka, Prom.ua, Epicentr K, Instagram | 20 | Високий |
-| `20-pricing-notifications.md` | Ціноутворення, email-кампанії, i18n, Google Shopping, lifecycle, теми | 20 | Високий |
-| `21-desktop-responsive.md` | Десктоп: shop responsive 1280/1440/1920px | 109 | Високий |
-| `22-mobile-responsive.md` | Мобільна: shop responsive 375/390px | 100 | Високий |
-| `23-admin-billing-tenants.md` | Адмін: billing, plans, tenants, domains, верифікація | 32 | Високий |
-| `24-admin-blog-bundles.md` | Адмін: блог CRUD, категорії блогу, набори CRUD | 35 | Середній |
-| `25-admin-campaigns-chat.md` | Адмін: кампанії, планування, чат, повідомлення | 26 | Середній |
-| `26-admin-integrations.md` | Адмін: 1C інтеграція, feature flags, підписки | 24 | Високий |
-| `27-admin-warehouses-discounts.md` | Адмін: склади, залишки, обсягові знижки | 31 | Середній |
-| `28-shop-calculator-bundles-pages.md` | Shop: калькулятор, набори, статичні сторінки, reorder, GDPR | 46 | Високий |
-| `29-admin-responsive-desktop.md` | Адмін responsive: всі 63 сторінки на 1280/1440/1920px | 57 | Високий |
-| `30-admin-responsive-mobile.md` | Адмін responsive: всі 63 сторінки на 375/390/768px | 50 | Високий |
+| Файл                                  | Блок                                                                  | TC  | Пріоритет |
+| ------------------------------------- | --------------------------------------------------------------------- | --- | --------- |
+| `01-auth.md`                          | Реєстрація, вхід, Google OAuth, 2FA, відновлення паролю               | 25  | Критичний |
+| `02-catalog-search.md`                | Каталог, фільтри, пошук, картка товару                                | 44  | Критичний |
+| `03-cart-checkout.md`                 | Кошик, оформлення, оплата, доставка                                   | 64  | Критичний |
+| `04-user-account.md`                  | Особистий кабінет, замовлення, адреси, налаштування                   | 83  | Високий   |
+| `05-loyalty-referral.md`              | Лояльність, бали, реферальна програма, вішлісти                       | 20  | Високий   |
+| `06-admin-orders.md`                  | Адмін: замовлення, статуси, документи, експорт                        | 43  | Критичний |
+| `07-admin-products.md`                | Адмін: товари, імпорт, категорії, зображення                          | 56  | Критичний |
+| `08-admin-analytics.md`               | Адмін: аналітика, звіти, PDF, дашборд                                 | 43  | Високий   |
+| `09-admin-content.md`                 | Адмін: сторінки, банери, FAQ, email-шаблони                           | 50  | Середній  |
+| `10-admin-settings.md`                | Адмін: налаштування, оплата, доставка, боти                           | 55  | Середній  |
+| `11-seo-performance.md`               | SEO, sitemap, OG images, Web Vitals, кешування                        | 20  | Високий   |
+| `12-security.md`                      | CSRF, rate limits, 2FA, upload санітизація, XSS                       | 25  | Високий   |
+| `13-mobile.md`                        | Адаптивність, PWA, touch-взаємодія                                    | 10  | Високий   |
+| `14-error-cron.md`                    | Error pages (404/500), maintenance mode, health check, cron jobs      | 9   | Середній  |
+| `15-telegram-bot.md`                  | Telegram: команди, каталог, пошук, прив'язка, сповіщення              | 20  | Високий   |
+| `16-viber-bot.md`                     | Viber: меню, каталог, FAQ, прив'язка, трекінг                         | 19  | Високий   |
+| `17-payments.md`                      | LiqPay, Monobank, WayForPay: повний цикл оплати                       | 24  | Критичний |
+| `18-delivery.md`                      | Нова Пошта, Укрпошта, палетна: пошук, ТТН, розрахунок                 | 17  | Критичний |
+| `19-marketplaces.md`                  | OLX, Rozetka, Prom.ua, Epicentr K, Instagram                          | 20  | Високий   |
+| `20-pricing-notifications.md`         | Ціноутворення, email-кампанії, i18n, Google Shopping, lifecycle, теми | 20  | Високий   |
+| `21-desktop-responsive.md`            | Десктоп: shop responsive 1280/1440/1920px                             | 109 | Високий   |
+| `22-mobile-responsive.md`             | Мобільна: shop responsive 375/390px                                   | 100 | Високий   |
+| `23-admin-billing-tenants.md`         | Адмін: billing, plans, tenants, domains, верифікація                  | 32  | Високий   |
+| `24-admin-blog-bundles.md`            | Адмін: блог CRUD, категорії блогу, набори CRUD                        | 35  | Середній  |
+| `25-admin-campaigns-chat.md`          | Адмін: кампанії, планування, чат, повідомлення                        | 26  | Середній  |
+| `26-admin-integrations.md`            | Адмін: 1C інтеграція, feature flags, підписки                         | 24  | Високий   |
+| `27-admin-warehouses-discounts.md`    | Адмін: склади, залишки, обсягові знижки                               | 31  | Середній  |
+| `28-shop-calculator-bundles-pages.md` | Shop: калькулятор, набори, статичні сторінки, reorder, GDPR           | 46  | Високий   |
+| `29-admin-responsive-desktop.md`      | Адмін responsive: всі 63 сторінки на 1280/1440/1920px                 | 57  | Високий   |
+| `30-admin-responsive-mobile.md`       | Адмін responsive: всі 63 сторінки на 375/390/768px                    | 50  | Високий   |
 
 **Всього: 1177 тест-кейсів у 30 файлах**
 
@@ -42,7 +42,7 @@
 ## Тестове середовище
 
 - **URL:** `https://dwxjrx69-3000.euw.devtunnels.ms`
-- **Адмін:** `andriipushkar@gmail.com` / `Admin123!`
+- **Адмін:** `admin@example.com` / `Test1234!`
 - **Тестовий юзер:** зареєструвати нового через форму реєстрації
 - **Браузери:** Chrome 120+, Firefox 120+, Safari 17+
 - **Мобільні:** iPhone Safari, Android Chrome
