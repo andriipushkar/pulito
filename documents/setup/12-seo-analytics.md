@@ -58,7 +58,7 @@ Sitemap: https://yourdomain.com/sitemap.xml
 
 1. Перейдіть на **https://analytics.google.com/**
 2. **Admin** → **Create Property**
-3. Введіть назву: `Clean Shop`
+3. Введіть назву: `Pulito`
 4. Оберіть часовий пояс та валюту (Україна, UAH)
 5. Натисніть **Create**
 
@@ -66,7 +66,7 @@ Sitemap: https://yourdomain.com/sitemap.xml
 
 1. **Admin** → **Data Streams** → **Add Stream** → **Web**
 2. Введіть URL: `https://yourdomain.com`
-3. Назва: `Clean Shop Web`
+3. Назва: `Pulito Web`
 4. Натисніть **Create Stream**
 5. Скопіюйте **Measurement ID** (формат: `G-XXXXXXXXXX`)
 
@@ -76,7 +76,7 @@ Sitemap: https://yourdomain.com/sitemap.xml
 
 1. У Data Stream натисніть **Measurement Protocol API secrets**
 2. Натисніть **Create**
-3. Назва: `Clean Shop Server`
+3. Назва: `Pulito Server`
 4. Скопіюйте **API Secret**
 
 ### Крок 4 — Додати в .env
@@ -104,7 +104,7 @@ GA4_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxx
 
 1. Перейдіть у **https://business.facebook.com/events_manager**
 2. **Data Sources** → **Connect Data Sources** → **Web** → **Facebook Pixel**
-3. Назва: `Clean Shop Pixel`
+3. Назва: `Pulito Pixel`
 4. Натисніть **Create Pixel**
 5. Скопіюйте **Pixel ID** (числовий)
 
@@ -174,6 +174,7 @@ curl https://yourdomain.com/feed/google-shopping | head -50
 ### Крок 5 — Діагностика
 
 У Merchant Center → **Diagnostics** перевірте:
+
 - Помилки у товарах
 - Відхилені товари
 - Попередження
@@ -203,12 +204,12 @@ curl -s https://yourdomain.com | grep "application/ld+json"
 
 ### Зовнішні інструменти перевірки
 
-| Інструмент | URL | Що перевіряє |
-|------------|-----|-------------|
-| Google Rich Results Test | https://search.google.com/test/rich-results | Структуровані дані |
-| Facebook Sharing Debugger | https://developers.facebook.com/tools/debug/ | Open Graph теги |
-| Google PageSpeed Insights | https://pagespeed.web.dev/ | Швидкість та Core Web Vitals |
-| Google Mobile-Friendly Test | https://search.google.com/test/mobile-friendly | Мобільна адаптивність |
+| Інструмент                  | URL                                            | Що перевіряє                 |
+| --------------------------- | ---------------------------------------------- | ---------------------------- |
+| Google Rich Results Test    | https://search.google.com/test/rich-results    | Структуровані дані           |
+| Facebook Sharing Debugger   | https://developers.facebook.com/tools/debug/   | Open Graph теги              |
+| Google PageSpeed Insights   | https://pagespeed.web.dev/                     | Швидкість та Core Web Vitals |
+| Google Mobile-Friendly Test | https://search.google.com/test/mobile-friendly | Мобільна адаптивність        |
 
 ---
 

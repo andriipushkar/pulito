@@ -1,6 +1,6 @@
 version: '3.8'
 
-# Monitoring stack for Clean Shop
+# Monitoring stack for Pulito
 # Usage: docker compose -f docker-compose.monitoring.yml up -d
 # Access: Grafana http://localhost:3001, Prometheus http://localhost:9090
 

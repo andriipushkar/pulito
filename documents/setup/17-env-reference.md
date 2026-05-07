@@ -215,9 +215,9 @@
 
 Ці змінні потрібні для `docker-compose.yml`:
 
-| Змінна              | Опис                                     |
-| ------------------- | ---------------------------------------- |
-| `POSTGRES_USER`     | Логін PostgreSQL (default: `clean_user`) |
-| `POSTGRES_PASSWORD` | **Обов'язково** — пароль PostgreSQL      |
-| `POSTGRES_DB`       | Назва БД (default: `clean_shop`)         |
-| `TYPESENSE_API_KEY` | **Обов'язково** — API ключ Typesense     |
+| Змінна              | Опис                                      |
+| ------------------- | ----------------------------------------- |
+| `POSTGRES_USER`     | Логін PostgreSQL (default: `pulito_user`) |
+| `POSTGRES_PASSWORD` | **Обов'язково** — пароль PostgreSQL       |
+| `POSTGRES_DB`       | Назва БД (default: `pulito_trade`)        |
+| `TYPESENSE_API_KEY` | **Обов'язково** — API ключ Typesense      |

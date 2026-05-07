@@ -10,7 +10,7 @@
 
 React Context Provider з `useReducer` для управління станом.
 
-**Ключ localStorage:** `clean-shop-cart`
+**Ключ localStorage:** `pulito-cart`
 
 ### Стан кошика (CartItem)
 

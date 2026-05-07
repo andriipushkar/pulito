@@ -59,7 +59,7 @@ export async function createDatabaseBackup() {
     );
   } catch {
     // Try via docker if pg_dump is not available locally
-    const containerName = process.env.DB_CONTAINER_NAME || 'clean_postgres';
+    const containerName = process.env.DB_CONTAINER_NAME || 'pulito_postgres';
     // For docker exec we still need shell for pipe, but args are validated
     if (!/^[a-zA-Z0-9_-]+$/.test(containerName)) throw new Error('Invalid container name');
     if (!/^[a-zA-Z0-9_-]+$/.test(dbUser)) throw new Error('Invalid DB username');

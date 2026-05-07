@@ -62,7 +62,7 @@ sudo certbot certonly --nginx -d shop.client.com
 
 ```bash
 #!/bin/bash
-# /opt/clean-shop/scripts/add-domain.sh
+# /opt/pulito/scripts/add-domain.sh
 DOMAIN=$1
 
 # Отримати SSL
@@ -94,7 +94,7 @@ sudo nginx -t && sudo systemctl reload nginx
 Дати право додатку виконувати цей скрипт:
 
 ```bash
-sudo chmod +x /opt/clean-shop/scripts/add-domain.sh
+sudo chmod +x /opt/pulito/scripts/add-domain.sh
 # Дозволити pm2 user виконувати certbot і nginx reload
 sudo visudo
 # Додати: cleanuser ALL=(ALL) NOPASSWD: /usr/bin/certbot, /usr/sbin/nginx, /bin/tee /etc/nginx/sites-available/tenant-*, /bin/ln -sf /etc/nginx/sites-available/tenant-*
@@ -111,10 +111,10 @@ curl -X DELETE http://localhost:3000/api/v1/tenant/domains/shop.client.com \
 
 ## Troubleshooting
 
-| Проблема | Рішення |
-|----------|---------|
-| DNS верифікація не проходить | DNS propagation може тривати до 48 годин. Перевірте: `dig TXT _cleanshop-verify.shop.client.com` |
-| SSL сертифікат не генерується | Перевірте що CNAME вказує на ваш сервер і порт 80 відкритий |
-| ERR_SSL_VERSION_OR_CIPHER_MISMATCH | Nginx конфіг не містить SSL — перевірте що certbot створив сертифікат |
-| Домен показує інший tenant | Перевірте що домен прив'язаний до правильного `tenantId` в БД |
-| Too many certificates | Let's Encrypt ліміт: 50 сертифікатів на домен/тиждень. Для великих обсягів використовуйте wildcard |
+| Проблема                           | Рішення                                                                                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| DNS верифікація не проходить       | DNS propagation може тривати до 48 годин. Перевірте: `dig TXT _cleanshop-verify.shop.client.com`   |
+| SSL сертифікат не генерується      | Перевірте що CNAME вказує на ваш сервер і порт 80 відкритий                                        |
+| ERR_SSL_VERSION_OR_CIPHER_MISMATCH | Nginx конфіг не містить SSL — перевірте що certbot створив сертифікат                              |
+| Домен показує інший tenant         | Перевірте що домен прив'язаний до правильного `tenantId` в БД                                      |
+| Too many certificates              | Let's Encrypt ліміт: 50 сертифікатів на домен/тиждень. Для великих обсягів використовуйте wildcard |

@@ -1,4 +1,4 @@
-# Clean Shop — Deployment Guide
+# Pulito — Deployment Guide
 
 ## Prerequisites
 

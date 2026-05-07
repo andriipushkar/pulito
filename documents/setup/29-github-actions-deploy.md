@@ -59,7 +59,7 @@ ln -sfn /app/releases/$TIMESTAMP /app/current
 
 # Запустити PM2
 cd /app/current
-pm2 start npm --name clean-shop -- start
+pm2 start npm --name pulito -- start
 pm2 save
 pm2 startup  # автозапуск після reboot
 ```
@@ -165,7 +165,7 @@ ls -lt  # побачити список releases
 
 # Перемкнути на попередню
 ln -sfn /app/releases/<previous-id> /app/current
-pm2 reload clean-shop
+pm2 reload pulito
 ```
 
 ## Моніторинг деплоїв
@@ -174,7 +174,7 @@ pm2 reload clean-shop
 - **Telegram** — кожен success / failure з посиланням на logs
 - **Server logs**:
   ```bash
-  pm2 logs clean-shop --lines 100
+  pm2 logs pulito --lines 100
   pm2 monit  # interactive monitor
   ```
 - **Health endpoint**: `https://yourdomain.com/api/v1/health`

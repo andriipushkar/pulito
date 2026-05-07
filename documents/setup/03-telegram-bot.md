@@ -1,6 +1,7 @@
 # Налаштування Telegram-бота
 
 Telegram-бот використовується для:
+
 - Сповіщень про нові замовлення
 - Сповіщень про зміну статусів
 - Зв'язку з клієнтами (авто-відповіді)
@@ -10,8 +11,8 @@ Telegram-бот використовується для:
 
 1. Відкрийте Telegram і знайдіть **@BotFather**
 2. Надішліть команду `/newbot`
-3. Введіть назву бота, наприклад: `Clean Shop Бот`
-4. Введіть юзернейм бота, наприклад: `clean_shop_bot` (має закінчуватись на `bot`)
+3. Введіть назву бота, наприклад: `Pulito Бот`
+4. Введіть юзернейм бота, наприклад: `pulito_trade_bot` (має закінчуватись на `bot`)
 5. BotFather надішле вам **токен** вигляду: `7123456789:AAHxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
 
 > **Збережіть токен** — він потрібен для .env.
@@ -86,7 +87,7 @@ curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
 Очікувана відповідь:
 
 ```json
-{"ok": true, "result": true, "description": "Webhook was set"}
+{ "ok": true, "result": true, "description": "Webhook was set" }
 ```
 
 Перевірити поточний webhook:
@@ -110,7 +111,7 @@ TELEGRAM_MANAGER_CHAT_ID=XXXXXXXXX
 npm run dev
 
 # Production
-pm2 reload clean-shop
+pm2 reload pulito
 ```
 
 ## Крок 7 — Перевірити роботу
@@ -120,6 +121,7 @@ pm2 reload clean-shop
 3. Бот має відповісти вітальним повідомленням
 
 Перевірте сповіщення:
+
 1. Зробіть тестове замовлення на сайті
 2. Менеджер має отримати повідомлення в особистий чат
 3. Канал має отримати повідомлення (якщо налаштовано)

@@ -1,8 +1,8 @@
-# Clean Shop — Module Documentation
+# Pulito — Module Documentation
 
 ## Architecture Overview
 
-Clean Shop is built with **Next.js 16** (App Router) using a layered architecture:
+Pulito is built with **Next.js 16** (App Router) using a layered architecture:
 
 ```
 ┌──────────────────────────────────────────┐
@@ -106,12 +106,14 @@ src/
 ## Services Reference
 
 ### auth.ts
+
 - `registerUser(data)` — Create user, hash password, generate referral code, send verification email
 - `loginUser(email, password)` — Verify credentials, return JWT token pair
 - `refreshTokens(refreshToken)` — Rotate refresh token, return new pair
 - `logoutUser(accessToken, refreshToken)` — Blacklist both tokens in Redis
 
 ### order.ts
+
 - `createOrder(userId, data)` — Validate cart, apply pricing rules, create order with items
 - `getOrderById(id, userId?)` — Fetch order with items and status history
 - `getUserOrders(userId, filters)` — Paginated order list
@@ -121,21 +123,25 @@ src/
 - On `cancelled/returned`: deduct loyalty points
 
 ### payment.ts
+
 - `initiatePayment(orderId, provider, userId)` — Create payment record, call provider, return redirect URL
 - `handlePaymentCallback(provider, data)` — Verify signature, update payment & order status
 - `getPaymentStatus(orderId)` — Check current payment state
 
 ### payment-providers/liqpay.ts
+
 - `createPayment(params)` — Build base64 data + HMAC-SHA1 signature, return checkout URL
 - `verifyCallback(data, signature)` — Verify SHA1 signature, decode and return payment data
 - Signature: `SHA1(privateKey + base64(data) + privateKey)`
 
 ### payment-providers/monobank.ts
+
 - `createPayment(params)` — POST to `api.monobank.ua/api/merchant/invoice/create` with X-Token
 - `verifyCallback(body, xSign)` — ECDSA verification using Monobank public key (cached)
 - Amounts in kopecks (UAH × 100), currency code 980
 
 ### loyalty.ts
+
 - `getOrCreateLoyaltyAccount(userId)` — Find or create loyalty account
 - `earnPoints(userId, orderId, orderAmount)` — Calculate points with level multiplier
 - `spendPoints(userId, points, orderId)` — Deduct points (validates balance)
@@ -145,6 +151,7 @@ src/
 - `getLoyaltyLevels()` / `updateLoyaltySettings(levels)` — CRUD loyalty levels
 
 ### referral.ts
+
 - `generateReferralCode()` — Random hex code via `crypto.randomBytes`
 - `processReferral(referredUserId, code)` — Create referral record
 - `getUserReferralStats(userId)` — Code, link, referred count, completed count
@@ -152,38 +159,45 @@ src/
 - `getAllReferrals(filters)` — Admin list with pagination
 
 ### personal-price.ts
+
 - `getPersonalPrices(filters)` — List with pagination, user/product/category filters
 - `createPersonalPrice(data, createdBy)` — Create (productId OR categoryId, discountPercent OR fixedPrice)
 - `updatePersonalPrice(id, data)` / `deletePersonalPrice(id)` — CRUD
 - `getEffectivePrice(userId, productId, categoryId)` — Product-specific takes priority over category
 
 ### analytics.ts
+
 - `getConversionFunnel(days)` — Aggregate DailyFunnelStats: pageViews → productViews → addToCart → cartViews → checkout → orders
 - `getCohortAnalysis(months)` — Group users by registration month, calculate monthly retention %
 - `getABCAnalysis(days)` — Classify products by revenue: A (80%), B (15%), C (5%)
 
 ### performance.ts
+
 - `recordMetric(name, value, route)` — Store in Redis sorted set
 - `aggregateDailyMetrics()` — Calculate p50/p75/p90, upsert to PerformanceMetric table
 - `getAggregatedMetrics(days, route?)` — Query aggregated metrics for dashboard
 
 ### pallet-delivery.ts
+
 - `getPalletConfig()` — Read from SiteSetting (JSON), fallback to defaults
 - `updatePalletConfig(config, updatedBy)` — Upsert SiteSetting
 - `calculatePalletDeliveryCost(weightKg, region)` — `(basePrice + weight × pricePerKg) × regionMultiplier`
 - `validatePalletOrder(totalWeightKg, region)` — Check weight limits and region support
 
 ### nova-poshta.ts
+
 - `searchCities(query)` — Nova Poshta Address API
 - `searchWarehouses(cityRef, query)` — Warehouse search
 - `trackParcel(trackingNumber)` — Tracking status
 
 ### ukrposhta.ts
+
 - `trackParcel(barcode)` — Ukrposhta StatusTracking API with Bearer token
 
 ## Database Models
 
 ### Core Models
+
 - **User** — email, password, role (user/manager/admin), clientType (retail/wholesale), referralCode
 - **Product** — name, slug, code, prices (retail/wholesale), quantity, SEO fields
 - **Category** — hierarchical (parentId), name, slug, images
@@ -192,24 +206,30 @@ src/
 - **OrderStatusHistory** — audit trail for status changes
 
 ### Payment Models
+
 - **Payment** — orderId, amount, status, method, provider (liqpay/monobank), callbackData
 
 ### Loyalty Models
+
 - **LoyaltyAccount** — userId (unique), points, totalSpent, level
 - **LoyaltyTransaction** — type (earn/spend/manual), points, orderId, description
 - **LoyaltyLevel** — name, minSpent threshold, pointsMultiplier, discountPercent
 
 ### Referral Models
+
 - **Referral** — referrerId, referredId, status (pending/completed/rewarded), bonusType, bonusValue
 
 ### Personal Pricing
+
 - **PersonalPrice** — userId, productId/categoryId, discountPercent/fixedPrice, date range
 
 ### Analytics Models
+
 - **DailyFunnelStats** — date, pageViews, productViews, addToCartCount, etc.
 - **PerformanceMetric** — date, route, metric (LCP/CLS/FID/TTFB/INP), p50/p75/p90
 
 ### Infrastructure
+
 - **SiteSetting** — key/value store for site configuration
 - **Cart** / **CartItem** — user shopping cart
 - **ProductImage** — multiple images per product
@@ -236,12 +256,14 @@ export const GET = withRole('admin', 'manager')(async (request) => { ... });
 ## Payment Webhooks
 
 ### LiqPay (`POST /api/webhooks/liqpay`)
+
 - Content-Type: `application/x-www-form-urlencoded`
 - Fields: `data` (base64 JSON) + `signature` (SHA1)
 - Verification: `SHA1(privateKey + data + privateKey) === signature`
 - Status mapping: `success/sandbox` → paid, `failure/error` → failed
 
 ### Monobank (`POST /api/webhooks/monobank`)
+
 - Content-Type: `application/json`
 - Header: `X-Sign` (base64 ECDSA signature)
 - Verification: ECDSA with Monobank public key (`GET /api/merchant/pubkey`)
@@ -250,6 +272,7 @@ export const GET = withRole('admin', 'manager')(async (request) => { ... });
 ## Background Jobs (BullMQ)
 
 ### Performance Metrics Aggregation
+
 - **Queue**: `performance-metrics`
 - **Schedule**: Daily
 - **Action**: Read raw metrics from Redis sorted sets, calculate p50/p75/p90 percentiles, upsert into PerformanceMetric table, clear processed data from Redis

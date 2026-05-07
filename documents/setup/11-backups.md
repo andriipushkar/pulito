@@ -19,7 +19,7 @@ crontab -e
 
 ```bash
 # Бекап PostgreSQL щодня о 3:30
-30 3 * * * docker compose -f /var/www/clean-shop/docker-compose.yml exec -T postgres pg_dump -U clean_user clean_shop | gzip > /backups/db/clean_shop_$(date +\%Y\%m\%d).sql.gz
+30 3 * * * docker compose -f /var/www/pulito/docker-compose.yml exec -T postgres pg_dump -U pulito_user pulito_trade | gzip > /backups/db/pulito_trade_$(date +\%Y\%m\%d).sql.gz
 
 # Видалити бекапи старше 30 днів
 0 4 * * * find /backups/db -name "*.sql.gz" -mtime +30 -delete
@@ -37,13 +37,13 @@ sudo chown -R deploy:deploy /backups
 
 ```bash
 # Через Docker
-docker compose exec -T postgres pg_dump -U clean_user clean_shop > backup_$(date +%Y%m%d_%H%M%S).sql
+docker compose exec -T postgres pg_dump -U pulito_user pulito_trade > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Або з стисненням
-docker compose exec -T postgres pg_dump -U clean_user clean_shop | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+docker compose exec -T postgres pg_dump -U pulito_user pulito_trade | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
 
 # Без Docker (якщо PostgreSQL встановлений локально)
-pg_dump -U clean_user -h localhost clean_shop > backup_$(date +%Y%m%d_%H%M%S).sql
+pg_dump -U pulito_user -h localhost pulito_trade > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 ---
@@ -54,27 +54,27 @@ pg_dump -U clean_user -h localhost clean_shop > backup_$(date +%Y%m%d_%H%M%S).sq
 
 ```bash
 # Зі звичайного SQL-файлу
-docker compose exec -T postgres psql -U clean_user clean_shop < backup_20260319_030000.sql
+docker compose exec -T postgres psql -U pulito_user pulito_trade < backup_20260319_030000.sql
 
 # З gzip-файлу
-gunzip -c backup_20260319.sql.gz | docker compose exec -T postgres psql -U clean_user clean_shop
+gunzip -c backup_20260319.sql.gz | docker compose exec -T postgres psql -U pulito_user pulito_trade
 ```
 
 ### Відновлення в тимчасову базу (для перевірки)
 
 ```bash
 # Створіть тимчасову базу
-docker compose exec postgres createdb -U clean_user clean_shop_test
+docker compose exec postgres createdb -U pulito_user pulito_trade_test
 
 # Відновіть у тимчасову базу
-docker compose exec -T postgres psql -U clean_user clean_shop_test < backup.sql
+docker compose exec -T postgres psql -U pulito_user pulito_trade_test < backup.sql
 
 # Перевірте дані
-docker compose exec postgres psql -U clean_user clean_shop_test -c "SELECT count(*) FROM products;"
-docker compose exec postgres psql -U clean_user clean_shop_test -c "SELECT count(*) FROM orders;"
+docker compose exec postgres psql -U pulito_user pulito_trade_test -c "SELECT count(*) FROM products;"
+docker compose exec postgres psql -U pulito_user pulito_trade_test -c "SELECT count(*) FROM orders;"
 
 # Видаліть тимчасову базу
-docker compose exec postgres dropdb -U clean_user clean_shop_test
+docker compose exec postgres dropdb -U pulito_user pulito_trade_test
 ```
 
 ---
@@ -86,14 +86,14 @@ docker compose exec postgres dropdb -U clean_user clean_shop_test
 ### Локальне копіювання
 
 ```bash
-rsync -avz /var/www/clean-shop/uploads/ /backups/uploads/
+rsync -avz /var/www/pulito/uploads/ /backups/uploads/
 ```
 
 ### Копіювання на віддалений сервер
 
 ```bash
 # На інший VPS
-rsync -avz -e ssh /var/www/clean-shop/uploads/ user@backup-server:/backups/clean-shop/uploads/
+rsync -avz -e ssh /var/www/pulito/uploads/ user@backup-server:/backups/pulito/uploads/
 
 # Або на S3-сумісне сховище (якщо налаштовано R2/S3)
 # Файли вже зберігаються в Cloudflare R2 (якщо налаштовано)
@@ -103,7 +103,7 @@ rsync -avz -e ssh /var/www/clean-shop/uploads/ user@backup-server:/backups/clean
 
 ```bash
 # Додайте в crontab
-0 4 * * * rsync -avz /var/www/clean-shop/uploads/ /backups/uploads/
+0 4 * * * rsync -avz /var/www/pulito/uploads/ /backups/uploads/
 ```
 
 ---
@@ -111,11 +111,13 @@ rsync -avz -e ssh /var/www/clean-shop/uploads/ user@backup-server:/backups/clean
 ## Redis — без бекапу
 
 Redis використовується для:
+
 - Кешування (products, categories)
 - Сесій
 - Rate limiting
 
 Всі дані **ефемерні** і відновлюються автоматично:
+
 - Кеш — перестворюється при запитах
 - Сесії — користувачі просто заново ввійдуть
 
@@ -132,20 +134,20 @@ Redis використовується для:
 1. Скопіюйте останній бекап:
 
 ```bash
-cp /backups/db/clean_shop_$(date +%Y%m%d).sql.gz /tmp/test_backup.sql.gz
+cp /backups/db/pulito_trade_$(date +%Y%m%d).sql.gz /tmp/test_backup.sql.gz
 ```
 
 2. Відновіть у тимчасову базу:
 
 ```bash
-docker compose exec postgres createdb -U clean_user clean_shop_verify
-gunzip -c /tmp/test_backup.sql.gz | docker compose exec -T postgres psql -U clean_user clean_shop_verify
+docker compose exec postgres createdb -U pulito_user pulito_trade_verify
+gunzip -c /tmp/test_backup.sql.gz | docker compose exec -T postgres psql -U pulito_user pulito_trade_verify
 ```
 
 3. Перевірте кількість записів:
 
 ```bash
-docker compose exec postgres psql -U clean_user clean_shop_verify -c "
+docker compose exec postgres psql -U pulito_user pulito_trade_verify -c "
   SELECT 'products' as table_name, count(*) FROM products
   UNION ALL
   SELECT 'orders', count(*) FROM orders
@@ -157,7 +159,7 @@ docker compose exec postgres psql -U clean_user clean_shop_verify -c "
 4. Видаліть тимчасову базу:
 
 ```bash
-docker compose exec postgres dropdb -U clean_user clean_shop_verify
+docker compose exec postgres dropdb -U pulito_user pulito_trade_verify
 rm /tmp/test_backup.sql.gz
 ```
 
@@ -165,11 +167,11 @@ rm /tmp/test_backup.sql.gz
 
 ## Політика зберігання
 
-| Тип | Частота | Зберігання |
-|-----|---------|-----------|
-| Щоденний бекап БД | Кожну ніч о 3:00 | 30 днів |
-| Бекап uploads | Кожну ніч о 4:00 | Безстроково (rsync — інкрементальний) |
-| Ручний бекап | Перед оновленнями | За потреби |
+| Тип               | Частота           | Зберігання                            |
+| ----------------- | ----------------- | ------------------------------------- |
+| Щоденний бекап БД | Кожну ніч о 3:00  | 30 днів                               |
+| Бекап uploads     | Кожну ніч о 4:00  | Безстроково (rsync — інкрементальний) |
+| Ручний бекап      | Перед оновленнями | За потреби                            |
 
 ### Автоматичне видалення старих бекапів
 

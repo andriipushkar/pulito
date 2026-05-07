@@ -2,12 +2,12 @@
 
 ## Навіщо RS256 замість HS256
 
-| | HS256 (symmetric) | RS256 (asymmetric) |
-|---|---|---|
-| Ключ | Один shared secret | Пара: private + public |
-| Хто може створювати токени | Будь-хто з secret | Тільки сервер з private key |
-| Хто може перевіряти токени | Будь-хто з secret | Будь-хто з public key |
-| Коли використовувати | Один сервер, dev | Production, мікросервіси, зовнішні верифікатори |
+|                            | HS256 (symmetric)  | RS256 (asymmetric)                              |
+| -------------------------- | ------------------ | ----------------------------------------------- |
+| Ключ                       | Один shared secret | Пара: private + public                          |
+| Хто може створювати токени | Будь-хто з secret  | Тільки сервер з private key                     |
+| Хто може перевіряти токени | Будь-хто з secret  | Будь-хто з public key                           |
+| Коли використовувати       | Один сервер, dev   | Production, мікросервіси, зовнішні верифікатори |
 
 **Рекомендація:** На production завжди використовуйте RS256 — навіть якщо зараз один сервер, це безпечніше і дозволяє додати верифікацію токенів зовнішніми сервісами без розповсюдження secret.
 
@@ -54,7 +54,7 @@ JWT_PUBLIC_KEY_PATH=./keys/public.pem
 
 ```bash
 # 1. Перезапустити сервер
-pm2 restart clean-shop
+pm2 restart pulito
 
 # 2. Залогінитись і перевірити що токен — RS256
 curl -s http://localhost:3000/api/v1/auth/login \
@@ -88,6 +88,7 @@ echo "keys/" >> .gitignore
 ## Крок 5 — Ротація ключів (при потребі)
 
 Ротацію потрібно робити якщо:
+
 - Private key скомпрометований
 - Політика безпеки вимагає періодичної ротації
 - Змінюється розмір ключа
@@ -107,7 +108,7 @@ mv keys/private-new.pem keys/private.pem
 mv keys/public-new.pem keys/public.pem
 
 # 3. Перезапустити сервер
-pm2 restart clean-shop
+pm2 restart pulito
 
 # 4. Старі токени стануть невалідними — користувачі перелогіняться
 # 5. Через добу видалити старі ключі
@@ -116,10 +117,10 @@ rm keys/private-old.pem keys/public-old.pem
 
 ## Troubleshooting
 
-| Проблема | Рішення |
-|----------|---------|
-| `Error: secretOrPrivateKey must be asymmetric` | Файл `private.pem` пошкоджений — перегенеруйте |
-| `JsonWebTokenError: invalid algorithm` | Перевірте `JWT_ALGORITHM=RS256` в `.env` |
-| `Error: ENOENT private.pem` | Перевірте `JWT_PRIVATE_KEY_PATH` — шлях відносно кореня проєкту |
-| Токени не приймаються після деплою | Перевірте що `keys/` скопійовані на сервер |
-| `Error: PEM_read_bio` | Файл не у форматі PEM — перегенеруйте командами вище |
+| Проблема                                       | Рішення                                                         |
+| ---------------------------------------------- | --------------------------------------------------------------- |
+| `Error: secretOrPrivateKey must be asymmetric` | Файл `private.pem` пошкоджений — перегенеруйте                  |
+| `JsonWebTokenError: invalid algorithm`         | Перевірте `JWT_ALGORITHM=RS256` в `.env`                        |
+| `Error: ENOENT private.pem`                    | Перевірте `JWT_PRIVATE_KEY_PATH` — шлях відносно кореня проєкту |
+| Токени не приймаються після деплою             | Перевірте що `keys/` скопійовані на сервер                      |
+| `Error: PEM_read_bio`                          | Файл не у форматі PEM — перегенеруйте командами вище            |

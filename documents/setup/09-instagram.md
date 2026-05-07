@@ -1,6 +1,7 @@
 # Налаштування Instagram-інтеграції
 
 Інтеграція з Instagram дозволяє:
+
 - Показувати стрічку Instagram на сайті
 - Отримувати аналітику (insights)
 - Автоматично оновлювати токен доступу
@@ -16,7 +17,7 @@
 1. Перейдіть у **My Apps** → **Create App**
 2. Оберіть тип **Business**
 3. Введіть:
-   - **App Name**: Clean Shop Instagram
+   - **App Name**: Pulito Instagram
    - **App Contact Email**: ваш email
 4. Натисніть **Create App**
 
@@ -102,7 +103,7 @@ INSTAGRAM_BUSINESS_ACCOUNT_ID=xxxxxxxxxxxx
 Перезапустіть додаток:
 
 ```bash
-pm2 reload clean-shop
+pm2 reload pulito
 ```
 
 ## Крок 8 — Автоматичне оновлення токену
@@ -115,6 +116,7 @@ pm2 reload clean-shop
 ```
 
 Задача автоматично:
+
 1. Перевіряє, чи токен скоро закінчиться
 2. Оновлює його через Instagram API
 3. Зберігає новий токен

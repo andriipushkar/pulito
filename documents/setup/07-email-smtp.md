@@ -1,6 +1,7 @@
 # Налаштування Email (SMTP)
 
 Email використовується для:
+
 - Підтвердження реєстрації
 - Відновлення пароля
 - Сповіщень про замовлення
@@ -16,7 +17,7 @@ Email використовується для:
 ### Крок 2 — Створити App Password
 
 1. Перейдіть на **https://myaccount.google.com/apppasswords**
-2. Оберіть **Ім'я застосунку**: `Clean Shop`
+2. Оберіть **Ім'я застосунку**: `Pulito`
 3. Натисніть **Створити**
 4. Google покаже 16-символьний пароль (формат: `xxxx xxxx xxxx xxxx`)
 5. Скопіюйте його (без пробілів)
@@ -113,7 +114,7 @@ SMTP_FROM=noreply@yourdomain.com
 npm run dev
 
 # Production
-pm2 reload clean-shop
+pm2 reload pulito
 ```
 
 ### Тест через сайт

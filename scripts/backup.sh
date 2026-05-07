@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Clean Shop — Backup Script
+# Pulito — Backup Script
 # Performs PostgreSQL database backup and uploads directory sync.
 #
 # Usage:
@@ -71,7 +71,7 @@ cleanup_old_backups() {
 }
 
 # Main
-log "=== Clean Shop Backup ==="
+log "=== Pulito Backup ==="
 log "Mode: ${MODE}"
 
 case "$MODE" in

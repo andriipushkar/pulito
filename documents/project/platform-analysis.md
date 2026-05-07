@@ -327,7 +327,7 @@
 
 ## Конкурентні переваги
 
-Що відрізняє Clean Shop від 95% українських e-commerce рішень.
+Що відрізняє Pulito від 95% українських e-commerce рішень.
 
 ### vs OpenCart / WooCommerce
 
@@ -364,5 +364,5 @@
 
 ---
 
-_Clean Shop Platform Analysis — Generated March 24, 2026_
+_Pulito Platform Analysis — Generated March 24, 2026_
 _Next.js 16 — React 19 — TypeScript 5.9 — PostgreSQL 16 — Prisma 7.4 — Redis 7 — Typesense 27_

@@ -165,7 +165,7 @@ chmod 600 /etc/cron-secret
 Усі cron-задачі логують через `logger`. Перегляд у production:
 
 ```bash
-pm2 logs clean-shop --lines 100 | grep cron
+pm2 logs pulito --lines 100 | grep cron
 ```
 
 ### Алерти при провалах

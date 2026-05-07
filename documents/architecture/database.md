@@ -1,6 +1,6 @@
 # База даних -- Prisma Schema
 
-Clean Shop використовує PostgreSQL через Prisma ORM. Генерований клієнт зберігається у `generated/prisma`.
+Pulito використовує PostgreSQL через Prisma ORM. Генерований клієнт зберігається у `generated/prisma`.
 
 ## Основні сутності
 

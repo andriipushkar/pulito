@@ -1,15 +1,15 @@
 # Локальна розробка
 
-Покрокова інструкція для запуску проєкту Clean Shop на вашому комп'ютері.
+Покрокова інструкція для запуску проєкту Pulito на вашому комп'ютері.
 
 ## Передумови
 
-| Інструмент | Версія | Перевірка |
-|------------|--------|-----------|
-| Node.js | >= 20 LTS | `node -v` |
-| npm | >= 10 | `npm -v` |
-| Docker + Docker Compose | latest | `docker compose version` |
-| Git | >= 2.30 | `git --version` |
+| Інструмент              | Версія    | Перевірка                |
+| ----------------------- | --------- | ------------------------ |
+| Node.js                 | >= 20 LTS | `node -v`                |
+| npm                     | >= 10     | `npm -v`                 |
+| Docker + Docker Compose | latest    | `docker compose version` |
+| Git                     | >= 2.30   | `git --version`          |
 
 ### Встановлення Node.js 20
 
@@ -42,8 +42,8 @@ sudo usermod -aG docker $USER
 ## Крок 1 — Клонувати репозиторій
 
 ```bash
-git clone <URL-репозиторію> clean-shop
-cd clean-shop
+git clone <URL-репозиторію> pulito
+cd pulito
 ```
 
 ## Крок 2 — Встановити залежності
@@ -58,7 +58,7 @@ Docker Compose піднімає PostgreSQL, PgBouncer, Redis та Typesense:
 
 ```bash
 # Створіть .env з паролями для Docker
-export POSTGRES_PASSWORD=clean_pass
+export POSTGRES_PASSWORD=pulito_pass
 export TYPESENSE_API_KEY=xyz123
 export APP_SECRET=$(openssl rand -hex 32)
 export JWT_SECRET=$(openssl rand -hex 32)
@@ -74,10 +74,11 @@ docker compose ps
 ```
 
 Очікуваний результат — всі сервіси в статусі `healthy`:
-- `clean_postgres` — PostgreSQL 16 (порт 5432, внутрішній)
-- `clean_pgbouncer` — PgBouncer (порт 6432)
-- `clean_redis` — Redis 7 (порт 6380 на хості → 6379 в контейнері)
-- `clean_typesense` — Typesense 27 (порт 8108)
+
+- `pulito_postgres` — PostgreSQL 16 (порт 5432, внутрішній)
+- `pulito_pgbouncer` — PgBouncer (порт 6432)
+- `pulito_redis` — Redis 7 (порт 6380 на хості → 6379 в контейнері)
+- `pulito_typesense` — Typesense 27 (порт 8108)
 
 ## Крок 4 — Налаштувати змінні середовища
 
@@ -94,7 +95,7 @@ PORT=3000
 APP_URL=http://localhost:3000
 
 # БД — для локальної розробки через Docker
-DATABASE_URL=postgresql://clean_user:clean_pass@localhost:5432/clean_shop?schema=public
+DATABASE_URL=postgresql://pulito_user:pulito_pass@localhost:5432/pulito_trade?schema=public
 
 # Redis — порт 6380 на хості (Docker маппінг 6380:6379)
 REDIS_URL=redis://localhost:6380/0
@@ -187,7 +188,7 @@ sudo lsof -i :6380
 
 ```bash
 # Створіть .env в корені (Docker Compose читає його автоматично)
-echo "POSTGRES_PASSWORD=clean_pass" >> .env
+echo "POSTGRES_PASSWORD=pulito_pass" >> .env
 echo "TYPESENSE_API_KEY=xyz123" >> .env
 ```
 

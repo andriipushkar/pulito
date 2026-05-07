@@ -1,4 +1,4 @@
-# Clean Shop — Acquire.com Listing Draft
+# Pulito — Acquire.com Listing Draft
 
 ## Listing Title
 
@@ -16,7 +16,7 @@ Production-ready e-commerce platform for household chemicals & FMCG with B2B pri
 
 ### What is this product?
 
-Clean Shop is a **complete, production-ready e-commerce platform** purpose-built for the FMCG and household chemicals market. It's not a WordPress template or a Shopify clone — it's a **175,000-line TypeScript codebase** with 92 business logic services, 307 REST API endpoints, and 20+ integrations covering the entire Ukrainian e-commerce ecosystem.
+Pulito is a **complete, production-ready e-commerce platform** purpose-built for the FMCG and household chemicals market. It's not a WordPress template or a Shopify clone — it's a **175,000-line TypeScript codebase** with 92 business logic services, 307 REST API endpoints, and 20+ integrations covering the entire Ukrainian e-commerce ecosystem.
 
 The platform works as both a **standalone B2B/B2C online store** and a **white-label SaaS** — with built-in multi-tenancy, billing (plans/invoices), custom domains, and feature flags.
 

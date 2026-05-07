@@ -1,16 +1,16 @@
 # Деплой на VPS (Production)
 
-Покрокова інструкція для розгортання Clean Shop на VPS сервері.
+Покрокова інструкція для розгортання Pulito на VPS сервері.
 
 ## Вимоги до сервера
 
-| Параметр | Мінімум | Рекомендовано |
-|----------|---------|---------------|
-| ОС | Ubuntu 22.04 LTS | Ubuntu 22.04 LTS |
-| RAM | 1 GB | 2 GB |
-| SSD | 20 GB | 40 GB |
-| CPU | 1 vCPU | 2 vCPU |
-| Ціна | ~$5/міс | ~$10/міс |
+| Параметр | Мінімум          | Рекомендовано    |
+| -------- | ---------------- | ---------------- |
+| ОС       | Ubuntu 22.04 LTS | Ubuntu 22.04 LTS |
+| RAM      | 1 GB             | 2 GB             |
+| SSD      | 20 GB            | 40 GB            |
+| CPU      | 1 vCPU           | 2 vCPU           |
+| Ціна     | ~$5/міс          | ~$10/міс         |
 
 Провайдери: Hetzner, DigitalOcean, Vultr, Hostinger.
 
@@ -46,7 +46,7 @@ ssh root@YOUR_SERVER_IP
 
 ```bash
 # Згенерувати ключ (якщо ще немає)
-ssh-keygen -t ed25519 -C "deploy@clean-shop"
+ssh-keygen -t ed25519 -C "deploy@pulito"
 
 # Скопіювати на сервер
 ssh-copy-id root@YOUR_SERVER_IP
@@ -118,10 +118,10 @@ sudo systemctl enable nginx
 ## Крок 7 — Клонувати проєкт
 
 ```bash
-sudo mkdir -p /var/www/clean-shop
-sudo chown deploy:deploy /var/www/clean-shop
-git clone <URL-репозиторію> /var/www/clean-shop
-cd /var/www/clean-shop
+sudo mkdir -p /var/www/pulito
+sudo chown deploy:deploy /var/www/pulito
+git clone <URL-репозиторію> /var/www/pulito
+cd /var/www/pulito
 npm install
 ```
 
@@ -140,7 +140,7 @@ PORT=3000
 APP_URL=https://yourdomain.com
 
 # БД — через Docker (PgBouncer на порту 6432)
-DATABASE_URL=postgresql://clean_user:STRONG_PASSWORD_HERE@localhost:6432/clean_shop?schema=public
+DATABASE_URL=postgresql://pulito_user:STRONG_PASSWORD_HERE@localhost:6432/pulito_trade?schema=public
 
 # Redis
 REDIS_URL=redis://localhost:6380/0
@@ -166,7 +166,7 @@ TYPESENSE_API_KEY=<openssl rand -hex 32>
 ## Крок 9 — Запустити Docker-сервіси
 
 ```bash
-cd /var/www/clean-shop
+cd /var/www/pulito
 
 # Запустити тільки інфраструктуру (без app-контейнера)
 docker compose up -d postgres pgbouncer redis typesense
@@ -180,7 +180,7 @@ docker compose ps
 ## Крок 10 — Підготувати базу даних
 
 ```bash
-cd /var/www/clean-shop
+cd /var/www/pulito
 
 # Згенерувати Prisma Client
 npm run db:generate
@@ -201,8 +201,8 @@ npm run build
 ## Крок 12 — Підготувати директорію uploads
 
 ```bash
-mkdir -p /var/www/clean-shop/uploads
-chmod 755 /var/www/clean-shop/uploads
+mkdir -p /var/www/pulito/uploads
+chmod 755 /var/www/pulito/uploads
 ```
 
 > Якщо використовуєте Cloudflare R2 для файлів — цей крок можна пропустити. Дивіться змінні `R2_*` в [17-env-reference.md](17-env-reference.md).
@@ -212,14 +212,14 @@ chmod 755 /var/www/clean-shop/uploads
 Створіть `ecosystem.config.js`:
 
 ```bash
-cat > /var/www/clean-shop/ecosystem.config.js << 'EOF'
+cat > /var/www/pulito/ecosystem.config.js << 'EOF'
 module.exports = {
   apps: [
     {
-      name: 'clean-shop',
+      name: 'pulito',
       script: 'node_modules/.bin/next',
       args: 'start',
-      cwd: '/var/www/clean-shop',
+      cwd: '/var/www/pulito',
       instances: 'max',
       exec_mode: 'cluster',
       env: {
@@ -261,13 +261,13 @@ pm2 set pm2-logrotate:rotateInterval '0 0 * * *'
 ## Крок 15 — Налаштувати Nginx
 
 ```bash
-sudo nano /etc/nginx/sites-available/clean-shop
+sudo nano /etc/nginx/sites-available/pulito
 ```
 
 Вставте конфігурацію:
 
 ```nginx
-upstream clean_shop {
+upstream pulito_trade {
     server 127.0.0.1:3000;
     keepalive 64;
 }
@@ -296,21 +296,21 @@ server {
 
     # Статичні файли (завантаження)
     location /uploads/ {
-        alias /var/www/clean-shop/uploads/;
+        alias /var/www/pulito/uploads/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
 
     # Next.js статичні ресурси
     location /_next/static/ {
-        proxy_pass http://clean_shop;
+        proxy_pass http://pulito_trade;
         expires 365d;
         add_header Cache-Control "public, immutable";
     }
 
     # Додаток
     location / {
-        proxy_pass http://clean_shop;
+        proxy_pass http://pulito_trade;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -326,7 +326,7 @@ server {
 Активуйте конфігурацію:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/clean-shop /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/pulito /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
@@ -340,6 +340,7 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 ```
 
 Certbot автоматично:
+
 - Отримає сертифікат
 - Оновить конфігурацію Nginx
 - Налаштує автоматичне оновлення
@@ -416,9 +417,9 @@ crontab -e
 ```
 
 > **Логування cron:** Щоб бачити результати cron-задач, додайте логування в кінець кожного рядка:
-> `>> /var/log/clean-shop-cron.log 2>&1`
+> `>> /var/log/pulito-cron.log 2>&1`
 >
-> Наприклад: `0 3 * * * curl -s ... http://localhost:3000/api/v1/cron/db-backup >> /var/log/clean-shop-cron.log 2>&1`
+> Наприклад: `0 3 * * * curl -s ... http://localhost:3000/api/v1/cron/db-backup >> /var/log/pulito-cron.log 2>&1`
 
 ### Початкова індексація Typesense
 
@@ -466,7 +467,7 @@ docker compose exec redis redis-cli ping
 ## Оновлення (деплой нової версії)
 
 ```bash
-cd /var/www/clean-shop
+cd /var/www/pulito
 
 # Отримати зміни
 git pull origin main
@@ -481,18 +482,18 @@ npm run db:migrate:prod
 npm run build
 
 # Перезапустити
-pm2 reload clean-shop
+pm2 reload pulito
 ```
 
 ## Швидкий скрипт деплою
 
-Створіть `/var/www/clean-shop/deploy.sh`:
+Створіть `/var/www/pulito/deploy.sh`:
 
 ```bash
 #!/bin/bash
 set -e
 
-cd /var/www/clean-shop
+cd /var/www/pulito
 
 echo "📥 Pulling latest changes..."
 git pull origin main
@@ -507,7 +508,7 @@ echo "🔨 Building..."
 npm run build
 
 echo "🔄 Reloading PM2..."
-pm2 reload clean-shop
+pm2 reload pulito
 
 echo "✅ Deploy complete!"
 ```
@@ -522,7 +523,7 @@ chmod +x deploy.sh
 Якщо після оновлення щось зламалось:
 
 ```bash
-cd /var/www/clean-shop
+cd /var/www/pulito
 
 # Подивитись на який коміт відкочуватись
 git log --oneline -5
@@ -533,7 +534,7 @@ git checkout HEAD~1
 # Перезібрати і перезапустити
 npm install
 npm run build
-pm2 reload clean-shop
+pm2 reload pulito
 ```
 
 > Якщо зламалась міграція БД — відновіть з бекапу: [11-backups.md](11-backups.md)
@@ -542,20 +543,20 @@ pm2 reload clean-shop
 
 Після базового деплою налаштуйте інтеграції та інфраструктуру (за потреби):
 
-| Пріоритет | Що зробити | Гайд |
-|-----------|-----------|------|
-| Обов'язково | Платежі (LiqPay/Monobank) | [05-payment-providers.md](05-payment-providers.md) |
-| Обов'язково | Доставка (Нова Пошта) | [06-delivery-providers.md](06-delivery-providers.md) |
-| Обов'язково | Email (SMTP) | [07-email-smtp.md](07-email-smtp.md) |
-| Обов'язково | Бекапи | [11-backups.md](11-backups.md) |
-| Обов'язково | Моніторинг (Sentry) | [10-monitoring.md](10-monitoring.md) |
-| Обов'язково | JWT RS256 | [18-jwt-setup.md](18-jwt-setup.md) |
-| Рекомендовано | Cloudflare CDN | [cloudflare/setup-guide.md](cloudflare/setup-guide.md) |
-| Рекомендовано | Telegram бот | [03-telegram-bot.md](03-telegram-bot.md) |
-| Рекомендовано | Google OAuth | [08-google-oauth.md](08-google-oauth.md) |
-| Рекомендовано | SEO + Analytics | [12-seo-analytics.md](12-seo-analytics.md) |
-| Опціонально | Push-сповіщення | [13-push-notifications.md](13-push-notifications.md) |
-| Опціонально | Маркетплейси | [15-marketplaces.md](15-marketplaces.md) |
-| Опціонально | Instagram | [09-instagram.md](09-instagram.md) |
+| Пріоритет     | Що зробити                | Гайд                                                   |
+| ------------- | ------------------------- | ------------------------------------------------------ |
+| Обов'язково   | Платежі (LiqPay/Monobank) | [05-payment-providers.md](05-payment-providers.md)     |
+| Обов'язково   | Доставка (Нова Пошта)     | [06-delivery-providers.md](06-delivery-providers.md)   |
+| Обов'язково   | Email (SMTP)              | [07-email-smtp.md](07-email-smtp.md)                   |
+| Обов'язково   | Бекапи                    | [11-backups.md](11-backups.md)                         |
+| Обов'язково   | Моніторинг (Sentry)       | [10-monitoring.md](10-monitoring.md)                   |
+| Обов'язково   | JWT RS256                 | [18-jwt-setup.md](18-jwt-setup.md)                     |
+| Рекомендовано | Cloudflare CDN            | [cloudflare/setup-guide.md](cloudflare/setup-guide.md) |
+| Рекомендовано | Telegram бот              | [03-telegram-bot.md](03-telegram-bot.md)               |
+| Рекомендовано | Google OAuth              | [08-google-oauth.md](08-google-oauth.md)               |
+| Рекомендовано | SEO + Analytics           | [12-seo-analytics.md](12-seo-analytics.md)             |
+| Опціонально   | Push-сповіщення           | [13-push-notifications.md](13-push-notifications.md)   |
+| Опціонально   | Маркетплейси              | [15-marketplaces.md](15-marketplaces.md)               |
+| Опціонально   | Instagram                 | [09-instagram.md](09-instagram.md)                     |
 
 Повний чекліст: [00-checklist.md](00-checklist.md)

@@ -19,7 +19,11 @@ vi.mock('child_process', () => ({
     if (typeof cb === 'function') {
       const result = mockExecFile(...args.slice(0, -1));
       if (result && typeof result.then === 'function') {
-        result.then((r: { stdout?: string; stderr?: string }) => cb(null, r.stdout || '', r.stderr || '')).catch((e: Error) => cb(e));
+        result
+          .then((r: { stdout?: string; stderr?: string }) =>
+            cb(null, r.stdout || '', r.stderr || ''),
+          )
+          .catch((e: Error) => cb(e));
       } else {
         cb(null, '', '');
       }
@@ -85,10 +89,7 @@ describe('createDatabaseBackup', () => {
 
     await createDatabaseBackup();
 
-    expect(mockMkdir).toHaveBeenCalledWith(
-      expect.stringContaining('backups'),
-      { recursive: true },
-    );
+    expect(mockMkdir).toHaveBeenCalledWith(expect.stringContaining('backups'), { recursive: true });
   });
 
   it('should call pg_dump with correct arguments', async () => {
@@ -101,10 +102,14 @@ describe('createDatabaseBackup', () => {
     expect(mockExecFile).toHaveBeenCalledWith(
       'pg_dump',
       expect.arrayContaining([
-        '-h', 'localhost',
-        '-p', '5432',
-        '-U', 'user',
-        '-d', 'cleandb',
+        '-h',
+        'localhost',
+        '-p',
+        '5432',
+        '-U',
+        'user',
+        '-d',
+        'cleandb',
         '--no-owner',
         '--no-acl',
       ]),
@@ -128,7 +133,7 @@ describe('createDatabaseBackup', () => {
     expect(mockExecFile).toHaveBeenCalledTimes(2);
     expect(mockExecFile).toHaveBeenLastCalledWith(
       'docker',
-      expect.arrayContaining(['exec', 'clean_postgres', 'pg_dump']),
+      expect.arrayContaining(['exec', 'pulito_postgres', 'pg_dump']),
       expect.any(Object),
     );
   });
@@ -149,19 +154,16 @@ describe('createDatabaseBackup', () => {
 
     await createDatabaseBackup();
 
-    expect(mockPipeline).toHaveBeenCalledWith(
-      'read-stream',
-      'gzip-stream',
-      'write-stream',
-    );
+    expect(mockPipeline).toHaveBeenCalledWith('read-stream', 'gzip-stream', 'write-stream');
   });
 
   it('should cleanup old backups keeping only 7', async () => {
     mockExecFile.mockResolvedValue({ stdout: '', stderr: '' });
     mockStat.mockResolvedValue({ size: 1000 });
 
-    const backupFiles = Array.from({ length: 10 }, (_, i) =>
-      `backup_2026-03-${String(i + 1).padStart(2, '0')}T00-00-00.sql.gz`
+    const backupFiles = Array.from(
+      { length: 10 },
+      (_, i) => `backup_2026-03-${String(i + 1).padStart(2, '0')}T00-00-00.sql.gz`,
     );
     mockReaddir.mockResolvedValue(backupFiles);
 

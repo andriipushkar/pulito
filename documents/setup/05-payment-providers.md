@@ -1,6 +1,6 @@
 # Налаштування платіжних систем
 
-Clean Shop підтримує **три базові провайдери** (LiqPay, Monobank, WayForPay) і **три додаткові методи**, що роутяться через них:
+Pulito підтримує **три базові провайдери** (LiqPay, Monobank, WayForPay) і **три додаткові методи**, що роутяться через них:
 
 - **LiqPay "Оплата частинами" від ПриватБанку** — через LiqPay (`paytypes='paypart'`)
 - **Apple Pay** — через WayForPay (preferred) або LiqPay
@@ -279,7 +279,7 @@ Mockі для self-hosted серверів — `crontab -e`:
 
 ```bash
 # Перегляньте логи додатку на предмет webhook-запитів
-pm2 logs clean-shop | grep webhook
+pm2 logs pulito | grep webhook
 ```
 
 ### Безпека
