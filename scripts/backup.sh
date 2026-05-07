@@ -39,7 +39,7 @@ backup_database() {
     exit 1
   fi
 
-  DUMP_FILE="${DB_BACKUP_DIR}/clean_shop_${TIMESTAMP}.sql.gz"
+  DUMP_FILE="${DB_BACKUP_DIR}/pulito_${TIMESTAMP}.sql.gz"
   pg_dump "$DATABASE_URL" | gzip > "$DUMP_FILE"
 
   DUMP_SIZE=$(du -h "$DUMP_FILE" | cut -f1)

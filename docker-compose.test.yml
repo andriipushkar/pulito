@@ -2,7 +2,7 @@ services:
   test-db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: clean_shop_test
+      POSTGRES_DB: pulito_trade_test
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
     ports:

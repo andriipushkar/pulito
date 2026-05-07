@@ -33,34 +33,34 @@ npm run dev
 
 ## Environment Variables Reference
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `NODE_ENV` | Yes | `development` | `development` / `production` |
-| `PORT` | No | `3000` | Application port |
-| `APP_URL` | Yes | `http://localhost:3000` | Public URL |
-| `DATABASE_URL` | Yes | — | PostgreSQL connection string |
-| `DATABASE_POOL_MIN` | No | `2` | Min pool connections |
-| `DATABASE_POOL_MAX` | No | `10` | Max pool connections |
-| `REDIS_URL` | Yes | — | Redis connection string |
-| `JWT_SECRET` | Yes | — | JWT signing key (min 32 chars) |
-| `JWT_ACCESS_TTL` | No | `15m` | Access token TTL |
-| `JWT_REFRESH_TTL` | No | `30d` | Refresh token TTL |
-| `SMTP_HOST` | Yes | — | SMTP server host |
-| `SMTP_PORT` | No | `587` | SMTP server port |
-| `SMTP_USER` | Yes | — | SMTP username |
-| `SMTP_PASS` | Yes | — | SMTP password |
-| `SMTP_FROM` | Yes | — | Sender email address |
-| `NOVA_POSHTA_API_KEY` | No | — | Nova Poshta API key |
-| `UKRPOSHTA_BEARER_TOKEN` | No | — | Ukrposhta StatusTracking bearer token |
-| `LIQPAY_PUBLIC_KEY` | No | — | LiqPay Checkout public key |
-| `LIQPAY_PRIVATE_KEY` | No | — | LiqPay Checkout private key |
-| `MONOBANK_TOKEN` | No | — | Monobank Acquiring X-Token |
-| `TELEGRAM_BOT_TOKEN` | No | — | Telegram bot for notifications |
-| `TELEGRAM_CHANNEL_ID` | No | — | Channel for order notifications |
-| `UPLOAD_DIR` | No | `./uploads` | File uploads directory |
-| `MAX_FILE_SIZE` | No | `10485760` | Max upload size (bytes) |
-| `APP_SECRET` | Yes | — | App secret for CSRF / signatures |
-| `MAINTENANCE_MODE` | No | `false` | Enable maintenance mode |
+| Variable                 | Required | Default                 | Description                           |
+| ------------------------ | -------- | ----------------------- | ------------------------------------- |
+| `NODE_ENV`               | Yes      | `development`           | `development` / `production`          |
+| `PORT`                   | No       | `3000`                  | Application port                      |
+| `APP_URL`                | Yes      | `http://localhost:3000` | Public URL                            |
+| `DATABASE_URL`           | Yes      | —                       | PostgreSQL connection string          |
+| `DATABASE_POOL_MIN`      | No       | `2`                     | Min pool connections                  |
+| `DATABASE_POOL_MAX`      | No       | `10`                    | Max pool connections                  |
+| `REDIS_URL`              | Yes      | —                       | Redis connection string               |
+| `JWT_SECRET`             | Yes      | —                       | JWT signing key (min 32 chars)        |
+| `JWT_ACCESS_TTL`         | No       | `15m`                   | Access token TTL                      |
+| `JWT_REFRESH_TTL`        | No       | `30d`                   | Refresh token TTL                     |
+| `SMTP_HOST`              | Yes      | —                       | SMTP server host                      |
+| `SMTP_PORT`              | No       | `587`                   | SMTP server port                      |
+| `SMTP_USER`              | Yes      | —                       | SMTP username                         |
+| `SMTP_PASS`              | Yes      | —                       | SMTP password                         |
+| `SMTP_FROM`              | Yes      | —                       | Sender email address                  |
+| `NOVA_POSHTA_API_KEY`    | No       | —                       | Nova Poshta API key                   |
+| `UKRPOSHTA_BEARER_TOKEN` | No       | —                       | Ukrposhta StatusTracking bearer token |
+| `LIQPAY_PUBLIC_KEY`      | No       | —                       | LiqPay Checkout public key            |
+| `LIQPAY_PRIVATE_KEY`     | No       | —                       | LiqPay Checkout private key           |
+| `MONOBANK_TOKEN`         | No       | —                       | Monobank Acquiring X-Token            |
+| `TELEGRAM_BOT_TOKEN`     | No       | —                       | Telegram bot for notifications        |
+| `TELEGRAM_CHANNEL_ID`    | No       | —                       | Channel for order notifications       |
+| `UPLOAD_DIR`             | No       | `./uploads`             | File uploads directory                |
+| `MAX_FILE_SIZE`          | No       | `10485760`              | Max upload size (bytes)               |
+| `APP_SECRET`             | Yes      | —                       | App secret for CSRF / signatures      |
+| `MAINTENANCE_MODE`       | No       | `false`                 | Enable maintenance mode               |
 
 ## Production Deployment
 
@@ -84,7 +84,7 @@ Create `ecosystem.config.js`:
 module.exports = {
   apps: [
     {
-      name: 'clean-shop',
+      name: 'pulito',
       script: 'node_modules/.bin/next',
       args: 'start',
       instances: 'max',
@@ -109,7 +109,7 @@ pm2 startup
 ### 4. Nginx Reverse Proxy
 
 ```nginx
-upstream clean_shop {
+upstream pulito_trade {
     server 127.0.0.1:3000;
     keepalive 64;
 }
@@ -137,21 +137,21 @@ server {
 
     # Static files (uploads)
     location /uploads/ {
-        alias /var/www/clean-shop/uploads/;
+        alias /var/www/pulito/uploads/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
 
     # Next.js static assets
     location /_next/static/ {
-        proxy_pass http://clean_shop;
+        proxy_pass http://pulito_trade;
         expires 365d;
         add_header Cache-Control "public, immutable";
     }
 
     # Application
     location / {
-        proxy_pass http://clean_shop;
+        proxy_pass http://pulito_trade;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -188,16 +188,16 @@ sudo ufw enable
 
 ```bash
 # Manual backup
-pg_dump -U clean_user -h localhost clean_shop > backup_$(date +%Y%m%d_%H%M%S).sql
+pg_dump -U pulito_user -h localhost pulito_trade > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Restore
-psql -U clean_user -h localhost clean_shop < backup_20260101_120000.sql
+psql -U pulito_user -h localhost pulito_trade < backup_20260101_120000.sql
 ```
 
 Automated daily backup (crontab):
 
 ```bash
-0 3 * * * pg_dump -U clean_user -h localhost clean_shop | gzip > /backups/db/clean_shop_$(date +\%Y\%m\%d).sql.gz
+0 3 * * * pg_dump -U pulito_user -h localhost pulito_trade | gzip > /backups/db/pulito_trade_$(date +\%Y\%m\%d).sql.gz
 0 4 * * * find /backups/db -name "*.sql.gz" -mtime +30 -delete
 ```
 
@@ -244,7 +244,7 @@ Heavy tasks are scheduled between 3:00-5:00 AM to minimize impact on users.
 ### Uploads Directory
 
 ```bash
-rsync -avz /var/www/clean-shop/uploads/ /backups/uploads/
+rsync -avz /var/www/pulito/uploads/ /backups/uploads/
 ```
 
 ### Redis
@@ -274,6 +274,7 @@ The application can be checked at `GET /api/v1/health` (if implemented) or simpl
 ### Log Rotation
 
 **Docker**: log rotation is configured in `docker-compose.yml` via `logging` options per service:
+
 - `app`: max 7 files x 50MB = **350MB max**
 - `postgres`: max 5 files x 20MB = **100MB max**
 - `redis`, `typesense`: max 3 files x 10MB = **30MB max** each
@@ -291,10 +292,10 @@ pm2 set pm2-logrotate:dateFormat YYYY-MM-DD
 pm2 set pm2-logrotate:rotateInterval '0 0 * * *'
 ```
 
-**Nginx**: add logrotate config at `/etc/logrotate.d/nginx-clean`:
+**Nginx**: add logrotate config at `/etc/logrotate.d/nginx-pulito`:
 
 ```
-/var/log/nginx/clean_*.log {
+/var/log/nginx/pulito_*.log {
     daily
     rotate 7
     compress
@@ -316,7 +317,7 @@ pm2 set pm2-logrotate:rotateInterval '0 0 * * *'
 sudo systemctl status postgresql
 
 # Test connection
-psql -U clean_user -h localhost clean_shop -c "SELECT 1"
+psql -U pulito_user -h localhost pulito_trade -c "SELECT 1"
 ```
 
 ### Redis Connection Issues

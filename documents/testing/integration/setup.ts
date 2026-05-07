@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 
 // Set test DB URL
-process.env.DATABASE_URL = 'postgresql://test:test@localhost:5433/clean_shop_test';
+process.env.DATABASE_URL = 'postgresql://test:test@localhost:5433/pulito_trade_test';
 process.env.REDIS_URL = 'redis://localhost:6381/0';
 process.env.APP_SECRET = 'test-secret-key-for-integration-tests';
 (process.env as Record<string, string>).NODE_ENV = 'test';
