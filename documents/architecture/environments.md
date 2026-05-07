@@ -30,13 +30,13 @@
 
 ## SMTP (Email)
 
-| Змінна      | Тип    | Обов'язковість | За замовчуванням    | Опис                                 | Приклад                     |
-| ----------- | ------ | -------------- | ------------------- | ------------------------------------ | --------------------------- |
-| `SMTP_HOST` | string | Ні             | `smtp.gmail.com`    | SMTP-хост                            | `smtp.gmail.com`            |
-| `SMTP_PORT` | number | Ні             | `587`               | SMTP-порт (587=TLS, 465=SSL)         | `587`                       |
-| `SMTP_USER` | string | Ні             | `""`                | SMTP-логін                           | `shop@gmail.com`            |
-| `SMTP_PASS` | string | Ні             | `""`                | SMTP-пароль (App Password для Gmail) | `xxxx xxxx xxxx xxxx`       |
-| `SMTP_FROM` | string | Ні             | `noreply@localhost` | Адреса відправника                   | `"Pulito" <shop@pulito.ua>` |
+| Змінна      | Тип    | Обов'язковість | За замовчуванням    | Опис                                 | Приклад                        |
+| ----------- | ------ | -------------- | ------------------- | ------------------------------------ | ------------------------------ |
+| `SMTP_HOST` | string | Ні             | `smtp.gmail.com`    | SMTP-хост                            | `smtp.gmail.com`               |
+| `SMTP_PORT` | number | Ні             | `587`               | SMTP-порт (587=TLS, 465=SSL)         | `587`                          |
+| `SMTP_USER` | string | Ні             | `""`                | SMTP-логін                           | `shop@gmail.com`               |
+| `SMTP_PASS` | string | Ні             | `""`                | SMTP-пароль (App Password для Gmail) | `xxxx xxxx xxxx xxxx`          |
+| `SMTP_FROM` | string | Ні             | `noreply@localhost` | Адреса відправника                   | `"Pulito" <shop@pulito.trade>` |
 
 ## Файли та зображення
 
@@ -92,11 +92,11 @@
 
 Ці змінні не визначені в env.ts, але використовуються через `process.env`:
 
-| Змінна              | Тип    | Обов'язковість | Опис                 | Приклад                    |
-| ------------------- | ------ | -------------- | -------------------- | -------------------------- |
-| `VAPID_PUBLIC_KEY`  | string | Ні             | VAPID публічний ключ | `BHxLR...`                 |
-| `VAPID_PRIVATE_KEY` | string | Ні             | VAPID приватний ключ | `xyza1...`                 |
-| `VAPID_EMAIL`       | string | Ні             | Контактний email     | `mailto:noreply@pulito.ua` |
+| Змінна              | Тип    | Обов'язковість | Опис                 | Приклад                       |
+| ------------------- | ------ | -------------- | -------------------- | ----------------------------- |
+| `VAPID_PUBLIC_KEY`  | string | Ні             | VAPID публічний ключ | `BHxLR...`                    |
+| `VAPID_PRIVATE_KEY` | string | Ні             | VAPID приватний ключ | `xyza1...`                    |
+| `VAPID_EMAIL`       | string | Ні             | Контактний email     | `mailto:noreply@pulito.trade` |
 
 ## Viber Bot
 
@@ -139,9 +139,9 @@ JWT_REFRESH_TTL=30d
 # === SMTP ===
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=shop@pulito.ua
+SMTP_USER=shop@pulito.trade
 SMTP_PASS=xxxx-xxxx-xxxx-xxxx
-SMTP_FROM="Pulito <shop@pulito.ua>"
+SMTP_FROM="Pulito <shop@pulito.trade>"
 
 # === Файли ===
 UPLOAD_DIR=./uploads
@@ -179,5 +179,5 @@ MONOBANK_TOKEN=
 # === Web Push ===
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
-VAPID_EMAIL=mailto:noreply@pulito.ua
+VAPID_EMAIL=mailto:noreply@pulito.trade
 ```
