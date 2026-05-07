@@ -63,7 +63,10 @@ vi.mock('sharp', () => ({
 }));
 
 vi.mock('fs', () => ({
-  default: { existsSync: vi.fn().mockReturnValue(true), readFileSync: vi.fn().mockReturnValue(Buffer.from('')) },
+  default: {
+    existsSync: vi.fn().mockReturnValue(true),
+    readFileSync: vi.fn().mockReturnValue(Buffer.from('')),
+  },
   existsSync: vi.fn().mockReturnValue(true),
   readFileSync: vi.fn().mockReturnValue(Buffer.from('')),
 }));
@@ -95,17 +98,17 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   mockGetCompanyInfo.mockResolvedValue({
-    name: 'Порошок',
+    name: 'Pulito',
     description: 'Інтернет-магазин',
-    website: 'poroshok.com',
+    website: 'pulito.trade',
     phone: '+380991234567',
   });
 
   mockGetSettings.mockResolvedValue({
-    social_telegram: 'https://t.me/poroshok',
-    social_viber: 'viber://pa?chatURI=poroshok',
-    social_instagram: 'https://instagram.com/poroshok',
-    social_facebook: 'https://www.facebook.com/poroshok',
+    social_telegram: 'https://t.me/pulito_shop',
+    social_viber: 'viber://pa?chatURI=pulito_shop',
+    social_instagram: 'https://instagram.com/pulito_shop',
+    social_facebook: 'https://www.facebook.com/pulito_shop',
   });
 });
 
@@ -116,7 +119,7 @@ describe('generatePricelist', () => {
       name: 'Ariel 3кг',
       code: 'ARI-3',
       priceRetail: 259.99,
-      priceWholesale: 220.00,
+      priceWholesale: 220.0,
       quantity: 50,
       isActive: true,
       imagePath: null,
@@ -127,7 +130,7 @@ describe('generatePricelist', () => {
       id: 2,
       name: 'Fairy 500мл',
       code: 'FAI-500',
-      priceRetail: 89.50,
+      priceRetail: 89.5,
       priceWholesale: null,
       quantity: 0,
       isActive: true,
@@ -146,7 +149,7 @@ describe('generatePricelist', () => {
     expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { isActive: true },
-      })
+      }),
     );
   });
 
@@ -163,7 +166,7 @@ describe('generatePricelist', () => {
 
     await expect(generatePricelist('retail')).rejects.toThrow(PricelistError);
     await expect(generatePricelist('retail')).rejects.toThrow(
-      'Немає активних товарів для генерації прайс-листа'
+      'Немає активних товарів для генерації прайс-листа',
     );
   });
 
@@ -192,9 +195,7 @@ describe('generatePricelist', () => {
   });
 
   it('should handle products without a category', async () => {
-    mockPrisma.product.findMany.mockResolvedValue([
-      { ...mockProducts[0], category: null },
-    ]);
+    mockPrisma.product.findMany.mockResolvedValue([{ ...mockProducts[0], category: null }]);
 
     const result = await generatePricelist('retail');
 

@@ -14,9 +14,9 @@ function getJsonLd(container: HTMLElement) {
 
 describe('BreadcrumbJsonLd', () => {
   const items = [
-    { name: 'Home', url: 'https://poroshok.ua/' },
-    { name: 'Catalog', url: 'https://poroshok.ua/catalog' },
-    { name: 'Product', url: 'https://poroshok.ua/product/test' },
+    { name: 'Home', url: 'https://pulito.trade/' },
+    { name: 'Catalog', url: 'https://pulito.trade/catalog' },
+    { name: 'Product', url: 'https://pulito.trade/product/test' },
   ];
 
   it('renders a script tag with application/ld+json type', () => {
@@ -45,7 +45,7 @@ describe('BreadcrumbJsonLd', () => {
     const { container } = render(<BreadcrumbJsonLd items={items} />);
     const data = getJsonLd(container);
     expect(data.itemListElement[0].name).toBe('Home');
-    expect(data.itemListElement[0].item).toBe('https://poroshok.ua/');
+    expect(data.itemListElement[0].item).toBe('https://pulito.trade/');
     expect(data.itemListElement[2].name).toBe('Product');
   });
 

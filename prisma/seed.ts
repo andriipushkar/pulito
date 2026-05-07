@@ -868,18 +868,18 @@ async function main() {
 
   // --- Site Settings ---
   const settings = [
-    { key: 'site_name', value: 'Порошок' },
+    { key: 'site_name', value: 'Pulito' },
     { key: 'site_phone', value: '+380001234567' },
     { key: 'site_phone_display', value: '+38 (000) 123-45-67' },
-    { key: 'site_email', value: 'info@poroshok.ua' },
+    { key: 'site_email', value: 'info@pulito.trade' },
     { key: 'site_address', value: 'м. Київ, вул. Хрещатик, 1' },
     { key: 'working_hours', value: 'Пн-Пт: 9:00 - 18:00, Сб: 10:00 - 15:00' },
     { key: 'free_delivery_threshold', value: '2000' },
-    { key: 'social_telegram', value: 'https://t.me/poroshok_shop' },
-    { key: 'social_viber', value: 'viber://pa?chatURI=poroshok_shop' },
-    { key: 'social_instagram', value: 'https://instagram.com/poroshok_shop' },
-    { key: 'social_facebook', value: 'https://www.facebook.com/poroshok.shop' },
-    { key: 'social_tiktok', value: 'https://www.tiktok.com/@poroshok_shop' },
+    { key: 'social_telegram', value: 'https://t.me/pulito_shop' },
+    { key: 'social_viber', value: 'viber://pa?chatURI=pulito_shop' },
+    { key: 'social_instagram', value: 'https://instagram.com/pulito_shop' },
+    { key: 'social_facebook', value: 'https://www.facebook.com/pulito.shop' },
+    { key: 'social_tiktok', value: 'https://www.tiktok.com/@pulito_shop' },
     {
       key: 'company_description',
       value:

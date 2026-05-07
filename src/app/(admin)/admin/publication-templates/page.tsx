@@ -300,7 +300,7 @@ export default function PublicationTemplatesPage() {
             label="Хештеги"
             value={form.hashtagsTemplate}
             onChange={(e) => setForm({ ...form, hashtagsTemplate: e.target.value })}
-            placeholder="#акція #cleanshop #{{product.code}}"
+            placeholder="#акція #pulito #{{product.code}}"
           />
 
           <Input

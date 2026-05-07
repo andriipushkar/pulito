@@ -26,7 +26,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-const APP_URL = 'https://poroshok.com';
+const APP_URL = 'https://pulito.trade';
 
 const sampleListing = {
   title: 'Порошок Ariel 3кг',
@@ -103,7 +103,7 @@ describe('publishToOlx', () => {
     await publishToOlx(sampleListing, APP_URL);
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.images[0].url).toBe('https://poroshok.com/uploads/img1.webp');
+    expect(body.images[0].url).toBe('https://pulito.trade/uploads/img1.webp');
     expect(body.images[1].url).toBe('https://cdn.example.com/img2.webp');
   });
 
@@ -403,9 +403,11 @@ describe('syncMarketplacePrices', () => {
     mockGetChannelConfig.mockResolvedValue({ accessToken: 'tok' });
     mockFetch.mockRejectedValueOnce(new Error('HTTP 429: Too Many Requests'));
 
-    const result = await syncMarketplacePrices('olx', [
-      { externalId: '1', price: 100, quantity: 10 },
-    ], APP_URL);
+    const result = await syncMarketplacePrices(
+      'olx',
+      [{ externalId: '1', price: 100, quantity: 10 }],
+      APP_URL,
+    );
 
     // After retries exhaust, it should count as failed
     expect(result.failed).toBe(1);
@@ -467,7 +469,14 @@ describe('getMarketplaceMessages', () => {
       ok: true,
       json: async () => ({
         content: [
-          { id: '2', buyer_name: 'Олена', body: 'Доброго дня', item_id: '200', created: '2025-02-01', is_read: true },
+          {
+            id: '2',
+            buyer_name: 'Олена',
+            body: 'Доброго дня',
+            item_id: '200',
+            created: '2025-02-01',
+            is_read: true,
+          },
         ],
       }),
     });

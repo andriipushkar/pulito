@@ -29,11 +29,11 @@ beforeEach(() => vi.clearAllMocks());
 describe('getSettings', () => {
   it('returns all settings as key-value map', async () => {
     mockPrisma.siteSetting.findMany.mockResolvedValue([
-      { key: 'site_name', value: 'Порошок' },
+      { key: 'site_name', value: 'Pulito' },
       { key: 'site_phone', value: '+380501234567' },
     ]);
     const result = await getSettings();
-    expect(result.site_name).toBe('Порошок');
+    expect(result.site_name).toBe('Pulito');
     expect(result.site_phone).toBe('+380501234567');
   });
 });

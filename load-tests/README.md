@@ -32,12 +32,12 @@ k6 run load-tests/stress.js
 k6 run load-tests/spike.js
 
 # З кастомним URL
-k6 run -e BASE_URL=https://poroshok.com load-tests/load.js
+k6 run -e BASE_URL=https://pulito.trade load-tests/load.js
 ```
 
 ## Результати
 
-| Метрика | Добре | Прийнятно | Погано |
-|---------|-------|-----------|--------|
-| http_req_duration (p95) | < 500ms | < 1500ms | > 1500ms |
-| http_req_failed | 0% | < 1% | > 1% |
+| Метрика                 | Добре   | Прийнятно | Погано   |
+| ----------------------- | ------- | --------- | -------- |
+| http_req_duration (p95) | < 500ms | < 1500ms  | > 1500ms |
+| http_req_failed         | 0%      | < 1%      | > 1%     |

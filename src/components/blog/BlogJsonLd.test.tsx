@@ -10,7 +10,7 @@ import BlogJsonLd from './BlogJsonLd';
 const defaultProps = {
   title: 'Test Article',
   description: 'A test description',
-  url: 'https://poroshok.ua/blog/test-article',
+  url: 'https://pulito.trade/blog/test-article',
   datePublished: '2025-06-01T10:00:00Z',
   dateModified: '2025-06-02T10:00:00Z',
 };

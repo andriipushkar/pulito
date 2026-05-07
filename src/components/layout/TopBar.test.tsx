@@ -3,25 +3,38 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
-vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
-vi.mock('@/components/ui/Container', () => ({ default: ({ children, ...props }: any) => <div {...props}>{children}</div> }));
+vi.mock('next/link', () => ({
+  default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
+vi.mock('@/components/ui/Container', () => ({
+  default: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+}));
 vi.mock('@/hooks/useSettings', () => ({
   useSettings: () => ({
-    site_name: 'Порошок',
+    site_name: 'Pulito',
     site_phone: '+380001234567',
     site_phone_display: '+38 (000) 123-45-67',
-    site_email: 'info@poroshok.ua',
+    site_email: 'info@pulito.trade',
     site_address: 'м. Київ',
     working_hours: 'Пн-Пт: 9:00-18:00',
     free_delivery_threshold: '2000',
-    social_telegram: 'https://t.me/poroshok_shop',
-    social_viber: 'viber://pa?chatURI=poroshok_shop',
-    social_instagram: 'https://instagram.com/poroshok_shop',
-    social_facebook: 'https://www.facebook.com/poroshok.shop',
-    social_tiktok: 'https://www.tiktok.com/@poroshok_shop',
+    social_telegram: 'https://t.me/pulito_shop',
+    social_viber: 'viber://pa?chatURI=pulito_shop',
+    social_instagram: 'https://instagram.com/pulito_shop',
+    social_facebook: 'https://www.facebook.com/pulito.shop',
+    social_tiktok: 'https://www.tiktok.com/@pulito_shop',
     maintenance_mode: 'false',
     company_description: 'Тестовий опис',
-    company_legal_name: '', company_edrpou: '', company_ipn: '', company_iban: '', company_bank: '', company_legal_address: '', default_seo_title: '', default_seo_description: '', google_analytics_id: '', facebook_pixel_id: '',
+    company_legal_name: '',
+    company_edrpou: '',
+    company_ipn: '',
+    company_iban: '',
+    company_bank: '',
+    company_legal_address: '',
+    default_seo_title: '',
+    default_seo_description: '',
+    google_analytics_id: '',
+    facebook_pixel_id: '',
   }),
 }));
 vi.mock('@/components/icons', () => ({

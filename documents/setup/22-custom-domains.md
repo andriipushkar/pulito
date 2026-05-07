@@ -25,10 +25,10 @@ Tenant повинен додати два DNS-записи:
 
 ```
 # CNAME для домену
-shop.client.com  CNAME  proxy.cleanshop.com.ua
+shop.client.com  CNAME  proxy.pulito.trade
 
 # TXT для верифікації власності
-_cleanshop-verify.shop.client.com  TXT  verify=abc123token
+_pulito-verify.shop.client.com  TXT  verify=abc123token
 ```
 
 API для перевірки DNS:
@@ -113,7 +113,7 @@ curl -X DELETE http://localhost:3000/api/v1/tenant/domains/shop.client.com \
 
 | Проблема                           | Рішення                                                                                            |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
-| DNS верифікація не проходить       | DNS propagation може тривати до 48 годин. Перевірте: `dig TXT _cleanshop-verify.shop.client.com`   |
+| DNS верифікація не проходить       | DNS propagation може тривати до 48 годин. Перевірте: `dig TXT _pulito-verify.shop.client.com`      |
 | SSL сертифікат не генерується      | Перевірте що CNAME вказує на ваш сервер і порт 80 відкритий                                        |
 | ERR_SSL_VERSION_OR_CIPHER_MISMATCH | Nginx конфіг не містить SSL — перевірте що certbot створив сертифікат                              |
 | Домен показує інший tenant         | Перевірте що домен прив'язаний до правильного `tenantId` в БД                                      |

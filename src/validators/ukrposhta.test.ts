@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createShipmentSchema } from './ukrposhta';
 
 const validShipment = {
-  senderName: 'Порошок',
+  senderName: 'Pulito',
   senderPhone: '+380501234567',
   senderAddress: 'вул. Хрещатик 1, Київ',
   senderPostcode: '01001',
@@ -45,7 +45,9 @@ describe('createShipmentSchema', () => {
 
   it('should accept all delivery types', () => {
     for (const dt of ['W2W', 'W2D', 'D2W', 'D2D']) {
-      expect(createShipmentSchema.safeParse({ ...validShipment, deliveryType: dt }).success).toBe(true);
+      expect(createShipmentSchema.safeParse({ ...validShipment, deliveryType: dt }).success).toBe(
+        true,
+      );
     }
   });
 

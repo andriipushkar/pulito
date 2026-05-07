@@ -6,12 +6,12 @@
 
 ## Статуси публікації
 
-| Статус | Опис |
-|--------|------|
-| `draft` | Чернетка |
+| Статус      | Опис                          |
+| ----------- | ----------------------------- |
+| `draft`     | Чернетка                      |
 | `scheduled` | Запланована на конкретний час |
-| `published` | Опублікована |
-| `failed` | Помилка публікації |
+| `published` | Опублікована                  |
+| `failed`    | Помилка публікації            |
 
 ## Модель Publication (Prisma)
 
@@ -54,8 +54,8 @@ Publication {
   "imagePath": "/uploads/products/image.jpg",
   "productId": 42,
   "channels": ["telegram", "viber", "instagram"],
-  "hashtags": "#cleanshop #new",
-  "buttons": [{"text": "Купити", "url": "/product/slug"}],
+  "hashtags": "#pulito #new",
+  "buttons": [{ "text": "Купити", "url": "/product/slug" }],
   "scheduledAt": "2025-03-01T10:00:00Z"
 }
 ```
@@ -157,6 +157,7 @@ PublicationImage {
 ```
 
 Підтримує:
+
 - Кілька зображень (carousel для Instagram)
 - Відео файли (.mp4, .mov для Reels)
 - Обкладинки для Reels
@@ -164,6 +165,7 @@ PublicationImage {
 ## Інсайти Instagram
 
 Після публікації можна отримати інсайти:
+
 - `getMediaInsights(mediaId)` -- impressions, reach, engagement, saved
 - Зберігаються в `igInsightsJson`
 

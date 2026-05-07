@@ -10,7 +10,7 @@
 | -------------- | ------------------------------------------ | --------------------------------------------------- |
 | `NODE_ENV`     | `production`                               | `development` / `production` / `test`               |
 | `PORT`         | `3000`                                     | Порт додатку                                        |
-| `APP_URL`      | `https://poroshok.com`                     | Публічний URL сайту (для посилань, OAuth, webhooks) |
+| `APP_URL`      | `https://pulito.trade`                     | Публічний URL сайту (для посилань, OAuth, webhooks) |
 | `DATABASE_URL` | `postgresql://user:pass@localhost:6432/db` | PostgreSQL connection string                        |
 | `REDIS_URL`    | `redis://localhost:6380/0`                 | Redis connection string                             |
 | `JWT_SECRET`   | `openssl rand -hex 32`                     | Секрет для JWT токенів (мін. 32 символи)            |
@@ -49,7 +49,7 @@
 | ------------------- | ---------------- | ------------------------------------------- |
 | `UPLOAD_DIR`        | `./uploads`      | Директорія для завантажених файлів          |
 | `MAX_FILE_SIZE`     | `10485760`       | Макс. розмір файлу в байтах (10 MB)         |
-| `WATERMARK_TEXT`    | `poroshok.com`   | Текст водяного знака на зображеннях товарів |
+| `WATERMARK_TEXT`    | `pulito.trade`   | Текст водяного знака на зображеннях товарів |
 | `WATERMARK_ENABLED` | `true`           | `false` щоб вимкнути водяний знак           |
 
 ---
@@ -189,7 +189,7 @@
 | `R2_ACCESS_KEY_ID`     |                                                        | R2 API Access Key                          |
 | `R2_SECRET_ACCESS_KEY` |                                                        | R2 API Secret Key                          |
 | `R2_BUCKET`            |                                                        | Назва бакету (clean-media)                 |
-| `R2_PUBLIC_URL`        |                                                        | Публічний URL (https://media.poroshok.com) |
+| `R2_PUBLIC_URL`        |                                                        | Публічний URL (https://media.pulito.trade) |
 
 ---
 

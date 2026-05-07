@@ -74,10 +74,10 @@ vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...args: any[]) => mockG
 vi.mock('@/utils/format', () => ({ formatPrice: (v: number) => `${v} ₴` }));
 vi.mock('@/hooks/useSettings', () => ({
   useSettings: () => ({
-    site_name: 'Порошок',
+    site_name: 'Pulito',
     site_phone: '+380001234567',
     site_phone_display: '+38 (000) 123-45-67',
-    site_email: 'info@poroshok.ua',
+    site_email: 'info@pulito.trade',
     site_address: 'м. Київ',
     working_hours: 'Пн-Пт: 9:00-18:00',
     free_delivery_threshold: '2000',

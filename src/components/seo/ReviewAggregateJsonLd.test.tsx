@@ -15,7 +15,7 @@ function getJsonLd(container: HTMLElement) {
 describe('ReviewAggregateJsonLd', () => {
   const defaultProps = {
     productName: 'Super Cleaner',
-    productUrl: 'https://poroshok.ua/product/super-cleaner',
+    productUrl: 'https://pulito.trade/product/super-cleaner',
     ratingValue: 4.5,
     reviewCount: 42,
   };
@@ -27,9 +27,7 @@ describe('ReviewAggregateJsonLd', () => {
   });
 
   it('returns null when reviewCount is 0', () => {
-    const { container } = render(
-      <ReviewAggregateJsonLd {...defaultProps} reviewCount={0} />
-    );
+    const { container } = render(<ReviewAggregateJsonLd {...defaultProps} reviewCount={0} />);
     expect(container.innerHTML).toBe('');
   });
 
@@ -43,7 +41,7 @@ describe('ReviewAggregateJsonLd', () => {
     const { container } = render(<ReviewAggregateJsonLd {...defaultProps} />);
     const data = getJsonLd(container);
     expect(data.name).toBe('Super Cleaner');
-    expect(data.url).toBe('https://poroshok.ua/product/super-cleaner');
+    expect(data.url).toBe('https://pulito.trade/product/super-cleaner');
   });
 
   it('includes aggregateRating with correct values', () => {

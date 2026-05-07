@@ -112,7 +112,7 @@ describe('buildPredictions', () => {
       new Date('2025-07-01'),
     ];
     mockPrisma.orderItem.findMany.mockResolvedValue(
-      dates.map((d) => ({ productId: 1, order: { userId: 10, createdAt: d } }))
+      dates.map((d) => ({ productId: 1, order: { userId: 10, createdAt: d } })),
     );
     mockPrisma.purchasePrediction.upsert.mockResolvedValue({});
 
@@ -172,7 +172,7 @@ describe('processReminders', () => {
         productId: 1,
         predictedNextDate: tomorrow,
         notificationSent: false,
-        product: { id: 1, name: 'Порошок', slug: 'poroshok', imagePath: null },
+        product: { id: 1, name: 'Pulito', slug: 'poroshok', imagePath: null },
         user: { id: 10, fullName: 'Тест' },
       },
     ]);
@@ -198,7 +198,8 @@ describe('processReminders', () => {
     expect(call.where.predictedNextDate.gte).toBeInstanceOf(Date);
     expect(call.where.predictedNextDate.lte).toBeInstanceOf(Date);
 
-    const diffMs = call.where.predictedNextDate.lte.getTime() - call.where.predictedNextDate.gte.getTime();
+    const diffMs =
+      call.where.predictedNextDate.lte.getTime() - call.where.predictedNextDate.gte.getTime();
     const diffDays = diffMs / (1000 * 60 * 60 * 24);
     expect(diffDays).toBeCloseTo(5, 0);
   });
@@ -212,7 +213,7 @@ describe('processReminders', () => {
         productId: 1,
         predictedNextDate: tomorrow,
         notificationSent: false,
-        product: { id: 1, name: 'Порошок', slug: 'poroshok', imagePath: null },
+        product: { id: 1, name: 'Pulito', slug: 'poroshok', imagePath: null },
         user: { id: 10, fullName: 'Тест' },
       },
       {

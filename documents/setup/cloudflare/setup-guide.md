@@ -2,13 +2,13 @@
 
 ## Чому Cloudflare?
 
-| Без Cloudflare | З Cloudflare |
-|---------------|-------------|
-| VPS віддає все: HTML, CSS, JS, зображення | VPS віддає тільки HTML та API |
-| ~25 одночасних юзерів | ~200-500 одночасних юзерів |
-| Один сервер, одна локація | 300+ CDN точок по всьому світу |
-| Немає DDoS захисту | Безкоштовний DDoS захист |
-| Платний SSL | Безкоштовний SSL |
+| Без Cloudflare                            | З Cloudflare                   |
+| ----------------------------------------- | ------------------------------ |
+| VPS віддає все: HTML, CSS, JS, зображення | VPS віддає тільки HTML та API  |
+| ~25 одночасних юзерів                     | ~200-500 одночасних юзерів     |
+| Один сервер, одна локація                 | 300+ CDN точок по всьому світу |
+| Немає DDoS захисту                        | Безкоштовний DDoS захист       |
+| Платний SSL                               | Безкоштовний SSL               |
 
 **Вартість: $0/міс (Free план)**
 
@@ -22,7 +22,7 @@
 ## Крок 2: Додати домен
 
 1. Натиснути "Add a site"
-2. Ввести ваш домен: `poroshok.com` (або ваш домен)
+2. Ввести ваш домен: `pulito.trade` (або ваш домен)
 3. Обрати **Free план** → Continue
 4. Cloudflare просканує DNS записи — підтвердити
 
@@ -43,7 +43,7 @@
 
 ```
 Тип    Ім'я           Значення              Proxy
-A      poroshok.com   <IP вашого VPS>       ☁️ Proxied
+A      pulito.trade   <IP вашого VPS>       ☁️ Proxied
 A      www            <IP вашого VPS>       ☁️ Proxied
 ```
 
@@ -62,6 +62,7 @@ A      www            <IP вашого VPS>       ☁️ Proxied
 ### 6.1 Cache Rules (Dashboard → Caching → Cache Rules)
 
 **Правило 1: Кешувати статику (зображення, CSS, JS)**
+
 ```
 Якщо: URI Path містить /uploads/ АБО URI Path містить /_next/static/ АБО URI Path містить /images/
 Тоді: Cache (Eligible for cache)
@@ -70,18 +71,21 @@ A      www            <IP вашого VPS>       ☁️ Proxied
 ```
 
 **Правило 2: Не кешувати API**
+
 ```
 Якщо: URI Path починається з /api/
 Тоді: Bypass Cache
 ```
 
 **Правило 3: Не кешувати адмінку**
+
 ```
 Якщо: URI Path починається з /admin
 Тоді: Bypass Cache
 ```
 
 ### 6.2 Browser Cache TTL (Dashboard → Caching → Configuration)
+
 - Browser Cache TTL: **Respect Existing Headers**
   (наш next.config.ts вже ставить правильні Cache-Control)
 
@@ -104,6 +108,7 @@ A      www            <IP вашого VPS>       ☁️ Proxied
 ### Firewall Rules (Security → WAF → Custom Rules)
 
 **Правило: Блокувати доступ до cron ззовні**
+
 ```
 Якщо: URI Path починається з /api/v1/cron
 І: IP Source Address НЕ ваш VPS IP
@@ -114,25 +119,25 @@ A      www            <IP вашого VPS>       ☁️ Proxied
 
 ```bash
 # Змінити APP_URL на ваш домен через Cloudflare
-APP_URL=https://poroshok.com
+APP_URL=https://pulito.trade
 
 # Якщо використовуєте R2 для зображень
-R2_PUBLIC_URL=https://media.poroshok.com
+R2_PUBLIC_URL=https://media.pulito.trade
 ```
 
 ## Крок 10: Перевірка
 
 ```bash
 # Перевірити що Cloudflare працює
-curl -sI https://poroshok.com | grep -E "cf-|server:"
+curl -sI https://pulito.trade | grep -E "cf-|server:"
 # Очікувано: server: cloudflare, cf-ray: xxx
 
 # Перевірити кешування статики
-curl -sI https://poroshok.com/_next/static/chunks/main.js | grep -E "cf-cache|age"
+curl -sI https://pulito.trade/_next/static/chunks/main.js | grep -E "cf-cache|age"
 # Очікувано: cf-cache-status: HIT
 
 # Перевірити що API не кешується
-curl -sI https://poroshok.com/api/v1/health | grep cf-cache
+curl -sI https://pulito.trade/api/v1/health | grep cf-cache
 # Очікувано: cf-cache-status: DYNAMIC
 ```
 
@@ -143,7 +148,7 @@ curl -sI https://poroshok.com/api/v1/health | grep cf-cache
 Якщо хочете повністю розвантажити VPS від зображень:
 
 1. Dashboard → R2 → Create Bucket → `clean-media`
-2. Settings → Public access → Enable (Custom domain: `media.poroshok.com`)
+2. Settings → Public access → Enable (Custom domain: `media.pulito.trade`)
 3. API tokens → Create token → R2 Read & Write
 4. В .env додати:
    ```
@@ -151,7 +156,7 @@ curl -sI https://poroshok.com/api/v1/health | grep cf-cache
    R2_ACCESS_KEY_ID=your_key
    R2_SECRET_ACCESS_KEY=your_secret
    R2_BUCKET=clean-media
-   R2_PUBLIC_URL=https://media.poroshok.com
+   R2_PUBLIC_URL=https://media.pulito.trade
    ```
 
 ---
@@ -159,6 +164,7 @@ curl -sI https://poroshok.com/api/v1/health | grep cf-cache
 ## Моніторинг
 
 Dashboard → Analytics:
+
 - Requests (всього / кешовані / некешовані)
 - Bandwidth Saved (скільки трафіку Cloudflare зекономив)
 - Threats Blocked (заблоковані атаки)
@@ -168,10 +174,10 @@ Dashboard → Analytics:
 
 ## Типові помилки
 
-| Проблема | Вирішення |
-|----------|-----------|
-| 522 Connection timed out | VPS не відповідає. Перевірте `pm2 status` |
-| 525 SSL handshake failed | SSL/TLS → поставити **Full**, не Full (strict). Або додати SSL на VPS |
-| Redirect loop | SSL/TLS → поставити **Full (strict)**, не Flexible |
-| API повертає кешовані дані | Перевірте Cache Rules — API має бути Bypass |
-| Зображення не оновлюються | Dashboard → Caching → Purge Cache (Purge Everything) |
+| Проблема                   | Вирішення                                                             |
+| -------------------------- | --------------------------------------------------------------------- |
+| 522 Connection timed out   | VPS не відповідає. Перевірте `pm2 status`                             |
+| 525 SSL handshake failed   | SSL/TLS → поставити **Full**, не Full (strict). Або додати SSL на VPS |
+| Redirect loop              | SSL/TLS → поставити **Full (strict)**, не Flexible                    |
+| API повертає кешовані дані | Перевірте Cache Rules — API має бути Bypass                           |
+| Зображення не оновлюються  | Dashboard → Caching → Purge Cache (Purge Everything)                  |
