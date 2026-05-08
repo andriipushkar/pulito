@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 const PRODUCTS_PER_SITEMAP = 5000;
 
 /**
@@ -7,10 +9,7 @@ const PRODUCTS_PER_SITEMAP = 5000;
  * Each chunk returns up to 5000 product URLs in XML format.
  * This prevents timeout on servers with 10,000+ products.
  */
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ chunk: string }> }
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ chunk: string }> }) {
   const { chunk } = await params;
   const chunkIndex = parseInt(chunk, 10);
   if (isNaN(chunkIndex) || chunkIndex < 0) {
@@ -39,7 +38,7 @@ export async function GET(
     <lastmod>${p.updatedAt.toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-  </url>`
+  </url>`,
     )
     .join('\n');
 

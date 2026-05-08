@@ -1,6 +1,10 @@
 import type { MetadataRoute } from 'next';
 import { prisma } from '@/lib/prisma';
 
+// Sitemap reads from the live DB; CI builds with a stub DATABASE_URL,
+// so prerendering at build time fails. Compute on request, cached at runtime.
+export const dynamic = 'force-dynamic';
+
 const PRODUCTS_PER_SITEMAP = 5000;
 
 /**
@@ -97,7 +101,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...staticPages, ...allProductPages, ...categoryPages, ...contentPages, ...blogPages, ...bundlePages];
+  return [
+    ...staticPages,
+    ...allProductPages,
+    ...categoryPages,
+    ...contentPages,
+    ...blogPages,
+    ...bundlePages,
+  ];
 }
 
 /**
