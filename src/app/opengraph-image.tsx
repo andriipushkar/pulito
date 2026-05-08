@@ -57,7 +57,7 @@ export default async function OpengraphImage() {
             height: 14,
             borderRadius: 999,
             background: '#ffc107',
-            display: 'inline-block',
+            display: 'block',
           }}
         />
         Україна
