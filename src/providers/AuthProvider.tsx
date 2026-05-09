@@ -18,8 +18,16 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (data: { email: string; password: string; fullName: string; phone?: string; companyName?: string; edrpou?: string }) => Promise<{ success: boolean; error?: string }>;
+  register: (data: {
+    email: string;
+    password: string;
+    fullName: string;
+    phone?: string;
+    companyName?: string;
+    edrpou?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
@@ -28,6 +36,7 @@ export const AuthContext = createContext<AuthContextValue>({
   login: async () => ({ success: false }),
   register: async () => ({ success: false }),
   logout: async () => {},
+  refreshAuth: async () => {},
 });
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
@@ -101,28 +110,38 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (regData: { email: string; password: string; fullName: string; phone?: string; companyName?: string; edrpou?: string }) => {
-    try {
-      const res = await fetch('/api/v1/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify(regData),
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.success && data.data) {
-        // Auto-login after registration
-        setAccessToken(data.data.accessToken);
-        if (data.data.user) {
-          setUser(data.data.user);
+  const register = useCallback(
+    async (regData: {
+      email: string;
+      password: string;
+      fullName: string;
+      phone?: string;
+      companyName?: string;
+      edrpou?: string;
+    }) => {
+      try {
+        const res = await fetch('/api/v1/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify(regData),
+          credentials: 'include',
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          // Auto-login after registration
+          setAccessToken(data.data.accessToken);
+          if (data.data.user) {
+            setUser(data.data.user);
+          }
+          return { success: true };
         }
-        return { success: true };
+        return { success: false, error: data.error || 'Помилка реєстрації' };
+      } catch {
+        return { success: false, error: 'Помилка мережі' };
       }
-      return { success: false, error: data.error || 'Помилка реєстрації' };
-    } catch {
-      return { success: false, error: 'Помилка мережі' };
-    }
-  }, []);
+    },
+    [],
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -138,7 +157,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, refreshAuth }}>
       {children}
     </AuthContext.Provider>
   );
