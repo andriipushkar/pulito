@@ -33,12 +33,16 @@ export default function AdminBlogCategoriesPage() {
       .finally(() => setIsLoading(false));
   };
 
-  useEffect(() => { loadCategories(); }, []);
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
   const handleCreate = async () => {
     if (!form.name.trim()) return;
-    const slug = form.slug.trim() || form.name.trim().toLowerCase().replace(/[^a-zа-яіїєґ0-9]+/gi, '-').replace(/-+$/, '');
-    const res = await apiClient.post('/api/v1/admin/blog/categories', { name: form.name.trim(), slug });
+    const userSlug = form.slug.trim();
+    const payload: Record<string, unknown> = { name: form.name.trim() };
+    if (userSlug) payload.slug = userSlug;
+    const res = await apiClient.post('/api/v1/admin/blog/categories', payload);
     if (res.success) {
       toast.success('Категорію створено');
       setShowForm(false);
@@ -67,17 +71,31 @@ export default function AdminBlogCategoriesPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <Link href="/admin/blog" className="text-sm text-[var(--color-primary)] hover:underline">← Блог</Link>
+          <Link href="/admin/blog" className="text-sm text-[var(--color-primary)] hover:underline">
+            ← Блог
+          </Link>
           <h2 className="mt-1 text-xl font-bold">Категорії блогу</h2>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Скасувати' : '+ Додати категорію'}</Button>
+        <Button onClick={() => setShowForm(!showForm)}>
+          {showForm ? 'Скасувати' : '+ Додати категорію'}
+        </Button>
       </div>
 
       {showForm && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <div className="flex flex-wrap gap-3">
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Назва категорії" className="w-56" />
-            <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="Slug (автоматично)" className="w-44" />
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Назва категорії"
+              className="w-56"
+            />
+            <Input
+              value={form.slug}
+              onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              placeholder="Slug (автоматично)"
+              className="w-44"
+            />
             <Button onClick={handleCreate}>Створити</Button>
           </div>
         </div>
@@ -95,12 +113,20 @@ export default function AdminBlogCategoriesPage() {
           </thead>
           <tbody>
             {categories.map((cat) => (
-              <tr key={cat.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
+              <tr
+                key={cat.id}
+                className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]"
+              >
                 <td className="px-4 py-3 font-medium">{cat.name}</td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">/{cat.slug}</td>
-                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">{cat._count?.posts ?? 0}</td>
+                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">
+                  {cat._count?.posts ?? 0}
+                </td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => setDeleteId(cat.id)} className="text-xs text-[var(--color-danger)] hover:underline">
+                  <button
+                    onClick={() => setDeleteId(cat.id)}
+                    className="text-xs text-[var(--color-danger)] hover:underline"
+                  >
                     Видалити
                   </button>
                 </td>
@@ -108,7 +134,10 @@ export default function AdminBlogCategoriesPage() {
             ))}
             {categories.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                <td
+                  colSpan={4}
+                  className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                >
                   Категорій немає
                 </td>
               </tr>

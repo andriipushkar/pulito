@@ -48,29 +48,45 @@ export default function AdminCategoriesPage() {
   const [createForm, setCreateForm] = useState({ name: '', slug: '', parentId: '' });
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ type: 'merge' | 'delete'; id?: number; name?: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'merge' | 'delete';
+    id?: number;
+    name?: string;
+  } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   const loadCategories = useCallback(() => {
     setIsLoading(true);
     apiClient
       .get<AdminCategory[]>('/api/v1/admin/categories')
-      .then((res) => { if (res.success && res.data) setCategories(res.data); })
+      .then((res) => {
+        if (res.success && res.data) setCategories(res.data);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
-  useEffect(() => { loadCategories(); }, [loadCategories]);
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
-  const rootCategories = categories.filter((c) => !c.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
-  const childrenOf = (parentId: number) => categories.filter((c) => c.parentId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+  const rootCategories = categories
+    .filter((c) => !c.parentId)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const childrenOf = (parentId: number) =>
+    categories.filter((c) => c.parentId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
 
   const handleEdit = (cat: AdminCategory) => {
     setEditingId(cat.id);
-    setEditForm({ name: cat.name, slug: cat.slug, sortOrder: cat.sortOrder, isVisible: cat.isVisible });
+    setEditForm({
+      name: cat.name,
+      slug: cat.slug,
+      sortOrder: cat.sortOrder,
+      isVisible: cat.isVisible,
+    });
   };
 
   const handleSave = async () => {
@@ -116,8 +132,8 @@ export default function AdminCategoriesPage() {
     // Save to server
     await Promise.all(
       reordered.map((cat, idx) =>
-        apiClient.put(`/api/v1/admin/categories/${cat.id}`, { sortOrder: idx })
-      )
+        apiClient.put(`/api/v1/admin/categories/${cat.id}`, { sortOrder: idx }),
+      ),
     );
   };
 
@@ -134,7 +150,9 @@ export default function AdminCategoriesPage() {
     setConfirmAction(null);
     setIsMerging(true);
     try {
-      const res = await apiClient.post(`/api/v1/admin/categories/${mergeSource}/merge`, { targetCategoryId: targetId });
+      const res = await apiClient.post(`/api/v1/admin/categories/${mergeSource}/merge`, {
+        targetCategoryId: targetId,
+      });
       if (res.success) {
         setMergeSource(null);
         setMergeTarget('');
@@ -149,8 +167,9 @@ export default function AdminCategoriesPage() {
     if (!createForm.name.trim()) return;
     setIsCreating(true);
     try {
-      const slug = createForm.slug.trim() || createForm.name.trim().toLowerCase().replace(/[^a-zа-яіїєґ0-9]+/gi, '-').replace(/-+$/, '');
-      const payload: Record<string, unknown> = { name: createForm.name.trim(), slug };
+      const userSlug = createForm.slug.trim();
+      const payload: Record<string, unknown> = { name: createForm.name.trim() };
+      if (userSlug) payload.slug = userSlug;
       if (createForm.parentId) payload.parentId = Number(createForm.parentId);
       const res = await apiClient.post('/api/v1/admin/categories', payload);
       if (res.success) {
@@ -183,14 +202,20 @@ export default function AdminCategoriesPage() {
   };
 
   const handleToggle = async (cat: AdminCategory) => {
-    const res = await apiClient.put(`/api/v1/admin/categories/${cat.id}`, { isVisible: !cat.isVisible });
+    const res = await apiClient.put(`/api/v1/admin/categories/${cat.id}`, {
+      isVisible: !cat.isVisible,
+    });
     if (res.success) toast.success(cat.isVisible ? 'Категорію сховано' : 'Категорію показано');
     else toast.error(res.error || 'Помилка');
     loadCategories();
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
@@ -206,8 +231,18 @@ export default function AdminCategoriesPage() {
         <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <p className="mb-3 text-sm font-semibold">Нова категорія</p>
           <div className="flex flex-wrap gap-3">
-            <Input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} placeholder="Назва категорії" className="w-56" />
-            <Input value={createForm.slug} onChange={(e) => setCreateForm({ ...createForm, slug: e.target.value })} placeholder="Slug (автоматично)" className="w-44" />
+            <Input
+              value={createForm.name}
+              onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+              placeholder="Назва категорії"
+              className="w-56"
+            />
+            <Input
+              value={createForm.slug}
+              onChange={(e) => setCreateForm({ ...createForm, slug: e.target.value })}
+              placeholder="Slug (автоматично)"
+              className="w-44"
+            />
             <select
               value={createForm.parentId}
               onChange={(e) => setCreateForm({ ...createForm, parentId: e.target.value })}
@@ -215,10 +250,14 @@ export default function AdminCategoriesPage() {
             >
               <option value="">Без батьківської</option>
               {rootCategories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
             </select>
-            <Button onClick={handleCreate} isLoading={isCreating}>Створити</Button>
+            <Button onClick={handleCreate} isLoading={isCreating}>
+              Створити
+            </Button>
           </div>
         </div>
       )}
@@ -235,21 +274,41 @@ export default function AdminCategoriesPage() {
               className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
             >
               <option value="">Оберіть категорію</option>
-              {categories.filter((c) => c.id !== mergeSource).map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+              {categories
+                .filter((c) => c.id !== mergeSource)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
             </select>
-            <Button size="sm" onClick={handleMerge} isLoading={isMerging} disabled={!mergeTarget}>Об&apos;єднати</Button>
-            <Button size="sm" variant="outline" onClick={() => { setMergeSource(null); setMergeTarget(''); }}>Скасувати</Button>
+            <Button size="sm" onClick={handleMerge} isLoading={isMerging} disabled={!mergeTarget}>
+              Об&apos;єднати
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setMergeSource(null);
+                setMergeTarget('');
+              }}
+            >
+              Скасувати
+            </Button>
           </div>
         </div>
       )}
 
-      <p className="mb-2 text-xs text-[var(--color-text-secondary)]">Перетягуйте категорії для зміни порядку</p>
+      <p className="mb-2 text-xs text-[var(--color-text-secondary)]">
+        Перетягуйте категорії для зміни порядку
+      </p>
 
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={rootCategories.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={rootCategories.map((c) => c.id)}
+            strategy={verticalListSortingStrategy}
+          >
             {rootCategories.map((cat, i) => (
               <div key={cat.id}>
                 <SortableCategoryRow
@@ -268,8 +327,15 @@ export default function AdminCategoriesPage() {
                   isFirst={i === 0}
                 />
                 {childrenOf(cat.id).length > 0 && (
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={childrenOf(cat.id).map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={childrenOf(cat.id).map((c) => c.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
                       {childrenOf(cat.id).map((child) => (
                         <SortableCategoryRow
                           key={child.id}
@@ -297,7 +363,9 @@ export default function AdminCategoriesPage() {
           </SortableContext>
         </DndContext>
         {categories.length === 0 && (
-          <div className="px-4 py-8 text-center text-[var(--color-text-secondary)]">Категорій немає</div>
+          <div className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+            Категорій немає
+          </div>
         )}
       </div>
 
@@ -347,7 +415,12 @@ function SortableCategoryRow({
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
-  onEditFormChange: (form: { name: string; slug: string; sortOrder: number; isVisible: boolean }) => void;
+  onEditFormChange: (form: {
+    name: string;
+    slug: string;
+    sortOrder: number;
+    isVisible: boolean;
+  }) => void;
   onToggle: () => void;
   onMerge: () => void;
   onDelete: () => void;
@@ -355,7 +428,9 @@ function SortableCategoryRow({
   isChild?: boolean;
   isFirst?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: cat.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -372,15 +447,40 @@ function SortableCategoryRow({
         className={`border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-3 ${isChild ? 'pl-10' : ''}`}
       >
         <div className="flex flex-wrap gap-3">
-          <Input value={editForm.name} onChange={(e) => onEditFormChange({ ...editForm, name: e.target.value })} placeholder="Назва" className="w-48" />
-          <Input value={editForm.slug} onChange={(e) => onEditFormChange({ ...editForm, slug: e.target.value })} placeholder="Slug" className="w-40" />
-          <Input type="number" value={String(editForm.sortOrder)} onChange={(e) => onEditFormChange({ ...editForm, sortOrder: Number(e.target.value) })} placeholder="Порядок" className="w-24" />
+          <Input
+            value={editForm.name}
+            onChange={(e) => onEditFormChange({ ...editForm, name: e.target.value })}
+            placeholder="Назва"
+            className="w-48"
+          />
+          <Input
+            value={editForm.slug}
+            onChange={(e) => onEditFormChange({ ...editForm, slug: e.target.value })}
+            placeholder="Slug"
+            className="w-40"
+          />
+          <Input
+            type="number"
+            value={String(editForm.sortOrder)}
+            onChange={(e) => onEditFormChange({ ...editForm, sortOrder: Number(e.target.value) })}
+            placeholder="Порядок"
+            className="w-24"
+          />
           <label className="flex items-center gap-1.5 text-sm">
-            <input type="checkbox" checked={editForm.isVisible} onChange={(e) => onEditFormChange({ ...editForm, isVisible: e.target.checked })} className="accent-[var(--color-primary)]" />
+            <input
+              type="checkbox"
+              checked={editForm.isVisible}
+              onChange={(e) => onEditFormChange({ ...editForm, isVisible: e.target.checked })}
+              className="accent-[var(--color-primary)]"
+            />
             Активна
           </label>
-          <Button size="sm" onClick={onSave} isLoading={isSaving}>Зберегти</Button>
-          <Button size="sm" variant="outline" onClick={onCancel}>Скасувати</Button>
+          <Button size="sm" onClick={onSave} isLoading={isSaving}>
+            Зберегти
+          </Button>
+          <Button size="sm" variant="outline" onClick={onCancel}>
+            Скасувати
+          </Button>
         </div>
       </div>
     );
@@ -399,7 +499,13 @@ function SortableCategoryRow({
           className="cursor-grab touch-none rounded p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-border)] active:cursor-grabbing"
           aria-label={`Перетягнути ${cat.name}`}
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
           </svg>
         </button>
@@ -407,17 +513,33 @@ function SortableCategoryRow({
           <span className={`font-medium ${isChild ? 'text-sm' : ''}`}>{cat.name}</span>
           <span className="ml-2 text-xs text-[var(--color-text-secondary)]">/{cat.slug}</span>
           {cat._count?.products !== undefined && (
-            <span className="ml-2 text-xs text-[var(--color-text-secondary)]">({cat._count.products} товарів)</span>
+            <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
+              ({cat._count.products} товарів)
+            </span>
           )}
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <button onClick={onToggle} className={`rounded-full px-2 py-0.5 text-xs font-medium ${cat.isVisible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+        <button
+          onClick={onToggle}
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${cat.isVisible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}
+        >
           {cat.isVisible ? 'Активна' : 'Вимкнена'}
         </button>
-        <button onClick={onEdit} className="text-xs text-[var(--color-primary)] hover:underline">Редагувати</button>
-        <button onClick={onMerge} className="text-xs text-[var(--color-text-secondary)] hover:underline">Об&apos;єднати</button>
-        <button onClick={onDelete} disabled={isDeleting} className="text-xs text-[var(--color-danger)] hover:underline disabled:opacity-50">
+        <button onClick={onEdit} className="text-xs text-[var(--color-primary)] hover:underline">
+          Редагувати
+        </button>
+        <button
+          onClick={onMerge}
+          className="text-xs text-[var(--color-text-secondary)] hover:underline"
+        >
+          Об&apos;єднати
+        </button>
+        <button
+          onClick={onDelete}
+          disabled={isDeleting}
+          className="text-xs text-[var(--color-danger)] hover:underline disabled:opacity-50"
+        >
           {isDeleting ? '...' : 'Видалити'}
         </button>
       </div>
