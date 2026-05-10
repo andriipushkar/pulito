@@ -86,6 +86,16 @@ export default function AdminProductsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [confirmBulk, setConfirmBulk] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    code: '',
+    name: '',
+    priceRetail: '',
+    priceWholesale: '',
+    quantity: '0',
+    categoryId: '',
+  });
 
   const page = Number(searchParams.get('page')) || 1;
   const limit = Number(searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
@@ -282,6 +292,40 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleCreate = async () => {
+    const code = createForm.code.trim();
+    const name = createForm.name.trim();
+    const retail = parseFloat(createForm.priceRetail.replace(',', '.'));
+    if (!code || !name) {
+      toast.error('Заповніть код і назву');
+      return;
+    }
+    if (!Number.isFinite(retail) || retail < 0) {
+      toast.error('Вкажіть коректну роздрібну ціну');
+      return;
+    }
+    setIsCreating(true);
+    try {
+      const wholesale = parseFloat(createForm.priceWholesale.replace(',', '.'));
+      const qty = parseInt(createForm.quantity, 10);
+      const payload: Record<string, unknown> = { code, name, priceRetail: retail };
+      if (Number.isFinite(wholesale) && wholesale >= 0) payload.priceWholesale = wholesale;
+      if (Number.isFinite(qty) && qty >= 0) payload.quantity = qty;
+      if (createForm.categoryId) payload.categoryId = Number(createForm.categoryId);
+      const res = await apiClient.post<{ id: number }>('/api/v1/admin/products', payload);
+      if (res.success && res.data) {
+        toast.success('Товар створено');
+        router.push(`/admin/products/${res.data.id}`);
+      } else {
+        toast.error(res.error || 'Помилка створення');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const activeFilters = ['categoryId', 'isActive', 'stock', 'sort'].filter(
     (k) => searchParams.get(k) && (k !== 'sort' || searchParams.get(k) !== 'id_desc'),
   ).length;
@@ -309,6 +353,9 @@ export default function AdminProductsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-64"
           />
+          <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
+            {showCreate ? 'Скасувати' : '+ Створити товар'}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             Фільтри{activeFilters > 0 ? ` (${activeFilters})` : ''}
           </Button>
@@ -324,6 +371,78 @@ export default function AdminProductsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Create panel */}
+      {showCreate && (
+        <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <p className="mb-3 text-sm font-semibold">Новий товар</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium">Код *</label>
+              <Input
+                value={createForm.code}
+                onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })}
+                placeholder="SKU-001"
+                className="w-32"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">Назва *</label>
+              <Input
+                value={createForm.name}
+                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                placeholder="Назва товару"
+                className="w-64"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">Роздріб, ₴ *</label>
+              <Input
+                value={createForm.priceRetail}
+                onChange={(e) => setCreateForm({ ...createForm, priceRetail: e.target.value })}
+                placeholder="0.00"
+                className="w-28"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">Опт, ₴</label>
+              <Input
+                value={createForm.priceWholesale}
+                onChange={(e) => setCreateForm({ ...createForm, priceWholesale: e.target.value })}
+                placeholder="0.00"
+                className="w-28"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">Залишок</label>
+              <Input
+                value={createForm.quantity}
+                onChange={(e) => setCreateForm({ ...createForm, quantity: e.target.value })}
+                placeholder="0"
+                className="w-20"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">Категорія</label>
+              <Select
+                options={[
+                  { value: '', label: 'Без категорії' },
+                  ...categories.map((c) => ({ value: String(c.id), label: c.name })),
+                ]}
+                value={createForm.categoryId}
+                onChange={(e) => setCreateForm({ ...createForm, categoryId: e.target.value })}
+              />
+            </div>
+            <Button onClick={handleCreate} isLoading={isCreating}>
+              Створити
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+            Після створення відкриється повна сторінка редагування — там додаси опис, фото,
+            додаткові ціни та інші параметри.
+          </p>
+        </div>
+      )}
 
       {/* Filters panel */}
       {showFilters && (

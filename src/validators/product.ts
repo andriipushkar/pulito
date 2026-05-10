@@ -9,9 +9,7 @@ export const productFilterSchema = z.object({
   priceMax: z.coerce.number().min(0).optional(),
   promo: z.coerce.boolean().optional(),
   inStock: z.coerce.boolean().optional(),
-  sort: z
-    .enum(['popular', 'price_asc', 'price_desc', 'name_asc', 'newest'])
-    .default('popular'),
+  sort: z.enum(['popular', 'price_asc', 'price_desc', 'name_asc', 'newest']).default('popular'),
 });
 
 export type ProductFilterInput = z.infer<typeof productFilterSchema>;
@@ -19,14 +17,14 @@ export type ProductFilterInput = z.infer<typeof productFilterSchema>;
 export const createProductSchema = z.object({
   code: z
     .string()
-    .min(1, 'Код товару обов\'язковий')
+    .min(1, "Код товару обов'язковий")
     .max(50, 'Код товару не може перевищувати 50 символів'),
   name: z
     .string()
     .min(2, 'Назва товару має містити щонайменше 2 символи')
     .max(255, 'Назва товару не може перевищувати 255 символів'),
   categoryId: z.number().int().positive().optional().nullable(),
-  priceRetail: z.number().min(0, 'Ціна не може бути від\'ємною'),
+  priceRetail: z.number().min(0, "Ціна не може бути від'ємною"),
   priceWholesale: z.number().min(0).optional().nullable(),
   priceWholesale2: z.number().min(0).optional().nullable(),
   priceWholesale3: z.number().min(0).optional().nullable(),
@@ -34,6 +32,8 @@ export const createProductSchema = z.object({
   isPromo: z.boolean().default(false),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).default(0),
+  description: z.string().max(2000).optional().nullable(),
+  descriptionHtml: z.string().max(50000).optional().nullable(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

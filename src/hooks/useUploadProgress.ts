@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { getAccessToken } from '@/lib/api-client';
 
 interface UploadState {
   isUploading: boolean;
@@ -44,6 +45,8 @@ export function useUploadProgress() {
       });
 
       xhr.open('POST', url);
+      const token = getAccessToken();
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.send(formData);
     });
   }, []);

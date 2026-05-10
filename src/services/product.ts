@@ -25,7 +25,7 @@ interface SearchFilters {
  */
 function buildSearchConditions(
   filters: SearchFilters,
-  startParam: number
+  startParam: number,
 ): { sql: string; params: unknown[] } {
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -63,7 +63,7 @@ async function fullTextSearchProductIds(
   query: string,
   limit: number,
   offset: number,
-  filters: SearchFilters
+  filters: SearchFilters,
 ): Promise<{ ids: number[]; total: number }> {
   const likePattern = `%${query}%`;
 
@@ -84,7 +84,11 @@ async function fullTextSearchProductIds(
   `;
 
   const countResult = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
-    countSql, likePattern, query, query, ...filterParams
+    countSql,
+    likePattern,
+    query,
+    query,
+    ...filterParams,
   );
 
   const total = Number(countResult[0]?.count ?? 0);
@@ -115,8 +119,16 @@ async function fullTextSearchProductIds(
   `;
 
   const results = await prisma.$queryRawUnsafe<{ id: number }[]>(
-    rankSql, likePattern, query, query, likePattern, query, query,
-    ...rankFilterParams, limit, offset
+    rankSql,
+    likePattern,
+    query,
+    query,
+    likePattern,
+    query,
+    query,
+    ...rankFilterParams,
+    limit,
+    offset,
   );
 
   return { ids: results.map((r) => r.id), total };
@@ -125,7 +137,7 @@ async function fullTextSearchProductIds(
 export class ProductError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'ProductError';
@@ -135,7 +147,16 @@ export class ProductError extends Error {
 /** Convert Prisma Decimal fields to plain numbers for Server→Client serialization */
 function serializeProduct<T extends Record<string, unknown>>(product: T): T {
   const result = { ...product };
-  for (const key of ['priceRetail', 'priceWholesale', 'priceWholesale2', 'priceWholesale3', 'priceRetailOld', 'priceWholesaleOld', 'priceWholesaleOld2', 'priceWholesaleOld3'] as const) {
+  for (const key of [
+    'priceRetail',
+    'priceWholesale',
+    'priceWholesale2',
+    'priceWholesale3',
+    'priceRetailOld',
+    'priceWholesaleOld',
+    'priceWholesaleOld2',
+    'priceWholesaleOld3',
+  ] as const) {
     if (key in result && result[key] != null) {
       (result as Record<string, unknown>)[key] = Number(result[key]);
     }
@@ -180,7 +201,14 @@ const productListSelect = {
     orderBy: { priority: 'desc' },
   },
   images: {
-    select: { id: true, pathFull: true, pathMedium: true, pathThumbnail: true, pathBlur: true, isMain: true },
+    select: {
+      id: true,
+      pathFull: true,
+      pathMedium: true,
+      pathThumbnail: true,
+      pathBlur: true,
+      isMain: true,
+    },
     orderBy: [{ isMain: 'desc' as const }, { sortOrder: 'asc' as const }],
     take: 1,
   },
@@ -343,8 +371,13 @@ export async function getProducts(filters: ProductFilterInput) {
  * Returns personalPrice field if a personal price exists, otherwise null.
  */
 export async function applyPersonalPricing(
-  product: { id: number; priceRetail: unknown; categoryId?: number | null; category?: { id: number } | null },
-  userId: number | null
+  product: {
+    id: number;
+    priceRetail: unknown;
+    categoryId?: number | null;
+    category?: { id: number } | null;
+  },
+  userId: number | null,
 ): Promise<number | null> {
   if (!userId) return null;
 
@@ -384,7 +417,7 @@ export async function getProductBySlug(slug: string, userId?: number | null) {
   type ProductResult = NonNullable<Awaited<ReturnType<typeof fetchFromDb>>>;
 
   const cached = await cacheGet<ProductResult>(cacheKey);
-  const product = cached ?? await fetchFromDb();
+  const product = cached ?? (await fetchFromDb());
 
   if (!product) return null;
   if (!cached) await cacheSet(cacheKey, product, CACHE_TTL.LONG);
@@ -450,29 +483,31 @@ export async function searchAutocomplete(query: string) {
 
   const [products, categories] = await Promise.all([
     ids.length > 0
-      ? prisma.product.findMany({
-          where: { id: { in: ids } },
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            code: true,
-            priceRetail: true,
-            priceWholesale: true,
-            priceWholesale2: true,
-            priceWholesale3: true,
-            quantity: true,
-            imagePath: true,
-            images: {
-              select: { pathThumbnail: true },
-              where: { isMain: true },
-              take: 1,
+      ? prisma.product
+          .findMany({
+            where: { id: { in: ids } },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              code: true,
+              priceRetail: true,
+              priceWholesale: true,
+              priceWholesale2: true,
+              priceWholesale3: true,
+              quantity: true,
+              imagePath: true,
+              images: {
+                select: { pathThumbnail: true },
+                where: { isMain: true },
+                take: 1,
+              },
             },
-          },
-        }).then((prods) => {
-          const idOrder = new Map(ids.map((id, i) => [id, i]));
-          return prods.sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
-        })
+          })
+          .then((prods) => {
+            const idOrder = new Map(ids.map((id, i) => [id, i]));
+            return prods.sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
+          })
       : Promise.resolve([]),
     prisma.category.findMany({
       where: {
@@ -572,7 +607,9 @@ export async function updateProduct(
     isPromo?: boolean;
     isActive?: boolean;
     sortOrder?: number;
-  }
+    description?: string | null;
+    descriptionHtml?: string | null;
+  },
 ) {
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) {
@@ -621,14 +658,20 @@ export async function updateProduct(
     updateData.priceWholesale = data.priceWholesale;
   }
 
-  if (data.priceWholesale2 !== undefined && Number(product.priceWholesale2) !== data.priceWholesale2) {
+  if (
+    data.priceWholesale2 !== undefined &&
+    Number(product.priceWholesale2) !== data.priceWholesale2
+  ) {
     updateData.priceWholesaleOld2 = product.priceWholesale2;
     updateData.priceWholesale2 = data.priceWholesale2;
   } else if (data.priceWholesale2 !== undefined) {
     updateData.priceWholesale2 = data.priceWholesale2;
   }
 
-  if (data.priceWholesale3 !== undefined && Number(product.priceWholesale3) !== data.priceWholesale3) {
+  if (
+    data.priceWholesale3 !== undefined &&
+    Number(product.priceWholesale3) !== data.priceWholesale3
+  ) {
     updateData.priceWholesaleOld3 = product.priceWholesale3;
     updateData.priceWholesale3 = data.priceWholesale3;
   } else if (data.priceWholesale3 !== undefined) {
@@ -672,6 +715,25 @@ export async function updateProduct(
     data: updateData,
     select: productDetailSelect,
   });
+
+  // Mirror description into ProductContent so the storefront (which reads
+  // ProductContent.fullDescription / shortDescription) actually shows it.
+  if (data.description !== undefined || data.descriptionHtml !== undefined) {
+    const shortDesc = data.description ? data.description.slice(0, 200) : null;
+    await prisma.productContent.upsert({
+      where: { productId: id },
+      create: {
+        productId: id,
+        ...(data.descriptionHtml !== undefined && { fullDescription: data.descriptionHtml }),
+        ...(data.description !== undefined && { shortDescription: shortDesc }),
+      },
+      update: {
+        ...(data.descriptionHtml !== undefined && { fullDescription: data.descriptionHtml }),
+        ...(data.description !== undefined && { shortDescription: shortDesc }),
+      },
+    });
+  }
+
   await cacheInvalidate('products:*');
   return updated;
 }
