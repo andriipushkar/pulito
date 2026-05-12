@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { serialize } from 'cookie';
-import { exchangeCodeForTokens, getGoogleUserProfile, verifyOAuthState, GoogleOAuthError } from '@/services/google-oauth';
+import {
+  exchangeCodeForTokens,
+  getGoogleUserProfile,
+  verifyOAuthState,
+  GoogleOAuthError,
+} from '@/services/google-oauth';
 import { loginWithGoogle } from '@/services/auth';
 import { parseTtlToSeconds } from '@/services/token';
 import { serializeRefreshTokenCookie } from '@/utils/cookies';
@@ -42,31 +47,24 @@ export async function GET(request: NextRequest) {
       profile.id,
       profile.email,
       profile.name,
-      profile.picture
+      profile.picture,
     );
 
-    // Redirect to callback page without the access token in the URL.
-    // Both tokens go in httpOnly cookies — the callback page triggers a refresh.
+    // Redirect to the client callback page. The refresh_token cookie alone is
+    // enough — AuthProvider's mount-effect hits /api/v1/auth/refresh which
+    // returns both the access token and the user. Issuing a separate
+    // oauth_access_token cookie used to require a second /auth/refresh from
+    // the callback page, which raced with AuthProvider's auto-refresh and
+    // occasionally tripped the refresh-token-reuse detector, nuking the
+    // user's sessions ("інколи кілька раз потрібно" symptom).
     const redirectUrl = new URL('/auth/callback', env.APP_URL);
 
     const refreshTtl = parseTtlToSeconds(env.JWT_REFRESH_TTL);
     const response = NextResponse.redirect(redirectUrl.toString());
 
-    // Set refresh token cookie
-    response.headers.append('Set-Cookie', serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl));
-
-    // Set short-lived access token in httpOnly cookie (consumed once by callback page).
-    // sameSite must be 'lax' (not 'strict') because this cookie is set during a
-    // cross-origin redirect from Google → our site. 'strict' would block the cookie.
     response.headers.append(
       'Set-Cookie',
-      serialize('oauth_access_token', tokens.accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60, // 1 minute — consumed immediately
-      })
+      serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl),
     );
 
     // Clear the oauth_state cookie
@@ -78,7 +76,7 @@ export async function GET(request: NextRequest) {
         sameSite: 'lax',
         path: '/api/v1/auth/google',
         maxAge: 0,
-      })
+      }),
     );
 
     return response;
