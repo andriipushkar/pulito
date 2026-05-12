@@ -6,7 +6,10 @@ import { createProduct, ProductError } from '@/services/product';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse, paginatedResponse } from '@/utils/api-response';
 
-export const GET = withRole('manager', 'admin')(async (request: NextRequest) => {
+export const GET = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest) => {
   try {
     const { searchParams } = request.nextUrl;
     const page = Math.max(1, Number(searchParams.get('page')) || 1);
@@ -19,8 +22,11 @@ export const GET = withRole('manager', 'admin')(async (request: NextRequest) => 
     const stock = searchParams.get('stock');
     const sort = searchParams.get('sort') || 'id_desc';
 
+    // Hide soft-deleted products from the admin list — when a product can't be
+    // hard-deleted (FK to order_items) it's left as `deletedAt`-tombstoned for
+    // referential integrity, but operators expect it to disappear from the list.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: Record<string, any> = {};
+    const where: Record<string, any> = { deletedAt: null };
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -80,7 +86,10 @@ export const GET = withRole('manager', 'admin')(async (request: NextRequest) => 
   }
 });
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest) => {
   try {
     const body = await request.json();
     const parsed = createProductSchema.safeParse(body);
@@ -93,7 +102,12 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
     const product = await createProduct(parsed.data);
 
     // Revalidate catalog pages so new product appears
-    try { revalidatePath('/catalog'); revalidatePath('/'); } catch { /* best-effort */ }
+    try {
+      revalidatePath('/catalog');
+      revalidatePath('/');
+    } catch {
+      /* best-effort */
+    }
 
     // Index in Typesense
     import('@/services/typesense').then((ts) => ts.indexProduct(product.id)).catch(() => {});

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { Prisma } from '@/../generated/prisma';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
@@ -47,12 +48,49 @@ export const POST = withRole(
 
     if (action === 'delete') {
       if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
-      await prisma.product.updateMany({
-        where: { id: { in: productIds } },
-        data: { isActive: false, deletedAt: new Date() },
-      });
+
+      // Try to physically delete each product; if FK constraints block it
+      // (e.g. order_items still reference the product), fall back to soft
+      // delete so order history isn't broken.
+      const softDeletedIds: number[] = [];
+      let hardDeleted = 0;
+      for (const id of productIds) {
+        try {
+          await prisma.product.delete({ where: { id } });
+          hardDeleted += 1;
+        } catch (err) {
+          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+            softDeletedIds.push(id);
+          } else {
+            throw err;
+          }
+        }
+      }
+      if (softDeletedIds.length > 0) {
+        await prisma.product.updateMany({
+          where: { id: { in: softDeletedIds } },
+          data: { isActive: false, deletedAt: new Date() },
+        });
+      }
       await cacheInvalidate('products:*');
-      return successResponse({ deleted: productIds.length });
+
+      // Sync Typesense (best-effort, fire-and-forget).
+      import('@/services/typesense')
+        .then(async (ts) => {
+          await Promise.all([
+            ...productIds
+              .filter((id) => !softDeletedIds.includes(id))
+              .map((id) => ts.removeProductFromIndex(id)),
+            ...softDeletedIds.map((id) => ts.indexProduct(id)),
+          ]);
+        })
+        .catch(() => {});
+
+      return successResponse({
+        hardDeleted,
+        softDeleted: softDeletedIds.length,
+        total: productIds.length,
+      });
     }
 
     if (action === 'change_category') {

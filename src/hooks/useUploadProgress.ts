@@ -45,6 +45,10 @@ export function useUploadProgress() {
       });
 
       xhr.open('POST', url);
+      // CSRF middleware (src/proxy.ts) rejects mutating API requests that
+      // lack this header. fetch-based apiClient sets it automatically; raw
+      // XHR has to set it explicitly.
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
       const token = getAccessToken();
       if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.send(formData);

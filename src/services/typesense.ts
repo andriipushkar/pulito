@@ -5,11 +5,13 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 const client = new Typesense.Client({
-  nodes: [{
-    host: env.TYPESENSE_HOST,
-    port: env.TYPESENSE_PORT,
-    protocol: env.TYPESENSE_PROTOCOL,
-  }],
+  nodes: [
+    {
+      host: env.TYPESENSE_HOST,
+      port: env.TYPESENSE_PORT,
+      protocol: env.TYPESENSE_PROTOCOL,
+    },
+  ],
   apiKey: env.TYPESENSE_API_KEY,
   connectionTimeoutSeconds: 5,
 });
@@ -52,15 +54,21 @@ export async function configureSynonyms(): Promise<void> {
   await ensureCollection();
 
   const synonyms = [
-    { id: 'poroshok', synonyms: ['порошок', 'прашок', 'парашок', 'пральний засіб', 'засіб для прання'] },
+    {
+      id: 'poroshok',
+      synonyms: ['порошок', 'прашок', 'парашок', 'пральний засіб', 'засіб для прання'],
+    },
     { id: 'gel', synonyms: ['гель', 'гел', 'рідкий засіб', 'рідина'] },
     { id: 'kapsuly', synonyms: ['капсули', 'капсулы', 'подушечки', 'таблетки для прання'] },
-    { id: 'konditsioner', synonyms: ['кондиціонер', 'ополіскувач', 'пом\'якшувач'] },
+    { id: 'konditsioner', synonyms: ['кондиціонер', 'ополіскувач', "пом'якшувач"] },
     { id: 'plyamovyvidnyk', synonyms: ['плямовивідник', 'відбілювач', 'пятновыводитель'] },
     { id: 'mylo', synonyms: ['мило', 'мыло', 'мильний засіб'] },
     { id: 'shampun', synonyms: ['шампунь', 'шампун', 'шампуні'] },
     { id: 'zubna', synonyms: ['зубна паста', 'зубна', 'паста для зубів'] },
-    { id: 'posud', synonyms: ['посуд', 'посуда', 'миття посуду', 'плин для посуду', 'засіб для посуду'] },
+    {
+      id: 'posud',
+      synonyms: ['посуд', 'посуда', 'миття посуду', 'плин для посуду', 'засіб для посуду'],
+    },
     { id: 'chyshennya', synonyms: ['чищення', 'чистка', 'миючий засіб', 'засіб для чищення'] },
     { id: 'fairy', synonyms: ['fairy', 'фейрі', 'фери'] },
     { id: 'persil', synonyms: ['persil', 'персіл', 'персил'] },
@@ -156,52 +164,73 @@ export async function indexProduct(productId: number): Promise<void> {
 
     if (!p.isActive) {
       // Remove from index if deactivated
-      try { await client.collections(COLLECTION_NAME).documents(String(p.id)).delete(); } catch { /* ignore */ }
+      try {
+        await client.collections(COLLECTION_NAME).documents(String(p.id)).delete();
+      } catch {
+        /* ignore */
+      }
       return;
     }
 
-    await client.collections(COLLECTION_NAME).documents().upsert({
-      id: String(p.id),
-      name: p.name,
-      code: p.code,
-      slug: p.slug,
-      categoryName: p.category?.name || '',
-      categorySlug: p.category?.slug || '',
-      priceRetail: Number(p.priceRetail),
-      quantity: p.quantity,
-      isActive: p.isActive,
-      isPromo: p.isPromo,
-      ordersCount: p.ordersCount,
-      imagePath: p.imagePath || '',
-    });
+    await client
+      .collections(COLLECTION_NAME)
+      .documents()
+      .upsert({
+        id: String(p.id),
+        name: p.name,
+        code: p.code,
+        slug: p.slug,
+        categoryName: p.category?.name || '',
+        categorySlug: p.category?.slug || '',
+        priceRetail: Number(p.priceRetail),
+        quantity: p.quantity,
+        isActive: p.isActive,
+        isPromo: p.isPromo,
+        ordersCount: p.ordersCount,
+        imagePath: p.imagePath || '',
+      });
   } catch (err) {
     logger.error('Typesense index error', { productId, error: String(err) });
+  }
+}
+
+export async function removeProductFromIndex(productId: number): Promise<void> {
+  try {
+    await client.collections(COLLECTION_NAME).documents(String(productId)).delete();
+  } catch {
+    // Document may not exist; nothing to do.
   }
 }
 
 /**
  * Search products via Typesense with typo tolerance & instant results.
  */
-export async function searchProducts(query: string, options?: {
-  page?: number;
-  limit?: number;
-  filterBy?: string;
-  sortBy?: string;
-}) {
+export async function searchProducts(
+  query: string,
+  options?: {
+    page?: number;
+    limit?: number;
+    filterBy?: string;
+    sortBy?: string;
+  },
+) {
   try {
     await ensureCollection();
 
-    const result = await client.collections(COLLECTION_NAME).documents().search({
-      q: query,
-      query_by: 'name,code,categoryName',
-      filter_by: options?.filterBy || 'isActive:true',
-      sort_by: options?.sortBy || '_text_match:desc,ordersCount:desc',
-      page: options?.page || 1,
-      per_page: options?.limit || 20,
-      typo_tokens_threshold: 3,
-      num_typos: 2,
-      highlight_full_fields: 'name',
-    });
+    const result = await client
+      .collections(COLLECTION_NAME)
+      .documents()
+      .search({
+        q: query,
+        query_by: 'name,code,categoryName',
+        filter_by: options?.filterBy || 'isActive:true',
+        sort_by: options?.sortBy || '_text_match:desc,ordersCount:desc',
+        page: options?.page || 1,
+        per_page: options?.limit || 20,
+        typo_tokens_threshold: 3,
+        num_typos: 2,
+        highlight_full_fields: 'name',
+      });
 
     return {
       hits: (result.hits || []).map((hit) => ({

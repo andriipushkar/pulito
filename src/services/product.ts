@@ -546,6 +546,10 @@ export async function createProduct(data: {
   isPromo?: boolean;
   isActive?: boolean;
   sortOrder?: number;
+  description?: string | null;
+  descriptionHtml?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 }) {
   const existing = await prisma.product.findUnique({ where: { code: data.code } });
   if (existing) {
@@ -583,6 +587,27 @@ export async function createProduct(data: {
     },
     select: productDetailSelect,
   });
+
+  // Mirror description/SEO into ProductContent so the storefront actually
+  // shows them without needing a follow-up save.
+  if (
+    data.description != null ||
+    data.descriptionHtml != null ||
+    data.seoTitle != null ||
+    data.seoDescription != null
+  ) {
+    const shortDesc = data.description ? data.description.slice(0, 200) : null;
+    await prisma.productContent.create({
+      data: {
+        productId: created.id,
+        ...(data.descriptionHtml != null && { fullDescription: data.descriptionHtml }),
+        ...(data.description != null && { shortDescription: shortDesc }),
+        ...(data.seoTitle != null && { seoTitle: data.seoTitle }),
+        ...(data.seoDescription != null && { seoDescription: data.seoDescription }),
+      },
+    });
+  }
+
   await cacheInvalidate('products:*');
   return created;
 }
@@ -598,8 +623,10 @@ export async function updateProduct(
   data: {
     code?: string;
     name?: string;
+    slug?: string | null;
     categoryId?: number | null;
     priceRetail?: number;
+    priceRetailOld?: number | null;
     priceWholesale?: number | null;
     priceWholesale2?: number | null;
     priceWholesale3?: number | null;
@@ -609,6 +636,8 @@ export async function updateProduct(
     sortOrder?: number;
     description?: string | null;
     descriptionHtml?: string | null;
+    seoTitle?: string | null;
+    seoDescription?: string | null;
   },
 ) {
   const product = await prisma.product.findUnique({ where: { id } });
@@ -678,28 +707,43 @@ export async function updateProduct(
     updateData.priceWholesale3 = data.priceWholesale3;
   }
 
-  if (data.name !== undefined) {
-    updateData.name = data.name;
-    if (data.name !== product.name) {
-      const slug = createSlug(data.name);
-      const slugExists = await prisma.product.findFirst({
-        where: { slug, id: { not: id } },
-      });
-      const newSlug = slugExists ? `${slug}-${product.code.toLowerCase()}` : slug;
-      updateData.slug = newSlug;
-
-      // Auto-create redirect from old slug to new slug
-      if (product.slug !== newSlug) {
-        await prisma.slugRedirect.upsert({
-          where: { oldSlug: product.slug },
-          update: { newSlug, type: 'product' },
-          create: { oldSlug: product.slug, newSlug, type: 'product' },
-        });
-      }
-    }
+  // Explicit slug override (admin-set) wins over name-driven auto-slug.
+  // Auto-slug only kicks in if `slug` wasn't passed AND `name` changed.
+  let resolvedSlug: string | null = null;
+  if (data.slug !== undefined && data.slug !== null && data.slug !== '') {
+    resolvedSlug = data.slug;
+  } else if (data.name !== undefined && data.name !== product.name) {
+    const slug = createSlug(data.name);
+    const slugExists = await prisma.product.findFirst({
+      where: { slug, id: { not: id } },
+    });
+    resolvedSlug = slugExists ? `${slug}-${product.code.toLowerCase()}` : slug;
   }
 
+  if (resolvedSlug && resolvedSlug !== product.slug) {
+    const conflict = await prisma.product.findFirst({
+      where: { slug: resolvedSlug, id: { not: id } },
+    });
+    if (conflict) {
+      throw new ProductError('Товар з таким slug вже існує', 409);
+    }
+    updateData.slug = resolvedSlug;
+    // Auto-create redirect from old slug to new slug so external links don't 404.
+    await prisma.slugRedirect.upsert({
+      where: { oldSlug: product.slug },
+      update: { newSlug: resolvedSlug, type: 'product' },
+      create: { oldSlug: product.slug, newSlug: resolvedSlug, type: 'product' },
+    });
+  }
+
+  if (data.name !== undefined) updateData.name = data.name;
   if (data.code !== undefined) updateData.code = data.code;
+  // Manual `priceRetailOld` override (e.g. marketing wants to show a custom
+  // "old price" without changing the current retail). Skipped above when
+  // priceRetail changes — that branch already auto-fills priceRetailOld.
+  if (data.priceRetailOld !== undefined && updateData.priceRetailOld === undefined) {
+    updateData.priceRetailOld = data.priceRetailOld;
+  }
   if (data.categoryId !== undefined) {
     updateData.category = data.categoryId
       ? { connect: { id: data.categoryId } }
@@ -716,21 +760,25 @@ export async function updateProduct(
     select: productDetailSelect,
   });
 
-  // Mirror description into ProductContent so the storefront (which reads
-  // ProductContent.fullDescription / shortDescription) actually shows it.
-  if (data.description !== undefined || data.descriptionHtml !== undefined) {
+  // Mirror description/SEO into ProductContent so the storefront (which reads
+  // ProductContent.*) actually shows them.
+  if (
+    data.description !== undefined ||
+    data.descriptionHtml !== undefined ||
+    data.seoTitle !== undefined ||
+    data.seoDescription !== undefined
+  ) {
     const shortDesc = data.description ? data.description.slice(0, 200) : null;
+    const contentPayload = {
+      ...(data.descriptionHtml !== undefined && { fullDescription: data.descriptionHtml }),
+      ...(data.description !== undefined && { shortDescription: shortDesc }),
+      ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
+      ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
+    };
     await prisma.productContent.upsert({
       where: { productId: id },
-      create: {
-        productId: id,
-        ...(data.descriptionHtml !== undefined && { fullDescription: data.descriptionHtml }),
-        ...(data.description !== undefined && { shortDescription: shortDesc }),
-      },
-      update: {
-        ...(data.descriptionHtml !== undefined && { fullDescription: data.descriptionHtml }),
-        ...(data.description !== undefined && { shortDescription: shortDesc }),
-      },
+      create: { productId: id, ...contentPayload },
+      update: contentPayload,
     });
   }
 
@@ -739,22 +787,33 @@ export async function updateProduct(
 }
 
 /**
- * @description М'яке видалення товару (встановлює isActive=false).
- * @param id - Ідентифікатор товару
- * @returns void
+ * Видаляє товар. Спочатку пробує фізичне видалення; якщо FK-обмеження
+ * (наприклад, рядки order_items) не дозволяють — позначає товар видаленим
+ * (soft-delete), щоб не зламати історію замовлень.
+ *
+ * @returns `{ hard: true }` якщо рядок фізично видалено, інакше `{ hard: false }`.
  */
-export async function deleteProduct(id: number) {
+export async function deleteProduct(id: number): Promise<{ hard: boolean }> {
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) {
     throw new ProductError('Товар не знайдено', 404);
   }
 
-  // Soft delete - deactivate and mark deletion timestamp
-  await prisma.product.update({
-    where: { id },
-    data: { isActive: false, deletedAt: new Date() },
-  });
-  await cacheInvalidate('products:*');
+  try {
+    await prisma.product.delete({ where: { id } });
+    await cacheInvalidate('products:*');
+    return { hard: true };
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+      await prisma.product.update({
+        where: { id },
+        data: { isActive: false, deletedAt: new Date() },
+      });
+      await cacheInvalidate('products:*');
+      return { hard: false };
+    }
+    throw err;
+  }
 }
 
 /**

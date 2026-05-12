@@ -23,8 +23,15 @@ export const createProductSchema = z.object({
     .string()
     .min(2, 'Назва товару має містити щонайменше 2 символи')
     .max(255, 'Назва товару не може перевищувати 255 символів'),
+  slug: z
+    .string()
+    .max(255, 'Slug не може перевищувати 255 символів')
+    .regex(/^[a-z0-9-]*$/, 'Slug може містити лише малі латинські літери, цифри й дефіс')
+    .optional()
+    .nullable(),
   categoryId: z.number().int().positive().optional().nullable(),
   priceRetail: z.number().min(0, "Ціна не може бути від'ємною"),
+  priceRetailOld: z.number().min(0).optional().nullable(),
   priceWholesale: z.number().min(0).optional().nullable(),
   priceWholesale2: z.number().min(0).optional().nullable(),
   priceWholesale3: z.number().min(0).optional().nullable(),
@@ -34,6 +41,8 @@ export const createProductSchema = z.object({
   sortOrder: z.number().int().min(0).default(0),
   description: z.string().max(2000).optional().nullable(),
   descriptionHtml: z.string().max(50000).optional().nullable(),
+  seoTitle: z.string().max(70, 'SEO title до 70 символів').optional().nullable(),
+  seoDescription: z.string().max(160, 'SEO description до 160 символів').optional().nullable(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

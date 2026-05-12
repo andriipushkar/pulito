@@ -29,24 +29,24 @@ interface ProductDetail {
   name: string;
   slug: string;
   code: string;
-  description: string | null;
-  descriptionHtml: string | null;
-  barcode: string | null;
   priceRetail: string | number;
   priceRetailOld: string | number | null;
   priceWholesale: string | number | null;
   priceWholesale2: string | number | null;
   priceWholesale3: string | number | null;
   quantity: number;
-  weight: string | number | null;
   isActive: boolean;
   isPromo: boolean;
-  metaTitle: string | null;
-  metaDescription: string | null;
   imagePath: string | null;
   images: { id: number; pathMedium: string; sortOrder: number }[];
   categoryId: number | null;
   category?: { id: number; name: string } | null;
+  content?: {
+    seoTitle: string | null;
+    seoDescription: string | null;
+    fullDescription: string | null;
+    shortDescription: string | null;
+  } | null;
 }
 
 export default function AdminProductDetailPage() {
@@ -79,8 +79,8 @@ export default function AdminProductDetailPage() {
       min: { value: 0.01, message: 'Ціна має бути > 0' },
     },
     quantity: { min: { value: 0, message: "Кількість не може бути від'ємною" } },
-    metaTitle: { maxLength: { value: 70, message: 'Максимум 70 символів' } },
-    metaDescription: { maxLength: { value: 160, message: 'Максимум 160 символів' } },
+    seoTitle: { maxLength: { value: 70, message: 'Максимум 70 символів' } },
+    seoDescription: { maxLength: { value: 160, message: 'Максимум 160 символів' } },
   });
 
   useEffect(() => {
@@ -89,24 +89,25 @@ export default function AdminProductDetailPage() {
       .then((res) => {
         if (res.success && res.data) {
           setProduct(res.data);
+          // Description and SEO live in the joined ProductContent table, not on
+          // Product itself — read from there so the form actually reflects what
+          // was saved instead of always showing empty.
           setForm({
             name: res.data.name,
             code: res.data.code,
             slug: res.data.slug,
-            barcode: res.data.barcode || '',
-            description: res.data.description || '',
-            descriptionHtml: res.data.descriptionHtml || '',
+            description: res.data.content?.shortDescription || '',
+            descriptionHtml: res.data.content?.fullDescription || '',
             priceRetail: String(res.data.priceRetail),
             priceRetailOld: res.data.priceRetailOld ? String(res.data.priceRetailOld) : '',
             priceWholesale: res.data.priceWholesale ? String(res.data.priceWholesale) : '',
             priceWholesale2: res.data.priceWholesale2 ? String(res.data.priceWholesale2) : '',
             priceWholesale3: res.data.priceWholesale3 ? String(res.data.priceWholesale3) : '',
             quantity: String(res.data.quantity),
-            weight: res.data.weight ? String(res.data.weight) : '',
             isActive: res.data.isActive,
             isPromo: res.data.isPromo,
-            metaTitle: res.data.metaTitle || '',
-            metaDescription: res.data.metaDescription || '',
+            seoTitle: res.data.content?.seoTitle || '',
+            seoDescription: res.data.content?.seoDescription || '',
             categoryId: res.data.categoryId ? String(res.data.categoryId) : '',
           });
         }
@@ -125,8 +126,7 @@ export default function AdminProductDetailPage() {
       const payload = {
         name: form.name,
         code: form.code,
-        slug: form.slug,
-        barcode: (form.barcode as string) || null,
+        slug: (form.slug as string) || null,
         description: (form.description as string) || null,
         descriptionHtml: (form.descriptionHtml as string) || null,
         priceRetail: Number(form.priceRetail),
@@ -135,11 +135,10 @@ export default function AdminProductDetailPage() {
         priceWholesale2: (form.priceWholesale2 as string) ? Number(form.priceWholesale2) : null,
         priceWholesale3: (form.priceWholesale3 as string) ? Number(form.priceWholesale3) : null,
         quantity: Number(form.quantity),
-        weight: (form.weight as string) ? Number(form.weight) : null,
         isActive: form.isActive,
         isPromo: form.isPromo,
-        metaTitle: (form.metaTitle as string) || null,
-        metaDescription: (form.metaDescription as string) || null,
+        seoTitle: (form.seoTitle as string) || null,
+        seoDescription: (form.seoDescription as string) || null,
         categoryId: (form.categoryId as string) ? Number(form.categoryId) : null,
       };
       const res = await apiClient.put(`/api/v1/admin/products/${id}`, payload);
@@ -171,11 +170,15 @@ export default function AdminProductDetailPage() {
       const result = (await uploadWithProgress(
         `/api/v1/admin/products/${id}/images`,
         formData,
-      )) as { success?: boolean };
+      )) as { success?: boolean; error?: string };
       if (result?.success) {
         const updated = await apiClient.get<ProductDetail>(`/api/v1/admin/products/${id}`);
         if (updated.success && updated.data) setProduct(updated.data);
+      } else {
+        toast.error(result?.error || 'Не вдалося завантажити зображення');
       }
+    } catch {
+      toast.error('Помилка мережі при завантаженні');
     } finally {
       e.target.value = '';
     }
@@ -317,26 +320,16 @@ export default function AdminProductDetailPage() {
             error={errors.code}
           />
           <Input
-            label="Slug"
+            label="Slug (URL)"
             value={form.slug as string}
             onChange={(e) => updateField('slug', e.target.value)}
-          />
-          <Input
-            label="Штрихкод"
-            value={form.barcode as string}
-            onChange={(e) => updateField('barcode', e.target.value)}
+            placeholder="auto-generated from name"
           />
           <Input
             label="ID категорії"
             type="number"
             value={form.categoryId as string}
             onChange={(e) => updateField('categoryId', e.target.value)}
-          />
-          <Input
-            label="Вага (кг)"
-            type="number"
-            value={form.weight as string}
-            onChange={(e) => updateField('weight', e.target.value)}
           />
         </div>
       </div>
@@ -431,34 +424,34 @@ export default function AdminProductDetailPage() {
         <div className="space-y-4">
           <div>
             <Input
-              label="Meta Title"
-              value={form.metaTitle as string}
+              label="SEO Title"
+              value={form.seoTitle as string}
               onChange={(e) => {
-                updateField('metaTitle', e.target.value);
-                clearError('metaTitle');
+                updateField('seoTitle', e.target.value);
+                clearError('seoTitle');
               }}
-              error={errors.metaTitle}
+              error={errors.seoTitle}
             />
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-              {(form.metaTitle as string)?.length || 0}/70
+              {(form.seoTitle as string)?.length || 0}/70
             </p>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Meta Description</label>
+            <label className="mb-1 block text-sm font-medium">SEO Description</label>
             <textarea
-              value={form.metaDescription as string}
+              value={form.seoDescription as string}
               onChange={(e) => {
-                updateField('metaDescription', e.target.value);
-                clearError('metaDescription');
+                updateField('seoDescription', e.target.value);
+                clearError('seoDescription');
               }}
               rows={3}
-              className={`w-full rounded-[var(--radius)] border bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)] ${errors.metaDescription ? 'border-[var(--color-danger)]' : 'border-[var(--color-border)]'}`}
+              className={`w-full rounded-[var(--radius)] border bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)] ${errors.seoDescription ? 'border-[var(--color-danger)]' : 'border-[var(--color-border)]'}`}
             />
-            {errors.metaDescription && (
-              <p className="mt-0.5 text-xs text-[var(--color-danger)]">{errors.metaDescription}</p>
+            {errors.seoDescription && (
+              <p className="mt-0.5 text-xs text-[var(--color-danger)]">{errors.seoDescription}</p>
             )}
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-              {(form.metaDescription as string)?.length || 0}/160
+              {(form.seoDescription as string)?.length || 0}/160
             </p>
           </div>
         </div>

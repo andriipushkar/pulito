@@ -86,16 +86,8 @@ export default function AdminProductsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [confirmBulk, setConfirmBulk] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    code: '',
-    name: '',
-    priceRetail: '',
-    priceWholesale: '',
-    quantity: '0',
-    categoryId: '',
-  });
+  const [rowDelete, setRowDelete] = useState<AdminProduct | null>(null);
+  const [isDeletingRow, setIsDeletingRow] = useState(false);
 
   const page = Number(searchParams.get('page')) || 1;
   const limit = Number(searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
@@ -292,37 +284,25 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleCreate = async () => {
-    const code = createForm.code.trim();
-    const name = createForm.name.trim();
-    const retail = parseFloat(createForm.priceRetail.replace(',', '.'));
-    if (!code || !name) {
-      toast.error('Заповніть код і назву');
-      return;
-    }
-    if (!Number.isFinite(retail) || retail < 0) {
-      toast.error('Вкажіть коректну роздрібну ціну');
-      return;
-    }
-    setIsCreating(true);
+  const handleRowDelete = async () => {
+    if (!rowDelete) return;
+    const product = rowDelete;
+    setRowDelete(null);
+    setIsDeletingRow(true);
     try {
-      const wholesale = parseFloat(createForm.priceWholesale.replace(',', '.'));
-      const qty = parseInt(createForm.quantity, 10);
-      const payload: Record<string, unknown> = { code, name, priceRetail: retail };
-      if (Number.isFinite(wholesale) && wholesale >= 0) payload.priceWholesale = wholesale;
-      if (Number.isFinite(qty) && qty >= 0) payload.quantity = qty;
-      if (createForm.categoryId) payload.categoryId = Number(createForm.categoryId);
-      const res = await apiClient.post<{ id: number }>('/api/v1/admin/products', payload);
-      if (res.success && res.data) {
-        toast.success('Товар створено');
-        router.push(`/admin/products/${res.data.id}`);
+      const res = await apiClient.delete<{ hard?: boolean; message?: string }>(
+        `/api/v1/admin/products/${product.id}`,
+      );
+      if (res.success) {
+        toast.success(res.data?.message || 'Товар видалено');
+        loadProducts();
       } else {
-        toast.error(res.error || 'Помилка створення');
+        toast.error(res.error || 'Не вдалося видалити товар');
       }
     } catch {
       toast.error('Помилка мережі');
     } finally {
-      setIsCreating(false);
+      setIsDeletingRow(false);
     }
   };
 
@@ -353,9 +333,9 @@ export default function AdminProductsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-64"
           />
-          <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
-            {showCreate ? 'Скасувати' : '+ Створити товар'}
-          </Button>
+          <Link href="/admin/products/new">
+            <Button size="sm">+ Створити товар</Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             Фільтри{activeFilters > 0 ? ` (${activeFilters})` : ''}
           </Button>
@@ -371,78 +351,6 @@ export default function AdminProductsPage() {
           </Button>
         </div>
       </div>
-
-      {/* Create panel */}
-      {showCreate && (
-        <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="mb-3 text-sm font-semibold">Новий товар</p>
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium">Код *</label>
-              <Input
-                value={createForm.code}
-                onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })}
-                placeholder="SKU-001"
-                className="w-32"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">Назва *</label>
-              <Input
-                value={createForm.name}
-                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                placeholder="Назва товару"
-                className="w-64"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">Роздріб, ₴ *</label>
-              <Input
-                value={createForm.priceRetail}
-                onChange={(e) => setCreateForm({ ...createForm, priceRetail: e.target.value })}
-                placeholder="0.00"
-                className="w-28"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">Опт, ₴</label>
-              <Input
-                value={createForm.priceWholesale}
-                onChange={(e) => setCreateForm({ ...createForm, priceWholesale: e.target.value })}
-                placeholder="0.00"
-                className="w-28"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">Залишок</label>
-              <Input
-                value={createForm.quantity}
-                onChange={(e) => setCreateForm({ ...createForm, quantity: e.target.value })}
-                placeholder="0"
-                className="w-20"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">Категорія</label>
-              <Select
-                options={[
-                  { value: '', label: 'Без категорії' },
-                  ...categories.map((c) => ({ value: String(c.id), label: c.name })),
-                ]}
-                value={createForm.categoryId}
-                onChange={(e) => setCreateForm({ ...createForm, categoryId: e.target.value })}
-              />
-            </div>
-            <Button onClick={handleCreate} isLoading={isCreating}>
-              Створити
-            </Button>
-          </div>
-          <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-            Після створення відкриється повна сторінка редагування — там додаси опис, фото,
-            додаткові ціни та інші параметри.
-          </p>
-        </div>
-      )}
 
       {/* Filters panel */}
       {showFilters && (
@@ -542,6 +450,7 @@ export default function AdminProductsPage() {
                   <th className="px-4 py-3 text-center font-medium">Залишок</th>
                   <th className="px-4 py-3 text-center font-medium">Продажі</th>
                   <th className="px-4 py-3 text-center font-medium">Статус</th>
+                  <th className="px-4 py-3 text-right font-medium">Дії</th>
                 </tr>
               </thead>
               <tbody>
@@ -616,12 +525,40 @@ export default function AdminProductsPage() {
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setRowDelete(p)}
+                        disabled={isDeletingRow}
+                        aria-label={`Видалити ${p.name}`}
+                        title="Видалити"
+                        className="rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <line x1="10" y1="11" x2="10" y2="17" />
+                          <line x1="14" y1="11" x2="14" y2="17" />
+                        </svg>
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {products.length === 0 && (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                     >
                       Товарів не знайдено
@@ -657,10 +594,21 @@ export default function AdminProductsPage() {
         title={bulkAction === 'delete' ? 'Видалення товарів' : 'Підтвердження масової дії'}
         message={
           bulkAction === 'delete'
-            ? `Ви впевнені, що хочете видалити ${selected.size} товарів? Товари будуть деактивовані та позначені як видалені.`
+            ? `Видалити ${selected.size} товарів? Ті, що мають замовлення, залишаться як видалені для збереження історії; решта буде стерта повністю.`
             : `Ви впевнені, що хочете виконати "${bulkActionLabel}" для ${selected.size} товарів?`
         }
         confirmText={bulkAction === 'delete' ? 'Так, видалити' : 'Так, виконати'}
+      />
+
+      {/* Confirm dialog for per-row delete */}
+      <ConfirmDialog
+        isOpen={rowDelete !== null}
+        onClose={() => setRowDelete(null)}
+        onConfirm={handleRowDelete}
+        variant="danger"
+        title="Видалення товару"
+        message={`Видалити "${rowDelete?.name}"? Якщо товар має замовлення, він залишиться в системі як видалений (інакше буде стертий повністю).`}
+        confirmText="Так, видалити"
       />
     </div>
   );
