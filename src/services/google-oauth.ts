@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 export class GoogleOAuthError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'GoogleOAuthError';
@@ -33,29 +33,43 @@ const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 
 /**
  * Generate a signed OAuth state parameter to prevent CSRF.
- * Format: <random_nonce>.<hmac_signature>
+ * Format: <nonce>.<timestamp>.<hmac_signature>
+ *
+ * The timestamp is part of the signed payload so verification can reject
+ * replayed/expired states without needing a server-side cookie. This used
+ * to be stored in a cookie alongside the state, but the cookie was a
+ * single-key store: opening "Login with Google" in two tabs would have the
+ * second overwrite the first, so the first tab's callback got an
+ * `invalid_state` error. Embedding the expiry in the state itself avoids
+ * that whole class of bug.
  */
+const STATE_MAX_AGE_MS = 30 * 60 * 1000;
+
 export function generateOAuthState(): string {
   const nonce = randomBytes(16).toString('hex');
-  const signature = createHmac('sha256', env.APP_SECRET)
-    .update(nonce)
-    .digest('hex');
-  return `${nonce}.${signature}`;
+  const ts = Date.now().toString();
+  const payload = `${nonce}.${ts}`;
+  const signature = createHmac('sha256', env.APP_SECRET).update(payload).digest('hex');
+  return `${payload}.${signature}`;
 }
 
 /**
- * Verify the OAuth state parameter signature.
+ * Verify a signed OAuth state: HMAC integrity + age check.
  */
 export function verifyOAuthState(state: string): boolean {
   const parts = state.split('.');
-  if (parts.length !== 2) return false;
-  const [nonce, signature] = parts;
+  if (parts.length !== 3) return false;
+  const [nonce, ts, signature] = parts;
   const expectedSignature = createHmac('sha256', env.APP_SECRET)
-    .update(nonce)
+    .update(`${nonce}.${ts}`)
     .digest('hex');
   if (!timingSafeCompare(expectedSignature, signature)) {
     return false;
   }
+  const issuedAt = Number(ts);
+  if (!Number.isFinite(issuedAt)) return false;
+  const age = Date.now() - issuedAt;
+  if (age < 0 || age > STATE_MAX_AGE_MS) return false;
   return true;
 }
 
@@ -104,7 +118,11 @@ export async function exchangeCodeForTokens(code: string): Promise<GoogleTokenRe
   const data = await res.json();
 
   if (!res.ok || !data.access_token) {
-    logger.error('Google token exchange failed', { error: data.error_description || data.error || 'Unknown error' });
+    logger.error('Google token exchange failed', {
+      status: res.status,
+      error: data.error_description || data.error || 'Unknown error',
+      codePrefix: code.slice(0, 8),
+    });
     throw new GoogleOAuthError('Помилка автентифікації Google', 401);
   }
 
@@ -119,7 +137,10 @@ export async function getGoogleUserProfile(accessToken: string): Promise<GoogleU
   const data = await res.json();
 
   if (!res.ok || !data.id) {
-    logger.error('Google user profile fetch failed', { error: data.error?.message || 'Unknown error' });
+    logger.error('Google user profile fetch failed', {
+      status: res.status,
+      error: data.error?.message || 'Unknown error',
+    });
     throw new GoogleOAuthError('Помилка отримання профілю Google', 401);
   }
 

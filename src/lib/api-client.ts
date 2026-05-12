@@ -1,3 +1,5 @@
+import { withRefreshLock } from './auth-refresh-lock';
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
@@ -21,29 +23,38 @@ export function getAccessToken() {
   return accessToken;
 }
 
-async function refreshAccessToken(): Promise<string | null> {
-  try {
-    const res = await fetch('/api/v1/auth/refresh', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.success && data.data?.accessToken) {
-      accessToken = data.data.accessToken;
-      return accessToken;
+// Module-level in-flight dedup for same-tab. Cross-tab dedup is via
+// `withRefreshLock` (navigator.locks).
+let refreshInFlight: Promise<string | null> | null = null;
+
+export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = withRefreshLock(async () => {
+    try {
+      const res = await fetch('/api/v1/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.success && data.data?.accessToken) {
+        accessToken = data.data.accessToken;
+        return accessToken;
+      }
+      return null;
+    } catch {
+      return null;
     }
-    return null;
-  } catch {
-    return null;
-  }
+  }).finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
 }
 
-async function request<T>(
-  url: string,
-  options: RequestInit = {}
-): Promise<ApiResponse<T>> {
+async function request<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest',

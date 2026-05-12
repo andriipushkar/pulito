@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
+import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { AuthError } from './auth-errors';
@@ -66,9 +67,7 @@ export async function registerUser(data: {
   }
 
   // Send verification email asynchronously (don't block registration)
-  import('./verification')
-    .then((mod) => mod.sendEmailVerification(user.id))
-    .catch(() => {});
+  import('./verification').then((mod) => mod.sendEmailVerification(user.id)).catch(() => {});
 
   return {
     user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
@@ -124,12 +123,21 @@ export async function loginUser(data: {
 
   // If 2FA is enabled, return a short-lived temp token instead of full credentials
   if (user.twoFactorEnabled && user.twoFactorSecret) {
-    const ipHash = createHash('sha256').update(data.ipAddress || 'unknown').digest('hex').slice(0, 16);
+    const ipHash = createHash('sha256')
+      .update(data.ipAddress || 'unknown')
+      .digest('hex')
+      .slice(0, 16);
     const tempToken = sign2faToken({ sub: user.id, iph: ipHash });
     return { requiresTwoFactor: true, tempToken };
   }
 
-  const tokens = await createTokenPair(user.id, user.email, user.role, data.ipAddress, data.deviceInfo);
+  const tokens = await createTokenPair(
+    user.id,
+    user.email,
+    user.role,
+    data.ipAddress,
+    data.deviceInfo,
+  );
 
   // Log successful login
   logLogin(user.id, data.ipAddress, data.deviceInfo, true).catch(() => {});
@@ -164,7 +172,10 @@ export async function verifyTwoFactorLogin(
 
   // Verify IP binding
   if (payload.iph) {
-    const currentIpHash = createHash('sha256').update(ipAddress || 'unknown').digest('hex').slice(0, 16);
+    const currentIpHash = createHash('sha256')
+      .update(ipAddress || 'unknown')
+      .digest('hex')
+      .slice(0, 16);
     if (payload.iph !== currentIpHash) {
       throw new AuthError('IP-адреса змінилася. Увійдіть знову.', 401);
     }
@@ -216,7 +227,7 @@ export async function verifyTwoFactorLogin(
 export async function refreshTokens(
   refreshToken: string,
   ipAddress?: string,
-  deviceInfo?: string
+  deviceInfo?: string,
 ): Promise<{ user: AuthUser; tokens: TokenPair }> {
   let payload;
   try {
@@ -311,7 +322,14 @@ export async function isAccessTokenBlacklisted(token: string): Promise<boolean> 
 export async function getUserById(id: number): Promise<AuthUser | null> {
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, email: true, role: true, fullName: true, wholesaleGroup: true, twoFactorEnabled: true },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      fullName: true,
+      wholesaleGroup: true,
+      twoFactorEnabled: true,
+    },
   });
 
   if (!user) return null;
@@ -339,7 +357,9 @@ export async function loginWithGoogle(
   email: string,
   name: string,
   avatarUrl?: string,
-  referralCode?: string
+  referralCode?: string,
+  ipAddress?: string,
+  deviceInfo?: string,
 ): Promise<{ user: AuthUser; tokens: TokenPair }> {
   let user = await prisma.user.findUnique({ where: { googleId } });
   let isNewUser = false;
@@ -356,28 +376,44 @@ export async function loginWithGoogle(
       const { generateReferralCode } = await import('./referral');
       const userReferralCode = generateReferralCode();
 
-      user = await prisma.user.create({
-        data: {
-          email,
-          fullName: name,
-          googleId,
-          avatarUrl,
-          isVerified: true,
-          referralCode: userReferralCode,
-        },
-      });
-      isNewUser = true;
+      try {
+        user = await prisma.user.create({
+          data: {
+            email,
+            fullName: name,
+            googleId,
+            avatarUrl,
+            isVerified: true,
+            referralCode: userReferralCode,
+          },
+        });
+        isNewUser = true;
+      } catch (err) {
+        // Race: two parallel Google logins for the same email both saw no
+        // row, both tried to create. Whoever lost the unique-constraint race
+        // re-fetches and continues with the existing user.
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          const existing =
+            (await prisma.user.findUnique({ where: { googleId } })) ??
+            (await prisma.user.findUnique({ where: { email } }));
+          if (!existing) throw err;
+          user = existing;
+        } else {
+          throw err;
+        }
+      }
     }
   }
 
   // Process referral if code was provided (only for new users)
   if (isNewUser && referralCode) {
-    import('./referral')
-      .then((mod) => mod.processReferral(user!.id, referralCode))
-      .catch(() => {});
+    import('./referral').then((mod) => mod.processReferral(user!.id, referralCode)).catch(() => {});
   }
 
-  const tokens = await createTokenPair(user.id, user.email, user.role);
+  const tokens = await createTokenPair(user.id, user.email, user.role, ipAddress, deviceInfo);
+
+  // Best-effort audit log — Google logins used to silently skip this entirely.
+  logLogin(user.id, ipAddress, deviceInfo, true).catch(() => {});
 
   return {
     user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
@@ -390,7 +426,7 @@ async function createTokenPair(
   email: string,
   role: string,
   ipAddress?: string,
-  deviceInfo?: string
+  deviceInfo?: string,
 ): Promise<TokenPair> {
   const accessToken = signAccessToken({ sub: userId, email, role });
   const refreshToken = signRefreshToken({ sub: userId });

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serialize } from 'cookie';
 import {
   exchangeCodeForTokens,
   getGoogleUserProfile,
@@ -9,16 +8,9 @@ import {
 import { loginWithGoogle } from '@/services/auth';
 import { parseTtlToSeconds } from '@/services/token';
 import { serializeRefreshTokenCookie } from '@/utils/cookies';
+import { getClientIp, getDeviceInfo } from '@/utils/request';
+import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
-
-function getOAuthStateCookie(cookieHeader: string | null): string | null {
-  if (!cookieHeader) return null;
-  for (const cookie of cookieHeader.split(';')) {
-    const [name, ...rest] = cookie.trim().split('=');
-    if (name === 'oauth_state') return decodeURIComponent(rest.join('='));
-  }
-  return null;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,20 +26,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${env.APP_URL}/auth/login?error=no_code`);
     }
 
-    // Verify OAuth state parameter to prevent CSRF
-    const storedState = getOAuthStateCookie(request.headers.get('cookie'));
-    if (!state || !storedState || state !== storedState || !verifyOAuthState(state)) {
+    // State is HMAC-signed and includes a timestamp; verification doesn't
+    // need a server-side cookie. See services/google-oauth.ts.
+    if (!state || !verifyOAuthState(state)) {
       return NextResponse.redirect(`${env.APP_URL}/auth/login?error=invalid_state`);
     }
 
     const tokenData = await exchangeCodeForTokens(code);
     const profile = await getGoogleUserProfile(tokenData.access_token);
 
+    const ipAddress = getClientIp(request);
+    const deviceInfo = getDeviceInfo(request);
+
     const { tokens } = await loginWithGoogle(
       profile.id,
       profile.email,
       profile.name,
       profile.picture,
+      undefined,
+      ipAddress,
+      deviceInfo,
     );
 
     // Redirect to the client callback page. The refresh_token cookie alone is
@@ -67,23 +65,18 @@ export async function GET(request: NextRequest) {
       serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl),
     );
 
-    // Clear the oauth_state cookie
-    response.headers.append(
-      'Set-Cookie',
-      serialize('oauth_state', '', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/api/v1/auth/google',
-        maxAge: 0,
-      }),
-    );
-
     return response;
   } catch (error) {
     if (error instanceof GoogleOAuthError) {
+      logger.error('Google OAuth callback failed', {
+        statusCode: error.statusCode,
+        message: error.message,
+      });
       return NextResponse.redirect(`${env.APP_URL}/auth/login?error=oauth_failed`);
     }
+    logger.error('Google OAuth callback unexpected error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.redirect(`${env.APP_URL}/auth/login?error=server_error`);
   }
 }

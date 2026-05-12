@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { setAccessToken } from '@/lib/api-client';
+import { withRefreshLock } from '@/lib/auth-refresh-lock';
 
 interface AuthUser {
   id: number;
@@ -42,31 +43,36 @@ export const AuthContext = createContext<AuthContextValue>({
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const refreshInterval = useRef<ReturnType<typeof setInterval>>(undefined);
   const refreshInFlight = useRef<Promise<void> | null>(null);
+  const lastRefreshAt = useRef<number>(0);
 
   const refreshAuth = useCallback(async () => {
-    // Prevent concurrent refresh calls (React Strict Mode double-mount, race conditions)
+    // Same-tab dedup so React Strict Mode double-mount + callback page
+    // racing the mount-refresh don't fire two fetches.
     if (refreshInFlight.current) {
       return refreshInFlight.current;
     }
 
     const doRefresh = async () => {
       try {
-        const res = await fetch('/api/v1/auth/refresh', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        // Cross-tab dedup: only one refresh runs at a time across all
+        // tabs of this origin. Without this, multiple tabs hitting
+        // /auth/refresh concurrently trip the server's reuse-detector
+        // and nuke every session.
+        const data = await withRefreshLock(async () => {
+          const res = await fetch('/api/v1/auth/refresh', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          });
+          if (!res.ok) return null;
+          return res.json();
         });
-        if (!res.ok) {
-          setUser(null);
-          setAccessToken(null);
-          return;
-        }
-        const data = await res.json();
-        if (data.success && data.data) {
+
+        if (data?.success && data.data) {
           setAccessToken(data.data.accessToken);
           setUser(data.data.user);
+          lastRefreshAt.current = Date.now();
         } else {
           setUser(null);
           setAccessToken(null);
@@ -86,8 +92,22 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshAuth().finally(() => setIsLoading(false));
 
-    refreshInterval.current = setInterval(refreshAuth, 13 * 60 * 1000);
-    return () => clearInterval(refreshInterval.current);
+    // No setInterval here. Access tokens expire in 15 min; api-client
+    // refreshes lazily on the first 401, which is enough to keep an
+    // active session alive. Periodic interval used to fire across every
+    // tab and pile up concurrent /auth/refresh calls -> reuse-detector
+    // logged everyone out at minute 13.
+    //
+    // Refresh once when a tab becomes visible again if 10+ min have
+    // passed — this keeps long-idle tabs from greeting the user with a
+    // 401 on their first click.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastRefreshAt.current < 10 * 60 * 1000) return;
+      refreshAuth();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [refreshAuth]);
 
   const login = useCallback(async (email: string, password: string) => {
