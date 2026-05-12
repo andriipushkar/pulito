@@ -10,6 +10,7 @@ import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import WysiwygEditor from '@/components/admin/WysiwygEditor';
+import BrandSelector from '@/components/admin/BrandSelector';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import UploadProgress from '@/components/ui/UploadProgress';
@@ -35,18 +36,30 @@ interface ProductDetail {
   priceWholesale2: string | number | null;
   priceWholesale3: string | number | null;
   quantity: number;
+  sortOrder: number;
   isActive: boolean;
   isPromo: boolean;
+  promoStartDate: string | null;
+  promoEndDate: string | null;
   imagePath: string | null;
   images: { id: number; pathMedium: string; sortOrder: number }[];
   categoryId: number | null;
   category?: { id: number; name: string } | null;
+  brandId: number | null;
+  brand?: { id: number; name: string; slug: string } | null;
   content?: {
     seoTitle: string | null;
     seoDescription: string | null;
     fullDescription: string | null;
     shortDescription: string | null;
+    specifications: string | null;
   } | null;
+}
+
+interface BrandOption {
+  id: number;
+  name: string;
+  slug: string;
 }
 
 export default function AdminProductDetailPage() {
@@ -92,23 +105,30 @@ export default function AdminProductDetailPage() {
           // Description and SEO live in the joined ProductContent table, not on
           // Product itself — read from there so the form actually reflects what
           // was saved instead of always showing empty.
+          // datetime-local input wants "YYYY-MM-DDTHH:mm" (no seconds, no TZ).
+          const toLocalInput = (iso: string | null) => (iso ? iso.slice(0, 16) : '');
           setForm({
             name: res.data.name,
             code: res.data.code,
             slug: res.data.slug,
             description: res.data.content?.shortDescription || '',
             descriptionHtml: res.data.content?.fullDescription || '',
+            specifications: res.data.content?.specifications || '',
             priceRetail: String(res.data.priceRetail),
             priceRetailOld: res.data.priceRetailOld ? String(res.data.priceRetailOld) : '',
             priceWholesale: res.data.priceWholesale ? String(res.data.priceWholesale) : '',
             priceWholesale2: res.data.priceWholesale2 ? String(res.data.priceWholesale2) : '',
             priceWholesale3: res.data.priceWholesale3 ? String(res.data.priceWholesale3) : '',
             quantity: String(res.data.quantity),
+            sortOrder: String(res.data.sortOrder ?? 0),
             isActive: res.data.isActive,
             isPromo: res.data.isPromo,
+            promoStartDate: toLocalInput(res.data.promoStartDate),
+            promoEndDate: toLocalInput(res.data.promoEndDate),
             seoTitle: res.data.content?.seoTitle || '',
             seoDescription: res.data.content?.seoDescription || '',
             categoryId: res.data.categoryId ? String(res.data.categoryId) : '',
+            brandId: res.data.brandId ? String(res.data.brandId) : '',
           });
         }
       })
@@ -129,17 +149,22 @@ export default function AdminProductDetailPage() {
         slug: (form.slug as string) || null,
         description: (form.description as string) || null,
         descriptionHtml: (form.descriptionHtml as string) || null,
+        specifications: (form.specifications as string) || null,
         priceRetail: Number(form.priceRetail),
         priceRetailOld: (form.priceRetailOld as string) ? Number(form.priceRetailOld) : null,
         priceWholesale: (form.priceWholesale as string) ? Number(form.priceWholesale) : null,
         priceWholesale2: (form.priceWholesale2 as string) ? Number(form.priceWholesale2) : null,
         priceWholesale3: (form.priceWholesale3 as string) ? Number(form.priceWholesale3) : null,
         quantity: Number(form.quantity),
+        sortOrder: Number(form.sortOrder) || 0,
         isActive: form.isActive,
         isPromo: form.isPromo,
+        promoStartDate: (form.promoStartDate as string) || null,
+        promoEndDate: (form.promoEndDate as string) || null,
         seoTitle: (form.seoTitle as string) || null,
         seoDescription: (form.seoDescription as string) || null,
         categoryId: (form.categoryId as string) ? Number(form.categoryId) : null,
+        brandId: (form.brandId as string) ? Number(form.brandId) : null,
       };
       const res = await apiClient.put(`/api/v1/admin/products/${id}`, payload);
       if (res.success) {
@@ -382,6 +407,13 @@ export default function AdminProductDetailPage() {
             }}
             error={errors.quantity}
           />
+          <Input
+            label="Сортування"
+            type="number"
+            value={form.sortOrder as string}
+            onChange={(e) => updateField('sortOrder', e.target.value)}
+            placeholder="0"
+          />
         </div>
         <div className="mt-4 flex gap-6">
           <label className="flex items-center gap-2 text-sm">
@@ -403,6 +435,36 @@ export default function AdminProductDetailPage() {
             Акційний
           </label>
         </div>
+        {(form.isPromo as boolean) && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Акція з</label>
+              <input
+                type="datetime-local"
+                value={form.promoStartDate as string}
+                onChange={(e) => updateField('promoStartDate', e.target.value)}
+                className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Акція по</label>
+              <input
+                type="datetime-local"
+                value={form.promoEndDate as string}
+                onChange={(e) => updateField('promoEndDate', e.target.value)}
+                className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Brand */}
+      <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <BrandSelector
+          value={(form.brandId as string) || ''}
+          onChange={(v) => updateField('brandId', v)}
+        />
       </div>
 
       {/* Description */}
@@ -412,6 +474,16 @@ export default function AdminProductDetailPage() {
           value={form.descriptionHtml as string}
           onChange={(html) => updateField('descriptionHtml', html)}
           placeholder="Введіть опис товару..."
+        />
+      </div>
+
+      {/* Specifications */}
+      <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <h3 className="mb-3 text-sm font-semibold">Характеристики</h3>
+        <WysiwygEditor
+          value={form.specifications as string}
+          onChange={(html) => updateField('specifications', html)}
+          placeholder="Склад, об’єм, маса, інструкція тощо. Покажеться як вкладка «Характеристики»."
         />
       </div>
 

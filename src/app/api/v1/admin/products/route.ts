@@ -50,6 +50,8 @@ export const GET = withRole(
       quantity_asc: { quantity: 'asc' },
       quantity_desc: { quantity: 'desc' },
       sales_desc: { ordersCount: 'desc' },
+      sort_order_asc: { sortOrder: 'asc' },
+      sort_order_desc: { sortOrder: 'desc' },
       category_asc: { category: { name: 'asc' } },
       category_desc: { category: { name: 'desc' } },
     };
@@ -71,7 +73,9 @@ export const GET = withRole(
           isPromo: true,
           imagePath: true,
           ordersCount: true,
+          sortOrder: true,
           category: { select: { id: true, name: true } },
+          brand: { select: { id: true, name: true } },
         },
         orderBy: orderByMap[sort] || { id: 'desc' },
         skip,

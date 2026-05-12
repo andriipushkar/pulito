@@ -30,6 +30,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/admin/products', label: 'Товари', icon: '🛒' },
       { href: '/admin/categories', label: 'Категорії', icon: '📁' },
+      { href: '/admin/brands', label: 'Виробники', icon: '🏭' },
       { href: '/admin/pages', label: 'Сторінки', icon: '📄' },
       { href: '/admin/faq', label: 'FAQ', icon: '❓' },
       { href: '/admin/import', label: 'Імпорт', icon: '📥' },
@@ -85,6 +86,7 @@ const PATH_LABELS: Record<string, string> = {
   '/admin/analytics': 'Аналітика',
   '/admin/reports': 'Звіти',
   '/admin/categories': 'Категорії',
+  '/admin/brands': 'Виробники',
   '/admin/pages': 'Сторінки',
   '/admin/faq': 'FAQ',
   '/admin/import': 'Імпорт',

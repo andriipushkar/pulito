@@ -28,7 +28,9 @@ interface AdminProduct {
   isPromo: boolean;
   imagePath: string | null;
   ordersCount: number;
+  sortOrder: number;
   category: { id: number; name: string } | null;
+  brand: { id: number; name: string } | null;
 }
 
 interface CategoryOption {
@@ -59,6 +61,8 @@ const SORT_OPTIONS = [
   { value: 'quantity_asc', label: 'Залишок: мало' },
   { value: 'quantity_desc', label: 'Залишок: багато' },
   { value: 'sales_desc', label: 'За продажами' },
+  { value: 'sort_order_asc', label: 'Порядок (зростання)' },
+  { value: 'sort_order_desc', label: 'Порядок (спадання)' },
   { value: 'category_asc', label: 'Категорія А-Я' },
   { value: 'category_desc', label: 'Категорія Я-А' },
 ];
@@ -88,6 +92,7 @@ export default function AdminProductsPage() {
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [rowDelete, setRowDelete] = useState<AdminProduct | null>(null);
   const [isDeletingRow, setIsDeletingRow] = useState(false);
+  const [pendingSortOrder, setPendingSortOrder] = useState<Record<number, string>>({});
 
   const page = Number(searchParams.get('page')) || 1;
   const limit = Number(searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
@@ -284,6 +289,30 @@ export default function AdminProductsPage() {
     }
   };
 
+  const commitSortOrder = async (product: AdminProduct, raw: string) => {
+    const next = Number(raw);
+    if (!Number.isFinite(next) || next === product.sortOrder) {
+      setPendingSortOrder((prev) => {
+        const copy = { ...prev };
+        delete copy[product.id];
+        return copy;
+      });
+      return;
+    }
+    const res = await apiClient.put(`/api/v1/admin/products/${product.id}`, { sortOrder: next });
+    if (res.success) {
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, sortOrder: next } : p)));
+      toast.success('Порядок оновлено');
+    } else {
+      toast.error(res.error || 'Не вдалося оновити порядок');
+    }
+    setPendingSortOrder((prev) => {
+      const copy = { ...prev };
+      delete copy[product.id];
+      return copy;
+    });
+  };
+
   const handleRowDelete = async () => {
     if (!rowDelete) return;
     const product = rowDelete;
@@ -450,6 +479,7 @@ export default function AdminProductsPage() {
                   <th className="px-4 py-3 text-center font-medium">Залишок</th>
                   <th className="px-4 py-3 text-center font-medium">Продажі</th>
                   <th className="px-4 py-3 text-center font-medium">Статус</th>
+                  <th className="px-4 py-3 text-center font-medium">Порядок</th>
                   <th className="px-4 py-3 text-right font-medium">Дії</th>
                 </tr>
               </thead>
@@ -525,6 +555,21 @@ export default function AdminProductsPage() {
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="number"
+                        value={pendingSortOrder[p.id] ?? String(p.sortOrder ?? 0)}
+                        onChange={(e) =>
+                          setPendingSortOrder((prev) => ({ ...prev, [p.id]: e.target.value }))
+                        }
+                        onBlur={(e) => commitSortOrder(p, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                        }}
+                        className="w-16 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-center text-xs focus:border-[var(--color-primary)] focus:outline-none"
+                        aria-label={`Порядок для ${p.name}`}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
@@ -558,7 +603,7 @@ export default function AdminProductsPage() {
                 {products.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                     >
                       Товарів не знайдено

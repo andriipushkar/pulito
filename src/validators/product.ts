@@ -4,12 +4,17 @@ export const productFilterSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   category: z.string().optional(),
+  // Comma-separated brand slugs. The catalog's filter sidebar lets the user
+  // tick multiple brands at once; we accept them all in a single param.
+  brand: z.string().optional(),
   search: z.string().min(2).max(200).optional(),
   priceMin: z.coerce.number().min(0).optional(),
   priceMax: z.coerce.number().min(0).optional(),
   promo: z.coerce.boolean().optional(),
   inStock: z.coerce.boolean().optional(),
-  sort: z.enum(['popular', 'price_asc', 'price_desc', 'name_asc', 'newest']).default('popular'),
+  sort: z
+    .enum(['popular', 'price_asc', 'price_desc', 'name_asc', 'newest', 'brand_asc', 'brand_desc'])
+    .default('popular'),
 });
 
 export type ProductFilterInput = z.infer<typeof productFilterSchema>;
@@ -41,8 +46,23 @@ export const createProductSchema = z.object({
   sortOrder: z.number().int().min(0).default(0),
   description: z.string().max(2000).optional().nullable(),
   descriptionHtml: z.string().max(50000).optional().nullable(),
+  specifications: z.string().max(50000).optional().nullable(),
   seoTitle: z.string().max(70, 'SEO title до 70 символів').optional().nullable(),
   seoDescription: z.string().max(160, 'SEO description до 160 символів').optional().nullable(),
+  brandId: z.number().int().positive().optional().nullable(),
+  // Accept ISO date-time strings; the service coerces to Date.
+  promoStartDate: z
+    .string()
+    .datetime({ offset: true })
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/))
+    .optional()
+    .nullable(),
+  promoEndDate: z
+    .string()
+    .datetime({ offset: true })
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/))
+    .optional()
+    .nullable(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

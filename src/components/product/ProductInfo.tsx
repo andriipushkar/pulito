@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
 import PriceDisplay from './PriceDisplay';
 import QuantitySelector from './QuantitySelector';
@@ -31,7 +32,9 @@ export default function ProductInfo({ product }: ProductInfoProps) {
       slug: product.slug,
       code: product.code,
       priceRetail: Number(product.priceRetail),
-      priceWholesale: resolveWholesalePrice(product, user?.wholesaleGroup) ?? (product.priceWholesale ? Number(product.priceWholesale) : null),
+      priceWholesale:
+        resolveWholesalePrice(product, user?.wholesaleGroup) ??
+        (product.priceWholesale ? Number(product.priceWholesale) : null),
       imagePath: mainImage,
       quantity,
       maxQuantity: product.quantity,
@@ -42,9 +45,19 @@ export default function ProductInfo({ product }: ProductInfoProps) {
     <div className="flex flex-col gap-5">
       {/* Title & code */}
       <div>
-        <h1 className="text-2xl font-bold leading-snug tracking-tight text-[var(--color-text)] lg:text-3xl">{product.name}</h1>
+        <h1 className="text-2xl font-bold leading-snug tracking-tight text-[var(--color-text)] lg:text-3xl">
+          {product.name}
+        </h1>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className="text-sm text-[var(--color-text-secondary)]">Код: {product.code}</span>
+          {product.brand && (
+            <Link
+              href={`/catalog?brand=${product.brand.slug}`}
+              className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+            >
+              {product.brand.name}
+            </Link>
+          )}
           {product.badges.slice(0, 2).map((badge) => (
             <Badge key={badge.id} color={badge.customColor || undefined}>
               {badge.customText || badge.badgeType}
@@ -63,9 +76,17 @@ export default function ProductInfo({ product }: ProductInfoProps) {
           priceRetailOld={product.priceRetailOld}
           size="lg"
         />
-        <div className={`mt-2 flex items-center gap-1.5 text-sm font-medium ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}>
+        <div
+          className={`mt-2 flex items-center gap-1.5 text-sm font-medium ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}
+        >
           {inStock && (
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
           )}
@@ -82,8 +103,7 @@ export default function ProductInfo({ product }: ProductInfoProps) {
             onClick={handleAddToCart}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] px-6 py-3 text-base font-semibold text-white shadow-[var(--shadow-brand)] transition-all hover:shadow-[var(--shadow-brand-lg)] active:scale-[0.98]"
           >
-            <Cart size={20} />
-            В кошик
+            <Cart size={20} />В кошик
           </button>
         </div>
       )}

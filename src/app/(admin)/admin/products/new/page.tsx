@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import WysiwygEditor from '@/components/admin/WysiwygEditor';
+import BrandSelector from '@/components/admin/BrandSelector';
 import { useFormValidation } from '@/hooks/useFormValidation';
 
 interface CategoryOption {
@@ -20,15 +21,20 @@ const EMPTY_FORM = {
   code: '',
   name: '',
   categoryId: '',
+  brandId: '',
   priceRetail: '',
   priceWholesale: '',
   priceWholesale2: '',
   priceWholesale3: '',
   quantity: '0',
+  sortOrder: '0',
   isActive: true,
   isPromo: false,
+  promoStartDate: '',
+  promoEndDate: '',
   description: '',
   descriptionHtml: '',
+  specifications: '',
   seoTitle: '',
   seoDescription: '',
 };
@@ -76,13 +82,18 @@ export default function AdminProductCreatePage() {
         isPromo: form.isPromo,
       };
       if (form.categoryId) payload.categoryId = Number(form.categoryId);
+      if (form.brandId) payload.brandId = Number(form.brandId);
       if (form.priceWholesale) payload.priceWholesale = Number(form.priceWholesale);
       if (form.priceWholesale2) payload.priceWholesale2 = Number(form.priceWholesale2);
       if (form.priceWholesale3) payload.priceWholesale3 = Number(form.priceWholesale3);
+      if (Number(form.sortOrder)) payload.sortOrder = Number(form.sortOrder);
       if (form.description) payload.description = form.description;
       if (form.descriptionHtml) payload.descriptionHtml = form.descriptionHtml;
+      if (form.specifications) payload.specifications = form.specifications;
       if (form.seoTitle) payload.seoTitle = form.seoTitle;
       if (form.seoDescription) payload.seoDescription = form.seoDescription;
+      if (form.isPromo && form.promoStartDate) payload.promoStartDate = form.promoStartDate;
+      if (form.isPromo && form.promoEndDate) payload.promoEndDate = form.promoEndDate;
 
       const res = await apiClient.post<{ id: number }>('/api/v1/admin/products', payload);
       if (res.success && res.data) {
@@ -196,6 +207,13 @@ export default function AdminProductCreatePage() {
             }}
             error={errors.quantity}
           />
+          <Input
+            label="Сортування"
+            type="number"
+            value={form.sortOrder}
+            onChange={(e) => updateField('sortOrder', e.target.value)}
+            placeholder="0"
+          />
         </div>
         <div className="mt-4 flex gap-6">
           <label className="flex items-center gap-2 text-sm">
@@ -217,6 +235,33 @@ export default function AdminProductCreatePage() {
             Акційний
           </label>
         </div>
+        {form.isPromo && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Акція з</label>
+              <input
+                type="datetime-local"
+                value={form.promoStartDate}
+                onChange={(e) => updateField('promoStartDate', e.target.value)}
+                className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Акція по</label>
+              <input
+                type="datetime-local"
+                value={form.promoEndDate}
+                onChange={(e) => updateField('promoEndDate', e.target.value)}
+                className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Brand */}
+      <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <BrandSelector value={form.brandId} onChange={(v) => updateField('brandId', v)} />
       </div>
 
       {/* Description */}
@@ -237,6 +282,16 @@ export default function AdminProductCreatePage() {
           value={form.descriptionHtml}
           onChange={(html) => updateField('descriptionHtml', html)}
           placeholder="Розгорнутий опис товару..."
+        />
+      </div>
+
+      {/* Specifications */}
+      <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <h3 className="mb-3 text-sm font-semibold">Характеристики</h3>
+        <WysiwygEditor
+          value={form.specifications}
+          onChange={(html) => updateField('specifications', html)}
+          placeholder="Склад, об’єм, маса, інструкція тощо. Покажеться як вкладка «Характеристики»."
         />
       </div>
 

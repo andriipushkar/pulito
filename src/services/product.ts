@@ -13,10 +13,20 @@ import { cacheGet, cacheSet, cacheInvalidate, CACHE_TTL } from '@/services/cache
  */
 interface SearchFilters {
   category?: string;
+  /** Comma-separated brand slugs (one or many). */
+  brand?: string;
   priceMin?: number;
   priceMax?: number;
   promo?: boolean;
   inStock?: boolean;
+}
+
+function splitSlugs(csv?: string): string[] {
+  if (!csv) return [];
+  return csv
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -31,9 +41,16 @@ function buildSearchConditions(
   const params: unknown[] = [];
   let idx = startParam;
 
-  if (filters.category) {
-    conditions.push(`category_id IN (SELECT id FROM categories WHERE slug = $${idx})`);
-    params.push(filters.category);
+  const categorySlugs = splitSlugs(filters.category);
+  if (categorySlugs.length > 0) {
+    conditions.push(`category_id IN (SELECT id FROM categories WHERE slug = ANY($${idx}::text[]))`);
+    params.push(categorySlugs);
+    idx++;
+  }
+  const brandSlugs = splitSlugs(filters.brand);
+  if (brandSlugs.length > 0) {
+    conditions.push(`brand_id IN (SELECT id FROM brands WHERE slug = ANY($${idx}::text[]))`);
+    params.push(brandSlugs);
     idx++;
   }
   if (filters.priceMin !== undefined) {
@@ -195,6 +212,9 @@ const productListSelect = {
       parent: { select: { name: true, slug: true } },
     },
   },
+  brand: {
+    select: { id: true, name: true, slug: true },
+  },
   badges: {
     select: { id: true, badgeType: true, customText: true, customColor: true, priority: true },
     where: { isActive: true },
@@ -265,6 +285,9 @@ const productDetailSelect = {
       parent: { select: { name: true, slug: true } },
     },
   },
+  brand: {
+    select: { id: true, name: true, slug: true, logoPath: true },
+  },
 } satisfies Prisma.ProductSelect;
 
 function buildSortOrder(sort: string): Prisma.ProductOrderByWithRelationInput[] {
@@ -277,6 +300,10 @@ function buildSortOrder(sort: string): Prisma.ProductOrderByWithRelationInput[] 
       return [{ name: 'asc' }];
     case 'newest':
       return [{ createdAt: 'desc' }];
+    case 'brand_asc':
+      return [{ brand: { name: 'asc' } }, { name: 'asc' }];
+    case 'brand_desc':
+      return [{ brand: { name: 'desc' } }, { name: 'asc' }];
     case 'popular':
     default:
       return [{ ordersCount: 'desc' }, { viewsCount: 'desc' }];
@@ -299,6 +326,7 @@ export async function getProducts(filters: ProductFilterInput) {
   if (filters.search && filters.search.length >= 2) {
     const { ids, total } = await fullTextSearchProductIds(filters.search, filters.limit, skip, {
       category: filters.category,
+      brand: filters.brand,
       priceMin: filters.priceMin,
       priceMax: filters.priceMax,
       promo: filters.promo,
@@ -326,8 +354,16 @@ export async function getProducts(filters: ProductFilterInput) {
     isActive: true,
   };
 
-  if (filters.category) {
-    where.category = { slug: filters.category };
+  const categorySlugs = splitSlugs(filters.category);
+  if (categorySlugs.length === 1) {
+    where.category = { slug: categorySlugs[0] };
+  } else if (categorySlugs.length > 1) {
+    where.category = { slug: { in: categorySlugs } };
+  }
+
+  const brandSlugs = splitSlugs(filters.brand);
+  if (brandSlugs.length > 0) {
+    where.brand = { slug: { in: brandSlugs } };
   }
 
   if (filters.priceMin !== undefined || filters.priceMax !== undefined) {
@@ -548,8 +584,12 @@ export async function createProduct(data: {
   sortOrder?: number;
   description?: string | null;
   descriptionHtml?: string | null;
+  specifications?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  brandId?: number | null;
+  promoStartDate?: string | null;
+  promoEndDate?: string | null;
 }) {
   const existing = await prisma.product.findUnique({ where: { code: data.code } });
   if (existing) {
@@ -576,6 +616,7 @@ export async function createProduct(data: {
       name: data.name,
       slug: finalSlug,
       categoryId: data.categoryId ?? null,
+      brandId: data.brandId ?? null,
       priceRetail: data.priceRetail,
       priceWholesale: data.priceWholesale ?? null,
       priceWholesale2: data.priceWholesale2 ?? null,
@@ -584,15 +625,18 @@ export async function createProduct(data: {
       isPromo: data.isPromo ?? false,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
+      promoStartDate: data.promoStartDate ? new Date(data.promoStartDate) : null,
+      promoEndDate: data.promoEndDate ? new Date(data.promoEndDate) : null,
     },
     select: productDetailSelect,
   });
 
-  // Mirror description/SEO into ProductContent so the storefront actually
-  // shows them without needing a follow-up save.
+  // Mirror description/SEO/specs into ProductContent so the storefront
+  // actually shows them without needing a follow-up save.
   if (
     data.description != null ||
     data.descriptionHtml != null ||
+    data.specifications != null ||
     data.seoTitle != null ||
     data.seoDescription != null
   ) {
@@ -602,6 +646,7 @@ export async function createProduct(data: {
         productId: created.id,
         ...(data.descriptionHtml != null && { fullDescription: data.descriptionHtml }),
         ...(data.description != null && { shortDescription: shortDesc }),
+        ...(data.specifications != null && { specifications: data.specifications }),
         ...(data.seoTitle != null && { seoTitle: data.seoTitle }),
         ...(data.seoDescription != null && { seoDescription: data.seoDescription }),
       },
@@ -636,8 +681,12 @@ export async function updateProduct(
     sortOrder?: number;
     description?: string | null;
     descriptionHtml?: string | null;
+    specifications?: string | null;
     seoTitle?: string | null;
     seoDescription?: string | null;
+    brandId?: number | null;
+    promoStartDate?: string | null;
+    promoEndDate?: string | null;
   },
 ) {
   const product = await prisma.product.findUnique({ where: { id } });
@@ -707,11 +756,15 @@ export async function updateProduct(
     updateData.priceWholesale3 = data.priceWholesale3;
   }
 
-  // Explicit slug override (admin-set) wins over name-driven auto-slug.
-  // Auto-slug only kicks in if `slug` wasn't passed AND `name` changed.
+  // If the client echoed back the current slug (the edit form pre-fills it),
+  // we treat that as "no override" so renaming the product actually updates
+  // the slug. Only a *different* non-empty slug counts as an explicit override.
+  const clientSentExplicitSlug =
+    data.slug !== undefined && data.slug !== null && data.slug !== '' && data.slug !== product.slug;
+
   let resolvedSlug: string | null = null;
-  if (data.slug !== undefined && data.slug !== null && data.slug !== '') {
-    resolvedSlug = data.slug;
+  if (clientSentExplicitSlug) {
+    resolvedSlug = data.slug!;
   } else if (data.name !== undefined && data.name !== product.name) {
     const slug = createSlug(data.name);
     const slugExists = await prisma.product.findFirst({
@@ -753,6 +806,15 @@ export async function updateProduct(
   if (data.isPromo !== undefined) updateData.isPromo = data.isPromo;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
+  if (data.brandId !== undefined) {
+    updateData.brand = data.brandId ? { connect: { id: data.brandId } } : { disconnect: true };
+  }
+  if (data.promoStartDate !== undefined) {
+    updateData.promoStartDate = data.promoStartDate ? new Date(data.promoStartDate) : null;
+  }
+  if (data.promoEndDate !== undefined) {
+    updateData.promoEndDate = data.promoEndDate ? new Date(data.promoEndDate) : null;
+  }
 
   const updated = await prisma.product.update({
     where: { id },
@@ -760,11 +822,11 @@ export async function updateProduct(
     select: productDetailSelect,
   });
 
-  // Mirror description/SEO into ProductContent so the storefront (which reads
-  // ProductContent.*) actually shows them.
+  // Mirror description/specs/SEO into ProductContent.
   if (
     data.description !== undefined ||
     data.descriptionHtml !== undefined ||
+    data.specifications !== undefined ||
     data.seoTitle !== undefined ||
     data.seoDescription !== undefined
   ) {
@@ -772,6 +834,7 @@ export async function updateProduct(
     const contentPayload = {
       ...(data.descriptionHtml !== undefined && { fullDescription: data.descriptionHtml }),
       ...(data.description !== undefined && { shortDescription: shortDesc }),
+      ...(data.specifications !== undefined && { specifications: data.specifications }),
       ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
       ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
     };

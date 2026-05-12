@@ -41,8 +41,12 @@ export interface ProductListItem {
   ordersCount: number;
   createdAt: string | Date;
   category: { id: number; name: string; slug: string } | null;
+  brand: { id: number; name: string; slug: string } | null;
   badges: ProductBadge[];
-  images: Pick<ProductImage, 'id' | 'pathFull' | 'pathMedium' | 'pathThumbnail' | 'pathBlur' | 'isMain'>[];
+  images: Pick<
+    ProductImage,
+    'id' | 'pathFull' | 'pathMedium' | 'pathThumbnail' | 'pathBlur' | 'isMain'
+  >[];
   content: { shortDescription: string | null } | null;
 }
 
@@ -71,4 +75,5 @@ export interface ProductDetail extends Omit<ProductListItem, 'images'> {
     seoTitle: string | null;
     seoDescription: string | null;
   } | null;
+  brand: { id: number; name: string; slug: string; logoPath?: string | null } | null;
 }

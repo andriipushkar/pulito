@@ -17,6 +17,7 @@ import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import PaginationLinks from '@/components/seo/PaginationLinks';
 import { getProducts } from '@/services/product';
 import { getCategories, getCategoryBySlug } from '@/services/category';
+import { getBrandsForCatalog } from '@/services/brand';
 import { prisma } from '@/lib/prisma';
 import { Search } from '@/components/icons';
 
@@ -74,6 +75,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const page = Number(params.page) || 1;
   const limit = 20;
   const category = typeof params.category === 'string' ? params.category : undefined;
+  const brand = typeof params.brand === 'string' ? params.brand : undefined;
   const search = typeof params.search === 'string' ? params.search : undefined;
   const priceMin = params.price_min ? Number(params.price_min) : undefined;
   const priceMax = params.price_max ? Number(params.price_max) : undefined;
@@ -86,9 +88,21 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     | 'name_asc'
     | 'newest';
 
-  const [{ products, total }, categories] = await Promise.all([
-    getProducts({ page, limit, category, search, priceMin, priceMax, promo, inStock, sort }),
+  const [{ products, total }, categories, brands] = await Promise.all([
+    getProducts({
+      page,
+      limit,
+      category,
+      brand,
+      search,
+      priceMin,
+      priceMax,
+      promo,
+      inStock,
+      sort,
+    }),
     getCategories(),
+    getBrandsForCatalog(),
   ]);
 
   const totalPages = Math.ceil(total / limit);
@@ -119,6 +133,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
 
   const currentSearchParams: Record<string, string> = {};
   if (category) currentSearchParams.category = category;
+  if (brand) currentSearchParams.brand = brand;
   if (search) currentSearchParams.search = search;
   if (priceMin) currentSearchParams.price_min = String(priceMin);
   if (priceMax) currentSearchParams.price_max = String(priceMax);
@@ -176,7 +191,17 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       <h1 className="mb-6 text-2xl font-bold">
-        {categoryData?.name || (search ? `Результати пошуку: "${search}"` : 'Каталог товарів')}
+        {(() => {
+          if (search) return `Результати пошуку: "${search}"`;
+          if (categoryData) return categoryData.name;
+          // Single-brand filter ⇒ show brand name as page title for clarity.
+          const brandSlugs = brand ? brand.split(',').filter(Boolean) : [];
+          if (brandSlugs.length === 1) {
+            const b = brands.find((bb) => bb.slug === brandSlugs[0]);
+            if (b) return b.name;
+          }
+          return 'Каталог товарів';
+        })()}
       </h1>
 
       <Suspense
@@ -198,7 +223,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           </div>
         }
       >
-        <CatalogClient total={total} categories={categories}>
+        <CatalogClient total={total} categories={categories} brands={brands}>
           {products.length === 0 ? (
             <EmptyState
               icon={<Search size={48} />}

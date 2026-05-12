@@ -273,6 +273,15 @@ export default function ProductCard({ product }: ProductCardProps) {
           {product.name}
         </Link>
 
+        {product.brand && (
+          <Link
+            href={`/catalog?brand=${product.brand.slug}`}
+            className="mb-1 inline-block truncate text-[10px] font-medium text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)] sm:text-[11px]"
+          >
+            {product.brand.name}
+          </Link>
+        )}
+
         {attributes.length > 0 && (
           <div className="mb-1 flex flex-wrap gap-1">
             {attributes.map((attr) => (
