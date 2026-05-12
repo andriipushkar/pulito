@@ -12,6 +12,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Standalone output is the whole point of the Docker image — runner stage
+# does `node server.js` from .next/standalone. next.config.ts gates this
+# behind NEXT_BUILD_STANDALONE so local/VPS pm2 builds stay clean.
+ENV NEXT_BUILD_STANDALONE=1
+
 RUN npx prisma generate
 RUN npm run build
 

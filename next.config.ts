@@ -6,8 +6,14 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 // CDN support: set CDN_URL env to serve static assets from CDN (e.g. Cloudflare, CloudFront)
 const cdnUrl = process.env.CDN_URL || '';
 
+// Standalone output is only needed for the Docker image (CMD ["node", "server.js"]).
+// For local/VPS deploys we run `next start` via pm2, which warns when standalone
+// is enabled even though static traffic still works. Gate it behind an env var
+// so the Dockerfile opts in and everyone else gets the clean default.
+const standalone = process.env.NEXT_BUILD_STANDALONE === '1';
+
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  ...(standalone && { output: 'standalone' as const }),
   ...(cdnUrl && { assetPrefix: cdnUrl }),
   poweredByHeader: false,
   compress: true,
