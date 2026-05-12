@@ -22,9 +22,7 @@ export async function getCategories(options?: {
   const cached = await cacheGet<CategoryListItem[]>(cacheKey);
   if (cached) return cached;
 
-  const where = options?.includeHidden
-    ? { deletedAt: null }
-    : { isVisible: true, deletedAt: null };
+  const where = options?.includeHidden ? { deletedAt: null } : { isVisible: true, deletedAt: null };
 
   const result = await prisma.category.findMany({
     where,
@@ -78,24 +76,78 @@ export async function createCategory(data: {
   parentId?: number | null;
 }) {
   const slug = data.slug || createSlug(data.name);
+  const isTopLevel = !data.parentId;
 
-  const existing = await prisma.category.findUnique({ where: { slug } });
-  if (existing) {
-    throw new CategoryError('Категорія з таким slug вже існує', 409);
-  }
-
-  // Limit parent categories to 8
-  if (!data.parentId) {
-    const parentCount = await prisma.category.count({ where: { parentId: null } });
-    if (parentCount >= 8) {
-      throw new CategoryError('Максимум 8 батьківських категорій. Створіть підкатегорію замість нової батьківської.', 400);
+  // Parent must exist AND not be soft-deleted.
+  if (data.parentId) {
+    const parent = await prisma.category.findFirst({
+      where: { id: data.parentId, deletedAt: null },
+    });
+    if (!parent) {
+      throw new CategoryError('Батьківська категорія не знайдена', 404);
     }
   }
 
-  if (data.parentId) {
-    const parent = await prisma.category.findUnique({ where: { id: data.parentId } });
-    if (!parent) {
-      throw new CategoryError('Батьківська категорія не знайдена', 404);
+  const existing = await prisma.category.findUnique({ where: { slug } });
+
+  // Resurrect a soft-deleted category that occupies this slug instead of
+  // failing with "вже існує". Without this, deleting a category permanently
+  // burns its slug — the unique index keeps the row around, but admin UI
+  // (which filters deletedAt) doesn't show it, so the operator just sees
+  // an unexplained 409.
+  if (existing?.deletedAt) {
+    if (isTopLevel) {
+      const activeTopLevel = await prisma.category.count({
+        where: { parentId: null, deletedAt: null, id: { not: existing.id } },
+      });
+      if (activeTopLevel >= 8) {
+        throw new CategoryError(
+          'Максимум 8 батьківських категорій. Створіть підкатегорію замість нової батьківської.',
+          400,
+        );
+      }
+    }
+    const revived = await prisma.category.update({
+      where: { id: existing.id },
+      data: {
+        name: data.name,
+        description: data.description ?? null,
+        iconPath: data.iconPath ?? null,
+        coverImage: data.coverImage ?? null,
+        seoTitle: data.seoTitle ?? null,
+        seoDescription: data.seoDescription ?? null,
+        sortOrder: data.sortOrder ?? 0,
+        isVisible: data.isVisible ?? true,
+        parentId: data.parentId ?? null,
+        deletedAt: null,
+      },
+      include: { _count: { select: { products: { where: { isActive: true } } } } },
+    });
+    await cacheInvalidate('categories:*');
+    return revived;
+  }
+
+  if (existing) {
+    // Reached only when the existing row is ACTIVE (soft-deleted is handled
+    // above by resurrect). Include the conflicting slug + name in the error
+    // so the admin can tell which existing category is in the way.
+    throw new CategoryError(
+      `Категорія з slug "${slug}" вже існує (id=${existing.id}, "${existing.name}")`,
+      409,
+    );
+  }
+
+  // Limit top-level categories to 8 — count only active ones so deleted
+  // categories don't permanently take up a slot.
+  if (isTopLevel) {
+    const parentCount = await prisma.category.count({
+      where: { parentId: null, deletedAt: null },
+    });
+    if (parentCount >= 8) {
+      throw new CategoryError(
+        'Максимум 8 батьківських категорій. Створіть підкатегорію замість нової батьківської.',
+        400,
+      );
     }
   }
 
@@ -135,15 +187,27 @@ export async function updateCategory(
     sortOrder?: number;
     isVisible?: boolean;
     parentId?: number | null;
-  }
+  },
 ) {
   const category = await prisma.category.findUnique({ where: { id } });
   if (!category) {
     throw new CategoryError('Категорію не знайдено', 404);
   }
 
-  let slug = data.slug;
-  if (data.name && !data.slug) {
+  // If the client just echoed back the current slug (e.g. the edit form
+  // pre-fills it on load and the user only edited `name`), treat it as
+  // "not provided" so we can regenerate from the new name. An explicit
+  // override is detected by data.slug being different from the stored one.
+  const clientSentExplicitSlug =
+    data.slug !== undefined &&
+    data.slug !== null &&
+    data.slug !== '' &&
+    data.slug !== category.slug;
+
+  let slug: string | undefined;
+  if (clientSentExplicitSlug) {
+    slug = data.slug;
+  } else if (data.name && data.name !== category.name) {
     slug = createSlug(data.name);
   }
 
@@ -175,7 +239,10 @@ export async function updateCategory(
   if (data.parentId === null && category.parentId !== null) {
     const parentCount = await prisma.category.count({ where: { parentId: null } });
     if (parentCount >= 8) {
-      throw new CategoryError('Максимум 8 батьківських категорій. Неможливо перенести на верхній рівень.', 400);
+      throw new CategoryError(
+        'Максимум 8 батьківських категорій. Неможливо перенести на верхній рівень.',
+        400,
+      );
     }
   }
 
@@ -216,7 +283,7 @@ export async function deleteCategory(id: number) {
   if (category._count.products > 0) {
     throw new CategoryError(
       `Неможливо видалити категорію з ${category._count.products} товарами. Спочатку перенесіть товари.`,
-      400
+      400,
     );
   }
 
@@ -231,7 +298,7 @@ export async function deleteCategory(id: number) {
 export class CategoryError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'CategoryError';

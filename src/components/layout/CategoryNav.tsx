@@ -37,15 +37,12 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
   const navRef = useRef<HTMLElement>(null);
 
   const tree = buildTree(categories);
-  const parents = tree.sort((a, b) => {
-    // Categories with sortOrder > 0 come first (manually ordered), then alphabetical
-    if (a.sortOrder && !b.sortOrder) return -1;
-    if (!a.sortOrder && b.sortOrder) return 1;
-    if (a.sortOrder && b.sortOrder) return a.sortOrder - b.sortOrder;
-    return a.name.localeCompare(b.name, 'uk');
-  });
-  // Show all parents — limited to 8 by backend
-  const visibleParents = parents;
+  // Trust the server's order (sortOrder asc, name asc) — the admin drag-n-drop
+  // writes sequential sortOrder values starting at 0, and the previous custom
+  // sort here treated sortOrder=0 as "not manually ordered" and moved it to
+  // the alphabetical bucket. Result: admin and storefront disagreed on order
+  // after the first reorder.
+  const visibleParents = tree;
 
   /* ---- hover helpers with a small delay to avoid flicker ---- */
   const openMenu = useCallback((id: number) => {
@@ -85,22 +82,34 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
       aria-label="Категорії"
     >
       <Container>
-        <ul className={`flex items-center justify-center gap-1 overflow-hidden transition-all duration-300 ${shrink ? 'py-1' : 'py-2'}`}>
+        <ul
+          className={`flex items-center justify-center gap-1 overflow-hidden transition-all duration-300 ${shrink ? 'py-1' : 'py-2'}`}
+        >
           {/* Static catalog link */}
           <li>
             <Link
               href="/catalog"
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[var(--color-gold-dark)] to-[var(--color-gold)] px-4 py-2 text-sm font-semibold text-white shadow-[var(--shadow-gold)] transition-all hover:from-[var(--color-gold)] hover:to-[var(--color-gold-light)]"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
               </svg>
               Каталог
             </Link>
           </li>
 
           {/* Static "Акції" link */}
-          {!parents.some((c) => /акці|sale|promo/i.test(c.slug)) && (
+          {!visibleParents.some((c) => /акці|sale|promo/i.test(c.slug)) && (
             <li>
               <Link
                 href="/catalog?promo=true"
@@ -154,14 +163,19 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
                     onMouseLeave={closeMenu}
                   >
                     <Container>
-                      <MegaMenuPanel category={cat} onClose={() => { setVisible(false); setTimeout(() => setOpenId(null), 200); }} />
+                      <MegaMenuPanel
+                        category={cat}
+                        onClose={() => {
+                          setVisible(false);
+                          setTimeout(() => setOpenId(null), 200);
+                        }}
+                      />
                     </Container>
                   </div>
                 )}
               </li>
             );
           })}
-
         </ul>
       </Container>
     </nav>

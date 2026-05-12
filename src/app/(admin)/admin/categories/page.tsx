@@ -95,9 +95,14 @@ export default function AdminCategoriesPage() {
     try {
       const res = await apiClient.put(`/api/v1/admin/categories/${editingId}`, editForm);
       if (res.success) {
+        toast.success('Категорію оновлено');
         setEditingId(null);
         loadCategories();
+      } else {
+        toast.error(res.error || 'Не вдалося оновити категорію');
       }
+    } catch {
+      toast.error('Помилка мережі');
     } finally {
       setIsSaving(false);
     }
@@ -154,17 +159,25 @@ export default function AdminCategoriesPage() {
         targetCategoryId: targetId,
       });
       if (res.success) {
+        toast.success('Категорії об’єднано');
         setMergeSource(null);
         setMergeTarget('');
         loadCategories();
+      } else {
+        toast.error(res.error || 'Не вдалося об’єднати');
       }
+    } catch {
+      toast.error('Помилка мережі');
     } finally {
       setIsMerging(false);
     }
   };
 
   const handleCreate = async () => {
-    if (!createForm.name.trim()) return;
+    if (!createForm.name.trim()) {
+      toast.error('Введіть назву категорії');
+      return;
+    }
     setIsCreating(true);
     try {
       const userSlug = createForm.slug.trim();
@@ -173,10 +186,15 @@ export default function AdminCategoriesPage() {
       if (createForm.parentId) payload.parentId = Number(createForm.parentId);
       const res = await apiClient.post('/api/v1/admin/categories', payload);
       if (res.success) {
+        toast.success('Категорію створено');
         setShowCreate(false);
         setCreateForm({ name: '', slug: '', parentId: '' });
         loadCategories();
+      } else {
+        toast.error(res.error || 'Не вдалося створити категорію');
       }
+    } catch {
+      toast.error('Помилка мережі');
     } finally {
       setIsCreating(false);
     }
@@ -195,7 +213,14 @@ export default function AdminCategoriesPage() {
     setIsDeleting(catId);
     try {
       const res = await apiClient.delete(`/api/v1/admin/categories/${catId}`);
-      if (res.success) loadCategories();
+      if (res.success) {
+        toast.success('Категорію видалено');
+        loadCategories();
+      } else {
+        toast.error(res.error || 'Не вдалося видалити');
+      }
+    } catch {
+      toast.error('Помилка мережі');
     } finally {
       setIsDeleting(null);
     }
