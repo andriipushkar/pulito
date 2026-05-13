@@ -90,7 +90,7 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
     }
     for (const slug of selectedBrands) {
       const brand = brands.find((b) => b.slug === slug);
-      chips.push({ key: `brand_${slug}`, label: 'Бренд', value: brand?.name || slug });
+      chips.push({ key: `brand_${slug}`, label: 'Виробник', value: brand?.name || slug });
     }
     if (promo) chips.push({ key: 'promo', label: 'Фільтр', value: 'Акційні' });
     if (inStock) chips.push({ key: 'in_stock', label: 'Фільтр', value: 'В наявності' });
@@ -137,11 +137,25 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
   });
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllBrands, setShowAllBrands] = useState(false);
+  const [brandSearch, setBrandSearch] = useState('');
 
   const MAX_VISIBLE_PARENTS = 8;
   const MAX_VISIBLE_BRANDS = 8;
   const displayParents = showAllCategories ? parents : parents.slice(0, MAX_VISIBLE_PARENTS);
-  const displayBrands = showAllBrands ? brands : brands.slice(0, MAX_VISIBLE_BRANDS);
+
+  // Searching brands shows ALL matches (ignores the "Show more / less"
+  // pagination); the user is hunting for a specific name, not browsing.
+  const filteredBrands = useMemo(() => {
+    if (!brandSearch.trim()) return brands;
+    const q = brandSearch.trim().toLowerCase();
+    return brands.filter((b) => b.name.toLowerCase().includes(q));
+  }, [brands, brandSearch]);
+
+  const displayBrands = brandSearch.trim()
+    ? filteredBrands
+    : showAllBrands
+      ? filteredBrands
+      : filteredBrands.slice(0, MAX_VISIBLE_BRANDS);
 
   const toggleExpand = (id: number) => {
     setExpandedParents((prev) => {
@@ -291,8 +305,18 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
       {brands.length > 0 && (
         <div>
           <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
-            Бренд
+            Виробник
           </h3>
+          {brands.length > MAX_VISIBLE_BRANDS && (
+            <input
+              type="search"
+              value={brandSearch}
+              onChange={(e) => setBrandSearch(e.target.value)}
+              placeholder="Знайти виробника..."
+              aria-label="Пошук серед виробників"
+              className="mb-2 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+            />
+          )}
           <div className="flex flex-col gap-0.5">
             {displayBrands.map((brand) => (
               <label
@@ -312,14 +336,19 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
                 )}
               </label>
             ))}
-            {brands.length > MAX_VISIBLE_BRANDS && (
+            {displayBrands.length === 0 && brandSearch.trim() && (
+              <p className="px-2 py-1.5 text-xs text-[var(--color-text-secondary)]">
+                Не знайдено виробників за «{brandSearch}»
+              </p>
+            )}
+            {!brandSearch.trim() && filteredBrands.length > MAX_VISIBLE_BRANDS && (
               <button
                 onClick={() => setShowAllBrands(!showAllBrands)}
                 className="mt-1 px-2 text-left text-xs font-medium text-[var(--color-primary)] hover:underline"
               >
                 {showAllBrands
                   ? 'Показати менше'
-                  : `Показати ще ${brands.length - MAX_VISIBLE_BRANDS}...`}
+                  : `Показати ще ${filteredBrands.length - MAX_VISIBLE_BRANDS}...`}
               </button>
             )}
           </div>

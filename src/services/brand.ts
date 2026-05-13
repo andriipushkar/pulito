@@ -30,11 +30,15 @@ export async function getBrands(options?: { includeHidden?: boolean }) {
 }
 
 /**
- * Brands shown in the catalog filter sidebar — visible brands that actually
- * have at least one active product, with the active-product count for each
- * (so the user sees "Ariel (12)" instead of "Ariel" with no idea how many).
- * Brands with zero active products are hidden so the list doesn't fill up
- * with dead options.
+ * Brands shown in the catalog filter sidebar. Returns every visible brand
+ * with its active-product count, so the user sees "Ariel (12)" even before
+ * any products are linked — the filter UI is then available immediately
+ * after creating brands, instead of staying hidden until at least one
+ * product gets a brand assigned.
+ *
+ * If you want to hide truly empty brands, filter `count > 0` on the
+ * caller — the sidebar currently displays all so the operator notices
+ * unused brands and links them.
  */
 export async function getBrandsForCatalog(): Promise<
   Array<{ slug: string; name: string; count: number }>
@@ -48,9 +52,7 @@ export async function getBrandsForCatalog(): Promise<
       _count: { select: { products: { where: { isActive: true } } } },
     },
   });
-  return brands
-    .filter((b) => b._count.products > 0)
-    .map((b) => ({ slug: b.slug, name: b.name, count: b._count.products }));
+  return brands.map((b) => ({ slug: b.slug, name: b.name, count: b._count.products }));
 }
 
 export async function getBrandById(id: number) {
