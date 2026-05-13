@@ -26,6 +26,8 @@ const productSchema: CollectionCreateSchema = {
     { name: 'slug', type: 'string' },
     { name: 'categoryName', type: 'string', optional: true },
     { name: 'categorySlug', type: 'string', optional: true },
+    { name: 'brandName', type: 'string', optional: true },
+    { name: 'brandSlug', type: 'string', optional: true },
     { name: 'priceRetail', type: 'float' },
     { name: 'quantity', type: 'int32' },
     { name: 'isActive', type: 'bool' },
@@ -37,13 +39,34 @@ const productSchema: CollectionCreateSchema = {
 };
 
 /**
- * Ensure the products collection exists in Typesense.
+ * Ensure the products collection exists in Typesense AND has all the fields
+ * we currently care about. If we add a new field to `productSchema`,
+ * existing deployments need it added to the live collection — otherwise
+ * upserts fail with "field not in schema". We use Typesense's
+ * update-fields API to add any missing optional fields in place.
  */
 export async function ensureCollection(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let existing: any;
   try {
-    await client.collections(COLLECTION_NAME).retrieve();
+    existing = await client.collections(COLLECTION_NAME).retrieve();
   } catch {
     await client.collections().create(productSchema);
+    return;
+  }
+
+  const existingNames = new Set<string>(
+    (existing?.fields ?? []).map((f: { name: string }) => f.name),
+  );
+  const missing = productSchema.fields.filter((f) => !existingNames.has(f.name));
+  if (missing.length === 0) return;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (client.collections(COLLECTION_NAME) as any).update({ fields: missing });
+    logger.info('Typesense collection updated', { added: missing.map((f) => f.name) });
+  } catch (err) {
+    logger.error('Typesense collection update failed', { error: String(err) });
   }
 }
 
@@ -108,6 +131,7 @@ export async function indexAllProducts(): Promise<{ indexed: number }> {
       ordersCount: true,
       imagePath: true,
       category: { select: { name: true, slug: true } },
+      brand: { select: { name: true, slug: true } },
     },
   });
 
@@ -118,6 +142,8 @@ export async function indexAllProducts(): Promise<{ indexed: number }> {
     slug: p.slug,
     categoryName: p.category?.name || '',
     categorySlug: p.category?.slug || '',
+    brandName: p.brand?.name || '',
+    brandSlug: p.brand?.slug || '',
     priceRetail: Number(p.priceRetail),
     quantity: p.quantity,
     isActive: p.isActive,
@@ -157,6 +183,7 @@ export async function indexProduct(productId: number): Promise<void> {
         ordersCount: true,
         imagePath: true,
         category: { select: { name: true, slug: true } },
+        brand: { select: { name: true, slug: true } },
       },
     });
 
@@ -182,6 +209,8 @@ export async function indexProduct(productId: number): Promise<void> {
         slug: p.slug,
         categoryName: p.category?.name || '',
         categorySlug: p.category?.slug || '',
+        brandName: p.brand?.name || '',
+        brandSlug: p.brand?.slug || '',
         priceRetail: Number(p.priceRetail),
         quantity: p.quantity,
         isActive: p.isActive,
@@ -222,7 +251,7 @@ export async function searchProducts(
       .documents()
       .search({
         q: query,
-        query_by: 'name,code,categoryName',
+        query_by: 'name,code,brandName,categoryName',
         filter_by: options?.filterBy || 'isActive:true',
         sort_by: options?.sortBy || '_text_match:desc,ordersCount:desc',
         page: options?.page || 1,
@@ -256,10 +285,10 @@ export async function autocomplete(query: string, limit = 8) {
 
     const result = await client.collections(COLLECTION_NAME).documents().search({
       q: query,
-      query_by: 'name,code',
+      query_by: 'name,code,brandName',
       filter_by: 'isActive:true',
       per_page: limit,
-      prefix: 'true,true',
+      prefix: 'true,true,true',
       typo_tokens_threshold: 2,
       num_typos: 1,
     });

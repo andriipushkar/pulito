@@ -38,6 +38,11 @@ interface CategoryOption {
   name: string;
 }
 
+interface BrandOption {
+  id: number;
+  name: string;
+}
+
 const STATUS_OPTIONS = [
   { value: '', label: 'Всі статуси' },
   { value: 'true', label: 'Активні' },
@@ -73,6 +78,7 @@ const BULK_ACTIONS = [
   { value: 'deactivate', label: 'Деактивувати' },
   { value: 'delete', label: 'Видалити' },
   { value: 'change_category', label: 'Змінити категорію' },
+  { value: 'change_brand', label: 'Змінити виробника' },
   { value: 'export', label: 'Експорт обраних (XLSX)' },
 ];
 
@@ -84,11 +90,13 @@ export default function AdminProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [brands, setBrands] = useState<BrandOption[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkAction, setBulkAction] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
+  const [bulkBrandId, setBulkBrandId] = useState('');
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [rowDelete, setRowDelete] = useState<AdminProduct | null>(null);
   const [isDeletingRow, setIsDeletingRow] = useState(false);
@@ -118,6 +126,9 @@ export default function AdminProductsPage() {
     apiClient.get<CategoryOption[]>('/api/v1/admin/categories').then((res) => {
       if (res.success && res.data) setCategories(res.data);
     });
+    apiClient.get<BrandOption[]>('/api/v1/admin/brands?includeHidden=true').then((res) => {
+      if (res.success && res.data) setBrands(res.data);
+    });
   }, []);
 
   const loadProducts = useCallback(() => {
@@ -127,6 +138,8 @@ export default function AdminProductsPage() {
     if (s) params.set('search', s);
     const cat = searchParams.get('categoryId');
     if (cat) params.set('categoryId', cat);
+    const brandParam = searchParams.get('brandId');
+    if (brandParam) params.set('brandId', brandParam);
     const active = searchParams.get('isActive');
     if (active) params.set('isActive', active);
     const stock = searchParams.get('stock');
@@ -187,7 +200,9 @@ export default function AdminProductsPage() {
 
     // Require confirmation for destructive actions
     if (
-      ['activate', 'deactivate', 'delete', 'change_category'].includes(bulkAction) &&
+      ['activate', 'deactivate', 'delete', 'change_category', 'change_brand'].includes(
+        bulkAction,
+      ) &&
       !confirmBulk
     ) {
       setConfirmBulk(true);
@@ -200,7 +215,26 @@ export default function AdminProductsPage() {
     try {
       const ids = Array.from(selected);
 
-      if (bulkAction === 'change_category') {
+      if (bulkAction === 'change_brand') {
+        if (bulkBrandId === '') {
+          toast.error('Оберіть виробника (або «Без виробника»)');
+          setIsProcessing(false);
+          return;
+        }
+        const brandIdPayload = bulkBrandId === '0' ? null : Number(bulkBrandId);
+        const res = await apiClient.post('/api/v1/admin/products/bulk', {
+          action: 'change_brand',
+          productIds: ids,
+          brandId: brandIdPayload,
+        });
+        if (res.success) {
+          toast.success(`Виробника змінено для ${ids.length} товарів`);
+          setBulkBrandId('');
+          loadProducts();
+        } else {
+          toast.error(res.error || 'Помилка');
+        }
+      } else if (bulkAction === 'change_category') {
         if (!bulkCategoryId) {
           toast.error('Оберіть категорію');
           setIsProcessing(false);
@@ -335,7 +369,7 @@ export default function AdminProductsPage() {
     }
   };
 
-  const activeFilters = ['categoryId', 'isActive', 'stock', 'sort'].filter(
+  const activeFilters = ['categoryId', 'brandId', 'isActive', 'stock', 'sort'].filter(
     (k) => searchParams.get(k) && (k !== 'sort' || searchParams.get(k) !== 'id_desc'),
   ).length;
 
@@ -393,6 +427,18 @@ export default function AdminProductsPage() {
             />
           </div>
           <div>
+            <label className="mb-1 block text-xs font-medium">Виробник</label>
+            <Select
+              options={[
+                { value: '', label: 'Усі виробники' },
+                { value: 'null', label: '— Без виробника —' },
+                ...brands.map((b) => ({ value: String(b.id), label: b.name })),
+              ]}
+              value={searchParams.get('brandId') || ''}
+              onChange={(e) => updateFilter('brandId', e.target.value)}
+            />
+          </div>
+          <div>
             <label className="mb-1 block text-xs font-medium">Статус</label>
             <Select
               options={STATUS_OPTIONS}
@@ -445,6 +491,21 @@ export default function AdminProductsPage() {
               ))}
             </select>
           )}
+          {bulkAction === 'change_brand' && (
+            <select
+              value={bulkBrandId}
+              onChange={(e) => setBulkBrandId(e.target.value)}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
+            >
+              <option value="">Оберіть виробника...</option>
+              <option value="0">— Без виробника —</option>
+              {brands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          )}
           <Button
             size="sm"
             onClick={handleBulkAction}
@@ -475,6 +536,7 @@ export default function AdminProductsPage() {
                   <th className="px-4 py-3 text-left font-medium">Товар</th>
                   <th className="px-4 py-3 text-left font-medium">Код</th>
                   <th className="px-4 py-3 text-left font-medium">Категорія</th>
+                  <th className="px-4 py-3 text-left font-medium">Виробник</th>
                   <th className="px-4 py-3 text-right font-medium">Ціна</th>
                   <th className="px-4 py-3 text-center font-medium">Залишок</th>
                   <th className="px-4 py-3 text-center font-medium">Продажі</th>
@@ -525,6 +587,9 @@ export default function AdminProductsPage() {
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">{p.code}</td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                       {p.category?.name || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                      {p.brand?.name || '—'}
                     </td>
                     <td className="px-4 py-3 text-right">{Number(p.priceRetail).toFixed(2)} ₴</td>
                     <td className="px-4 py-3 text-center">
@@ -603,7 +668,7 @@ export default function AdminProductsPage() {
                 {products.length === 0 && (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={11}
                       className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                     >
                       Товарів не знайдено

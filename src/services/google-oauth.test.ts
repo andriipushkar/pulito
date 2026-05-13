@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GoogleOAuthError, getGoogleAuthUrl, exchangeCodeForTokens, getGoogleUserProfile } from './google-oauth';
+import {
+  GoogleOAuthError,
+  getGoogleAuthUrl,
+  exchangeCodeForTokens,
+  getGoogleUserProfile,
+  generateOAuthState,
+  verifyOAuthState,
+} from './google-oauth';
 
 vi.mock('@/config/env', () => ({
   env: {
@@ -71,7 +78,12 @@ describe('exchangeCodeForTokens', () => {
 
 describe('getGoogleUserProfile', () => {
   it('should return user profile on success', async () => {
-    const mockProfile = { id: 'g-1', email: 'user@gmail.com', name: 'Test User', picture: 'https://photo.url' };
+    const mockProfile = {
+      id: 'g-1',
+      email: 'user@gmail.com',
+      name: 'Test User',
+      picture: 'https://photo.url',
+    };
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => mockProfile,
@@ -106,7 +118,9 @@ describe('getGoogleUserProfile', () => {
       json: async () => ({}),
     });
 
-    await expect(getGoogleUserProfile('bad-token')).rejects.toThrow('Помилка отримання профілю Google');
+    await expect(getGoogleUserProfile('bad-token')).rejects.toThrow(
+      'Помилка отримання профілю Google',
+    );
   });
 });
 
@@ -158,5 +172,52 @@ describe('exchangeCodeForTokens - missing credentials', () => {
     });
 
     await expect(exchangeCodeForTokens('code')).rejects.toThrow(GoogleOAuthError);
+  });
+});
+
+describe('OAuth state (HMAC + timestamp)', () => {
+  it('round-trip: generated state verifies', () => {
+    const s = generateOAuthState();
+    expect(verifyOAuthState(s)).toBe(true);
+  });
+
+  it('rejects malformed states', () => {
+    expect(verifyOAuthState('')).toBe(false);
+    expect(verifyOAuthState('only-one-part')).toBe(false);
+    expect(verifyOAuthState('two.parts')).toBe(false);
+    expect(verifyOAuthState('a.b.c.d')).toBe(false);
+  });
+
+  it('rejects tampered nonces', () => {
+    const s = generateOAuthState();
+    const [nonce, ts, sig] = s.split('.');
+    expect(verifyOAuthState(`tampered${nonce}.${ts}.${sig}`)).toBe(false);
+  });
+
+  it('rejects tampered timestamps (signature breaks)', () => {
+    const s = generateOAuthState();
+    const [nonce, , sig] = s.split('.');
+    const futureTs = String(Date.now() + 1000);
+    expect(verifyOAuthState(`${nonce}.${futureTs}.${sig}`)).toBe(false);
+  });
+
+  it('rejects expired states (older than 30 min)', () => {
+    // Manually craft an expired state with a fresh signature, so we know
+    // the rejection is from the age check and not signature mismatch.
+    const oldTs = Date.now() - 31 * 60 * 1000;
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(oldTs);
+    const stale = generateOAuthState();
+    nowSpy.mockRestore();
+
+    expect(verifyOAuthState(stale)).toBe(false);
+  });
+
+  it('rejects states from the future (clock skew protection)', () => {
+    const futureTs = Date.now() + 60 * 60 * 1000;
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(futureTs);
+    const fromFuture = generateOAuthState();
+    nowSpy.mockRestore();
+
+    expect(verifyOAuthState(fromFuture)).toBe(false);
   });
 });

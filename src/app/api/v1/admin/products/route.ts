@@ -18,6 +18,7 @@ export const GET = withRole(
     const skip = (page - 1) * limit;
 
     const categoryId = searchParams.get('categoryId');
+    const brandId = searchParams.get('brandId');
     const isActive = searchParams.get('isActive');
     const stock = searchParams.get('stock');
     const sort = searchParams.get('sort') || 'id_desc';
@@ -34,6 +35,8 @@ export const GET = withRole(
       ];
     }
     if (categoryId) where.categoryId = Number(categoryId);
+    if (brandId === 'null') where.brandId = null;
+    else if (brandId) where.brandId = Number(brandId);
     if (isActive === 'true') where.isActive = true;
     else if (isActive === 'false') where.isActive = false;
     if (stock === 'out') where.quantity = 0;

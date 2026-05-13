@@ -1,6 +1,14 @@
 import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
 import { createSlug } from '@/utils/slug';
+import { cacheInvalidate } from '@/services/cache';
+
+// Brand changes affect product listings (filter chips, brand column,
+// detail page badge, /brand/[slug] etc.) — every write path should
+// invalidate the products cache and the brand listing cache.
+async function invalidateBrandCaches() {
+  await Promise.all([cacheInvalidate('products:*'), cacheInvalidate('brands:*')]);
+}
 
 export class BrandError extends Error {
   constructor(
@@ -73,7 +81,7 @@ export async function createBrand(data: {
   // the slug permanently for a deleted-and-forgotten brand).
   const existing = await prisma.brand.findUnique({ where: { slug } });
   if (existing?.deletedAt) {
-    return prisma.brand.update({
+    const revived = await prisma.brand.update({
       where: { id: existing.id },
       data: {
         name: data.name,
@@ -84,6 +92,8 @@ export async function createBrand(data: {
         deletedAt: null,
       },
     });
+    await invalidateBrandCaches();
+    return revived;
   }
   if (existing) {
     throw new BrandError(`Виробник з slug "${slug}" вже існує`, 409);
@@ -92,7 +102,7 @@ export async function createBrand(data: {
   // Also guard against a name collision (separate unique index on name).
   const nameClash = await prisma.brand.findUnique({ where: { name: data.name } });
   if (nameClash?.deletedAt) {
-    return prisma.brand.update({
+    const revived = await prisma.brand.update({
       where: { id: nameClash.id },
       data: {
         slug,
@@ -103,12 +113,14 @@ export async function createBrand(data: {
         deletedAt: null,
       },
     });
+    await invalidateBrandCaches();
+    return revived;
   }
   if (nameClash) {
     throw new BrandError(`Виробник з назвою "${data.name}" вже існує`, 409);
   }
 
-  return prisma.brand.create({
+  const created = await prisma.brand.create({
     data: {
       name: data.name,
       slug,
@@ -118,6 +130,8 @@ export async function createBrand(data: {
       sortOrder: data.sortOrder ?? 0,
     },
   });
+  await invalidateBrandCaches();
+  return created;
 }
 
 export async function updateBrand(
@@ -151,7 +165,7 @@ export async function updateBrand(
     if (slugClash) throw new BrandError(`Виробник з slug "${resolvedSlug}" вже існує`, 409);
   }
 
-  return prisma.brand.update({
+  const updated = await prisma.brand.update({
     where: { id },
     data: {
       ...(data.name !== undefined && { name: data.name }),
@@ -162,6 +176,8 @@ export async function updateBrand(
       ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
     },
   });
+  await invalidateBrandCaches();
+  return updated;
 }
 
 export async function deleteBrand(id: number): Promise<{ hard: boolean }> {
@@ -172,6 +188,7 @@ export async function deleteBrand(id: number): Promise<{ hard: boolean }> {
   // fails if some other table without SET NULL references the brand.
   try {
     await prisma.brand.delete({ where: { id } });
+    await invalidateBrandCaches();
     return { hard: true };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
@@ -179,6 +196,7 @@ export async function deleteBrand(id: number): Promise<{ hard: boolean }> {
         where: { id },
         data: { deletedAt: new Date(), isVisible: false },
       });
+      await invalidateBrandCaches();
       return { hard: false };
     }
     throw err;

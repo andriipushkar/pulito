@@ -29,13 +29,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Categories (usually small, always in main sitemap)
   const categories = await prisma.category.findMany({
-    where: { isVisible: true },
+    where: { isVisible: true, deletedAt: null },
     select: { slug: true, updatedAt: true },
   });
 
   const categoryPages: MetadataRoute.Sitemap = categories.map((c) => ({
     url: `${baseUrl}/catalog?category=${c.slug}`,
     lastModified: c.updatedAt,
+    changeFrequency: 'weekly',
+    priority: 0.7,
+  }));
+
+  // Brands — each has a dedicated /brand/[slug] SEO page.
+  const brands = await prisma.brand.findMany({
+    where: { isVisible: true, deletedAt: null },
+    select: { slug: true, updatedAt: true },
+  });
+
+  const brandPages: MetadataRoute.Sitemap = brands.map((b) => ({
+    url: `${baseUrl}/brand/${b.slug}`,
+    lastModified: b.updatedAt,
     changeFrequency: 'weekly',
     priority: 0.7,
   }));
@@ -105,6 +118,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticPages,
     ...allProductPages,
     ...categoryPages,
+    ...brandPages,
     ...contentPages,
     ...blogPages,
     ...bundlePages,

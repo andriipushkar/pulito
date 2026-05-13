@@ -16,6 +16,7 @@ const bulkSchema = z.object({
     'deactivate',
     'delete',
     'change_category',
+    'change_brand',
     'export',
     'export_filtered',
   ]),
@@ -100,6 +101,22 @@ export const POST = withRole(
       await prisma.product.updateMany({
         where: { id: { in: productIds } },
         data: { categoryId },
+      });
+      await cacheInvalidate('products:*');
+      return successResponse({ updated: productIds.length });
+    }
+
+    if (action === 'change_brand') {
+      if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
+      // brandId === 0 / null means "clear" — let the admin un-set a manufacturer.
+      const rawBrandId = (body as { brandId?: number | null }).brandId;
+      const brandId =
+        rawBrandId === null || rawBrandId === 0 || rawBrandId === undefined
+          ? null
+          : Number(rawBrandId);
+      await prisma.product.updateMany({
+        where: { id: { in: productIds } },
+        data: { brandId },
       });
       await cacheInvalidate('products:*');
       return successResponse({ updated: productIds.length });
