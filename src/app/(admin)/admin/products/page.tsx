@@ -166,6 +166,24 @@ export default function AdminProductsPage() {
     loadProducts();
   }, [loadProducts]);
 
+  const [isReindexing, setIsReindexing] = useState(false);
+  const handleReindex = async () => {
+    if (!confirm('Перебудувати пошуковий індекс (Typesense)? Може зайняти кілька хвилин.')) return;
+    setIsReindexing(true);
+    try {
+      const res = await apiClient.post<{ indexed: number }>('/api/v1/admin/typesense/reindex');
+      if (res.success && res.data) {
+        toast.success(`Проіндексовано ${res.data.indexed} товарів`);
+      } else {
+        toast.error(res.error || 'Помилка індексації');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    } finally {
+      setIsReindexing(false);
+    }
+  };
+
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
@@ -411,6 +429,15 @@ export default function AdminProductsPage() {
             onClick={() => window.open('/api/v1/admin/export?type=products_full', '_blank')}
           >
             Експорт повний
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReindex}
+            isLoading={isReindexing}
+            title="Перебудувати пошуковий індекс Typesense"
+          >
+            Реіндекс пошуку
           </Button>
         </div>
       </div>
