@@ -12,10 +12,11 @@ import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import ProductCard from '@/components/product/ProductCard';
 import ProductCardSkeleton from '@/components/product/ProductCardSkeleton';
+import ProductGridWishlistWrapper from '@/components/product/ProductGridWishlistWrapper';
 import CatalogClient from './CatalogClient';
 import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import PaginationLinks from '@/components/seo/PaginationLinks';
-import { getProducts } from '@/services/product';
+import { getProducts, getPopularProducts } from '@/services/product';
 import { getCategories, getCategoryBySlug } from '@/services/category';
 import { getBrandsForCatalog } from '@/services/brand';
 import { prisma } from '@/lib/prisma';
@@ -107,6 +108,10 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
 
   const totalPages = Math.ceil(total / limit);
   const categoryData = category ? await getCategoryBySlug(category) : null;
+
+  // If user searched and got 0 results, load popular products to show as suggestions
+  const popularFallback =
+    products.length === 0 && search ? await getPopularProducts(8) : [];
 
   // Check for slug redirect if category not found
   if (category && !categoryData) {
@@ -225,15 +230,35 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
       >
         <CatalogClient total={total} categories={categories} brands={brands}>
           {products.length === 0 ? (
-            <EmptyState
-              icon={<Search size={48} />}
-              title="Товарів не знайдено"
-              description="Спробуйте змінити параметри фільтрації або пошуку"
-              actionLabel="Скинути фільтри"
-              actionHref="/catalog"
-            />
+            <div>
+              <EmptyState
+                icon={<Search size={48} />}
+                title={search ? `Нічого не знайдено за «${search}»` : 'Товарів не знайдено'}
+                description={
+                  search
+                    ? 'Перевірте, чи немає помилок у запиті, або скиньте фільтри й перегляньте схожі товари'
+                    : 'Спробуйте змінити параметри фільтрації або пошуку'
+                }
+                actionLabel="Скинути фільтри"
+                actionHref="/catalog"
+              />
+              {popularFallback.length > 0 && (
+                <div className="mt-10">
+                  <h2 className="mb-4 text-lg font-bold text-[var(--color-text)]">
+                    Можливо, вас зацікавить
+                  </h2>
+                  <ProductGridWishlistWrapper productIds={popularFallback.map((p) => p.id)}>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+                      {popularFallback.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                      ))}
+                    </div>
+                  </ProductGridWishlistWrapper>
+                </div>
+              )}
+            </div>
           ) : (
-            <>
+            <ProductGridWishlistWrapper productIds={products.map((p) => p.id)}>
               <div className="grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {products.map((product) => (
                   <ProductCard key={product.id} product={product} />
@@ -247,7 +272,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                 searchParams={currentSearchParams}
                 className="mt-8"
               />
-            </>
+            </ProductGridWishlistWrapper>
           )}
         </CatalogClient>
       </Suspense>

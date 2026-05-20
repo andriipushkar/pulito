@@ -26,6 +26,7 @@ const mockTypesenseSynonyms = vi.hoisted(() => ({
 
 const mockTypesenseCollection = vi.hoisted(() => ({
   retrieve: vi.fn(),
+  update: vi.fn(),
   documents: vi.fn(() => mockTypesenseDocuments),
   synonyms: vi.fn(() => mockTypesenseSynonyms),
 }));
@@ -85,6 +86,7 @@ import {
 beforeEach(() => {
   vi.clearAllMocks();
   mockTypesenseCollection.retrieve.mockResolvedValue({});
+  mockTypesenseCollection.update.mockResolvedValue({});
   mockTypesenseDocuments.search.mockResolvedValue({ hits: [], found: 0, page: 1 });
   mockTypesenseDocuments.upsert.mockResolvedValue({});
   mockTypesenseDocuments.import.mockResolvedValue([]);

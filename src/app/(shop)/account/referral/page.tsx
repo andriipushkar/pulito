@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
-import Spinner from '@/components/ui/Spinner';
 import PageHeader from '@/components/account/PageHeader';
 import StatCard from '@/components/account/StatCard';
 
@@ -14,19 +13,49 @@ interface ReferralStats {
   totalBonusValue: number;
 }
 
+const ReferralHeader = () => (
+  <PageHeader
+    icon={
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    }
+    title="Реферальна програма"
+    subtitle="Запрошуйте друзів та отримуйте бонуси"
+  />
+);
+
 export default function ReferralPage() {
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    apiClient
-      .get<ReferralStats>('/api/v1/me/referral')
-      .then((res) => {
-        if (res.success && res.data) setStats(res.data);
-      })
-      .finally(() => setIsLoading(false));
+  const fetchStats = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await apiClient.get<ReferralStats>('/api/v1/me/referral', { signal: controller.signal });
+      if (res.success && res.data) {
+        setStats(res.data);
+      } else {
+        setError(res.error || 'Не вдалося завантажити дані реферальної програми');
+      }
+    } catch (err) {
+      setError(err instanceof Error && err.name === 'AbortError'
+        ? 'Час очікування вичерпано. Спробуйте ще раз.'
+        : 'Помилка з\'єднання з сервером');
+    } finally {
+      clearTimeout(timeout);
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const handleCopy = async () => {
     if (!stats) return;
@@ -36,11 +65,45 @@ export default function ReferralPage() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="space-y-6">
+        <ReferralHeader />
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-[var(--color-bg-secondary)]" />
+          ))}
+        </div>
+        <div className="h-32 animate-pulse rounded-2xl bg-[var(--color-bg-secondary)]" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-[var(--color-bg-secondary)]" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  if (!stats) {
-    return <p className="text-sm text-[var(--color-text-secondary)]">Не вдалося завантажити дані</p>;
+  if (error || !stats) {
+    return (
+      <div className="space-y-6">
+        <ReferralHeader />
+        <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] p-8 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div>
+          <p className="mb-1 text-base font-semibold text-[var(--color-text)]">Не вдалося завантажити дані</p>
+          <p className="mb-5 text-sm text-[var(--color-text-secondary)]">{error || 'Спробуйте оновити сторінку'}</p>
+          <button
+            onClick={fetchStats}
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-md"
+          >
+            Спробувати ще раз
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const conversionRate = stats.totalReferred > 0
@@ -49,15 +112,7 @@ export default function ReferralPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        icon={
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        }
-        title="Реферальна програма"
-        subtitle="Запрошуйте друзів та отримуйте бонуси"
-      />
+      <ReferralHeader />
 
       {/* ── How it works ── */}
       <div className="grid gap-4 sm:grid-cols-3">

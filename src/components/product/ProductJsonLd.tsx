@@ -12,19 +12,28 @@ export default function ProductJsonLd({ product, ratingStats }: ProductJsonLdPro
   const images = product.images.map((img) => img.pathFull).filter(Boolean);
   const mainImage = images[0] || product.imagePath;
 
+  const barcode = (product.barcode ?? '').replace(/\D/g, '');
+  const gtinFields: Record<string, string> = {};
+  if (barcode.length === 8) gtinFields.gtin8 = barcode;
+  else if (barcode.length === 12) gtinFields.gtin12 = barcode;
+  else if (barcode.length === 13) gtinFields.gtin13 = barcode;
+  else if (barcode.length === 14) gtinFields.gtin14 = barcode;
+  if (barcode) gtinFields.gtin = barcode;
+
   const jsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     sku: product.code,
     mpn: product.code,
+    ...gtinFields,
     url: `${baseUrl}/product/${product.slug}`,
     ...(product.content?.shortDescription && { description: product.content.shortDescription }),
     ...(images.length > 0 ? { image: images } : mainImage ? { image: mainImage } : {}),
     ...(product.category && { category: product.category.name }),
     brand: {
       '@type': 'Brand',
-      name: 'Pulito Trade',
+      name: product.brand?.name || 'Pulito Trade',
     },
     ...(ratingStats &&
       ratingStats.totalReviews > 0 && {

@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { sanitizeHtml } from '@/utils/sanitize';
+import { logAudit } from '@/services/audit';
 
 export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { params }) => {
   try {
@@ -19,7 +21,7 @@ export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { 
   }
 });
 
-export const PUT = withRole('admin')(async (request: NextRequest, { params }) => {
+export const PUT = withRole('admin')(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -32,8 +34,14 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params }) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: Record<string, any> = {};
 
-    if ('subject' in body) data.subject = body.subject;
-    if ('bodyHtml' in body) data.bodyHtml = body.bodyHtml;
+    if ('subject' in body) {
+      const subj = String(body.subject ?? '');
+      if (subj.length < 1 || subj.length > 300) {
+        return errorResponse('Subject має бути від 1 до 300 символів', 422);
+      }
+      data.subject = subj;
+    }
+    if ('bodyHtml' in body) data.bodyHtml = sanitizeHtml(String(body.bodyHtml));
     if ('bodyText' in body) data.bodyText = body.bodyText;
     if ('isActive' in body) data.isActive = body.isActive;
     if ('isMarketing' in body) data.isMarketing = body.isMarketing;
@@ -60,6 +68,14 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params }) =>
       data,
     });
 
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'email_template',
+      entityId: numId,
+      details: { fields: Object.keys(data) },
+    });
+
     return successResponse(template);
   } catch (error) {
     console.error('[Email Template Update]', error);
@@ -67,13 +83,32 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params }) =>
   }
 });
 
-export const DELETE = withRole('admin')(async (_request: NextRequest, { params }) => {
+export const DELETE = withRole('admin')(async (_request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
 
+    // Refuse to delete a template that an active campaign is configured to
+    // send. Otherwise the next campaign tick would crash on a missing FK
+    // and email customers nothing.
+    const inUse = await prisma.campaignRule.count({
+      where: { emailTemplateId: numId, isActive: true },
+    });
+    if (inUse > 0) {
+      return errorResponse(
+        `Шаблон використовується активними кампаніями (${inUse}). Спочатку деактивуйте їх.`,
+        409,
+      );
+    }
+
     await prisma.emailTemplate.delete({ where: { id: numId } });
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_delete',
+      entityType: 'email_template',
+      entityId: numId,
+    });
     return successResponse({ deleted: true });
   } catch (error) {
     console.error('[Email Template Delete]', error);

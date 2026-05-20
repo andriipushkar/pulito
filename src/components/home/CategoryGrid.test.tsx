@@ -68,9 +68,9 @@ describe('CategoryGrid', () => {
       mockCategory(i + 1, `Cat ${i + 1}`, `cat-${i + 1}`)
     );
     const { container } = render(<CategoryGrid categories={cats as any} />);
-    // Each category renders twice (mobile + desktop), so total links = 8 * 2 = 16 category links
+    // Each category renders three times (mobile + tablet + desktop), so total links = 8 * 3 = 24
     const catLinks = container.querySelectorAll('a[href*="category="]');
-    expect(catLinks.length).toBe(16); // 8 categories * 2 (mobile+desktop)
+    expect(catLinks.length).toBe(24);
   });
 
   it('renders links to category pages', () => {
@@ -97,7 +97,7 @@ describe('CategoryGrid', () => {
   it('renders product count in desktop view', () => {
     const cats = [mockCategory(1, 'Порошки', 'poroshky', { productCount: 42 })];
     render(<CategoryGrid categories={cats as any} />);
-    expect(screen.getByText('42 товарів')).toBeInTheDocument();
+    expect(screen.getAllByText('42 товарів').length).toBeGreaterThan(0);
   });
 
   it('renders different icons for different indices', () => {

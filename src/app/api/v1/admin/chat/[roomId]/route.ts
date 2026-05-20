@@ -12,6 +12,7 @@ import {
   ChatError,
 } from '@/services/chat';
 import { adminChatUpdateSchema, sendMessageSchema } from '@/validators/chat';
+import { logger } from '@/lib/logger';
 
 // GET /api/v1/admin/chat/[roomId] - get room detail with messages
 export const GET = withRole(
@@ -35,6 +36,7 @@ export const GET = withRole(
     if (err instanceof ChatError) {
       return errorResponse(err.message, err.statusCode);
     }
+    logger.error('[admin/chat/[roomId]] GET failed', { error: err });
     return errorResponse('Не вдалося завантажити чат', 500);
   }
 });
@@ -79,6 +81,7 @@ export const PATCH = withRole(
     if (err instanceof ChatError) {
       return errorResponse(err.message, err.statusCode);
     }
+    logger.error('[admin/chat/[roomId]] PATCH failed', { error: err });
     return errorResponse('Помилка оновлення чату', 500);
   }
 });
@@ -115,6 +118,7 @@ export const POST = withRole(
     if (err instanceof ChatError) {
       return errorResponse(err.message, err.statusCode);
     }
+    logger.error('[admin/chat/[roomId]] POST failed', { error: err });
     return errorResponse('Не вдалося відправити повідомлення', 500);
   }
 });

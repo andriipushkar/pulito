@@ -19,15 +19,22 @@ const mockPrisma = vi.hoisted(() => ({
   },
 }));
 
-const mockXLSX = vi.hoisted(() => ({
-  utils: {
-    book_new: vi.fn().mockReturnValue({}),
-    json_to_sheet: vi.fn().mockReturnValue({}),
-    book_append_sheet: vi.fn(),
-    sheet_to_csv: vi.fn().mockReturnValue('col1,col2\nval1,val2'),
-  },
-  write: vi.fn().mockReturnValue(Buffer.from('xlsx-data')),
-}));
+// Capture the `rows` argument each worksheet receives so tests can assert
+// on the persisted shape without needing to actually serialise xlsx/csv.
+const mockExcelJS = vi.hoisted(() => {
+  const addRowsSpy = vi.fn();
+  class MockWorksheet {
+    columns: unknown;
+    addRows = addRowsSpy;
+    addRow = vi.fn();
+  }
+  class MockWorkbook {
+    addWorksheet = vi.fn(() => new MockWorksheet());
+    xlsx = { writeBuffer: vi.fn().mockResolvedValue(Buffer.from('xlsx-data')) };
+    csv = { writeBuffer: vi.fn().mockResolvedValue(Buffer.from('csv-data')) };
+  }
+  return { Workbook: MockWorkbook, addRowsSpy };
+});
 
 const mockFs = vi.hoisted(() => ({
   existsSync: vi.fn().mockReturnValue(true),
@@ -65,7 +72,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
 vi.mock('@/config/env', () => ({
   env: { UPLOAD_DIR: '/tmp/test-uploads' },
 }));
-vi.mock('xlsx', () => mockXLSX);
+vi.mock('exceljs', () => ({ default: { Workbook: mockExcelJS.Workbook } }));
 vi.mock('fs', () => ({
   existsSync: mockFs.existsSync,
   mkdirSync: mockFs.mkdirSync,
@@ -115,10 +122,10 @@ describe('generateReport', () => {
 
       expect(result.url).toContain('/uploads/reports/sales_summary_');
       expect(result.url).toContain('.xlsx');
-      expect(mockXLSX.utils.json_to_sheet).toHaveBeenCalled();
+      expect(mockExcelJS.addRowsSpy).toHaveBeenCalled();
 
       // Verify data aggregation
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       // Two unique dates
       expect(rows).toHaveLength(2);
     });
@@ -132,7 +139,7 @@ describe('generateReport', () => {
 
       await generateReport('sales_summary', 'xlsx', {});
 
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       expect(rows[0]['Виручка']).toBe(300);
       expect(rows[0]['Замовлень']).toBe(2);
       expect(rows[0]['Товарів']).toBe(3);
@@ -158,7 +165,7 @@ describe('generateReport', () => {
       const result = await generateReport('sales_summary', 'xlsx', {});
 
       expect(result.url).toBeDefined();
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       expect(rows).toEqual([]);
     });
   });
@@ -183,7 +190,7 @@ describe('generateReport', () => {
 
       await generateReport('financial_report', 'xlsx', {});
 
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       expect(rows).toHaveLength(1);
       expect(rows[0]['Виручка']).toBe(1500);
       expect(rows[0]['Знижки']).toBe(50);
@@ -197,7 +204,7 @@ describe('generateReport', () => {
 
       await generateReport('financial_report', 'xlsx', {});
 
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       expect(rows).toEqual([]);
     });
 
@@ -214,7 +221,7 @@ describe('generateReport', () => {
 
       await generateReport('financial_report', 'xlsx', {});
 
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       expect(rows[0]['Чистий дохід']).toBe(250);
     });
   });
@@ -238,7 +245,7 @@ describe('generateReport', () => {
 
       await generateReport('products_stock', 'xlsx', {});
 
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       expect(rows[0]['Код']).toBe('A-1');
       expect(rows[0]['Назва']).toBe('Ariel');
       expect(rows[0]['Залишок']).toBe(50);
@@ -278,7 +285,7 @@ describe('generateReport', () => {
 
       await generateReport('summary_report', 'xlsx', {});
 
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       const findRow = (label: string) =>
         rows.find((r: Record<string, unknown>) => r['Показник'] === label);
 
@@ -303,7 +310,7 @@ describe('generateReport', () => {
 
       await generateReport('summary_report', 'xlsx', {});
 
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       const avgCheck = rows.find((r: Record<string, unknown>) => r['Показник'] === 'Середній чек');
       expect(avgCheck['Значення']).toBe(0);
     });
@@ -327,7 +334,7 @@ describe('generateReport', () => {
 
       await generateReport('returns_cancellations', 'xlsx', {});
 
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       expect(rows[0]['Статус']).toBe('Скасовано');
       expect(rows[0]['Причина']).toBe('Змінив рішення');
     });
@@ -349,7 +356,7 @@ describe('generateReport', () => {
 
       await generateReport('returns_cancellations', 'xlsx', {});
 
-      const rows = mockXLSX.utils.json_to_sheet.mock.calls[0][0];
+      const rows = mockExcelJS.addRowsSpy.mock.calls[0][0];
       expect(rows[0]['Причина']).toBe('Не вказано');
       expect(rows[0]['Ініціатор']).toBe('Не вказано');
     });

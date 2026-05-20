@@ -5,6 +5,7 @@ import { validateFileType } from '@/utils/file-validation';
 import { sanitizeImage } from '@/utils/image-sanitizer';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { logger } from '@/lib/logger';
 
 const ALLOWED_FOLDERS = ['publications', 'general', 'brands'] as const;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -53,7 +54,8 @@ export const POST = withRole(
     await fs.writeFile(filePath, sanitized);
 
     return successResponse({ path: `/uploads/${folder}/${filename}` });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/upload] POST failed', { error: err });
     return errorResponse('Помилка завантаження файлу', 500);
   }
 });

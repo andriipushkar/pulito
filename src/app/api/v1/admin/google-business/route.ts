@@ -1,6 +1,7 @@
 import { withRole } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { GoogleBusinessError, getPlaceDetails, isConfigured } from '@/services/google-business';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole(
   'admin',
@@ -24,6 +25,7 @@ export const GET = withRole(
     if (err instanceof GoogleBusinessError) {
       return errorResponse(err.message, err.statusCode);
     }
+    logger.error('[admin/google-business] GET failed', { error: err });
     return errorResponse('Помилка отримання даних Google Business', 500);
   }
 });

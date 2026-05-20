@@ -49,6 +49,13 @@ const SECTIONS: { key: SectionKey; label: string; fields: { key: string; label: 
       },
       { key: 'site_address', label: 'Адреса', hint: 'Фізична адреса для контактної сторінки' },
       { key: 'working_hours', label: 'Графік роботи', hint: 'Наприклад: Пн-Пт 9:00-18:00' },
+      { key: 'company_description', label: 'Опис компанії', hint: 'Коротко про магазин — для футера, Open Graph, JSON-LD та PDF-документів' },
+      {
+        key: 'free_delivery_threshold',
+        label: 'Поріг безкоштовної доставки (грн)',
+        hint: 'Сума замовлення, від якої доставка безкоштовна. Відображається у TopBar.',
+        validate: (v) => v && !/^\d+$/.test(v) ? 'Має бути цілим числом у гривнях' : null,
+      },
     ],
   },
   {
@@ -82,10 +89,11 @@ const SECTIONS: { key: SectionKey; label: string; fields: { key: string; label: 
     key: 'social',
     label: 'Соціальні мережі',
     fields: [
-      { key: 'telegram_channel', label: 'Telegram канал', hint: 'Посилання виду https://t.me/channel' },
-      { key: 'viber_community', label: 'Viber спільнота', hint: 'Повне посилання на спільноту Viber' },
-      { key: 'facebook_url', label: 'Facebook URL', hint: 'Повне посилання на сторінку Facebook' },
-      { key: 'instagram_url', label: 'Instagram URL', hint: 'Повне посилання на профіль Instagram' },
+      { key: 'social_telegram', label: 'Telegram канал', hint: 'Посилання виду https://t.me/channel' },
+      { key: 'social_viber', label: 'Viber спільнота', hint: 'Повне посилання на спільноту Viber' },
+      { key: 'social_facebook', label: 'Facebook URL', hint: 'Повне посилання на сторінку Facebook' },
+      { key: 'social_instagram', label: 'Instagram URL', hint: 'Повне посилання на профіль Instagram' },
+      { key: 'social_tiktok', label: 'TikTok URL', hint: 'Повне посилання на профіль TikTok' },
     ],
   },
   {

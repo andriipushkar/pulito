@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { user, params }) => {
   try {
@@ -26,7 +27,8 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { u
     });
 
     return successResponse(updated);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/analytics/alerts/[id]] PUT failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -48,7 +50,8 @@ export const DELETE = withRole('admin', 'manager')(async (_request: NextRequest,
     await prisma.analyticsAlert.delete({ where: { id: numId } });
 
     return successResponse({ deleted: true });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/analytics/alerts/[id]] DELETE failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

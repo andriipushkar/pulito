@@ -176,29 +176,53 @@ describe('exchangeCodeForTokens - missing credentials', () => {
 });
 
 describe('OAuth state (HMAC + timestamp)', () => {
-  it('round-trip: generated state verifies', () => {
+  it('round-trip: generated state verifies (no returnUrl)', () => {
     const s = generateOAuthState();
-    expect(verifyOAuthState(s)).toBe(true);
+    const result = verifyOAuthState(s);
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.returnUrl).toBeNull();
+  });
+
+  it('round-trip: returnUrl survives signing', () => {
+    const s = generateOAuthState('/admin/products');
+    const result = verifyOAuthState(s);
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.returnUrl).toBe('/admin/products');
+  });
+
+  it('drops unsafe returnUrl at generation time (absolute URL)', () => {
+    const s = generateOAuthState('https://evil.com/x');
+    const result = verifyOAuthState(s);
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.returnUrl).toBeNull();
+  });
+
+  it('drops protocol-relative returnUrl', () => {
+    const s = generateOAuthState('//evil.com/x');
+    const result = verifyOAuthState(s);
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.returnUrl).toBeNull();
   });
 
   it('rejects malformed states', () => {
-    expect(verifyOAuthState('')).toBe(false);
-    expect(verifyOAuthState('only-one-part')).toBe(false);
-    expect(verifyOAuthState('two.parts')).toBe(false);
-    expect(verifyOAuthState('a.b.c.d')).toBe(false);
+    expect(verifyOAuthState('').valid).toBe(false);
+    expect(verifyOAuthState('only-one-part').valid).toBe(false);
+    expect(verifyOAuthState('two.parts').valid).toBe(false);
+    expect(verifyOAuthState('a.b.c').valid).toBe(false);
+    expect(verifyOAuthState('a.b.c.d.e').valid).toBe(false);
   });
 
   it('rejects tampered nonces', () => {
     const s = generateOAuthState();
-    const [nonce, ts, sig] = s.split('.');
-    expect(verifyOAuthState(`tampered${nonce}.${ts}.${sig}`)).toBe(false);
+    const [nonce, ts, returnEnc, sig] = s.split('.');
+    expect(verifyOAuthState(`tampered${nonce}.${ts}.${returnEnc}.${sig}`).valid).toBe(false);
   });
 
   it('rejects tampered timestamps (signature breaks)', () => {
     const s = generateOAuthState();
-    const [nonce, , sig] = s.split('.');
+    const [nonce, , returnEnc, sig] = s.split('.');
     const futureTs = String(Date.now() + 1000);
-    expect(verifyOAuthState(`${nonce}.${futureTs}.${sig}`)).toBe(false);
+    expect(verifyOAuthState(`${nonce}.${futureTs}.${returnEnc}.${sig}`).valid).toBe(false);
   });
 
   it('rejects expired states (older than 30 min)', () => {
@@ -209,7 +233,7 @@ describe('OAuth state (HMAC + timestamp)', () => {
     const stale = generateOAuthState();
     nowSpy.mockRestore();
 
-    expect(verifyOAuthState(stale)).toBe(false);
+    expect(verifyOAuthState(stale).valid).toBe(false);
   });
 
   it('rejects states from the future (clock skew protection)', () => {
@@ -218,6 +242,6 @@ describe('OAuth state (HMAC + timestamp)', () => {
     const fromFuture = generateOAuthState();
     nowSpy.mockRestore();
 
-    expect(verifyOAuthState(fromFuture)).toBe(false);
+    expect(verifyOAuthState(fromFuture).valid).toBe(false);
   });
 });

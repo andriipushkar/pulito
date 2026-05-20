@@ -47,6 +47,7 @@ describe('SubscriptionForm', () => {
     render(<SubscriptionForm />);
     const emailInput = screen.getByPlaceholderText('Ваш email');
     fireEvent.change(emailInput, { target: { value: 'test@test.com' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: /ok/i }));
 
     await waitFor(() => {
@@ -62,6 +63,7 @@ describe('SubscriptionForm', () => {
     render(<SubscriptionForm />);
     const emailInput = screen.getByPlaceholderText('Ваш email');
     fireEvent.change(emailInput, { target: { value: 'test@test.com' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: /ok/i }));
 
     await waitFor(() => {
@@ -75,6 +77,7 @@ describe('SubscriptionForm', () => {
     render(<SubscriptionForm />);
     const emailInput = screen.getByPlaceholderText('Ваш email');
     fireEvent.change(emailInput, { target: { value: 'test@test.com' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: /ok/i }));
 
     await waitFor(() => {
@@ -90,6 +93,7 @@ describe('SubscriptionForm', () => {
     render(<SubscriptionForm />);
     const emailInput = screen.getByPlaceholderText('Ваш email');
     fireEvent.change(emailInput, { target: { value: 'test@test.com' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: /ok/i }));
 
     // During loading, button text should be '...'
@@ -114,6 +118,7 @@ describe('SubscriptionForm', () => {
 
     fireEvent.change(emailInput, { target: { value: 'bot@spam.com' } });
     fireEvent.change(honeypot, { target: { value: 'http://spam.com' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: /ok/i }));
 
     await waitFor(() => {

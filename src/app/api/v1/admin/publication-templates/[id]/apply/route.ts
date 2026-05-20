@@ -1,6 +1,7 @@
 import { withRole } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { PublicationTemplateError, applyTemplate } from '@/services/publication-template';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole(
   'admin',
@@ -23,6 +24,7 @@ export const POST = withRole(
     if (err instanceof PublicationTemplateError) {
       return errorResponse(err.message, err.statusCode);
     }
+    logger.error('[admin/publication-templates/[id]/apply] POST failed', { error: err });
     return errorResponse('Помилка застосування шаблону', 500);
   }
 });

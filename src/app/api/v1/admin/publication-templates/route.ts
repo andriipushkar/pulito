@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 import {
   PublicationTemplateError,
   createTemplate,
@@ -16,7 +18,8 @@ export const GET = withRole(
     const activeOnly = url.searchParams.get('active') === '1';
     const templates = await listTemplates(activeOnly);
     return successResponse(templates);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/publication-templates] GET failed', { error: err });
     return errorResponse('Помилка завантаження шаблонів', 500);
   }
 });
@@ -28,11 +31,18 @@ export const POST = withRole(
   try {
     const body = await request.json();
     const tpl = await createTemplate(body, ctx.user.id);
+    await logAudit({
+      userId: ctx.user.id,
+      actionType: 'data_create',
+      entityType: 'publication_template',
+      entityId: tpl.id,
+    });
     return successResponse(tpl, 201);
   } catch (err) {
     if (err instanceof PublicationTemplateError) {
       return errorResponse(err.message, err.statusCode);
     }
+    logger.error('[admin/publication-templates] POST failed', { error: err });
     return errorResponse('Помилка створення шаблону', 500);
   }
 });

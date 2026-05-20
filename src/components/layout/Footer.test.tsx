@@ -52,6 +52,8 @@ vi.mock('@/components/icons', () => ({
   HeartFilled: () => <span data-testid="icon" />,
   HelpCircle: () => <span data-testid="icon" />,
   Instagram: () => <span data-testid="icon" />,
+  Mail: () => <span data-testid="icon" />,
+  MapPin: () => <span data-testid="icon" />,
   MessageCircle: () => <span data-testid="icon" />,
   Minus: () => <span data-testid="icon" />,
   Phone: () => <span data-testid="icon" />,
@@ -64,6 +66,9 @@ vi.mock('@/components/icons', () => ({
   Viber: () => <span data-testid="icon" />,
 }));
 vi.mock('./SubscriptionForm', () => ({ default: () => <div data-testid="subscription-form" /> }));
+vi.mock('./OpenStatus', () => ({ default: () => <span data-testid="open-status" /> }));
+vi.mock('./TrustBadges', () => ({ default: () => <div data-testid="trust-badges" /> }));
+vi.mock('./PaymentBadges', () => ({ default: () => <div data-testid="payment-badges" /> }));
 
 import Footer from './Footer';
 

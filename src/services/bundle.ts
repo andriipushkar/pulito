@@ -183,7 +183,7 @@ export async function calculateBundlePrice(bundleId: number) {
     include: {
       items: {
         include: {
-          product: { select: { priceRetail: true } },
+          product: { select: { priceRetail: true, priceRetailOld: true, isPromo: true } },
         },
       },
     },
@@ -191,26 +191,47 @@ export async function calculateBundlePrice(bundleId: number) {
 
   if (!bundle) throw new BundleError('Комплект не знайдено', 404);
 
-  const originalPrice = bundle.items.reduce(
+  // originalPrice = sum of normal (pre-promo) prices. Used for "save up to X" copy
+  // shown alongside the bundle, so the discount looks like a real saving against
+  // the everyday price — not just a re-shuffle of the current promo.
+  const originalPrice = bundle.items.reduce((sum, item) => {
+    const base = item.product.isPromo && item.product.priceRetailOld
+      ? Number(item.product.priceRetailOld)
+      : Number(item.product.priceRetail);
+    return sum + base * item.quantity;
+  }, 0);
+
+  // effectivePromoPrice = what the customer would pay RIGHT NOW buying the items
+  // individually (with each item's current promo applied). If the bundle's price
+  // is higher than this, the bundle is worse than buying items separately, so we
+  // clamp to the promo total — best-deal-wins.
+  const effectivePromoPrice = bundle.items.reduce(
     (sum, item) => sum + Number(item.product.priceRetail) * item.quantity,
-    0
+    0,
   );
 
+  // Compute the bundle's nominal final price (from fixedPrice or discountPercent
+  // applied to originalPrice — knock-down from normal-pricing baseline).
+  let bundleFinalPrice: number;
   if (bundle.fixedPrice) {
-    return {
-      originalPrice: Math.round(originalPrice * 100) / 100,
-      finalPrice: Number(bundle.fixedPrice),
-      savings: Math.round((originalPrice - Number(bundle.fixedPrice)) * 100) / 100,
-    };
+    bundleFinalPrice = Number(bundle.fixedPrice);
+  } else {
+    const discount = Number(bundle.discountPercent);
+    bundleFinalPrice = originalPrice * (1 - discount / 100);
   }
 
-  const discount = Number(bundle.discountPercent);
-  const finalPrice = Math.round(originalPrice * (1 - discount / 100) * 100) / 100;
+  // best-deal-wins: customer never pays more than the sum of current promos.
+  const finalPriceRaw = Math.min(bundleFinalPrice, effectivePromoPrice);
+  const finalPrice = Math.round(finalPriceRaw * 100) / 100;
+  const appliedRule: 'bundle' | 'promo' =
+    finalPriceRaw === bundleFinalPrice ? 'bundle' : 'promo';
 
   return {
     originalPrice: Math.round(originalPrice * 100) / 100,
+    effectivePromoPrice: Math.round(effectivePromoPrice * 100) / 100,
     finalPrice,
     savings: Math.round((originalPrice - finalPrice) * 100) / 100,
+    appliedRule,
   };
 }
 

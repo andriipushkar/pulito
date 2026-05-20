@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -65,6 +66,12 @@ export default function AdminTenantsPage() {
     primaryColor: '#3b82f6',
     isActive: true,
   });
+  const [editSnapshot, setEditSnapshot] = useState<EditForm | null>(null);
+  const isEditDirty = useMemo(
+    () => editSnapshot !== null && JSON.stringify(editForm) !== JSON.stringify(editSnapshot),
+    [editForm, editSnapshot],
+  );
+  const guardEdit = useUnsavedChangesGuard(isEditDirty);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadTenants = () => {
@@ -104,15 +111,19 @@ export default function AdminTenantsPage() {
 
   const startEdit = (t: Tenant) => {
     setEditingId(t.id);
-    setEditForm({
+    const snapshot = {
       name: t.name,
       slug: t.slug,
       domain: t.domain || '',
       plan: t.plan,
       primaryColor: t.primaryColor || '#3b82f6',
       isActive: t.isActive,
-    });
+    };
+    setEditForm(snapshot);
+    setEditSnapshot(snapshot);
   };
+
+  const cancelEdit = () => guardEdit(() => { setEditingId(null); setEditSnapshot(null); });
 
   const saveEdit = async (id: number) => {
     const res = await apiClient.patch(`/api/v1/admin/tenants/${id}`, {
@@ -123,15 +134,20 @@ export default function AdminTenantsPage() {
       primaryColor: editForm.primaryColor,
       isActive: editForm.isActive,
     });
-    if (res.success) toast.success('Тенант оновлено');
-    else toast.error(res.error || 'Помилка');
-    setEditingId(null);
-    loadTenants();
+    if (res.success) {
+      toast.success('Тенант оновлено');
+      setEditingId(null);
+      setEditSnapshot(null);
+      loadTenants();
+    } else {
+      toast.error(res.error || 'Помилка');
+    }
   };
 
   const toggleActive = async (id: number, isActive: boolean) => {
     const res = await apiClient.patch(`/api/v1/admin/tenants/${id}`, { isActive: !isActive });
     if (res.success) toast.success(isActive ? 'Тенант вимкнено' : 'Тенант увімкнено');
+    else toast.error(res.error || 'Помилка оновлення');
     loadTenants();
   };
 
@@ -301,8 +317,9 @@ export default function AdminTenantsPage() {
                           Активний
                         </label>
                         <button
-                          onClick={() => setEditingId(null)}
+                          onClick={cancelEdit}
                           className="rounded-[var(--radius)] border border-[var(--color-border)] p-1.5"
+                          aria-label="Скасувати"
                         >
                           <Close size={16} />
                         </button>

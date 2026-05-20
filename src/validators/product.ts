@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidGtin } from '@/utils/gtin';
 
 export const productFilterSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -8,6 +9,7 @@ export const productFilterSchema = z.object({
   // tick multiple brands at once; we accept them all in a single param.
   brand: z.string().optional(),
   search: z.string().min(2).max(200).optional(),
+  barcode: z.string().regex(/^\d{8,14}$/).optional(),
   priceMin: z.coerce.number().min(0).optional(),
   priceMax: z.coerce.number().min(0).optional(),
   promo: z.coerce.boolean().optional(),
@@ -24,6 +26,15 @@ export const createProductSchema = z.object({
     .string()
     .min(1, "Код товару обов'язковий")
     .max(50, 'Код товару не може перевищувати 50 символів'),
+  barcode: z
+    .string()
+    .refine(
+      (v) => v === '' || isValidGtin(v),
+      'Невірна контрольна цифра штрихкоду (GS1 checksum). Перевірте, чи всі цифри введені правильно.',
+    )
+    .optional()
+    .nullable()
+    .or(z.literal('')),
   name: z
     .string()
     .min(2, 'Назва товару має містити щонайменше 2 символи')
@@ -63,6 +74,14 @@ export const createProductSchema = z.object({
     .or(z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/))
     .optional()
     .nullable(),
+  // Physical parameters — used by carrier TTN + margin reports.
+  weightGrams: z.number().int().min(0).max(1_000_000).optional().nullable(),
+  lengthMm: z.number().int().min(0).max(10_000).optional().nullable(),
+  widthMm: z.number().int().min(0).max(10_000).optional().nullable(),
+  heightMm: z.number().int().min(0).max(10_000).optional().nullable(),
+  cost: z.number().min(0).optional().nullable(),
+  // Optimistic concurrency token (server enforces match + increment).
+  version: z.number().int().nonnegative().optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

@@ -108,28 +108,56 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     },
   };
 
+  // Split "м. Львів, вул. Сихівська, 1" → locality "м. Львів", street "вул. Сихівська, 1".
+  const [addressLocality, ...streetParts] = (settings.site_address || '').split(',');
+  const streetAddress = streetParts.join(',').trim();
+
   const organizationJsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
+    '@type': 'LocalBusiness',
+    '@id': `${baseUrl}#organization`,
     name: settings.site_name,
     url: baseUrl,
     logo: `${baseUrl}/images/icon-512.png`,
+    image: `${baseUrl}/images/icon-512.png`,
     description: settings.company_description,
+    priceRange: '₴₴',
+    telephone: settings.site_phone,
+    email: settings.site_email,
     contactPoint: {
       '@type': 'ContactPoint',
       telephone: settings.site_phone,
       email: settings.site_email,
       contactType: 'customer service',
-      availableLanguage: 'Ukrainian',
+      availableLanguage: ['Ukrainian', 'Russian'],
     },
     address: {
       '@type': 'PostalAddress',
       addressCountry: 'UA',
-      addressLocality: settings.site_address,
+      addressLocality: (addressLocality || settings.site_address || '').trim(),
+      ...(streetAddress && { streetAddress }),
     },
-    sameAs: [settings.social_instagram, settings.social_telegram, settings.social_facebook].filter(
-      Boolean,
-    ),
+    openingHoursSpecification: [
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        opens: '09:00',
+        closes: '18:00',
+      },
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: 'Saturday',
+        opens: '10:00',
+        closes: '15:00',
+      },
+    ],
+    sameAs: [
+      settings.social_instagram,
+      settings.social_telegram,
+      settings.social_tiktok,
+      settings.social_facebook,
+      settings.social_viber,
+    ].filter(Boolean),
   };
 
   return (
@@ -173,23 +201,34 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Analytics scripts loaded after page becomes interactive (lazyOnload).
             This prevents blocking LCP/FID and keeps PageSpeed score high.
             Server-side tracking via CAPI/Measurement Protocol captures conversions
-            even when these scripts are blocked by ad blockers. */}
-        {process.env.NEXT_PUBLIC_GA4_ID && (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA4_ID}`}
-              strategy="lazyOnload"
-            />
-            <Script id="ga4-init" strategy="lazyOnload">
-              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${process.env.NEXT_PUBLIC_GA4_ID}',{send_page_view:true});`}
-            </Script>
-          </>
-        )}
-        {process.env.NEXT_PUBLIC_FB_PIXEL_ID && (
-          <Script id="fb-pixel" strategy="lazyOnload">
-            {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${process.env.NEXT_PUBLIC_FB_PIXEL_ID}');fbq('track','PageView');`}
-          </Script>
-        )}
+            even when these scripts are blocked by ad blockers.
+            IDs are sourced from SiteSetting so the admin form is the single
+            source of truth — env fallbacks let CI/preview envs still ship pixels
+            before settings are seeded. */}
+        {(() => {
+          const ga4Id = settings.google_analytics_id?.trim() || process.env.NEXT_PUBLIC_GA4_ID;
+          const fbPixelId = settings.facebook_pixel_id?.trim() || process.env.NEXT_PUBLIC_FB_PIXEL_ID;
+          return (
+            <>
+              {ga4Id && (
+                <>
+                  <Script
+                    src={`https://www.googletagmanager.com/gtag/js?id=${ga4Id}`}
+                    strategy="lazyOnload"
+                  />
+                  <Script id="ga4-init" strategy="lazyOnload">
+                    {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${ga4Id}',{send_page_view:true});`}
+                  </Script>
+                </>
+              )}
+              {fbPixelId && (
+                <Script id="fb-pixel" strategy="lazyOnload">
+                  {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`}
+                </Script>
+              )}
+            </>
+          );
+        })()}
       </body>
     </html>
   );

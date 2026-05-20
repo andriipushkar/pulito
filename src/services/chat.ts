@@ -129,6 +129,23 @@ export async function sendMessage(
 ) {
   const now = new Date();
 
+  // The frontend renders attachmentUrl as a clickable link. Without validation
+  // a customer could send `javascript:` or `data:` URLs and pop XSS on an
+  // agent's screen. Limit to http(s) + reasonable length.
+  if (attachmentUrl) {
+    if (attachmentUrl.length > 2048) {
+      throw new Error('attachmentUrl надто довгий (>2048 символів)');
+    }
+    try {
+      const parsed = new URL(attachmentUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('attachmentUrl має використовувати http(s)');
+      }
+    } catch {
+      throw new Error('attachmentUrl має бути валідним http(s) URL');
+    }
+  }
+
   const [message] = await prisma.$transaction([
     prisma.chatMessage.create({
       data: {

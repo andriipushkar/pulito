@@ -6,6 +6,7 @@ export type OrderStatus =
   | 'processing'
   | 'confirmed'
   | 'paid'
+  | 'packed'
   | 'shipped'
   | 'completed'
   | 'cancelled'
@@ -21,6 +22,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   processing: 'В обробці',
   confirmed: 'Підтверджене',
   paid: 'Оплачене',
+  packed: 'Упаковано',
   shipped: 'Відправлене',
   completed: 'Виконане',
   cancelled: 'Скасоване',
@@ -32,6 +34,7 @@ export const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   processing: '#d97706',
   confirmed: '#059669',
   paid: '#0891b2',
+  packed: '#6366f1', // indigo — between paid (cyan) and shipped (violet)
   shipped: '#7c3aed',
   completed: '#4b5563',
   cancelled: '#dc2626',
@@ -93,9 +96,17 @@ export interface OrderDetail extends OrderListItem {
   discountAmount: Price;
   deliveryCost: Price;
   contactEmail: string;
+  companyName: string | null;
+  edrpou: string | null;
   deliveryCity: string | null;
   deliveryAddress: string | null;
   deliveryWarehouseRef: string | null;
+  deliveryStreetRef: string | null;
+  deliveryBuilding: string | null;
+  deliveryFlat: string | null;
+  // Pallet delivery snapshot from checkout. Null for non-pallet orders.
+  palletWeightKg: Price | null;
+  palletRegion: string | null;
   trackingStatus: string | null;
   trackingStatusAt: string | Date | null;
   comment: string | null;

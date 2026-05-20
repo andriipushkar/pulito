@@ -18,24 +18,31 @@ interface BlogCategory {
 
 export default function AdminBlogCategoriesPage() {
   const [categories, setCategories] = useState<BlogCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', slug: '' });
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  // Derive isLoading from request/completion tokens so we never need a
+  // synchronous setIsLoading(true) inside the fetch effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  const [completedToken, setCompletedToken] = useState(-1);
+  const isLoading = completedToken !== reloadToken;
+  const loadCategories = () => setReloadToken((n) => n + 1);
 
-  const loadCategories = () => {
-    setIsLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     apiClient
       .get<BlogCategory[]>('/api/v1/admin/blog/categories')
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) setCategories(res.data);
       })
-      .finally(() => setIsLoading(false));
-  };
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
+      .finally(() => {
+        if (!cancelled) setCompletedToken(reloadToken);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   const handleCreate = async () => {
     if (!form.name.trim()) return;

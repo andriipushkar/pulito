@@ -31,7 +31,6 @@ const CHALLENGE_TYPES = [
 
 export default function AdminLoyaltyChallengesPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [form, setForm] = useState({
@@ -43,18 +42,27 @@ export default function AdminLoyaltyChallengesPage() {
     startDate: '',
     endDate: '',
   });
+  // Derive isLoading from request/completion tokens to avoid synchronous setState in effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  const [completedToken, setCompletedToken] = useState(-1);
+  const isLoading = completedToken !== reloadToken;
+  const loadChallenges = () => setReloadToken((n) => n + 1);
 
-  const loadChallenges = () => {
-    setIsLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     apiClient
       .get<Challenge[]>('/api/v1/admin/loyalty/challenges')
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) setChallenges(res.data);
       })
-      .finally(() => setIsLoading(false));
-  };
-
-  useEffect(() => { loadChallenges(); }, []);
+      .finally(() => {
+        if (!cancelled) setCompletedToken(reloadToken);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   const handleCreate = async () => {
     if (!form.name.trim() || !form.target || !form.reward) {

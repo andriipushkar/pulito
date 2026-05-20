@@ -28,6 +28,13 @@ export const checkoutSchema = z.object({
   paymentProvider: z
     .enum(['liqpay', 'liqpay_paypart', 'monobank', 'wayforpay', 'apple_pay', 'google_pay'])
     .optional(),
+  // Pallet delivery: clients filling the PalletDeliveryForm send back the
+  // calculated weight/region/cost so we can persist them on the Order. These
+  // fields are only used when deliveryMethod === 'pallet'; the API silently
+  // ignores them for other methods.
+  palletWeightKg: z.number().positive().optional(),
+  palletRegion: z.string().max(100).optional(),
+  palletDeliveryCost: z.number().nonnegative().optional(),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
@@ -52,6 +59,7 @@ export const orderFilterSchema = z.object({
       'processing',
       'confirmed',
       'paid',
+      'packed',
       'shipped',
       'completed',
       'cancelled',
@@ -63,8 +71,16 @@ export const orderFilterSchema = z.object({
   dateTo: z.string().optional(),
   sortBy: z.enum(['createdAt', 'totalAmount', 'status', 'orderNumber']).default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  // clientType is a Postgres enum on the column; passing an arbitrary
+  // string used to reach Prisma which would crash with "invalid input
+  // value for enum". Whitelist here so a malformed URL is a clean 400.
+  clientType: z.enum(['retail', 'wholesale']).optional(),
   paymentMethod: z.enum(['cod', 'bank_transfer', 'online', 'card_prepay']).optional(),
   deliveryMethod: z.enum(['nova_poshta', 'ukrposhta', 'pickup', 'pallet']).optional(),
+  paymentStatus: z.enum(['pending', 'paid', 'partial', 'refunded']).optional(),
+  // Filter orders assigned to a specific manager. Useful when several
+  // managers split a shift and each one wants to see only their workload.
+  assignedManagerId: z.coerce.number().int().positive().optional(),
 });
 
 export type OrderFilterInput = z.infer<typeof orderFilterSchema>;
@@ -75,6 +91,7 @@ export const updateOrderStatusSchema = z.object({
     'processing',
     'confirmed',
     'paid',
+    'packed',
     'shipped',
     'completed',
     'cancelled',

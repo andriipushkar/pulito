@@ -133,6 +133,7 @@ function RulesTab() {
     try {
       config = JSON.parse(formConfig);
     } catch {
+      toast.error('Неправильний JSON у конфігурації');
       return;
     }
 
@@ -260,7 +261,20 @@ function RulesTab() {
           </div>
         ))}
         {rules.length === 0 && (
-          <div className="py-8 text-center text-[var(--color-text-secondary)]">Правил модерації немає</div>
+          <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-12 text-center text-[var(--color-text-secondary)]">
+            <span className="text-3xl" aria-hidden="true">🛡️</span>
+            <p className="text-sm font-medium">
+              {platformFilter ? 'Правил для цієї платформи немає' : 'Правил модерації ще немає'}
+            </p>
+            {!showCreate && !editingRule && (
+              <button
+                onClick={() => { setShowCreate(true); resetForm(); }}
+                className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
+              >
+                + Створити перше правило
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -279,15 +293,18 @@ function RulesTab() {
 
 function LogsTab() {
   const [logs, setLogs] = useState<ModerationLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [platformFilter, setPlatformFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const limit = 20;
+  // Derive isLoading from a request key vs the last completed key.
+  const requestKey = `${page}|${platformFilter}|${actionFilter}`;
+  const [completedKey, setCompletedKey] = useState<string | null>(null);
+  const isLoading = completedKey !== requestKey;
 
   useEffect(() => {
-    setIsLoading(true);
+    let cancelled = false;
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (platformFilter) params.set('platform', platformFilter);
     if (actionFilter) params.set('actionTaken', actionFilter);
@@ -295,13 +312,19 @@ function LogsTab() {
     apiClient
       .get<ModerationLog[]>(`/api/v1/admin/moderation/logs?${params}`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) {
           setLogs(res.data);
           setTotal((res as unknown as { pagination?: { total: number } }).pagination?.total || 0);
         }
       })
-      .finally(() => setIsLoading(false));
-  }, [page, platformFilter, actionFilter]);
+      .finally(() => {
+        if (!cancelled) setCompletedKey(requestKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, platformFilter, actionFilter, requestKey]);
 
   const markFalsePositive = async (logId: number) => {
     const res = await apiClient.patch(`/api/v1/admin/moderation/logs`, { id: logId, isFalsePositive: true });
@@ -370,7 +393,18 @@ function LogsTab() {
               </tr>
             ))}
             {logs.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">Записів немає</td></tr>
+              <tr>
+                <td colSpan={7} className="px-4 py-12 text-center">
+                  <div className="flex flex-col items-center gap-2 text-[var(--color-text-secondary)]">
+                    <span className="text-2xl" aria-hidden="true">📋</span>
+                    <p className="text-sm">
+                      {platformFilter || actionFilter
+                        ? 'За цими фільтрами записів немає'
+                        : 'Записів модерації ще немає'}
+                    </p>
+                  </div>
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

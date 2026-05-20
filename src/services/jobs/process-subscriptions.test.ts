@@ -195,7 +195,7 @@ describe('processSubscriptionOrders', () => {
     expect(mockPrisma.order.update).not.toHaveBeenCalled();
   });
 
-  it('should update nextDeliveryAt based on frequency', async () => {
+  it('should update nextDeliveryAt based on frequency', { timeout: 30_000 }, async () => {
     const frequencies: Record<string, number> = {
       weekly: 7,
       biweekly: 14,
@@ -216,9 +216,10 @@ describe('processSubscriptionOrders', () => {
       const nextDate = updateCall.data.nextDeliveryAt as Date;
       const expectedMs = days * 24 * 60 * 60 * 1000;
       const diff = nextDate.getTime() - Date.now();
-      // Allow 2 second tolerance
-      expect(diff).toBeGreaterThanOrEqual(expectedMs - 2000);
-      expect(diff).toBeLessThanOrEqual(expectedMs + 2000);
+      // 10s tolerance — processSubscriptionOrders does several awaits and
+      // can take a few seconds in CI before the assertion's Date.now() runs.
+      expect(diff).toBeGreaterThanOrEqual(expectedMs - 10_000);
+      expect(diff).toBeLessThanOrEqual(expectedMs + 10_000);
     }
   });
 

@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import SubscriptionAnalyticsBar from '@/components/admin/SubscriptionAnalyticsBar';
 
 interface Subscription {
   id: number;
@@ -36,24 +37,28 @@ const FREQUENCY_LABELS: Record<string, string> = {
 
 export default function AdminSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  // Derive isLoading from completed filter to avoid synchronous setIsLoading(true) in effect.
+  const [completedFilter, setCompletedFilter] = useState<string | null>(null);
+  const isLoading = completedFilter !== statusFilter;
 
-  const loadSubscriptions = useCallback(() => {
-    setIsLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     const params = statusFilter ? `?status=${statusFilter}` : '';
     apiClient
       .get<Subscription[]>(`/api/v1/admin/subscriptions${params}`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) setSubscriptions(res.data);
         else toast.error('Не вдалося завантажити підписки');
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (!cancelled) setCompletedFilter(statusFilter);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [statusFilter]);
-
-  useEffect(() => {
-    loadSubscriptions();
-  }, [loadSubscriptions]);
 
   if (isLoading) {
     return <AdminTableSkeleton rows={6} columns={7} />;
@@ -61,6 +66,8 @@ export default function AdminSubscriptionsPage() {
 
   return (
     <div>
+      <SubscriptionAnalyticsBar />
+
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold">
           Підписки{' '}

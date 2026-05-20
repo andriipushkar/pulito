@@ -25,7 +25,9 @@ export default function CartPage() {
           setFreeShippingThreshold(res.data.delivery.freeShippingThreshold);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn('Failed to load checkout config', err);
+      });
   }, []);
 
   if (items.length === 0) {
@@ -51,7 +53,15 @@ export default function CartPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Кошик ({itemCount})</h1>
         <button
-          onClick={clearCart}
+          onClick={() => {
+            if (
+              window.confirm(
+                'Видалити всі товари з кошика? Цю дію не можна скасувати.',
+              )
+            ) {
+              clearCart();
+            }
+          }}
           className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
         >
           Очистити кошик

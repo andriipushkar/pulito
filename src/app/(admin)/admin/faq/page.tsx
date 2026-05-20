@@ -41,6 +41,19 @@ export default function AdminFaqPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<FaqFormData>(emptyForm);
   const [filterCategory, setFilterCategory] = useState<string>('');
+  // Загружаємо нові FaqCategory entities для datalist-suggestions у input-ах
+  // нижче. Залишаємо category як string у формі, бо backend все ще приймає
+  // строку — datalist лиш підказує існуючі назви, не примусово обмежує вибір.
+  const [faqCategories, setFaqCategories] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    apiClient
+      .get<typeof faqCategories>('/api/v1/admin/faq-categories')
+      .then((res) => {
+        if (res.success && res.data) setFaqCategories(res.data);
+      })
+      .catch(() => {});
+  }, []);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [sortField, setSortField] = useState<'sortOrder' | 'question' | 'clickCount'>('sortOrder');
@@ -83,9 +96,31 @@ export default function AdminFaqPage() {
     return acc;
   }, {});
 
+  // Ensure a FaqCategory entry exists for the given name. Returns silently
+  // (best-effort) — if creation fails (e.g. permission), the FAQ item is
+  // still saved with the legacy `category` string and surfaces via the
+  // fallback path on the storefront.
+  async function ensureCategoryExists(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (faqCategories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) return;
+    try {
+      const res = await apiClient.post<{ id: number; name: string }>(
+        '/api/v1/admin/faq-categories',
+        { name: trimmed, isPublished: true },
+      );
+      if (res.success && res.data) {
+        setFaqCategories((curr) => [...curr, res.data!]);
+      }
+    } catch {
+      // Best-effort — not critical.
+    }
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    await ensureCategoryExists(createForm.category);
     const res = await apiClient.post<AdminFaqItem>('/api/v1/admin/faq', createForm);
     if (res.success && res.data) {
       toast.success('Питання створено');
@@ -100,6 +135,7 @@ export default function AdminFaqPage() {
 
   async function handleUpdate(id: number) {
     setSaving(true);
+    await ensureCategoryExists(editForm.category);
     const res = await apiClient.put<AdminFaqItem>(`/api/v1/admin/faq/${id}`, editForm);
     if (res.success && res.data) {
       toast.success('Питання оновлено');
@@ -134,6 +170,8 @@ export default function AdminFaqPage() {
     });
     if (res.success && res.data) {
       setItems((prev) => prev.map((i) => (i.id === item.id ? res.data! : i)));
+    } else {
+      toast.error(res.error || 'Помилка оновлення');
     }
   }
 
@@ -160,12 +198,20 @@ export default function AdminFaqPage() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold">FAQ</h2>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="flex items-center gap-1 rounded-[var(--radius)] bg-[var(--color-primary)] px-3 py-2 text-sm text-white transition-colors hover:bg-[var(--color-primary-dark)]"
-        >
-          <Plus size={16} /> Додати питання
-        </button>
+        <div className="flex gap-2">
+          <a
+            href="/admin/faq/categories"
+            className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-2 text-sm hover:bg-[var(--color-bg-secondary)]"
+          >
+            🗂 Категорії
+          </a>
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="flex items-center gap-1 rounded-[var(--radius)] bg-[var(--color-primary)] px-3 py-2 text-sm text-white transition-colors hover:bg-[var(--color-primary-dark)]"
+          >
+            <Plus size={16} /> Додати питання
+          </button>
+        </div>
       </div>
 
       {/* Filters and sorting */}
@@ -214,12 +260,18 @@ export default function AdminFaqPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               type="text"
-              placeholder="Категорія"
+              placeholder="Категорія (нова або з підказок)"
               value={createForm.category}
               onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
+              list="faq-categories"
               className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-2 text-sm"
               required
             />
+            <datalist id="faq-categories">
+              {faqCategories.map((c) => (
+                <option key={c.id} value={c.name} />
+              ))}
+            </datalist>
             <input
               type="number"
               placeholder="Порядок"
@@ -299,6 +351,7 @@ export default function AdminFaqPage() {
                         type="text"
                         value={editForm.category}
                         onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                        list="faq-categories"
                         className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                         placeholder="Категорія"
                       />
@@ -398,8 +451,28 @@ export default function AdminFaqPage() {
       ))}
 
       {filteredItems.length === 0 && (
-        <div className="py-8 text-center text-[var(--color-text-secondary)]">
-          {filterCategory ? 'Немає питань у цій категорії' : 'FAQ порожній'}
+        <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-12 text-center text-[var(--color-text-secondary)]">
+          <span className="text-3xl" aria-hidden="true">
+            ❓
+          </span>
+          <p className="text-sm font-medium">
+            {filterCategory ? 'Немає питань у цій категорії' : 'FAQ порожній'}
+          </p>
+          {filterCategory ? (
+            <button
+              onClick={() => setFilterCategory('')}
+              className="text-xs text-[var(--color-primary)] hover:underline"
+            >
+              Показати всі категорії
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
+            >
+              + Додати перше питання
+            </button>
+          )}
         </div>
       )}
 

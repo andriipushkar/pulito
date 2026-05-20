@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('admin', 'manager')(
   async (request: NextRequest) => {
@@ -48,7 +49,8 @@ export const POST = withRole('admin', 'manager')(
           'Content-Disposition': `attachment; filename="${filename}"`,
         },
       });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/orders/export] POST failed', { error: err });
       return errorResponse('Помилка експорту замовлень', 500);
     }
   }

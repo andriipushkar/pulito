@@ -60,15 +60,24 @@ export default function AdminCampaignsPage() {
   });
 
   const loadCampaigns = () => {
-    apiClient.get<CampaignRule[]>('/api/v1/admin/campaigns').then((res) => {
-      if (res.success && res.data) setCampaigns(res.data);
-    }).finally(() => setIsLoading(false));
+    apiClient
+      .get<CampaignRule[]>('/api/v1/admin/campaigns')
+      .then((res) => {
+        if (res.success && res.data) setCampaigns(res.data);
+        else toast.error(res.error || 'Помилка завантаження кампаній');
+      })
+      .catch(() => toast.error('Помилка завантаження кампаній'))
+      .finally(() => setIsLoading(false));
   };
 
   const loadTemplates = () => {
-    apiClient.get<EmailTemplate[]>('/api/v1/admin/email-templates').then((res) => {
-      if (res.success && res.data) setTemplates(Array.isArray(res.data) ? res.data : []);
-    });
+    apiClient
+      .get<EmailTemplate[]>('/api/v1/admin/email-templates')
+      .then((res) => {
+        if (res.success && res.data) setTemplates(Array.isArray(res.data) ? res.data : []);
+        else toast.error(res.error || 'Помилка завантаження шаблонів');
+      })
+      .catch(() => toast.error('Помилка завантаження шаблонів'));
   };
 
   useEffect(() => {
@@ -226,9 +235,12 @@ export default function AdminCampaignsPage() {
                   </button>
                 </td>
                 <td className="px-3 py-2">
-                  <button onClick={() => handleDelete(c.id)} className="text-xs text-red-500 hover:text-red-700">
-                    Видалити
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <SendNowButton id={c.id} onSent={loadCampaigns} />
+                    <button onClick={() => handleDelete(c.id)} className="text-xs text-red-500 hover:text-red-700">
+                      Видалити
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -250,5 +262,45 @@ export default function AdminCampaignsPage() {
         message="Видалити кампанію? Логи відправок також будуть видалені."
       />
     </div>
+  );
+}
+
+function SendNowButton({ id, onSent }: { id: number; onSent: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setConfirm(true)}
+        className="rounded bg-[var(--color-primary)] px-2 py-1 text-[11px] font-semibold text-white hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
+        title="Надіслати кампанію негайно усім клієнтам із сегмента"
+      >
+        {busy ? '…' : 'Надіслати зараз'}
+      </button>
+      <ConfirmDialog
+        isOpen={confirm}
+        onClose={() => setConfirm(false)}
+        onConfirm={async () => {
+          setConfirm(false);
+          setBusy(true);
+          const res = await apiClient.post<{ sent: number; skipped: number }>(
+            `/api/v1/admin/campaigns/${id}/send-now`,
+          );
+          setBusy(false);
+          if (res.success && res.data) {
+            toast.success(`Надіслано: ${res.data.sent}, пропущено: ${res.data.skipped}`);
+            onSent();
+          } else {
+            toast.error(res.error || 'Помилка надсилання');
+          }
+        }}
+        variant="warning"
+        title="Надіслати кампанію зараз?"
+        message="Розсилка піде одразу всім користувачам із обраного сегмента, незалежно від графіка. Для одноразових кампаній — пропустяться ті, кому вже надсилали."
+        confirmText="Надіслати"
+      />
+    </>
   );
 }

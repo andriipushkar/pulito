@@ -19,6 +19,7 @@ import {
   deleteMarketplaceListing,
   syncMarketplacePrices,
   getMarketplaceMessages,
+  replyToMarketplaceMessage,
   MARKETPLACE_CHANNELS,
 } from './marketplaces';
 
@@ -80,7 +81,7 @@ describe('publishToOlx', () => {
   });
 
   it('should truncate title to 70 chars for OLX', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't' });
+    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: { id: 1 } }),
@@ -94,7 +95,7 @@ describe('publishToOlx', () => {
   });
 
   it('should prepend appUrl to relative image URLs', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't' });
+    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: { id: 1 } }),
@@ -108,7 +109,7 @@ describe('publishToOlx', () => {
   });
 
   it('should limit images to 8 for OLX', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't' });
+    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: { id: 1 } }),
@@ -122,7 +123,7 @@ describe('publishToOlx', () => {
   });
 
   it('should return failed on API error response', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't' });
+    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 400,
@@ -135,7 +136,7 @@ describe('publishToOlx', () => {
   });
 
   it('should handle fetch network error', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't' });
+    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
     const result = await publishToOlx(sampleListing, APP_URL);
@@ -486,6 +487,28 @@ describe('getMarketplaceMessages', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0].marketplace).toBe('rozetka');
     expect(messages[0].isRead).toBe(true);
+  });
+});
+
+// ── Reply to message ──
+
+describe('replyToMarketplaceMessage', () => {
+  it('returns clear error for epicentrk (no public messages API)', async () => {
+    const res = await replyToMarketplaceMessage('epicentrk', 'thread-1', 'Hello');
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('Epicentr K');
+  });
+
+  it('rejects empty text', async () => {
+    const res = await replyToMarketplaceMessage('olx', 'thread-1', '   ');
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('Порожнє');
+  });
+
+  it('returns helpful error for unknown channel', async () => {
+    const res = await replyToMarketplaceMessage('nope', 'thread-1', 'hi');
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('не підтримується');
   });
 });
 

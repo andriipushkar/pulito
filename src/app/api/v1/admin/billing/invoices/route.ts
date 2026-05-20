@@ -1,8 +1,9 @@
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
-export const GET = withRole('admin')(
+export const GET = withRole2fa('admin')(
   async (_request, { user }) => {
     try {
       const membership = await prisma.tenantUser.findFirst({
@@ -27,7 +28,8 @@ export const GET = withRole('admin')(
       });
 
       return successResponse(invoices);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/billing/invoices] GET failed', { error: err });
       return errorResponse('Помилка завантаження рахунків', 500);
     }
   }

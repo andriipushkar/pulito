@@ -11,6 +11,7 @@ import { serializeRefreshTokenCookie } from '@/utils/cookies';
 import { getClientIp, getDeviceInfo } from '@/utils/request';
 import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
+import { logAudit } from '@/services/audit';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,9 +27,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${env.APP_URL}/auth/login?error=no_code`);
     }
 
-    // State is HMAC-signed and includes a timestamp; verification doesn't
-    // need a server-side cookie. See services/google-oauth.ts.
-    if (!state || !verifyOAuthState(state)) {
+    // State is HMAC-signed and includes a timestamp + the original
+    // returnUrl. Verifying server-side is enough — no cookie needed.
+    const verification = state ? verifyOAuthState(state) : { valid: false as const };
+    if (!verification.valid) {
       return NextResponse.redirect(`${env.APP_URL}/auth/login?error=invalid_state`);
     }
 
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
     const ipAddress = getClientIp(request);
     const deviceInfo = getDeviceInfo(request);
 
-    const { tokens } = await loginWithGoogle(
+    const { user, tokens } = await loginWithGoogle(
       profile.id,
       profile.email,
       profile.name,
@@ -47,15 +49,27 @@ export async function GET(request: NextRequest) {
       ipAddress,
       deviceInfo,
     );
+    await logAudit({
+      userId: user.id,
+      actionType: 'login',
+      entityType: 'user',
+      entityId: user.id,
+      details: { method: 'google' },
+      ipAddress,
+    });
 
-    // Redirect to the client callback page. The refresh_token cookie alone is
-    // enough — AuthProvider's mount-effect hits /api/v1/auth/refresh which
-    // returns both the access token and the user. Issuing a separate
-    // oauth_access_token cookie used to require a second /auth/refresh from
-    // the callback page, which raced with AuthProvider's auto-refresh and
-    // occasionally tripped the refresh-token-reuse detector, nuking the
-    // user's sessions ("інколи кілька раз потрібно" symptom).
+    // Redirect to the client callback page, forwarding the verified
+    // returnUrl so AuthCallbackPage knows where to land once AuthProvider
+    // hydrates. The refresh_token cookie alone is enough — AuthProvider's
+    // mount-effect hits /api/v1/auth/refresh which returns both the access
+    // token and the user. Issuing a separate oauth_access_token cookie
+    // used to require a second /auth/refresh from the callback page, which
+    // raced with AuthProvider's auto-refresh and occasionally tripped the
+    // refresh-token-reuse detector ("інколи кілька раз потрібно" symptom).
     const redirectUrl = new URL('/auth/callback', env.APP_URL);
+    if (verification.returnUrl) {
+      redirectUrl.searchParams.set('returnUrl', verification.returnUrl);
+    }
 
     const refreshTtl = parseTtlToSeconds(env.JWT_REFRESH_TTL);
     const response = NextResponse.redirect(redirectUrl.toString());

@@ -18,6 +18,9 @@ vi.mock('@/lib/prisma', () => ({
         { slug: 'about', updatedAt: new Date('2025-01-03') },
       ]),
     },
+    brand: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     blogPost: {
       findMany: vi.fn().mockResolvedValue([]),
     },

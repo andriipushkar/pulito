@@ -3,10 +3,19 @@
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { formatPrice } from '@/utils/format';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+
+interface ReferralStats {
+  total: number;
+  registered: number;
+  firstOrder: number;
+  bonusGranted: number;
+  bonusPaid: number;
+}
 
 interface Referral {
   id: number;
@@ -32,6 +41,7 @@ export default function AdminReferralsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<ReferralStats | null>(null);
   const [bonusModal, setBonusModal] = useState<{ id: number; name: string } | null>(null);
   const [bonusValue, setBonusValue] = useState('');
   const [isGranting, setIsGranting] = useState(false);
@@ -49,9 +59,19 @@ export default function AdminReferralsPage() {
     setIsLoading(false);
   }, [page, statusFilter]);
 
+  const fetchStats = useCallback(() => {
+    apiClient.get<ReferralStats>('/api/v1/admin/referrals?stats=true').then((res) => {
+      if (res.success && res.data) setStats(res.data);
+    });
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const handleGrantBonus = async () => {
     if (!bonusModal || !bonusValue) return;
@@ -72,6 +92,7 @@ export default function AdminReferralsPage() {
         setBonusModal(null);
         setBonusValue('');
         fetchData();
+        fetchStats();
       } else {
         toast.error(res.error || 'Помилка нарахування бонусу');
       }
@@ -84,7 +105,7 @@ export default function AdminReferralsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold">Реферали <span className="text-base font-normal text-[var(--color-text-secondary)]">({total})</span></h2>
         <select
           value={statusFilter}
@@ -97,6 +118,39 @@ export default function AdminReferralsPage() {
           <option value="bonus_granted">Бонус нараховано</option>
         </select>
       </div>
+
+      {stats && (
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <button
+            type="button"
+            onClick={() => { setStatusFilter('registered'); setPage(1); }}
+            className={`rounded-xl bg-blue-50 px-4 py-3 text-left transition-all hover:shadow-md ${statusFilter === 'registered' ? 'ring-2 ring-blue-400' : ''}`}
+          >
+            <p className="text-2xl font-bold text-blue-600">{stats.registered}</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Зареєстровано</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setStatusFilter('first_order'); setPage(1); }}
+            className={`rounded-xl bg-violet-50 px-4 py-3 text-left transition-all hover:shadow-md ${statusFilter === 'first_order' ? 'ring-2 ring-violet-400' : ''}`}
+          >
+            <p className="text-2xl font-bold text-violet-600">{stats.firstOrder}</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Перше замовлення</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setStatusFilter('bonus_granted'); setPage(1); }}
+            className={`rounded-xl bg-emerald-50 px-4 py-3 text-left transition-all hover:shadow-md ${statusFilter === 'bonus_granted' ? 'ring-2 ring-emerald-400' : ''}`}
+          >
+            <p className="text-2xl font-bold text-emerald-600">{stats.bonusGranted}</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Бонус нараховано</p>
+          </button>
+          <div className="rounded-xl bg-amber-50 px-4 py-3">
+            <p className="text-2xl font-bold text-amber-600">{formatPrice(stats.bonusPaid)}</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Сума виплат</p>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <AdminTableSkeleton rows={8} columns={7} />
@@ -131,7 +185,7 @@ export default function AdminReferralsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right text-xs">
-                      {item.bonusValue ? `${Number(item.bonusValue).toFixed(0)} grn` : '—'}
+                      {item.bonusValue ? `${Number(item.bonusValue).toFixed(0)} грн` : '—'}
                     </td>
                     <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">{new Date(item.createdAt).toLocaleDateString('uk-UA')}</td>
                     <td className="px-4 py-2 text-right">
@@ -150,7 +204,28 @@ export default function AdminReferralsPage() {
                   </tr>
                 ))}
                 {items.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-[var(--color-text-secondary)]">Немає рефералів</td></tr>
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center">
+                      <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
+                        <span className="text-3xl" aria-hidden="true">🔗</span>
+                        <p className="text-sm font-medium">
+                          {statusFilter ? 'Рефералів з цим статусом не знайдено' : 'Рефералів ще немає'}
+                        </p>
+                        {statusFilter ? (
+                          <button
+                            onClick={() => { setStatusFilter(''); setPage(1); }}
+                            className="text-xs text-[var(--color-primary)] hover:underline"
+                          >
+                            Скинути фільтр
+                          </button>
+                        ) : (
+                          <p className="max-w-md text-xs">
+                            Реферали з&apos;являться, коли клієнти запросять друзів через свій реферальний код
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

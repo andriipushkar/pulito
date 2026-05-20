@@ -25,18 +25,28 @@ export default function SmtpSettingsPage() {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testEmail, setTestEmail] = useState('');
 
+  // Reload via token bump; fetch lives in the effect.
+  const [reloadToken, setReloadToken] = useState(0);
   const loadSettings = useCallback(async () => {
-    const res = await apiClient.get<Record<string, string>>('/api/v1/admin/smtp-settings');
-    if (res.success && res.data) {
-      setSettings(res.data);
-      setDirty(new Set());
-    }
-    setIsLoading(false);
+    setReloadToken((n) => n + 1);
   }, []);
 
   useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
+    let cancelled = false;
+    apiClient
+      .get<Record<string, string>>('/api/v1/admin/smtp-settings')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) {
+          setSettings(res.data);
+          setDirty(new Set());
+        }
+        setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   const updateField = (key: string, value: string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -57,6 +67,10 @@ export default function SmtpSettingsPage() {
   };
 
   const handleTest = async () => {
+    if (testEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+      toast.error('Невірний формат email для тесту');
+      return;
+    }
     setTesting(true);
     setTestResult(null);
     const res = await apiClient.post<TestResult>('/api/v1/admin/smtp-settings/test', {

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { createSlug } from '@/utils/slug';
+import { sanitizeHtml } from '@/utils/sanitize';
 
 export class BlogError extends Error {
   constructor(
@@ -44,8 +45,11 @@ export async function createPost(
     data: {
       title: data.title,
       slug,
-      content: data.content,
-      excerpt: data.excerpt,
+      content: sanitizeHtml(data.content),
+      // Excerpt is plain-text-only on the storefront but the editor lets
+      // managers paste HTML; sanitize so a <script> in the preview doesn't
+      // make it into category listings.
+      excerpt: data.excerpt ? sanitizeHtml(data.excerpt) : data.excerpt,
       coverImage: data.coverImage,
       categoryId: data.categoryId,
       tags: data.tags ?? [],
@@ -77,9 +81,19 @@ export async function updatePost(
   const post = await prisma.blogPost.findUnique({ where: { id } });
   if (!post) throw new BlogError('Статтю не знайдено', 404);
 
-  if (data.slug && data.slug !== post.slug) {
+  const slugChanged = !!(data.slug && data.slug !== post.slug);
+  if (slugChanged && data.slug) {
     const existing = await prisma.blogPost.findUnique({ where: { slug: data.slug } });
     if (existing) throw new BlogError('Стаття з таким slug вже існує', 409);
+
+    // Record a 301-style redirect so the old URL keeps working (good for SEO
+    // and any external links). Use upsert because the same oldSlug might have
+    // been part of an earlier rename chain that's now being re-pointed.
+    await prisma.slugRedirect.upsert({
+      where: { oldSlug: post.slug },
+      create: { oldSlug: post.slug, newSlug: data.slug, type: 'blog_post' },
+      update: { newSlug: data.slug, type: 'blog_post' },
+    });
   }
 
   if (data.categoryId) {
@@ -94,8 +108,8 @@ export async function updatePost(
     data: {
       ...(data.title !== undefined && { title: data.title }),
       ...(data.slug !== undefined && { slug: data.slug }),
-      ...(data.content !== undefined && { content: data.content }),
-      ...(data.excerpt !== undefined && { excerpt: data.excerpt }),
+      ...(data.content !== undefined && { content: sanitizeHtml(data.content) }),
+      ...(data.excerpt !== undefined && { excerpt: data.excerpt ? sanitizeHtml(data.excerpt) : data.excerpt }),
       ...(data.coverImage !== undefined && { coverImage: data.coverImage }),
       ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
       ...(data.tags !== undefined && { tags: data.tags }),
@@ -112,7 +126,23 @@ export async function deletePost(id: number) {
   const post = await prisma.blogPost.findUnique({ where: { id } });
   if (!post) throw new BlogError('Статтю не знайдено', 404);
 
-  await prisma.blogPost.delete({ where: { id } });
+  // Soft-delete: mark with deletedAt + unpublish so the site stops serving it
+  // immediately, but the row stays for audit / accidental-undo. List queries
+  // filter `deletedAt: null` to hide it.
+  await prisma.blogPost.update({
+    where: { id },
+    data: { deletedAt: new Date(), isPublished: false },
+  });
+}
+
+export async function restorePost(id: number) {
+  const post = await prisma.blogPost.findUnique({ where: { id } });
+  if (!post) throw new BlogError('Статтю не знайдено', 404);
+  if (!post.deletedAt) throw new BlogError('Стаття не є видаленою', 400);
+  await prisma.blogPost.update({
+    where: { id },
+    data: { deletedAt: null },
+  });
 }
 
 export async function getPublishedPosts(
@@ -121,7 +151,7 @@ export async function getPublishedPosts(
   categorySlug?: string,
   tag?: string,
 ) {
-  const where: Record<string, unknown> = { isPublished: true };
+  const where: Record<string, unknown> = { isPublished: true, deletedAt: null };
 
   if (categorySlug) {
     const category = await prisma.blogCategory.findUnique({ where: { slug: categorySlug } });
@@ -154,7 +184,7 @@ export async function getPublishedPosts(
 
 export async function getPostBySlug(slug: string) {
   const post = await prisma.blogPost.findUnique({
-    where: { slug, isPublished: true },
+    where: { slug, isPublished: true, deletedAt: null },
     include: {
       category: { select: { id: true, name: true, slug: true } },
     },
@@ -196,6 +226,7 @@ export async function getRelatedPosts(postId: number, limit = 4) {
   return prisma.blogPost.findMany({
     where: {
       isPublished: true,
+      deletedAt: null,
       id: { not: postId },
       OR: conditions,
     },

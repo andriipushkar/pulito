@@ -22,7 +22,7 @@ export async function getVolumeDiscount(
   productId: number,
   categoryId: number | null,
   quantity: number
-): Promise<{ discountPercent: number; discountType: string } | null> {
+): Promise<{ discountPercent: number; discountType: string; stackableWith: string[] } | null> {
   const now = new Date();
 
   const baseWhere = {
@@ -38,7 +38,10 @@ export async function getVolumeDiscount(
     ],
   };
 
-  // Product-specific discount first
+  // Product-specific discount first. Order: highest priority wins; among
+  // discounts of equal priority pick the largest % (best for the customer).
+  // Example: 5–10 шт=5% vs 10–15 шт=15% — at qty=10 both qualify, the 15%
+  // one wins because discountPercent desc comes after priority desc.
   const productDiscount = await prisma.volumeDiscount.findFirst({
     where: {
       ...baseWhere,
@@ -51,6 +54,7 @@ export async function getVolumeDiscount(
     return {
       discountPercent: productDiscount.discountPercent,
       discountType: productDiscount.discountType,
+      stackableWith: productDiscount.stackableWith ?? [],
     };
   }
 
@@ -69,6 +73,7 @@ export async function getVolumeDiscount(
       return {
         discountPercent: categoryDiscount.discountPercent,
         discountType: categoryDiscount.discountType,
+        stackableWith: categoryDiscount.stackableWith ?? [],
       };
     }
   }
@@ -81,7 +86,7 @@ export async function getVolumeDiscount(
  */
 export async function applyVolumeDiscounts(
   cartItems: Array<{ productId: number; categoryId: number | null; quantity: number; price: number }>
-): Promise<Array<{ productId: number; originalPrice: number; discountedPrice: number; discountPercent: number; quantity: number }>> {
+): Promise<Array<{ productId: number; originalPrice: number; discountedPrice: number; discountPercent: number; quantity: number; stackableWith: string[] }>> {
   return Promise.all(
     cartItems.map(async (item) => {
       const discount = await getVolumeDiscount(item.productId, item.categoryId, item.quantity);
@@ -93,6 +98,7 @@ export async function applyVolumeDiscounts(
           discountedPrice: item.price,
           discountPercent: 0,
           quantity: item.quantity,
+          stackableWith: [],
         };
       }
 
@@ -109,6 +115,7 @@ export async function applyVolumeDiscounts(
         discountedPrice,
         discountPercent: discount.discountPercent,
         quantity: item.quantity,
+        stackableWith: discount.stackableWith,
       };
     })
   );
@@ -163,7 +170,7 @@ export async function getVolumeDiscounts(filters?: {
   });
 }
 
-export async function createVolumeDiscount(data: CreateVolumeDiscountInput) {
+export async function createVolumeDiscount(data: CreateVolumeDiscountInput & { stackableWith?: string[] }) {
   return prisma.volumeDiscount.create({
     data: {
       productId: data.productId ?? null,
@@ -176,12 +183,15 @@ export async function createVolumeDiscount(data: CreateVolumeDiscountInput) {
       priority: data.priority ?? 0,
       startsAt: data.startsAt ? new Date(data.startsAt) : null,
       endsAt: data.endsAt ? new Date(data.endsAt) : null,
+      // Persist stacking rule — without this, the rule defaulted to "[]" and
+      // never stacked with anything, regardless of admin's intent.
+      stackableWith: data.stackableWith ?? [],
     },
     include: volumeDiscountInclude,
   });
 }
 
-export async function updateVolumeDiscount(id: number, data: UpdateVolumeDiscountInput) {
+export async function updateVolumeDiscount(id: number, data: UpdateVolumeDiscountInput & { stackableWith?: string[] }) {
   const existing = await prisma.volumeDiscount.findUnique({ where: { id } });
   if (!existing) {
     throw new VolumePricingError('Знижку за обсяг не знайдено', 404);
@@ -200,6 +210,7 @@ export async function updateVolumeDiscount(id: number, data: UpdateVolumeDiscoun
       priority: data.priority ?? existing.priority,
       startsAt: data.startsAt !== undefined ? (data.startsAt ? new Date(data.startsAt) : null) : existing.startsAt,
       endsAt: data.endsAt !== undefined ? (data.endsAt ? new Date(data.endsAt) : null) : existing.endsAt,
+      ...(data.stackableWith !== undefined && { stackableWith: data.stackableWith }),
     },
     include: volumeDiscountInclude,
   });

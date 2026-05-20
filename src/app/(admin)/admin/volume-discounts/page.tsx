@@ -42,6 +42,9 @@ const initialForm = {
   priority: '0',
   startsAt: '',
   endsAt: '',
+  stackPersonal: false,
+  stackCoupon: false,
+  stackLoyalty: false,
 };
 
 export default function AdminVolumeDiscountsPage() {
@@ -74,6 +77,7 @@ export default function AdminVolumeDiscountsPage() {
   };
 
   const handleEdit = (d: VolumeDiscount) => {
+    const stackable = (d as VolumeDiscount & { stackableWith?: string[] }).stackableWith ?? [];
     setForm({
       productId: d.productId ? String(d.productId) : '',
       categoryId: d.categoryId ? String(d.categoryId) : '',
@@ -85,6 +89,9 @@ export default function AdminVolumeDiscountsPage() {
       priority: String(d.priority),
       startsAt: d.startsAt ? d.startsAt.slice(0, 16) : '',
       endsAt: d.endsAt ? d.endsAt.slice(0, 16) : '',
+      stackPersonal: stackable.includes('personal_price'),
+      stackCoupon: stackable.includes('coupon'),
+      stackLoyalty: stackable.includes('loyalty'),
     });
     setEditingId(d.id);
     setShowForm(true);
@@ -93,6 +100,11 @@ export default function AdminVolumeDiscountsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const stackableWith: string[] = [];
+      if (form.stackPersonal) stackableWith.push('personal_price');
+      if (form.stackCoupon) stackableWith.push('coupon');
+      if (form.stackLoyalty) stackableWith.push('loyalty');
+
       const payload = {
         productId: form.productId ? Number(form.productId) : null,
         categoryId: form.categoryId ? Number(form.categoryId) : null,
@@ -104,6 +116,7 @@ export default function AdminVolumeDiscountsPage() {
         priority: Number(form.priority),
         startsAt: form.startsAt || null,
         endsAt: form.endsAt || null,
+        stackableWith,
       };
 
       const res = editingId
@@ -144,6 +157,7 @@ export default function AdminVolumeDiscountsPage() {
   const handleToggle = async (d: VolumeDiscount) => {
     const res = await apiClient.patch(`/api/v1/admin/volume-discounts/${d.id}`, { isActive: !d.isActive });
     if (res.success) toast.success(d.isActive ? 'Знижку вимкнено' : 'Знижку увімкнено');
+    else toast.error(res.error || 'Помилка оновлення');
     loadDiscounts();
   };
 
@@ -242,6 +256,43 @@ export default function AdminVolumeDiscountsPage() {
               onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
             />
           </div>
+
+          {/* Stacking — порожній набір означає «не комбінується» */}
+          <div className="mt-4 rounded-md border border-[var(--color-border)] p-3">
+            <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+              Поєднання з іншими знижками
+            </p>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={form.stackPersonal}
+                  onChange={(e) => setForm({ ...form, stackPersonal: e.target.checked })}
+                  className="accent-[var(--color-primary)]"
+                />
+                Персональна ціна
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={form.stackCoupon}
+                  onChange={(e) => setForm({ ...form, stackCoupon: e.target.checked })}
+                  className="accent-[var(--color-primary)]"
+                />
+                Промокод
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={form.stackLoyalty}
+                  onChange={(e) => setForm({ ...form, stackLoyalty: e.target.checked })}
+                  className="accent-[var(--color-primary)]"
+                />
+                Бали лояльності
+              </label>
+            </div>
+          </div>
+
           <div className="mt-4 flex gap-2">
             <Button onClick={handleSave} isLoading={isSaving} disabled={!form.minQuantity || !form.discountPercent}>
               {editingId ? 'Зберегти' : 'Створити'}

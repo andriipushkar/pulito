@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { formatPrice } from '@/utils/format';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -29,6 +30,17 @@ const RULE_TYPE_OPTIONS = Object.entries(RULE_TYPE_LABELS).map(([v, l]) => ({
   value: v,
   label: l,
 }));
+
+const RULE_TYPE_UNIT: Record<string, 'currency' | 'count'> = {
+  min_order_amount: 'currency',
+  min_quantity: 'count',
+  multiplicity: 'count',
+};
+
+function formatRuleValue(ruleType: string, value: number): string {
+  if (RULE_TYPE_UNIT[ruleType] === 'currency') return formatPrice(value);
+  return `${value} шт`;
+}
 
 export default function AdminWholesaleRulesPage() {
   const [rules, setRules] = useState<WholesaleRule[]>([]);
@@ -221,7 +233,9 @@ export default function AdminWholesaleRulesPage() {
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                     {rule.product ? `${rule.product.name} (${rule.product.code})` : 'Всі товари'}
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold">{Number(rule.value)}</td>
+                  <td className="px-4 py-3 text-right font-semibold">
+                    {formatRuleValue(rule.ruleType, Number(rule.value))}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => handleToggle(rule)}
@@ -248,11 +262,26 @@ export default function AdminWholesaleRulesPage() {
               ))}
               {rules.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
-                  >
-                    Правил немає
+                  <td colSpan={5} className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
+                      <span className="text-3xl" aria-hidden="true">
+                        📦
+                      </span>
+                      <p className="text-sm font-medium">Гуртових правил ще немає</p>
+                      <p className="max-w-md text-xs">
+                        Правила застосовуються тільки для гуртівників: мінімальна сума замовлення,
+                        мінімальна кількість товару, кратність
+                      </p>
+                      <button
+                        onClick={() => {
+                          resetForm();
+                          setShowForm(true);
+                        }}
+                        className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
+                      >
+                        + Додати перше правило
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )}

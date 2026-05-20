@@ -1,6 +1,7 @@
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(
   async () => {
@@ -28,7 +29,8 @@ export const GET = withRole('admin', 'manager')(
       ]);
 
       return successResponse({ stats, recentPublications });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/channels] GET failed', { error: err });
       return errorResponse('Помилка завантаження статистики каналів', 500);
     }
   }

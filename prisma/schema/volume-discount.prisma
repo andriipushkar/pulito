@@ -20,6 +20,11 @@ model VolumeDiscount {
   priority        Int          @default(0)
   startsAt        DateTime?    @map("starts_at")
   endsAt          DateTime?    @map("ends_at")
+  // Stacking control — which other discount types can combine with this one.
+  // Values: "personal_price", "coupon", "loyalty". Empty/null = stacks with
+  // nothing (won't combine with anything else). Cart logic in services/cart.ts
+  // honours the intersection of every applied discount's `stackableWith`.
+  stackableWith   String[]     @default([]) @map("stackable_with")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 

@@ -10,7 +10,7 @@ import PageHeader from '@/components/account/PageHeader';
 import SectionCard from '@/components/account/SectionCard';
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshAuth } = useAuth();
   const [profileData, setProfileData] = useState({
     fullName: user?.fullName || '',
     phone: '',
@@ -34,6 +34,7 @@ export default function SettingsPage() {
   // Account deletion state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState<{
     type: 'success' | 'error';
@@ -94,6 +95,19 @@ export default function SettingsPage() {
       });
   }, []);
 
+  useEffect(() => {
+    apiClient
+      .get<{ user: { fullName?: string; phone?: string } }>('/api/v1/auth/me')
+      .then((res) => {
+        if (res.success && res.data?.user) {
+          setProfileData((p) => ({
+            fullName: res.data!.user.fullName ?? p.fullName,
+            phone: res.data!.user.phone ?? p.phone,
+          }));
+        }
+      });
+  }, []);
+
   const handleGoogleUnlink = async () => {
     setIsUnlinkingGoogle(true);
     setGoogleMessage(null);
@@ -118,7 +132,9 @@ export default function SettingsPage() {
     setIsDeleting(true);
     setDeleteMessage(null);
     try {
-      const res = await apiClient.delete('/api/v1/me/account');
+      const res = await apiClient.delete('/api/v1/me/account', {
+        password: deletePassword,
+      });
       if (res.success) {
         setDeleteMessage({ type: 'success', text: 'Акаунт видалено. Перенаправлення...' });
         setTimeout(() => logout(), 1500);
@@ -130,7 +146,7 @@ export default function SettingsPage() {
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteConfirmText, logout]);
+  }, [deleteConfirmText, deletePassword, logout]);
 
   const handleProfileSave = async () => {
     setIsSavingProfile(true);
@@ -139,6 +155,8 @@ export default function SettingsPage() {
       const res = await apiClient.put('/api/v1/auth/me', profileData);
       if (res.success) {
         setProfileMessage({ type: 'success', text: 'Профіль оновлено' });
+        // Refresh AuthContext so sidebar / greeting reflect the new name immediately
+        refreshAuth();
       } else {
         setProfileMessage({ type: 'error', text: res.error || 'Помилка збереження' });
       }
@@ -154,8 +172,19 @@ export default function SettingsPage() {
       setPasswordMessage({ type: 'error', text: 'Паролі не збігаються' });
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      setPasswordMessage({ type: 'error', text: 'Мінімум 6 символів' });
+    const pwd = passwordData.newPassword;
+    const meetsComplexity =
+      pwd.length >= 8 &&
+      pwd.length <= 128 &&
+      /[A-Z]/.test(pwd) &&
+      /[a-z]/.test(pwd) &&
+      /\d/.test(pwd) &&
+      /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/]/.test(pwd);
+    if (!meetsComplexity) {
+      setPasswordMessage({
+        type: 'error',
+        text: 'Пароль має містити мінімум 8 символів: велику й малу літеру, цифру та спецсимвол',
+      });
       return;
     }
 
@@ -522,6 +551,13 @@ export default function SettingsPage() {
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="ВИДАЛИТИ"
               />
+              <Input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Поточний пароль"
+                autoComplete="current-password"
+              />
               {deleteMessage && (
                 <div
                   className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
@@ -538,7 +574,7 @@ export default function SettingsPage() {
                   variant="danger"
                   onClick={handleDeleteAccount}
                   isLoading={isDeleting}
-                  disabled={deleteConfirmText !== 'ВИДАЛИТИ'}
+                  disabled={deleteConfirmText !== 'ВИДАЛИТИ' || deletePassword.length === 0}
                 >
                   Підтвердити видалення
                 </Button>
@@ -547,6 +583,7 @@ export default function SettingsPage() {
                   onClick={() => {
                     setShowDeleteConfirm(false);
                     setDeleteConfirmText('');
+                    setDeletePassword('');
                     setDeleteMessage(null);
                   }}
                 >

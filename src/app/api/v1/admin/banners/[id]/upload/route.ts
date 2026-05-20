@@ -5,9 +5,11 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { validateFileType } from '@/utils/file-validation';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
 export const POST = withRole('admin', 'manager')(
-  async (request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
@@ -45,13 +47,29 @@ export const POST = withRole('admin', 'manager')(
       await fs.writeFile(filePath, buffer);
 
       const imageUrl = `/uploads/banners/${filename}`;
-      const banner = await prisma.banner.update({
-        where: { id: numId },
-        data: { imageDesktop: imageUrl },
-      });
-
-      return successResponse(banner);
-    } catch {
+      try {
+        const banner = await prisma.banner.update({
+          where: { id: numId },
+          data: { imageDesktop: imageUrl },
+        });
+        await logAudit({
+          userId: user.id,
+          actionType: 'data_update',
+          entityType: 'banner',
+          entityId: numId,
+          details: { field: 'imageDesktop', filename },
+        });
+        return successResponse(banner);
+      } catch (dbErr: unknown) {
+        // Roll back the file we just wrote so we don't leak orphan uploads.
+        await fs.unlink(filePath).catch(() => {});
+        if (dbErr && typeof dbErr === 'object' && 'code' in dbErr && (dbErr as { code: string }).code === 'P2025') {
+          return errorResponse('Банер не знайдено', 404);
+        }
+        throw dbErr;
+      }
+    } catch (err) {
+      logger.error('[admin/banners/[id]/upload] POST failed', { error: err });
       return errorResponse('Помилка завантаження зображення', 500);
     }
   }

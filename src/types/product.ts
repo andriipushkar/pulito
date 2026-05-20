@@ -37,6 +37,7 @@ export interface ProductListItem {
   isPromo: boolean;
   isActive: boolean;
   imagePath: string | null;
+  barcode: string | null;
   viewsCount: number;
   ordersCount: number;
   createdAt: string | Date;
@@ -48,6 +49,9 @@ export interface ProductListItem {
     'id' | 'pathFull' | 'pathMedium' | 'pathThumbnail' | 'pathBlur' | 'isMain'
   >[];
   content: { shortDescription: string | null } | null;
+  // Optional aggregate rating (only present when the service includes it)
+  avgRating?: number | null;
+  reviewCount?: number;
 }
 
 export interface ProductContent {
@@ -59,6 +63,28 @@ export interface ProductContent {
   seoTitle: string | null;
   seoDescription: string | null;
   isFilled: boolean;
+}
+
+export interface ProductVariantSummary {
+  id: number;
+  sku: string;
+  name: string;
+  // Server sends Prisma Decimal which serialises as string in JSON; client
+  // code converts via Number() when displaying. `unknown` keeps the surface
+  // permissive for the JSON round-trip.
+  priceRetail: unknown;
+  priceWholesale: unknown;
+  quantity: number;
+  options: Record<string, string> | unknown | null;
+  imagePath: string | null;
+  isActive: boolean;
+  // Optional physical parameters — null on variants without per-variant
+  // overrides (parent product's value is used in those cases).
+  weightGrams?: number | null;
+  lengthMm?: number | null;
+  widthMm?: number | null;
+  heightMm?: number | null;
+  cost?: unknown;
 }
 
 export interface ProductDetail extends Omit<ProductListItem, 'images'> {
@@ -76,4 +102,5 @@ export interface ProductDetail extends Omit<ProductListItem, 'images'> {
     seoDescription: string | null;
   } | null;
   brand: { id: number; name: string; slug: string; logoPath?: string | null } | null;
+  variants?: ProductVariantSummary[];
 }

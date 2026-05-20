@@ -4,6 +4,9 @@ import { withRole } from '@/middleware/auth';
 import { updateProductSchema } from '@/validators/product';
 import { getProductById, updateProduct, deleteProduct, ProductError } from '@/services/product';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole(
   'manager',
@@ -20,7 +23,8 @@ export const GET = withRole(
     }
 
     return successResponse(product);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/products/[id]] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -60,6 +64,7 @@ export const PUT = withRole(
     if (error instanceof ProductError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/products/[id]] PUT failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -67,12 +72,21 @@ export const PUT = withRole(
 export const DELETE = withRole(
   'manager',
   'admin',
-)(async (_request: NextRequest, { params }) => {
+)(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
     const result = await deleteProduct(numId);
+
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_delete',
+      entityType: 'product',
+      entityId: numId,
+      details: { hard: result.hard },
+      ipAddress: getClientIp(request),
+    });
 
     try {
       revalidatePath('/catalog');
@@ -97,6 +111,7 @@ export const DELETE = withRole(
     if (error instanceof ProductError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/products/[id]] DELETE failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

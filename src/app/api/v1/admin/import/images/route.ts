@@ -6,6 +6,7 @@ import { processProductImage, deleteProductImage } from '@/services/image';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { cacheInvalidate } from '@/services/cache';
+import { logger } from '@/lib/logger';
 
 const MAX_ZIP_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -25,17 +26,30 @@ function getMimeType(ext: string): string {
   }
 }
 
-async function findProductByCode(code: string) {
-  const product = await prisma.product.findUnique({
-    where: { code },
+async function findProductByCodeOrBarcode(identifier: string) {
+  const byCode = await prisma.product.findUnique({
+    where: { code: identifier },
     select: { id: true },
   });
-  if (product) return product;
+  if (byCode) return byCode;
 
-  return prisma.product.findFirst({
-    where: { code: { equals: code, mode: 'insensitive' } },
+  const byCodeCI = await prisma.product.findFirst({
+    where: { code: { equals: identifier, mode: 'insensitive' } },
     select: { id: true },
   });
+  if (byCodeCI) return byCodeCI;
+
+  // Fallback: pure-digit filename 8-14 chars likely is an EAN/UPC/GTIN.
+  // Suppliers often deliver archives named by barcode rather than SKU.
+  if (/^\d{8,14}$/.test(identifier)) {
+    const byBarcode = await prisma.product.findUnique({
+      where: { barcode: identifier },
+      select: { id: true },
+    });
+    if (byBarcode) return byBarcode;
+  }
+
+  return null;
 }
 
 async function processOneImage(
@@ -52,22 +66,35 @@ async function processOneImage(
     return { ok: false, error: 'Не вдалося визначити код товару з імені файлу' };
   }
 
-  const product = await findProductByCode(productCode);
+  const product = await findProductByCodeOrBarcode(productCode);
   if (!product) {
-    return { ok: false, error: `Товар з кодом "${productCode}" не знайдено` };
+    return {
+      ok: false,
+      error: `Товар з кодом або штрихкодом "${productCode}" не знайдено`,
+    };
   }
 
-  // Delete existing images before uploading new one
+  // Snapshot existing images before touching anything. We delete *after* the
+  // new upload succeeds so a failed upload doesn't leave the product without
+  // any image at all.
   const existingImages = await prisma.productImage.findMany({
     where: { productId: product.id },
     select: { id: true },
   });
-  for (const img of existingImages) {
-    await deleteProductImage(img.id);
-  }
 
   const mimeType = getMimeType(ext);
   await processProductImage(imageBuffer, mimeType, filename, product.id, true);
+
+  for (const img of existingImages) {
+    try {
+      await deleteProductImage(img.id);
+    } catch (err) {
+      logger.warn('[admin/import/images] failed to delete old image', {
+        imageId: img.id,
+        error: err,
+      });
+    }
+  }
   return { ok: true };
 }
 
@@ -153,7 +180,8 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
       await cacheInvalidate('products:*');
     }
     return successResponse({ processedCount, skippedCount, errors }, 200);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/import/images] POST failed', { error: err });
     return errorResponse('Помилка обробки файлу', 500);
   }
 });

@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { createShipmentSchema } from '@/validators/ukrposhta';
 import { createShipment, UkrposhtaError } from '@/services/ukrposhta';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('admin', 'manager')(async (request: NextRequest) => {
   try {
@@ -21,6 +22,7 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest) =>
     if (error instanceof UkrposhtaError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/ukrposhta/shipment] POST failed', { error });
     return errorResponse('Помилка створення відправлення', 500);
   }
 });

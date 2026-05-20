@@ -3,9 +3,11 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { cacheInvalidate } from '@/services/cache';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
 export const POST = withRole('admin')(
-  async (request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const sourceId = Number(id);
@@ -24,30 +26,34 @@ export const POST = withRole('admin')(
       if (!source) return errorResponse('Вихідну категорію не знайдено', 404);
       if (!target) return errorResponse('Цільову категорію не знайдено', 404);
 
-      // Move all products from source to target
-      await prisma.product.updateMany({
-        where: { categoryId: sourceId },
-        data: { categoryId: targetId },
+      // All four ops are dependent — wrap in a single tx so a mid-merge crash
+      // can't leave products on the source while subcategories already moved.
+      const movedProducts = source._count.products;
+      await prisma.$transaction(async (tx) => {
+        await tx.product.updateMany({
+          where: { categoryId: sourceId },
+          data: { categoryId: targetId },
+        });
+        await tx.category.updateMany({
+          where: { parentId: sourceId },
+          data: { parentId: targetId },
+        });
+        await tx.category.delete({ where: { id: sourceId } });
       });
 
-      // Move child categories from source to target
-      await prisma.category.updateMany({
-        where: { parentId: sourceId },
-        data: { parentId: targetId },
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_update',
+        entityType: 'category_merge',
+        entityId: sourceId,
+        details: { sourceId, targetId, movedProducts },
       });
-
-      // Mark source as merged (store info) then delete
-      await prisma.category.update({
-        where: { id: sourceId },
-        data: { mergedFrom: `Merged into ${target.name} (id: ${targetId})` },
-      });
-
-      await prisma.category.delete({ where: { id: sourceId } });
 
       await cacheInvalidate('categories:*');
 
-      return successResponse({ merged: true, movedProducts: source._count.products });
-    } catch {
+      return successResponse({ merged: true, movedProducts });
+    } catch (err) {
+      logger.error('[admin/categories/[id]/merge] POST failed', { error: err });
       return errorResponse('Помилка об\'єднання категорій', 500);
     }
   }

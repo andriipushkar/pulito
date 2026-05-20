@@ -61,8 +61,9 @@ describe('GET /api/v1/admin/audit-log', () => {
     const req = new Request('http://localhost/api/v1/admin/audit-log?dateTo=2024-12-31');
     const res = await GET(req as any);
     expect(res.status).toBe(200);
+    // dateTo widens to next-day midnight + uses `lt` so the chosen day is fully inclusive.
     expect(vi.mocked(prisma.auditLog.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ createdAt: { lte: expect.any(Date) } }) })
+      expect.objectContaining({ where: expect.objectContaining({ createdAt: { lt: expect.any(Date) } }) })
     );
   });
 
@@ -73,7 +74,7 @@ describe('GET /api/v1/admin/audit-log', () => {
     const res = await GET(req as any);
     expect(res.status).toBe(200);
     expect(vi.mocked(prisma.auditLog.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ createdAt: { gte: expect.any(Date), lte: expect.any(Date) } }) })
+      expect.objectContaining({ where: expect.objectContaining({ createdAt: { gte: expect.any(Date), lt: expect.any(Date) } }) })
     );
   });
 

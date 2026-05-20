@@ -48,7 +48,6 @@ const EMPTY_FORM: FormState = {
 
 export default function PublicationTemplatesPage() {
   const [items, setItems] = useState<Template[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -60,20 +59,27 @@ export default function PublicationTemplatesPage() {
     content: string;
     hashtags: string | null;
   } | null>(null);
+  // Derive isLoading from request/completion tokens to avoid synchronous setState in effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  const [completedToken, setCompletedToken] = useState(-1);
+  const isLoading = completedToken !== reloadToken;
+  const load = () => setReloadToken((n) => n + 1);
 
-  const load = () => {
-    setIsLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     apiClient
       .get<Template[]>('/api/v1/admin/publication-templates')
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) setItems(res.data);
       })
-      .finally(() => setIsLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+      .finally(() => {
+        if (!cancelled) setCompletedToken(reloadToken);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   const startCreate = () => {
     setEditingId(null);
@@ -180,8 +186,20 @@ export default function PublicationTemplatesPage() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-12 text-center text-[var(--color-text-secondary)]">
-          Шаблонів ще немає. Створіть перший — і використовуйте при створенні публікацій.
+        <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-12 text-center text-[var(--color-text-secondary)]">
+          <span className="text-3xl" aria-hidden="true">
+            📋
+          </span>
+          <p className="text-sm font-medium">Шаблонів ще немає</p>
+          <p className="max-w-md text-xs">
+            Створіть перший шаблон — і використовуйте при створенні публікацій
+          </p>
+          <button
+            onClick={startCreate}
+            className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
+          >
+            + Створити перший шаблон
+          </button>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)]">
@@ -205,8 +223,27 @@ export default function PublicationTemplatesPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td className="px-4 py-2 text-xs">{t.channels.join(', ')}</td>
-                  <td className="px-4 py-2">{t.isActive ? 'Так' : 'Ні'}</td>
+                  <td className="px-4 py-2 text-xs">
+                    <div className="flex flex-wrap gap-1">
+                      {t.channels.map((ch) => (
+                        <span
+                          key={ch}
+                          className="rounded-full bg-[var(--color-bg-secondary)] px-2 py-0.5 text-[10px] font-medium"
+                        >
+                          {ch}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        t.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {t.isActive ? 'Активний' : 'Вимкнено'}
+                    </span>
+                  </td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-2">
                       <Button

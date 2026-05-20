@@ -12,6 +12,7 @@ import Button from '@/components/ui/Button';
 import Pagination from '@/components/ui/Pagination';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import SavedViews from '@/components/admin/SavedViews';
 import PageSizeSelector from '@/components/admin/PageSizeSelector';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Search } from '@/components/icons';
@@ -34,6 +35,12 @@ const WHOLESALE_GROUP_OPTIONS = [
   ...Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => ({ value: v, label: l })),
 ];
 
+const BLOCKED_OPTIONS = [
+  { value: '', label: 'Усі' },
+  { value: 'false', label: 'Активні' },
+  { value: 'true', label: 'Заблоковані' },
+];
+
 const SORT_OPTIONS = [
   { value: 'createdAt:desc', label: 'Найновіші' },
   { value: 'createdAt:asc', label: 'Найстаріші' },
@@ -51,17 +58,54 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [showFilters, setShowFilters] = useState(false);
+  const [pendingGroupByUser, setPendingGroupByUser] = useState<Record<number, number>>({});
   const [confirmAction, setConfirmAction] = useState<{
     userId: number;
     action: 'approve' | 'reject';
     userName: string;
     wholesaleGroup?: number;
   } | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
+  // Multi-select for bulk wholesale approve. We don't allow bulk-reject
+  // because rejection usually needs a per-user reason; the dropdown reuses
+  // the per-row mechanism for rejects.
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<number>>(new Set());
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
+
+  const handleBulkApprove = async (group: number) => {
+    if (bulkSelectedIds.size === 0) return;
+    if (
+      !window.confirm(
+        `Затвердити ${bulkSelectedIds.size} гуртових заявок у групу ${group}? Дію не можна скасувати скопом.`,
+      )
+    )
+      return;
+    setIsBulkApproving(true);
+    const ids = Array.from(bulkSelectedIds);
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        apiClient.put(`/api/v1/admin/users/${id}/wholesale`, {
+          action: 'approve',
+          wholesaleGroup: group,
+        }),
+      ),
+    );
+    const ok = results.filter(
+      (r) => r.status === 'fulfilled' && r.value.success,
+    ).length;
+    const failed = ids.length - ok;
+    if (ok > 0) toast.success(`Затверджено ${ok} заявок у групу ${group}`);
+    if (failed > 0) toast.error(`Не вдалося затвердити ${failed} заявок`);
+    setBulkSelectedIds(new Set());
+    setIsBulkApproving(false);
+    loadUsers();
+  };
 
   const page = Number(searchParams.get('page')) || 1;
   const role = searchParams.get('role') || '';
   const wholesaleStatus = searchParams.get('wholesaleStatus') || '';
   const wholesaleGroup = searchParams.get('wholesaleGroup') || '';
+  const isBlocked = searchParams.get('isBlocked') || '';
   const dateFrom = searchParams.get('dateFrom') || '';
   const dateTo = searchParams.get('dateTo') || '';
   const search = searchParams.get('search') || '';
@@ -80,7 +124,15 @@ export default function AdminUsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
-  const hasFilters = !!(role || wholesaleStatus || wholesaleGroup || dateFrom || dateTo || search);
+  const hasFilters = !!(
+    role ||
+    wholesaleStatus ||
+    wholesaleGroup ||
+    isBlocked ||
+    dateFrom ||
+    dateTo ||
+    search
+  );
 
   const loadUsers = useCallback(() => {
     setIsLoading(true);
@@ -93,6 +145,7 @@ export default function AdminUsersPage() {
     if (role) params.set('role', role);
     if (wholesaleStatus) params.set('wholesaleStatus', wholesaleStatus);
     if (wholesaleGroup) params.set('wholesaleGroup', wholesaleGroup);
+    if (isBlocked) params.set('isBlocked', isBlocked);
     if (dateFrom) params.set('dateFrom', dateFrom);
     if (dateTo) params.set('dateTo', dateTo);
     if (search) params.set('search', search);
@@ -115,6 +168,7 @@ export default function AdminUsersPage() {
     role,
     wholesaleStatus,
     wholesaleGroup,
+    isBlocked,
     dateFrom,
     dateTo,
     search,
@@ -142,27 +196,46 @@ export default function AdminUsersPage() {
   };
 
   const handleWholesaleConfirm = async () => {
-    if (!confirmAction) return;
-    const res = await apiClient.put(`/api/v1/admin/users/${confirmAction.userId}/wholesale`, {
-      action: confirmAction.action,
-      wholesaleGroup: confirmAction.wholesaleGroup || 1,
-    });
-    if (res.success) {
-      toast.success(
-        confirmAction.action === 'approve'
-          ? `Гуртовий доступ надано для ${confirmAction.userName}`
-          : `Заявку відхилено для ${confirmAction.userName}`,
-      );
-      loadUsers();
-    } else {
-      toast.error(res.error || 'Помилка');
+    if (!confirmAction || isConfirming) return;
+    setIsConfirming(true);
+    try {
+      const res = await apiClient.put(`/api/v1/admin/users/${confirmAction.userId}/wholesale`, {
+        action: confirmAction.action,
+        wholesaleGroup: confirmAction.wholesaleGroup || 1,
+      });
+      if (res.success) {
+        toast.success(
+          confirmAction.action === 'approve'
+            ? `Гуртовий доступ надано для ${confirmAction.userName}`
+            : `Заявку відхилено для ${confirmAction.userName}`,
+        );
+        loadUsers();
+      } else if (res.statusCode === 409) {
+        // Race-conflict: another admin processed the same request.
+        toast.error('Запит уже опрацьовано іншим адміністратором — оновлюю список', {
+          duration: 6000,
+        });
+        loadUsers();
+      } else {
+        toast.error(res.error || 'Помилка');
+      }
+    } catch {
+      toast.error('Помилка мережі — спробуйте ще раз');
+    } finally {
+      setConfirmAction(null);
+      setIsConfirming(false);
     }
-    setConfirmAction(null);
   };
 
   const handleExport = async () => {
     const params = new URLSearchParams({ type: 'clients', format: 'xlsx' });
     if (role) params.set('role', role);
+    if (wholesaleStatus) params.set('wholesaleStatus', wholesaleStatus);
+    if (wholesaleGroup) params.set('wholesaleGroup', wholesaleGroup);
+    if (isBlocked) params.set('isBlocked', isBlocked);
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
+    if (search) params.set('search', search);
 
     try {
       const headers: Record<string, string> = { 'X-Requested-With': 'XMLHttpRequest' };
@@ -218,6 +291,37 @@ export default function AdminUsersPage() {
           </Button>
         </div>
       </div>
+
+      <div className="mb-3">
+        <SavedViews storageKey="users" basePath="/admin/users" />
+      </div>
+
+      {bulkSelectedIds.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 px-3 py-2 text-sm">
+          <span>
+            Обрано: <strong>{bulkSelectedIds.size}</strong> для bulk-затвердження
+          </span>
+          {Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => (
+            <Button
+              key={v}
+              size="sm"
+              variant="outline"
+              onClick={() => handleBulkApprove(Number(v))}
+              disabled={isBulkApproving}
+            >
+              ✓ У групу {l}
+            </Button>
+          ))}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setBulkSelectedIds(new Set())}
+            disabled={isBulkApproving}
+          >
+            Скинути
+          </Button>
+        </div>
+      )}
 
       {/* Search + Sort */}
       <div className="mb-3 flex flex-wrap items-end gap-3">
@@ -288,6 +392,17 @@ export default function AdminUsersPage() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
+              Доступ
+            </label>
+            <Select
+              options={BLOCKED_OPTIONS}
+              value={isBlocked}
+              onChange={(e) => updateFilter('isBlocked', e.target.value)}
+              className="w-36"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
               Зареєстрований від
             </label>
             <input
@@ -349,9 +464,12 @@ export default function AdminUsersPage() {
                         )}
                       </div>
                       <p className="text-xs text-[var(--color-text-secondary)]">{u.email}</p>
+                      {u.phone && (
+                        <p className="text-xs text-[var(--color-text-secondary)]">{u.phone}</p>
+                      )}
                       {u.companyName && (
                         <p className="text-xs text-[var(--color-text-secondary)]">
-                          {u.companyName}
+                          🏢 {u.companyName}
                         </p>
                       )}
                     </td>
@@ -391,10 +509,30 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-3 text-right">
                       {u.wholesaleStatus === 'pending' && (
                         <div className="flex items-center justify-end gap-1">
+                          <input
+                            type="checkbox"
+                            checked={bulkSelectedIds.has(u.id)}
+                            onChange={(e) => {
+                              setBulkSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(u.id);
+                                else next.delete(u.id);
+                                return next;
+                              });
+                            }}
+                            className="mr-1 accent-[var(--color-primary)]"
+                            aria-label={`Обрати ${u.fullName} для bulk-approve`}
+                          />
                           <select
                             className="rounded border border-[var(--color-border)] bg-white px-1.5 py-1 text-xs"
-                            defaultValue="1"
-                            id={`wg-${u.id}`}
+                            value={pendingGroupByUser[u.id] ?? 1}
+                            onChange={(e) =>
+                              setPendingGroupByUser((prev) => ({
+                                ...prev,
+                                [u.id]: Number(e.target.value),
+                              }))
+                            }
+                            aria-label={`Гуртова група для ${u.fullName}`}
                           >
                             {Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => (
                               <option key={v} value={v}>
@@ -404,15 +542,14 @@ export default function AdminUsersPage() {
                           </select>
                           <Button
                             size="sm"
-                            onClick={() => {
-                              const el = document.getElementById(`wg-${u.id}`) as HTMLSelectElement;
+                            onClick={() =>
                               setConfirmAction({
                                 userId: u.id,
                                 action: 'approve',
                                 userName: u.fullName,
-                                wholesaleGroup: Number(el?.value || 1),
-                              });
-                            }}
+                                wholesaleGroup: pendingGroupByUser[u.id] ?? 1,
+                              })
+                            }
                           >
                             Так
                           </Button>
@@ -436,11 +573,23 @@ export default function AdminUsersPage() {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
-                    >
-                      Користувачів не знайдено
+                    <td colSpan={7} className="px-4 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2 text-[var(--color-text-secondary)]">
+                        <span className="text-3xl" aria-hidden="true">
+                          👥
+                        </span>
+                        <p className="text-sm font-medium">Користувачів не знайдено</p>
+                        {hasFilters ? (
+                          <button
+                            onClick={() => router.push('/admin/users')}
+                            className="text-xs text-[var(--color-primary)] hover:underline"
+                          >
+                            Скинути всі фільтри
+                          </button>
+                        ) : (
+                          <p className="text-xs">Тут з&apos;являться зареєстровані користувачі</p>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -467,8 +616,9 @@ export default function AdminUsersPage() {
       {/* Confirm wholesale action */}
       <ConfirmDialog
         isOpen={!!confirmAction}
-        onClose={() => setConfirmAction(null)}
+        onClose={() => !isConfirming && setConfirmAction(null)}
         onConfirm={handleWholesaleConfirm}
+        isLoading={isConfirming}
         variant={confirmAction?.action === 'reject' ? 'danger' : 'default'}
         title={
           confirmAction?.action === 'approve' ? 'Підтвердити гуртовий доступ' : 'Відхилити заявку'

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import PhoneInput, { cleanPhone } from '@/components/ui/PhoneInput';
 import Spinner from '@/components/ui/Spinner';
+import PageHeader from '@/components/account/PageHeader';
 
 type WholesaleStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
@@ -27,11 +28,18 @@ const inputClass =
   'w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 text-sm outline-none transition-all focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20';
 const labelClass = 'mb-1.5 block text-sm font-medium text-[var(--color-text)]';
 
+const STEPS = [
+  { id: 1, label: 'Про компанію' },
+  { id: 2, label: 'Контактна особа' },
+  { id: 3, label: 'Деталі співпраці' },
+] as const;
+
 export default function WholesaleRequestPage() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [data, setData] = useState<WholesaleData | null>(null);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   const [companyName, setCompanyName] = useState('');
   const [edrpou, setEdrpou] = useState('');
@@ -42,6 +50,12 @@ export default function WholesaleRequestPage() {
   const [contactPhone, setContactPhone] = useState('');
   const [monthlyVol, setMonthlyVol] = useState('');
   const [comment, setComment] = useState('');
+
+  const canAdvance = currentStep === 1
+    ? companyName.trim().length > 0
+    : currentStep === 2
+      ? contactName.trim().length > 0 && cleanPhone(contactPhone).length >= 10
+      : true;
 
   useEffect(() => {
     apiClient
@@ -200,14 +214,16 @@ export default function WholesaleRequestPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">Стати гуртовим клієнтом</h1>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Заповніть форму нижче і наш менеджер зв&apos;яжеться з вами для обговорення умов
-          співпраці.
-        </p>
-      </div>
+      <PageHeader
+        icon={
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84" />
+          </svg>
+        }
+        title="Стати гуртовим клієнтом"
+        subtitle="Заповніть форму нижче і наш менеджер зв'яжеться з вами для обговорення умов співпраці"
+      />
+
 
       {isRejected && (
         <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -215,9 +231,58 @@ export default function WholesaleRequestPage() {
         </div>
       )}
 
+      {/* Step indicator */}
+      <ol className="mb-6 flex items-center gap-2" aria-label="Прогрес заявки">
+        {STEPS.map((step, idx) => {
+          const isDone = step.id < currentStep;
+          const isActive = step.id === currentStep;
+          return (
+            <li key={step.id} className="flex flex-1 items-center gap-2 last:flex-none">
+              <button
+                type="button"
+                onClick={() => step.id < currentStep && setCurrentStep(step.id as 1 | 2 | 3)}
+                disabled={step.id > currentStep}
+                className={`flex items-center gap-2 ${step.id <= currentStep ? 'cursor-pointer' : 'cursor-default'}`}
+              >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                    isDone
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : isActive
+                        ? 'bg-[var(--color-primary)] text-white ring-4 ring-[var(--color-primary)]/15'
+                        : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]'
+                  }`}
+                >
+                  {isDone ? (
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  ) : (
+                    step.id
+                  )}
+                </span>
+                <span
+                  className={`hidden text-xs font-medium sm:inline ${
+                    isActive ? 'text-[var(--color-text)]' : 'text-[var(--color-text-secondary)]'
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </button>
+              {idx < STEPS.length - 1 && (
+                <span
+                  className={`h-px flex-1 ${step.id < currentStep ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-border)]'}`}
+                  aria-hidden="true"
+                />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Company info */}
-        <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] p-6">
+        <div className={`rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] p-6 ${currentStep === 1 ? '' : 'hidden'}`}>
           <div className="mb-5 flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
               <svg
@@ -300,7 +365,7 @@ export default function WholesaleRequestPage() {
         </div>
 
         {/* Contact person */}
-        <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] p-6">
+        <div className={`rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] p-6 ${currentStep === 2 ? '' : 'hidden'}`}>
           <div className="mb-5 flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
               <svg
@@ -344,7 +409,7 @@ export default function WholesaleRequestPage() {
         </div>
 
         {/* Additional */}
-        <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] p-6">
+        <div className={`rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] p-6 ${currentStep === 3 ? '' : 'hidden'}`}>
           <div className="mb-5 flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
               <svg
@@ -394,14 +459,36 @@ export default function WholesaleRequestPage() {
           </div>
         </div>
 
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-xl bg-[var(--color-primary)] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110 disabled:opacity-50"
-        >
-          {isSubmitting ? 'Надсилання...' : 'Подати заявку'}
-        </button>
+        {/* Wizard navigation */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setCurrentStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))}
+            disabled={currentStep === 1}
+            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-5 py-2.5 text-sm font-medium text-[var(--color-text)] transition-colors hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Назад
+          </button>
+
+          {currentStep < 3 ? (
+            <button
+              type="button"
+              onClick={() => canAdvance && setCurrentStep((s) => ((s + 1) as 1 | 2 | 3))}
+              disabled={!canAdvance}
+              className="rounded-xl bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Далі &rarr;
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-xl bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110 disabled:opacity-50"
+            >
+              {isSubmitting ? 'Надсилання...' : 'Подати заявку'}
+            </button>
+          )}
+        </div>
 
         <p className="text-center text-xs text-[var(--color-text-secondary)]">
           Після подачі заявки наш менеджер зв&apos;яжеться з вами протягом 1-2 робочих днів.

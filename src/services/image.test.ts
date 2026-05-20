@@ -114,7 +114,7 @@ describe('processProductImage', () => {
 
     expect(mockPrisma.product.findUnique).toHaveBeenCalledWith({
       where: { id: 1 },
-      select: { id: true, code: true },
+      select: { id: true, code: true, name: true },
     });
     expect(mockFs.mkdir).toHaveBeenCalled();
     expect(mockPrisma.productImage.create).toHaveBeenCalled();

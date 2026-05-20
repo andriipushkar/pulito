@@ -50,6 +50,8 @@ export default function AdminSeoTemplatesPage() {
   const [editForm, setEditForm] = useState<EditForm>({ entityType: 'product', titleTemplate: '', descriptionTemplate: '', altTemplate: '' });
   const [previewId, setPreviewId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [confirmGenerate, setConfirmGenerate] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const loadTemplates = () => {
     apiClient.get<SeoTemplate[]>('/api/v1/admin/seo-templates').then((res) => {
@@ -72,12 +74,18 @@ export default function AdminSeoTemplatesPage() {
   };
 
   const handleBulkGenerate = async () => {
-    const res = await apiClient.post<{ updated: number; total: number }>('/api/v1/admin/seo-templates/generate', {});
-    if (res.success && res.data) {
-      setGenResult(res.data);
-      toast.success(`Оновлено ${res.data.updated} з ${res.data.total} товарів`);
-    } else {
-      toast.error('Помилка генерації');
+    setConfirmGenerate(false);
+    setIsGenerating(true);
+    try {
+      const res = await apiClient.post<{ updated: number; total: number }>('/api/v1/admin/seo-templates/generate', {});
+      if (res.success && res.data) {
+        setGenResult(res.data);
+        toast.success(`Оновлено ${res.data.updated} з ${res.data.total} товарів`);
+      } else {
+        toast.error('Помилка генерації');
+      }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -117,7 +125,15 @@ export default function AdminSeoTemplatesPage() {
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold">SEO-шаблони</h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleBulkGenerate}>Масова генерація</Button>
+          <Button
+            variant="outline"
+            onClick={() => setConfirmGenerate(true)}
+            isLoading={isGenerating}
+            disabled={templates.length === 0}
+            title={templates.length === 0 ? 'Створіть хоча б один шаблон' : 'Застосувати шаблони до всіх товарів без власного SEO'}
+          >
+            Масова генерація
+          </Button>
           <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Скасувати' : '+ Створити'}</Button>
         </div>
       </div>
@@ -232,7 +248,19 @@ export default function AdminSeoTemplatesPage() {
           </div>
         ))}
         {templates.length === 0 && (
-          <div className="py-8 text-center text-[var(--color-text-secondary)]">Шаблонів немає</div>
+          <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-12 text-center text-[var(--color-text-secondary)]">
+            <span className="text-3xl" aria-hidden="true">🔍</span>
+            <p className="text-sm font-medium">SEO-шаблонів ще немає</p>
+            <p className="max-w-md text-xs">
+              Шаблони генерують meta-title і description автоматично для товарів, категорій і сторінок без власного SEO.
+            </p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
+            >
+              + Створити перший шаблон
+            </button>
+          </div>
         )}
       </div>
 
@@ -242,6 +270,16 @@ export default function AdminSeoTemplatesPage() {
         onConfirm={executeDelete}
         variant="danger"
         message="Видалити цей SEO-шаблон?"
+      />
+
+      <ConfirmDialog
+        isOpen={confirmGenerate}
+        onClose={() => setConfirmGenerate(false)}
+        onConfirm={handleBulkGenerate}
+        title="Масова генерація SEO"
+        message="Згенерувати meta-title і description за шаблонами для всіх товарів без власного SEO? Існуючі SEO-поля не зачіпаються."
+        confirmText="Так, згенерувати"
+        isLoading={isGenerating}
       />
     </div>
   );

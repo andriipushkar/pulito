@@ -25,13 +25,22 @@ model CampaignRule {
 }
 
 model CampaignLog {
-  id     Int          @id @default(autoincrement())
-  ruleId Int          @map("rule_id")
-  rule   CampaignRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  userId Int          @map("user_id")
-  user   User         @relation(fields: [userId], references: [id])
-  sentAt DateTime     @default(now()) @map("sent_at")
+  id          Int          @id @default(autoincrement())
+  ruleId      Int          @map("rule_id")
+  rule        CampaignRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  userId      Int          @map("user_id")
+  user        User         @relation(fields: [userId], references: [id])
+  sentAt      DateTime     @default(now()) @map("sent_at")
+  // Engagement metrics — populated by tracking pixel (openedAt) and click
+  // redirect (clickedAt). conversionOrderId set when this campaign drove a
+  // subsequent purchase (matched within 7-day attribution window).
+  openedAt          DateTime? @map("opened_at")
+  clickedAt         DateTime? @map("clicked_at")
+  convertedAt       DateTime? @map("converted_at")
+  conversionOrderId Int?      @map("conversion_order_id")
 
   @@unique([ruleId, userId, sentAt])
+  @@index([sentAt(sort: Desc)])
+  @@index([openedAt])
   @@map("campaign_logs")
 }

@@ -8,7 +8,7 @@ const mockScrollNext = vi.hoisted(() => vi.fn());
 
 vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
 vi.mock('embla-carousel-react', () => ({
-  default: () => [vi.fn(), { scrollPrev: mockScrollPrev, scrollNext: mockScrollNext, canScrollPrev: () => true, canScrollNext: () => true, on: vi.fn(), selectedScrollSnap: () => 0, scrollSnapList: () => [0] }],
+  default: () => [vi.fn(), { scrollPrev: mockScrollPrev, scrollNext: mockScrollNext, canScrollPrev: () => true, canScrollNext: () => true, on: vi.fn(), off: vi.fn(), selectedScrollSnap: () => 0, scrollSnapList: () => [0] }],
 }));
 vi.mock('./ProductCard', () => ({ default: ({ product }: any) => <div data-testid="product-card">{product.name}</div> }));
 vi.mock('@/components/icons', () => ({

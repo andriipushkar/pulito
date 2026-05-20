@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
 export const GET = withRole('admin', 'manager')(
   async (_request: NextRequest, { params }) => {
@@ -26,14 +28,15 @@ export const GET = withRole('admin', 'manager')(
       }
 
       return successResponse(rule);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/moderation/rules/[id]] GET failed', { error: err });
       return errorResponse('Помилка завантаження правила', 500);
     }
   }
 );
 
 export const PUT = withRole('admin', 'manager')(
-  async (request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
@@ -54,6 +57,16 @@ export const PUT = withRole('admin', 'manager')(
         return errorResponse(`Допустимі action: ${validActions.join(', ')}`, 400);
       }
 
+      // Cap the JSON config size — `body.config` was previously accepted as
+      // arbitrary nested JSON with no upper bound. ~16 KB is enough for any
+      // sensible rule set (a few thousand stop-words).
+      if (body.config !== undefined) {
+        const serialized = JSON.stringify(body.config ?? {});
+        if (serialized.length > 16_384) {
+          return errorResponse('config надто великий (макс 16 KB)', 400);
+        }
+      }
+
       const rule = await prisma.moderationRule.update({
         where: { id: numId },
         data: {
@@ -65,22 +78,38 @@ export const PUT = withRole('admin', 'manager')(
         },
       });
 
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_update',
+        entityType: 'moderation_rule',
+        entityId: numId,
+        details: { fields: Object.keys(body) },
+      });
+
       return successResponse(rule);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/moderation/rules/[id]] PUT failed', { error: err });
       return errorResponse('Помилка оновлення правила', 500);
     }
   }
 );
 
 export const DELETE = withRole('admin')(
-  async (_request: NextRequest, { params }) => {
+  async (_request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
       if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
       await prisma.moderationRule.delete({ where: { id: numId } });
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_delete',
+        entityType: 'moderation_rule',
+        entityId: numId,
+      });
       return successResponse({ deleted: true });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/moderation/rules/[id]] DELETE failed', { error: err });
       return errorResponse('Помилка видалення правила', 500);
     }
   }

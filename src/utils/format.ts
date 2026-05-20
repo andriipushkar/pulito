@@ -60,3 +60,32 @@ export function truncate(str: string, length: number): string {
   if (str.length <= length) return str;
   return str.slice(0, length) + '...';
 }
+
+/**
+ * Ukrainian plural form selector. Pass three forms: [singular, paucal, plural].
+ * Example: plural(5, ['товар', 'товари', 'товарів']) → 'товарів'
+ */
+export function plural(n: number, forms: [string, string, string]): string {
+  const abs = Math.abs(n);
+  const mod10 = abs % 10;
+  const mod100 = abs % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+  return forms[2];
+}
+
+/**
+ * Return a user-friendly display name: fullName if present, otherwise the part
+ * of the email before "@" with first letter uppercased, otherwise "Користувач".
+ */
+export function displayName(user: { fullName?: string | null; email?: string | null } | null | undefined): string {
+  if (!user) return 'Користувач';
+  const full = user.fullName?.trim();
+  if (full) return full;
+  const email = user.email?.trim();
+  if (email) {
+    const local = email.split('@')[0] || email;
+    return local.charAt(0).toUpperCase() + local.slice(1);
+  }
+  return 'Користувач';
+}

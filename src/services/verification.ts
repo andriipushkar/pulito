@@ -63,16 +63,17 @@ export async function requestPasswordReset(email: string): Promise<void> {
   await sendPasswordResetEmail(user.email, token);
 }
 
-export async function resetPassword(token: string, newPassword: string): Promise<void> {
+export async function resetPassword(token: string, newPassword: string): Promise<number> {
   const userId = await redis.get(`${RESET_PREFIX}${token}`);
   if (!userId) {
     throw new AuthError('Невалідне або прострочене посилання відновлення', 400);
   }
 
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const numericUserId = Number(userId);
 
   await prisma.user.update({
-    where: { id: Number(userId) },
+    where: { id: numericUserId },
     data: { passwordHash },
   });
 
@@ -81,7 +82,9 @@ export async function resetPassword(token: string, newPassword: string): Promise
 
   // Revoke all refresh tokens for this user (force re-login)
   await prisma.refreshToken.updateMany({
-    where: { userId: Number(userId), revokedAt: null },
+    where: { userId: numericUserId, revokedAt: null },
     data: { revokedAt: new Date() },
   });
+
+  return numericUserId;
 }

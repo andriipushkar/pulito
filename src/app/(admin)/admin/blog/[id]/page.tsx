@@ -14,12 +14,13 @@ interface BlogPost {
   title: string;
   slug: string;
   content: string;
-  excerpt: string;
-  category: string;
+  excerpt: string | null;
+  categoryId: number | null;
+  category: { id: number; name: string; slug: string } | null;
   tags: string[];
   coverImage: string | null;
-  metaTitle: string | null;
-  metaDescription: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   isPublished: boolean;
 }
 
@@ -42,25 +43,38 @@ export default function AdminBlogEditPage() {
     slug: '',
     content: '',
     excerpt: '',
-    category: '',
+    categoryId: '' as string, // store as string for <select>, convert before send
     tags: '',
     coverImage: '',
-    metaTitle: '',
-    metaDescription: '',
+    seoTitle: '',
+    seoDescription: '',
     isPublished: false,
   });
 
   useEffect(() => {
-    apiClient.get<BlogCategory[]>('/api/v1/admin/blog/categories').then((res) => {
-      if (res.success && res.data) setCategories(res.data);
-    });
+    let cancelled = false;
+    apiClient
+      .get<BlogCategory[]>('/api/v1/admin/blog/categories')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setCategories(res.data);
+        else toast.error(res.error || 'Помилка завантаження категорій');
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Помилка завантаження категорій');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (isNew) return;
+    let cancelled = false;
     apiClient
       .get<BlogPost>(`/api/v1/admin/blog/${id}`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) {
           const d = res.data;
           setForm({
@@ -68,28 +82,46 @@ export default function AdminBlogEditPage() {
             slug: d.slug,
             content: d.content || '',
             excerpt: d.excerpt || '',
-            category: d.category || '',
+            categoryId: d.categoryId != null ? String(d.categoryId) : '',
             tags: (d.tags || []).join(', '),
             coverImage: d.coverImage || '',
-            metaTitle: d.metaTitle || '',
-            metaDescription: d.metaDescription || '',
+            seoTitle: d.seoTitle || '',
+            seoDescription: d.seoDescription || '',
             isPublished: d.isPublished,
           });
+        } else {
+          toast.error(res.error || 'Не вдалося завантажити статтю');
         }
       })
-      .finally(() => setIsLoading(false));
+      .catch(() => {
+        if (!cancelled) toast.error('Не вдалося завантажити статтю');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id, isNew]);
 
   const handleSave = async () => {
     setIsSaving(true);
     setMessage(null);
     try {
-      const payload = {
-        ...form,
-        tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
-        coverImage: form.coverImage || null,
-        metaTitle: form.metaTitle || null,
-        metaDescription: form.metaDescription || null,
+      const payload: Record<string, unknown> = {
+        title: form.title,
+        slug: form.slug || undefined,
+        content: form.content,
+        excerpt: form.excerpt || undefined,
+        tags: form.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean),
+        coverImage: form.coverImage || undefined,
+        seoTitle: form.seoTitle || undefined,
+        seoDescription: form.seoDescription || undefined,
+        categoryId: form.categoryId ? Number(form.categoryId) : undefined,
+        isPublished: form.isPublished,
       };
 
       const res = isNew
@@ -125,7 +157,10 @@ export default function AdminBlogEditPage() {
       </div>
 
       {message && (
-        <div className={`mb-4 rounded-[var(--radius)] p-3 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-[var(--color-danger)]'}`}>
+        <div
+          role="alert"
+          className={`mb-4 rounded-[var(--radius)] p-3 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-[var(--color-danger)]'}`}
+        >
           {message.text}
         </div>
       )}
@@ -139,13 +174,13 @@ export default function AdminBlogEditPage() {
             <div>
               <label className="mb-1 block text-sm font-medium">Категорія</label>
               <select
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                value={form.categoryId}
+                onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
               >
                 <option value="">Без категорії</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.slug}>{c.name}</option>
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
                 ))}
               </select>
             </div>
@@ -187,12 +222,12 @@ export default function AdminBlogEditPage() {
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <h3 className="mb-3 text-sm font-semibold">SEO</h3>
           <div className="space-y-4">
-            <Input label="Meta Title" value={form.metaTitle} onChange={(e) => setForm({ ...form, metaTitle: e.target.value })} />
+            <Input label="Meta Title" value={form.seoTitle} onChange={(e) => setForm({ ...form, seoTitle: e.target.value })} />
             <div>
               <label className="mb-1 block text-sm font-medium">Meta Description</label>
               <textarea
-                value={form.metaDescription}
-                onChange={(e) => setForm({ ...form, metaDescription: e.target.value })}
+                value={form.seoDescription}
+                onChange={(e) => setForm({ ...form, seoDescription: e.target.value })}
                 rows={3}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
               />

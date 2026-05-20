@@ -82,16 +82,27 @@ export default function DeliverySettingsPage() {
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, TestResult | null>>({});
 
-  const loadSettings = useCallback(async () => {
-    const res = await apiClient.get<Record<string, string>>('/api/v1/admin/delivery-settings');
-    if (res.success && res.data) {
-      setSettings(res.data);
-      setDirty(new Set());
-    }
-    setIsLoading(false);
-  }, []);
+  // Reload via token bump; effect performs the async fetch so setState only
+  // runs in the async callback.
+  const [reloadToken, setReloadToken] = useState(0);
+  const loadSettings = useCallback(() => setReloadToken((n) => n + 1), []);
 
-  useEffect(() => { loadSettings(); }, [loadSettings]);
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<Record<string, string>>('/api/v1/admin/delivery-settings')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) {
+          setSettings(res.data);
+          setDirty(new Set());
+        }
+        setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   const updateField = (key: string, value: string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));

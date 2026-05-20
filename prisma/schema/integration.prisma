@@ -43,6 +43,41 @@ model IntegrationSync {
   @@map("integration_syncs")
 }
 
+// ─────────────────────────────────────
+// SupplierChannel — pull product feeds from suppliers (URL → import)
+// ─────────────────────────────────────
+enum SupplierFormat {
+  xlsx
+  csv
+  yml // Yandex Market YML (XML-based, common in UA wholesale)
+  xml_1c @map("xml_1c") // 1C/BAS CommerceML
+}
+
+enum SupplierAuthType {
+  none
+  basic // username:password in URL or Basic header
+  bearer // Bearer token
+}
+
+model SupplierChannel {
+  id            Int              @id @default(autoincrement())
+  name          String           @db.VarChar(255)
+  feedUrl       String           @map("feed_url")
+  format        SupplierFormat
+  authType      SupplierAuthType @default(none) @map("auth_type")
+  authUsername  String?          @map("auth_username")
+  authPassword  String?          @map("auth_password") // stored as-is; secure column
+  authToken     String?          @map("auth_token")
+  isActive      Boolean          @default(true) @map("is_active")
+  scheduleCron  String?          @map("schedule_cron") // null = manual only
+  lastSyncAt    DateTime?        @map("last_sync_at")
+  lastImportLogId Int?           @map("last_import_log_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  @@map("supplier_channels")
+}
+
 model ApiKey {
   id          Int       @id @default(autoincrement())
   name        String

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { getAggregatedMetrics } from '@/services/performance';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
   try {
@@ -21,7 +22,8 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
     );
 
     return successResponse(metrics);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/analytics/performance] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

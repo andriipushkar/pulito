@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/services/token';
 import { isAccessTokenBlacklisted } from '@/services/auth';
 import { errorResponse } from '@/utils/api-response';
+import { prisma } from '@/lib/prisma';
 import type { AuthUser } from '@/types/auth';
 
 interface AuthContext {
@@ -97,6 +98,31 @@ export function withRole(...roles: string[]) {
         return errorResponse('Недостатньо прав', 403);
       }
       return handler(request, context);
+    });
+  };
+}
+
+/**
+ * Role gate that ALSO requires the user to have 2FA enabled. Use for
+ * sensitive admin endpoints (payments, users, billing, etc.) so a stolen
+ * admin token cannot bypass the layout-only 2FA check.
+ *
+ * Adds one DB read per request — keep usage to critical routes.
+ */
+export function withRole2fa(...roles: string[]) {
+  return (handler: AuthHandler) => {
+    return withAuth(async (request, context) => {
+      if (!roles.includes(context.user.role)) {
+        return errorResponse('Недостатньо прав', 403);
+      }
+      const dbUser = await prisma.user.findUnique({
+        where: { id: context.user.id },
+        select: { twoFactorEnabled: true },
+      });
+      if (!dbUser?.twoFactorEnabled) {
+        return errorResponse('Потрібна двофакторна автентифікація', 403);
+      }
+      return handler(request, { ...context, user: { ...context.user, twoFactorEnabled: true } });
     });
   };
 }

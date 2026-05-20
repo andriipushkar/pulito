@@ -6,6 +6,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     order: { findUnique: vi.fn(), update: vi.fn() },
     product: { findUnique: vi.fn() },
+    orderStatusHistory: { create: vi.fn().mockResolvedValue({}) },
   },
 }));
 vi.mock('@/services/telegram', () => ({ sendProductPhotoToUser: vi.fn() }));
@@ -16,13 +17,13 @@ import { prisma } from '@/lib/prisma';
 import { sendProductPhotoToUser as sendTg } from '@/services/telegram';
 import { sendProductPhotoToUser as sendViber } from '@/services/viber';
 
-const mockCtx = { params: Promise.resolve({ id: '1' }) };
+const mockCtx = { params: Promise.resolve({ id: '1' }), user: { id: 99 } };
 
 describe('POST /api/v1/admin/orders/[id]/send-product-photo', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('sends photo on success', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: 1 } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: 1, status: 'confirmed' } as any);
     vi.mocked(prisma.product.findUnique).mockResolvedValue({ id: 1, name: 'Test', code: 'T1', imagePath: '/img.jpg', images: [] } as any);
     vi.mocked(sendTg).mockResolvedValue(true);
     vi.mocked(sendViber).mockResolvedValue(false);
@@ -129,7 +130,7 @@ describe('POST /api/v1/admin/orders/[id]/send-product-photo', () => {
   });
 
   it('sends photo with custom message', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: 1 } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: 1, status: 'confirmed' } as any);
     vi.mocked(prisma.product.findUnique).mockResolvedValue({ id: 1, name: 'Test', code: 'T1', imagePath: null, images: [{ pathFull: '/main.jpg' }] } as any);
     vi.mocked(sendTg).mockResolvedValue(true);
     vi.mocked(sendViber).mockResolvedValue(true);

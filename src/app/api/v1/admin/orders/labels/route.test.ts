@@ -1,7 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret', UPLOAD_DIR: '/tmp/uploads-test' } }));
+vi.mock('fs', () => ({
+  writeFileSync: vi.fn(),
+  mkdirSync: vi.fn(),
+  existsSync: vi.fn(() => true),
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole: (..._roles: string[]) => (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     order: { findMany: vi.fn() },
@@ -35,12 +45,11 @@ describe('POST /api/v1/admin/orders/labels', () => {
       body: JSON.stringify({ orderIds: [1] }),
     });
     const res = await POST(req as any);
+    const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Type')).toContain('text/html');
-    const html = await res.text();
-    expect(html).toContain('ORD-001');
-    expect(html).toContain('TN123');
+    // The handler persists HTML to disk and returns the saved file's URL.
+    expect(json.data.url).toMatch(/^\/uploads\/reports\/labels_\d+\.html$/);
   });
 
   it('returns 400 when orderIds missing', async () => {

@@ -64,6 +64,44 @@ export default function AdminFeedbackPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ id: number; status: string } | null>(null);
+  // Reply composer state — keyed by feedback id so opening another item
+  // doesn't wipe the draft.
+  const [replySubject, setReplySubject] = useState<Record<number, string>>({});
+  const [replyBody, setReplyBody] = useState<Record<number, string>>({});
+  const [replyingId, setReplyingId] = useState<number | null>(null);
+
+  const sendReply = async (item: FeedbackItem) => {
+    const subj = (replySubject[item.id] ?? `Re: ${item.subject ?? 'ваше звернення'}`).trim();
+    const body = (replyBody[item.id] ?? '').trim();
+    if (!body) {
+      toast.error('Введіть текст відповіді');
+      return;
+    }
+    if (!item.email) {
+      toast.error('У клієнта немає email');
+      return;
+    }
+    setReplyingId(item.id);
+    // Plain text → simple <p>-wrapped HTML; preserves paragraph breaks.
+    const html = body
+      .split(/\n\n+/)
+      .map((p) => `<p>${p.replace(/\n/g, '<br>').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+      .join('');
+    const res = await apiClient.post(`/api/v1/admin/feedback/${item.id}/reply`, {
+      subject: subj,
+      bodyHtml: html,
+    });
+    setReplyingId(null);
+    if (res.success) {
+      toast.success(`Відповідь надіслано на ${item.email}`);
+      // Clear local draft + refresh status (it becomes processed).
+      setReplyBody((s) => ({ ...s, [item.id]: '' }));
+      // Trigger re-fetch by toggling page param noop — easiest hack.
+      router.refresh();
+    } else {
+      toast.error(res.error || 'Не вдалося надіслати');
+    }
+  };
 
   const page = Number(searchParams.get('page')) || 1;
   const type = searchParams.get('type') || '';
@@ -202,8 +240,30 @@ export default function AdminFeedbackPage() {
                 {expandedId === item.id && (
                   <div className="border-t border-[var(--color-border)] px-4 py-3">
                     <div className="mb-3 grid gap-2 text-sm sm:grid-cols-3">
-                      {item.email && <div><span className="text-[var(--color-text-secondary)]">Email: </span>{item.email}</div>}
-                      {item.phone && <div><span className="text-[var(--color-text-secondary)]">Телефон: </span>{item.phone}</div>}
+                      {item.email && (
+                        <div>
+                          <span className="text-[var(--color-text-secondary)]">Email: </span>
+                          <a
+                            href={`mailto:${item.email}`}
+                            className="text-[var(--color-primary)] hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {item.email}
+                          </a>
+                        </div>
+                      )}
+                      {item.phone && (
+                        <div>
+                          <span className="text-[var(--color-text-secondary)]">Телефон: </span>
+                          <a
+                            href={`tel:${item.phone}`}
+                            className="text-[var(--color-primary)] hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {item.phone}
+                          </a>
+                        </div>
+                      )}
                       {item.processedAt && <div><span className="text-[var(--color-text-secondary)]">Оброблено: </span>{formatDate(item.processedAt)}</div>}
                     </div>
                     <p className="mb-4 whitespace-pre-wrap rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-3 text-sm">{item.message}</p>
@@ -225,13 +285,68 @@ export default function AdminFeedbackPage() {
                         <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">Відхилено</span>
                       )}
                     </div>
+
+                    {/* Reply composer — visible only when the customer left an
+                        email. Sending also marks the feedback as processed
+                        (the API does both atomically). */}
+                    {item.email && item.status !== 'rejected' && (
+                      <div className="mt-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                          Надіслати відповідь
+                        </p>
+                        <Input
+                          placeholder={`Re: ${item.subject ?? 'ваше звернення'}`}
+                          value={replySubject[item.id] ?? ''}
+                          onChange={(e) =>
+                            setReplySubject((s) => ({ ...s, [item.id]: e.target.value }))
+                          }
+                          className="mb-2"
+                        />
+                        <textarea
+                          placeholder="Текст відповіді клієнту…"
+                          value={replyBody[item.id] ?? ''}
+                          onChange={(e) =>
+                            setReplyBody((s) => ({ ...s, [item.id]: e.target.value }))
+                          }
+                          rows={4}
+                          className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                        />
+                        <div className="mt-2 flex justify-end">
+                          <Button
+                            size="sm"
+                            onClick={() => sendReply(item)}
+                            isLoading={replyingId === item.id}
+                            disabled={!replyBody[item.id]?.trim()}
+                          >
+                            ✉ Надіслати + позначити обробленим
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             ))}
             {items.length === 0 && (
-              <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-8 text-center text-[var(--color-text-secondary)]">
-                Зверненнь не знайдено
+              <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] py-12 text-center text-[var(--color-text-secondary)]">
+                <span className="text-3xl" aria-hidden="true">💬</span>
+                <p className="text-sm font-medium">
+                  {search || type || status || dateFrom || dateTo
+                    ? 'Звернень за фільтрами не знайдено'
+                    : 'Звернень ще немає'}
+                </p>
+                {(search || type || status || dateFrom || dateTo) ? (
+                  <button
+                    onClick={() => router.push('/admin/feedback')}
+                    className="text-xs text-[var(--color-primary)] hover:underline"
+                  >
+                    Скинути всі фільтри
+                  </button>
+                ) : (
+                  <p className="max-w-md text-xs">
+                    Тут з&apos;являться звернення з форми зв&apos;язку та запити на зворотний дзвінок
+                  </p>
+                )}
               </div>
             )}
           </div>

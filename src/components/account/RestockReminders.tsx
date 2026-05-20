@@ -51,33 +51,15 @@ export default function RestockReminders() {
     return product.imagePath;
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-[var(--color-text)]">Нагадування про поповнення</h2>
-        <div className="flex items-center justify-center py-8 text-sm text-[var(--color-text-secondary)]">
-          Завантаження...
-        </div>
-      </div>
-    );
-  }
+  // Self-hide while loading or when there are no predictions —
+  // don't show an empty "no data yet" widget on the dashboard.
+  if (isLoading || predictions.length === 0) return null;
 
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-[var(--color-text)]">Нагадування про поповнення</h2>
 
-      {predictions.length === 0 ? (
-        <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-bg)] px-5 py-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-bg-secondary)]">
-            <svg className="h-6 w-6 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            Ваші прогнози з&apos;являться після кількох покупок
-          </p>
-        </div>
-      ) : (
+      {predictions.length === 0 ? null : (
         <div className="grid gap-4 sm:grid-cols-2">
           {predictions.map((prediction) => {
             const imageSrc = getProductImage(prediction.product);

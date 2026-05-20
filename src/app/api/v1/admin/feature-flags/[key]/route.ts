@@ -1,13 +1,32 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { updateFlag, deleteFlag } from '@/services/feature-flag';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
-export const PATCH = withRole('admin')(
-  async (request: NextRequest, { params }) => {
+export const PATCH = withRole2fa('admin')(
+  async (request: NextRequest, { params, user }) => {
     try {
       const { key } = await params!;
       const body = await request.json();
+
+      if (body.rolloutPercent !== undefined) {
+        const p = Number(body.rolloutPercent);
+        if (!Number.isInteger(p) || p < 0 || p > 100) {
+          return errorResponse('rolloutPercent має бути цілим у діапазоні 0–100', 400);
+        }
+      }
+      if (body.targetRoles !== undefined) {
+        if (!Array.isArray(body.targetRoles) || !body.targetRoles.every((r: unknown) => typeof r === 'string')) {
+          return errorResponse('targetRoles має бути масивом рядків', 400);
+        }
+      }
+      if (body.targetUserIds !== undefined) {
+        if (!Array.isArray(body.targetUserIds) || !body.targetUserIds.every((id: unknown) => Number.isInteger(id) && (id as number) > 0)) {
+          return errorResponse('targetUserIds має бути масивом додатних цілих чисел', 400);
+        }
+      }
 
       const flag = await updateFlag(key, {
         description: body.description,
@@ -17,26 +36,47 @@ export const PATCH = withRole('admin')(
         targetUserIds: body.targetUserIds,
       });
 
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_update',
+        entityType: 'feature_flag',
+        entityId: flag.id,
+        details: {
+          key,
+          fields: Object.keys(body),
+          isEnabled: body.isEnabled,
+          rolloutPercent: body.rolloutPercent,
+        },
+      });
+
       return successResponse(flag);
     } catch (error) {
       if (error instanceof Error && error.message.includes('not found')) {
         return errorResponse('Фічефлаг не знайдено', 404);
       }
+      logger.error('[admin/feature-flags/[key]] PATCH failed', { error });
       return errorResponse('Помилка оновлення фічефлага', 500);
     }
   }
 );
 
-export const DELETE = withRole('admin')(
-  async (_request: NextRequest, { params }) => {
+export const DELETE = withRole2fa('admin')(
+  async (_request: NextRequest, { params, user }) => {
     try {
       const { key } = await params!;
       await deleteFlag(key);
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_delete',
+        entityType: 'feature_flag',
+        details: { key },
+      });
       return successResponse({ deleted: true });
     } catch (error) {
       if (error instanceof Error && error.message.includes('not found')) {
         return errorResponse('Фічефлаг не знайдено', 404);
       }
+      logger.error('[admin/feature-flags/[key]] DELETE failed', { error });
       return errorResponse('Помилка видалення фічефлага', 500);
     }
   }

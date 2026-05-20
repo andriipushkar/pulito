@@ -21,18 +21,20 @@ interface MarketplaceReturn {
   order: { id: number; orderNumber: string } | null;
 }
 
-interface PaginatedResponse {
-  success: boolean;
-  data: MarketplaceReturn[];
-  pagination: { page: number; limit: number; total: number; totalPages: number };
-}
-
 const STATUS_OPTIONS = [
   { value: '', label: 'Всі статуси' },
   { value: 'pending', label: 'Очікує' },
   { value: 'approved', label: 'Підтверджено' },
   { value: 'rejected', label: 'Відхилено' },
   { value: 'completed', label: 'Завершено' },
+];
+
+const PLATFORM_OPTIONS = [
+  { value: '', label: 'Всі маркетплейси' },
+  { value: 'olx', label: 'OLX' },
+  { value: 'rozetka', label: 'Rozetka' },
+  { value: 'prom', label: 'Prom.ua' },
+  { value: 'epicentrk', label: 'Epicentr K' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -54,6 +56,7 @@ export default function MarketplaceReturnsPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
+  const [platformFilter, setPlatformFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [totalPages, setTotalPages] = useState(1);
@@ -67,6 +70,7 @@ export default function MarketplaceReturnsPage() {
         limit: String(pageSize),
       });
       if (statusFilter) params.set('status', statusFilter);
+      if (platformFilter) params.set('platform', platformFilter);
 
       const res = await apiClient.get<MarketplaceReturn[]>(
         `/api/v1/admin/marketplaces/returns?${params.toString()}`,
@@ -84,20 +88,43 @@ export default function MarketplaceReturnsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter]);
+  }, [page, pageSize, statusFilter, platformFilter]);
 
   useEffect(() => {
     fetchReturns();
   }, [fetchReturns]);
 
+  const [syncing, setSyncing] = useState(false);
+
   const handleStatusUpdate = async (id: number, newStatus: string) => {
+    // Ask about restock only when completing a return that has a linked order.
+    let restockProducts = false;
+    if (newStatus === 'completed') {
+      const ret = returns.find((r) => r.id === id);
+      if (ret?.order) {
+        restockProducts = window.confirm(
+          'Повернути товари з цього замовлення на склад? Це збільшить локальний залишок і запушить його на всі маркетплейси.',
+        );
+      }
+    }
+
     setUpdating(id);
     try {
-      const res = await apiClient.patch(`/api/v1/admin/marketplaces/returns/${id}`, {
+      const res = await apiClient.patch<{
+        pushWarning: string | null;
+        restocked: number;
+      }>(`/api/v1/admin/marketplaces/returns/${id}`, {
         status: newStatus,
+        restockProducts,
       });
       if (res.success) {
-        toast.success('Статус оновлено');
+        const parts: string[] = ['Статус оновлено'];
+        if (res.data?.restocked) parts.push(`склад: +${res.data.restocked} позицій`);
+        if (res.data?.pushWarning) {
+          toast.info(`${parts.join(' · ')}. Маркетплейс: ${res.data.pushWarning}`);
+        } else {
+          toast.success(parts.join(' · '));
+        }
         fetchReturns();
       } else {
         toast.error('Помилка оновлення статусу');
@@ -109,15 +136,76 @@ export default function MarketplaceReturnsPage() {
     }
   };
 
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await apiClient.post<{ synced: number; perPlatform: Record<string, number> }>(
+        '/api/v1/admin/marketplaces/returns',
+      );
+      if (res.success && res.data) {
+        toast.success(`Синхронізовано: +${res.data.synced} нових`);
+        fetchReturns();
+      } else {
+        toast.error(res.error || 'Помилка синхронізації');
+      }
+    } catch {
+      toast.error('Помилка синхронізації');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleExportCsv = () => {
+    const rows = [
+      ['id', 'platform', 'externalReturnId', 'orderNumber', 'reason', 'status', 'quantity', 'refundAmount', 'createdAt'],
+      ...returns.map((r) => [
+        String(r.id),
+        r.connection.platform,
+        r.externalReturnId,
+        r.order?.orderNumber || '',
+        (r.reason || '').replace(/[\r\n]+/g, ' '),
+        r.status,
+        String(r.quantity),
+        r.refundAmount != null ? r.refundAmount.toFixed(2) : '',
+        r.createdAt,
+      ]),
+    ];
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => {
+            const s = String(cell);
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+          })
+          .join(','),
+      )
+      .join('\n');
+    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `marketplace-returns-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Повернення з маркетплейсів</h1>
-        <span className="text-sm text-gray-500">Всього: {total}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">Всього: {total}</span>
+          <Button size="sm" variant="outline" onClick={handleSync} isLoading={syncing}>
+            ↻ Синхронізувати
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleExportCsv} disabled={returns.length === 0}>
+            ⬇ CSV
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <select
           value={statusFilter}
           onChange={(e) => {
@@ -128,6 +216,21 @@ export default function MarketplaceReturnsPage() {
           data-testid="status-filter"
         >
           {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={platformFilter}
+          onChange={(e) => {
+            setPlatformFilter(e.target.value);
+            setPage(1);
+          }}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          data-testid="platform-filter"
+        >
+          {PLATFORM_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>

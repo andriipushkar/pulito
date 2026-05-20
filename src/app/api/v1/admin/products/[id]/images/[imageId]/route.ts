@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { deleteProductImage, ImageError } from '@/services/image';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { cacheInvalidate } from '@/services/cache';
+import { logger } from '@/lib/logger';
 
 export const DELETE = withRole('manager', 'admin')(
   async (_request: NextRequest, { params }) => {
@@ -17,6 +18,7 @@ export const DELETE = withRole('manager', 'admin')(
       if (error instanceof ImageError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/products/[id]/images/[imageId]] DELETE failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

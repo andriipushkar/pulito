@@ -25,25 +25,39 @@ describe('RestockReminders', () => {
     mockApiGet.mockReset();
   });
 
-  it('shows loading state initially', () => {
+  it('renders nothing while loading (no inline placeholder)', () => {
     mockApiGet.mockReturnValue(new Promise(() => {})); // never resolves
-    render(<RestockReminders />);
-    expect(screen.getByText('Завантаження...')).toBeInTheDocument();
+    const { container } = render(<RestockReminders />);
+    expect(container.innerHTML).toBe('');
   });
 
-  it('renders the heading', async () => {
-    mockApiGet.mockResolvedValue({ data: { predictions: [] } });
+  it('renders the heading when there are predictions', async () => {
+    mockApiGet.mockResolvedValue({
+      data: {
+        predictions: [
+          {
+            id: 1,
+            predictedNextDate: '2025-08-01T00:00:00Z',
+            avgIntervalDays: 30,
+            confidence: 0.85,
+            product: { id: 1, name: 'X', slug: 'x', imagePath: null, priceRetail: 1, images: [] },
+          },
+        ],
+      },
+    });
     render(<RestockReminders />);
     await waitFor(() => {
       expect(screen.getByText('Нагадування про поповнення')).toBeInTheDocument();
     });
   });
 
-  it('shows empty state when no predictions', async () => {
+  it('renders nothing when there are no predictions (self-hide)', async () => {
     mockApiGet.mockResolvedValue({ data: { predictions: [] } });
-    render(<RestockReminders />);
+    const { container } = render(<RestockReminders />);
     await waitFor(() => {
-      expect(screen.getByText(/Ваші прогнози з'являться після кількох покупок/)).toBeInTheDocument();
+      // After the promise resolves the component should remove itself entirely
+      // rather than show an empty placeholder card.
+      expect(container.innerHTML).toBe('');
     });
   });
 

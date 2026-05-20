@@ -3,6 +3,8 @@ import { withRole } from '@/middleware/auth';
 import { getVolumeDiscounts, createVolumeDiscount, VolumePricingError } from '@/services/volume-pricing';
 import { createVolumeDiscountSchema } from '@/validators/volume-discount';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
 export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
   try {
@@ -20,12 +22,13 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
 
     const items = await getVolumeDiscounts(filters);
     return successResponse(items);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/volume-discounts] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
 
-export const POST = withRole('admin')(async (request: NextRequest) => {
+export const POST = withRole('admin')(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = createVolumeDiscountSchema.safeParse(body);
@@ -34,11 +37,18 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
     }
 
     const item = await createVolumeDiscount(parsed.data);
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'volume_discount',
+      entityId: item.id,
+    });
     return successResponse(item, 201);
   } catch (error) {
     if (error instanceof VolumePricingError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/volume-discounts] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

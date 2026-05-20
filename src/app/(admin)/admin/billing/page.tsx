@@ -67,23 +67,34 @@ export default function AdminBillingPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     Promise.all([
       apiClient.get<{ billing: Billing; usage: Usage }>('/api/v1/admin/billing'),
       apiClient.get<Invoice[]>('/api/v1/admin/billing/invoices'),
     ])
       .then(([billingRes, invoicesRes]) => {
+        if (cancelled) return;
         if (billingRes.success && billingRes.data) {
           setBilling(billingRes.data.billing);
           setUsage(billingRes.data.usage);
+        } else {
+          toast.error(billingRes.error || 'Помилка завантаження даних біллінгу');
         }
         if (invoicesRes.success && invoicesRes.data) {
           setInvoices(invoicesRes.data);
+        } else {
+          toast.error(invoicesRes.error || 'Помилка завантаження інвойсів');
         }
       })
       .catch(() => {
-        toast.error('Помилка завантаження даних біллінгу');
+        if (!cancelled) toast.error('Помилка завантаження даних біллінгу');
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (isLoading) {

@@ -9,9 +9,10 @@ import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 
 export default function SecurityPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refreshAuth } = useAuth();
   const [step, setStep] = useState<'idle' | 'setup' | 'verify' | 'done'>('idle');
   const [secret, setSecret] = useState('');
+  const [showSecret, setShowSecret] = useState(false);
   const [, setOtpauthUrl] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [code, setCode] = useState('');
@@ -58,6 +59,9 @@ export default function SecurityPage() {
     if (res.success && res.data) {
       setBackupCodes(res.data.backupCodes);
       setStep('done');
+      // Without this, AuthProvider's user.twoFactorEnabled stays false and the
+      // admin layout's 2FA guard keeps redirecting the user back to setup.
+      await refreshAuth();
       toast.success('2FA успішно увімкнено!');
     } else {
       toast.error(res.error || 'Невірний код');
@@ -148,9 +152,34 @@ export default function SecurityPage() {
               <p className="mb-1 text-xs text-[var(--color-text-secondary)]">
                 Або введіть секрет вручну:
               </p>
-              <code className="block break-all rounded bg-gray-100 px-3 py-2 text-xs font-mono">
-                {secret}
-              </code>
+              <div className="flex items-center gap-2">
+                <code className="block flex-1 break-all rounded bg-gray-100 px-3 py-2 text-xs font-mono">
+                  {showSecret ? secret : '•'.repeat(Math.max(secret.length, 16))}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => setShowSecret((s) => !s)}
+                  className="shrink-0 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
+                  aria-label={showSecret ? 'Сховати секрет' : 'Показати секрет'}
+                >
+                  {showSecret ? 'Сховати' : 'Показати'}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(secret);
+                      toast.success('Секрет скопійовано');
+                    } catch {
+                      toast.error('Не вдалося скопіювати');
+                    }
+                  }}
+                  className="shrink-0 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
+                  aria-label="Скопіювати секрет"
+                >
+                  Копіювати
+                </button>
+              </div>
             </div>
 
             <div className="mb-4">

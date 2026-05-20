@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { generatePriceList, generateIllustratedCatalog, PdfCatalogError } from '@/services/pdf-catalog';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('admin', 'manager')(
   async (request: NextRequest) => {
@@ -30,6 +31,7 @@ export const POST = withRole('admin', 'manager')(
       if (error instanceof PdfCatalogError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/catalog-pdf] POST failed', { error });
       return errorResponse('Помилка генерації PDF', 500);
     }
   }

@@ -10,7 +10,7 @@ describe('rate-limit-config', () => {
     });
 
     it('auth route has strict limits', () => {
-      expect(ROUTE_LIMITS['/api/v1/auth'].max).toBe(5);
+      expect(ROUTE_LIMITS['/api/v1/auth'].max).toBe(10);
     });
 
     it('reviews route has strict limits with long window', () => {
@@ -22,7 +22,7 @@ describe('rate-limit-config', () => {
   describe('getRouteLimit', () => {
     it('returns exact match for known route', () => {
       const limit = getRouteLimit('/api/v1/auth/login');
-      expect(limit.max).toBe(5);
+      expect(limit.max).toBe(10);
       expect(limit.window).toBe(60);
     });
 

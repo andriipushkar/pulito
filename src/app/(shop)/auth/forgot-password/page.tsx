@@ -28,12 +28,33 @@ export default function ForgotPasswordPage() {
 
     setIsLoading(true);
     try {
-      await fetch('/api/v1/auth/forgot-password', {
+      const res = await fetch('/api/v1/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ email }),
       });
-    } catch {}
+      if (res.status === 429) {
+        const retryAfter = Number(res.headers.get('Retry-After'));
+        const minutes = Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.max(1, Math.ceil(retryAfter / 60))
+          : 15;
+        setError(
+          `Забагато спроб. Спробуйте за ${minutes} хв або зверніться у підтримку.`,
+        );
+        setIsLoading(false);
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Не вдалося надіслати лист. Спробуйте пізніше.');
+        setIsLoading(false);
+        return;
+      }
+    } catch {
+      setError('Помилка мережі. Перевірте зʼєднання і спробуйте ще раз.');
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(false);
     setSent(true);
   };

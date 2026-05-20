@@ -4,11 +4,15 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { z } from 'zod';
-import * as XLSX from 'xlsx';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import ExcelJS from 'exceljs';
+import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { env } from '@/config/env';
 import { cacheInvalidate } from '@/services/cache';
+import { logAudit } from '@/services/audit';
+import { logger } from '@/lib/logger';
+
+const BULK_IDS_LIMIT = 5000;
 
 const bulkSchema = z.object({
   action: z.enum([
@@ -17,17 +21,26 @@ const bulkSchema = z.object({
     'delete',
     'change_category',
     'change_brand',
+    'change_price',
     'export',
     'export_filtered',
   ]),
-  productIds: z.array(z.number()).optional(),
+  productIds: z.array(z.number().int().positive()).max(BULK_IDS_LIMIT).optional(),
   filters: z.record(z.string(), z.string()).optional(),
+  // For change_category / change_brand:
+  categoryId: z.number().int().positive().optional(),
+  brandId: z.number().int().nullable().optional(),
+  // For change_price action:
+  priceTarget: z.enum(['retail', 'wholesale', 'wholesale2', 'wholesale3', 'all']).optional(),
+  priceMode: z.enum(['percent', 'fixed', 'add', 'round']).optional(),
+  priceValue: z.number().optional(),
+  priceRound: z.number().int().min(1).optional(),
 });
 
 export const POST = withRole(
   'manager',
   'admin',
-)(async (request: NextRequest) => {
+)(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = bulkSchema.safeParse(body);
@@ -36,6 +49,10 @@ export const POST = withRole(
     }
 
     const { action, productIds, filters } = parsed.data;
+    const ipAddress =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      null;
 
     if (action === 'activate' || action === 'deactivate') {
       if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
@@ -44,35 +61,48 @@ export const POST = withRole(
         data: { isActive: action === 'activate' },
       });
       await cacheInvalidate('products:*');
+      await logAudit({
+        userId: user.id,
+        actionType: 'rule_change',
+        entityType: 'product_bulk',
+        details: { action, count: productIds.length, productIds },
+        ipAddress,
+      });
       return successResponse({ updated: productIds.length });
     }
 
     if (action === 'delete') {
       if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
 
-      // Try to physically delete each product; if FK constraints block it
-      // (e.g. order_items still reference the product), fall back to soft
-      // delete so order history isn't broken.
-      const softDeletedIds: number[] = [];
-      let hardDeleted = 0;
-      for (const id of productIds) {
-        try {
-          await prisma.product.delete({ where: { id } });
-          hardDeleted += 1;
-        } catch (err) {
-          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
-            softDeletedIds.push(id);
-          } else {
-            throw err;
-          }
+      // Pre-classify ids: those with FK references go to soft-delete, the rest
+      // can be hard-deleted. Doing this in a single transaction makes the
+      // operation all-or-nothing — previously a mid-loop throw left half the
+      // batch deleted and half untouched.
+      const referencedIds = new Set<number>();
+      const referencingCounts = await prisma.orderItem.groupBy({
+        by: ['productId'],
+        where: { productId: { in: productIds } },
+        _count: { productId: true },
+      });
+      for (const r of referencingCounts) {
+        if (r.productId !== null) referencedIds.add(r.productId);
+      }
+
+      const hardIds = productIds.filter((id) => !referencedIds.has(id));
+      const softDeletedIds = productIds.filter((id) => referencedIds.has(id));
+
+      await prisma.$transaction(async (tx) => {
+        if (hardIds.length > 0) {
+          await tx.product.deleteMany({ where: { id: { in: hardIds } } });
         }
-      }
-      if (softDeletedIds.length > 0) {
-        await prisma.product.updateMany({
-          where: { id: { in: softDeletedIds } },
-          data: { isActive: false, deletedAt: new Date() },
-        });
-      }
+        if (softDeletedIds.length > 0) {
+          await tx.product.updateMany({
+            where: { id: { in: softDeletedIds } },
+            data: { isActive: false, deletedAt: new Date() },
+          });
+        }
+      });
+      const hardDeleted = hardIds.length;
       await cacheInvalidate('products:*');
 
       // Sync Typesense (best-effort, fire-and-forget).
@@ -87,6 +117,19 @@ export const POST = withRole(
         })
         .catch(() => {});
 
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_delete',
+        entityType: 'product_bulk',
+        details: {
+          action: 'delete',
+          count: productIds.length,
+          hardDeleted,
+          softDeleted: softDeletedIds.length,
+          productIds,
+        },
+        ipAddress,
+      });
       return successResponse({
         hardDeleted,
         softDeleted: softDeletedIds.length,
@@ -96,35 +139,149 @@ export const POST = withRole(
 
     if (action === 'change_category') {
       if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
-      const categoryId = (body as { categoryId?: number }).categoryId;
+      const categoryId = parsed.data.categoryId;
       if (!categoryId) return errorResponse('Не вказано категорію', 400);
       await prisma.product.updateMany({
         where: { id: { in: productIds } },
         data: { categoryId },
       });
       await cacheInvalidate('products:*');
+      await logAudit({
+        userId: user.id,
+        actionType: 'rule_change',
+        entityType: 'product_bulk',
+        details: { action: 'change_category', categoryId, count: productIds.length, productIds },
+        ipAddress,
+      });
       return successResponse({ updated: productIds.length });
+    }
+
+    if (action === 'change_price') {
+      if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
+      const { priceTarget, priceMode, priceValue, priceRound } = parsed.data;
+      if (!priceTarget) return errorResponse('Не вказано тип ціни', 400);
+      if (!priceMode) return errorResponse('Не вказано режим оновлення', 400);
+      if (priceMode !== 'round' && priceValue === undefined) {
+        return errorResponse('Не вказано значення', 400);
+      }
+      if (priceMode === 'round' && !priceRound) {
+        return errorResponse('Не вказано крок округлення', 400);
+      }
+
+      const targets: ('priceRetail' | 'priceWholesale' | 'priceWholesale2' | 'priceWholesale3')[] =
+        priceTarget === 'all'
+          ? ['priceRetail', 'priceWholesale', 'priceWholesale2', 'priceWholesale3']
+          : priceTarget === 'retail'
+            ? ['priceRetail']
+            : priceTarget === 'wholesale'
+              ? ['priceWholesale']
+              : priceTarget === 'wholesale2'
+                ? ['priceWholesale2']
+                : ['priceWholesale3'];
+
+      const products = await prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: {
+          id: true,
+          priceRetail: true,
+          priceWholesale: true,
+          priceWholesale2: true,
+          priceWholesale3: true,
+        },
+      });
+
+      type PriceUpdate = {
+        id: number;
+        data: Record<string, number>;
+        before: Record<string, number | null>;
+        after: Record<string, number>;
+      };
+
+      const updates: PriceUpdate[] = [];
+      let skippedCount = 0;
+      for (const p of products) {
+        const updateData: Record<string, number> = {};
+        const before: Record<string, number | null> = {};
+        const after: Record<string, number> = {};
+        let changed = false;
+        for (const field of targets) {
+          const current = p[field] !== null ? Number(p[field]) : null;
+          if (current === null) continue;
+          let next = current;
+          if (priceMode === 'percent') {
+            next = current * (1 + (priceValue ?? 0) / 100);
+          } else if (priceMode === 'add') {
+            next = current + (priceValue ?? 0);
+          } else if (priceMode === 'fixed') {
+            next = priceValue ?? 0;
+          } else if (priceMode === 'round' && priceRound) {
+            next = Math.round(current / priceRound) * priceRound;
+          }
+          // Round to 2 decimals; never negative
+          next = Math.max(0, Math.round(next * 100) / 100);
+          if (next !== current) {
+            updateData[field] = next;
+            before[field] = current;
+            after[field] = next;
+            changed = true;
+          }
+        }
+        if (changed) {
+          updates.push({ id: p.id, data: updateData, before, after });
+        } else {
+          skippedCount++;
+        }
+      }
+
+      // Atomic: all-or-nothing. Partial price changes are worse than no change.
+      await prisma.$transaction(
+        updates.map((u) => prisma.product.update({ where: { id: u.id }, data: u.data })),
+      );
+      const updatedCount = updates.length;
+      const changes = updates.map((u) => ({ id: u.id, before: u.before, after: u.after }));
+      await cacheInvalidate('products:*');
+      await logAudit({
+        userId: user.id,
+        actionType: 'rule_change',
+        entityType: 'product_bulk',
+        details: {
+          action: 'change_price',
+          priceTarget,
+          priceMode,
+          priceValue,
+          priceRound,
+          updated: updatedCount,
+          skipped: skippedCount,
+          changes: changes.slice(0, 200),
+        },
+        ipAddress,
+      });
+      return successResponse({ updated: updatedCount, skipped: skippedCount });
     }
 
     if (action === 'change_brand') {
       if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
       // brandId === 0 / null means "clear" — let the admin un-set a manufacturer.
-      const rawBrandId = (body as { brandId?: number | null }).brandId;
+      const rawBrandId = parsed.data.brandId;
       const brandId =
-        rawBrandId === null || rawBrandId === 0 || rawBrandId === undefined
-          ? null
-          : Number(rawBrandId);
+        rawBrandId === null || rawBrandId === 0 || rawBrandId === undefined ? null : rawBrandId;
       await prisma.product.updateMany({
         where: { id: { in: productIds } },
         data: { brandId },
       });
       await cacheInvalidate('products:*');
+      await logAudit({
+        userId: user.id,
+        actionType: 'rule_change',
+        entityType: 'product_bulk',
+        details: { action: 'change_brand', brandId, count: productIds.length, productIds },
+        ipAddress,
+      });
       return successResponse({ updated: productIds.length });
     }
 
     if (action === 'export' || action === 'export_filtered') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const where: Record<string, any> = {};
+      const where: Prisma.ProductWhereInput = {};
       if (action === 'export' && productIds?.length) {
         where.id = { in: productIds };
       } else if (action === 'export_filtered' && filters) {
@@ -142,6 +299,7 @@ export const POST = withRole(
         else if (filters.stock === 'in') where.quantity = { gt: 5 };
       }
 
+      const EXPORT_HARD_LIMIT = 50_000;
       const products = await prisma.product.findMany({
         where,
         select: {
@@ -158,6 +316,7 @@ export const POST = withRole(
           category: { select: { name: true } },
         },
         orderBy: { name: 'asc' },
+        take: EXPORT_HARD_LIMIT,
       });
 
       const rows = products.map((p) => ({
@@ -175,21 +334,25 @@ export const POST = withRole(
       }));
 
       const reportsDir = path.join(env.UPLOAD_DIR, 'reports');
-      if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
+      await mkdir(reportsDir, { recursive: true });
       const fileName = `products_${Date.now()}.xlsx`;
       const filePath = path.join(reportsDir, fileName);
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, 'Товари');
-      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-      writeFileSync(filePath, buffer);
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Товари');
+      if (rows.length > 0) {
+        ws.columns = Object.keys(rows[0]).map((k) => ({ header: k, key: k }));
+        ws.addRows(rows);
+      }
+      const buffer = await wb.xlsx.writeBuffer();
+      await writeFile(filePath, Buffer.from(buffer));
 
       return successResponse({ url: `/uploads/reports/${fileName}` });
     }
 
     return errorResponse('Невідома дія', 400);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/products/bulk] failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

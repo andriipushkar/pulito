@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { getAllOrders, getOrderStats } from '@/services/order';
 import { orderFilterSchema } from '@/validators/order';
 import { errorResponse, paginatedResponse, successResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
   try {
@@ -19,10 +20,10 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
       return errorResponse(parsed.error.issues[0].message, 400);
     }
 
-    const clientType = request.nextUrl.searchParams.get('clientType') || undefined;
-    const { orders, total } = await getAllOrders({ ...parsed.data, clientType });
+    const { orders, total } = await getAllOrders(parsed.data);
     return paginatedResponse(orders, total, parsed.data.page, parsed.data.limit);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/orders] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

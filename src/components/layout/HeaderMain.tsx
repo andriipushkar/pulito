@@ -139,7 +139,7 @@ export default function HeaderMain({ categories: _categories, shrink }: HeaderMa
               />
               {itemCount > 0 && (
                 <span className="hidden text-sm font-medium text-[var(--color-text)] lg:inline-block">
-                  {formatPrice(total(user?.role))}
+                  {formatPrice(total(user?.role, user?.wholesaleGroup))}
                 </span>
               )}
               {cartOpen && <MiniCart onClose={() => setCartOpen(false)} />}

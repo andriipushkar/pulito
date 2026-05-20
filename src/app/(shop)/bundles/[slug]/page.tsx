@@ -157,6 +157,8 @@ export default async function BundleDetailPage({ params }: BundleDetailPageProps
             originalPrice={pricing.originalPrice}
             finalPrice={pricing.finalPrice}
             savings={pricing.savings}
+            effectivePromoPrice={(pricing as { effectivePromoPrice?: number }).effectivePromoPrice}
+            appliedRule={(pricing as { appliedRule?: 'bundle' | 'promo' }).appliedRule}
             className="mb-4"
           />
           <AddBundleToCartButton slug={bundle.slug} />

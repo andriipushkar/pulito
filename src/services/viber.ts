@@ -20,7 +20,10 @@ interface ViberEvent {
 }
 
 export function verifyViberSignature(body: string, signature: string): boolean {
-  if (!AUTH_TOKEN) return true; // Skip in dev
+  // Fail closed in production: an unset AUTH_TOKEN there means the webhook is
+  // unsigned and we'd otherwise accept anyone's POST. In dev we still allow
+  // the bypass so local testing without a real Viber app keeps working.
+  if (!AUTH_TOKEN) return process.env.NODE_ENV !== 'production';
   const hash = crypto.createHmac('sha256', AUTH_TOKEN).update(body).digest('hex');
   return hash === signature;
 }

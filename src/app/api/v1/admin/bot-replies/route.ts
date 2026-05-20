@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(
   async () => {
@@ -10,7 +11,8 @@ export const GET = withRole('admin', 'manager')(
         orderBy: { priority: 'asc' },
       });
       return successResponse(replies);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/bot-replies] GET failed', { error: err });
       return errorResponse('Помилка завантаження авто-відповідей', 500);
     }
   }
@@ -31,7 +33,8 @@ export const POST = withRole('admin', 'manager')(
         },
       });
       return successResponse(reply, 201);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/bot-replies] POST failed', { error: err });
       return errorResponse('Помилка створення авто-відповіді', 500);
     }
   }

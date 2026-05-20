@@ -7,14 +7,22 @@ import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import Spinner from '@/components/ui/Spinner';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import WysiwygEditor from '@/components/admin/WysiwygEditor';
+import SpecsEditor from '@/components/admin/SpecsEditor';
 import BrandSelector from '@/components/admin/BrandSelector';
+import BarcodeInput from '@/components/admin/BarcodeInput';
+import ProductImagesManager from '@/components/admin/ProductImagesManager';
+import RestockSuggestionHint from '@/components/admin/RestockSuggestionHint';
+import VariantsSection from '@/components/admin/VariantsSection';
+import WarehouseStockSection from '@/components/admin/WarehouseStockSection';
+import ProductBadgesSection from '@/components/admin/ProductBadgesSection';
 import { useFormValidation } from '@/hooks/useFormValidation';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import UploadProgress from '@/components/ui/UploadProgress';
-import Image from 'next/image';
 
 interface PriceHistoryEntry {
   id: number;
@@ -56,19 +64,90 @@ interface ProductDetail {
   } | null;
 }
 
-interface BrandOption {
-  id: number;
+// All form inputs are strings (or booleans for checkboxes) because they come from
+// raw HTML controls — numbers/dates get parsed at save time before the payload is
+// shipped to the API.
+interface ProductFormState {
   name: string;
+  code: string;
+  barcode: string;
   slug: string;
+  description: string;
+  descriptionHtml: string;
+  specifications: string;
+  priceRetail: string;
+  priceRetailOld: string;
+  priceWholesale: string;
+  priceWholesale2: string;
+  priceWholesale3: string;
+  quantity: string;
+  sortOrder: string;
+  isActive: boolean;
+  isPromo: boolean;
+  promoStartDate: string;
+  promoEndDate: string;
+  seoTitle: string;
+  seoDescription: string;
+  categoryId: string;
+  brandId: string;
+  // Physical parameters — used by carrier TTN sizing and margin reports.
+  weightGrams: string;
+  lengthMm: string;
+  widthMm: string;
+  heightMm: string;
+  cost: string;
 }
+
+const EMPTY_PRODUCT_FORM: ProductFormState = {
+  name: '',
+  code: '',
+  barcode: '',
+  slug: '',
+  description: '',
+  descriptionHtml: '',
+  specifications: '',
+  priceRetail: '',
+  priceRetailOld: '',
+  priceWholesale: '',
+  priceWholesale2: '',
+  priceWholesale3: '',
+  quantity: '0',
+  sortOrder: '0',
+  isActive: true,
+  isPromo: false,
+  promoStartDate: '',
+  promoEndDate: '',
+  seoTitle: '',
+  seoDescription: '',
+  categoryId: '',
+  brandId: '',
+  weightGrams: '',
+  lengthMm: '',
+  widthMm: '',
+  heightMm: '',
+  cost: '',
+};
 
 export default function AdminProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [savedFormSnapshot, setSavedFormSnapshot] = useState<string>('');
+  const [categories, setCategories] = useState<{ id: number; name: string; parentId: number | null }[]>([]);
+
+  // Load categories once so the form can render a name-based dropdown
+  useEffect(() => {
+    apiClient
+      .get<{ id: number; name: string; parentId: number | null }[]>('/api/v1/admin/categories')
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) setCategories(res.data);
+      })
+      .catch(() => {});
+  }, []);
   const [isSaving, setIsSaving] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({});
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [form, setForm] = useState<ProductFormState>(EMPTY_PRODUCT_FORM);
   const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -84,7 +163,7 @@ export default function AdminProductDetailPage() {
       })
       .catch(() => {});
   }, []);
-  const { errors, validateAll, clearError } = useFormValidation({
+  const { errors, validateAll, clearError, onBlurField } = useFormValidation({
     name: { required: "Назва обов'язкова", minLength: { value: 2, message: 'Мінімум 2 символи' } },
     code: { required: "Код обов'язковий" },
     priceRetail: {
@@ -110,6 +189,7 @@ export default function AdminProductDetailPage() {
           setForm({
             name: res.data.name,
             code: res.data.code,
+            barcode: (res.data as { barcode?: string | null }).barcode || '',
             slug: res.data.slug,
             description: res.data.content?.shortDescription || '',
             descriptionHtml: res.data.content?.fullDescription || '',
@@ -129,15 +209,49 @@ export default function AdminProductDetailPage() {
             seoDescription: res.data.content?.seoDescription || '',
             categoryId: res.data.categoryId ? String(res.data.categoryId) : '',
             brandId: res.data.brandId ? String(res.data.brandId) : '',
+            weightGrams:
+              (res.data as unknown as { weightGrams?: number | null }).weightGrams != null
+                ? String((res.data as unknown as { weightGrams: number }).weightGrams)
+                : '',
+            lengthMm:
+              (res.data as unknown as { lengthMm?: number | null }).lengthMm != null
+                ? String((res.data as unknown as { lengthMm: number }).lengthMm)
+                : '',
+            widthMm:
+              (res.data as unknown as { widthMm?: number | null }).widthMm != null
+                ? String((res.data as unknown as { widthMm: number }).widthMm)
+                : '',
+            heightMm:
+              (res.data as unknown as { heightMm?: number | null }).heightMm != null
+                ? String((res.data as unknown as { heightMm: number }).heightMm)
+                : '',
+            cost:
+              (res.data as unknown as { cost?: number | string | null }).cost != null
+                ? String((res.data as unknown as { cost: number | string }).cost)
+                : '',
           });
         }
       })
       .finally(() => setIsLoading(false));
   }, [id]);
 
-  const updateField = useCallback((key: string, value: unknown) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  // Capture a snapshot of the form right after it loads, then re-snapshot
+  // after each successful save so the "unsaved changes" indicator clears.
+  useEffect(() => {
+    if (!isLoading && product && !savedFormSnapshot) {
+      setSavedFormSnapshot(JSON.stringify(form));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, product]);
+  const isDirty = savedFormSnapshot !== '' && JSON.stringify(form) !== savedFormSnapshot;
+  const guardDirty = useUnsavedChangesGuard(isDirty);
+
+  const updateField = useCallback(
+    <K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) => {
+      setForm((prev) => ({ ...prev, [key]: value }));
+    },
+    [],
+  );
 
   const handleSave = async () => {
     if (!validateAll(form)) return;
@@ -146,29 +260,62 @@ export default function AdminProductDetailPage() {
       const payload = {
         name: form.name,
         code: form.code,
-        slug: (form.slug as string) || null,
-        description: (form.description as string) || null,
-        descriptionHtml: (form.descriptionHtml as string) || null,
-        specifications: (form.specifications as string) || null,
+        barcode: form.barcode.trim() || null,
+        slug: form.slug || null,
+        description: form.description || null,
+        descriptionHtml: form.descriptionHtml || null,
+        specifications: form.specifications || null,
         priceRetail: Number(form.priceRetail),
-        priceRetailOld: (form.priceRetailOld as string) ? Number(form.priceRetailOld) : null,
-        priceWholesale: (form.priceWholesale as string) ? Number(form.priceWholesale) : null,
-        priceWholesale2: (form.priceWholesale2 as string) ? Number(form.priceWholesale2) : null,
-        priceWholesale3: (form.priceWholesale3 as string) ? Number(form.priceWholesale3) : null,
+        priceRetailOld: form.priceRetailOld ? Number(form.priceRetailOld) : null,
+        priceWholesale: form.priceWholesale ? Number(form.priceWholesale) : null,
+        priceWholesale2: form.priceWholesale2 ? Number(form.priceWholesale2) : null,
+        priceWholesale3: form.priceWholesale3 ? Number(form.priceWholesale3) : null,
         quantity: Number(form.quantity),
         sortOrder: Number(form.sortOrder) || 0,
         isActive: form.isActive,
         isPromo: form.isPromo,
-        promoStartDate: (form.promoStartDate as string) || null,
-        promoEndDate: (form.promoEndDate as string) || null,
-        seoTitle: (form.seoTitle as string) || null,
-        seoDescription: (form.seoDescription as string) || null,
-        categoryId: (form.categoryId as string) ? Number(form.categoryId) : null,
-        brandId: (form.brandId as string) ? Number(form.brandId) : null,
+        promoStartDate: form.promoStartDate || null,
+        promoEndDate: form.promoEndDate || null,
+        seoTitle: form.seoTitle || null,
+        seoDescription: form.seoDescription || null,
+        categoryId: form.categoryId ? Number(form.categoryId) : null,
+        brandId: form.brandId ? Number(form.brandId) : null,
+        weightGrams: form.weightGrams ? Number(form.weightGrams) : null,
+        lengthMm: form.lengthMm ? Number(form.lengthMm) : null,
+        widthMm: form.widthMm ? Number(form.widthMm) : null,
+        heightMm: form.heightMm ? Number(form.heightMm) : null,
+        cost: form.cost ? Number(form.cost) : null,
+        // Optimistic concurrency token: server checks this matches the row's
+        // current version and atomically increments. Mismatch → 409.
+        version: (product as { version?: number } | null)?.version,
       };
-      const res = await apiClient.put(`/api/v1/admin/products/${id}`, payload);
-      if (res.success) {
+      const res = await apiClient.put<ProductDetail>(`/api/v1/admin/products/${id}`, payload);
+      if (res.success && res.data) {
         toast.success('Збережено!');
+        // Sync the local product (so `product.version` advances) and clear
+        // the dirty snapshot.
+        setProduct(res.data);
+        setSavedFormSnapshot(JSON.stringify(form));
+      } else if (res.statusCode === 409) {
+        // Optimistic-lock conflict. Offer to refresh from server so the admin
+        // doesn't lose unsaved input — they can copy fields from the toast
+        // before clicking "Оновити", or override after refresh.
+        toast.error(
+          res.error || 'Товар був змінений іншим адміністратором',
+          {
+            duration: 12000,
+            action: {
+              label: 'Оновити з сервера',
+              onClick: async () => {
+                const updated = await apiClient.get<ProductDetail>(`/api/v1/admin/products/${id}`);
+                if (updated.success && updated.data) {
+                  setProduct(updated.data);
+                  toast.success('Оновлено. Поверніть свої правки і збережіть знову.');
+                }
+              },
+            },
+          },
+        );
       } else {
         toast.error(res.error || 'Помилка збереження');
       }
@@ -179,8 +326,7 @@ export default function AdminProductDetailPage() {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handleImageUpload = async (files: FileList) => {
     if (!files?.length) return;
 
     const formData = new FormData();
@@ -199,13 +345,12 @@ export default function AdminProductDetailPage() {
       if (result?.success) {
         const updated = await apiClient.get<ProductDetail>(`/api/v1/admin/products/${id}`);
         if (updated.success && updated.data) setProduct(updated.data);
+        toast.success('Зображення завантажено');
       } else {
         toast.error(result?.error || 'Не вдалося завантажити зображення');
       }
     } catch {
       toast.error('Помилка мережі при завантаженні');
-    } finally {
-      e.target.value = '';
     }
   };
 
@@ -213,9 +358,16 @@ export default function AdminProductDetailPage() {
     if (deleteImageId === null) return;
     const imageId = deleteImageId;
     setDeleteImageId(null);
-    const res = await apiClient.delete(`/api/v1/admin/products/${id}/images/${imageId}`);
-    if (res.success && product) {
-      setProduct({ ...product, images: product.images.filter((img) => img.id !== imageId) });
+    try {
+      const res = await apiClient.delete(`/api/v1/admin/products/${id}/images/${imageId}`);
+      if (res.success && product) {
+        setProduct({ ...product, images: product.images.filter((img) => img.id !== imageId) });
+        toast.success('Зображення видалено');
+      } else {
+        toast.error(res.error || 'Не вдалося видалити зображення');
+      }
+    } catch {
+      toast.error('Помилка мережі при видаленні зображення');
     }
   };
 
@@ -265,7 +417,24 @@ export default function AdminProductDetailPage() {
         >
           ← Товари
         </Link>
-        <h2 className="mt-1 text-xl font-bold">{product.name}</h2>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <h2 className="text-xl font-bold">{product.name}</h2>
+          {isDirty && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+              Незбережені зміни
+            </span>
+          )}
+          <a
+            href={`/product/${product.slug}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+            title="Переглянути на сайті"
+          >
+            ↗ На сайті
+          </a>
+        </div>
         <p className="text-sm text-[var(--color-text-secondary)]">
           ID: {product.id} | Код: {product.code}
         </p>
@@ -274,35 +443,14 @@ export default function AdminProductDetailPage() {
       {/* Images */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <h3 className="mb-3 text-sm font-semibold">Зображення</h3>
-        <div className="flex flex-wrap gap-3">
-          {product.images.map((img) => (
-            <div
-              key={img.id}
-              className="group relative h-24 w-24 overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]"
-            >
-              <Image src={img.pathMedium} alt="" fill sizes="96px" className="object-contain p-1" />
-              <button
-                onClick={() => setDeleteImageId(img.id)}
-                className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100"
-              >
-                Видалити
-              </button>
-            </div>
-          ))}
-          <label
-            className={`flex h-24 w-24 cursor-pointer items-center justify-center rounded-[var(--radius)] border-2 border-dashed border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
-          >
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageUpload}
-              className="hidden"
-              disabled={isUploading}
-            />
-            <span className="text-2xl">{isUploading ? '⏳' : '+'}</span>
-          </label>
-        </div>
+        <ProductImagesManager
+          productId={id}
+          images={product.images}
+          onChange={(next) => setProduct({ ...product, images: next })}
+          isUploading={isUploading}
+          onUpload={handleImageUpload}
+          onRequestDelete={(imageId) => setDeleteImageId(imageId)}
+        />
         {bgRemovalAvailable && (
           <label className="mt-3 flex items-center gap-2 text-sm">
             <input
@@ -328,34 +476,63 @@ export default function AdminProductDetailPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
             label="Назва *"
-            value={form.name as string}
+            value={form.name}
             onChange={(e) => {
               updateField('name', e.target.value);
               clearError('name');
             }}
+            onBlur={onBlurField('name', form)}
             error={errors.name}
           />
           <Input
             label="Код *"
-            value={form.code as string}
+            value={form.code}
             onChange={(e) => {
               updateField('code', e.target.value);
               clearError('code');
             }}
+            onBlur={onBlurField('code', form)}
             error={errors.code}
           />
-          <Input
-            label="Slug (URL)"
-            value={form.slug as string}
-            onChange={(e) => updateField('slug', e.target.value)}
-            placeholder="auto-generated from name"
+          <BarcodeInput
+            value={form.barcode}
+            onChange={(v) => updateField('barcode', v)}
           />
-          <Input
-            label="ID категорії"
-            type="number"
-            value={form.categoryId as string}
-            onChange={(e) => updateField('categoryId', e.target.value)}
-          />
+          <div>
+            <Input
+              label="Slug (URL)"
+              value={form.slug}
+              onChange={(e) => updateField('slug', e.target.value)}
+              placeholder="auto-generated from name"
+            />
+            <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
+              pulito.trade/product/<strong>{form.slug || '...'}</strong>
+              {product && product.slug && form.slug !== product.slug && (
+                <span className="ml-1 font-medium text-amber-600">
+                  ⚠️ Зміна URL поверне 404 на старій адресі
+                </span>
+              )}
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[var(--color-text)]">Категорія</label>
+            <Select
+              value={form.categoryId}
+              onChange={(e) => updateField('categoryId', e.target.value)}
+              options={[
+                { value: '', label: '— Без категорії —' },
+                ...categories.map((c) => ({
+                  value: String(c.id),
+                  label: c.parentId ? `↳ ${c.name}` : c.name,
+                })),
+              ]}
+            />
+            {!form.categoryId && (
+              <p className="mt-1 text-[11px] text-amber-600">
+                ⚠️ Товар без категорії не з'явиться в каталозі на сайті
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -366,60 +543,89 @@ export default function AdminProductDetailPage() {
           <Input
             label="Роздрібна ціна *"
             type="number"
-            value={form.priceRetail as string}
+            min="0"
+            step="0.01"
+            value={form.priceRetail}
             onChange={(e) => {
               updateField('priceRetail', e.target.value);
               clearError('priceRetail');
             }}
+            onBlur={onBlurField('priceRetail', form)}
             error={errors.priceRetail}
           />
-          <Input
-            label="Стара ціна"
-            type="number"
-            value={form.priceRetailOld as string}
-            onChange={(e) => updateField('priceRetailOld', e.target.value)}
-          />
+          <div>
+            <Input
+              label="Стара ціна"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.priceRetailOld}
+              onChange={(e) => updateField('priceRetailOld', e.target.value)}
+            />
+            <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
+              Заповніть, щоб показати знижку −% на товарі
+            </p>
+          </div>
           <Input
             label="Ціна: Дрібний опт"
             type="number"
-            value={form.priceWholesale as string}
+            min="0"
+            step="0.01"
+            value={form.priceWholesale}
             onChange={(e) => updateField('priceWholesale', e.target.value)}
           />
           <Input
             label="Ціна: Середній опт"
             type="number"
-            value={form.priceWholesale2 as string}
+            min="0"
+            step="0.01"
+            value={form.priceWholesale2}
             onChange={(e) => updateField('priceWholesale2', e.target.value)}
           />
           <Input
             label="Ціна: Великий опт"
             type="number"
-            value={form.priceWholesale3 as string}
+            min="0"
+            step="0.01"
+            value={form.priceWholesale3}
             onChange={(e) => updateField('priceWholesale3', e.target.value)}
           />
-          <Input
-            label="Кількість *"
-            type="number"
-            value={form.quantity as string}
-            onChange={(e) => {
-              updateField('quantity', e.target.value);
-              clearError('quantity');
-            }}
-            error={errors.quantity}
-          />
-          <Input
-            label="Сортування"
-            type="number"
-            value={form.sortOrder as string}
-            onChange={(e) => updateField('sortOrder', e.target.value)}
-            placeholder="0"
-          />
+          <div>
+            <Input
+              label="Кількість *"
+              type="number"
+              min="0"
+              value={form.quantity}
+              onChange={(e) => {
+                updateField('quantity', e.target.value);
+                clearError('quantity');
+              }}
+              onBlur={onBlurField('quantity', form)}
+              error={errors.quantity}
+            />
+            <RestockSuggestionHint
+              productId={Number(id)}
+              onApply={(qty) => updateField('quantity', String(qty))}
+            />
+          </div>
+          <div>
+            <Input
+              label="Сортування"
+              type="number"
+              value={form.sortOrder}
+              onChange={(e) => updateField('sortOrder', e.target.value)}
+              placeholder="0"
+            />
+            <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
+              Менше число — вище в списку каталогу
+            </p>
+          </div>
         </div>
         <div className="mt-4 flex gap-6">
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={form.isActive as boolean}
+              checked={form.isActive}
               onChange={(e) => updateField('isActive', e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
@@ -428,20 +634,20 @@ export default function AdminProductDetailPage() {
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={form.isPromo as boolean}
+              checked={form.isPromo}
               onChange={(e) => updateField('isPromo', e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
             Акційний
           </label>
         </div>
-        {(form.isPromo as boolean) && (
+        {(form.isPromo) && (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Акція з</label>
               <input
                 type="datetime-local"
-                value={form.promoStartDate as string}
+                value={form.promoStartDate}
                 onChange={(e) => updateField('promoStartDate', e.target.value)}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
               />
@@ -450,7 +656,7 @@ export default function AdminProductDetailPage() {
               <label className="mb-1 block text-sm font-medium">Акція по</label>
               <input
                 type="datetime-local"
-                value={form.promoEndDate as string}
+                value={form.promoEndDate}
                 onChange={(e) => updateField('promoEndDate', e.target.value)}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
               />
@@ -462,33 +668,185 @@ export default function AdminProductDetailPage() {
       {/* Brand */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <BrandSelector
-          value={(form.brandId as string) || ''}
+          value={(form.brandId) || ''}
           onChange={(v) => updateField('brandId', v)}
         />
       </div>
 
       {/* Description */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Опис</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Опис</h3>
+          <button
+            type="button"
+            disabled={isGenerating}
+            onClick={async () => {
+              setIsGenerating(true);
+              try {
+                const res = await apiClient.post<{
+                  seoTitle: string;
+                  seoDescription: string;
+                  shortDescription: string;
+                  fullDescription: string;
+                }>(`/api/v1/admin/products/${id}/ai-generate`, {});
+                if (!res.success || !res.data) {
+                  toast.error(res.error || 'Не вдалося згенерувати');
+                  return;
+                }
+                // Detect which fields already have content — ask before overwriting
+                const conflicts: string[] = [];
+                if (form.seoTitle.trim()) conflicts.push('SEO Title');
+                if (form.seoDescription.trim()) conflicts.push('SEO Description');
+                if (form.description.trim()) conflicts.push('Короткий опис');
+                if (form.descriptionHtml.trim()) conflicts.push('Повний опис');
+                if (
+                  conflicts.length > 0 &&
+                  !window.confirm(
+                    `Замінити вже заповнені поля?\n\n${conflicts.join(', ')}\n\nOK — замінити, Cancel — лишити як є.`,
+                  )
+                ) {
+                  // User refused — only fill empty fields
+                  setForm((prev) => ({
+                    ...prev,
+                    seoTitle: prev.seoTitle || res.data!.seoTitle,
+                    seoDescription: prev.seoDescription || res.data!.seoDescription,
+                    description: prev.description || res.data!.shortDescription,
+                    descriptionHtml: prev.descriptionHtml || res.data!.fullDescription,
+                  }));
+                  toast.success('Заповнено лише порожні поля');
+                  return;
+                }
+                setForm((prev) => ({
+                  ...prev,
+                  seoTitle: res.data!.seoTitle,
+                  seoDescription: res.data!.seoDescription,
+                  description: res.data!.shortDescription,
+                  descriptionHtml: res.data!.fullDescription,
+                }));
+                toast.success('Згенеровано — перевірте поля Опис і SEO');
+              } catch (err) {
+                console.error('[AI generate]', err);
+                toast.error('Помилка мережі');
+              } finally {
+                setIsGenerating(false);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
+            title="Згенерувати SEO-опис на основі назви, бренду, категорії"
+          >
+            {isGenerating ? (
+              <>
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Генеруємо…
+              </>
+            ) : (
+              <>✨ Згенерувати</>
+            )}
+          </button>
+        </div>
         <WysiwygEditor
-          value={form.descriptionHtml as string}
+          value={form.descriptionHtml}
           onChange={(html) => updateField('descriptionHtml', html)}
           placeholder="Введіть опис товару..."
         />
       </div>
 
-      {/* Specifications */}
+      {/* Specifications — structured key/value pairs */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Характеристики</h3>
-        <WysiwygEditor
-          value={form.specifications as string}
-          onChange={(html) => updateField('specifications', html)}
-          placeholder="Склад, об’єм, маса, інструкція тощо. Покажеться як вкладка «Характеристики»."
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Характеристики</h3>
+          <span className="text-[11px] text-[var(--color-text-secondary)]">
+            Об'єм, склад, виробник, інструкція тощо
+          </span>
+        </div>
+        <SpecsEditor
+          value={form.specifications}
+          onChange={(next) => updateField('specifications', next)}
         />
       </div>
 
+      {/* Badges */}
+      <ProductBadgesSection productId={Number(id)} />
+
+      {/* Variants */}
+      <VariantsSection productId={Number(id)} />
+
+      {/* Warehouse-level stock */}
+      <WarehouseStockSection productId={Number(id)} />
+
       {/* Price History */}
       <PriceHistorySection productId={Number(id)} />
+
+      {/* Marketplaces */}
+      <ProductMarketplacesSection productId={Number(id)} />
+
+      {/* Physical parameters — weight, dimensions, cost-of-goods */}
+      <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Фізичні параметри</h3>
+          <span className="text-[11px] text-[var(--color-text-secondary)]">
+            Використовується для TTN Нової Пошти та розрахунку маржі
+          </span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Input
+            label="Вага (г)"
+            type="number"
+            value={form.weightGrams}
+            onChange={(e) => updateField('weightGrams', e.target.value)}
+            placeholder="300"
+          />
+          <Input
+            label="Довжина (мм)"
+            type="number"
+            value={form.lengthMm}
+            onChange={(e) => updateField('lengthMm', e.target.value)}
+            placeholder="200"
+          />
+          <Input
+            label="Ширина (мм)"
+            type="number"
+            value={form.widthMm}
+            onChange={(e) => updateField('widthMm', e.target.value)}
+            placeholder="150"
+          />
+          <Input
+            label="Висота (мм)"
+            type="number"
+            value={form.heightMm}
+            onChange={(e) => updateField('heightMm', e.target.value)}
+            placeholder="100"
+          />
+          <Input
+            label="Собівартість (₴)"
+            type="number"
+            step="0.01"
+            value={form.cost}
+            onChange={(e) => updateField('cost', e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        {form.cost && form.priceRetail && Number(form.cost) > 0 && Number(form.priceRetail) > 0 && (
+          <p className="mt-3 text-xs text-[var(--color-text-secondary)]">
+            Маржа:{' '}
+            <strong
+              className={
+                ((Number(form.priceRetail) - Number(form.cost)) / Number(form.priceRetail)) * 100 < 10
+                  ? 'text-red-600'
+                  : ((Number(form.priceRetail) - Number(form.cost)) / Number(form.priceRetail)) * 100 < 25
+                    ? 'text-amber-600'
+                    : 'text-emerald-600'
+              }
+            >
+              {Math.round(
+                ((Number(form.priceRetail) - Number(form.cost)) / Number(form.priceRetail)) * 1000,
+              ) / 10}
+              %
+            </strong>{' '}
+            ({(Number(form.priceRetail) - Number(form.cost)).toFixed(2)} ₴ з одиниці)
+          </p>
+        )}
+      </div>
 
       {/* SEO */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
@@ -497,7 +855,7 @@ export default function AdminProductDetailPage() {
           <div>
             <Input
               label="SEO Title"
-              value={form.seoTitle as string}
+              value={form.seoTitle}
               onChange={(e) => {
                 updateField('seoTitle', e.target.value);
                 clearError('seoTitle');
@@ -505,13 +863,13 @@ export default function AdminProductDetailPage() {
               error={errors.seoTitle}
             />
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-              {(form.seoTitle as string)?.length || 0}/70
+              {(form.seoTitle)?.length || 0}/70
             </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">SEO Description</label>
             <textarea
-              value={form.seoDescription as string}
+              value={form.seoDescription}
               onChange={(e) => {
                 updateField('seoDescription', e.target.value);
                 clearError('seoDescription');
@@ -523,7 +881,7 @@ export default function AdminProductDetailPage() {
               <p className="mt-0.5 text-xs text-[var(--color-danger)]">{errors.seoDescription}</p>
             )}
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-              {(form.seoDescription as string)?.length || 0}/160
+              {(form.seoDescription)?.length || 0}/160
             </p>
           </div>
         </div>
@@ -542,8 +900,10 @@ export default function AdminProductDetailPage() {
               `${product.name}\n\nЦіна: ${price} грн\nЗамовляйте прямо зараз!`,
             );
             const image = encodeURIComponent(product.imagePath || '');
-            router.push(
-              `/admin/publications?prefill=product&title=${title}&content=${content}&image=${image}&productId=${product.id}`,
+            guardDirty(() =>
+              router.push(
+                `/admin/publications?prefill=product&title=${title}&content=${content}&image=${image}&productId=${product.id}`,
+              ),
             );
           }}
         >
@@ -551,18 +911,20 @@ export default function AdminProductDetailPage() {
         </Button>
         <Button
           variant="outline"
-          onClick={() => {
-            window.open(`/api/v1/admin/export?type=products_full&ids=${product.id}`, '_blank');
-          }}
+          onClick={() => guardDirty(() => router.push('/admin/products'))}
         >
-          Експорт XLSX
-        </Button>
-        <Button variant="outline" onClick={() => router.push('/admin/products')}>
           Скасувати
         </Button>
-        <Button variant="danger" onClick={() => setConfirmDelete(true)} isLoading={isDeleting}>
-          Видалити товар
-        </Button>
+        <div className="ml-auto">
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={isDeleting}
+            className="rounded-[var(--radius)] border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:border-red-400 hover:bg-red-50 disabled:opacity-50"
+          >
+            {isDeleting ? 'Видалення…' : 'Видалити товар'}
+          </button>
+        </div>
       </div>
 
       <ConfirmDialog
@@ -581,6 +943,234 @@ export default function AdminProductDetailPage() {
         title="Видалення товару"
         message={`Ви впевнені, що хочете видалити "${product.name}"? Товар буде деактивовано та позначено як видалений.`}
         confirmText="Так, видалити"
+      />
+    </div>
+  );
+}
+
+interface ProductMarketplaceRow {
+  channel: string;
+  status: string;
+  externalId: string | null;
+  permalink: string | null;
+  errorMessage: string | null;
+  publishedAt: string | null;
+  publicationId: number | null;
+  configured: boolean;
+  excluded: boolean;
+}
+
+const MARKETPLACE_LABELS: Record<string, { name: string; icon: string }> = {
+  olx: { name: 'OLX', icon: '🟢' },
+  rozetka: { name: 'Rozetka', icon: '🟩' },
+  prom: { name: 'Prom.ua', icon: '🔵' },
+  epicentrk: { name: 'Epicentr K', icon: '🟠' },
+};
+
+function ProductMarketplacesSection({ productId }: { productId: number }) {
+  const [rows, setRows] = useState<ProductMarketplaceRow[]>([]);
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [confirmUnpublish, setConfirmUnpublish] = useState<string | null>(null);
+  // Derive isLoading from request/completion tokens to avoid synchronous setState in effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  const [completedToken, setCompletedToken] = useState(-1);
+  const isLoading = completedToken !== reloadToken;
+  const load = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<ProductMarketplaceRow[]>(`/api/v1/admin/products/${productId}/marketplaces`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setRows(res.data);
+        setCompletedToken(reloadToken);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, reloadToken]);
+
+  const handlePublish = async (channel: string) => {
+    setBusy((prev) => ({ ...prev, [channel]: true }));
+    const res = await apiClient.post(`/api/v1/admin/products/${productId}/marketplaces`, {
+      channel,
+    });
+    if (res.success) {
+      toast.success(`Опубліковано на ${MARKETPLACE_LABELS[channel]?.name || channel}`);
+      load();
+    } else {
+      toast.error(res.error || 'Не вдалося опублікувати');
+    }
+    setBusy((prev) => ({ ...prev, [channel]: false }));
+  };
+
+  const toggleExclusion = async (channel: string, excluded: boolean) => {
+    setBusy((prev) => ({ ...prev, [channel]: true }));
+    const res = await apiClient.patch(`/api/v1/admin/products/${productId}/marketplaces`, {
+      channel,
+      excluded,
+    });
+    if (res.success) {
+      toast.success(excluded ? 'Виключено' : 'Дозволено');
+      load();
+    } else {
+      toast.error(res.error || 'Не вдалося оновити');
+    }
+    setBusy((prev) => ({ ...prev, [channel]: false }));
+  };
+
+  const executeUnpublish = async () => {
+    const channel = confirmUnpublish;
+    if (!channel) return;
+    setConfirmUnpublish(null);
+    setBusy((prev) => ({ ...prev, [channel]: true }));
+    try {
+      const res = await apiClient.delete(
+        `/api/v1/admin/products/${productId}/marketplaces?channel=${encodeURIComponent(channel)}`,
+      );
+      if (res.success) {
+        toast.success('Знято з продажу');
+        load();
+      } else {
+        toast.error(res.error || 'Не вдалося зняти');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    } finally {
+      setBusy((prev) => ({ ...prev, [channel]: false }));
+    }
+  };
+
+  return (
+    <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Маркетплейси</h3>
+        <Link
+          href="/admin/marketplaces"
+          className="text-xs text-[var(--color-primary)] hover:underline"
+        >
+          Налаштування →
+        </Link>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-4">
+          <Spinner size="sm" />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((row) => {
+            const label = MARKETPLACE_LABELS[row.channel] || { name: row.channel, icon: '📦' };
+            const isPublished = row.status === 'published' && row.externalId;
+            const isFailed = row.status === 'failed';
+
+            return (
+              <div
+                key={row.channel}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-sm"
+              >
+                <span>{label.icon}</span>
+                <span className="font-medium">{label.name}</span>
+                {!row.configured ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                    Не налашт.
+                  </span>
+                ) : isPublished ? (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                    ✓ Опубліковано
+                  </span>
+                ) : isFailed ? (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
+                    ✗ Помилка
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                    —
+                  </span>
+                )}
+                {row.permalink && (
+                  <a
+                    href={row.permalink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[var(--color-primary)] hover:underline"
+                  >
+                    Переглянути ↗
+                  </a>
+                )}
+                {row.errorMessage && (
+                  <span
+                    title={row.errorMessage}
+                    className="ml-1 max-w-xs truncate text-xs text-red-600"
+                  >
+                    {row.errorMessage}
+                  </span>
+                )}
+                <div className="ml-auto flex items-center gap-1.5">
+                  {row.excluded && (
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                      Виключено
+                    </span>
+                  )}
+                  {!row.configured ? (
+                    <Link
+                      href="/admin/marketplaces"
+                      className="rounded-md bg-[var(--color-primary)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20"
+                    >
+                      Налаштувати →
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={() => toggleExclusion(row.channel, !row.excluded)}
+                      disabled={busy[row.channel]}
+                      className="text-xs text-[var(--color-text-secondary)] hover:underline disabled:opacity-50"
+                      title={row.excluded ? 'Дозволити публікацію на цьому маркетплейсі' : 'Виключити з цього маркетплейсу (не публікувати в bulk/sync)'}
+                    >
+                      {row.excluded ? 'Дозволити' : 'Виключити'}
+                    </button>
+                  )}
+                  {row.configured && !isPublished && !row.excluded && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      isLoading={busy[row.channel]}
+                      disabled={busy[row.channel]}
+                      onClick={() => handlePublish(row.channel)}
+                    >
+                      Опублікувати
+                    </Button>
+                  )}
+                  {isPublished && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      isLoading={busy[row.channel]}
+                      disabled={busy[row.channel]}
+                      onClick={() => setConfirmUnpublish(row.channel)}
+                    >
+                      Зняти
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmUnpublish !== null}
+        onClose={() => setConfirmUnpublish(null)}
+        onConfirm={executeUnpublish}
+        variant="warning"
+        title="Зняття з маркетплейсу"
+        message={
+          confirmUnpublish
+            ? `Зняти товар з ${MARKETPLACE_LABELS[confirmUnpublish]?.name || confirmUnpublish}?`
+            : ''
+        }
+        confirmText="Так, зняти"
       />
     </div>
   );

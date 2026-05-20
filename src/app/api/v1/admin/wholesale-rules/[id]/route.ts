@@ -2,9 +2,12 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
 
 export const PUT = withRole('admin', 'manager')(
-  async (request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
@@ -26,6 +29,15 @@ export const PUT = withRole('admin', 'manager')(
         },
       });
 
+      await logAudit({
+        userId: user.id,
+        actionType: 'rule_change',
+        entityType: 'wholesale_rule',
+        entityId: numId,
+        details: { ...data, action: 'update' },
+        ipAddress: getClientIp(request),
+      });
+
       return successResponse({
         id: rule.id,
         ruleType: rule.ruleType,
@@ -35,22 +47,32 @@ export const PUT = withRole('admin', 'manager')(
         isActive: rule.isActive,
         createdAt: rule.createdAt,
       });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/wholesale-rules/[id]] PUT failed', { error: err });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }
 );
 
 export const DELETE = withRole('admin', 'manager')(
-  async (_request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
       if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
 
       await prisma.wholesaleRule.delete({ where: { id: numId } });
+      await logAudit({
+        userId: user.id,
+        actionType: 'rule_change',
+        entityType: 'wholesale_rule',
+        entityId: numId,
+        details: { action: 'delete' },
+        ipAddress: getClientIp(request),
+      });
       return successResponse({ deleted: true });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/wholesale-rules/[id]] DELETE failed', { error: err });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

@@ -4,6 +4,8 @@ import { updateCampaignRule, deleteCampaignRule, CampaignError } from '@/service
 import { updateCampaignRuleSchema } from '@/validators/campaign';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
 export const GET = withRole('admin')(
   async (_request: NextRequest, { params }) => {
@@ -22,14 +24,15 @@ export const GET = withRole('admin')(
 
       if (!rule) return errorResponse('Кампанію не знайдено', 404);
       return successResponse(rule);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/campaigns/[id]] GET failed', { error: err });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }
 );
 
 export const PATCH = withRole('admin')(
-  async (request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
@@ -43,25 +46,40 @@ export const PATCH = withRole('admin')(
       }
 
       const rule = await updateCampaignRule(numId, parsed.data);
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_update',
+        entityType: 'campaign',
+        entityId: numId,
+        details: { fields: Object.keys(parsed.data) },
+      });
       return successResponse(rule);
     } catch (error) {
       if (error instanceof CampaignError) return errorResponse(error.message, error.statusCode);
+      logger.error('[admin/campaigns/[id]] PATCH failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }
 );
 
 export const DELETE = withRole('admin')(
-  async (_request: NextRequest, { params }) => {
+  async (_request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
       if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
 
       await deleteCampaignRule(numId);
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_delete',
+        entityType: 'campaign',
+        entityId: numId,
+      });
       return successResponse({ message: 'Кампанію видалено' });
     } catch (error) {
       if (error instanceof CampaignError) return errorResponse(error.message, error.statusCode);
+      logger.error('[admin/campaigns/[id]] DELETE failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

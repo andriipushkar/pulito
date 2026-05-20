@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import {
   getUserById,
   updateUserRole,
@@ -9,6 +9,7 @@ import {
   updateAdminNote,
   getUserOrders,
   getUserStats,
+  getUserTimeline,
   getUserAuditLog,
   verifyUserEmail,
   sendMessageToUser,
@@ -21,8 +22,10 @@ import {
 } from '@/services/user';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { filterByRole, filterArrayByRole } from '@/utils/role-filter';
+import { getClientIp } from '@/utils/request';
+import { logAudit } from '@/services/audit';
 
-export const GET = withRole(
+export const GET = withRole2fa(
   'admin',
   'manager',
 )(async (request: NextRequest, { params, user: adminUser }) => {
@@ -41,6 +44,10 @@ export const GET = withRole(
     if (section === 'stats') {
       const stats = await getUserStats(numId);
       return successResponse(stats);
+    }
+    if (section === 'timeline') {
+      const timeline = await getUserTimeline(numId);
+      return successResponse(timeline);
     }
     if (section === 'audit') {
       const logs = await getUserAuditLog(numId);
@@ -80,7 +87,7 @@ export const GET = withRole(
   }
 });
 
-export const PUT = withRole('admin')(async (request: NextRequest, { params, user: adminUser }) => {
+export const PUT = withRole2fa('admin')(async (request: NextRequest, { params, user: adminUser }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -90,18 +97,28 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params, user
 
     const action = body.action;
 
+    const ipAddress = getClientIp(request);
+
     if (action === 'block' || action === 'unblock') {
-      const user = await toggleBlockUser(numId, action === 'block', body.reason, adminId);
+      const user = await toggleBlockUser(numId, action === 'block', body.reason, adminId, { ipAddress });
       return successResponse(user);
     }
 
     if (action === 'resetPassword') {
-      const result = await resetUserPassword(numId, adminId);
+      const result = await resetUserPassword(numId, adminId, { ipAddress });
       return successResponse(result);
     }
 
     if (action === 'saveNote') {
       const user = await updateAdminNote(numId, body.note || '');
+      await logAudit({
+        userId: adminId,
+        actionType: 'data_update',
+        entityType: 'user',
+        entityId: numId,
+        details: { field: 'adminNote', length: (body.note || '').length },
+        ipAddress,
+      });
       return successResponse(user);
     }
 
@@ -131,11 +148,19 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params, user
         return errorResponse('Вкажіть повідомлення та канали відправки', 400);
       }
       const result = await sendMessageToUser(numId, body.message, body.channels, body.subject);
+      await logAudit({
+        userId: adminId,
+        actionType: 'data_create',
+        entityType: 'user_message',
+        entityId: numId,
+        details: { channels: body.channels, subject: body.subject ?? null, length: body.message.length },
+        ipAddress,
+      });
       return successResponse(result);
     }
 
     if (action === 'deleteAccount') {
-      const result = await deleteUserAccount(numId, adminId);
+      const result = await deleteUserAccount(numId, adminId, { ipAddress });
       return successResponse(result);
     }
 
@@ -150,7 +175,19 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params, user
       if (group !== null && ![1, 2, 3].includes(group)) {
         return errorResponse('Гуртова група має бути 1, 2 або 3', 400);
       }
+      const prev = await prisma.user.findUnique({
+        where: { id: numId },
+        select: { wholesaleGroup: true },
+      });
       await prisma.user.update({ where: { id: numId }, data: { wholesaleGroup: group } });
+      await logAudit({
+        userId: adminId,
+        actionType: 'data_update',
+        entityType: 'user',
+        entityId: numId,
+        details: { field: 'wholesaleGroup', before: prev?.wholesaleGroup ?? null, after: group },
+        ipAddress,
+      });
       const user = await getUserById(numId);
       return successResponse(user);
     }

@@ -1,45 +1,42 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { initiateDomainVerification, DomainError } from '@/services/domain';
+import { resolveActiveTenantId } from '@/lib/admin-tenant';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
-export const GET = withRole('admin')(
-  async (_request, { user }) => {
+export const GET = withRole2fa('admin')(
+  async (request, { user }) => {
     try {
-      // For now, resolve tenantId from user's first tenant membership
-      const membership = await prisma.tenantUser.findFirst({
-        where: { userId: user.id },
-        include: {
-          tenant: {
-            select: {
-              id: true,
-              domain: true,
-              domainVerified: true,
-              domainVerificationToken: true,
-            },
-          },
+      const resolved = await resolveActiveTenantId(request, user.id);
+      if ('error' in resolved) return resolved.error;
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: resolved.tenantId },
+        select: {
+          domain: true,
+          domainVerified: true,
+          domainVerificationToken: true,
         },
       });
+      if (!tenant) return errorResponse('Тенант не знайдено', 404);
 
-      if (!membership) {
-        return errorResponse('Тенант не знайдено', 404);
-      }
-
-      const { tenant } = membership;
       return successResponse({
         domain: tenant.domain,
         verified: tenant.domainVerified,
         verificationToken: tenant.domainVerificationToken,
         txtRecordName: tenant.domain ? `_clean-verify.${tenant.domain}` : null,
       });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/domains GET] failed', { error: err });
       return errorResponse('Помилка завантаження інформації про домен', 500);
     }
   }
 );
 
-export const POST = withRole('admin')(
+export const POST = withRole2fa('admin')(
   async (request: NextRequest, { user }) => {
     try {
       const { domain } = await request.json();
@@ -48,20 +45,35 @@ export const POST = withRole('admin')(
         return errorResponse('Домен обов\'язковий');
       }
 
-      const membership = await prisma.tenantUser.findFirst({
-        where: { userId: user.id },
-      });
-
-      if (!membership) {
-        return errorResponse('Тенант не знайдено', 404);
+      // Strict hostname format — no protocol, no trailing dot, no path.
+      // RFC 1034/1123 + path-traversal guard.
+      const cleaned = domain.trim().toLowerCase();
+      const hostnameRegex =
+        /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
+      if (!hostnameRegex.test(cleaned)) {
+        return errorResponse(
+          'Невалідний домен. Очікується формат example.com (без http:// чи слешів)',
+          400,
+        );
       }
 
-      const result = await initiateDomainVerification(membership.tenantId, domain);
+      const resolved = await resolveActiveTenantId(request, user.id);
+      if ('error' in resolved) return resolved.error;
+
+      const result = await initiateDomainVerification(resolved.tenantId, domain);
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_update',
+        entityType: 'tenant_domain',
+        entityId: resolved.tenantId,
+        details: { domain: cleaned, action: 'initiate_verification' },
+      });
       return successResponse(result);
     } catch (error) {
       if (error instanceof DomainError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/domains POST] failed', { error });
       return errorResponse('Помилка ініціалізації верифікації', 500);
     }
   }

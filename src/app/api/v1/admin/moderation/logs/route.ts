@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse, paginatedResponse, parseSearchParams } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(
   async (request: NextRequest) => {
@@ -36,7 +37,8 @@ export const GET = withRole('admin', 'manager')(
       ]);
 
       return paginatedResponse(logs, total, page, limit);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/moderation/logs] GET failed', { error: err });
       return errorResponse('Помилка завантаження журналу модерації', 500);
     }
   }
@@ -57,7 +59,8 @@ export const PATCH = withRole('admin', 'manager')(
       });
 
       return successResponse(log);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/moderation/logs] PATCH failed', { error: err });
       return errorResponse('Помилка оновлення запису', 500);
     }
   }

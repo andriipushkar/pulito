@@ -17,6 +17,10 @@ vi.mock('@/middleware/auth', () => ({
     (..._roles: string[]) =>
     (handler: any) =>
       handler,
+  withRole2fa:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
 }));
 vi.mock('@/services/channel-config', () => ({
   getAllChannelConfigs: vi.fn(),
@@ -74,7 +78,7 @@ describe('PUT /api/v1/admin/channel-settings', () => {
         config: { enabled: true, botToken: 'tok', channelId: 'ch' },
       }),
     });
-    const res = await PUT(req);
+    const res = await (PUT as any)(req, { user: { id: 1, email: 't@t', role: 'admin' } });
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -87,7 +91,7 @@ describe('PUT /api/v1/admin/channel-settings', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel: 'unknown', config: {} }),
     });
-    const res = await PUT(req);
+    const res = await (PUT as any)(req, { user: { id: 1, email: 't@t', role: 'admin' } });
 
     expect(res.status).toBe(400);
   });
@@ -103,7 +107,7 @@ describe('PUT /api/v1/admin/channel-settings', () => {
         config: { enabled: true, botToken: 'tok', channelId: 'ch' },
       }),
     });
-    const res = await PUT(req);
+    const res = await (PUT as any)(req, { user: { id: 1, email: 't@t', role: 'admin' } });
 
     expect(res.status).toBe(500);
   });

@@ -103,8 +103,6 @@ export const RATE_LIMITS = {
   subscriptions: { prefix: 'rl:subs:', max: 10, windowSec: 60 } satisfies RateLimitConfig,
   /** Blog/content: 60 per minute */
   content: { prefix: 'rl:content:', max: 60, windowSec: 60 } satisfies RateLimitConfig,
-  /** Calculator: 20 per minute */
-  calculator: { prefix: 'rl:calc:', max: 20, windowSec: 60 } satisfies RateLimitConfig,
 };
 
 export interface RateLimitResult {

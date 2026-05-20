@@ -1,7 +1,12 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { invalidateSmtpConfigCache } from '@/services/smtp-config';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
+import { encrypt, decrypt, isEncrypted } from '@/lib/encryption';
 
 const SMTP_KEYS = [
   'smtp_host',
@@ -16,12 +21,23 @@ const SMTP_KEYS = [
 
 const SENSITIVE_KEYS = ['smtp_pass'];
 
-function maskValue(key: string, value: string): string {
-  if (!SENSITIVE_KEYS.includes(key) || !value || value.length < 6) return value;
+function maskValue(key: string, rawValue: string): string {
+  if (!SENSITIVE_KEYS.includes(key) || !rawValue) return rawValue;
+  // Decrypt before masking so the first/last chars belong to the real
+  // password (masking ciphertext is meaningless to the admin).
+  let value = rawValue;
+  if (isEncrypted(rawValue)) {
+    try {
+      value = decrypt(rawValue);
+    } catch {
+      value = rawValue;
+    }
+  }
+  if (value.length < 6) return value;
   return value.slice(0, 3) + '••••••' + value.slice(-3);
 }
 
-export const GET = withRole('admin', 'manager')(async () => {
+export const GET = withRole2fa('admin', 'manager')(async () => {
   try {
     const settings = await prisma.siteSetting.findMany({
       where: { key: { in: [...SMTP_KEYS] } },
@@ -34,29 +50,49 @@ export const GET = withRole('admin', 'manager')(async () => {
     }
 
     return successResponse(result);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/smtp-settings] GET failed', { error: err });
     return errorResponse('Помилка завантаження налаштувань', 500);
   }
 });
 
-export const PUT = withRole('admin')(async (request: NextRequest, { user }) => {
+export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
+    const changedKeys: string[] = [];
+    const sensitiveChangedKeys: string[] = [];
 
     for (const [key, value] of Object.entries(body)) {
       if (!SMTP_KEYS.includes(key as typeof SMTP_KEYS[number])) continue;
       const strValue = String(value);
       if (SENSITIVE_KEYS.includes(key) && strValue.includes('••••')) continue;
 
+      // Encrypt sensitive values at rest (AES-256-GCM, key derived from APP_SECRET).
+      const storedValue = SENSITIVE_KEYS.includes(key) ? encrypt(strValue) : strValue;
+
       await prisma.siteSetting.upsert({
         where: { key },
-        update: { value: strValue, updatedBy: user.id },
-        create: { key, value: strValue, updatedBy: user.id },
+        update: { value: storedValue, updatedBy: user.id },
+        create: { key, value: storedValue, updatedBy: user.id },
       });
+      if (SENSITIVE_KEYS.includes(key)) sensitiveChangedKeys.push(key);
+      else changedKeys.push(key);
     }
 
+    invalidateSmtpConfigCache();
+
+    if (changedKeys.length || sensitiveChangedKeys.length) {
+      await logAudit({
+        userId: user.id,
+        actionType: 'rule_change',
+        entityType: 'settings',
+        details: { scope: 'smtp', changedKeys, sensitiveChangedKeys },
+        ipAddress: getClientIp(request),
+      });
+    }
     return successResponse({ saved: true });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/smtp-settings] PUT failed', { error: err });
     return errorResponse('Помилка збереження', 500);
   }
 });

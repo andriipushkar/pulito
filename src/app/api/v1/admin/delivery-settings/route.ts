@@ -1,8 +1,12 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
+import { withRole, withRole2fa } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { invalidateSettingsCache } from '@/services/settings';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
+import { encrypt, decrypt, isEncrypted } from '@/lib/encryption';
 
 const DELIVERY_SETTINGS_KEYS = [
   'delivery_nova_poshta_enabled',
@@ -27,12 +31,24 @@ const DELIVERY_SETTINGS_KEYS = [
 
 const SENSITIVE_KEYS = ['delivery_nova_poshta_api_key', 'delivery_ukrposhta_bearer_token'];
 
-function maskValue(key: string, value: string): string {
-  if (!SENSITIVE_KEYS.includes(key) || !value || value.length < 8) return value;
+function maskValue(key: string, rawValue: string): string {
+  if (!SENSITIVE_KEYS.includes(key) || !rawValue) return rawValue;
+  let value = rawValue;
+  if (isEncrypted(rawValue)) {
+    try {
+      value = decrypt(rawValue);
+    } catch {
+      value = rawValue;
+    }
+  }
+  if (value.length < 8) return value;
   return value.slice(0, 4) + '••••••••' + value.slice(-4);
 }
 
-export const GET = withRole(
+// GET also reads decrypted API keys (then masks). Promote to withRole2fa to
+// match PUT and prevent a session hijack via a manager account from
+// silently revealing the masked-but-still-leaky prefix/suffix.
+export const GET = withRole2fa(
   'admin',
   'manager',
 )(async () => {
@@ -48,14 +64,17 @@ export const GET = withRole(
     }
 
     return successResponse(result);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/delivery-settings] GET failed', { error: err });
     return errorResponse('Помилка завантаження налаштувань', 500);
   }
 });
 
-export const PUT = withRole('admin')(async (request: NextRequest, { user }) => {
+export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
+    const changedKeys: string[] = [];
+    const sensitiveChangedKeys: string[] = [];
 
     for (const [key, value] of Object.entries(body)) {
       if (!DELIVERY_SETTINGS_KEYS.includes(key as (typeof DELIVERY_SETTINGS_KEYS)[number]))
@@ -64,16 +83,46 @@ export const PUT = withRole('admin')(async (request: NextRequest, { user }) => {
       const strValue = String(value);
       if (SENSITIVE_KEYS.includes(key) && strValue.includes('••••')) continue;
 
+      // Numeric fields must not be negative. We use string storage but
+      // validate the value parses as a positive decimal before saving.
+      if (
+        key.endsWith('_fixed_cost') ||
+        key === 'delivery_free_shipping_threshold'
+      ) {
+        const num = parseFloat(strValue);
+        if (strValue && (!Number.isFinite(num) || num < 0)) {
+          return errorResponse(
+            `Поле "${key}" має бути додатним числом (отримано "${strValue}")`,
+            400,
+          );
+        }
+      }
+
+      const storedValue = SENSITIVE_KEYS.includes(key) ? encrypt(strValue) : strValue;
+
       await prisma.siteSetting.upsert({
         where: { key },
-        update: { value: strValue, updatedBy: user.id },
-        create: { key, value: strValue, updatedBy: user.id },
+        update: { value: storedValue, updatedBy: user.id },
+        create: { key, value: storedValue, updatedBy: user.id },
       });
+      if (SENSITIVE_KEYS.includes(key)) sensitiveChangedKeys.push(key);
+      else changedKeys.push(key);
     }
 
     await invalidateSettingsCache();
+
+    if (changedKeys.length || sensitiveChangedKeys.length) {
+      await logAudit({
+        userId: user.id,
+        actionType: 'rule_change',
+        entityType: 'settings',
+        details: { scope: 'delivery', changedKeys, sensitiveChangedKeys },
+        ipAddress: getClientIp(request),
+      });
+    }
     return successResponse({ saved: true });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/delivery-settings] PUT failed', { error: err });
     return errorResponse('Помилка збереження налаштувань', 500);
   }
 });

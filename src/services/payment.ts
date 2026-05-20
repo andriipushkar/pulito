@@ -288,7 +288,7 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
       transactionId: true,
       amount: true,
       order: {
-        select: { orderNumber: true, totalAmount: true },
+        select: { orderNumber: true, totalAmount: true, status: true },
       },
     },
   });
@@ -305,8 +305,15 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
     throw new PaymentError('Відсутні дані провайдера для повернення', 400);
   }
 
-  const refundAmount = amount ?? Number(payment.amount);
-  const isPartial = refundAmount < Number(payment.amount);
+  const paidAmount = Number(payment.amount);
+  const refundAmount = amount ?? paidAmount;
+  if (refundAmount > paidAmount) {
+    throw new PaymentError(
+      `Сума повернення (${refundAmount}) перевищує сплачену (${paidAmount})`,
+      400,
+    );
+  }
+  const isPartial = refundAmount < paidAmount;
   const provider = payment.paymentProvider as PaymentProvider;
 
   let result: RefundResult;
@@ -325,6 +332,11 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
 
   if (result.success) {
     const newPaymentStatus = isPartial ? 'partial' : 'refunded';
+    // Lifecycle status doesn't change on a refund — we only flip paymentStatus.
+    // The status-history row must use real OrderStatus values on both sides,
+    // otherwise the "Історія" panel renders `undefined → undefined` because
+    // ORDER_STATUS_LABELS has no `'partial'`/`'refunded'` keys.
+    const currentLifecycleStatus = payment.order.status;
 
     await prisma.$transaction([
       prisma.payment.update({
@@ -337,12 +349,12 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
           paymentStatus: newPaymentStatus,
           statusHistory: {
             create: {
-              oldStatus: 'paid',
-              newStatus: newPaymentStatus,
+              oldStatus: currentLifecycleStatus,
+              newStatus: currentLifecycleStatus,
               changeSource: 'system',
               comment: isPartial
-                ? `Часткове повернення ${refundAmount} грн через ${provider}`
-                : `Повне повернення ${refundAmount} грн через ${provider}`,
+                ? `Часткове повернення ${refundAmount} грн через ${provider} (оплата: paid → partial)`
+                : `Повне повернення ${refundAmount} грн через ${provider} (оплата: paid → refunded)`,
             },
           },
         },

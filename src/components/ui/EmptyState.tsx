@@ -30,7 +30,7 @@ export default function EmptyState({
       {actionLabel && actionHref && (
         <Link
           href={actionHref}
-          className="rounded-xl bg-[var(--color-text)] px-6 py-2.5 text-sm font-medium text-[var(--color-bg)] transition-opacity hover:opacity-80"
+          className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-md"
         >
           {actionLabel}
         </Link>

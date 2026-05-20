@@ -4,6 +4,7 @@ import { withRole } from '@/middleware/auth';
 import { generateCommercialOfferPdf, PdfError } from '@/services/pdf';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 const commercialOfferSchema = z.object({
   productIds: z.array(z.number().int().positive()).min(1, 'Оберіть хоча б один товар'),
@@ -42,6 +43,7 @@ export const POST = withRole('admin', 'manager')(
       if (error instanceof PdfError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/commercial-offer] POST failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

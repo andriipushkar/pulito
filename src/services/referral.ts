@@ -104,6 +104,38 @@ export async function processReferral(referredUserId: number, code: string) {
   });
 }
 
+export async function getReferralStats() {
+  const [byStatus, bonusAgg] = await Promise.all([
+    prisma.referral.groupBy({
+      by: ['status'],
+      _count: true,
+    }),
+    prisma.referral.aggregate({
+      where: { status: 'bonus_granted' },
+      _sum: { bonusValue: true },
+    }),
+  ]);
+
+  const counts: Record<string, number> = {
+    registered: 0,
+    first_order: 0,
+    bonus_granted: 0,
+  };
+  let total = 0;
+  for (const row of byStatus) {
+    counts[row.status] = row._count;
+    total += row._count;
+  }
+
+  return {
+    total,
+    registered: counts.registered,
+    firstOrder: counts.first_order,
+    bonusGranted: counts.bonus_granted,
+    bonusPaid: Number(bonusAgg._sum.bonusValue || 0),
+  };
+}
+
 export async function getAllReferrals(filters: ReferralFilterInput) {
   const where: Prisma.ReferralWhereInput = {};
 
@@ -131,14 +163,26 @@ export async function grantReferralBonus(id: number, data: GrantBonusInput) {
   if (!referral) {
     throw new ReferralError('Реферал не знайдено', 404);
   }
+  if (referral.status === 'bonus_granted') {
+    throw new ReferralError('Бонус уже видано', 409);
+  }
 
-  return prisma.referral.update({
-    where: { id },
+  // Atomic claim: only grant if status is still a pre-bonus state. Prevents
+  // two parallel admins from double-paying the referrer.
+  const claimed = await prisma.referral.updateMany({
+    where: { id, status: { in: ['registered', 'first_order'] } },
     data: {
       status: 'bonus_granted',
       bonusType: data.bonusType,
       bonusValue: data.bonusValue,
     },
+  });
+  if (claimed.count === 0) {
+    throw new ReferralError('Бонус уже видано іншим адміністратором', 409);
+  }
+
+  return prisma.referral.findUniqueOrThrow({
+    where: { id },
     select: referralSelect,
   });
 }

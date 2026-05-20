@@ -33,44 +33,81 @@ const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 
 /**
  * Generate a signed OAuth state parameter to prevent CSRF.
- * Format: <nonce>.<timestamp>.<hmac_signature>
+ * Format: <nonce>.<timestamp>.<returnUrlB64>.<hmac_signature>
  *
- * The timestamp is part of the signed payload so verification can reject
- * replayed/expired states without needing a server-side cookie. This used
- * to be stored in a cookie alongside the state, but the cookie was a
- * single-key store: opening "Login with Google" in two tabs would have the
- * second overwrite the first, so the first tab's callback got an
- * `invalid_state` error. Embedding the expiry in the state itself avoids
- * that whole class of bug.
+ * The timestamp + optional post-login returnUrl are part of the signed
+ * payload so verification can reject replayed/expired states and trust the
+ * returnUrl without a server-side cookie. Earlier versions used an
+ * oauth_state cookie: a single-key store that two tabs would overwrite,
+ * leaving the first tab's callback with an `invalid_state` error.
  */
 const STATE_MAX_AGE_MS = 30 * 60 * 1000;
 
-export function generateOAuthState(): string {
+/**
+ * Whether `path` is a safe same-origin relative path to redirect to.
+ * Rejects absolute URLs, protocol-relative (//), and anything with control
+ * chars / backslashes that some servers normalise into scheme switches.
+ */
+export function isSafeReturnUrl(path: string): boolean {
+  if (!path || typeof path !== 'string') return false;
+  if (!path.startsWith('/')) return false;
+  if (path.startsWith('//')) return false;
+  if (/[\\\r\n\t]/.test(path)) return false;
+  return true;
+}
+
+function b64urlEncode(s: string): string {
+  return Buffer.from(s, 'utf8').toString('base64url');
+}
+
+function b64urlDecode(s: string): string {
+  return Buffer.from(s, 'base64url').toString('utf8');
+}
+
+export function generateOAuthState(returnUrl?: string): string {
   const nonce = randomBytes(16).toString('hex');
   const ts = Date.now().toString();
-  const payload = `${nonce}.${ts}`;
+  const safeReturn = returnUrl && isSafeReturnUrl(returnUrl) ? returnUrl : '';
+  const returnEnc = b64urlEncode(safeReturn);
+  const payload = `${nonce}.${ts}.${returnEnc}`;
   const signature = createHmac('sha256', env.APP_SECRET).update(payload).digest('hex');
   return `${payload}.${signature}`;
 }
 
+export type OAuthStateVerification =
+  | { valid: true; returnUrl: string | null }
+  | { valid: false };
+
 /**
  * Verify a signed OAuth state: HMAC integrity + age check.
+ * Returns the embedded returnUrl when valid, or null if none / unsafe.
  */
-export function verifyOAuthState(state: string): boolean {
+export function verifyOAuthState(state: string): OAuthStateVerification {
+  if (!state || typeof state !== 'string') return { valid: false };
   const parts = state.split('.');
-  if (parts.length !== 3) return false;
-  const [nonce, ts, signature] = parts;
+  if (parts.length !== 4) return { valid: false };
+  const [nonce, ts, returnEnc, signature] = parts;
   const expectedSignature = createHmac('sha256', env.APP_SECRET)
-    .update(`${nonce}.${ts}`)
+    .update(`${nonce}.${ts}.${returnEnc}`)
     .digest('hex');
   if (!timingSafeCompare(expectedSignature, signature)) {
-    return false;
+    return { valid: false };
   }
   const issuedAt = Number(ts);
-  if (!Number.isFinite(issuedAt)) return false;
+  if (!Number.isFinite(issuedAt)) return { valid: false };
   const age = Date.now() - issuedAt;
-  if (age < 0 || age > STATE_MAX_AGE_MS) return false;
-  return true;
+  if (age < 0 || age > STATE_MAX_AGE_MS) return { valid: false };
+
+  let returnUrl: string | null = null;
+  try {
+    const decoded = b64urlDecode(returnEnc);
+    if (decoded && isSafeReturnUrl(decoded)) {
+      returnUrl = decoded;
+    }
+  } catch {
+    // Malformed returnUrl payload — treat as no returnUrl.
+  }
+  return { valid: true, returnUrl };
 }
 
 export function getGoogleAuthUrl(state: string): string {

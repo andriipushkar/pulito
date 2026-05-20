@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { getWebhookLogs } from '@/services/webhook-log';
 import { paginatedResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin')(async (request: NextRequest) => {
   try {
@@ -12,7 +13,8 @@ export const GET = withRole('admin')(async (request: NextRequest) => {
       limit: Number(params.limit) || 50,
     });
     return paginatedResponse(logs, total, Number(params.page) || 1, Number(params.limit) || 50);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/webhook-logs] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

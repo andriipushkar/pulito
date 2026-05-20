@@ -103,6 +103,7 @@ ${content.innerHTML}
       processing: '#f59e0b',
       confirmed: '#10b981',
       paid: '#06b6d4',
+      packed: '#6366f1',
       shipped: '#8b5cf6',
       completed: '#6b7280',
       cancelled: '#ef4444',

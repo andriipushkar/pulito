@@ -185,6 +185,33 @@ function serializeProducts<T extends Record<string, unknown>>(products: T[]): T[
   return products.map(serializeProduct);
 }
 
+/**
+ * Enrich a list of products with aggregated review data (avgRating + reviewCount).
+ * Uses a single groupBy query on approved reviews for the given product IDs.
+ */
+async function attachRatings<T extends { id: number }>(products: T[]): Promise<(T & { avgRating: number | null; reviewCount: number })[]> {
+  if (products.length === 0) return products.map((p) => ({ ...p, avgRating: null, reviewCount: 0 }));
+  const ids = products.map((p) => p.id);
+  try {
+    const grouped = await prisma.review.groupBy({
+      by: ['productId'],
+      where: { productId: { in: ids }, status: 'approved' },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    const map = new Map<number, { avg: number | null; count: number }>();
+    for (const g of grouped) {
+      map.set(g.productId, { avg: g._avg.rating, count: g._count._all });
+    }
+    return products.map((p) => {
+      const r = map.get(p.id);
+      return { ...p, avgRating: r?.avg ?? null, reviewCount: r?.count ?? 0 };
+    });
+  } catch {
+    return products.map((p) => ({ ...p, avgRating: null, reviewCount: 0 }));
+  }
+}
+
 // Fields to select for product list (without heavy content)
 const productListSelect = {
   id: true,
@@ -201,6 +228,7 @@ const productListSelect = {
   isPromo: true,
   isActive: true,
   imagePath: true,
+  barcode: true,
   viewsCount: true,
   ordersCount: true,
   createdAt: true,
@@ -288,6 +316,28 @@ const productDetailSelect = {
   brand: {
     select: { id: true, name: true, slug: true, logoPath: true },
   },
+  variants: {
+    select: {
+      id: true,
+      sku: true,
+      name: true,
+      priceRetail: true,
+      priceWholesale: true,
+      quantity: true,
+      options: true,
+      imagePath: true,
+      isActive: true,
+      // Physical params per variant — needed by storefront for shipping
+      // estimate, and by /admin/orders for accurate Nova Poshta TTN sizing.
+      weightGrams: true,
+      lengthMm: true,
+      widthMm: true,
+      heightMm: true,
+      cost: true,
+    },
+    where: { isActive: true },
+    orderBy: { sortOrder: 'asc' as const },
+  },
 } satisfies Prisma.ProductSelect;
 
 function buildSortOrder(sort: string): Prisma.ProductOrderByWithRelationInput[] {
@@ -321,6 +371,21 @@ export async function getProducts(filters: ProductFilterInput) {
   if (cached) return cached;
 
   const skip = (filters.page - 1) * filters.limit;
+
+  // Barcode is a unique field — short-circuit to a direct lookup.
+  // Used by Ctrl+K palette ("Товар за штрихкодом 4823033...") and by
+  // /admin/products?barcode=... filter chips.
+  if (filters.barcode) {
+    const product = await prisma.product.findFirst({
+      where: { barcode: filters.barcode, isActive: true },
+      select: productListSelect,
+    });
+    const result = product
+      ? { products: serializeProducts([product]), total: 1 }
+      : { products: [], total: 0 };
+    await cacheSet(cacheKey, result, CACHE_TTL.MEDIUM);
+    return result;
+  }
 
   // Use full-text search when search query is provided
   if (filters.search && filters.search.length >= 2) {
@@ -477,7 +542,10 @@ export async function getProductBySlug(slug: string, userId?: number | null) {
 export async function getProductById(id: number, userId?: number | null) {
   const product = await prisma.product.findUnique({
     where: { id },
-    select: { ...productDetailSelect, categoryId: true },
+    // brandId/categoryId raw FKs are needed by the admin edit form to
+    // pre-fill the brand/category dropdowns. The nested `brand`/`category`
+    // selects (in productDetailSelect) only carry display fields, not the FK.
+    select: { ...productDetailSelect, categoryId: true, brandId: true },
   });
 
   if (!product) return null;
@@ -573,6 +641,7 @@ export async function searchAutocomplete(query: string) {
 export async function createProduct(data: {
   code: string;
   name: string;
+  barcode?: string | null;
   categoryId?: number | null;
   priceRetail: number;
   priceWholesale?: number | null;
@@ -596,6 +665,17 @@ export async function createProduct(data: {
     throw new ProductError('Товар з таким кодом вже існує', 409);
   }
 
+  // Dedup by barcode (covers imports + manual creation)
+  if (data.barcode) {
+    const existingBarcode = await prisma.product.findUnique({ where: { barcode: data.barcode } });
+    if (existingBarcode) {
+      throw new ProductError(
+        `Товар із таким штрихкодом вже існує (id ${existingBarcode.id}). Відредагуйте існуючий замість створення дубля.`,
+        409,
+      );
+    }
+  }
+
   if (data.categoryId) {
     const category = await prisma.category.findUnique({ where: { id: data.categoryId } });
     if (!category) {
@@ -615,6 +695,7 @@ export async function createProduct(data: {
       code: data.code,
       name: data.name,
       slug: finalSlug,
+      barcode: data.barcode || null,
       categoryId: data.categoryId ?? null,
       brandId: data.brandId ?? null,
       priceRetail: data.priceRetail,
@@ -669,6 +750,7 @@ export async function updateProduct(
     code?: string;
     name?: string;
     slug?: string | null;
+    barcode?: string | null;
     categoryId?: number | null;
     priceRetail?: number;
     priceRetailOld?: number | null;
@@ -687,6 +769,14 @@ export async function updateProduct(
     brandId?: number | null;
     promoStartDate?: string | null;
     promoEndDate?: string | null;
+    weightGrams?: number | null;
+    lengthMm?: number | null;
+    widthMm?: number | null;
+    heightMm?: number | null;
+    cost?: number | null;
+    // Optimistic concurrency. If provided, the update rejects with 409 when
+    // the row's current version no longer matches — another admin saved.
+    version?: number;
   },
 ) {
   const product = await prisma.product.findUnique({ where: { id } });
@@ -698,6 +788,16 @@ export async function updateProduct(
     const codeExists = await prisma.product.findUnique({ where: { code: data.code } });
     if (codeExists) {
       throw new ProductError('Товар з таким кодом вже існує', 409);
+    }
+  }
+
+  if (data.barcode !== undefined && data.barcode && data.barcode !== product.barcode) {
+    const barcodeExists = await prisma.product.findUnique({ where: { barcode: data.barcode } });
+    if (barcodeExists && barcodeExists.id !== id) {
+      throw new ProductError(
+        `Інший товар уже має цей штрихкод (id ${barcodeExists.id})`,
+        409,
+      );
     }
   }
 
@@ -791,6 +891,7 @@ export async function updateProduct(
 
   if (data.name !== undefined) updateData.name = data.name;
   if (data.code !== undefined) updateData.code = data.code;
+  if (data.barcode !== undefined) updateData.barcode = data.barcode || null;
   // Manual `priceRetailOld` override (e.g. marketing wants to show a custom
   // "old price" without changing the current retail). Skipped above when
   // priceRetail changes — that branch already auto-fills priceRetailOld.
@@ -815,12 +916,45 @@ export async function updateProduct(
   if (data.promoEndDate !== undefined) {
     updateData.promoEndDate = data.promoEndDate ? new Date(data.promoEndDate) : null;
   }
+  if (data.weightGrams !== undefined) updateData.weightGrams = data.weightGrams;
+  if (data.lengthMm !== undefined) updateData.lengthMm = data.lengthMm;
+  if (data.widthMm !== undefined) updateData.widthMm = data.widthMm;
+  if (data.heightMm !== undefined) updateData.heightMm = data.heightMm;
+  if (data.cost !== undefined) updateData.cost = data.cost;
 
-  const updated = await prisma.product.update({
-    where: { id },
-    data: updateData,
-    select: productDetailSelect,
-  });
+  // Optimistic concurrency: when the client passed version, use updateMany
+  // with version check. The version increment happens atomically in the same
+  // statement; mismatch returns count=0 → throw 409.
+  if (data.version !== undefined) {
+    const result = await prisma.product.updateMany({
+      where: { id, version: data.version },
+      data: { ...(updateData as Prisma.ProductUpdateManyMutationInput), version: { increment: 1 } },
+    });
+    if (result.count === 0) {
+      throw new ProductError(
+        'Товар був змінений іншим адміністратором. Оновіть сторінку і повторіть.',
+        409,
+      );
+    }
+  }
+
+  const updated = data.version !== undefined
+    ? await prisma.product.findUniqueOrThrow({ where: { id }, select: productDetailSelect })
+    : await prisma.product.update({
+        where: { id },
+        data: { ...updateData, version: { increment: 1 } },
+        select: productDetailSelect,
+      });
+
+  // Push price changes to marketplaces in the background. Fires only when the
+  // retail price actually changed (not on every product update).
+  if (data.priceRetail !== undefined && Number(product.priceRetail) !== data.priceRetail) {
+    import('@/services/marketplace-sync')
+      .then((mod) => mod.syncProductsPriceToMarketplaces([id]))
+      .catch(() => {
+        // Best-effort
+      });
+  }
 
   // Mirror description/specs/SEO into ProductContent.
   if (
@@ -880,6 +1014,105 @@ export async function deleteProduct(id: number): Promise<{ hard: boolean }> {
 }
 
 /**
+ * Duplicate a product. The new product gets a unique code (`{old}-copy`,
+ * `{old}-copy-2`, …), a unique slug, a fresh barcode of `null` (since barcodes
+ * must be unique), and inherits everything else — category, brand, prices,
+ * description, images. Starts as `isActive=false` so the operator can review
+ * and edit before publishing.
+ *
+ * Excluded by design: order history, price history, stock movements, badges,
+ * marketplace publications, variants — the copy is a fresh product, not a
+ * "fork with side-effects".
+ */
+export async function duplicateProduct(id: number) {
+  const original = await prisma.product.findUnique({
+    where: { id },
+    include: { content: true, images: { orderBy: { sortOrder: 'asc' } } },
+  });
+  if (!original) throw new ProductError('Товар не знайдено', 404);
+
+  // Find a free code: try {code}-copy, then {code}-copy-2, etc.
+  let attempt = 1;
+  let newCode = `${original.code}-copy`;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const exists = await prisma.product.findUnique({ where: { code: newCode }, select: { id: true } });
+    if (!exists) break;
+    attempt += 1;
+    newCode = `${original.code}-copy-${attempt}`;
+    if (attempt > 50) throw new ProductError('Не вдалося згенерувати унікальний код', 500);
+  }
+
+  // Find a free slug analogously
+  let slugAttempt = 1;
+  let newSlug = `${original.slug}-copy`;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const exists = await prisma.product.findUnique({ where: { slug: newSlug }, select: { id: true } });
+    if (!exists) break;
+    slugAttempt += 1;
+    newSlug = `${original.slug}-copy-${slugAttempt}`;
+    if (slugAttempt > 50) throw new ProductError('Не вдалося згенерувати унікальний slug', 500);
+  }
+
+  const created = await prisma.product.create({
+    data: {
+      code: newCode,
+      name: `${original.name} (копія)`,
+      slug: newSlug,
+      barcode: null, // barcodes are unique — never carry over
+      categoryId: original.categoryId,
+      brandId: original.brandId,
+      priceRetail: original.priceRetail,
+      priceWholesale: original.priceWholesale,
+      priceWholesale2: original.priceWholesale2,
+      priceWholesale3: original.priceWholesale3,
+      quantity: 0, // start with empty stock — operator will fill in
+      isPromo: false,
+      isActive: false, // draft mode
+      sortOrder: original.sortOrder,
+    },
+  });
+
+  if (original.content) {
+    await prisma.productContent.create({
+      data: {
+        productId: created.id,
+        shortDescription: original.content.shortDescription,
+        fullDescription: original.content.fullDescription,
+        specifications: original.content.specifications ?? undefined,
+        seoTitle: original.content.seoTitle,
+        seoDescription: original.content.seoDescription,
+      },
+    });
+  }
+
+  if (original.images.length > 0) {
+    await prisma.productImage.createMany({
+      data: original.images.map((img) => ({
+        productId: created.id,
+        originalFilename: img.originalFilename,
+        pathOriginal: img.pathOriginal,
+        pathFull: img.pathFull,
+        pathMedium: img.pathMedium,
+        pathThumbnail: img.pathThumbnail,
+        pathBlur: img.pathBlur,
+        format: img.format,
+        sizeBytes: img.sizeBytes,
+        width: img.width,
+        height: img.height,
+        altText: img.altText,
+        sortOrder: img.sortOrder,
+        isMain: img.isMain,
+      })),
+    });
+  }
+
+  await cacheInvalidate('products:*');
+  return created;
+}
+
+/**
  * @description Отримує акційні товари, відсортовані за популярністю.
  * @param limit - Максимальна кількість товарів (за замовчуванням 10)
  * @returns Масив акційних товарів
@@ -891,7 +1124,7 @@ export async function getPromoProducts(limit = 10) {
     orderBy: { ordersCount: 'desc' },
     take: limit,
   });
-  return serializeProducts(products);
+  return attachRatings(serializeProducts(products));
 }
 
 /**
@@ -906,7 +1139,7 @@ export async function getNewProducts(limit = 10) {
     orderBy: { createdAt: 'desc' },
     take: limit,
   });
-  return serializeProducts(products);
+  return attachRatings(serializeProducts(products));
 }
 
 /**
@@ -921,5 +1154,5 @@ export async function getPopularProducts(limit = 10) {
     orderBy: { ordersCount: 'desc' },
     take: limit,
   });
-  return serializeProducts(products);
+  return attachRatings(serializeProducts(products));
 }

@@ -10,7 +10,7 @@ import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 
 export default function SecurityPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refreshAuth } = useAuth();
   const [step, setStep] = useState<'idle' | 'setup' | 'verify' | 'done'>('idle');
   const [secret, setSecret] = useState('');
   const [, setOtpauthUrl] = useState('');
@@ -59,6 +59,7 @@ export default function SecurityPage() {
     if (res.success && res.data) {
       setBackupCodes(res.data.backupCodes);
       setStep('done');
+      await refreshAuth();
       toast.success('2FA успішно увімкнено!');
     } else {
       toast.error(res.error || 'Невірний код');

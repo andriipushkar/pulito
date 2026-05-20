@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { paginatedResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
   try {
@@ -36,7 +37,8 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
     ]);
 
     return paginatedResponse(subscriptions, total, page, limit);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/subscriptions] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

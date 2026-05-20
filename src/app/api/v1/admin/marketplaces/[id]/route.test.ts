@@ -13,11 +13,11 @@ vi.mock('@/config/env', () => ({
   },
 }));
 vi.mock('@/middleware/auth', () => ({
-  withRole:
-    (..._roles: string[]) =>
-    (handler: any) =>
-      handler as any,
+  withRole: (..._roles: string[]) => (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/marketplaces', () => ({
   updateMarketplaceListing: vi.fn(),
   deleteMarketplaceListing: vi.fn(),
@@ -32,6 +32,11 @@ vi.mock('@/services/marketplace-sync', () => ({
 vi.mock('@/utils/api-response', () => ({
   successResponse: (data: any, status = 200) => Response.json(data, { status }),
   errorResponse: (msg: string, status = 400) => Response.json({ error: msg }, { status }),
+}));
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    publicationChannel: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+  },
 }));
 
 import { GET, PUT, PATCH, POST, DELETE } from './route';

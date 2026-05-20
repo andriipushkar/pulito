@@ -151,3 +151,50 @@ export async function sendPushToAll(payload: PushPayload) {
 export function getVapidPublicKey(): string {
   return VAPID_PUBLIC_KEY;
 }
+
+/**
+ * Send a push notification to every admin and manager with at least one
+ * subscribed device. Used for ops alerts (new marketplace order, new
+ * customer message, oversold incident, etc).
+ */
+export async function sendPushToAdmins(payload: PushPayload): Promise<void> {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+
+  const adminIds = (
+    await prisma.user.findMany({
+      where: { role: { in: ['admin', 'manager'] }, isBlocked: false },
+      select: { id: true },
+    })
+  ).map((u) => u.id);
+  if (adminIds.length === 0) return;
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { userId: { in: adminIds } },
+  });
+  if (subscriptions.length === 0) return;
+
+  const jsonPayload = JSON.stringify({
+    title: payload.title,
+    body: payload.body,
+    url: payload.url || '/admin',
+    icon: payload.icon || '/icons/icon-192x192.png',
+  });
+
+  const expiredEndpoints: string[] = [];
+  const results = await Promise.allSettled(
+    subscriptions.map((sub) =>
+      webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        jsonPayload,
+      ),
+    ),
+  );
+  results.forEach((r, i) => {
+    if (r.status === 'rejected' && (r.reason as { statusCode?: number })?.statusCode === 410) {
+      expiredEndpoints.push(subscriptions[i].endpoint);
+    }
+  });
+  if (expiredEndpoints.length > 0) {
+    await prisma.pushSubscription.deleteMany({ where: { endpoint: { in: expiredEndpoints } } });
+  }
+}

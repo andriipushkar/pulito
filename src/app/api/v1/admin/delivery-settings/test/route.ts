@@ -1,9 +1,25 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
-import { successResponse } from '@/utils/api-response';
+import { withRole2fa } from '@/middleware/auth';
+import { successResponse, errorResponse } from '@/utils/api-response';
 
-export const POST = withRole('admin')(async (request: NextRequest) => {
+// Mirror the smtp/payment test rate limit so a curious admin or a stolen
+// token can't brute-force test millions of API keys via this endpoint.
+const RATE_BUCKET = new Map<number, number[]>();
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX = 5;
+function isRateLimited(adminId: number): boolean {
+  const now = Date.now();
+  const hits = (RATE_BUCKET.get(adminId) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  hits.push(now);
+  RATE_BUCKET.set(adminId, hits);
+  return hits.length > RATE_MAX;
+}
+
+export const POST = withRole2fa('admin')(async (request: NextRequest, { user }) => {
   try {
+    if (isRateLimited(user.id)) {
+      return errorResponse('Забагато тестових запитів. Зачекайте хвилину.', 429);
+    }
     const { provider, config } = await request.json();
 
     if (provider === 'nova_poshta') {

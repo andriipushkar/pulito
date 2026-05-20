@@ -4,6 +4,7 @@ import { syncMarketplacePrices } from '@/services/marketplaces';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { env } from '@/config/env';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('admin', 'manager')(
   async (request: NextRequest) => {
@@ -39,7 +40,8 @@ export const POST = withRole('admin', 'manager')(
 
       const result = await syncMarketplacePrices(channel, listings, env.APP_URL);
       return successResponse(result);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/marketplaces/sync-prices] POST failed', { error: err });
       return errorResponse('Помилка синхронізації цін', 500);
     }
   }

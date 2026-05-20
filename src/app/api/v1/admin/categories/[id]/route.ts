@@ -3,6 +3,9 @@ import { withRole } from '@/middleware/auth';
 import { updateCategorySchema } from '@/validators/category';
 import { getCategoryById, updateCategory, deleteCategory, CategoryError } from '@/services/category';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('manager', 'admin')(
   async (_request: NextRequest, { params }) => {
@@ -17,7 +20,8 @@ export const GET = withRole('manager', 'admin')(
       }
 
       return successResponse(category);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/categories/[id]] GET failed', { error: err });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }
@@ -43,23 +47,32 @@ export const PUT = withRole('manager', 'admin')(
       if (error instanceof CategoryError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/categories/[id]] PUT failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }
 );
 
 export const DELETE = withRole('manager', 'admin')(
-  async (_request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
       if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
       await deleteCategory(numId);
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_delete',
+        entityType: 'category',
+        entityId: numId,
+        ipAddress: getClientIp(request),
+      });
       return successResponse({ message: 'Категорію видалено' });
     } catch (error) {
       if (error instanceof CategoryError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/categories/[id]] DELETE failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

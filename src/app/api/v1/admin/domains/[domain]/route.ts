@@ -1,26 +1,23 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
-import { prisma } from '@/lib/prisma';
+import { withRole2fa } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { removeDomain } from '@/services/domain';
+import { resolveActiveTenantId } from '@/lib/admin-tenant';
+import { logger } from '@/lib/logger';
 
-export const DELETE = withRole('admin')(
+export const DELETE = withRole2fa('admin')(
   async (
-    _request: NextRequest,
+    request: NextRequest,
     { user }
   ) => {
     try {
-      const membership = await prisma.tenantUser.findFirst({
-        where: { userId: user.id },
-      });
+      const resolved = await resolveActiveTenantId(request, user.id);
+      if ('error' in resolved) return resolved.error;
 
-      if (!membership) {
-        return errorResponse('Тенант не знайдено', 404);
-      }
-
-      await removeDomain(membership.tenantId);
+      await removeDomain(resolved.tenantId);
       return successResponse({ removed: true });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/domains DELETE] failed', { error: err });
       return errorResponse('Помилка видалення домену', 500);
     }
   }

@@ -12,6 +12,7 @@ export const createVolumeDiscountSchema = z
     priority: z.number().int().min(0).optional().default(0),
     startsAt: z.string().optional().nullable(),
     endsAt: z.string().optional().nullable(),
+    stackableWith: z.array(z.string().max(50)).max(10).optional(),
   })
   .refine(
     (data) => data.productId || data.categoryId,
@@ -20,6 +21,10 @@ export const createVolumeDiscountSchema = z
   .refine(
     (data) => !data.maxQuantity || data.maxQuantity >= data.minQuantity,
     { message: 'maxQuantity має бути >= minQuantity', path: ['maxQuantity'] }
+  )
+  .refine(
+    (data) => !data.startsAt || !data.endsAt || new Date(data.startsAt) < new Date(data.endsAt),
+    { message: 'startsAt має бути раніше за endsAt', path: ['endsAt'] }
   );
 
 export type CreateVolumeDiscountInput = z.infer<typeof createVolumeDiscountSchema>;
@@ -35,6 +40,7 @@ export const updateVolumeDiscountSchema = z.object({
   priority: z.number().int().min(0).optional(),
   startsAt: z.string().nullable().optional(),
   endsAt: z.string().nullable().optional(),
+  stackableWith: z.array(z.string().max(50)).max(10).optional(),
 });
 
 export type UpdateVolumeDiscountInput = z.infer<typeof updateVolumeDiscountSchema>;

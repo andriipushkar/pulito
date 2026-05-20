@@ -12,6 +12,12 @@ export const oneCProductSchema = z.object({
   description: z.string().max(5000).optional(),
   imageUrl: z.string().url().optional(),
   isActive: z.boolean().optional(),
+  // Physical dimensions for shipping calcs; cost for margin reports.
+  weightGrams: z.number().nonnegative().max(1_000_000).optional(),
+  lengthMm: z.number().int().nonnegative().max(10_000).optional(),
+  widthMm: z.number().int().nonnegative().max(10_000).optional(),
+  heightMm: z.number().int().nonnegative().max(10_000).optional(),
+  cost: z.number().nonnegative().optional(),
 });
 
 export const oneCProductsImportSchema = z.object({

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -51,10 +52,12 @@ export default function AdminIntegrationsPage() {
         apiClient.get<SyncRow[]>('/api/v1/admin/integration/syncs'),
       ]);
 
-      setApiKeys(keysRes.data ?? []);
-      setSyncs(syncsRes.data ?? []);
+      if (keysRes.success) setApiKeys(keysRes.data ?? []);
+      else toast.error(keysRes.error || 'Помилка завантаження ключів');
+      if (syncsRes.success) setSyncs(syncsRes.data ?? []);
+      else toast.error(syncsRes.error || 'Помилка завантаження синхронізацій');
     } catch {
-      // silently handle — page will show empty state
+      toast.error('Помилка завантаження');
     } finally {
       setIsLoading(false);
     }
@@ -73,13 +76,15 @@ export default function AdminIntegrationsPage() {
         permissions: { products: true, orders: true, stock: true, prices: true },
       });
 
-      if (res.data?.rawKey) {
+      if (res.success && res.data?.rawKey) {
         setCreatedKey(res.data.rawKey);
+        setNewKeyName('');
+        fetchData();
+      } else {
+        toast.error(res.error || 'Не вдалося створити ключ');
       }
-      setNewKeyName('');
-      fetchData();
     } catch {
-      // handle error
+      toast.error('Не вдалося створити ключ');
     } finally {
       setIsCreatingKey(false);
     }
@@ -87,10 +92,11 @@ export default function AdminIntegrationsPage() {
 
   async function handleDeactivateKey(id: number) {
     try {
-      await apiClient.patch(`/api/v1/admin/integration/api-keys/${id}`, { isActive: false });
-      fetchData();
+      const res = await apiClient.patch(`/api/v1/admin/integration/api-keys/${id}`, { isActive: false });
+      if (res.success) fetchData();
+      else toast.error(res.error || 'Не вдалося деактивувати ключ');
     } catch {
-      // handle error
+      toast.error('Не вдалося деактивувати ключ');
     }
   }
 

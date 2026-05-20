@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/../generated/prisma';
 
@@ -17,45 +17,107 @@ interface ExportOrdersParams {
   clientType?: string;
   dateFrom?: string;
   dateTo?: string;
+  // Mirror the list-page filters so admins export exactly what they see.
+  paymentMethod?: string;
+  paymentStatus?: string;
+  deliveryMethod?: string;
+  assignedManagerId?: number;
+  search?: string;
   format?: 'xlsx' | 'csv';
 }
 
 interface ExportClientsParams {
   role?: string;
+  wholesaleStatus?: string;
+  wholesaleGroup?: string;
+  isBlocked?: boolean;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
   format?: 'xlsx' | 'csv';
 }
 
-function autoFitColumns(ws: XLSX.WorkSheet, data: Record<string, unknown>[]) {
-  if (data.length === 0) return;
-  const headers = Object.keys(data[0]);
-  const colWidths = headers.map((header) => {
-    const maxDataLen = data.reduce((max, row) => {
-      const val = String(row[header] ?? '');
-      return Math.max(max, val.length);
-    }, 0);
-    return Math.min(Math.max(header.length, maxDataLen) + 3, 50);
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/**
+ * Build an xlsx (or csv) Buffer from a flat row array. Auto-widths each column
+ * to fit content (capped at 50 chars). Centralises the ExcelJS boilerplate so
+ * the individual export helpers stay focused on the data shape.
+ */
+async function buildBuffer(
+  rows: Record<string, unknown>[],
+  sheetName: string,
+  format: 'xlsx' | 'csv',
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(sheetName.slice(0, 31));
+
+  if (rows.length === 0) {
+    if (format === 'csv') return Buffer.from('', 'utf-8');
+    const buf = await wb.xlsx.writeBuffer();
+    return Buffer.from(buf);
+  }
+
+  const headers = Object.keys(rows[0]);
+  ws.columns = headers.map((h) => {
+    const maxDataLen = rows.reduce(
+      (max, row) => Math.max(max, String(row[h] ?? '').length),
+      0,
+    );
+    return {
+      header: h,
+      key: h,
+      width: Math.min(Math.max(h.length, maxDataLen) + 3, 50),
+    };
   });
-  ws['!cols'] = colWidths.map((w) => ({ wch: w }));
+  ws.addRows(rows);
+
+  if (format === 'csv') {
+    const buf = await wb.csv.writeBuffer();
+    return Buffer.from(buf as ArrayBufferLike);
+  }
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.from(buf);
 }
 
-function toBuffer(workbook: XLSX.WorkBook, format: 'xlsx' | 'csv'): Buffer {
-  if (format === 'csv') {
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const csv = XLSX.utils.sheet_to_csv(sheet);
-    return Buffer.from(csv, 'utf-8');
-  }
-  return Buffer.from(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
+function mimeFor(format: 'xlsx' | 'csv'): string {
+  return format === 'csv' ? 'text/csv' : XLSX_MIME;
 }
 
 export async function exportOrders(params: ExportOrdersParams = {}) {
-  const { status, clientType, dateFrom, dateTo, format = 'xlsx' } = params;
+  const {
+    status,
+    clientType,
+    dateFrom,
+    dateTo,
+    paymentMethod,
+    paymentStatus,
+    deliveryMethod,
+    assignedManagerId,
+    search,
+    format = 'xlsx',
+  } = params;
 
   const where: Prisma.OrderWhereInput = {};
   if (status) where.status = status as Prisma.EnumOrderStatusFilter;
   if (clientType) where.clientType = clientType as Prisma.EnumClientTypeFilter;
+  if (paymentMethod) where.paymentMethod = paymentMethod as Prisma.EnumPaymentMethodFilter;
+  if (paymentStatus) where.paymentStatus = paymentStatus as Prisma.EnumPaymentStatusFilter;
+  if (deliveryMethod)
+    where.deliveryMethod = deliveryMethod as Prisma.EnumDeliveryMethodFilter;
+  if (assignedManagerId) where.assignedManagerId = assignedManagerId;
   if (dateFrom)
     where.createdAt = { ...((where.createdAt as object) || {}), gte: new Date(dateFrom) };
   if (dateTo) where.createdAt = { ...((where.createdAt as object) || {}), lte: new Date(dateTo) };
+  if (search && search.trim()) {
+    const s = search.trim();
+    where.OR = [
+      { orderNumber: { contains: s, mode: 'insensitive' } },
+      { contactName: { contains: s, mode: 'insensitive' } },
+      { contactPhone: { contains: s } },
+      { contactEmail: { contains: s, mode: 'insensitive' } },
+    ];
+  }
 
   const orders = await prisma.order.findMany({
     where,
@@ -115,26 +177,44 @@ export async function exportOrders(params: ExportOrdersParams = {}) {
     Коментар: o.comment || '',
   }));
 
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
-  autoFitColumns(ws, rows);
-  XLSX.utils.book_append_sheet(wb, ws, 'Замовлення');
-
   return {
-    buffer: toBuffer(wb, format),
+    buffer: await buildBuffer(rows, 'Замовлення', format),
     filename: `orders_${new Date().toISOString().slice(0, 10)}.${format}`,
-    contentType:
-      format === 'csv'
-        ? 'text/csv'
-        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    contentType: mimeFor(format),
   };
 }
 
 export async function exportClients(params: ExportClientsParams = {}) {
-  const { role, format = 'xlsx' } = params;
+  const {
+    role,
+    wholesaleStatus,
+    wholesaleGroup,
+    isBlocked,
+    dateFrom,
+    dateTo,
+    search,
+    format = 'xlsx',
+  } = params;
 
   const where: Prisma.UserWhereInput = {};
   if (role) where.role = role as Prisma.EnumUserRoleFilter;
+  if (wholesaleStatus) where.wholesaleStatus = wholesaleStatus as Prisma.EnumWholesaleStatusFilter;
+  if (wholesaleGroup) where.wholesaleGroup = Number(wholesaleGroup);
+  if (typeof isBlocked === 'boolean') where.isBlocked = isBlocked;
+  if (dateFrom || dateTo) {
+    where.createdAt = {
+      ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+      ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59`) } : {}),
+    };
+  }
+  if (search) {
+    where.OR = [
+      { email: { contains: search, mode: 'insensitive' } },
+      { fullName: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search } },
+      { companyName: { contains: search, mode: 'insensitive' } },
+    ];
+  }
 
   const users = await prisma.user.findMany({
     where,
@@ -147,6 +227,8 @@ export async function exportClients(params: ExportClientsParams = {}) {
       edrpou: true,
       role: true,
       wholesaleStatus: true,
+      wholesaleGroup: true,
+      isBlocked: true,
       createdAt: true,
       _count: { select: { orders: true } },
     },
@@ -162,22 +244,16 @@ export async function exportClients(params: ExportClientsParams = {}) {
     ЄДРПОУ: u.edrpou || '',
     Роль: u.role,
     'Гуртовий статус': u.wholesaleStatus || '',
+    'Гуртова група': u.wholesaleGroup ?? '',
+    Заблоковано: u.isBlocked ? 'Так' : 'Ні',
     'Дата реєстрації': u.createdAt.toLocaleDateString('uk-UA'),
     'К-ть замовлень': u._count.orders,
   }));
 
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
-  autoFitColumns(ws, rows);
-  XLSX.utils.book_append_sheet(wb, ws, 'Клієнти');
-
   return {
-    buffer: toBuffer(wb, format),
+    buffer: await buildBuffer(rows, 'Клієнти', format),
     filename: `clients_${new Date().toISOString().slice(0, 10)}.${format}`,
-    contentType:
-      format === 'csv'
-        ? 'text/csv'
-        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    contentType: mimeFor(format),
   };
 }
 
@@ -194,6 +270,7 @@ export async function exportCatalog(params: { format?: 'xlsx' | 'csv' } = {}) {
 
   const rows = products.map((p) => ({
     Код: p.code,
+    Штрихкод: p.barcode || '',
     Назва: p.name,
     Категорія: p.category?.name || '',
     'Роздрібна ціна': Number(p.priceRetail),
@@ -205,18 +282,10 @@ export async function exportCatalog(params: { format?: 'xlsx' | 'csv' } = {}) {
     Статус: p.isActive ? 'Активний' : 'Неактивний',
   }));
 
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
-  autoFitColumns(ws, rows);
-  XLSX.utils.book_append_sheet(wb, ws, 'Каталог');
-
   return {
-    buffer: toBuffer(wb, format),
+    buffer: await buildBuffer(rows, 'Каталог', format),
     filename: `catalog_${new Date().toISOString().slice(0, 10)}.${format}`,
-    contentType:
-      format === 'csv'
-        ? 'text/csv'
-        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    contentType: mimeFor(format),
   };
 }
 
@@ -232,6 +301,7 @@ export async function exportProductsFull(params: { ids?: number[]; format?: 'xls
 
   interface ProductWithRelations {
     code: string;
+    barcode: string | null;
     name: string;
     priceRetail: { toNumber?: () => number } | number;
     priceWholesale: { toNumber?: () => number } | number | null;
@@ -266,6 +336,7 @@ export async function exportProductsFull(params: { ids?: number[]; format?: 'xls
 
   const rows = products.map((p) => ({
     Код: p.code,
+    Штрихкод: p.barcode || '',
     Назва: p.name,
     Категорія: p.category?.name || '',
     'Роздрібна ціна': Number(p.priceRetail),
@@ -288,18 +359,83 @@ export async function exportProductsFull(params: { ids?: number[]; format?: 'xls
     Бейджі: p.badges.map((b) => b.badgeType).join(', '),
   }));
 
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
-  autoFitColumns(ws, rows);
-  XLSX.utils.book_append_sheet(wb, ws, 'Товари');
-
   const suffix = ids?.length === 1 ? `product_${ids[0]}` : 'products_full';
   return {
-    buffer: toBuffer(wb, format),
+    buffer: await buildBuffer(rows, 'Товари', format),
     filename: `${suffix}_${new Date().toISOString().slice(0, 10)}.${format}`,
-    contentType:
-      format === 'csv'
-        ? 'text/csv'
-        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    contentType: mimeFor(format),
+  };
+}
+
+/**
+ * Lightweight price-update template: code + name + 4 price columns only.
+ * Designed so the operator edits prices in Excel and re-uploads to bulk-update.
+ */
+export async function exportPriceTemplate(params: { format?: 'xlsx' | 'csv' } = {}) {
+  const { format = 'xlsx' } = params;
+
+  const products = await prisma.product.findMany({
+    where: { isActive: true, deletedAt: null },
+    select: {
+      code: true,
+      name: true,
+      priceRetail: true,
+      priceWholesale: true,
+      priceWholesale2: true,
+      priceWholesale3: true,
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  const rows = products.map((p) => ({
+    'Код продукції': p.code,
+    Назва: p.name,
+    'Ціна роздріб': Number(p.priceRetail),
+    'Ціна опт': p.priceWholesale != null ? Number(p.priceWholesale) : '',
+    'Ціна опт 2': p.priceWholesale2 != null ? Number(p.priceWholesale2) : '',
+    'Ціна опт 3': p.priceWholesale3 != null ? Number(p.priceWholesale3) : '',
+  }));
+
+  return {
+    buffer: await buildBuffer(rows, 'Ціни', format),
+    filename: `price-template_${new Date().toISOString().slice(0, 10)}.${format}`,
+    contentType: mimeFor(format),
+  };
+}
+
+/**
+ * Full-import template: one example row showing every column the parser
+ * recognises in the standard format. The operator fills in real data and
+ * uploads via the "Повний прайс-лист" import flow.
+ */
+export async function exportProductTemplate(params: { format?: 'xlsx' | 'csv' } = {}) {
+  const { format = 'xlsx' } = params;
+
+  const rows = [
+    {
+      'Код продукції': 'EXAMPLE-001',
+      Штрихкод: '4820000000017',
+      Назва: 'Приклад товару',
+      Категорія: 'Назва категорії',
+      'Ціна роздріб': 100,
+      'Ціна опт': 80,
+      'Ціна опт 2': 75,
+      'Ціна опт 3': 70,
+      Кількість: 10,
+      Акція: 'Ні',
+      'Короткий опис': 'Опис у 1-2 рядках для списку',
+      Опис: 'Повний опис товару (HTML дозволено)',
+      Характеристики: 'Вага: 1кг; Колір: білий',
+      'SEO заголовок': 'Купити приклад товару в Україні',
+      'SEO опис': 'Опис для пошукових систем (до 160 символів)',
+      'SEO ключові слова': 'приклад, товар, ключове слово',
+      Зображення: 'https://example.com/photo.jpg',
+    },
+  ];
+
+  return {
+    buffer: await buildBuffer(rows, 'Товари', format),
+    filename: `products-template_${new Date().toISOString().slice(0, 10)}.${format}`,
+    contentType: mimeFor(format),
   };
 }

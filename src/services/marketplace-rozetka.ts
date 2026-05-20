@@ -1,3 +1,9 @@
+import { recordMarketplaceCall } from '@/services/marketplace-rate-limit';
+import { fetchWithMarketplaceRetry } from '@/services/marketplace-retry';
+import { marketplaceLogger } from '@/services/marketplace-logger';
+
+const log = marketplaceLogger('rozetka', { platform: 'rozetka' });
+
 const BASE_URL = 'https://seller-api.rozetka.com.ua/';
 
 interface RozetkaAuthResponse {
@@ -75,6 +81,7 @@ export class RozetkaClient {
 
   async authenticate(): Promise<string> {
     try {
+      recordMarketplaceCall('rozetka');
       const res = await fetch(`${BASE_URL}sites`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -86,7 +93,7 @@ export class RozetkaClient {
 
       if (!res.ok || !data.content?.token) {
         const errorMsg = data.errors?.[0]?.message || `HTTP ${res.status}`;
-        console.error('[Rozetka] Помилка авторизації:', errorMsg);
+        log.error('Помилка авторизації Rozetka', { httpStatus: res.status, errorMsg });
         throw new Error(`Помилка авторизації Rozetka: ${errorMsg}`);
       }
 
@@ -96,7 +103,7 @@ export class RozetkaClient {
 
       return this.authToken;
     } catch (error) {
-      console.error('[Rozetka] authenticate error:', error);
+      log.error('authenticate error', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -112,7 +119,8 @@ export class RozetkaClient {
     const token = await this.getToken();
     const url = `${BASE_URL}${path.replace(/^\//, '')}`;
 
-    const res = await fetch(url, {
+    recordMarketplaceCall('rozetka');
+    const res = await fetchWithMarketplaceRetry(url, {
       ...options,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -142,7 +150,7 @@ export class RozetkaClient {
         total: data.content?.total || 0,
       };
     } catch (error) {
-      console.error('[Rozetka] getProducts error:', error);
+      log.error('getProducts error', { error: error instanceof Error ? error.message : String(error) });
       return { items: [], total: 0 };
     }
   }
@@ -152,6 +160,7 @@ export class RozetkaClient {
     description?: string;
     price: number;
     article?: string;
+    barcode?: string;
     quantity?: number;
     images?: string[];
   }): Promise<{ success: boolean; externalId?: string; error?: string }> {
@@ -165,6 +174,7 @@ export class RozetkaClient {
         old_price: 0,
         currency: 'UAH',
         article: data.article || '',
+        ...(data.barcode ? { barcode: data.barcode } : {}),
         quantity: data.quantity ?? 1,
         status: 'active',
         images: (data.images || []).slice(0, 10).map((url) => ({ url })),
@@ -181,7 +191,7 @@ export class RozetkaClient {
       return { success: false, error: 'Не вдалося створити товар' };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Rozetka API error';
-      console.error('[Rozetka] createProduct error:', message);
+      log.error('createProduct error', { error: message });
       return { success: false, error: message };
     }
   }
@@ -205,7 +215,7 @@ export class RozetkaClient {
       return { success: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Rozetka API error';
-      console.error('[Rozetka] updateProduct error:', message);
+      log.error('updateProduct error', { externalId, error: message });
       return { success: false, error: message };
     }
   }
@@ -224,7 +234,7 @@ export class RozetkaClient {
       const data = await this.request<RozetkaOrdersResponse>(`orders/search${query}`);
       return data.content?.orders || [];
     } catch (error) {
-      console.error('[Rozetka] getOrders error:', error);
+      log.error('getOrders error', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -238,7 +248,7 @@ export class RozetkaClient {
       const data = await this.request<RozetkaReturnsResponse>(`returns/search${query}`);
       return data.content?.returns || [];
     } catch (error) {
-      console.error('[Rozetka] getReturns error:', error);
+      log.error('getReturns error', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }

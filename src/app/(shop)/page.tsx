@@ -16,7 +16,6 @@ export const metadata: Metadata = {
     'Pulito Trade — інтернет-магазин побутової хімії. Широкий асортимент засобів для прибирання, прання та догляду за домом з доставкою по Україні.',
 };
 
-const BrandLogos = dynamic(() => import('@/components/home/BrandLogos'));
 const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'));
 
 // ISR: revalidate homepage every 60 seconds
@@ -77,6 +76,7 @@ export default async function HomePage() {
             title="Акційні товари"
             products={promoProducts}
             viewAllHref="/catalog?promo=true"
+            accent="promo"
           />
         </Suspense>
       ) : null,
@@ -87,6 +87,7 @@ export default async function HomePage() {
             title="Новинки"
             products={newProducts}
             viewAllHref="/catalog?sort=newest"
+            accent="new"
           />
         </Suspense>
       ) : null,
@@ -97,28 +98,18 @@ export default async function HomePage() {
             title="Хіти продажів"
             products={popularProducts}
             viewAllHref="/catalog?sort=popular"
+            accent="hits"
           />
         </Suspense>
       ) : null,
-    brands: (
-      <Suspense fallback={<Skeleton className="h-[100px] w-full rounded-2xl" />}>
-        <BrandLogos />
-      </Suspense>
-    ),
-    seo_text: (
-      <section>
-        <div className="rounded-2xl border border-[var(--color-border)]/40 bg-gradient-to-br from-[var(--color-primary-50)]/60 to-white p-5 sm:p-6 lg:p-8">
-          <h2 className="mb-2 text-base font-semibold tracking-tight text-[var(--color-text)] sm:text-lg lg:text-xl">
-            Інтернет-магазин побутової хімії Pulito Trade
-          </h2>
-          <p className="max-w-3xl text-[13px] leading-relaxed text-[var(--color-text-secondary)] sm:text-sm">
-            {seoText ||
-              `Ласкаво просимо до Pulito Trade — вашого надійного постачальника побутової хімії в Україні. Ми пропонуємо широкий асортимент засобів для прибирання, прання, миття посуду та догляду за домом від провідних світових та вітчизняних виробників. Гуртовим покупцям — спеціальні ціни та умови співпраці. Швидка доставка по всій Україні.`}
-          </p>
-        </div>
-      </section>
-    ),
+    // seo_text is rendered separately at the bottom (above the footer)
+    seo_text: null,
   };
+
+  const seoBlockEnabled = enabledBlocks.some((b) => b.key === 'seo_text');
+  const seoContent =
+    seoText ||
+    'Ласкаво просимо до Pulito Trade — вашого надійного постачальника побутової хімії в Україні. Ми пропонуємо широкий асортимент засобів для прибирання, прання, миття посуду та догляду за домом від провідних світових та вітчизняних виробників. Гуртовим покупцям — спеціальні ціни та умови співпраці. Швидка доставка по всій Україні.';
 
   return (
     <Container className="py-4 sm:py-6 lg:py-8">
@@ -139,6 +130,26 @@ export default async function HomePage() {
 
       {/* Recently viewed — rendered separately, self-hiding when empty */}
       <RecentlyViewedSection />
+
+      {seoBlockEnabled && (
+        <section className="mt-10 sm:mt-14 lg:mt-16">
+          <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border)]/40 bg-gradient-to-br from-[var(--color-primary-50)]/70 via-white to-[var(--color-primary-50)]/40 p-6 sm:p-8 lg:p-10">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[var(--color-primary)]/5 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-[var(--color-gold)]/10 blur-3xl" />
+            <div className="relative">
+              <h2 className="mb-3 text-2xl font-extrabold tracking-tight text-[var(--color-text)] sm:text-3xl lg:text-4xl">
+                Інтернет-магазин побутової хімії Pulito Trade
+              </h2>
+              <span className="mb-5 inline-block h-1 w-16 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-gold)]" />
+              <div className="max-w-4xl space-y-3 text-base leading-relaxed text-[var(--color-text-secondary)] sm:text-lg">
+                {seoContent.split(/\n\n+/).map((paragraph, i) => (
+                  <p key={i}>{paragraph}</p>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
     </Container>
   );
 }

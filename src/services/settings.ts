@@ -2,6 +2,27 @@ import { prisma } from '@/lib/prisma';
 import { cacheGet, cacheSet, CACHE_TTL } from '@/services/cache';
 import { redis } from '@/lib/redis';
 import { DEFAULT_SETTINGS, type SiteSettings } from '@/types/settings';
+import { decrypt, isEncrypted } from '@/lib/encryption';
+
+// Keys stored encrypted in DB. Cached versions are already decrypted so
+// runtime code can use them directly (e.g. payment SDK init).
+const ENCRYPTED_KEYS = new Set([
+  'payment_liqpay_private_key',
+  'payment_monobank_token',
+  'payment_wayforpay_secret_key',
+  'smtp_pass',
+  'delivery_nova_poshta_api_key',
+  'delivery_ukrposhta_bearer_token',
+]);
+
+function tryDecrypt(value: string): string {
+  if (!value || !isEncrypted(value)) return value;
+  try {
+    return decrypt(value);
+  } catch {
+    return value;
+  }
+}
 
 const CACHE_KEY = 'site:settings';
 const MEMORY_TTL_MS = 60_000;
@@ -26,10 +47,13 @@ export async function getSettings(): Promise<SiteSettings> {
     // fall through to DB
   }
 
-  // 3. Database
+  // 3. Database — decrypt ENCRYPTED_KEYS as we hydrate the cache so callers
+  // never see ciphertext.
   try {
     const rows = await prisma.siteSetting.findMany();
-    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const map = Object.fromEntries(
+      rows.map((r) => [r.key, ENCRYPTED_KEYS.has(r.key) ? tryDecrypt(r.value) : r.value]),
+    );
     const settings = { ...DEFAULT_SETTINGS, ...map } as SiteSettings;
 
     await cacheSet(CACHE_KEY, map, CACHE_TTL.MEDIUM);

@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Input from '@/components/ui/Input';
-import Spinner from '@/components/ui/Spinner';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 
 interface AdminBrand {
   id: number;
@@ -15,8 +16,14 @@ interface AdminBrand {
   slug: string;
   description: string | null;
   logoPath: string | null;
+  website: string | null;
+  country: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   isVisible: boolean;
   sortOrder: number;
+  version?: number;
+  _count?: { products: number };
 }
 
 interface UploadResponse {
@@ -32,9 +39,20 @@ export default function AdminBrandsPage() {
     slug: '',
     description: '',
     logoPath: '',
+    website: '',
+    country: '',
+    seoTitle: '',
+    seoDescription: '',
     isVisible: true,
     sortOrder: 0,
   });
+  const [editSnapshot, setEditSnapshot] = useState<typeof editForm | null>(null);
+  const isEditDirty = useMemo(
+    () => editSnapshot !== null && JSON.stringify(editForm) !== JSON.stringify(editSnapshot),
+    [editForm, editSnapshot],
+  );
+  const guardEdit = useUnsavedChangesGuard(isEditDirty);
+  const closeEdit = () => guardEdit(() => { setEditingId(null); setEditSnapshot(null); });
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
@@ -43,6 +61,8 @@ export default function AdminBrandsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const loadBrands = useCallback(() => {
@@ -63,32 +83,58 @@ export default function AdminBrandsPage() {
 
   const handleEdit = (b: AdminBrand) => {
     setEditingId(b.id);
-    setEditForm({
+    const snapshot = {
       name: b.name,
       slug: b.slug,
       description: b.description || '',
       logoPath: b.logoPath || '',
+      website: b.website || '',
+      country: b.country || '',
+      seoTitle: b.seoTitle || '',
+      seoDescription: b.seoDescription || '',
       isVisible: b.isVisible,
       sortOrder: b.sortOrder,
-    });
+    };
+    setEditForm(snapshot);
+    setEditSnapshot(snapshot);
   };
 
   const handleSave = async () => {
     if (!editingId) return;
     setIsSaving(true);
     try {
+      const current = brands.find((b) => b.id === editingId);
       const res = await apiClient.put<AdminBrand>(`/api/v1/admin/brands/${editingId}`, {
         name: editForm.name,
         slug: editForm.slug || undefined,
         description: editForm.description || null,
         logoPath: editForm.logoPath || null,
+        website: editForm.website.trim() || null,
+        country: editForm.country.trim() || null,
+        seoTitle: editForm.seoTitle.trim() || null,
+        seoDescription: editForm.seoDescription.trim() || null,
         isVisible: editForm.isVisible,
         sortOrder: Number(editForm.sortOrder) || 0,
+        version: current?.version,
       });
       if (res.success) {
         toast.success('Виробника оновлено');
         setEditingId(null);
+        setEditSnapshot(null);
         loadBrands();
+      } else if (res.statusCode === 409) {
+        toast.error(res.error || 'Виробника змінено іншим адміністратором', {
+          duration: 12000,
+          action: {
+            label: 'Оновити з сервера',
+            onClick: () => {
+              loadBrands();
+              setEditingId(null);
+              setEditSnapshot(null);
+              toast.success('Оновлено — відкрийте знову і повторіть редагування');
+            },
+          },
+        });
       } else {
         toast.error(res.error || 'Не вдалося оновити');
       }
@@ -174,13 +220,17 @@ export default function AdminBrandsPage() {
           b.slug.toLowerCase().includes(search.toLowerCase()),
       )
     : brands;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Spinner size="md" />
-      </div>
-    );
+    return <AdminTableSkeleton rows={8} columns={7} />;
   }
 
   return (
@@ -241,13 +291,14 @@ export default function AdminBrandsPage() {
               <th className="px-4 py-3 text-left font-medium">Логотип</th>
               <th className="px-4 py-3 text-left font-medium">Назва</th>
               <th className="px-4 py-3 text-left font-medium">Slug</th>
+              <th className="px-4 py-3 text-center font-medium">Товарів</th>
               <th className="px-4 py-3 text-center font-medium">Видимий</th>
               <th className="px-4 py-3 text-center font-medium">Порядок</th>
               <th className="px-4 py-3 text-right font-medium">Дії</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((b) => (
+            {paginated.map((b) => (
               <tr key={b.id} className="border-b border-[var(--color-border)] last:border-0">
                 <td className="px-4 py-3">
                   <div className="relative h-10 w-10 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
@@ -269,6 +320,23 @@ export default function AdminBrandsPage() {
                 <td className="px-4 py-3 font-medium">{b.name}</td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">{b.slug}</td>
                 <td className="px-4 py-3 text-center">
+                  {b._count ? (
+                    <a
+                      href={`/admin/products?brandId=${b.id}`}
+                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                        b._count.products === 0
+                          ? 'bg-gray-100 text-gray-500'
+                          : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:underline'
+                      }`}
+                      title={`Переглянути ${b._count.products} товарів`}
+                    >
+                      {b._count.products}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-[var(--color-text-secondary)]">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${b.isVisible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                   >
@@ -280,6 +348,15 @@ export default function AdminBrandsPage() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
+                    <a
+                      href={`/brand/${b.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
+                      title="Переглянути на сайті"
+                    >
+                      ↗
+                    </a>
                     <Button variant="outline" size="sm" onClick={() => handleEdit(b)}>
                       Редагувати
                     </Button>
@@ -297,11 +374,30 @@ export default function AdminBrandsPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
-                >
-                  Виробників не знайдено
+                <td colSpan={7} className="px-4 py-12 text-center">
+                  <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
+                    <span className="text-3xl" aria-hidden="true">
+                      🏭
+                    </span>
+                    <p className="text-sm font-medium">
+                      {search ? 'Виробників не знайдено' : 'Виробників ще немає'}
+                    </p>
+                    {search ? (
+                      <button
+                        onClick={() => setSearch('')}
+                        className="text-xs text-[var(--color-primary)] hover:underline"
+                      >
+                        Скинути пошук
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setShowCreate(true)}
+                        className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
+                      >
+                        + Створити виробника
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             )}
@@ -314,7 +410,7 @@ export default function AdminBrandsPage() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setEditingId(null);
+            if (e.target === e.currentTarget) closeEdit();
           }}
         >
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[var(--radius)] bg-[var(--color-bg)] p-6 shadow-xl">
@@ -394,6 +490,52 @@ export default function AdminBrandsPage() {
                 </div>
               </div>
 
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  label="Веб-сайт виробника"
+                  type="url"
+                  value={editForm.website}
+                  onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
+                  placeholder="https://brand-website.com"
+                />
+                <Input
+                  label="Країна походження"
+                  value={editForm.country}
+                  onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                  placeholder="Україна"
+                />
+              </div>
+
+              <div className="rounded-md border border-[var(--color-border)] p-3">
+                <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">SEO</p>
+                <div className="space-y-3">
+                  <div>
+                    <Input
+                      label="SEO Title"
+                      value={editForm.seoTitle}
+                      onChange={(e) => setEditForm({ ...editForm, seoTitle: e.target.value })}
+                      maxLength={70}
+                    />
+                    <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+                      {editForm.seoTitle.length}/70
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">SEO Description</label>
+                    <textarea
+                      value={editForm.seoDescription}
+                      onChange={(e) => setEditForm({ ...editForm, seoDescription: e.target.value })}
+                      rows={2}
+                      maxLength={160}
+                      className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                    />
+                    <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+                      {editForm.seoDescription.length}/160
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex gap-4">
                 <Input
                   label="Порядок"
@@ -417,13 +559,39 @@ export default function AdminBrandsPage() {
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditingId(null)}>
+              <Button variant="outline" onClick={closeEdit}>
                 Скасувати
               </Button>
               <Button onClick={handleSave} isLoading={isSaving}>
                 Зберегти
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <span className="text-[var(--color-text-secondary)]">
+            Сторінка {currentPage} з {totalPages} · {filtered.length} виробників
+          </span>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+            >
+              ← Назад
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Вперед →
+            </Button>
           </div>
         </div>
       )}

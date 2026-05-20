@@ -7,6 +7,7 @@ vi.mock('@/lib/prisma', () => ({
     category: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       count: vi.fn().mockResolvedValue(3),
       create: vi.fn(),
       update: vi.fn(),
@@ -35,7 +36,11 @@ import { prisma } from '@/lib/prisma';
 const mockPrisma = prisma as unknown as MockPrismaClient;
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // resetAllMocks clears the mockResolvedValueOnce queue between tests so
+  // earlier "Once" stubs that the code path didn't consume don't leak.
+  vi.resetAllMocks();
+  // Restore default count value used by createCategory pre-checks.
+  mockPrisma.category.count.mockResolvedValue(3 as never);
 });
 
 describe('getCategories', () => {
@@ -172,9 +177,10 @@ describe('createCategory - additional', () => {
   });
 
   it('should create with valid parentId', async () => {
-    mockPrisma.category.findUnique
-      .mockResolvedValueOnce(null) // slug check
-      .mockResolvedValueOnce({ id: 5 } as never); // parent check
+    // createCategory now resolves the parent via findFirst (excluding soft-deleted),
+    // and only then checks slug uniqueness via findUnique.
+    mockPrisma.category.findFirst.mockResolvedValueOnce({ id: 5 } as never);
+    mockPrisma.category.findUnique.mockResolvedValueOnce(null);
     const created = { id: 2, name: 'Child', slug: 'child', parentId: 5 };
     mockPrisma.category.create.mockResolvedValue(created as never);
 

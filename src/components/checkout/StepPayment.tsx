@@ -5,6 +5,9 @@ import type { CheckoutInput } from '@/validators/order';
 import type { PaymentMethod } from '@/types/order';
 import { PAYMENT_METHOD_LABELS } from '@/types/order';
 import type { CheckoutConfig } from '@/services/checkout-config';
+import { useWalletAvailability } from '@/hooks/useWalletAvailability';
+import TrustBadges from './TrustBadges';
+import WalletQuickPay from './WalletQuickPay';
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; descriptionKey: string }[] = [
   { value: 'cod', descriptionKey: 'codDesc' },
@@ -68,8 +71,20 @@ export default function StepPayment({
   cartTotal = 0,
 }: StepPaymentProps) {
   const t = useTranslations('checkout');
+  const wallet = useWalletAvailability();
   const minOnline = config?.payment.minOnlineAmount ?? null;
   const onlineBlocked = minOnline !== null && cartTotal < minOnline;
+
+  const applePayEnabled =
+    !!config?.payment.available.online.apple_pay && wallet.applePay && !onlineBlocked;
+  const googlePayEnabled =
+    !!config?.payment.available.online.google_pay && wallet.googlePay && !onlineBlocked;
+  const hasWalletQuickPay = applePayEnabled || googlePayEnabled;
+
+  const selectWallet = (provider: 'apple_pay' | 'google_pay') => {
+    onChange('paymentMethod', 'online');
+    onChange('paymentProvider', provider);
+  };
 
   if (config?.payment.manualMode) {
     return (
@@ -126,7 +141,14 @@ export default function StepPayment({
     : PAYMENT_OPTIONS;
 
   const visibleProviders = config
-    ? ONLINE_PROVIDERS.filter((p) => config.payment.available.online[p.value])
+    ? ONLINE_PROVIDERS.filter((p) => {
+        if (!config.payment.available.online[p.value]) return false;
+        // Hide wallet providers from radio list when shown as top quick-pay buttons
+        if (hasWalletQuickPay && (p.value === 'apple_pay' || p.value === 'google_pay')) {
+          return false;
+        }
+        return true;
+      })
     : ONLINE_PROVIDERS;
 
   return (
@@ -140,7 +162,21 @@ export default function StepPayment({
         </div>
       )}
 
+      {hasWalletQuickPay && (
+        <WalletQuickPay
+          applePay={applePayEnabled}
+          googlePay={googlePayEnabled}
+          selectedProvider={data.paymentProvider}
+          onSelect={selectWallet}
+        />
+      )}
+
       <div className="space-y-2">
+        {hasWalletQuickPay && (
+          <p className="text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
+            Або оберіть інший спосіб
+          </p>
+        )}
         {visibleOptions.map((option) => (
           <label
             key={option.value}
@@ -219,6 +255,8 @@ export default function StepPayment({
         error={errors.comment}
         placeholder={t('paymentCommentPlaceholder')}
       />
+
+      <TrustBadges />
     </div>
   );
 }

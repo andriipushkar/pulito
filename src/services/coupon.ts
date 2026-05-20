@@ -9,7 +9,12 @@ export class CouponError extends Error {
   }
 }
 
-export async function validateCoupon(code: string, userId?: number, orderAmount?: number) {
+export async function validateCoupon(
+  code: string,
+  userId?: number,
+  orderAmount?: number,
+  cartProductIds?: number[],
+) {
   const coupon = await prisma.coupon.findUnique({ where: { code: code.toUpperCase() } });
   if (!coupon || !coupon.isActive) {
     throw new CouponError('Промокод не знайдено або він неактивний');
@@ -39,6 +44,32 @@ export async function validateCoupon(code: string, userId?: number, orderAmount?
     throw new CouponError(
       `Мінімальна сума замовлення для цього промокоду: ${coupon.minOrderAmount} грн`,
     );
+  }
+
+  // Product/category restrictions. Logic:
+  //   1. If `applicableCategoryIds` is non-empty, at least one cart product
+  //      must belong to one of those categories.
+  //   2. Products in `excludedProductIds` are not eligible (their presence
+  //      doesn't invalidate the coupon, but they don't get the discount).
+  //   3. If the cart consists entirely of excluded products → reject.
+  if (cartProductIds && cartProductIds.length > 0) {
+    const eligible = cartProductIds.filter((pid) => !coupon.excludedProductIds.includes(pid));
+    if (eligible.length === 0) {
+      throw new CouponError('Промокод не діє на товари у вашому кошику');
+    }
+    if (coupon.applicableCategoryIds.length > 0) {
+      const matching = await prisma.product.count({
+        where: {
+          id: { in: eligible },
+          categoryId: { in: coupon.applicableCategoryIds },
+        },
+      });
+      if (matching === 0) {
+        throw new CouponError(
+          'Промокод діє лише на товари з певних категорій — нічого не знайдено у вашому кошику',
+        );
+      }
+    }
   }
 
   return coupon;
@@ -71,15 +102,35 @@ export async function redeemCoupon(
   orderId: number,
   discount: number,
 ) {
-  await prisma.$transaction([
-    prisma.couponRedemption.create({
-      data: { couponId, userId, orderId, discount },
-    }),
-    prisma.coupon.update({
+  // Atomic claim: only increment usedCount when it's strictly below usageLimit.
+  // Two parallel checkouts can both pass the validateCoupon read but the
+  // updateMany serialises here, so the second one with count === 0 must abort.
+  await prisma.$transaction(async (tx) => {
+    const coupon = await tx.coupon.findUnique({
       where: { id: couponId },
-      data: { usedCount: { increment: 1 } },
-    }),
-  ]);
+      select: { usageLimit: true },
+    });
+    if (!coupon) throw new CouponError('Промокод не знайдено', 404);
+
+    if (coupon.usageLimit != null) {
+      const claimed = await tx.coupon.updateMany({
+        where: { id: couponId, usedCount: { lt: coupon.usageLimit } },
+        data: { usedCount: { increment: 1 } },
+      });
+      if (claimed.count === 0) {
+        throw new CouponError('Промокод вичерпано');
+      }
+    } else {
+      await tx.coupon.update({
+        where: { id: couponId },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
+    await tx.couponRedemption.create({
+      data: { couponId, userId, orderId, discount },
+    });
+  });
 }
 
 export async function getCoupons(page = 1, limit = 20, showExpired = false) {
@@ -107,6 +158,9 @@ export async function createCoupon(data: {
   usageLimitPerUser?: number;
   validFrom?: string;
   validUntil?: string;
+  applicableCategoryIds?: number[];
+  excludedProductIds?: number[];
+  stackableWith?: string[];
   createdBy?: number;
 }) {
   return prisma.coupon.create({
@@ -121,6 +175,12 @@ export async function createCoupon(data: {
       usageLimitPerUser: data.usageLimitPerUser,
       validFrom: data.validFrom ? new Date(data.validFrom) : undefined,
       validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
+      // These were validated in the API layer but previously dropped on the
+      // floor — without them the category/product restrictions silently never
+      // applied at checkout.
+      applicableCategoryIds: data.applicableCategoryIds ?? [],
+      excludedProductIds: data.excludedProductIds ?? [],
+      stackableWith: data.stackableWith ?? [],
       createdBy: data.createdBy,
     },
   });

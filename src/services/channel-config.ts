@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
+import { decrypt, encrypt, isEncrypted } from '@/lib/encryption';
 
 export interface TelegramConfig {
   enabled: boolean;
@@ -54,6 +55,57 @@ type ChannelConfigMap = {
 
 const DB_KEY_PREFIX = 'channel_';
 
+// Field names whose values are credentials and must be encrypted at rest.
+// Matched across all channel types — covers marketplace + social tokens.
+const SENSITIVE_FIELDS = new Set([
+  'apiKey',
+  'apiSecret',
+  'apiToken',
+  'accessToken',
+  'refreshToken',
+  'clientSecret',
+  'password',
+  'botToken',
+  'authToken',
+  'pageAccessToken',
+  'appSecret',
+]);
+
+function transformSensitiveValues(
+  obj: Record<string, unknown>,
+  transform: (value: string) => string,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (typeof v === 'string' && v.length > 0 && SENSITIVE_FIELDS.has(k)) {
+      out[k] = transform(v);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+function encryptConfig(config: Record<string, unknown>): Record<string, unknown> {
+  return transformSensitiveValues(config, (v) => (isEncrypted(v) ? v : encrypt(v)));
+}
+
+function decryptConfig(config: Record<string, unknown>): { value: Record<string, unknown>; hadPlaintext: boolean } {
+  let hadPlaintext = false;
+  const out = transformSensitiveValues(config, (v) => {
+    if (isEncrypted(v)) {
+      try {
+        return decrypt(v);
+      } catch {
+        return v;
+      }
+    }
+    hadPlaintext = true;
+    return v;
+  });
+  return { value: out, hadPlaintext };
+}
+
 function getEnvFallback(channel: ChannelType): ChannelConfigMap[typeof channel] | null {
   switch (channel) {
     case 'telegram': {
@@ -105,12 +157,25 @@ export async function getChannelConfig<T extends ChannelType>(
   channel: T
 ): Promise<ChannelConfigMap[T] | null> {
   try {
-    const setting = await prisma.siteSetting.findUnique({
-      where: { key: `${DB_KEY_PREFIX}${channel}` },
-    });
+    const key = `${DB_KEY_PREFIX}${channel}`;
+    const setting = await prisma.siteSetting.findUnique({ where: { key } });
 
     if (setting?.value) {
-      const config = JSON.parse(setting.value) as ChannelConfigMap[T];
+      const raw = JSON.parse(setting.value) as Record<string, unknown>;
+      const { value: decrypted, hadPlaintext } = decryptConfig(raw);
+      // Auto-migrate legacy plaintext secrets to encrypted form.
+      if (hadPlaintext) {
+        try {
+          const reEncrypted = encryptConfig(decrypted);
+          await prisma.siteSetting.update({
+            where: { key },
+            data: { value: JSON.stringify(reEncrypted) },
+          });
+        } catch {
+          // Best-effort migration — do not block read on failure
+        }
+      }
+      const config = decrypted as ChannelConfigMap[T];
       if (config.enabled) return config;
     }
   } catch {
@@ -134,7 +199,9 @@ export async function getAllChannelConfigs(): Promise<Record<ChannelType, Channe
     const raw = settingsMap.get(channel);
     if (raw) {
       try {
-        result[channel] = JSON.parse(raw);
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const { value: decrypted } = decryptConfig(parsed);
+        result[channel] = decrypted as ChannelConfigMap[ChannelType];
         continue;
       } catch { /* fall through */ }
     }
@@ -147,6 +214,28 @@ export async function getAllChannelConfigs(): Promise<Record<ChannelType, Channe
 function maskToken(token: string): string {
   if (!token || token.length <= 4) return '****';
   return '•'.repeat(Math.min(token.length - 4, 20)) + token.slice(-4);
+}
+
+const MARKETPLACE_SENSITIVE_FIELDS = new Set([
+  'apiKey',
+  'apiSecret',
+  'apiToken',
+  'accessToken',
+  'clientSecret',
+  'refreshToken',
+  'password',
+]);
+
+function maskMarketplaceConfig(config: MarketplaceConfig): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(config)) {
+    if (typeof value === 'string' && MARKETPLACE_SENSITIVE_FIELDS.has(key)) {
+      result[key] = maskToken(value);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
 }
 
 export function maskChannelConfig(
@@ -180,10 +269,17 @@ export function maskChannelConfig(
       const c = config as TikTokConfig;
       return { ...c, accessToken: maskToken(c.accessToken) };
     }
+    case 'olx':
+    case 'rozetka':
+    case 'prom':
+    case 'epicentrk':
+      return maskMarketplaceConfig(config as MarketplaceConfig);
     default:
       return null;
   }
 }
+
+const MARKETPLACE_CHANNELS_SET = new Set<ChannelType>(['olx', 'rozetka', 'prom', 'epicentrk']);
 
 export async function saveChannelConfig(
   channel: ChannelType,
@@ -191,10 +287,42 @@ export async function saveChannelConfig(
   userId?: number
 ): Promise<void> {
   const key = `${DB_KEY_PREFIX}${channel}`;
+
+  // Marketplace configs merge with existing — admin form may omit sensitive fields
+  // (the UI strips masked values, so a fresh save without re-entering would otherwise
+  // wipe the API key). Existing values are decrypted before merge, then the merged
+  // result is encrypted at rest.
+  if (MARKETPLACE_CHANNELS_SET.has(channel)) {
+    const existing = await prisma.siteSetting.findUnique({ where: { key } });
+    if (existing?.value) {
+      try {
+        const existingConfig = JSON.parse(existing.value) as Record<string, unknown>;
+        const { value: existingDecrypted } = decryptConfig(existingConfig);
+        // Defence-in-depth: drop empty-string sensitive fields from the incoming
+        // payload before merge. This prevents accidental credential wipes when the
+        // admin clicks into a masked field and clears it without typing a replacement.
+        const sanitized: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(config as Record<string, unknown>)) {
+          if (SENSITIVE_FIELDS.has(k) && typeof v === 'string' && v.trim() === '') continue;
+          sanitized[k] = v;
+        }
+        const merged = { ...existingDecrypted, ...sanitized };
+        await prisma.siteSetting.update({
+          where: { key },
+          data: { value: JSON.stringify(encryptConfig(merged)), updatedBy: userId ?? null },
+        });
+        return;
+      } catch {
+        // Corrupted existing JSON — fall through to replace
+      }
+    }
+  }
+
+  const encrypted = encryptConfig(config as Record<string, unknown>);
   await prisma.siteSetting.upsert({
     where: { key },
-    create: { key, value: JSON.stringify(config), updatedBy: userId ?? null },
-    update: { value: JSON.stringify(config), updatedBy: userId ?? null },
+    create: { key, value: JSON.stringify(encrypted), updatedBy: userId ?? null },
+    update: { value: JSON.stringify(encrypted), updatedBy: userId ?? null },
   });
 }
 
@@ -261,6 +389,66 @@ export async function testChannelConnection(
         const data = await res.json();
         if (data.error?.code) return { success: false, error: data.error.message || 'Невірний токен' };
         return { success: true, name: data.data?.user?.display_name || 'TikTok' };
+      }
+      case 'olx': {
+        const c = config as MarketplaceConfig;
+        const token = typeof c.accessToken === 'string' ? c.accessToken : '';
+        if (!token) return { success: false, error: 'Не вказано Access Token' };
+        const res = await fetch('https://www.olx.ua/api/partner/users/me', {
+          headers: { Authorization: `Bearer ${token}`, Version: '2.0' },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          return { success: false, error: data.error?.message || `HTTP ${res.status}` };
+        }
+        const data = await res.json();
+        return { success: true, name: data.data?.name || data.name || 'OLX акаунт' };
+      }
+      case 'rozetka': {
+        const c = config as MarketplaceConfig;
+        const apiKey = typeof c.apiKey === 'string' ? c.apiKey : '';
+        if (!apiKey) return { success: false, error: 'Не вказано API Key' };
+        // Rozetka auth: PUT /sites with username+password (both = apiKey for token auth)
+        const res = await fetch('https://api-seller.rozetka.com.ua/sites', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: apiKey, password: apiKey }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.content?.token) {
+          return { success: false, error: data.errors?.[0]?.message || `HTTP ${res.status}` };
+        }
+        return { success: true, name: `Rozetka Seller${c.sellerId ? ` #${c.sellerId}` : ''}` };
+      }
+      case 'prom': {
+        const c = config as MarketplaceConfig;
+        const token = typeof c.apiToken === 'string' ? c.apiToken : '';
+        if (!token) return { success: false, error: 'Не вказано API Token' };
+        const res = await fetch('https://my.prom.ua/api/v1/products/list?limit=1', {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          return { success: false, error: data.message || data.error || `HTTP ${res.status}` };
+        }
+        return { success: true, name: 'Prom.ua магазин' };
+      }
+      case 'epicentrk': {
+        const c = config as MarketplaceConfig;
+        const apiKey = typeof c.apiKey === 'string' ? c.apiKey : '';
+        if (!apiKey) return { success: false, error: 'Не вказано API Key' };
+        const res = await fetch('https://marketplace.epicentrk.ua/api/v1/products?limit=1', {
+          headers: { 'X-Api-Key': apiKey },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          return { success: false, error: data.error?.message || data.message || `HTTP ${res.status}` };
+        }
+        return { success: true, name: `Epicentr K${c.sellerId ? ` #${c.sellerId}` : ''}` };
       }
       default:
         return { success: false, error: 'Невідомий канал' };

@@ -1,0 +1,109 @@
+import { NextRequest } from 'next/server';
+import { CronExpressionParser } from 'cron-parser';
+import { prisma } from '@/lib/prisma';
+import { syncSupplierChannel, SupplierChannelError } from '@/services/supplier-channel';
+import { successResponse, errorResponse } from '@/utils/api-response';
+import { env } from '@/config/env';
+import { timingSafeCompare } from '@/utils/timing-safe';
+import { logger } from '@/lib/logger';
+
+/**
+ * Cron-runner for supplier channels.
+ *
+ * Called frequently (e.g. every 5 minutes) by the system cron. For each
+ * channel with a non-null `scheduleCron`, computes "previous fire time" of
+ * the cron expression — if that's between `lastSyncAt` (or epoch) and now,
+ * the channel is due and we sync. This way the same trigger fires once even
+ * if the system cron has 5-minute resolution and the channel cron is
+ * "0 8 * * *" (would otherwise fire 12 times within an hour).
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    const expectedToken = `Bearer ${env.APP_SECRET}`;
+    if (!authHeader || !timingSafeCompare(authHeader, expectedToken)) {
+      return errorResponse('Unauthorized', 401);
+    }
+
+    const now = new Date();
+
+    // ImportLog.managerId is FK-constrained to User. For automated syncs we
+    // attribute to the first admin — operators still know "the system did
+    // it" via the filename pattern `supplier-{channelId}-...`.
+    const systemAdmin = await prisma.user.findFirst({
+      where: { role: 'admin' },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
+    if (!systemAdmin) {
+      return errorResponse('No admin user found — cron cannot attribute import logs', 500);
+    }
+
+    const channels = await prisma.supplierChannel.findMany({
+      where: {
+        isActive: true,
+        scheduleCron: { not: null },
+      },
+      select: { id: true, name: true, scheduleCron: true, lastSyncAt: true },
+    });
+
+    const ran: { id: number; result: { created: number; updated: number; skipped: number } }[] = [];
+    const skipped: { id: number; reason: string }[] = [];
+    const failed: { id: number; error: string }[] = [];
+
+    for (const channel of channels) {
+      if (!channel.scheduleCron) continue;
+      let prevFireDate: Date;
+      try {
+        const interval = CronExpressionParser.parse(channel.scheduleCron, { currentDate: now });
+        prevFireDate = interval.prev().toDate();
+      } catch (err) {
+        skipped.push({
+          id: channel.id,
+          reason: `invalid cron: ${err instanceof Error ? err.message : 'parse error'}`,
+        });
+        continue;
+      }
+
+      const since = channel.lastSyncAt ?? new Date(0);
+      if (prevFireDate <= since) {
+        // Already ran for this cron tick.
+        skipped.push({ id: channel.id, reason: 'not due' });
+        continue;
+      }
+
+      try {
+        const { result } = await syncSupplierChannel(channel.id, systemAdmin.id);
+        ran.push({
+          id: channel.id,
+          result: {
+            created: result.created,
+            updated: result.updated,
+            skipped: result.skipped,
+          },
+        });
+        logger.info(`[cron/sync-supplier-channels] #${channel.id} (${channel.name}) ok`, {
+          created: result.created,
+          updated: result.updated,
+        });
+      } catch (err) {
+        const msg =
+          err instanceof SupplierChannelError ? err.message : err instanceof Error ? err.message : 'unknown';
+        failed.push({ id: channel.id, error: msg });
+        logger.error(`[cron/sync-supplier-channels] #${channel.id} failed: ${msg}`);
+      }
+    }
+
+    return successResponse({
+      ranCount: ran.length,
+      skippedCount: skipped.length,
+      failedCount: failed.length,
+      ran,
+      skipped,
+      failed,
+    });
+  } catch (err) {
+    logger.error('[cron/sync-supplier-channels] POST failed', { error: err });
+    return errorResponse(err instanceof Error ? err.message : 'Внутрішня помилка сервера', 500);
+  }
+}

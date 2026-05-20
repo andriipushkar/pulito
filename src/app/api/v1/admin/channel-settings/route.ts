@@ -1,4 +1,4 @@
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import {
   getAllChannelConfigs,
@@ -7,6 +7,11 @@ import {
   type ChannelType,
 } from '@/services/channel-config';
 import { z } from 'zod';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
+
+type ChannelConfigInput = Parameters<typeof saveChannelConfig>[1];
 
 const CHANNELS: ChannelType[] = ['telegram', 'viber', 'facebook', 'instagram', 'tiktok', 'olx', 'rozetka', 'prom', 'epicentrk'];
 
@@ -58,7 +63,7 @@ const schemas: Record<ChannelType, z.ZodSchema> = {
   epicentrk: marketplaceSchema,
 };
 
-export const GET = withRole('admin')(async () => {
+export const GET = withRole2fa('admin')(async () => {
   try {
     const configs = await getAllChannelConfigs();
     const masked: Record<string, unknown> = {};
@@ -66,12 +71,13 @@ export const GET = withRole('admin')(async () => {
       masked[ch] = maskChannelConfig(ch, configs[ch]);
     }
     return successResponse(masked);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/channel-settings GET] failed', { error: err });
     return errorResponse('Помилка завантаження налаштувань каналів', 500);
   }
 });
 
-export const PUT = withRole('admin')(async (req) => {
+export const PUT = withRole2fa('admin')(async (req, { user }) => {
   try {
     const body = await req.json();
     const { channel, config } = body;
@@ -88,12 +94,38 @@ export const PUT = withRole('admin')(async (req) => {
       return errorResponse(String(firstError || 'Невалідні дані'));
     }
 
-    const userId = (req as unknown as { userId?: number }).userId;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await saveChannelConfig(channel as ChannelType, parsed.data as any, userId);
+    // Reject submissions where the secret-bearing fields still contain the
+    // bullet-masked placeholder — that means the admin opened the form and
+    // saved without typing a real value. Overwriting the encrypted secret
+    // with the mask would brick the integration.
+    const data = parsed.data as Record<string, unknown>;
+    const SECRET_FIELDS = [
+      'botToken', 'authToken', 'pageAccessToken', 'accessToken', 'appSecret',
+      'webhookSecret', 'apiKey', 'clientSecret',
+    ];
+    for (const f of SECRET_FIELDS) {
+      if (typeof data[f] === 'string' && /•{4,}/.test(data[f] as string)) {
+        delete data[f];
+      }
+    }
+
+    await saveChannelConfig(
+      channel as ChannelType,
+      data as ChannelConfigInput,
+      user.id,
+    );
+
+    await logAudit({
+      userId: user.id,
+      actionType: 'rule_change',
+      entityType: 'settings',
+      details: { scope: 'channel', channel, enabled: (parsed.data as { enabled?: boolean }).enabled },
+      ipAddress: getClientIp(req),
+    });
 
     return successResponse({ saved: true });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/channel-settings PUT] failed', { error: err });
     return errorResponse('Помилка збереження налаштувань', 500);
   }
 });

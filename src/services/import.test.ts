@@ -6,6 +6,7 @@ import {
   getImportLogById,
   parsePreview,
 } from './import';
+import { makeXlsxBuffer } from '@/test/excel-buffer';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -21,11 +22,6 @@ vi.mock('@/lib/prisma', () => ({
     productContent: { create: vi.fn(), upsert: vi.fn() },
     priceHistory: { create: vi.fn() },
   },
-}));
-
-vi.mock('xlsx', () => ({
-  read: vi.fn(),
-  utils: { sheet_to_json: vi.fn() },
 }));
 
 vi.mock('./image', () => ({
@@ -45,14 +41,9 @@ vi.mock('@/utils/slug', () => ({
 }));
 
 import { prisma } from '@/lib/prisma';
-import * as XLSX from 'xlsx';
 import type { MockPrismaClient } from '@/test/prisma-mock';
 
 const mockPrisma = prisma as unknown as MockPrismaClient;
-const mockXLSX = XLSX as unknown as {
-  read: ReturnType<typeof vi.fn>;
-  utils: { sheet_to_json: ReturnType<typeof vi.fn> };
-};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -137,6 +128,8 @@ describe('getImportLogById', () => {
 });
 
 describe('importProducts', () => {
+  // Per-test fileBuffer is built via makeXlsxBuffer; this stub remains as a
+  // placeholder for the few tests that pass the buffer through unchanged.
   const fileBuffer = Buffer.from('fake-excel');
   const filename = 'products.xlsx';
   const managerId = 1;
@@ -148,7 +141,10 @@ describe('importProducts', () => {
   });
 
   it('should throw ImportError when Excel has no sheets', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: [], Sheets: {} } as never);
+    // Build a workbook with zero worksheets to trigger the "no data" branch.
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const fileBuffer = Buffer.from(await wb.xlsx.writeBuffer());
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(ImportError);
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
@@ -157,16 +153,14 @@ describe('importProducts', () => {
   });
 
   it('should throw ImportError when sheet has no rows', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([] as never);
+    const fileBuffer = await makeXlsxBuffer([] as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(ImportError);
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow('Файл порожній');
   });
 
   it('should use supplier format when missing code column but has name and price', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Назва: 'Товар 1', 'Ціна роздріб': '100' },
     ] as never);
 
@@ -185,8 +179,7 @@ describe('importProducts', () => {
   });
 
   it('should create product successfully', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Мило рідке', 'Ціна роздріб': '125.50', Кількість: '10' },
     ] as never);
 
@@ -213,8 +206,7 @@ describe('importProducts', () => {
   });
 
   it('should update existing product when code exists', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Мило рідке', 'Ціна роздріб': '125.50' },
     ] as never);
 
@@ -243,8 +235,7 @@ describe('importProducts', () => {
   });
 
   it('should track price history when retail price changes', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Мило рідке', 'Ціна роздріб': '150.00' },
     ] as never);
 
@@ -274,8 +265,7 @@ describe('importProducts', () => {
   });
 
   it('should auto-create category when it does not exist', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Мило рідке', 'Ціна роздріб': '100', Категорія: 'Побутова хімія' },
     ] as never);
 
@@ -310,8 +300,7 @@ describe('importProducts', () => {
       Назва: 'Test',
       'Ціна роздріб': '100',
     }));
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue(bigArray as never);
+    const fileBuffer = await makeXlsxBuffer(bigArray as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
       'Максимальна кількість рядків: 10 000',
@@ -319,8 +308,7 @@ describe('importProducts', () => {
   });
 
   it('should throw ImportError when code column missing in standard format (no name either)', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([{ 'Якесь поле': 'value' }] as never);
+    const fileBuffer = await makeXlsxBuffer([{ 'Якесь поле': 'value' }] as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
       'Не знайдено колонку "Код продукції"',
@@ -328,8 +316,7 @@ describe('importProducts', () => {
   });
 
   it('should throw ImportError when name column missing in standard format', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([{ Код: 'P001', 'Якесь поле': 'value' }] as never);
+    const fileBuffer = await makeXlsxBuffer([{ Код: 'P001', 'Якесь поле': 'value' }] as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
       'Не знайдено колонку "Назва"',
@@ -337,8 +324,7 @@ describe('importProducts', () => {
   });
 
   it('should throw ImportError when retail price column missing in standard format', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([{ Код: 'P001', Назва: 'Test' }] as never);
+    const fileBuffer = await makeXlsxBuffer([{ Код: 'P001', Назва: 'Test' }] as never);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
       'Не знайдено колонку "Ціна роздріб"',
@@ -346,8 +332,7 @@ describe('importProducts', () => {
   });
 
   it('should skip rows with empty code', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: '', Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
@@ -358,8 +343,7 @@ describe('importProducts', () => {
   });
 
   it('should skip rows with too-long code', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'A'.repeat(51), Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
@@ -370,8 +354,7 @@ describe('importProducts', () => {
   });
 
   it('should skip rows with empty name', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: '', 'Ціна роздріб': '100' },
     ] as never);
 
@@ -382,8 +365,7 @@ describe('importProducts', () => {
   });
 
   it('should skip rows with invalid retail price in standard format', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': 'abc' },
     ] as never);
 
@@ -394,8 +376,7 @@ describe('importProducts', () => {
   });
 
   it('should handle row processing error gracefully', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
@@ -408,8 +389,7 @@ describe('importProducts', () => {
   });
 
   it('should handle slug conflict for new product', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test Product', 'Ціна роздріб': '100' },
     ] as never);
 
@@ -429,8 +409,7 @@ describe('importProducts', () => {
   });
 
   it('should use existing category when found', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Категорія: 'Existing Category' },
     ] as never);
 
@@ -452,8 +431,7 @@ describe('importProducts', () => {
   });
 
   it('should handle slug conflict for auto-created category', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Категорія: 'New Cat' },
     ] as never);
 
@@ -476,8 +454,7 @@ describe('importProducts', () => {
   });
 
   it('should update existing product slug when name changes', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'New Name', 'Ціна роздріб': '100' },
     ] as never);
 
@@ -505,8 +482,7 @@ describe('importProducts', () => {
   });
 
   it('should handle wholesale price changes for existing product', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', 'Ціна опт': '70' },
     ] as never);
 
@@ -534,8 +510,7 @@ describe('importProducts', () => {
   });
 
   it('should update category when present on existing product update', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Категорія: 'Cat A' },
     ] as never);
 
@@ -563,8 +538,7 @@ describe('importProducts', () => {
   });
 
   it('should handle promo column with various truthy values', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Promo Yes', 'Ціна роздріб': '100', Акція: 'Так' },
     ] as never);
 
@@ -582,8 +556,7 @@ describe('importProducts', () => {
   });
 
   it('should handle negative price as null', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Neg Price', 'Ціна роздріб': '-100' },
     ] as never);
 
@@ -594,8 +567,7 @@ describe('importProducts', () => {
   });
 
   it('should handle supplier format with category separator rows', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Назва: 'Cleaning Products', 'Ціна роздріб': '' }, // category separator
       { Назва: 'Soap', 'Ціна роздріб': '50' },
       { Назва: '', 'Ціна роздріб': '' }, // empty row
@@ -617,8 +589,7 @@ describe('importProducts', () => {
   });
 
   it('should find existing product by name in supplier format', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Назва: 'Existing Prod', 'Ціна роздріб': '50' },
     ] as never);
 
@@ -639,8 +610,7 @@ describe('importProducts', () => {
   });
 
   it('should handle supplier format with only wholesale price', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Назва: 'Wholesale Only', 'Ціна опт': '80' },
     ] as never);
 
@@ -660,8 +630,7 @@ describe('importProducts', () => {
   });
 
   it('should skip supplier format rows with no price', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Назва: 'No Price Product', 'Ціна роздріб': '', 'Ціна опт': '' },
     ] as never);
 
@@ -679,8 +648,7 @@ describe('importProducts', () => {
     });
     vi.stubGlobal('fetch', fetchImageMock);
 
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P001',
         Назва: 'With Image',
@@ -700,11 +668,11 @@ describe('importProducts', () => {
   });
 
   it('should handle generic error during import and re-throw as ImportError', async () => {
-    mockXLSX.read.mockImplementation(() => {
-      throw new Error('Unexpected error');
-    });
+    // Pass garbage bytes — ExcelJS will reject the load with a parse error,
+    // which the importer wraps in ImportError("Помилка при обробці файлу").
+    const corruptBuffer = Buffer.from('not-an-excel-file', 'utf-8');
 
-    await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(
+    await expect(importProducts(corruptBuffer, filename, managerId)).rejects.toThrow(
       'Помилка при обробці файлу',
     );
 
@@ -719,14 +687,13 @@ describe('importProducts', () => {
   });
 
   it('should re-throw ImportError as-is', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: [], Sheets: {} } as never);
+    const fileBuffer = await makeXlsxBuffer([]);
 
     await expect(importProducts(fileBuffer, filename, managerId)).rejects.toThrow(ImportError);
   });
 
   it('should handle image URL for existing product update', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P001',
         Назва: 'Test',
@@ -756,8 +723,7 @@ describe('importProducts', () => {
   });
 
   it('should skip image when URL is blocked (SSRF protection)', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Зображення: 'http://localhost/img.jpg' },
     ] as never);
 
@@ -771,8 +737,7 @@ describe('importProducts', () => {
   });
 
   it('should handle price with comma as decimal separator', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100,50' },
     ] as never);
 
@@ -790,8 +755,7 @@ describe('importProducts', () => {
   });
 
   it('should handle negative quantity as 0', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Кількість: '-5' },
     ] as never);
 
@@ -814,14 +778,13 @@ describe('importProducts', () => {
 // ---------------------------------------------------------------------------
 
 describe('parsePreview', () => {
-  it('should return headers, rows preview, and detect standard format', () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+  it('should return headers, rows preview, and detect standard format', async () => {
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100' },
       { Код: 'P002', Назва: 'Test 2', 'Ціна роздріб': '200' },
     ] as never);
 
-    const result = parsePreview(Buffer.from('fake'));
+    const result = await parsePreview(fileBuffer);
 
     expect(result.headers).toEqual(['Код', 'Назва', 'Ціна роздріб']);
     expect(result.rows).toHaveLength(2);
@@ -829,27 +792,25 @@ describe('parsePreview', () => {
     expect(result.format).toBe('standard');
   });
 
-  it('should detect supplier format', () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+  it('should detect supplier format', async () => {
+    const fileBuffer = await makeXlsxBuffer([
       { Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
-    const result = parsePreview(Buffer.from('fake'));
+    const result = await parsePreview(fileBuffer);
 
     expect(result.format).toBe('supplier');
   });
 
-  it('should limit preview to 10 rows', () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
+  it('should limit preview to 10 rows', async () => {
     const rows = Array.from({ length: 15 }, (_, i) => ({
       Код: `P${i}`,
       Назва: `Test ${i}`,
       'Ціна роздріб': `${i * 10}`,
     }));
-    mockXLSX.utils.sheet_to_json.mockReturnValue(rows as never);
+    const fileBuffer = await makeXlsxBuffer(rows as never);
 
-    const result = parsePreview(Buffer.from('fake'));
+    const result = await parsePreview(fileBuffer);
 
     expect(result.rows).toHaveLength(10);
     expect(result.totalRows).toBe(15);
@@ -872,9 +833,8 @@ describe('importProducts - supplier format with both prices null (skip row)', ()
   });
 
   it('should skip supplier rows with both prices null as error', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
     // Supplier format: has name + price columns but row has invalid prices
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Назва: 'Bad Price Item', 'Ціна роздріб': 'abc', 'Ціна опт': 'xyz' },
     ] as never);
 
@@ -888,8 +848,7 @@ describe('importProducts - supplier format with both prices null (skip row)', ()
   });
 
   it('should handle non-Error thrown in row processing', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100' },
     ] as never);
 
@@ -930,8 +889,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Зображення: 'https://' },
     ] as never);
 
@@ -949,8 +907,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P001', Назва: 'Test', 'Ціна роздріб': '100', Зображення: 'http://10.0.0.1/img.jpg' },
     ] as never);
 
@@ -965,8 +922,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
   });
 
   it('should fail image download for 192.168.x.x private IP', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P001',
         Назва: 'Test',
@@ -983,8 +939,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
   });
 
   it('should fail image download for .local domain', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P001',
         Назва: 'Test',
@@ -1004,8 +959,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false });
     vi.stubGlobal('fetch', fetchMock);
 
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P001',
         Назва: 'Test',
@@ -1029,8 +983,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P001',
         Назва: 'Test',
@@ -1055,8 +1008,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P001',
         Назва: 'Test',
@@ -1080,8 +1032,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P001',
         Назва: 'Test',
@@ -1101,8 +1052,7 @@ describe('importProducts - isAllowedUrl edge cases', () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('Network error'));
     vi.stubGlobal('fetch', fetchMock);
 
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P001',
         Назва: 'Test',
@@ -1134,8 +1084,7 @@ describe('importProducts — content fields (round-trip)', () => {
   });
 
   it('should create ProductContent when description columns are present', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P010',
         Назва: 'Гель для прання',
@@ -1170,8 +1119,7 @@ describe('importProducts — content fields (round-trip)', () => {
   });
 
   it('should upsert ProductContent when updating existing product', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P010',
         Назва: 'Гель для прання',
@@ -1209,8 +1157,7 @@ describe('importProducts — content fields (round-trip)', () => {
   });
 
   it('should not create ProductContent when no content columns present', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       { Код: 'P011', Назва: 'Мило', 'Ціна роздріб': '30' },
     ] as never);
 
@@ -1224,8 +1171,7 @@ describe('importProducts — content fields (round-trip)', () => {
   });
 
   it('should handle English column names for content fields', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P012',
         Назва: 'Soap',
@@ -1251,8 +1197,7 @@ describe('importProducts — content fields (round-trip)', () => {
   });
 
   it('should skip empty content fields', async () => {
-    mockXLSX.read.mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } } as never);
-    mockXLSX.utils.sheet_to_json.mockReturnValue([
+    const fileBuffer = await makeXlsxBuffer([
       {
         Код: 'P013',
         Назва: 'Empty Content',

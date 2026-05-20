@@ -7,9 +7,23 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { z } from 'zod';
 
+const PASSWORD_HINT =
+  'Мінімум 8 символів, велика та мала літера, цифра і спецсимвол (!@#$…)';
+
 const schema = z
   .object({
-    password: z.string().min(8, 'Мінімум 8 символів'),
+    password: z
+      .string()
+      .min(8, 'Мінімум 8 символів')
+      .max(128, 'Максимум 128 символів')
+      .refine(
+        (val) =>
+          /[A-Z]/.test(val) &&
+          /[a-z]/.test(val) &&
+          /\d/.test(val) &&
+          /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/]/.test(val),
+        { message: PASSWORD_HINT },
+      ),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
@@ -95,15 +109,18 @@ export default function ResetPasswordPage() {
       )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Input
-          label="Новий пароль"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          error={errors.password}
-          placeholder="Мінімум 8 символів"
-          autoComplete="new-password"
-        />
+        <div>
+          <Input
+            label="Новий пароль"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={errors.password}
+            placeholder="Мінімум 8 символів"
+            autoComplete="new-password"
+          />
+          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{PASSWORD_HINT}</p>
+        </div>
         <Input
           label="Підтвердження пароля"
           type="password"

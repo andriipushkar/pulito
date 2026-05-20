@@ -25,6 +25,14 @@ vi.mock('@/middleware/auth', () => ({
   withRole: () => (handler: Function) => handler,
 }));
 
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    user: { findUnique: vi.fn().mockResolvedValue({ id: 1, email: 'user@example.com' }) },
+  },
+}));
+
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+
 import { POST } from './route';
 import { requestPasswordReset } from '@/services/verification';
 

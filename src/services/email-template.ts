@@ -44,6 +44,21 @@ function button(text: string, url: string): string {
  * Replaces {variable} placeholders with provided values.
  * Returns null if template is not found or inactive.
  */
+// Escape user-controlled variable values before inlining into HTML templates.
+// Subject is plain text in the email envelope; body is rendered as HTML.
+function htmlEscape(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Some callers pre-build HTML chunks (e.g. itemRows = "<tr>...</tr>") and pass
+// them as values. We need to NOT double-escape those. Keys ending in `_html`
+// signal "treat as raw HTML — caller already escaped". Anything else is
+// untrusted text that we escape before injection.
 async function renderDbTemplate(
   templateKey: string,
   variables: Record<string, string>,
@@ -60,8 +75,11 @@ async function renderDbTemplate(
 
     for (const [key, value] of Object.entries(variables)) {
       const placeholder = new RegExp(`\\{${key}\\}`, 'g');
-      subject = subject.replace(placeholder, value);
-      body = body.replace(placeholder, value);
+      const safeForBody = key.endsWith('_html') ? value : htmlEscape(value);
+      // Subject never accepts HTML — strip angle brackets defensively.
+      const safeForSubject = value.replace(/[<>]/g, '');
+      subject = subject.replace(placeholder, safeForSubject);
+      body = body.replace(placeholder, safeForBody);
     }
 
     return { subject, html: baseLayout(body) };
@@ -91,7 +109,7 @@ export async function sendOrderConfirmation(data: {
   const dbTemplate = await renderDbTemplate('order_confirmation', {
     name: data.name,
     order_number: data.orderNumber,
-    items_table: itemRows,
+    items_table_html: itemRows,
     total: data.total.toFixed(2),
     delivery_method: data.deliveryMethod,
     orders_url: `${env.APP_URL}/account/orders`,
@@ -304,7 +322,7 @@ export async function sendCartAbandonmentEmail(data: {
 
   const dbTemplate = await renderDbTemplate('cart_abandonment', {
     name: data.name,
-    items_table: itemRows,
+    items_table_html: itemRows,
     total: total.toFixed(2),
     cart_url: data.cartUrl,
   });

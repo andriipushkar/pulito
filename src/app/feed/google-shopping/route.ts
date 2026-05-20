@@ -24,6 +24,7 @@ export async function GET() {
     select: {
       id: true,
       code: true,
+      barcode: true,
       name: true,
       slug: true,
       priceRetail: true,
@@ -32,6 +33,7 @@ export async function GET() {
       isPromo: true,
       imagePath: true,
       updatedAt: true,
+      brand: { select: { name: true } },
       content: { select: { shortDescription: true } },
       category: {
         select: { name: true, slug: true, parent: { select: { name: true, slug: true } } },
@@ -68,8 +70,9 @@ export async function GET() {
     ${oldPrice && oldPrice > price ? `<g:sale_price>${price.toFixed(2)} UAH</g:sale_price>` : ''}
     <g:condition>new</g:condition>
     <g:mpn>${escapeXml(p.code)}</g:mpn>
+    ${p.barcode ? `<g:gtin>${escapeXml(p.barcode)}</g:gtin>` : '<g:identifier_exists>no</g:identifier_exists>'}
     <g:product_type>${escapeXml(productType)}</g:product_type>
-    <g:brand>Pulito Trade</g:brand>
+    <g:brand>${escapeXml(p.brand?.name || 'Pulito Trade')}</g:brand>
     <g:google_product_category>${googleCategory}</g:google_product_category>
     <g:shipping>
       <g:country>UA</g:country>

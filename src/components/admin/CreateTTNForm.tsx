@@ -43,11 +43,20 @@ export default function CreateTTNForm({
   onCreated,
   onCancel,
 }: CreateTTNFormProps) {
-  // Sender (from env/config — stored locally, could be admin settings)
-  const [senderRef, setSenderRef] = useState('');
-  const [senderAddressRef, setSenderAddressRef] = useState('');
-  const [senderContactRef, setSenderContactRef] = useState('');
-  const [senderPhone, setSenderPhone] = useState('');
+  // Sender (from env/config — stored locally, could be admin settings).
+  // Combined into one object so the localStorage hydration effect below
+  // performs a single setState (and needs at most one rule-disable).
+  const [sender, setSender] = useState({
+    senderRef: '',
+    senderAddressRef: '',
+    senderContactRef: '',
+    senderPhone: '',
+  });
+  const { senderRef, senderAddressRef, senderContactRef, senderPhone } = sender;
+  const setSenderRef = (v: string) => setSender((s) => ({ ...s, senderRef: v }));
+  const setSenderAddressRef = (v: string) => setSender((s) => ({ ...s, senderAddressRef: v }));
+  const setSenderContactRef = (v: string) => setSender((s) => ({ ...s, senderContactRef: v }));
+  const setSenderPhone = (v: string) => setSender((s) => ({ ...s, senderPhone: v }));
 
   // Recipient
   const [cityQuery, setCityQuery] = useState(recipientCity || '');
@@ -74,17 +83,21 @@ export default function CreateTTNForm({
   const cityTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const warehouseTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Load sender settings from localStorage
+  // Load sender settings from localStorage. Done in an effect (not a lazy
+  // useState initializer) to avoid hydration mismatches between SSR (empty)
+  // and the first client render (would otherwise see localStorage values).
   useEffect(() => {
     try {
       const saved = localStorage.getItem('np_sender_settings');
-      if (saved) {
-        const s = JSON.parse(saved);
-        setSenderRef(s.senderRef || '');
-        setSenderAddressRef(s.senderAddressRef || '');
-        setSenderContactRef(s.senderContactRef || '');
-        setSenderPhone(s.senderPhone || '');
-      }
+      if (!saved) return;
+      const s = JSON.parse(saved) as Partial<typeof sender>;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate from localStorage post-mount; lazy init would cause SSR/client mismatch
+      setSender((prev) => ({
+        senderRef: s.senderRef || prev.senderRef,
+        senderAddressRef: s.senderAddressRef || prev.senderAddressRef,
+        senderContactRef: s.senderContactRef || prev.senderContactRef,
+        senderPhone: s.senderPhone || prev.senderPhone,
+      }));
     } catch { /* ignore */ }
   }, []);
 
@@ -112,7 +125,7 @@ export default function CreateTTNForm({
     return () => clearTimeout(cityTimeoutRef.current);
   }, [cityQuery, selectedCityRef]);
 
-  // Warehouse search
+  // Warehouse search + initial load on city select (single effect to avoid duplicate fetches).
   useEffect(() => {
     if (!selectedCityRef) return;
     clearTimeout(warehouseTimeoutRef.current);
@@ -126,16 +139,6 @@ export default function CreateTTNForm({
     }, 300);
     return () => clearTimeout(warehouseTimeoutRef.current);
   }, [selectedCityRef, warehouseQuery]);
-
-  // Load warehouses on city select
-  useEffect(() => {
-    if (!selectedCityRef) return;
-    apiClient.get<WarehouseResult[]>(`/api/v1/delivery/warehouses?cityRef=${selectedCityRef}`).then((res) => {
-      if (res.success && res.data) {
-        setWarehouses(res.data as unknown as WarehouseResult[]);
-      }
-    });
-  }, [selectedCityRef]);
 
   const selectCity = (city: CityResult) => {
     setCityQuery(city.Present || city.MainDescription);
@@ -167,6 +170,22 @@ export default function CreateTTNForm({
       return;
     }
 
+    const weightNum = Number.parseFloat(weight);
+    const seatsNum = Number.parseInt(seatsAmount, 10);
+    const costNum = Number.parseFloat(cost);
+    if (!Number.isFinite(weightNum) || weightNum <= 0) {
+      setError('Вкажіть коректну вагу (більше 0)');
+      return;
+    }
+    if (!Number.isFinite(seatsNum) || seatsNum < 1) {
+      setError('Кількість місць має бути не менше 1');
+      return;
+    }
+    if (!Number.isFinite(costNum) || costNum <= 0) {
+      setError('Вкажіть коректну оціночну вартість');
+      return;
+    }
+
     saveSenderSettings();
     setIsCreating(true);
 
@@ -182,10 +201,10 @@ export default function CreateTTNForm({
       payerType,
       paymentMethod: 'Cash',
       cargoType: 'Parcel',
-      weight: parseFloat(weight) || 0.5,
-      seatsAmount: parseInt(seatsAmount) || 1,
+      weight: weightNum,
+      seatsAmount: seatsNum,
       description,
-      cost: parseFloat(cost) || orderAmount,
+      cost: costNum,
       serviceType,
     });
 

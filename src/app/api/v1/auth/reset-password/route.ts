@@ -4,6 +4,8 @@ import { resetPassword } from '@/services/verification';
 import { AuthError } from '@/services/auth-errors';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { passwordSchema } from '@/validators/auth';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 const schema = z.object({
   token: z.string().min(1, 'Токен обов\'язковий'),
@@ -19,7 +21,15 @@ export async function POST(request: NextRequest) {
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
 
-    await resetPassword(parsed.data.token, parsed.data.password);
+    const userId = await resetPassword(parsed.data.token, parsed.data.password);
+    await logAudit({
+      userId,
+      actionType: 'password_reset',
+      entityType: 'user',
+      entityId: userId,
+      details: { action: 'self_reset_completed' },
+      ipAddress: getClientIp(request),
+    });
     return successResponse({ message: 'Пароль успішно змінено. Увійдіть з новим паролем.' });
   } catch (error) {
     if (error instanceof AuthError) {

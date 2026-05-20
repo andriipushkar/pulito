@@ -10,6 +10,7 @@ import { getClientIp, getDeviceInfo } from '@/utils/request';
 import { env } from '@/config/env';
 import { createApiHandler } from '@/lib/api-handler';
 import { RATE_LIMITS } from '@/services/rate-limit';
+import { logAudit } from '@/services/audit';
 
 export const POST = createApiHandler(RATE_LIMITS.auth, async function POST(request: NextRequest) {
   try {
@@ -38,6 +39,15 @@ export const POST = createApiHandler(RATE_LIMITS.auth, async function POST(reque
       if (error instanceof AuthError && error.statusCode === 401) {
         // Record failed attempt
         await recordFailedLogin(ipAddress, parsed.data.email);
+        // Audit failed login so brute-force attempts leave a trail (rate-limit
+        // counts live in Redis and expire — audit log is the durable record).
+        await logAudit({
+          userId: null,
+          actionType: 'login',
+          entityType: 'user',
+          details: { success: false, email: parsed.data.email, method: 'password' },
+          ipAddress,
+        });
       }
       throw error;
     }
@@ -51,6 +61,14 @@ export const POST = createApiHandler(RATE_LIMITS.auth, async function POST(reque
     }
 
     const { user, tokens } = result;
+    await logAudit({
+      userId: user.id,
+      actionType: 'login',
+      entityType: 'user',
+      entityId: user.id,
+      details: { method: 'password' },
+      ipAddress,
+    });
     const refreshTtl = parseTtlToSeconds(env.JWT_REFRESH_TTL);
     const response = successResponse({ user, accessToken: tokens.accessToken });
     response.headers.set('Set-Cookie', serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl));

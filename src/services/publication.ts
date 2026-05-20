@@ -348,16 +348,23 @@ export async function publishNow(publicationId: number, targetChannels?: string[
     }
   }
 
-  // Determine overall status
+  // Determine overall status. Earlier code mapped "any channel published" to
+  // `published`, which hid mixed outcomes (1 of 5 channels OK → looked green
+  // in the list). Now: all published → `published`, some → `partial`,
+  // none → `failed`. UI can warn on `partial` so the operator retries.
   const allResults = await prisma.publicationChannel.findMany({ where: { publicationId } });
-  const allPublished = allResults.every((r) => r.status === 'published');
+  const allPublished = allResults.length > 0 && allResults.every((r) => r.status === 'published');
   const anyPublished = allResults.some((r) => r.status === 'published');
-  const overallStatus = allPublished ? 'published' : anyPublished ? 'published' : 'failed';
+  const overallStatus: 'published' | 'partial' | 'failed' = allPublished
+    ? 'published'
+    : anyPublished
+      ? 'partial'
+      : 'failed';
 
   return prisma.publication.update({
     where: { id: publicationId },
     data: {
-      status: overallStatus as 'published' | 'failed',
+      status: overallStatus,
       publishedAt: anyPublished ? new Date() : null,
     },
     include: { channelResults: true },

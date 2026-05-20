@@ -70,7 +70,13 @@ export async function registerUser(data: {
   import('./verification').then((mod) => mod.sendEmailVerification(user.id)).catch(() => {});
 
   return {
-    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      wholesaleGroup: user.wholesaleGroup,
+      twoFactorEnabled: user.twoFactorEnabled,
+    },
     tokens,
   };
 }
@@ -144,7 +150,13 @@ export async function loginUser(data: {
 
   return {
     requiresTwoFactor: false,
-    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      wholesaleGroup: user.wholesaleGroup,
+      twoFactorEnabled: user.twoFactorEnabled,
+    },
     tokens,
   };
 }
@@ -212,7 +224,13 @@ export async function verifyTwoFactorLogin(
   const tokens = await createTokenPair(user.id, user.email, user.role, ipAddress, deviceInfo);
 
   return {
-    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      wholesaleGroup: user.wholesaleGroup,
+      twoFactorEnabled: user.twoFactorEnabled,
+    },
     tokens,
   };
 }
@@ -251,6 +269,16 @@ export async function refreshTokens(
       where: { userId: stored.userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    // Audit this as a critical security event — we may want to alert on it.
+    const { logAudit } = await import('@/services/audit');
+    await logAudit({
+      userId: stored.userId,
+      actionType: 'logout',
+      entityType: 'user',
+      entityId: stored.userId,
+      details: { reason: 'refresh_token_reuse_detected', allSessionsRevoked: true },
+      ipAddress: ipAddress ?? null,
+    });
     throw new AuthError('Виявлено повторне використання токена. Всі сесії завершено.', 401);
   }
 
@@ -268,7 +296,13 @@ export async function refreshTokens(
   const tokens = await createTokenPair(user.id, user.email, user.role, ipAddress, deviceInfo);
 
   return {
-    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      wholesaleGroup: user.wholesaleGroup,
+      twoFactorEnabled: user.twoFactorEnabled,
+    },
     tokens,
   };
 }
@@ -327,6 +361,7 @@ export async function getUserById(id: number): Promise<AuthUser | null> {
       email: true,
       role: true,
       fullName: true,
+      phone: true,
       wholesaleGroup: true,
       twoFactorEnabled: true,
     },
@@ -338,6 +373,7 @@ export async function getUserById(id: number): Promise<AuthUser | null> {
     email: user.email,
     role: user.role,
     fullName: user.fullName,
+    phone: user.phone ?? undefined,
     wholesaleGroup: user.wholesaleGroup,
     twoFactorEnabled: user.twoFactorEnabled,
   };
@@ -416,7 +452,13 @@ export async function loginWithGoogle(
   logLogin(user.id, ipAddress, deviceInfo, true).catch(() => {});
 
   return {
-    user: { id: user.id, email: user.email, role: user.role, wholesaleGroup: user.wholesaleGroup },
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      wholesaleGroup: user.wholesaleGroup,
+      twoFactorEnabled: user.twoFactorEnabled,
+    },
     tokens,
   };
 }

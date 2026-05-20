@@ -5,6 +5,7 @@ import { createProductSchema } from '@/validators/product';
 import { createProduct, ProductError } from '@/services/product';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse, paginatedResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole(
   'manager',
@@ -21,6 +22,7 @@ export const GET = withRole(
     const brandId = searchParams.get('brandId');
     const isActive = searchParams.get('isActive');
     const stock = searchParams.get('stock');
+    const missingBarcode = searchParams.get('missingBarcode');
     const sort = searchParams.get('sort') || 'id_desc';
 
     // Hide soft-deleted products from the admin list — when a product can't be
@@ -42,6 +44,7 @@ export const GET = withRole(
     if (stock === 'out') where.quantity = 0;
     else if (stock === 'low') where.quantity = { gt: 0, lte: 5 };
     else if (stock === 'in') where.quantity = { gt: 5 };
+    if (missingBarcode === '1') where.barcode = null;
 
     const orderByMap: Record<string, object> = {
       id_desc: { id: 'desc' },
@@ -75,6 +78,7 @@ export const GET = withRole(
           isActive: true,
           isPromo: true,
           imagePath: true,
+          barcode: true,
           ordersCount: true,
           sortOrder: true,
           category: { select: { id: true, name: true } },
@@ -88,7 +92,8 @@ export const GET = withRole(
     ]);
 
     return paginatedResponse(products, total, page, limit);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/products] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -124,6 +129,7 @@ export const POST = withRole(
     if (error instanceof ProductError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/products] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

@@ -7,6 +7,8 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import { useDebounce } from '@/hooks/useDebounce';
+import { SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
 import { Check, Close } from '@/components/icons';
 
 const BADGE_TYPES = [
@@ -35,6 +37,12 @@ interface EditForm {
   priority: number;
 }
 
+interface ProductOption {
+  id: number;
+  name: string;
+  code: string;
+}
+
 export default function AdminBadgesPage() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,18 +51,71 @@ export default function AdminBadgesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({ badgeType: 'promo', customText: '', customColor: '#2563eb', priority: 0 });
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [listSearch, setListSearch] = useState('');
+  const [productQuery, setProductQuery] = useState('');
+  const [productResults, setProductResults] = useState<ProductOption[]>([]);
+  const [pickedProduct, setPickedProduct] = useState<ProductOption | null>(null);
+  const debouncedProductQuery = useDebounce(productQuery, SEARCH_DEBOUNCE_MS);
+  // Derive searchingProducts from "completed query !== current".
+  const [completedProductQuery, setCompletedProductQuery] = useState<string | null>(null);
+  const searchingProducts =
+    debouncedProductQuery.length >= 2 && completedProductQuery !== debouncedProductQuery;
+
+  const deleteTarget = badges.find((b) => b.id === deleteId) || null;
+  const filteredBadges = (() => {
+    const q = listSearch.trim().toLowerCase();
+    if (!q) return badges;
+    return badges.filter(
+      (b) =>
+        b.product.name.toLowerCase().includes(q) ||
+        b.product.code.toLowerCase().includes(q) ||
+        (b.customText || '').toLowerCase().includes(q) ||
+        BADGE_TYPES.find((t) => t.value === b.badgeType)?.label.toLowerCase().includes(q),
+    );
+  })();
 
   const loadBadges = () => {
-    apiClient.get<Badge[]>('/api/v1/admin/badges').then((res) => {
-      if (res.success && res.data) setBadges(res.data);
-    }).finally(() => setIsLoading(false));
+    apiClient
+      .get<Badge[]>('/api/v1/admin/badges')
+      .then((res) => {
+        if (res.success && res.data) setBadges(res.data);
+        else toast.error(res.error || 'Помилка завантаження бейджів');
+      })
+      .catch(() => toast.error('Помилка завантаження бейджів'))
+      .finally(() => setIsLoading(false));
   };
 
   useEffect(() => { loadBadges(); }, []);
 
+  // Render-time guard below (`productQuery.length >= 2`) means stale results
+  // are never shown for short queries, so we can skip the unconditional clear.
+  useEffect(() => {
+    if (!debouncedProductQuery || debouncedProductQuery.length < 2) return;
+    let cancelled = false;
+    apiClient
+      .get<ProductOption[]>(
+        `/api/v1/admin/products?search=${encodeURIComponent(debouncedProductQuery)}&limit=10`,
+      )
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setProductResults(res.data);
+      })
+      .finally(() => {
+        if (!cancelled) setCompletedProductQuery(debouncedProductQuery);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedProductQuery]);
+
   const handleCreate = async () => {
+    const productId = pickedProduct?.id || Number(form.productId);
+    if (!productId || Number.isNaN(productId)) {
+      toast.error('Оберіть товар');
+      return;
+    }
     const res = await apiClient.post('/api/v1/admin/badges', {
-      productId: Number(form.productId),
+      productId,
       badgeType: form.badgeType,
       customText: form.badgeType === 'custom' ? form.customText : null,
       customColor: form.customColor || null,
@@ -64,6 +125,8 @@ export default function AdminBadgesPage() {
       toast.success('Бейдж створено');
       setShowForm(false);
       setForm({ productId: '', badgeType: 'promo', customText: '', customColor: '#2563eb', priority: 0 });
+      setPickedProduct(null);
+      setProductQuery('');
       loadBadges();
     } else {
       toast.error(res.error || 'Помилка створення');
@@ -96,6 +159,7 @@ export default function AdminBadgesPage() {
   const toggleActive = async (id: number, isActive: boolean) => {
     const res = await apiClient.put(`/api/v1/admin/badges/${id}`, { isActive: !isActive });
     if (res.success) toast.success(isActive ? 'Бейдж вимкнено' : 'Бейдж увімкнено');
+    else toast.error(res.error || 'Помилка оновлення');
     loadBadges();
   };
 
@@ -106,11 +170,14 @@ export default function AdminBadgesPage() {
   const executeDelete = async () => {
     if (deleteId === null) return;
     const id = deleteId;
-    setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/badges/${id}`);
-    if (res.success) toast.success('Бейдж видалено');
-    else toast.error('Помилка видалення');
-    loadBadges();
+    if (res.success) {
+      toast.success('Бейдж видалено');
+      setDeleteId(null);
+      loadBadges();
+    } else {
+      toast.error(res.error || 'Помилка видалення');
+    }
   };
 
   const getBadgeLabel = (type: string) => BADGE_TYPES.find((t) => t.value === type)?.label || type;
@@ -121,15 +188,89 @@ export default function AdminBadgesPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Бейджі товарів</h2>
-        <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Скасувати' : '+ Додати бейдж'}</Button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-bold">
+          Бейджі товарів{' '}
+          <span className="text-base font-normal text-[var(--color-text-secondary)]">
+            ({badges.length})
+          </span>
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            placeholder="Пошук за товаром, кодом або типом…"
+            value={listSearch}
+            onChange={(e) => setListSearch(e.target.value)}
+            className="w-72"
+          />
+          <Button onClick={() => setShowForm(!showForm)}>
+            {showForm ? 'Скасувати' : '+ Додати бейдж'}
+          </Button>
+        </div>
       </div>
 
       {showForm && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Input label="ID товару" value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })} placeholder="123" />
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium">Товар</label>
+            {pickedProduct ? (
+              <div className="flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-sm">
+                <span className="font-mono text-xs text-[var(--color-text-secondary)]">
+                  #{pickedProduct.id} · {pickedProduct.code}
+                </span>
+                <span className="flex-1">{pickedProduct.name}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPickedProduct(null);
+                    setProductQuery('');
+                  }}
+                  className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
+                >
+                  ✕ Змінити
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Input
+                  value={productQuery}
+                  onChange={(e) => setProductQuery(e.target.value)}
+                  placeholder="Пошук за назвою або кодом…"
+                />
+                {productQuery.length >= 2 && (
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-60 overflow-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
+                    {searchingProducts ? (
+                      <div className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+                        Пошук…
+                      </div>
+                    ) : productResults.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+                        Нічого не знайдено
+                      </div>
+                    ) : (
+                      productResults.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setPickedProduct(p);
+                            setProductQuery('');
+                            setProductResults([]);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--color-bg-secondary)]"
+                        >
+                          <span className="font-mono text-xs text-[var(--color-text-secondary)]">
+                            {p.code}
+                          </span>
+                          <span className="flex-1 truncate">{p.name}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Тип бейджа</label>
               <select
@@ -160,11 +301,13 @@ export default function AdminBadgesPage() {
       )}
 
       <div className="space-y-2">
-        {badges.map((b) => (
+        {filteredBadges.map((b) => (
           <div key={b.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
             {editingId === b.id ? (
               <div className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div
+                  className={`grid gap-3 ${editForm.badgeType === 'custom' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}
+                >
                   <div>
                     <label className="mb-1 block text-xs font-medium">Тип</label>
                     <select
@@ -186,10 +329,12 @@ export default function AdminBadgesPage() {
                       className="w-full rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                     />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium">Колір</label>
-                    <input type="color" value={editForm.customColor} onChange={(e) => setEditForm({ ...editForm, customColor: e.target.value })} className="h-8 w-full rounded" />
-                  </div>
+                  {editForm.badgeType === 'custom' && (
+                    <div>
+                      <label className="mb-1 block text-xs font-medium">Колір</label>
+                      <input type="color" value={editForm.customColor} onChange={(e) => setEditForm({ ...editForm, customColor: e.target.value })} className="h-8 w-full rounded" />
+                    </div>
+                  )}
                 </div>
                 {editForm.badgeType === 'custom' && (
                   <input
@@ -224,8 +369,27 @@ export default function AdminBadgesPage() {
             )}
           </div>
         ))}
+        {filteredBadges.length === 0 && badges.length > 0 && (
+          <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-8 text-center text-sm text-[var(--color-text-secondary)]">
+            За запитом «{listSearch}» нічого не знайдено
+          </div>
+        )}
         {badges.length === 0 && (
-          <div className="py-8 text-center text-[var(--color-text-secondary)]">Бейджів немає</div>
+          <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-12 text-center text-[var(--color-text-secondary)]">
+            <span className="text-3xl" aria-hidden="true">
+              🏷️
+            </span>
+            <p className="text-sm font-medium">Бейджів ще немає</p>
+            <p className="max-w-md text-xs">
+              Бейджі привертають увагу до товару — «Акція», «Новинка», «Хіт» або власний текст
+            </p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
+            >
+              + Додати перший бейдж
+            </button>
+          </div>
         )}
       </div>
 
@@ -234,7 +398,13 @@ export default function AdminBadgesPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={executeDelete}
         variant="danger"
-        message="Видалити бейдж?"
+        title="Видалення бейджа"
+        message={
+          deleteTarget
+            ? `Видалити бейдж «${deleteTarget.customText || (BADGE_TYPES.find((t) => t.value === deleteTarget.badgeType)?.label ?? deleteTarget.badgeType)}» для товару «${deleteTarget.product.name}»?`
+            : 'Видалити бейдж?'
+        }
+        confirmText="Так, видалити"
       />
     </div>
   );

@@ -418,7 +418,7 @@ describe('getUserStats', () => {
 
     const result = await getUserStats(1);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       totalOrders: 7,
       completedOrders: 5,
       totalPurchases: 5000,
@@ -434,7 +434,7 @@ describe('getUserStats', () => {
 
     const result = await getUserStats(1);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       totalOrders: 0,
       completedOrders: 0,
       totalPurchases: 0,

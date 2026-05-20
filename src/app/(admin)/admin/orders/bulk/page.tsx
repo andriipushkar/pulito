@@ -20,11 +20,13 @@ const BULK_ACTIONS = [
   { value: '', label: 'Масова дія...' },
   { value: 'processing', label: 'Статус: В обробці' },
   { value: 'confirmed', label: 'Статус: Підтверджено' },
+  { value: 'packed', label: 'Статус: Упаковано' },
   { value: 'shipped', label: 'Статус: Відправлено' },
   { value: 'completed', label: 'Статус: Завершено' },
   { value: 'cancelled', label: 'Статус: Скасовано' },
   { value: 'export_csv', label: 'Експорт CSV' },
-  { value: 'print_labels', label: 'Друк етикеток' },
+  { value: 'print_labels', label: 'Друк етикеток (HTML)' },
+  { value: 'print_labels_pdf', label: 'Друк етикеток (PDF)' },
 ];
 
 export default function AdminOrdersBulkPage() {
@@ -97,9 +99,12 @@ export default function AdminOrdersBulkPage() {
           window.open(res.data.url, '_blank');
           setMessage({ type: 'success', text: `Експортовано ${ids.length} замовлень` });
         }
-      } else if (bulkAction === 'print_labels') {
+      } else if (bulkAction === 'print_labels' || bulkAction === 'print_labels_pdf') {
         const ids = Array.from(selected);
-        const res = await apiClient.post<{ url: string }>('/api/v1/admin/orders/labels', { orderIds: ids });
+        const res = await apiClient.post<{ url: string }>('/api/v1/admin/orders/labels', {
+          orderIds: ids,
+          format: bulkAction === 'print_labels_pdf' ? 'pdf' : 'html',
+        });
         if (res.success && res.data?.url) {
           window.open(res.data.url, '_blank');
           setMessage({ type: 'success', text: `Створено етикетки для ${ids.length} замовлень` });

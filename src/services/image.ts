@@ -71,7 +71,7 @@ export async function processProductImage(
   // Get product
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { id: true, code: true },
+    select: { id: true, code: true, name: true },
   });
 
   if (!product) {
@@ -208,6 +208,10 @@ export async function processProductImage(
   });
   const sortOrder = (lastImage?.sortOrder ?? -1) + 1;
 
+  // Auto-fill altText from product name for SEO — sitemaps, marketplace feeds and
+  // structured data all read this column verbatim. Owner can still override per-image.
+  const autoAltText = `${product.name}${sortOrder > 0 ? ` — фото ${sortOrder + 1}` : ''}`;
+
   // Save to DB
   const image = await prisma.productImage.create({
     data: {
@@ -224,6 +228,7 @@ export async function processProductImage(
       height: metadata.height ?? null,
       isMain: shouldBeMain,
       sortOrder,
+      altText: autoAltText,
     },
   });
 
@@ -291,6 +296,22 @@ export async function deleteProductImage(imageId: number) {
   }
 
   await prisma.productImage.delete({ where: { id: imageId } });
+}
+
+export async function reorderProductImages(productId: number, imageIds: number[]) {
+  const existing = await prisma.productImage.findMany({
+    where: { productId },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((i) => i.id));
+  if (imageIds.length !== existing.length || imageIds.some((id) => !existingIds.has(id))) {
+    throw new ImageError('Список ID не відповідає зображенням товару', 400);
+  }
+  await prisma.$transaction(
+    imageIds.map((id, sortOrder) =>
+      prisma.productImage.update({ where: { id }, data: { sortOrder } }),
+    ),
+  );
 }
 
 export async function matchImagesFromDirectory(productCode: string) {

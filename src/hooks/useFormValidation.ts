@@ -55,12 +55,13 @@ export function useFormValidation(rules: ValidationRules) {
     return null;
   }, [rules]);
 
-  const validateAll = useCallback((values: Record<string, unknown>): boolean => {
+  const validateAll = useCallback(<T extends object>(values: T): boolean => {
     const newErrors: Record<string, string> = {};
     let isValid = true;
+    const valuesAsRecord = values as Record<string, unknown>;
 
     for (const field of Object.keys(rules)) {
-      const error = validateField(field, values[field], values);
+      const error = validateField(field, valuesAsRecord[field], valuesAsRecord);
       if (error) {
         newErrors[field] = error;
         isValid = false;
@@ -87,5 +88,33 @@ export function useFormValidation(rules: ValidationRules) {
     setErrors({});
   }, []);
 
-  return { errors, validateAll, validateField, setFieldError, clearError, clearErrors };
+  /**
+   * Convenience helper for inline validation: returns an onBlur handler that
+   * validates a single field against the current form values and stores the
+   * error message in state. The handler also clears the error if the field
+   * is now valid, so it works as both validation and live error-clearing.
+   */
+  const onBlurField = useCallback(
+    <T extends object>(field: string, allValues: T) => () => {
+      const valuesAsRecord = allValues as Record<string, unknown>;
+      const error = validateField(field, valuesAsRecord[field], valuesAsRecord);
+      setErrors((prev) => {
+        const next = { ...prev };
+        if (error) next[field] = error;
+        else delete next[field];
+        return next;
+      });
+    },
+    [validateField],
+  );
+
+  return {
+    errors,
+    validateAll,
+    validateField,
+    setFieldError,
+    clearError,
+    clearErrors,
+    onBlurField,
+  };
 }

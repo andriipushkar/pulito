@@ -3,6 +3,8 @@ import { withRole } from '@/middleware/auth';
 import { getPersonalPrices, createPersonalPrice, PersonalPriceError } from '@/services/personal-price';
 import { personalPriceFilterSchema, createPersonalPriceSchema } from '@/validators/personal-price';
 import { successResponse, errorResponse, paginatedResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
 export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
   try {
@@ -14,7 +16,8 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
 
     const { items, total } = await getPersonalPrices(parsed.data);
     return paginatedResponse(items, total, parsed.data.page, parsed.data.limit);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/personal-prices] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -28,11 +31,18 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest, { 
     }
 
     const item = await createPersonalPrice(parsed.data, user.id);
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'personal_price',
+      entityId: item.id,
+    });
     return successResponse(item, 201);
   } catch (error) {
     if (error instanceof PersonalPriceError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/personal-prices] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

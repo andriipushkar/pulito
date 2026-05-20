@@ -9,6 +9,7 @@ class MockXHR {
   addEventListener = vi.fn();
   open = vi.fn();
   send = vi.fn();
+  setRequestHeader = vi.fn();
   responseText = '';
   static instances: MockXHR[] = [];
 

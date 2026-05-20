@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { formatPrice } from '@/utils/format';
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,
@@ -20,8 +21,11 @@ import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import CopyButton from '@/components/admin/CopyButton';
+import SmsTemplates from '@/components/admin/SmsTemplates';
 import OrderItemsEditor from '@/components/admin/OrderItemsEditor';
 import CreateTTNForm from '@/components/admin/CreateTTNForm';
+import TagPicker from '@/components/admin/TagPicker';
 import { ALLOWED_ORDER_TRANSITIONS, TTN_PATTERN } from '@/config/admin-constants';
 
 export default function AdminOrderDetailPage() {
@@ -46,6 +50,15 @@ export default function AdminOrderDetailPage() {
   const [selectedManager, setSelectedManager] = useState<string>('');
   const [confirmStatusChange, setConfirmStatusChange] = useState(false);
   const [confirmManagerChange, setConfirmManagerChange] = useState<string | null>(null);
+
+  // Customer history (aggregated prior orders for this client)
+  const [customerHistory, setCustomerHistory] = useState<{
+    totalOrders: number;
+    totalSpent: number;
+    lastOrderDate: string | Date | null;
+    lastOrderNumber: string | null;
+    lastOrderId: number | null;
+  } | null>(null);
 
   // TTN state
   const [ttnInput, setTtnInput] = useState('');
@@ -73,6 +86,18 @@ export default function AdminOrderDetailPage() {
         setManagers(list);
       }
     });
+    // Load customer history (parallel, non-blocking — order page renders without it).
+    apiClient
+      .get<{
+        totalOrders: number;
+        totalSpent: number;
+        lastOrderDate: string | Date | null;
+        lastOrderNumber: string | null;
+        lastOrderId: number | null;
+      }>(`/api/v1/admin/orders/${id}/customer-history`)
+      .then((res) => {
+        if (res.success && res.data) setCustomerHistory(res.data);
+      });
   }, [id]);
 
   const reloadOrder = async () => {
@@ -257,12 +282,24 @@ export default function AdminOrderDetailPage() {
             )}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 print:hidden">
           <Button size="sm" variant="outline" onClick={handleCreateInvoice}>
             Рахунок
           </Button>
           <Button size="sm" variant="outline" onClick={handleCreateDeliveryNote}>
             Видаткова
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (typeof window !== 'undefined') window.print();
+            }}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+            </svg>
+            Друкувати
           </Button>
         </div>
       </div>
@@ -276,7 +313,7 @@ export default function AdminOrderDetailPage() {
 
       {/* Status update */}
       {allowedStatuses.length > 0 && (
-        <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4 print:hidden">
           <h3 className="mb-3 text-sm font-semibold">Змінити статус</h3>
           <div className="flex flex-wrap gap-3">
             <Select
@@ -330,9 +367,43 @@ export default function AdminOrderDetailPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Client */}
         <InfoCard title="Клієнт">
-          <p className="font-medium">{order.contactName}</p>
-          <p>{order.contactPhone}</p>
-          <p>{order.contactEmail}</p>
+          <div className="flex items-center gap-1">
+            <p className="font-medium">{order.contactName}</p>
+            {order.contactName && <CopyButton value={order.contactName} label="ім'я" />}
+          </div>
+          {order.contactPhone && (
+            <div className="flex flex-wrap items-center gap-1">
+              <a
+                href={`tel:${order.contactPhone}`}
+                className="hover:text-[var(--color-primary)]"
+                title="Подзвонити"
+              >
+                {order.contactPhone}
+              </a>
+              <CopyButton value={order.contactPhone} label="телефон" />
+              <SmsTemplates
+                phone={order.contactPhone}
+                variables={{
+                  name: order.contactName,
+                  orderNumber: order.orderNumber,
+                  trackingNumber: order.trackingNumber,
+                  total: Number(order.totalAmount),
+                }}
+              />
+            </div>
+          )}
+          {order.contactEmail && (
+            <div className="flex items-center gap-1">
+              <a
+                href={`mailto:${order.contactEmail}`}
+                className="hover:text-[var(--color-primary)]"
+                title="Написати"
+              >
+                {order.contactEmail}
+              </a>
+              <CopyButton value={order.contactEmail} label="email" />
+            </div>
+          )}
           {order.user && (
             <Link
               href={`/admin/users/${order.user.id}`}
@@ -341,13 +412,74 @@ export default function AdminOrderDetailPage() {
               Профіль клієнта &rarr;
             </Link>
           )}
+          {customerHistory && customerHistory.totalOrders > 0 && (
+            <div className="mt-2 rounded-md bg-[var(--color-bg-secondary)] px-2 py-1.5 text-xs">
+              <p className="font-medium">
+                📈 Клієнт зробив {customerHistory.totalOrders}{' '}
+                {customerHistory.totalOrders === 1 ? 'замовлення' : 'замовлень'} на{' '}
+                {formatPrice(customerHistory.totalSpent)}
+              </p>
+              {customerHistory.lastOrderDate && (
+                <p className="text-[var(--color-text-secondary)]">
+                  Останнє:{' '}
+                  {customerHistory.lastOrderId ? (
+                    <Link
+                      href={`/admin/orders/${customerHistory.lastOrderId}`}
+                      className="text-[var(--color-primary)] hover:underline"
+                    >
+                      №{customerHistory.lastOrderNumber}
+                    </Link>
+                  ) : (
+                    `№${customerHistory.lastOrderNumber}`
+                  )}{' '}
+                  ·{' '}
+                  {new Date(customerHistory.lastOrderDate).toLocaleDateString('uk-UA', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </p>
+              )}
+            </div>
+          )}
+          {customerHistory && customerHistory.totalOrders === 0 && (
+            <p className="mt-2 rounded-md bg-emerald-50 px-2 py-1.5 text-xs font-medium text-emerald-800">
+              🆕 Перше замовлення цього клієнта
+            </p>
+          )}
+          <div className="mt-3">
+            <TagPicker entityType="order" entityId={order.id} />
+          </div>
         </InfoCard>
 
         {/* Delivery + TTN */}
         <InfoCard title="Доставка">
           <p className="font-medium">{DELIVERY_METHOD_LABELS[order.deliveryMethod]}</p>
           {order.deliveryCity && <p>{order.deliveryCity}</p>}
-          {order.deliveryAddress && <p>{order.deliveryAddress}</p>}
+          {order.deliveryAddress && (
+            <div className="flex items-start gap-1">
+              <p className="flex-1">{order.deliveryAddress}</p>
+              <CopyButton
+                value={[order.deliveryCity, order.deliveryAddress].filter(Boolean).join(', ')}
+                label="адресу"
+              />
+            </div>
+          )}
+          {order.deliveryMethod === 'pallet' && (() => {
+            const o = order as typeof order & {
+              palletWeightKg?: number | string | null;
+              palletRegion?: string | null;
+            };
+            return (
+              <div className="mt-2 rounded bg-blue-50 p-2 text-xs">
+                <p className="font-semibold text-blue-700">📦 Палетна доставка</p>
+                {o.palletWeightKg && (
+                  <p className="text-blue-900">Вага: {Number(o.palletWeightKg)} кг</p>
+                )}
+                {o.palletRegion && <p className="text-blue-900">Регіон: {o.palletRegion}</p>}
+              </div>
+            );
+          })()}
 
           {/* TTN Section */}
           {order.trackingNumber && !isEditingTtn ? (
@@ -356,6 +488,7 @@ export default function AdminOrderDetailPage() {
                 <p className="rounded bg-violet-50 px-2 py-1 text-sm font-semibold text-violet-700">
                   TTH: {order.trackingNumber}
                 </p>
+                <CopyButton value={order.trackingNumber} label="ТТН" />
                 <button
                   onClick={() => setIsEditingTtn(true)}
                   className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:underline"
@@ -445,23 +578,23 @@ export default function AdminOrderDetailPage() {
           <div className="mt-2 space-y-0.5 text-sm">
             <div className="flex justify-between">
               <span className="text-[var(--color-text-secondary)]">Товари:</span>
-              <span>{itemsSubtotal.toFixed(2)} &#8372;</span>
+              <span>{formatPrice(itemsSubtotal)}</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between">
                 <span className="text-[var(--color-text-secondary)]">Знижка:</span>
-                <span className="text-green-600">-{discount.toFixed(2)} &#8372;</span>
+                <span className="text-green-600">-{formatPrice(discount)}</span>
               </div>
             )}
             {deliveryCost > 0 && (
               <div className="flex justify-between">
                 <span className="text-[var(--color-text-secondary)]">Доставка:</span>
-                <span>{deliveryCost.toFixed(2)} &#8372;</span>
+                <span>{formatPrice(deliveryCost)}</span>
               </div>
             )}
             <div className="flex justify-between border-t border-[var(--color-border)] pt-1 font-bold">
               <span>Всього:</span>
-              <span>{orderTotal.toFixed(2)} &#8372;</span>
+              <span>{formatPrice(orderTotal)}</span>
             </div>
           </div>
         </InfoCard>
@@ -477,27 +610,41 @@ export default function AdminOrderDetailPage() {
         </div>
       )}
 
-      {/* Manager comment */}
-      <div className="mt-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-          Нотатка менеджера
-        </p>
-        <div className="flex gap-2">
-          <textarea
-            value={managerComment}
-            onChange={(e) => setManagerComment(e.target.value)}
-            placeholder="Внутрішній коментар (видно тільки менеджерам)..."
-            rows={2}
-            className="flex-1 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-          />
-          <Button
-            size="sm"
-            variant="outline"
+      {/* Manager comment — auto-save on blur, with visual saved state */}
+      <div className="mt-4 rounded-[var(--radius)] border border-amber-200 bg-amber-50/40 p-4 print:hidden">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-700">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+            </svg>
+            Внутрішня нотатка
+          </p>
+          <span className="text-[10px] text-[var(--color-text-secondary)]">
+            {isSavingComment ? 'Збереження…' : 'Видно тільки команді'}
+          </span>
+        </div>
+        <textarea
+          value={managerComment}
+          onChange={(e) => setManagerComment(e.target.value)}
+          onBlur={() => {
+            // Auto-save when user leaves the field
+            if (!isSavingComment) handleSaveComment();
+          }}
+          placeholder="Додайте нотатку для команди (зберігається автоматично при втраті фокусу)…"
+          rows={3}
+          maxLength={1000}
+          className="w-full resize-y rounded-[var(--radius)] border border-amber-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+        />
+        <div className="mt-1 flex items-center justify-between text-[10px] text-[var(--color-text-secondary)]">
+          <span>{managerComment.length} / 1000</span>
+          <button
+            type="button"
             onClick={handleSaveComment}
-            isLoading={isSavingComment}
+            disabled={isSavingComment}
+            className="font-semibold text-amber-700 hover:underline disabled:opacity-50"
           >
-            Зберегти
-          </Button>
+            Зберегти зараз
+          </button>
         </div>
       </div>
 
@@ -513,7 +660,7 @@ export default function AdminOrderDetailPage() {
         </div>
         {order.items.map((item, i) => (
           <div
-            key={item.productId}
+            key={item.id}
             className={`flex gap-3 px-4 py-3 ${
               i < order.items.length - 1 ? 'border-b border-[var(--color-border)]' : ''
             }`}
@@ -547,15 +694,45 @@ export default function AdminOrderDetailPage() {
               </div>
               <div className="flex shrink-0 items-center gap-2 text-right text-sm">
                 <span className="text-[var(--color-text-secondary)]">
-                  {Number(item.priceAtOrder).toFixed(2)} &times; {item.quantity}
+                  {formatPrice(Number(item.priceAtOrder))} &times; {item.quantity}
                 </span>
+                {(() => {
+                  // Margin display when the product has a recorded cost. Hidden
+                  // when cost is null (no data yet) to avoid confusing 0% labels.
+                  const cost = (item as { product?: { cost?: number | string | null } }).product?.cost;
+                  if (cost == null) return null;
+                  const costNum = Number(cost);
+                  const price = Number(item.priceAtOrder);
+                  if (!Number.isFinite(costNum) || costNum <= 0 || price <= 0) return null;
+                  const marginPct = ((price - costNum) / price) * 100;
+                  const tone =
+                    marginPct < 10
+                      ? 'bg-red-100 text-red-700'
+                      : marginPct < 25
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-emerald-100 text-emerald-700';
+                  return (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${tone}`}
+                      title={`Собівартість: ${costNum.toFixed(2)} ₴ · маржа на одиниці: ${(price - costNum).toFixed(2)} ₴`}
+                    >
+                      {marginPct.toFixed(1)}%
+                    </span>
+                  );
+                })()}
                 <span className="min-w-[80px] font-bold">
-                  {Number(item.subtotal).toFixed(2)} &#8372;
+                  {formatPrice(Number(item.subtotal))}
                 </span>
                 <button
                   type="button"
-                  title="Надіслати фото клієнту"
+                  title={
+                    item.productId
+                      ? 'Надіслати фото клієнту'
+                      : 'Товар видалено — фото надіслати неможливо'
+                  }
+                  disabled={!item.productId}
                   onClick={() => {
+                    if (!item.productId) return;
                     setSendPhotoItem({
                       productId: item.productId,
                       productName: item.productName,
@@ -563,7 +740,7 @@ export default function AdminOrderDetailPage() {
                     setSendPhotoMessage('');
                     setSendPhotoResult('');
                   }}
-                  className="rounded p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-primary)]"
+                  className="rounded p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-secondary)]"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

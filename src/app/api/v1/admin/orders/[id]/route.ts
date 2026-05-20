@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { getOrderById } from '@/services/order';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { params }) => {
   try {
@@ -15,7 +16,7 @@ export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { 
     }
     return successResponse(order);
   } catch (error) {
-    console.error('[Admin Order Detail]', error);
+    logger.error('[admin/orders/[id]] GET failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -27,19 +28,43 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { p
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
     const body = await request.json();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data: Record<string, any> = {};
+    const data: { assignedManagerId?: number | null } = {};
     if ('assignedManagerId' in body) {
-      data.assignedManagerId = body.assignedManagerId ? Number(body.assignedManagerId) : null;
+      const raw = body.assignedManagerId;
+      if (raw === null || raw === undefined || raw === '') {
+        data.assignedManagerId = null;
+      } else {
+        const mgr = Number(raw);
+        if (!Number.isInteger(mgr) || mgr <= 0) {
+          return errorResponse('Невалідний assignedManagerId', 400);
+        }
+        // Validate the user exists and is a manager/admin — otherwise we'd
+        // dangle a foreign-key-style pointer to a deleted or wrong-role user.
+        const mgrUser = await prisma.user.findUnique({
+          where: { id: mgr },
+          select: { id: true, role: true, deletedAt: true },
+        });
+        if (!mgrUser || mgrUser.deletedAt || !['admin', 'manager'].includes(mgrUser.role)) {
+          return errorResponse('Користувача не знайдено або він не є менеджером', 400);
+        }
+        data.assignedManagerId = mgr;
+      }
     }
 
     if (Object.keys(data).length === 0) return errorResponse('Немає даних для оновлення', 400);
 
-    await prisma.order.update({ where: { id: numId }, data });
+    try {
+      await prisma.order.update({ where: { id: numId }, data });
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'P2025') {
+        return errorResponse('Замовлення не знайдено', 404);
+      }
+      throw err;
+    }
     const order = await getOrderById(numId);
     return successResponse(order);
   } catch (error) {
-    console.error('[Admin Order Update]', error);
+    logger.error('[admin/orders/[id]] PUT failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const settingsSchema = z.object({
   layout: z.object({
@@ -24,7 +25,8 @@ export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { 
       lowStockThreshold: 10,
       refreshIntervalSeconds: 60,
     });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/dashboard/settings] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -53,7 +55,8 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { u
     });
 
     return successResponse(settings);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/dashboard/settings] PUT failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

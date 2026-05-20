@@ -26,16 +26,25 @@ export default function ComparisonTable() {
       return;
     }
 
+    const limitedIds = ids.slice(0, 4);
+    const controller = new AbortController();
     setLoading(true);
     apiClient
-      .get<ProductListItem[]>(`/api/v1/products/by-ids?ids=${ids.join(',')}`)
+      .get<ProductListItem[]>(
+        `/api/v1/products/by-ids?ids=${limitedIds.join(',')}`,
+        { signal: controller.signal },
+      )
       .then((res) => {
+        if (controller.signal.aborted) return;
         if (res.success && res.data) {
           setProducts(res.data);
         }
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, [ids]);
 
   const handleAddToCart = (product: ProductListItem) => {

@@ -5,6 +5,10 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   message?: string;
+  /** HTTP status code from the response. Surfaced so callers can branch on
+   * 409 (optimistic-lock conflict), 403 (permission), etc. without parsing
+   * the error message. */
+  statusCode?: number;
   pagination?: {
     page: number;
     limit: number;
@@ -75,33 +79,51 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<ApiRe
     }
   }
 
-  return res.json();
+  const body = (await res.json()) as ApiResponse<T>;
+  body.statusCode = res.status;
+  return body;
+}
+
+interface RequestOptions {
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
 }
 
 export const apiClient = {
-  get<T>(url: string) {
-    return request<T>(url, { method: 'GET' });
+  get<T>(url: string, options?: RequestOptions) {
+    return request<T>(url, { method: 'GET', headers: options?.headers, signal: options?.signal });
   },
-  post<T>(url: string, body?: unknown) {
+  post<T>(url: string, body?: unknown, options?: RequestOptions) {
     return request<T>(url, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
+      headers: options?.headers,
+      signal: options?.signal,
     });
   },
-  put<T>(url: string, body?: unknown) {
+  put<T>(url: string, body?: unknown, options?: RequestOptions) {
     return request<T>(url, {
       method: 'PUT',
       body: body ? JSON.stringify(body) : undefined,
+      headers: options?.headers,
+      signal: options?.signal,
     });
   },
-  patch<T>(url: string, body?: unknown) {
+  patch<T>(url: string, body?: unknown, options?: RequestOptions) {
     return request<T>(url, {
       method: 'PATCH',
       body: body ? JSON.stringify(body) : undefined,
+      headers: options?.headers,
+      signal: options?.signal,
     });
   },
-  delete<T>(url: string) {
-    return request<T>(url, { method: 'DELETE' });
+  delete<T>(url: string, body?: unknown, options?: RequestOptions) {
+    return request<T>(url, {
+      method: 'DELETE',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers: options?.headers,
+      signal: options?.signal,
+    });
   },
   async upload<T>(url: string, formData: FormData): Promise<ApiResponse<T>> {
     const headers: Record<string, string> = {

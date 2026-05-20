@@ -25,9 +25,25 @@ model Product {
   isActive           Boolean                  @default(true) @map("is_active")
   deletedAt          DateTime?                @map("deleted_at")
   imagePath          String?                  @map("image_path")
+  barcode            String?                  @unique @db.VarChar(20)
   sortOrder          Int                      @default(0) @map("sort_order")
   viewsCount         Int                      @default(0) @map("views_count")
   ordersCount        Int                      @default(0) @map("orders_count")
+  excludedMarketplaces Json?                  @map("excluded_marketplaces") // string[] of platform keys to exclude this product from
+  // Physical dimensions for shipping calculations (Nova Poshta needs weight
+  // and cubic volume to price each TTN).
+  weightGrams        Int?                     @map("weight_grams")
+  lengthMm           Int?                     @map("length_mm")
+  widthMm            Int?                     @map("width_mm")
+  heightMm           Int?                     @map("height_mm")
+  // Optional cost-of-goods for margin calculations on the order details page.
+  // Stays in the same DB row as priceRetail because both update together
+  // during supplier-price imports.
+  cost               Decimal?                 @db.Decimal(10, 2)
+  // Optimistic concurrency: incremented on every update. Clients must send the
+  // version they read; PUT rejects with 409 if it does not match — guards
+  // against two admins editing the same product and clobbering each other.
+  version            Int                      @default(0)
   createdAt          DateTime                 @default(now()) @map("created_at")
   updatedAt          DateTime                 @updatedAt @map("updated_at")
   searchVector       Unsupported("tsvector")? @map("search_vector")
@@ -49,18 +65,59 @@ model Product {
   wholesaleRules      WholesaleRule[]
   clientEvents        ClientEvent[]
   reviews             Review[]
+  backInStockSubs     BackInStockSubscription[]
   subscriptionItems   SubscriptionItem[]
   bundleItems         BundleItem[]
   warehouseStock      WarehouseStock[]
+  warehouseTransfers  WarehouseTransferItem[]
+  stockCountItems     StockCountItem[]
   marketplaceListings MarketplaceListing[]
   volumeDiscounts     VolumeDiscount[]
   purchasePredictions PurchasePrediction[]
+  variants            ProductVariant[]
 
   @@index([categoryId])
   @@index([isActive, isPromo])
   @@index([priceRetail])
   @@index([createdAt(sort: Desc)])
   @@map("products")
+}
+
+// ─────────────────────────────────────
+// 23.2.1 Product Variants (Варіанти товара: розмір/колір/смак)
+// ─────────────────────────────────────
+//
+// Foundation only — public storefront still renders the parent product's stock
+// and price until the cart/storefront integration ships separately. Admins can
+// already manage variants from /admin/products/[id]/variants.
+model ProductVariant {
+  id              Int      @id @default(autoincrement())
+  productId       Int      @map("product_id")
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku             String   @unique @db.VarChar(255)
+  barcode         String?  @unique @db.VarChar(20)
+  name            String   @db.VarChar(255)
+  priceRetail     Decimal? @map("price_retail") @db.Decimal(10, 2)
+  priceWholesale  Decimal? @map("price_wholesale") @db.Decimal(10, 2)
+  quantity        Int      @default(0)
+  /// JSON object of free-form attribute → value pairs, e.g. {"color": "red", "size": "M"}
+  options         Json?
+  imagePath       String?  @map("image_path")
+  isActive        Boolean  @default(true) @map("is_active")
+  sortOrder       Int      @default(0) @map("sort_order")
+  // Per-variant physical params override the parent product's defaults. Used
+  // when one SKU is "150g jar" and another is "500g bottle" — different TTN
+  // size / margin even though they share a product page.
+  weightGrams     Int?     @map("weight_grams")
+  lengthMm        Int?     @map("length_mm")
+  widthMm         Int?     @map("width_mm")
+  heightMm        Int?     @map("height_mm")
+  cost            Decimal? @db.Decimal(10, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([productId])
+  @@map("product_variants")
 }
 
 // ─────────────────────────────────────
@@ -131,8 +188,10 @@ model ProductBadge {
   customColor String?   @map("custom_color")
   priority    Int       @default(0)
   isActive    Boolean   @default(true) @map("is_active")
+  isLocked    Boolean   @default(false) @map("is_locked")
   createdAt   DateTime  @default(now()) @map("created_at")
 
+  @@unique([productId, badgeType])
   @@map("product_badges")
 }
 
@@ -226,16 +285,21 @@ model BundleItem {
 // Brand / Manufacturer
 // ─────────────────────────────────────
 model Brand {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique @db.VarChar(255)
-  slug        String    @unique @db.VarChar(255)
-  description String?
-  logoPath    String?   @map("logo_path")
-  isVisible   Boolean   @default(true) @map("is_visible")
-  sortOrder   Int       @default(0) @map("sort_order")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  id             Int       @id @default(autoincrement())
+  name           String    @unique @db.VarChar(255)
+  slug           String    @unique @db.VarChar(255)
+  description    String?
+  logoPath       String?   @map("logo_path")
+  website        String?
+  country        String?
+  seoTitle       String?   @map("seo_title")
+  seoDescription String?   @map("seo_description")
+  isVisible      Boolean   @default(true) @map("is_visible")
+  sortOrder      Int       @default(0) @map("sort_order")
+  version        Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
 
   products    Product[]
 

@@ -8,16 +8,19 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import WysiwygEditor from '@/components/admin/WysiwygEditor';
+import PreviewPanel from '@/components/admin/PreviewPanel';
+import { sanitizeHtml } from '@/utils/sanitize';
 
 interface StaticPage {
   id: number;
   title: string;
   slug: string;
-  contentHtml: string;
-  metaTitle: string | null;
-  metaDescription: string | null;
+  content: string;
+  seoTitle: string | null;
+  seoDescription: string | null;
   isPublished: boolean;
   sortOrder: number;
+  parentId: number | null;
 }
 
 export default function AdminPageEditPage() {
@@ -30,12 +33,14 @@ export default function AdminPageEditPage() {
   const [form, setForm] = useState({
     title: '',
     slug: '',
-    contentHtml: '',
-    metaTitle: '',
-    metaDescription: '',
+    content: '',
+    seoTitle: '',
+    seoDescription: '',
     isPublished: false,
     sortOrder: 0,
+    parentId: '' as string,
   });
+  const [allPages, setAllPages] = useState<Array<{ id: number; title: string; parentId: number | null }>>([]);
 
   useEffect(() => {
     apiClient
@@ -46,22 +51,37 @@ export default function AdminPageEditPage() {
           setForm({
             title: res.data.title,
             slug: res.data.slug,
-            contentHtml: res.data.contentHtml || '',
-            metaTitle: res.data.metaTitle || '',
-            metaDescription: res.data.metaDescription || '',
+            content: res.data.content || '',
+            seoTitle: res.data.seoTitle || '',
+            seoDescription: res.data.seoDescription || '',
             isPublished: res.data.isPublished,
             sortOrder: res.data.sortOrder,
+            parentId: res.data.parentId ? String(res.data.parentId) : '',
           });
         }
       })
       .finally(() => setIsLoading(false));
+
+    // Load all root pages as parent candidates. We only allow one level of
+    // nesting, so any page that itself has a parentId is not a valid parent.
+    apiClient
+      .get<typeof allPages>('/api/v1/admin/pages')
+      .then((res) => {
+        if (res.success && res.data) {
+          setAllPages(res.data.filter((p) => p.id !== Number(id) && p.parentId === null));
+        }
+      })
+      .catch(() => {});
   }, [id]);
 
   const handleSave = async () => {
     setIsSaving(true);
     setMessage(null);
     try {
-      const res = await apiClient.put(`/api/v1/admin/pages/${id}`, form);
+      const res = await apiClient.put(`/api/v1/admin/pages/${id}`, {
+        ...form,
+        parentId: form.parentId === '' ? null : Number(form.parentId),
+      });
       if (res.success) {
         setMessage({ type: 'success', text: 'Збережено!' });
       } else {
@@ -103,42 +123,79 @@ export default function AdminPageEditPage() {
         </div>
       )}
 
-      <div className="space-y-6">
-        <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Заголовок *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            <Input label="Slug *" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+      <PreviewPanel
+        title={form.title}
+        seoTitle={form.seoTitle || form.title}
+        seoDescription={form.seoDescription}
+        seoSlug={form.slug}
+        preview={
+          <article className="prose prose-sm max-w-none">
+            <h1>{form.title || '(без заголовка)'}</h1>
+            {form.content ? (
+              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(form.content) }} />
+            ) : (
+              <p className="italic text-[var(--color-text-secondary)]">
+                (порожній вміст)
+              </p>
+            )}
+          </article>
+        }
+      >
+        <div className="space-y-6">
+          <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input label="Заголовок *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <Input label="Slug *" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} className="accent-[var(--color-primary)]" />
+                Опубліковано
+              </label>
+              <Input label="Порядок" type="number" value={String(form.sortOrder)} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} className="w-24" />
+              <div>
+                <label className="mb-1 block text-sm font-medium">Батьківська сторінка</label>
+                <select
+                  value={form.parentId}
+                  onChange={(e) => setForm({ ...form, parentId: e.target.value })}
+                  className="h-10 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
+                >
+                  <option value="">— Без батька (корінь) —</option>
+                  {allPages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">
+                  Макс. 1 рівень вкладеності
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="mt-4 flex gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} className="accent-[var(--color-primary)]" />
-              Опубліковано
-            </label>
-            <Input label="Порядок" type="number" value={String(form.sortOrder)} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} className="w-24" />
+
+          <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+            <h3 className="mb-3 text-sm font-semibold">Вміст</h3>
+            <WysiwygEditor value={form.content} onChange={(html) => setForm({ ...form, content: html })} placeholder="Введіть вміст сторінки..." />
           </div>
-        </div>
 
-        <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">Вміст</h3>
-          <WysiwygEditor value={form.contentHtml} onChange={(html) => setForm({ ...form, contentHtml: html })} placeholder="Введіть вміст сторінки..." />
-        </div>
-
-        <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">SEO</h3>
-          <div className="space-y-4">
-            <Input label="Meta Title" value={form.metaTitle} onChange={(e) => setForm({ ...form, metaTitle: e.target.value })} />
-            <div>
-              <label className="mb-1 block text-sm font-medium">Meta Description</label>
-              <textarea
-                value={form.metaDescription}
-                onChange={(e) => setForm({ ...form, metaDescription: e.target.value })}
-                rows={3}
-                className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-              />
+          <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+            <h3 className="mb-3 text-sm font-semibold">SEO</h3>
+            <div className="space-y-4">
+              <Input label="Meta Title" value={form.seoTitle} onChange={(e) => setForm({ ...form, seoTitle: e.target.value })} />
+              <div>
+                <label className="mb-1 block text-sm font-medium">Meta Description</label>
+                <textarea
+                  value={form.seoDescription}
+                  onChange={(e) => setForm({ ...form, seoDescription: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </PreviewPanel>
     </div>
   );
 }

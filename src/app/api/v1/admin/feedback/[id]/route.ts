@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { updateFeedbackStatusSchema } from '@/validators/feedback';
 import { updateFeedbackStatus, FeedbackError } from '@/services/feedback';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const PUT = withRole('admin', 'manager')(
   async (request: NextRequest, { user, params }) => {
@@ -28,6 +29,7 @@ export const PUT = withRole('admin', 'manager')(
       if (error instanceof FeedbackError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/feedback/[id]] PUT failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

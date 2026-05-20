@@ -33,8 +33,12 @@ vi.mock('@/config/env', () => ({
 import { sendEmail, sendVerificationEmail, sendPasswordResetEmail, EmailError } from './email';
 import { env } from '@/config/env';
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
+  // smtp-config caches the resolved config across calls; reset between tests
+  // so SMTP_FROM overrides in individual tests are honored.
+  const { invalidateSmtpConfigCache } = await import('./smtp-config');
+  invalidateSmtpConfigCache();
 });
 
 describe('EmailError', () => {

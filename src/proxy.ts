@@ -91,16 +91,34 @@ function checkCsrf(request: NextRequest): NextResponse | null {
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Admin IP whitelist (optional). Set ADMIN_ALLOWED_IPS="1.2.3.4,5.6.7.8" to restrict admin access.
+  // Admin IP whitelist (optional). Set ADMIN_ALLOWED_IPS="1.2.3.4,5.6.7.8" to
+  // restrict both the admin UI and the admin API. Local IPs (127.0.0.1, ::1)
+  // are always allowed so cron and on-box debugging keep working.
   const adminAllowedIps = process.env.ADMIN_ALLOWED_IPS;
-  if (adminAllowedIps && pathname.startsWith('/admin')) {
+  const isAdminPath =
+    pathname.startsWith('/admin') || pathname.startsWith('/api/v1/admin');
+  if (adminAllowedIps && isAdminPath) {
     const clientIp =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       request.headers.get('x-real-ip') ||
       '';
-    const allowedList = adminAllowedIps.split(',').map((ip) => ip.trim());
-    if (!allowedList.includes(clientIp)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    const LOCAL_IPS = new Set(['127.0.0.1', '::1', 'localhost']);
+    const allowedList = adminAllowedIps.split(',').map((ip) => ip.trim()).filter(Boolean);
+    const allowed = LOCAL_IPS.has(clientIp) || allowedList.includes(clientIp);
+    if (!allowed) {
+      // For UI paths give a human-readable HTML block; for API give JSON so
+      // the frontend's apiClient can surface the error cleanly.
+      if (pathname.startsWith('/api')) {
+        return NextResponse.json(
+          { success: false, error: 'Доступ заборонено: IP не в дозволеному списку' },
+          { status: 403 },
+        );
+      }
+      const html = `<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"><title>Доступ заборонено</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#fafafa}.card{max-width:480px;text-align:center;padding:32px;background:#fff;border-radius:16px;box-shadow:0 1px 8px rgba(0,0,0,.06)}h1{margin:0 0 8px;color:#dc2626;font-size:22px}p{color:#555;font-size:14px;line-height:1.5}code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:13px}</style></head><body><div class="card"><h1>🔒 Доступ заборонено</h1><p>Адмін-панель обмежена за списком IP-адрес.</p><p>Ваша IP: <code>${clientIp || 'невідома'}</code></p><p>Зверніться до власника, щоб додати її до <code>ADMIN_ALLOWED_IPS</code>.</p></div></body></html>`;
+      return new NextResponse(html, {
+        status: 403,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
     }
   }
 
@@ -163,8 +181,12 @@ export default async function proxy(request: NextRequest) {
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
-  response.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
-  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  // COEP and COOP intentionally omitted. Third-party iframes (OpenStreetMap
+  // map embed, Google Maps, payment provider 3-D Secure) don't ship the CORP
+  // headers nor matching opener policies, so any value here makes Firefox
+  // refuse to load the iframe with "security configuration doesn't match the
+  // previous page". Re-enable only if all embedded third parties are dropped
+  // or proxied through our own origin.
   response.headers.set('X-DNS-Prefetch-Control', 'on');
   response.headers.set('X-Download-Options', 'noopen');
 
@@ -181,6 +203,7 @@ export default async function proxy(request: NextRequest) {
     "img-src 'self' data: blob: https:",
     "font-src 'self' https://fonts.gstatic.com",
     "connect-src 'self' https://www.google-analytics.com https://api.telegram.org https://api.novaposhta.ua",
+    "frame-src https://www.google.com https://maps.google.com https://www.openstreetmap.org",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

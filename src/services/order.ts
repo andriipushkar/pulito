@@ -1,8 +1,14 @@
 import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
+import { redis } from '@/lib/redis';
 import { randomBytes } from 'crypto';
 import type { CheckoutInput, OrderFilterInput } from '@/validators/order';
 import { logger } from '@/lib/logger';
+import { phoneSearchVariants } from '@/utils/phone';
+
+const STATS_CACHE_KEY = 'admin:order-stats:v1';
+const STATS_CACHE_TTL = 15; // seconds — collapses concurrent admin tabs onto one query.
+import { calculateDeliveryCost, type DeliveryMethod } from '@/services/delivery-cost';
 
 export class OrderError extends Error {
   constructor(
@@ -14,12 +20,18 @@ export class OrderError extends Error {
   }
 }
 
-// Status transition matrix
+// Status transition matrix.
+// `packed` sits between paid/confirmed and shipped so the audit trail shows
+// who pulled the items off the shelf (the pack workflow updates to `packed`
+// when the operator finishes scanning; the courier hand-off then moves to
+// `shipped`). Direct paid → shipped is still allowed for legacy bulk
+// operations that don't go through the Pick & Pack screen.
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   new_order: ['processing', 'cancelled'],
   processing: ['confirmed', 'cancelled'],
-  confirmed: ['paid', 'shipped', 'cancelled'],
-  paid: ['shipped', 'cancelled'],
+  confirmed: ['paid', 'packed', 'shipped', 'cancelled'],
+  paid: ['packed', 'shipped', 'cancelled'],
+  packed: ['shipped', 'cancelled'],
   shipped: ['completed', 'returned'],
   completed: ['returned'],
   cancelled: [],
@@ -34,6 +46,31 @@ function generateOrderNumber(): string {
   const prefix = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
   const random = randomBytes(4).toString('hex').toUpperCase();
   return `${prefix}-${random}`;
+}
+
+// We track `reserved` on WarehouseStock to answer "how much of this is
+// promised to open orders" — useful when warehouse staff plan replenishment.
+// Pick the warehouse holding the most units for this product (the de-facto
+// "main" warehouse) so split-warehouse stock doesn't double-count.
+async function adjustReserved(
+  tx: Prisma.TransactionClient,
+  items: Array<{ productId: number | null; quantity: number }>,
+  direction: 1 | -1,
+) {
+  for (const item of items) {
+    if (!item.productId) continue;
+    const target = await tx.warehouseStock.findFirst({
+      where: { productId: item.productId },
+      orderBy: { quantity: 'desc' },
+      select: { id: true, reserved: true },
+    });
+    if (!target) continue;
+    const next = Math.max(0, target.reserved + direction * item.quantity);
+    await tx.warehouseStock.update({
+      where: { id: target.id },
+      data: { reserved: next },
+    });
+  }
 }
 
 const orderListSelect = {
@@ -65,6 +102,8 @@ const orderDetailSelect = {
   deliveryStreetRef: true,
   deliveryBuilding: true,
   deliveryFlat: true,
+  palletWeightKg: true,
+  palletRegion: true,
   trackingStatus: true,
   trackingStatusAt: true,
   companyName: true,
@@ -94,6 +133,8 @@ const orderDetailSelect = {
       product: {
         select: {
           imagePath: true,
+          barcode: true,
+          cost: true, // needed by /admin/orders/[id] margin display
           images: {
             select: { pathThumbnail: true },
             where: { isMain: true },
@@ -136,6 +177,11 @@ export async function createOrder(
     isPromo: boolean;
   }[],
   clientType: 'retail' | 'wholesale',
+  // Discount taken from loyalty points balance. We treat each point as 1 UAH
+  // and clamp to the items+delivery total inside this function — the caller
+  // (validated against the user's balance in the API route) just passes the
+  // raw amount they want to apply.
+  loyaltyPointsToSpend: number = 0,
 ) {
   if (cartItems.length === 0) {
     throw new OrderError('Кошик порожній', 400);
@@ -182,6 +228,25 @@ export async function createOrder(
   }
 
   const itemsTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Pallet method: the storefront has already done the regional-tariff
+  // calculation in PalletDeliveryForm and submitted the result with the
+  // checkout. Trust that value here (it's the same formula
+  // calculatePalletDeliveryCost would compute) so the customer sees the same
+  // total at the order-confirmation step.
+  const palletCheckout = checkout as CheckoutInput & {
+    palletDeliveryCost?: number;
+    palletWeightKg?: number;
+    palletRegion?: string;
+  };
+  const deliveryCost =
+    checkout.deliveryMethod === 'pallet' && palletCheckout.palletDeliveryCost != null
+      ? Number(palletCheckout.palletDeliveryCost)
+      : await calculateDeliveryCost(checkout.deliveryMethod as DeliveryMethod, itemsTotal);
+  // Clamp loyalty discount so an out-of-range value can't drive totalAmount
+  // negative (which would make the courier refund money to the customer).
+  const grossTotal = itemsTotal + deliveryCost;
+  const discountAmount = Math.max(0, Math.min(Number(loyaltyPointsToSpend) || 0, grossTotal));
+  const netTotal = grossTotal - discountAmount;
   const orderNumber = generateOrderNumber();
 
   const order = await prisma.$transaction(async (tx) => {
@@ -202,6 +267,27 @@ export async function createOrder(
       }
     }
 
+    // Reflect the in-flight units on WarehouseStock.reserved. Released later
+    // when the order ships, is cancelled or is returned.
+    await adjustReserved(
+      tx,
+      cartItems.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      1,
+    );
+
+    // Snapshot barcodes alongside productCode/productName so a later rename or
+    // barcode change on the product doesn't rewrite history. One bulk query
+    // instead of N + 1.
+    const productBarcodes = new Map<number, string | null>();
+    const ids = cartItems.map((i) => i.productId);
+    if (ids.length > 0) {
+      const rows = await tx.product.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, barcode: true },
+      });
+      for (const row of rows) productBarcodes.set(row.id, row.barcode);
+    }
+
     // Create the order
     return tx.order.create({
       data: {
@@ -209,9 +295,9 @@ export async function createOrder(
         userId,
         status: 'new_order',
         clientType,
-        totalAmount: itemsTotal,
-        discountAmount: 0,
-        deliveryCost: 0,
+        totalAmount: netTotal,
+        discountAmount,
+        deliveryCost,
         itemsCount: cartItems.reduce((sum, i) => sum + i.quantity, 0),
         contactName: checkout.contactName,
         contactPhone: checkout.contactPhone,
@@ -225,6 +311,14 @@ export async function createOrder(
         deliveryStreetRef: checkout.deliveryStreetRef,
         deliveryBuilding: checkout.deliveryBuilding,
         deliveryFlat: checkout.deliveryFlat,
+        // Pallet-specific snapshot — saved only when the customer picked
+        // pallet delivery. Other methods leave these NULL.
+        ...(checkout.deliveryMethod === 'pallet'
+          ? {
+              palletWeightKg: palletCheckout.palletWeightKg ?? null,
+              palletRegion: palletCheckout.palletRegion ?? null,
+            }
+          : {}),
         paymentMethod: checkout.paymentMethod,
         paymentStatus: 'pending',
         comment: checkout.comment,
@@ -233,6 +327,7 @@ export async function createOrder(
           create: cartItems.map((item) => ({
             productId: item.productId,
             productCode: item.productCode,
+            productBarcode: productBarcodes.get(item.productId) ?? null,
             productName: item.productName,
             priceAtOrder: item.price,
             quantity: item.quantity,
@@ -255,11 +350,108 @@ export async function createOrder(
 
   // Clear server cart for authenticated users (non-critical — outside transaction)
   if (userId) {
-    prisma.cartItem.deleteMany({ where: { userId } }).catch(() => {});
+    prisma.cartItem.deleteMany({ where: { userId } }).catch((err) => {
+      logger.error('Cart clear after checkout failed', { userId, error: String(err) });
+    });
   }
 
   // Notify manager about new order via Telegram (non-blocking)
-  import('@/services/telegram').then((mod) => mod.notifyManagerNewOrder(order)).catch(() => {});
+  import('@/services/telegram')
+    .then((mod) => mod.notifyManagerNewOrder(order))
+    .catch((err) => {
+      logger.error('Manager new-order notification failed', {
+        orderNumber: order.orderNumber,
+        error: String(err),
+      });
+    });
+
+  // Customer confirmation email (non-blocking). Guests rely on this for the
+  // order number — they have no /account/orders to fall back to.
+  if (order.contactEmail) {
+    import('@/services/email')
+      .then((mod) =>
+        mod.sendOrderConfirmationEmail({
+          to: order.contactEmail!,
+          contactName: order.contactName,
+          orderNumber: order.orderNumber,
+          totalAmount: Number(order.totalAmount),
+          itemsCount: order.itemsCount,
+          deliveryMethod: order.deliveryMethod,
+          paymentMethod: order.paymentMethod,
+        }),
+      )
+      .catch((err) => {
+        logger.error('Order confirmation email failed', {
+          orderNumber: order.orderNumber,
+          error: String(err),
+        });
+      });
+  }
+
+  // Push updated stock to marketplaces so OLX/Rozetka/Prom/Epicentr listings
+  // can't oversell what we just decremented. Fire-and-forget.
+  import('@/services/marketplace-sync')
+    .then((mod) =>
+      mod.syncProductsStockToMarketplaces(cartItems.map((i) => i.productId)),
+    )
+    .catch((err) => {
+      logger.error('Marketplace stock sync after order failed', {
+        orderNumber: order.orderNumber,
+        error: String(err),
+      });
+    });
+
+  // Bust the admin stats cache so the new-order badge shows up on the next
+  // poll instead of waiting for the 15s TTL.
+  invalidateOrderStatsCache();
+
+  // Fire-and-forget Telegram notification to the owner.
+  import('@/services/owner-notifications')
+    .then((mod) =>
+      mod.notifyOwnerNewOrder({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: Number(order.totalAmount),
+        itemCount: cartItems.reduce((s, i) => s + i.quantity, 0),
+        contactName: order.contactName,
+        contactPhone: order.contactPhone,
+        deliveryMethod: order.deliveryMethod ?? '',
+        deliveryCity: order.deliveryCity ?? null,
+      }),
+    )
+    .catch((err) => {
+      logger.warn('Owner Telegram notify failed', {
+        orderNumber: order.orderNumber,
+        error: String(err),
+      });
+    });
+
+  // Campaign conversion attribution: if this user clicked an email link in
+  // the last 7 days and that CampaignLog isn't already converted, stamp it.
+  // Fire-and-forget — never delay the order response.
+  if (userId) {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000);
+    prisma.campaignLog
+      .findFirst({
+        where: {
+          userId,
+          clickedAt: { gte: sevenDaysAgo },
+          convertedAt: null,
+        },
+        orderBy: { clickedAt: 'desc' },
+        select: { id: true },
+      })
+      .then((log) => {
+        if (!log) return;
+        return prisma.campaignLog.update({
+          where: { id: log.id },
+          data: { convertedAt: new Date(), conversionOrderId: order.id },
+        });
+      })
+      .catch((err) => {
+        logger.warn('Campaign conversion attribution failed', { error: String(err) });
+      });
+  }
 
   return order;
 }
@@ -280,7 +472,12 @@ export async function getUserOrders(userId: number, filters: OrderFilterInput) {
     where.createdAt = { ...(where.createdAt as object), gte: new Date(filters.dateFrom) };
   }
   if (filters.dateTo) {
-    where.createdAt = { ...(where.createdAt as object), lte: new Date(filters.dateTo) };
+    // Filters arrive as "YYYY-MM-DD" → new Date() parses to 00:00:00 UTC,
+    // which would exclude every order on that day. Bump to the start of
+    // the next day and use `lt` so "до 14 травня" includes all of May 14.
+    const inclusiveEnd = new Date(filters.dateTo);
+    inclusiveEnd.setUTCDate(inclusiveEnd.getUTCDate() + 1);
+    where.createdAt = { ...(where.createdAt as object), lt: inclusiveEnd };
   }
 
   const skip = (filters.page - 1) * filters.limit;
@@ -357,6 +554,9 @@ export async function updateOrderStatus(
       id: true,
       status: true,
       userId: true,
+      paymentMethod: true,
+      paymentStatus: true,
+      totalAmount: true,
       items: { select: { productId: true, quantity: true } },
     },
   });
@@ -386,7 +586,9 @@ export async function updateOrderStatus(
   }
 
   const updated = await prisma.$transaction(async (tx) => {
-    // Restore stock when order is cancelled or returned
+    // Restore stock when order is cancelled or returned. If the conditional
+    // status update below fails, the whole transaction rolls back and these
+    // increments are undone too.
     if (newStatus === 'cancelled' || newStatus === 'returned') {
       for (const item of order.items) {
         if (item.productId) {
@@ -398,24 +600,91 @@ export async function updateOrderStatus(
       }
     }
 
-    return tx.order.update({
-      where: { id: orderId },
-      data: {
-        status: newStatus as Prisma.EnumOrderStatusFieldUpdateOperationsInput['set'],
-        ...(newStatus === 'cancelled' && {
-          cancelledReason: comment,
-          cancelledBy: changeSource,
-        }),
-        statusHistory: {
-          create: {
-            oldStatus: currentStatus,
-            newStatus,
-            changedBy,
-            changeSource,
-            comment,
-          },
+    // Release the warehouse reservation once the units have either left the
+    // building (`shipped`) or are no longer promised to a customer
+    // (`cancelled`/`returned`). Without this, reserved counters drift up over
+    // time and overstate commitment.
+    if (
+      newStatus === 'shipped' ||
+      newStatus === 'cancelled' ||
+      newStatus === 'returned'
+    ) {
+      await adjustReserved(
+        tx,
+        order.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        -1,
+      );
+    }
+
+    // Sync paymentStatus when the lifecycle status implies a payment fact:
+    //  - `paid`: money received → paymentStatus = 'paid' (and stamp paidAt on
+    //    the payment record so the receipt block in the UI lights up).
+    //  - `cancelled`/`returned` on a previously-paid order: do NOT auto-refund —
+    //    refunds are a financial operation that must go through the dedicated
+    //    /refund endpoint (which records provider transaction id, amount, etc).
+    const setPaymentPaid = newStatus === 'paid' && order.paymentStatus !== 'paid';
+    const paymentUpdates: Prisma.OrderUpdateInput = {
+      status: newStatus as Prisma.EnumOrderStatusFieldUpdateOperationsInput['set'],
+      ...(setPaymentPaid && { paymentStatus: 'paid' }),
+      ...(newStatus === 'cancelled' && {
+        cancelledReason: comment,
+        cancelledBy: changeSource,
+      }),
+    };
+
+    // Optimistic lock: scope the UPDATE to `status = currentStatus` so two
+    // managers clicking different transitions on the same order can't both
+    // pass the transition-matrix check and produce duplicate statusHistory
+    // rows. The loser sees a 409 and is told to refresh.
+    const updateResult = await tx.order.updateMany({
+      where: { id: orderId, status: currentStatus },
+      data: paymentUpdates,
+    });
+
+    if (updateResult.count === 0) {
+      throw new OrderError(
+        'Статус замовлення вже змінили — оновіть сторінку та спробуйте ще раз.',
+        409,
+      );
+    }
+
+    // Stamp the Payment row so the order page's paidAt badge lights up. This
+    // is a manual confirmation by an admin (cash in hand, bank transfer
+    // received, etc) — no provider transaction id, no receipt URL. The admin
+    // can attach those later via the payment management UI.
+    if (setPaymentPaid) {
+      const now = new Date();
+      await tx.payment.upsert({
+        where: { orderId },
+        update: {
+          paidAt: now,
+          paymentStatus: 'paid',
+          ...(changedBy ? { confirmedBy: changedBy } : {}),
         },
+        create: {
+          orderId,
+          paymentMethod: order.paymentMethod,
+          paymentStatus: 'paid',
+          amount: order.totalAmount,
+          paidAt: now,
+          ...(changedBy ? { confirmedBy: changedBy } : {}),
+        },
+      });
+    }
+
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId,
+        oldStatus: currentStatus,
+        newStatus,
+        changedBy,
+        changeSource,
+        comment,
       },
+    });
+
+    return tx.order.findUniqueOrThrow({
+      where: { id: orderId },
       select: orderDetailSelect,
     });
   });
@@ -484,15 +753,39 @@ export async function updateOrderStatus(
               ttn: result.intDocNumber,
               orderNumber: updated.orderNumber,
             });
+
+            // For marketplace orders, the moment we have a TTN the package is
+            // effectively shipped — push that status back so the buyer sees
+            // movement and the marketplace stops counting against SLA.
+            if (updated.source) {
+              import('@/services/marketplace-sync')
+                .then((mod) => mod.pushOrderStatusToMarketplace(orderId, 'shipped'))
+                .catch((err) =>
+                  logger.error('Auto-shipped push to marketplace failed', {
+                    orderNumber: updated.orderNumber,
+                    error: String(err),
+                  }),
+                );
+            }
           }
         } catch (err) {
           logger.error('Auto-TTN failed', { orderNumber: updated.orderNumber, error: String(err) });
         }
       })
-      .catch(() => {}); // Auto-TTN is best-effort, don't fail the status change
+      .catch((err) => {
+        // Outer catch covers dynamic import failure and any throw before the
+        // inner try — rare, but if it ever fires we need it in logs to know
+        // why a confirmed/shipped NP order didn't get an auto-TTN.
+        logger.error('Auto-TTN module load failed', {
+          orderNumber: updated.orderNumber,
+          error: String(err),
+        });
+      });
   }
 
-  // Notify client about status change via Telegram
+  // Notify client about status change via Telegram. Best-effort: log on
+  // failure rather than swallowing so an outage in Telegram delivery is
+  // visible without sinking the status update.
   if (order.userId) {
     import('@/services/telegram')
       .then((mod) =>
@@ -504,7 +797,13 @@ export async function updateOrderStatus(
           updated.trackingNumber,
         ),
       )
-      .catch(() => {});
+      .catch((err) => {
+        logger.error('Telegram status notification failed', {
+          orderNumber: updated.orderNumber,
+          userId: order.userId,
+          error: String(err),
+        });
+      });
   }
 
   // B2B: when confirmed, auto-generate invoice PDF and email it to legal-entity buyer.
@@ -559,16 +858,43 @@ export async function updateOrderStatus(
           });
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.error('B2B auto-invoice module load failed', {
+          orderNumber: updated.orderNumber,
+          error: String(err),
+        });
+      });
   }
 
-  // Loyalty: earn points on completion, handle referral status
+  // Loyalty: earn points on completion, handle referral status.
+  // Base = cash actually collected for goods only:
+  //   totalAmount already excludes the loyalty discount (post Fix #1), but
+  //   still includes delivery. Subtracting deliveryCost gives the goods cash.
+  //   We don't reward customers for paying us to ship — and we definitely don't
+  //   want to keep earning points on a discount they spent the points for.
   if (newStatus === 'completed' && order.userId) {
+    const pointsBase = Math.max(
+      0,
+      Number(updated.totalAmount) - Number(updated.deliveryCost ?? 0),
+    );
     import('@/services/loyalty')
-      .then((mod) => mod.earnPoints(order.userId!, orderId, Number(updated.totalAmount)))
-      .catch(() => {});
+      .then((mod) => mod.earnPoints(order.userId!, orderId, pointsBase))
+      .catch((err) => {
+        // Silent failure here would mean a paying customer never gets their
+        // loyalty points — surface it so support can reconcile manually.
+        logger.error('Loyalty earnPoints failed', {
+          orderNumber: updated.orderNumber,
+          userId: order.userId,
+          pointsBase,
+          error: String(err),
+        });
+      });
 
-    // Update referral status and award referrer bonus
+    // Update referral status and award referrer bonus.
+    // Use a conditional updateMany (status='registered') to atomically claim
+    // the bonus — a parallel completion of another first order or a manual
+    // /admin/referrals/[id]/bonus call can't both pass. The loser sees
+    // count === 0 and exits without double-paying.
     prisma.referral
       .findFirst({
         where: { referredUserId: order.userId, status: 'registered' },
@@ -577,13 +903,12 @@ export async function updateOrderStatus(
       .then(async (referral) => {
         if (!referral) return;
 
-        // Update referral status to first_order
-        await prisma.referral.update({
-          where: { id: referral.id },
+        const claimed = await prisma.referral.updateMany({
+          where: { id: referral.id, status: 'registered' },
           data: { status: 'first_order', convertedAt: new Date() },
         });
+        if (claimed.count === 0) return; // lost the race — another flow already took it
 
-        // Award referrer bonus points
         const loyaltyMod = await import('@/services/loyalty');
         await loyaltyMod.adjustPoints({
           userId: referral.referrerUserId,
@@ -592,9 +917,8 @@ export async function updateOrderStatus(
           description: `Реферальний бонус: запрошений користувач зробив перше замовлення #${orderId}`,
         });
 
-        // Mark referral as bonus_granted
-        await prisma.referral.update({
-          where: { id: referral.id },
+        await prisma.referral.updateMany({
+          where: { id: referral.id, status: 'first_order' },
           data: {
             status: 'bonus_granted',
             bonusType: 'points',
@@ -602,31 +926,76 @@ export async function updateOrderStatus(
           },
         });
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.error('Referral first-order bonus failed', {
+          orderNumber: updated.orderNumber,
+          referredUserId: order.userId,
+          error: String(err),
+        });
+      });
   }
 
-  // Loyalty: deduct earned points on cancellation/return
+  // Loyalty on cancellation/return:
+  //  - reverse any `earn` (we credited points the customer doesn't deserve)
+  //  - refund any `spend` (the customer paid with points for goods they're
+  //    not getting — without this, the points are gone forever and we get a
+  //    support ticket)
   if ((newStatus === 'cancelled' || newStatus === 'returned') && order.userId) {
     import('@/services/loyalty')
       .then(async (mod) => {
-        // Find the earn transaction for this order and reverse it
         const { prisma: db } = await import('@/lib/prisma');
-        const earnTx = await db.loyaltyTransaction.findFirst({
-          where: { userId: order.userId!, orderId, type: 'earn' },
-          select: { points: true },
+        const txs = await db.loyaltyTransaction.findMany({
+          where: { userId: order.userId!, orderId, type: { in: ['earn', 'spend'] } },
+          select: { type: true, points: true },
         });
 
-        if (earnTx && earnTx.points > 0) {
+        const earned = txs
+          .filter((t) => t.type === 'earn')
+          .reduce((sum, t) => sum + t.points, 0);
+        const spent = txs
+          .filter((t) => t.type === 'spend')
+          .reduce((sum, t) => sum + t.points, 0);
+
+        if (earned > 0) {
           await mod.adjustPoints({
             userId: order.userId!,
             type: 'manual_deduct',
-            points: earnTx.points,
-            description: `Повернення балів: замовлення #${orderId} ${newStatus === 'cancelled' ? 'скасовано' : 'повернено'}`,
+            points: earned,
+            description: `Повернення нарахованих балів: замовлення #${orderId} ${newStatus === 'cancelled' ? 'скасовано' : 'повернено'}`,
+          });
+        }
+        if (spent > 0) {
+          await mod.adjustPoints({
+            userId: order.userId!,
+            type: 'manual_add',
+            points: spent,
+            description: `Повернення витрачених балів: замовлення #${orderId} ${newStatus === 'cancelled' ? 'скасовано' : 'повернено'}`,
           });
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.error('Loyalty reverse failed', {
+          orderNumber: updated.orderNumber,
+          userId: order.userId,
+          newStatus,
+          error: String(err),
+        });
+      });
   }
+
+  // Push status update back to the marketplace if this order originated there.
+  import('@/services/marketplace-sync')
+    .then((mod) => mod.pushOrderStatusToMarketplace(orderId, newStatus))
+    .catch((err) => {
+      logger.error('Marketplace status push failed', {
+        orderNumber: updated.orderNumber,
+        error: String(err),
+      });
+    });
+
+  // Status change touches every stat counter (new_order/processing/unpaid),
+  // so invalidate so the next poll reflects reality.
+  invalidateOrderStatsCache();
 
   return updated;
 }
@@ -649,6 +1018,11 @@ export async function editOrderItems(
       id: true,
       status: true,
       paymentStatus: true,
+      clientType: true,
+      deliveryCost: true,
+      discountAmount: true,
+      userId: true,
+      user: { select: { wholesaleGroup: true } },
       items: {
         select: {
           id: true,
@@ -681,16 +1055,29 @@ export async function editOrderItems(
     );
   }
 
+  // Pricing tier for new items added to an existing order. Matches the same
+  // wholesale-group logic the storefront cart uses so adding a row in admin
+  // doesn't quietly downgrade a B2B customer to retail price.
+  const wholesaleGroup =
+    order.clientType === 'wholesale' && typeof order.user?.wholesaleGroup === 'number'
+      ? order.user.wholesaleGroup
+      : null;
+
   const updated = await prisma.$transaction(async (tx) => {
     for (const change of items) {
       if (change.remove && change.itemId) {
-        // Remove item — restore stock
+        // Remove item — restore stock and release reservation.
         const existing = order.items.find((i) => i.id === change.itemId);
         if (existing && existing.productId) {
           await tx.product.update({
             where: { id: existing.productId },
             data: { quantity: { increment: existing.quantity } },
           });
+          await adjustReserved(
+            tx,
+            [{ productId: existing.productId, quantity: existing.quantity }],
+            -1,
+          );
         }
         await tx.orderItem.delete({ where: { id: change.itemId } });
       } else if (change.itemId) {
@@ -714,9 +1101,18 @@ export async function editOrderItems(
             where: { id: existing.productId },
             data: { quantity: { decrement: qtyDiff } },
           });
+          // Reservation tracks "how much is promised to open orders" — move it
+          // by the same delta so reserved stays consistent with product.quantity.
+          await adjustReserved(
+            tx,
+            [{ productId: existing.productId, quantity: Math.abs(qtyDiff) }],
+            qtyDiff > 0 ? 1 : -1,
+          );
         }
 
-        const newSubtotal = Number(existing.priceAtOrder) * change.quantity;
+        // Round to 2 decimals so float drift doesn't accumulate into totals
+        // for high-value orders (e.g. 17.99 × 1000 in JS float ≠ 17990.00).
+        const newSubtotal = Math.round(Number(existing.priceAtOrder) * change.quantity * 100) / 100;
         await tx.orderItem.update({
           where: { id: change.itemId },
           data: { quantity: change.quantity, subtotal: newSubtotal },
@@ -725,7 +1121,17 @@ export async function editOrderItems(
         // Add new product
         const product = await tx.product.findUnique({
           where: { id: change.productId },
-          select: { id: true, code: true, name: true, priceRetail: true, quantity: true },
+          select: {
+            id: true,
+            code: true,
+            barcode: true,
+            name: true,
+            priceRetail: true,
+            priceWholesale: true,
+            priceWholesale2: true,
+            priceWholesale3: true,
+            quantity: true,
+          },
         });
 
         if (!product) throw new OrderError('Товар не знайдено', 404);
@@ -733,33 +1139,59 @@ export async function editOrderItems(
           throw new OrderError(`Недостатньо товару "${product.name}" на складі`, 400);
         }
 
+        // Pick the tier matching the customer's wholesale group; fall back to
+        // retail if the tier is unset for this product (e.g. only group 1
+        // has a wholesale price).
+        let unitPrice = Number(product.priceRetail);
+        if (wholesaleGroup === 1 && product.priceWholesale != null) {
+          unitPrice = Number(product.priceWholesale);
+        } else if (wholesaleGroup === 2 && product.priceWholesale2 != null) {
+          unitPrice = Number(product.priceWholesale2);
+        } else if (wholesaleGroup === 3 && product.priceWholesale3 != null) {
+          unitPrice = Number(product.priceWholesale3);
+        }
+
         await tx.product.update({
           where: { id: product.id },
           data: { quantity: { decrement: change.quantity } },
         });
+        await adjustReserved(
+          tx,
+          [{ productId: product.id, quantity: change.quantity }],
+          1,
+        );
 
         await tx.orderItem.create({
           data: {
             orderId,
             productId: product.id,
             productCode: product.code,
+            productBarcode: product.barcode,
             productName: product.name,
-            priceAtOrder: Number(product.priceRetail),
+            priceAtOrder: unitPrice,
             quantity: change.quantity,
-            subtotal: Number(product.priceRetail) * change.quantity,
+            subtotal: Math.round(unitPrice * change.quantity * 100) / 100,
             isPromo: false,
           },
         });
       }
     }
 
-    // Recalculate totals
+    // Recalculate totals. Items subtotal + delivery − discount, matching the
+    // formula createOrder uses (otherwise editing items would silently strip
+    // the delivery cost off the order total).
     const updatedItems = await tx.orderItem.findMany({
       where: { orderId },
       select: { quantity: true, subtotal: true },
     });
 
-    const totalAmount = updatedItems.reduce((sum, i) => sum + Number(i.subtotal), 0);
+    if (updatedItems.length === 0) {
+      throw new OrderError('У замовленні має бути хоча б одна позиція. Скасуйте замовлення замість видалення всіх товарів.', 400);
+    }
+
+    const itemsSubtotal = updatedItems.reduce((sum, i) => sum + Number(i.subtotal), 0);
+    const totalAmount =
+      itemsSubtotal + Number(order.deliveryCost ?? 0) - Number(order.discountAmount ?? 0);
     const itemsCount = updatedItems.reduce((sum, i) => sum + i.quantity, 0);
 
     // Add status history entry
@@ -789,14 +1221,14 @@ export async function editOrderItems(
  * @param filters - Фільтри (статус, пошук, дати, пагінація)
  * @returns Об'єкт зі списком замовлень та загальною кількістю
  */
-export async function getAllOrders(filters: OrderFilterInput & { clientType?: string }) {
+export async function getAllOrders(filters: OrderFilterInput) {
   const where: Prisma.OrderWhereInput = {};
 
   if (filters.status) {
     where.status = filters.status;
   }
   if (filters.clientType) {
-    where.clientType = filters.clientType as 'retail' | 'wholesale';
+    where.clientType = filters.clientType;
   }
   if (filters.paymentMethod) {
     where.paymentMethod = filters.paymentMethod;
@@ -804,11 +1236,21 @@ export async function getAllOrders(filters: OrderFilterInput & { clientType?: st
   if (filters.deliveryMethod) {
     where.deliveryMethod = filters.deliveryMethod;
   }
+  if (filters.paymentStatus) {
+    where.paymentStatus = filters.paymentStatus;
+  }
+  if (filters.assignedManagerId) {
+    where.assignedManagerId = filters.assignedManagerId;
+  }
   if (filters.search) {
+    // Phone variants let "0961234567" match a stored "+380961234567" (and vice versa).
+    const phoneVariants = phoneSearchVariants(filters.search);
     where.OR = [
       { orderNumber: { contains: filters.search, mode: 'insensitive' } },
       { contactName: { contains: filters.search, mode: 'insensitive' } },
-      { contactPhone: { contains: filters.search, mode: 'insensitive' } },
+      ...phoneVariants.map((v) => ({
+        contactPhone: { contains: v, mode: 'insensitive' as const },
+      })),
       { trackingNumber: { contains: filters.search, mode: 'insensitive' } },
     ];
   }
@@ -816,7 +1258,12 @@ export async function getAllOrders(filters: OrderFilterInput & { clientType?: st
     where.createdAt = { ...(where.createdAt as object), gte: new Date(filters.dateFrom) };
   }
   if (filters.dateTo) {
-    where.createdAt = { ...(where.createdAt as object), lte: new Date(filters.dateTo) };
+    // Filters arrive as "YYYY-MM-DD" → new Date() parses to 00:00:00 UTC,
+    // which would exclude every order on that day. Bump to the start of
+    // the next day and use `lt` so "до 14 травня" includes all of May 14.
+    const inclusiveEnd = new Date(filters.dateTo);
+    inclusiveEnd.setUTCDate(inclusiveEnd.getUTCDate() + 1);
+    where.createdAt = { ...(where.createdAt as object), lt: inclusiveEnd };
   }
 
   const skip = (filters.page - 1) * filters.limit;
@@ -841,7 +1288,93 @@ export async function getAllOrders(filters: OrderFilterInput & { clientType?: st
   return { orders, total };
 }
 
-export async function getOrderStats() {
+/**
+ * Pack & Pick — fetches orders ready for packing (confirmed or paid, not
+ * shipped) with the minimum item shape the warehouse worker needs: a stable
+ * id for ticking off, the product barcode (for scanner matching), and the
+ * internal SKU (for manual fallback).
+ */
+export async function getPackableOrders(limit = 50) {
+  // Include "packed" so an operator who packed yesterday but didn't hand
+  // the box to the courier yet still sees the order on the list today.
+  const orders = await prisma.order.findMany({
+    where: { status: { in: ['confirmed', 'paid', 'packed'] } },
+    orderBy: { createdAt: 'asc' },
+    take: limit,
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      clientType: true,
+      contactName: true,
+      contactPhone: true,
+      totalAmount: true,
+      trackingNumber: true,
+      createdAt: true,
+      items: {
+        select: {
+          id: true,
+          productId: true,
+          productCode: true,
+          productName: true,
+          quantity: true,
+          product: {
+            select: {
+              barcode: true,
+              quantity: true, // total stock on hand — UI greys out missing items
+              warehouseStock: {
+                select: {
+                  quantity: true,
+                  warehouse: { select: { name: true, code: true } },
+                },
+                where: { quantity: { gt: 0 } },
+                orderBy: { quantity: 'desc' },
+                take: 1,
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Flatten warehouse info onto the item for an easier UI shape. The first
+  // warehouse with stock > 0 is "where to pick from"; falls back to null
+  // (operator already knows the item is missing because stockOnHand is 0).
+  return orders.map((o) => ({
+    ...o,
+    items: o.items.map((it) => ({
+      ...it,
+      productBarcode: it.product?.barcode ?? null,
+      stockOnHand: it.product?.quantity ?? 0,
+      locationCode: it.product?.warehouseStock?.[0]?.warehouse?.code ?? null,
+      locationName: it.product?.warehouseStock?.[0]?.warehouse?.name ?? null,
+    })),
+  }));
+}
+
+export interface OrderStats {
+  newOrders: number;
+  processingOrders: number;
+  todayOrders: number;
+  todayRevenue: number;
+  unpaidOrders: number;
+}
+
+export async function getOrderStats(): Promise<OrderStats> {
+  // Short Redis cache: N admin tabs polling every 30s collapse onto one
+  // round of aggregations per cache window. Stats are inherently lagging
+  // (10s polling already), so 15s extra staleness is invisible to users
+  // and saves 5 aggregation queries × N tabs × every poll cycle.
+  try {
+    const cached = await redis.get(STATS_CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached) as OrderStats;
+    }
+  } catch {
+    // Redis down — fall through and compute fresh.
+  }
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -861,11 +1394,32 @@ export async function getOrderStats() {
     }),
   ]);
 
-  return {
+  const stats: OrderStats = {
     newOrders: totalNew,
     processingOrders: totalProcessing,
     todayOrders: totalToday,
     todayRevenue: Number(revenueToday._sum.totalAmount ?? 0),
     unpaidOrders: totalUnpaid,
   };
+
+  // Fire-and-forget cache write; failure here just means the next caller
+  // recomputes — never block the response on Redis.
+  redis
+    .setex(STATS_CACHE_KEY, STATS_CACHE_TTL, JSON.stringify(stats))
+    .catch((err) =>
+      logger.error('Order stats cache write failed', { error: String(err) }),
+    );
+
+  return stats;
+}
+
+/** Drop the cached stats — call after order create / status change so the
+ * next /admin/orders poll sees a fresh "new orders" count without waiting
+ * for the TTL to expire. */
+export async function invalidateOrderStatsCache(): Promise<void> {
+  try {
+    await redis.del(STATS_CACHE_KEY);
+  } catch {
+    // Cache miss next time is the worst case — never fail the caller.
+  }
 }

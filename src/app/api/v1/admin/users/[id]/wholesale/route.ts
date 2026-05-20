@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { approveWholesale, rejectWholesale, UserError } from '@/services/user';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
-export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { user, params }) => {
+export const PUT = withRole2fa('admin', 'manager')(async (request: NextRequest, { user, params }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -17,7 +18,7 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { u
     }
 
     if (body.action === 'reject') {
-      const result = await rejectWholesale(numId);
+      const result = await rejectWholesale(numId, user.id);
       return successResponse(result);
     }
 
@@ -26,6 +27,7 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { u
     if (error instanceof UserError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/users/[id]/wholesale] PUT failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

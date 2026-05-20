@@ -155,15 +155,36 @@ export async function activateTheme(themeId: number) {
   });
 }
 
+// Reject CSS values that look like script/injection. We can't whitelist the
+// universe of keys (themes define their own), but we can refuse values that
+// contain js: protocols, <script>, or expression() — none of which belong
+// in a CSS custom property.
+const CSS_INJECTION_RE = /(<\s*script|javascript:|expression\s*\(|<\s*iframe|\bdata:text\/html)/i;
+
 export async function updateThemeSettings(themeId: number, customSettings: Record<string, string>) {
   const theme = await prisma.theme.findUnique({ where: { id: themeId } });
   if (!theme) {
     throw new ThemeError('Тему не знайдено', 404);
   }
 
+  const cleaned: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(customSettings)) {
+    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(key)) {
+      throw new ThemeError(`Невалідне ім’я налаштування: ${key}`, 400);
+    }
+    const value = String(raw);
+    if (value.length > 500) {
+      throw new ThemeError(`Значення "${key}" занадто довге (макс 500)`, 400);
+    }
+    if (CSS_INJECTION_RE.test(value)) {
+      throw new ThemeError(`Значення "${key}" містить заборонену конструкцію`, 400);
+    }
+    cleaned[key] = value;
+  }
+
   return prisma.theme.update({
     where: { id: themeId },
-    data: { customSettings },
+    data: { customSettings: cleaned },
   });
 }
 

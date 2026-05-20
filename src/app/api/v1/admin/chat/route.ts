@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { paginatedResponse, errorResponse } from '@/utils/api-response';
 import { getAdminRooms } from '@/services/chat';
 import { adminChatFilterSchema } from '@/validators/chat';
+import { logger } from '@/lib/logger';
 
 // GET /api/v1/admin/chat - get all chat rooms for admin
 export const GET = withRole(
@@ -26,7 +27,8 @@ export const GET = withRole(
     const { rooms, total } = await getAdminRooms({ page, limit, status, search });
 
     return paginatedResponse(rooms, total, page, limit);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/chat] GET failed', { error: err });
     return errorResponse('Не вдалося завантажити чати', 500);
   }
 });

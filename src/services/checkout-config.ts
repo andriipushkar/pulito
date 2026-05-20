@@ -11,6 +11,11 @@ export interface CheckoutConfig {
       pallet: boolean;
     };
     freeShippingThreshold: number | null;
+    /** Fixed delivery cost per method (UAH). null = unknown / decided at order time. */
+    fixedCost: {
+      nova_poshta: number | null;
+      ukrposhta: number | null;
+    };
     pickupInfo: {
       address: string;
       hours: string;
@@ -114,6 +119,15 @@ export async function getCheckoutConfig(): Promise<CheckoutConfig> {
       ? { address: pickupAddress, hours: pickupHours, phone: pickupPhone }
       : null;
 
+  const npFixedRaw = parseFloat(settings.delivery_nova_poshta_fixed_cost ?? '');
+  const upFixedRaw = parseFloat(settings.delivery_ukrposhta_fixed_cost ?? '');
+  const fixedCost = {
+    nova_poshta:
+      Number.isFinite(npFixedRaw) && npFixedRaw > 0 ? npFixedRaw : null,
+    ukrposhta:
+      Number.isFinite(upFixedRaw) && upFixedRaw > 0 ? upFixedRaw : null,
+  };
+
   return {
     delivery: {
       manualMode: deliveryManual,
@@ -124,6 +138,7 @@ export async function getCheckoutConfig(): Promise<CheckoutConfig> {
         pallet,
       },
       freeShippingThreshold,
+      fixedCost,
       pickupInfo,
     },
     payment: {

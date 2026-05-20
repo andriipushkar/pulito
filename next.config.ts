@@ -98,14 +98,11 @@ const nextConfig: NextConfig = {
             key: 'X-Permitted-Cross-Domain-Policies',
             value: 'none',
           },
-          {
-            key: 'Cross-Origin-Embedder-Policy',
-            value: 'credentialless',
-          },
-          {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
-          },
+          // COEP and COOP intentionally omitted: third-party iframes
+          // (OpenStreetMap embed.html, Google Maps, payment 3-D Secure) don't
+          // ship CORP headers nor matching opener policy, so setting these
+          // causes Firefox to refuse the iframe with "security configuration
+          // doesn't match the previous page". Same comment as in proxy.ts.
           {
             key: 'X-DNS-Prefetch-Control',
             value: 'on',

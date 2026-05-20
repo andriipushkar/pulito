@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
 import { apiClient, getAccessToken } from '@/lib/api-client';
+import { formatPrice } from '@/utils/format';
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,
@@ -25,6 +26,8 @@ import Pagination from '@/components/ui/Pagination';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import AdminTableSkeleton, { AdminStatsSkeleton } from '@/components/admin/AdminTableSkeleton';
 import PageSizeSelector from '@/components/admin/PageSizeSelector';
+import SavedViews from '@/components/admin/SavedViews';
+import OrderQuickEditDrawer from '@/components/admin/OrderQuickEditDrawer';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Search } from '@/components/icons';
 import {
@@ -97,6 +100,8 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [quickStatusOrderId, setQuickStatusOrderId] = useState<number | null>(null);
@@ -105,7 +110,12 @@ export default function AdminOrdersPage() {
   const [newOrdersBadge, setNewOrdersBadge] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [quickEditId, setQuickEditId] = useState<number | null>(null);
   const [isBulkTtnRunning, setIsBulkTtnRunning] = useState(false);
+  const [bulkTtnConfirm, setBulkTtnConfirm] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [isBulkStatusRunning, setIsBulkStatusRunning] = useState(false);
+  const [bulkStatusConfirm, setBulkStatusConfirm] = useState<string | null>(null);
 
   const toggleSelected = (id: number) => {
     setSelectedIds((prev) => {
@@ -153,8 +163,50 @@ export default function AdminOrdersPage() {
       toast.error('Помилка мережі');
     } finally {
       setIsBulkTtnRunning(false);
+      setBulkTtnConfirm(false);
     }
   };
+
+  const handleBulkStatus = async (statusToApply: string) => {
+    if (selectedIds.size === 0 || !statusToApply) return;
+    setIsBulkStatusRunning(true);
+    try {
+      const res = await apiClient.post<{
+        ok: { orderId: number; orderNumber: string; status: string }[];
+        failed: { orderId: number; orderNumber: string; error: string }[];
+      }>('/api/v1/admin/orders/bulk-status', {
+        orderIds: Array.from(selectedIds),
+        status: statusToApply,
+      });
+      if (res.success && res.data) {
+        const { ok, failed } = res.data;
+        if (ok.length > 0) {
+          toast.success(`Оновлено ${ok.length} замовлень → ${ORDER_STATUS_LABELS[statusToApply as OrderStatus]}`);
+        }
+        if (failed.length > 0) {
+          toast.error(
+            `Не оновлено ${failed.length}: ${failed
+              .slice(0, 3)
+              .map((f) => `#${f.orderNumber} (${f.error})`)
+              .join('; ')}${failed.length > 3 ? '…' : ''}`,
+            { duration: 8000 },
+          );
+        }
+        setSelectedIds(new Set());
+        setBulkStatus('');
+        loadOrders();
+        loadStats();
+      } else {
+        toast.error(res.error || 'Помилка масової зміни статусу');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    } finally {
+      setIsBulkStatusRunning(false);
+      setBulkStatusConfirm(null);
+    }
+  };
+
   const [confirmStatusChange, setConfirmStatusChange] = useState<{
     orderId: number;
     status: string;
@@ -165,6 +217,7 @@ export default function AdminOrdersPage() {
   const status = searchParams.get('status') || '';
   const clientType = searchParams.get('clientType') || '';
   const paymentMethod = searchParams.get('paymentMethod') || '';
+  const paymentStatus = searchParams.get('paymentStatus') || '';
   const deliveryMethod = searchParams.get('deliveryMethod') || '';
   const dateFrom = searchParams.get('dateFrom') || '';
   const dateTo = searchParams.get('dateTo') || '';
@@ -188,14 +241,14 @@ export default function AdminOrdersPage() {
     status ||
     clientType ||
     paymentMethod ||
+    paymentStatus ||
     deliveryMethod ||
     dateFrom ||
     dateTo ||
     search
   );
 
-  const loadOrders = useCallback(() => {
-    setIsLoading(true);
+  const buildOrdersQuery = useCallback(() => {
     const params = new URLSearchParams({
       page: String(page),
       limit: String(limit),
@@ -205,29 +258,19 @@ export default function AdminOrdersPage() {
     if (status) params.set('status', status);
     if (clientType) params.set('clientType', clientType);
     if (paymentMethod) params.set('paymentMethod', paymentMethod);
+    if (paymentStatus) params.set('paymentStatus', paymentStatus);
     if (deliveryMethod) params.set('deliveryMethod', deliveryMethod);
     if (dateFrom) params.set('dateFrom', dateFrom);
     if (dateTo) params.set('dateTo', dateTo);
     if (search) params.set('search', search);
-
-    apiClient
-      .get<OrderListItem[]>(`/api/v1/admin/orders?${params}`)
-      .then((res) => {
-        if (res.success && res.data) {
-          setOrders(res.data);
-          setTotal(res.pagination?.total || 0);
-        } else {
-          toast.error('Не вдалося завантажити замовлення');
-        }
-      })
-      .catch(() => toast.error('Помилка мережі'))
-      .finally(() => setIsLoading(false));
+    return params.toString();
   }, [
     page,
     limit,
     status,
     clientType,
     paymentMethod,
+    paymentStatus,
     deliveryMethod,
     dateFrom,
     dateTo,
@@ -236,9 +279,56 @@ export default function AdminOrdersPage() {
     sortOrder,
   ]);
 
+  const [ordersReloadToken, setOrdersReloadToken] = useState(0);
+  const loadOrders = useCallback(() => setOrdersReloadToken((n) => n + 1), []);
+
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+    let cancelled = false;
+    if (hasLoadedOnceRef.current) setIsRefreshing(true);
+    else setIsLoading(true);
+
+    const qs = buildOrdersQuery();
+    apiClient
+      .get<OrderListItem[]>(`/api/v1/admin/orders?${qs}`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) {
+          setOrders(res.data);
+          setTotal(res.pagination?.total || 0);
+          hasLoadedOnceRef.current = true;
+        } else {
+          toast.error(res.error || 'Не вдалося завантажити замовлення');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Помилка мережі');
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [buildOrdersQuery, ordersReloadToken]);
+
+  // Esc clears bulk selection so the operator can recover without scrolling
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedIds(new Set());
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedIds.size]);
+
+  // Clear selection when filters/page change so we never apply a bulk action
+  // to rows that are no longer visible.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, status, clientType, paymentMethod, paymentStatus, deliveryMethod, dateFrom, dateTo, search]);
 
   // Load stats
   const loadStats = useCallback(() => {
@@ -259,9 +349,36 @@ export default function AdminOrdersPage() {
   }, []);
 
   useEffect(() => {
-    loadStats();
-    const interval = setInterval(loadStats, ORDER_STATS_POLL_INTERVAL);
-    return () => clearInterval(interval);
+    // Visible-tab gate: don't poll when the tab is hidden — a backgrounded
+    // admin tab was happily firing 5 aggregations into the DB every 30s
+    // forever. Also re-fetches on resume so the badge updates immediately
+    // when the admin switches back.
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const start = () => {
+      if (interval) return;
+      loadStats();
+      interval = setInterval(loadStats, ORDER_STATS_POLL_INTERVAL);
+    };
+
+    const stop = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') start();
+      else stop();
+    };
+
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      stop();
+    };
   }, [loadStats]);
 
   const updateFilter = (key: string, value: string) => {
@@ -279,6 +396,27 @@ export default function AdminOrdersPage() {
     router.push(`/admin/orders?${params}`);
   };
 
+  const applyDateRange = (from: string, to: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (from) params.set('dateFrom', from);
+    else params.delete('dateFrom');
+    if (to) params.set('dateTo', to);
+    else params.delete('dateTo');
+    params.set('page', '1');
+    router.push(`/admin/orders?${params}`);
+  };
+
+  const setDatePreset = (preset: 'today' | 'week' | 'month' | 'clear') => {
+    if (preset === 'clear') return applyDateRange('', '');
+    const today = new Date();
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    if (preset === 'today') return applyDateRange(iso(today), iso(today));
+    const from = new Date(today);
+    if (preset === 'week') from.setDate(today.getDate() - 6); // last 7 days inclusive
+    else from.setDate(today.getDate() - 29); // last 30 days inclusive
+    applyDateRange(iso(from), iso(today));
+  };
+
   const handleQuickStatusInit = (orderId: number, newStatusVal: string) => {
     if (!newStatusVal) return;
     setConfirmStatusChange({ orderId, status: newStatusVal });
@@ -286,23 +424,35 @@ export default function AdminOrdersPage() {
 
   const handleQuickStatusConfirm = async () => {
     if (!confirmStatusChange) return;
+    const { orderId, status: nextStatus } = confirmStatusChange;
     setQuickStatusUpdating(true);
-    const res = await apiClient.put(`/api/v1/admin/orders/${confirmStatusChange.orderId}/status`, {
-      status: confirmStatusChange.status,
-    });
-    if (res.success) {
-      toast.success(
-        `Статус змінено на "${ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus]}"`,
-      );
-      loadOrders();
-      loadStats();
-    } else {
-      toast.error(res.error || 'Помилка зміни статусу');
+
+    // Optimistic update — flip the badge immediately, revert if the server rejects.
+    const prevOrders = orders;
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus as OrderStatus } : o)),
+    );
+
+    try {
+      const res = await apiClient.put(`/api/v1/admin/orders/${orderId}/status`, {
+        status: nextStatus,
+      });
+      if (res.success) {
+        toast.success(`Статус змінено на "${ORDER_STATUS_LABELS[nextStatus as OrderStatus]}"`);
+        loadStats();
+      } else {
+        setOrders(prevOrders);
+        toast.error(res.error || 'Помилка зміни статусу');
+      }
+    } catch {
+      setOrders(prevOrders);
+      toast.error('Помилка мережі — спробуйте ще раз');
+    } finally {
+      setConfirmStatusChange(null);
+      setQuickStatusOrderId(null);
+      setQuickStatusValue('');
+      setQuickStatusUpdating(false);
     }
-    setConfirmStatusChange(null);
-    setQuickStatusOrderId(null);
-    setQuickStatusValue('');
-    setQuickStatusUpdating(false);
   };
 
   const handleExport = async () => {
@@ -310,6 +460,7 @@ export default function AdminOrdersPage() {
     if (status) params.set('status', status);
     if (clientType) params.set('clientType', clientType);
     if (paymentMethod) params.set('paymentMethod', paymentMethod);
+    if (paymentStatus) params.set('paymentStatus', paymentStatus);
     if (deliveryMethod) params.set('deliveryMethod', deliveryMethod);
     if (dateFrom) params.set('dateFrom', dateFrom);
     if (dateTo) params.set('dateTo', dateTo);
@@ -352,8 +503,20 @@ export default function AdminOrdersPage() {
 
   const handleNewOrdersBadgeClick = () => {
     setNewOrdersBadge(0);
+    // Sync the ref so the next poll doesn't re-resurrect the badge by
+    // comparing against the stale "before-view" value.
+    lastKnownNewRef.current = stats?.newOrders ?? 0;
     updateFilter('status', 'new_order');
   };
+
+  // Auto-clear the badge once the admin is actually viewing the new-order
+  // list — by then they've seen it, no point keeping the pulse going.
+  useEffect(() => {
+    if (status === 'new_order' && newOrdersBadge > 0) {
+      setNewOrdersBadge(0);
+      lastKnownNewRef.current = stats?.newOrders ?? 0;
+    }
+  }, [status, newOrdersBadge, stats?.newOrders]);
 
   const formatDate = (d: string | Date) =>
     new Date(d).toLocaleString('uk-UA', {
@@ -382,7 +545,7 @@ export default function AdminOrdersPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-xl font-bold">Замовлення</h2>
           {newOrdersBadge > 0 && (
             <button
@@ -392,8 +555,15 @@ export default function AdminOrdersPage() {
               +{newOrdersBadge} нових
             </button>
           )}
+          <SavedViews storageKey="orders" basePath="/admin/orders" />
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/admin/orders/board"
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-bg-secondary)]"
+          >
+            🗂️ Дошка
+          </Link>
           <Button size="sm" variant="outline" onClick={() => setShowFilters(!showFilters)}>
             {showFilters ? 'Сховати фільтри' : 'Фільтри'}
             {hasFilters && !showFilters && (
@@ -416,7 +586,7 @@ export default function AdminOrdersPage() {
             value={stats.newOrders}
             color="text-blue-600"
             bg="bg-blue-50"
-            onClick={() => updateFilter('status', 'new_order')}
+            onClick={handleNewOrdersBadgeClick}
           />
           <StatCard
             label="В обробці"
@@ -430,18 +600,21 @@ export default function AdminOrdersPage() {
             value={stats.unpaidOrders}
             color="text-red-600"
             bg="bg-red-50"
+            onClick={() => updateFilter('paymentStatus', 'pending')}
           />
           <StatCard
             label="Замовлень сьогодні"
             value={stats.todayOrders}
             color="text-violet-600"
             bg="bg-violet-50"
+            onClick={() => setDatePreset('today')}
           />
           <StatCard
             label="Виручка сьогодні"
-            value={`${stats.todayRevenue.toFixed(0)} \u20B4`}
+            value={formatPrice(stats.todayRevenue)}
             color="text-emerald-600"
             bg="bg-emerald-50"
+            onClick={() => setDatePreset('today')}
           />
         </div>
       )}
@@ -546,23 +719,48 @@ export default function AdminOrdersPage() {
               className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-[7px] text-sm"
             />
           </div>
+          <div className="flex w-full items-end gap-1 sm:w-auto">
+            <DatePresetButton onClick={() => setDatePreset('today')} label="Сьогодні" />
+            <DatePresetButton onClick={() => setDatePreset('week')} label="Тиждень" />
+            <DatePresetButton onClick={() => setDatePreset('month')} label="Місяць" />
+            <DatePresetButton
+              onClick={() => setDatePreset('clear')}
+              label="Очистити"
+              disabled={!dateFrom && !dateTo}
+            />
+          </div>
         </div>
       )}
 
       {selectedIds.size > 0 && (
-        <div className="mb-3 flex items-center justify-between rounded-[var(--radius)] border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 px-4 py-2">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 px-4 py-2">
           <span className="text-sm">
             Вибрано: <strong>{selectedIds.size}</strong>
           </span>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleBulkTtn} isLoading={isBulkTtnRunning}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={bulkStatus}
+              onChange={(e) => {
+                const next = e.target.value;
+                setBulkStatus(next);
+                if (next) setBulkStatusConfirm(next);
+              }}
+              disabled={isBulkStatusRunning || isBulkTtnRunning}
+              options={[{ value: '', label: 'Змінити статус на…' }, ...STATUS_OPTIONS.slice(1)]}
+            />
+            <Button
+              size="sm"
+              onClick={() => setBulkTtnConfirm(true)}
+              isLoading={isBulkTtnRunning}
+              disabled={isBulkStatusRunning}
+            >
               Створити ТТН (НП)
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => setSelectedIds(new Set())}
-              disabled={isBulkTtnRunning}
+              disabled={isBulkTtnRunning || isBulkStatusRunning}
             >
               Скасувати вибір
             </Button>
@@ -574,7 +772,66 @@ export default function AdminOrdersPage() {
         <AdminTableSkeleton rows={10} columns={8} />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
+          {/* Mobile card list (md:hidden) */}
+          <div
+            className={`space-y-2 md:hidden ${isRefreshing ? 'opacity-60' : ''}`}
+            aria-busy={isRefreshing}
+          >
+            {orders.map((order) => (
+              <Link
+                key={`m-${order.id}`}
+                href={`/admin/orders/${order.id}`}
+                className="block rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3"
+              >
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="font-semibold text-[var(--color-primary)]">
+                    #{order.orderNumber}
+                  </span>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+                    style={{
+                      backgroundColor: ORDER_STATUS_COLORS[order.status as OrderStatus],
+                    }}
+                  >
+                    {ORDER_STATUS_LABELS[order.status as OrderStatus]}
+                  </span>
+                </div>
+                <p className="text-sm">{order.contactName}</p>
+                <p className="text-xs text-[var(--color-text-secondary)]">{order.contactPhone}</p>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-[var(--color-text-secondary)]">
+                    {formatDate(order.createdAt)}
+                  </span>
+                  <span className="font-bold text-sm">
+                    {formatPrice(Number(order.totalAmount))}
+                  </span>
+                </div>
+                {order.trackingNumber && (
+                  <p className="mt-1 text-[11px] font-medium text-[var(--color-primary)]">
+                    ТТН: {order.trackingNumber}
+                  </p>
+                )}
+              </Link>
+            ))}
+            {orders.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] py-12 text-center">
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                  <span className="text-2xl" aria-hidden="true">📦</span>
+                </div>
+                <p className="mb-1 text-sm font-semibold text-[var(--color-text)]">Замовлень не знайдено</p>
+                <p className="mx-auto mb-4 max-w-xs text-xs text-[var(--color-text-secondary)]">
+                  Спробуйте змінити фільтри або скинути їх, щоб побачити всі замовлення
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div
+            className={`hidden overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] transition-opacity md:block ${
+              isRefreshing ? 'opacity-60' : ''
+            }`}
+            aria-busy={isRefreshing}
+          >
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
@@ -598,10 +855,32 @@ export default function AdminOrdersPage() {
               <tbody>
                 {orders.map((order) => {
                   const transitions = ALLOWED_ORDER_TRANSITIONS[order.status] || [];
+
+                  // Conditional formatting:
+                  //  • red row → stuck new_order > 7 days (someone needs to act)
+                  //  • amber row → shipped without tracking number (TTN missing)
+                  const ageDays = Math.floor(
+                    (Date.now() - new Date(order.createdAt).getTime()) / 86_400_000,
+                  );
+                  const isStale = order.status === 'new_order' && ageDays > 7;
+                  const isShippedNoTtn = order.status === 'shipped' && !order.trackingNumber;
+                  const rowAccent = isStale
+                    ? 'bg-red-50 hover:bg-red-100'
+                    : isShippedNoTtn
+                      ? 'bg-amber-50 hover:bg-amber-100'
+                      : 'hover:bg-[var(--color-bg-secondary)]';
+
                   return (
                     <tr
                       key={order.id}
-                      className="border-b border-[var(--color-border)] last:border-0 transition-colors hover:bg-[var(--color-bg-secondary)]"
+                      className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${rowAccent}`}
+                      title={
+                        isStale
+                          ? `Замовлення новіше 7 днів без обробки (${ageDays} днів)`
+                          : isShippedNoTtn
+                            ? 'Відправлено, але ТТН не присвоєно'
+                            : undefined
+                      }
                     >
                       <td className="px-3 py-3 text-center">
                         <input
@@ -669,14 +948,12 @@ export default function AdminOrdersPage() {
                         </p>
                         {order.trackingNumber && (
                           <p className="mt-0.5 text-[11px] font-medium text-[var(--color-primary)]">
-                            TTH: {order.trackingNumber}
+                            ТТН: {order.trackingNumber}
                           </p>
                         )}
                       </td>
                       <td className="px-3 py-3 text-right">
-                        <span className="font-bold">
-                          {Number(order.totalAmount).toFixed(2)} &#8372;
-                        </span>
+                        <span className="font-bold">{formatPrice(Number(order.totalAmount))}</span>
                       </td>
                       <td className="px-3 py-3 text-center">
                         {transitions.length > 0 && (
@@ -735,6 +1012,26 @@ export default function AdminOrdersPage() {
                                 </svg>
                               </button>
                             )}
+                            <button
+                              onClick={() => setQuickEditId(order.id)}
+                              title="Швидкий перегляд / редагування"
+                              className="rounded p-1 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-primary)]"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                                <circle cx="12" cy="12" r="3" />
+                              </svg>
+                            </button>
                           </div>
                         )}
                       </td>
@@ -743,11 +1040,23 @@ export default function AdminOrdersPage() {
                 })}
                 {orders.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
-                    >
-                      Замовлень не знайдено
+                    <td colSpan={8} className="px-4 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2 text-[var(--color-text-secondary)]">
+                        <span className="text-3xl" aria-hidden="true">
+                          📦
+                        </span>
+                        <p className="text-sm font-medium">Замовлень не знайдено</p>
+                        {hasFilters ? (
+                          <button
+                            onClick={() => router.push('/admin/orders')}
+                            className="text-xs text-[var(--color-primary)] hover:underline"
+                          >
+                            Скинути всі фільтри
+                          </button>
+                        ) : (
+                          <p className="text-xs">Тут з&apos;являться нові замовлення клієнтів</p>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -786,7 +1095,68 @@ export default function AdminOrdersPage() {
         confirmText="Так, змінити"
         isLoading={quickStatusUpdating}
       />
+
+      {/* Confirm bulk TTN creation */}
+      <ConfirmDialog
+        isOpen={bulkTtnConfirm}
+        onClose={() => setBulkTtnConfirm(false)}
+        onConfirm={handleBulkTtn}
+        variant="warning"
+        title="Масове створення ТТН"
+        message={`Створити ТТН Нової Пошти для ${selectedIds.size} ${
+          selectedIds.size === 1 ? 'замовлення' : 'замовлень'
+        }? Замовлення без необхідних даних будуть пропущені.`}
+        confirmText="Так, створити"
+        isLoading={isBulkTtnRunning}
+      />
+
+      {/* Confirm bulk status change */}
+      <ConfirmDialog
+        isOpen={!!bulkStatusConfirm}
+        onClose={() => {
+          setBulkStatusConfirm(null);
+          setBulkStatus('');
+        }}
+        onConfirm={() => bulkStatusConfirm && handleBulkStatus(bulkStatusConfirm)}
+        variant="warning"
+        title="Масова зміна статусу"
+        message={
+          bulkStatusConfirm
+            ? `Змінити статус ${selectedIds.size} замовлень на "${ORDER_STATUS_LABELS[bulkStatusConfirm as OrderStatus]}"? Якщо допустимий перехід неможливий — замовлення пропуститься.`
+            : ''
+        }
+        confirmText="Так, змінити"
+        isLoading={isBulkStatusRunning}
+      />
+
+      {/* Quick edit drawer */}
+      <OrderQuickEditDrawer
+        orderId={quickEditId}
+        onClose={() => setQuickEditId(null)}
+        onUpdated={() => loadOrders()}
+      />
     </div>
+  );
+}
+
+function DatePresetButton({
+  onClick,
+  label,
+  disabled,
+}: {
+  onClick: () => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-[7px] text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {label}
+    </button>
   );
 }
 

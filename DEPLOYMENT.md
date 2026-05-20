@@ -237,6 +237,9 @@ Heavy tasks are scheduled between 3:00-5:00 AM to minimize impact on users.
 # === Weekly ===
 0 7 * * 1 curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/weekly-report
 
+# === Every 6 hours: refresh marketplace OAuth tokens (OLX, etc.) ===
+0 */6 * * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/marketplace-token-refresh
+
 # === Monthly ===
 0 5 1 * * curl -s -X POST -H "Authorization: Bearer $APP_SECRET" http://localhost:3000/api/v1/cron/instagram-token-refresh
 ```

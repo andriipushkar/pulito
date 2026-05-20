@@ -4,6 +4,8 @@ import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import ContactForm from '@/components/common/ContactForm';
 import { Phone, Mail, MapPin, Clock } from '@/components/icons';
 import { getSettings } from '@/services/settings';
+import { geocodeAddress } from '@/lib/geocode';
+import ContactMap from '@/components/contacts/ContactMap';
 
 const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
@@ -22,6 +24,7 @@ export const metadata: Metadata = {
 
 export default async function ContactsPage() {
   const settings = await getSettings();
+  const point = settings.site_address ? await geocodeAddress(settings.site_address) : null;
 
   const localBusinessJsonLd = {
     '@context': 'https://schema.org',
@@ -35,21 +38,17 @@ export default async function ContactsPage() {
     address: {
       '@type': 'PostalAddress',
       streetAddress: settings.site_address,
-      addressLocality: 'Київ',
+      addressLocality: 'Львів',
+      addressRegion: 'Львівська область',
+      postalCode: '79036',
       addressCountry: 'UA',
     },
     openingHoursSpecification: [
       {
         '@type': 'OpeningHoursSpecification',
         dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-        opens: '09:00',
-        closes: '18:00',
-      },
-      {
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: ['Saturday'],
         opens: '10:00',
-        closes: '15:00',
+        closes: '20:00',
       },
     ],
   };
@@ -107,18 +106,27 @@ export default async function ContactsPage() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]">
-            <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2540.654291663024!2d30.52140851548823!3d50.44967337947394!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x40d4ce50f8b086e3%3A0xb7dc4c89d7bfa07e!2z0LLRg9C7LiDQpdGA0LXRidCw0YLQuNC6LCAxLCDQmtC40ZfQsiwgMDIwMDA!5e0!3m2!1suk!2sua!4v1&output=embed"
-              width="100%"
-              height="300"
-              style={{ border: 0 }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              title="Наше розташування на карті"
-            />
-          </div>
+          {settings.site_address && (
+            <div className="space-y-2">
+              {point ? (
+                <div className="overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]">
+                  <ContactMap lat={point.lat} lon={point.lon} label={settings.site_address} />
+                </div>
+              ) : (
+                <div className="flex h-[200px] items-center justify-center rounded-[var(--radius)] border border-dashed border-[var(--color-border)] text-sm text-[var(--color-text-secondary)]">
+                  Не вдалося завантажити карту
+                </div>
+              )}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.site_address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-[var(--color-primary)] hover:underline"
+              >
+                Відкрити в Google Maps →
+              </a>
+            </div>
+          )}
         </div>
 
         <div>

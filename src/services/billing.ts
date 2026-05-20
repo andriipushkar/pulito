@@ -76,31 +76,29 @@ export async function changePlan(
   tenantId: number,
   newPlanId: number
 ): Promise<TenantBilling> {
-  const billing = await prisma.tenantBilling.findUnique({
-    where: { tenantId },
-  });
+  // Read + write in one tx so a concurrent markInvoicePaid (or another admin
+  // changing the plan) can't observe a partial state where the plan changed
+  // but the period reset hasn't happened yet.
+  return prisma.$transaction(async (tx) => {
+    const billing = await tx.tenantBilling.findUnique({ where: { tenantId } });
+    if (!billing) throw new BillingError('Біллінг не знайдено', 404);
 
-  if (!billing) {
-    throw new BillingError('Біллінг не знайдено', 404);
-  }
+    const plan = await tx.plan.findUnique({ where: { id: newPlanId } });
+    if (!plan) throw new BillingError('План не знайдено', 404);
 
-  const plan = await prisma.plan.findUnique({ where: { id: newPlanId } });
-  if (!plan) {
-    throw new BillingError('План не знайдено', 404);
-  }
+    const now = new Date();
+    const periodEnd = new Date(now);
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
 
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-  return prisma.tenantBilling.update({
-    where: { tenantId },
-    data: {
-      planId: newPlanId,
-      status: 'active',
-      currentPeriodStart: now,
-      currentPeriodEnd: periodEnd,
-    },
+    return tx.tenantBilling.update({
+      where: { tenantId },
+      data: {
+        planId: newPlanId,
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+      },
+    });
   });
 }
 

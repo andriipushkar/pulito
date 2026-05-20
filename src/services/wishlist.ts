@@ -75,6 +75,23 @@ export async function isProductInWishlist(userId: number, wishlistId: number, pr
   return !!item;
 }
 
+/**
+ * Bulk-check which of the provided productIds are present in the given wishlist.
+ * Avoids the N+1 problem on catalog pages where many ProductCards would otherwise
+ * each issue a separate HEAD request.
+ */
+export async function getWishlistedProductIds(
+  wishlistId: number,
+  productIds: number[],
+): Promise<number[]> {
+  if (productIds.length === 0) return [];
+  const items = await prisma.wishlistItem.findMany({
+    where: { wishlistId, productId: { in: productIds } },
+    select: { productId: true },
+  });
+  return items.map((i) => i.productId);
+}
+
 export async function getUserWishlists(userId: number) {
   return prisma.wishlist.findMany({
     where: { userId },

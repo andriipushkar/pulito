@@ -6,6 +6,7 @@ enum OrderStatus {
   processing
   confirmed
   paid
+  packed
   shipped
   completed
   cancelled
@@ -44,6 +45,8 @@ enum OrderSource {
   viber_bot
   rozetka
   prom
+  olx
+  epicentrk
 }
 
 model Order {
@@ -69,6 +72,11 @@ model Order {
   deliveryStreetRef    String?        @map("delivery_street_ref")
   deliveryBuilding     String?        @map("delivery_building")
   deliveryFlat         String?        @map("delivery_flat")
+  // Pallet delivery snapshot — what the customer saw at checkout for B2B
+  // shipments. Admin pallet-grouping (see Pallet model) is separate; these
+  // fields just capture per-order quote inputs so they're recoverable.
+  palletWeightKg       Decimal?       @map("pallet_weight_kg") @db.Decimal(8, 2)
+  palletRegion         String?        @map("pallet_region")
   trackingNumber       String?        @map("tracking_number")
   trackingStatus       String?        @map("tracking_status")
   trackingStatusAt     DateTime?      @map("tracking_status_at")
@@ -95,6 +103,7 @@ model Order {
   payment            Payment?
   delivery           Delivery?
   marketplaceReturns MarketplaceReturn[]
+  palletOrders       PalletOrder[]
 
   @@unique([source, externalId])
   @@index([userId, createdAt(sort: Desc)])
@@ -102,6 +111,10 @@ model Order {
   @@index([status, createdAt])
   @@index([paymentStatus])
   @@index([deletedAt])
+  // Speeds up the unfiltered admin list which sorts by createdAt DESC and
+  // the "today's count / revenue" stats. Without this Postgres falls back
+  // to a seq scan + sort on the unfiltered case.
+  @@index([createdAt(sort: Desc)])
   @@map("orders")
 }
 
@@ -115,6 +128,7 @@ model OrderItem {
   productId    Int?     @map("product_id")
   product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   productCode  String   @map("product_code")
+  productBarcode String? @map("product_barcode") @db.VarChar(20)
   productName  String   @map("product_name")
   priceAtOrder Decimal  @map("price_at_order") @db.Decimal(10, 2)
   quantity     Int
@@ -232,6 +246,41 @@ model CartItem {
   @@map("cart_items")
 }
 
+// 23.44 Win_Back_Events — dormant-customer re-engagement tracking
+model WinBackEvent {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @map("user_id")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  daysSinceLastOrder Int     @map("days_since_last_order")
+  couponId         Int?      @map("coupon_id")
+  coupon           Coupon?   @relation("WinBackEventCoupon", fields: [couponId], references: [id], onDelete: SetNull)
+  sentAt           DateTime  @default(now()) @map("sent_at")
+  openedAt         DateTime? @map("opened_at")
+  recoveredOrderId Int?      @map("recovered_order_id")
+
+  @@index([userId, sentAt])
+  @@index([sentAt])
+  @@map("win_back_events")
+}
+
+// 23.43 Cart_Recovery_Events — abandoned-cart reminder tracking
+model CartRecoveryEvent {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @map("user_id")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminderLevel    Int       @map("reminder_level")
+  cartSnapshot     Json      @map("cart_snapshot")
+  couponId         Int?      @map("coupon_id")
+  coupon           Coupon?   @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  sentAt           DateTime  @default(now()) @map("sent_at")
+  openedAt         DateTime? @map("opened_at")
+  recoveredOrderId Int?      @map("recovered_order_id")
+
+  @@index([userId, reminderLevel])
+  @@index([sentAt])
+  @@map("cart_recovery_events")
+}
+
 // ─────────────────────────────────────
 // 23.8-9 Wishlists
 // ─────────────────────────────────────
@@ -281,12 +330,21 @@ model Coupon {
   usedCount         Int        @default(0) @map("used_count")
   validFrom         DateTime?  @map("valid_from")
   validUntil        DateTime?  @map("valid_until")
+  // Apply restrictions: empty arrays mean "no restriction".
+  // - applicableCategoryIds: coupon valid only on these categories
+  // - excludedProductIds: products opted out (overrides categories)
+  applicableCategoryIds Int[]  @default([]) @map("applicable_category_ids")
+  excludedProductIds    Int[]  @default([]) @map("excluded_product_ids")
+  // Stacking — same semantics as VolumeDiscount.stackableWith.
+  stackableWith         String[] @default([]) @map("stackable_with")
   isActive          Boolean    @default(true) @map("is_active")
   createdBy         Int?       @map("created_by")
   createdAt         DateTime   @default(now()) @map("created_at")
   updatedAt         DateTime   @updatedAt @map("updated_at")
 
-  redemptions CouponRedemption[]
+  redemptions        CouponRedemption[]
+  cartRecoveryEvents CartRecoveryEvent[]
+  winBackEvents      WinBackEvent[]      @relation("WinBackEventCoupon")
 
   @@map("coupons")
 }
@@ -346,4 +404,52 @@ model ReturnRequest {
   @@index([userId])
   @@index([status])
   @@map("return_requests")
+}
+
+// ─────────────────────────────────────
+// Pallet deliveries — group several B2B orders into one shipment.
+// One Pallet has many PalletOrders (the n:m through table).
+// ─────────────────────────────────────
+enum PalletStatus {
+  forming     // collecting orders
+  in_transit  // handed to carrier
+  delivered
+  cancelled
+}
+
+model Pallet {
+  id            Int          @id @default(autoincrement())
+  name          String       @db.VarChar(255) // human label e.g. "Львів-Київ #14"
+  status        PalletStatus @default(forming)
+  region        String?      // multiplier key from pallet-delivery config
+  carrier       String?      // "delivery", "intime", "mist", "nightexp"
+  trackingNumber String?     @map("tracking_number")
+  weightKg      Decimal?     @map("weight_kg") @db.Decimal(8, 2)
+  deliveryCost  Decimal?     @map("delivery_cost") @db.Decimal(10, 2)
+  notes         String?
+  createdBy     Int?         @map("created_by")
+  shippedAt     DateTime?    @map("shipped_at")
+  deliveredAt   DateTime?    @map("delivered_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  orders        PalletOrder[]
+
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("pallets")
+}
+
+model PalletOrder {
+  id        Int      @id @default(autoincrement())
+  palletId  Int      @map("pallet_id")
+  pallet    Pallet   @relation(fields: [palletId], references: [id], onDelete: Cascade)
+  orderId   Int      @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sortOrder Int      @default(0) @map("sort_order") // delivery sequence
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([palletId, orderId])
+  @@index([orderId])
+  @@map("pallet_orders")
 }

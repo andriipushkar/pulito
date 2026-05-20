@@ -173,6 +173,16 @@ export default function AdminPublicationsPage() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [publishConfirmId, setPublishConfirmId] = useState<number | null>(null);
+  const [testPub, setTestPub] = useState<{ id: number; channel: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    channel: string;
+    title: string;
+    content: string;
+    hashtags?: string | null;
+    imagePath?: string | null;
+    note?: string;
+  } | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -456,6 +466,7 @@ export default function AdminPublicationsPage() {
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/publications/${id}`);
     if (res.success) toast.success('Публікацію видалено');
+    else toast.error(res.error || 'Помилка видалення');
     loadPublications();
   };
 
@@ -475,9 +486,18 @@ export default function AdminPublicationsPage() {
     if (!editForm.scheduledAt) {
       data.scheduledAt = null;
     }
-    await apiClient.put(`/api/v1/admin/publications/${id}`, data);
-    setEditingId(null);
-    loadPublications();
+    try {
+      const res = await apiClient.put(`/api/v1/admin/publications/${id}`, data);
+      if (res.success) {
+        toast.success('Збережено');
+        setEditingId(null);
+        loadPublications();
+      } else {
+        toast.error(res.error || 'Помилка збереження');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    }
   };
 
   const formatDate = (d: string | null) =>
@@ -499,6 +519,8 @@ export default function AdminPublicationsPage() {
       draft: 'Чернетка',
       scheduled: 'Запланована',
       published: 'Опублікована',
+      partial: 'Частково опубліковано',
+      failed: 'Помилка',
       error: 'Помилка',
     };
     return map[s] || s;
@@ -507,7 +529,8 @@ export default function AdminPublicationsPage() {
   const statusColor = (s: string) => {
     if (s === 'published') return 'bg-green-100 text-green-700';
     if (s === 'scheduled') return 'bg-blue-100 text-blue-700';
-    if (s === 'error') return 'bg-red-100 text-red-700';
+    if (s === 'partial') return 'bg-amber-100 text-amber-700';
+    if (s === 'failed' || s === 'error') return 'bg-red-100 text-red-700';
     return 'bg-gray-100 text-gray-500';
   };
 
@@ -1126,6 +1149,20 @@ export default function AdminPublicationsPage() {
                               >
                                 Редагувати
                               </button>
+                              <button
+                                onClick={() => {
+                                  const channel = p.channels?.[0];
+                                  if (!channel) {
+                                    toast.error('Спочатку оберіть канал');
+                                    return;
+                                  }
+                                  setTestPub({ id: p.id, channel });
+                                }}
+                                className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
+                                title="Перевірити підстановку плейсхолдерів без реальної публікації"
+                              >
+                                🧪 Тест
+                              </button>
                               <Button size="sm" onClick={() => setPublishConfirmId(p.id)}>
                                 Опублікувати
                               </Button>
@@ -1153,11 +1190,16 @@ export default function AdminPublicationsPage() {
               ))}
               {publications.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
-                  >
-                    Публікацій немає
+                  <td colSpan={5} className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center gap-2 text-[var(--color-text-secondary)]">
+                      <span className="text-3xl" aria-hidden="true">
+                        📢
+                      </span>
+                      <p className="text-sm font-medium">Публікацій немає</p>
+                      <p className="text-xs">
+                        Створіть першу публікацію або скористайтесь шаблоном
+                      </p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -1554,6 +1596,87 @@ export default function AdminPublicationsPage() {
         variant="danger"
         message="Видалити публікацію?"
       />
+
+      {/* Test render modal — fires the /test endpoint when state is set, then
+          shows the rendered output so the operator can verify {{product.*}}
+          placeholders without actually publishing. */}
+      {testPub && (() => {
+        if (!testResult && !isTesting) {
+          setIsTesting(true);
+          apiClient
+            .post<typeof testResult>(`/api/v1/admin/publications/${testPub.id}/test`, {
+              channel: testPub.channel,
+            })
+            .then((res) => {
+              if (res.success && res.data) setTestResult(res.data);
+              else toast.error(res.error || 'Помилка тесту');
+            })
+            .finally(() => setIsTesting(false));
+        }
+        return (
+          <Modal
+            isOpen
+            onClose={() => {
+              setTestPub(null);
+              setTestResult(null);
+            }}
+            size="md"
+          >
+            <h3 className="mb-3 text-lg font-semibold">🧪 Тест-рендер</h3>
+            {isTesting && !testResult && (
+              <p className="text-sm text-[var(--color-text-secondary)]">Рендеримо…</p>
+            )}
+            {testResult && (
+              <div className="space-y-3 text-sm">
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  Канал: <strong>{testResult.channel}</strong>
+                </p>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                    Заголовок
+                  </p>
+                  <p className="rounded bg-[var(--color-bg-secondary)] p-2">{testResult.title}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                    Контент
+                  </p>
+                  <p className="whitespace-pre-wrap rounded bg-[var(--color-bg-secondary)] p-2">
+                    {testResult.content}
+                  </p>
+                </div>
+                {testResult.hashtags && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                      Хештеги
+                    </p>
+                    <p className="rounded bg-[var(--color-bg-secondary)] p-2 text-[var(--color-primary)]">
+                      {testResult.hashtags}
+                    </p>
+                  </div>
+                )}
+                {testResult.note && (
+                  <p className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                    {testResult.note}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="mt-4 flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setTestPub(null);
+                  setTestResult(null);
+                }}
+              >
+                Закрити
+              </Button>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

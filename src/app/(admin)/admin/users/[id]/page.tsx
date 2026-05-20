@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, setAccessToken } from '@/lib/api-client';
 import {
   USER_ROLE_LABELS,
   WHOLESALE_STATUS_LABELS,
   WHOLESALE_GROUP_LABELS,
   AUDIT_ACTION_LABELS,
+  SEGMENT_LABELS,
 } from '@/types/user';
 import type {
   UserDetail,
@@ -18,11 +19,14 @@ import type {
   WishlistItem,
   RecentlyViewedItem,
   UserAddress,
+  UserTimelineEntry,
 } from '@/types/user';
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, PAYMENT_STATUS_LABELS } from '@/types/order';
 import type { OrderStatus, PaymentStatus } from '@/types/order';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import UserSecurityTab from '@/components/admin/UserSecurityTab';
+import { maskIp as maskIpDisplay } from '@/utils/pii';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import Modal from '@/components/ui/Modal';
@@ -30,7 +34,7 @@ import Image from 'next/image';
 
 const ROLE_OPTIONS = Object.entries(USER_ROLE_LABELS).map(([v, l]) => ({ value: v, label: l }));
 
-type Tab = 'info' | 'orders' | 'audit' | 'wishlist' | 'recent' | 'addresses';
+type Tab = 'info' | 'timeline' | 'orders' | 'audit' | 'wishlist' | 'recent' | 'addresses' | 'security';
 
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -50,25 +54,40 @@ export default function AdminUserDetailPage() {
   // Stats
   const [stats, setStats] = useState<UserStats | null>(null);
 
+  // Each tab's loading flag is derived from `loadedTabs` so we never need a
+  // synchronous setXxxLoading(true) inside the tab-load effects below.
+  const [loadedTabs, setLoadedTabs] = useState<Set<Tab>>(new Set(['info']));
+  const ordersLoading = activeTab === 'orders' && !loadedTabs.has('orders');
+  const auditLoading = activeTab === 'audit' && !loadedTabs.has('audit');
+  const wishlistLoading = activeTab === 'wishlist' && !loadedTabs.has('wishlist');
+  const recentLoading = activeTab === 'recent' && !loadedTabs.has('recent');
+  const addressesLoading = activeTab === 'addresses' && !loadedTabs.has('addresses');
+  const timelineLoading = activeTab === 'timeline' && !loadedTabs.has('timeline');
+  const markTabLoaded = (tab: Tab) =>
+    setLoadedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+
   // Orders
   const [orders, setOrders] = useState<UserOrder[]>([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
 
   // Audit
   const [auditLog, setAuditLog] = useState<UserAuditEntry[]>([]);
-  const [auditLoading, setAuditLoading] = useState(false);
 
   // Wishlist
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
-  const [wishlistLoading, setWishlistLoading] = useState(false);
 
   // Recently viewed
   const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([]);
-  const [recentLoading, setRecentLoading] = useState(false);
 
   // Addresses
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
-  const [addressesLoading, setAddressesLoading] = useState(false);
+
+  // Timeline
+  const [timeline, setTimeline] = useState<UserTimelineEntry[]>([]);
 
   // Edit profile modal
   const [isEditing, setIsEditing] = useState(false);
@@ -131,68 +150,99 @@ export default function AdminUserDetailPage() {
 
   // Load orders tab
   useEffect(() => {
-    if (activeTab === 'orders' && orders.length === 0) {
-      setOrdersLoading(true);
-      apiClient
-        .get<UserOrder[]>(`/api/v1/admin/users/${id}?section=orders`)
-        .then((res) => {
-          if (res.success && res.data) setOrders(res.data);
-        })
-        .finally(() => setOrdersLoading(false));
-    }
-  }, [activeTab, id, orders.length]);
+    if (activeTab !== 'orders' || loadedTabs.has('orders')) return;
+    let cancelled = false;
+    apiClient
+      .get<UserOrder[]>(`/api/v1/admin/users/${id}?section=orders`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setOrders(res.data);
+        markTabLoaded('orders');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, id, loadedTabs]);
 
   // Load audit tab
   useEffect(() => {
-    if (activeTab === 'audit' && auditLog.length === 0) {
-      setAuditLoading(true);
-      apiClient
-        .get<UserAuditEntry[]>(`/api/v1/admin/users/${id}?section=audit`)
-        .then((res) => {
-          if (res.success && res.data) setAuditLog(res.data);
-        })
-        .finally(() => setAuditLoading(false));
-    }
-  }, [activeTab, id, auditLog.length]);
+    if (activeTab !== 'audit' || loadedTabs.has('audit')) return;
+    let cancelled = false;
+    apiClient
+      .get<UserAuditEntry[]>(`/api/v1/admin/users/${id}?section=audit`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setAuditLog(res.data);
+        markTabLoaded('audit');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, id, loadedTabs]);
 
   // Load wishlist tab
   useEffect(() => {
-    if (activeTab === 'wishlist' && wishlist.length === 0) {
-      setWishlistLoading(true);
-      apiClient
-        .get<WishlistItem[]>(`/api/v1/admin/users/${id}?section=wishlist`)
-        .then((res) => {
-          if (res.success && res.data) setWishlist(res.data);
-        })
-        .finally(() => setWishlistLoading(false));
-    }
-  }, [activeTab, id, wishlist.length]);
+    if (activeTab !== 'wishlist' || loadedTabs.has('wishlist')) return;
+    let cancelled = false;
+    apiClient
+      .get<WishlistItem[]>(`/api/v1/admin/users/${id}?section=wishlist`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setWishlist(res.data);
+        markTabLoaded('wishlist');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, id, loadedTabs]);
 
   // Load recently viewed tab
   useEffect(() => {
-    if (activeTab === 'recent' && recentlyViewed.length === 0) {
-      setRecentLoading(true);
-      apiClient
-        .get<RecentlyViewedItem[]>(`/api/v1/admin/users/${id}?section=recent`)
-        .then((res) => {
-          if (res.success && res.data) setRecentlyViewed(res.data);
-        })
-        .finally(() => setRecentLoading(false));
-    }
-  }, [activeTab, id, recentlyViewed.length]);
+    if (activeTab !== 'recent' || loadedTabs.has('recent')) return;
+    let cancelled = false;
+    apiClient
+      .get<RecentlyViewedItem[]>(`/api/v1/admin/users/${id}?section=recent`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setRecentlyViewed(res.data);
+        markTabLoaded('recent');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, id, loadedTabs]);
+
+  // Load timeline tab
+  useEffect(() => {
+    if (activeTab !== 'timeline' || loadedTabs.has('timeline')) return;
+    let cancelled = false;
+    apiClient
+      .get<UserTimelineEntry[]>(`/api/v1/admin/users/${id}?section=timeline`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setTimeline(res.data);
+        markTabLoaded('timeline');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, id, loadedTabs]);
 
   // Load addresses tab
   useEffect(() => {
-    if (activeTab === 'addresses' && addresses.length === 0) {
-      setAddressesLoading(true);
-      apiClient
-        .get<UserAddress[]>(`/api/v1/admin/users/${id}?section=addresses`)
-        .then((res) => {
-          if (res.success && res.data) setAddresses(res.data);
-        })
-        .finally(() => setAddressesLoading(false));
-    }
-  }, [activeTab, id, addresses.length]);
+    if (activeTab !== 'addresses' || loadedTabs.has('addresses')) return;
+    let cancelled = false;
+    apiClient
+      .get<UserAddress[]>(`/api/v1/admin/users/${id}?section=addresses`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setAddresses(res.data);
+        markTabLoaded('addresses');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, id, loadedTabs]);
 
   const reloadUser = async () => {
     const res = await apiClient.get<UserDetail>(`/api/v1/admin/users/${id}`);
@@ -435,10 +485,12 @@ export default function AdminUserDetailPage() {
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'info', label: 'Інформація' },
+    { key: 'timeline', label: 'Активність' },
     { key: 'orders', label: 'Замовлення' },
     { key: 'wishlist', label: 'Список бажань' },
     { key: 'recent', label: 'Перегляди' },
     { key: 'addresses', label: 'Адреси' },
+    { key: 'security', label: '🔒 Безпека' },
     { key: 'audit', label: 'Лог дій' },
   ];
 
@@ -498,6 +550,24 @@ export default function AdminUserDetailPage() {
           <Button size="sm" variant="outline" onClick={handleExportData}>
             Експорт
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              const res = await apiClient.post<{ accessToken: string }>(
+                `/api/v1/admin/users/${id}/impersonate`,
+                {},
+              );
+              if (res.success && res.data?.accessToken) {
+                setAccessToken(res.data.accessToken);
+                router.push('/');
+              } else {
+                showResult('error', res.error || 'Не вдалося імперсонувати');
+              }
+            }}
+          >
+            Увійти як
+          </Button>
         </div>
       </div>
 
@@ -511,7 +581,8 @@ export default function AdminUserDetailPage() {
 
       {/* Stats cards */}
       {stats && (
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <>
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatCard
             label="Всього замовлень"
             value={stats.totalOrders}
@@ -537,12 +608,50 @@ export default function AdminUserDetailPage() {
             bg="bg-amber-50"
           />
           <StatCard
+            label="LTV прогноз 12 міс"
+            value={
+              stats.predictedLtv12mo !== undefined
+                ? `${stats.predictedLtv12mo.toFixed(0)} ₴`
+                : '—'
+            }
+            color="text-pink-600"
+            bg="bg-pink-50"
+          />
+          <StatCard
             label="Останнє замовлення"
-            value={stats.lastOrderDate ? formatDate(stats.lastOrderDate) : 'Немає'}
+            value={
+              stats.lastOrderDate
+                ? stats.daysSinceLastOrder !== null && stats.daysSinceLastOrder !== undefined
+                  ? `${stats.daysSinceLastOrder} д тому`
+                  : formatDate(stats.lastOrderDate)
+                : 'Немає'
+            }
             color="text-gray-600"
             bg="bg-gray-50"
           />
         </div>
+        {stats.segments && stats.segments.length > 0 && (
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+              Сегмент:
+            </span>
+            {stats.segments.map((seg) => {
+              const meta = SEGMENT_LABELS[seg] ?? {
+                label: seg,
+                color: 'bg-gray-100 text-gray-700 border-gray-200',
+              };
+              return (
+                <span
+                  key={seg}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${meta.color}`}
+                >
+                  {meta.label}
+                </span>
+              );
+            })}
+          </div>
+        )}
+        </>
       )}
 
       {/* Tabs */}
@@ -923,7 +1032,75 @@ export default function AdminUserDetailPage() {
         </div>
       )}
 
+      {/* Tab: Timeline */}
+      {activeTab === 'timeline' && (
+        <div>
+          {timelineLoading ? (
+            <div className="flex justify-center py-8">
+              <Spinner size="md" />
+            </div>
+          ) : timeline.length === 0 ? (
+            <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
+              Активність відсутня
+            </p>
+          ) : (
+            <ol className="relative space-y-3 border-l border-[var(--color-border)] pl-6">
+              {timeline.map((entry) => {
+                const kindStyle: Record<typeof entry.kind, string> = {
+                  order: 'bg-blue-500',
+                  review: 'bg-amber-500',
+                  audit: 'bg-gray-500',
+                  event: 'bg-emerald-500',
+                };
+                const kindLabel: Record<typeof entry.kind, string> = {
+                  order: 'Замовлення',
+                  review: 'Відгук',
+                  audit: 'Лог',
+                  event: 'Подія',
+                };
+                return (
+                  <li key={entry.id} className="relative">
+                    <span
+                      className={`absolute -left-[1.6rem] mt-1.5 h-3 w-3 rounded-full ring-4 ring-[var(--color-bg)] ${kindStyle[entry.kind]}`}
+                    />
+                    <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                            {kindLabel[entry.kind]}
+                          </span>
+                          {entry.href ? (
+                            <Link
+                              href={entry.href}
+                              className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+                            >
+                              {entry.title}
+                            </Link>
+                          ) : (
+                            <span className="text-sm font-medium">{entry.title}</span>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-xs text-[var(--color-text-secondary)]">
+                          {formatDateTime(entry.at)}
+                        </span>
+                      </div>
+                      {entry.body && (
+                        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                          {entry.body}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+      )}
+
       {/* Tab: Audit log */}
+      {activeTab === 'security' && user && <UserSecurityTab userId={user.id} />}
+
       {activeTab === 'audit' && (
         <div>
           {auditLoading ? (
@@ -965,8 +1142,11 @@ export default function AdminUserDetailPage() {
                       </p>
                     )}
                     {entry.ipAddress && (
-                      <p className="text-[10px] text-[var(--color-text-secondary)]">
-                        IP: {entry.ipAddress}
+                      <p
+                        className="font-mono text-[10px] text-[var(--color-text-secondary)]"
+                        title="IP замасковано для приватності — повний адрес у БД"
+                      >
+                        IP: {maskIpDisplay(entry.ipAddress)}
                       </p>
                     )}
                   </div>

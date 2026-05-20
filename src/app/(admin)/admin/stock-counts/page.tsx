@@ -1,0 +1,192 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { apiClient } from '@/lib/api-client';
+import Button from '@/components/ui/Button';
+import Spinner from '@/components/ui/Spinner';
+
+interface WarehouseRef {
+  id: number;
+  name: string;
+  code: string;
+}
+
+interface StockCountListItem {
+  id: number;
+  reference: string;
+  status: 'in_progress' | 'completed' | 'cancelled';
+  warehouse: WarehouseRef;
+  items: { id: number; countedQty: number | null }[];
+  startedAt: string;
+  completedAt: string | null;
+}
+
+const STATUS_LABELS: Record<StockCountListItem['status'], { label: string; color: string }> = {
+  in_progress: { label: 'У процесі', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  completed: {
+    label: 'Завершено',
+    color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  },
+  cancelled: { label: 'Скасовано', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+};
+
+export default function StockCountsPage() {
+  const router = useRouter();
+  const [counts, setCounts] = useState<StockCountListItem[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseRef[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [startWarehouseId, setStartWarehouseId] = useState<number | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<{ items: StockCountListItem[]; total: number }>('/api/v1/admin/stock-counts')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setCounts(res.data.items ?? []);
+        else toast.error(res.error || 'Не вдалося завантажити інвентаризації');
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Не вдалося завантажити інвентаризації');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    apiClient
+      .get<WarehouseRef[]>('/api/v1/admin/warehouses')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setWarehouses(res.data);
+        else toast.error(res.error || 'Не вдалося завантажити склади');
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Не вдалося завантажити склади');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const start = async () => {
+    if (!startWarehouseId) {
+      setError('Оберіть склад');
+      return;
+    }
+    setError(null);
+    setStarting(true);
+    const res = await apiClient.post<{ id: number }>('/api/v1/admin/stock-counts', {
+      warehouseId: startWarehouseId,
+    });
+    setStarting(false);
+    if (res.success && res.data) {
+      router.push(`/admin/stock-counts/${res.data.id}`);
+    } else {
+      setError(res.error || 'Не вдалося розпочати');
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-5">
+        <h1 className="text-xl font-bold">Інвентаризація</h1>
+        <p className="text-sm text-[var(--color-text-secondary)]">
+          Знімок залишків → сканування → закриття з корекцією залишків
+        </p>
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-end gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
+            Розпочати на складі
+          </label>
+          <select
+            value={startWarehouseId ?? ''}
+            onChange={(e) => setStartWarehouseId(e.target.value ? Number(e.target.value) : null)}
+            className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
+          >
+            <option value="">— Оберіть склад —</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Button onClick={start} isLoading={starting}>
+          Розпочати інвентаризацію
+        </Button>
+        {error && <span className="text-sm text-[var(--color-danger)]">{error}</span>}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Spinner size="md" />
+        </div>
+      ) : counts.length === 0 ? (
+        <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-12 text-center">
+          <p className="text-sm text-[var(--color-text-secondary)]">Інвентаризацій ще не було</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+                <th className="px-4 py-3 text-left font-medium">Номер</th>
+                <th className="px-4 py-3 text-left font-medium">Склад</th>
+                <th className="px-4 py-3 text-left font-medium">Статус</th>
+                <th className="px-4 py-3 text-right font-medium">Позицій</th>
+                <th className="px-4 py-3 text-left font-medium">Розпочато</th>
+              </tr>
+            </thead>
+            <tbody>
+              {counts.map((c) => {
+                const meta = STATUS_LABELS[c.status];
+                const counted = c.items.filter((i) => i.countedQty !== null).length;
+                return (
+                  <tr
+                    key={c.id}
+                    className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]"
+                  >
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/admin/stock-counts/${c.id}`}
+                        className="font-mono font-medium text-[var(--color-primary)] hover:underline"
+                      >
+                        {c.reference}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">{c.warehouse.name}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${meta.color}`}
+                      >
+                        {meta.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {counted} / {c.items.length}
+                    </td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                      {new Date(c.startedAt).toLocaleString('uk-UA', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

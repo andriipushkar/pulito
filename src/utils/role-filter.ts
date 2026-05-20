@@ -1,6 +1,8 @@
 type Role = 'admin' | 'manager' | 'client' | 'wholesaler';
 
-// Fields that only admins should see — defense-in-depth against data leaks
+// Fields that only admins should see — defense-in-depth against data leaks.
+// `adminNote` is a private comment about the customer (e.g. "do not refund —
+// chargeback history") that managers shouldn't see.
 const ADMIN_ONLY_FIELDS = [
   'passwordHash',
   'twoFactorSecret',
@@ -9,6 +11,7 @@ const ADMIN_ONLY_FIELDS = [
   'deviceInfo',
   'telegramChatId',
   'viberUserId',
+  'adminNote',
 ];
 
 export function filterByRole<T extends Record<string, unknown>>(data: T, role: Role): T {

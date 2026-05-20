@@ -3,13 +3,15 @@ import { withRole } from '@/middleware/auth';
 import { createWarehouse, getWarehouses, WarehouseError } from '@/services/warehouse';
 import { createWarehouseSchema } from '@/validators/warehouse';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(
   async () => {
     try {
       const warehouses = await getWarehouses();
       return successResponse(warehouses);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/warehouses] GET failed', { error: err });
       return errorResponse('Помилка завантаження складів', 500);
     }
   }
@@ -29,6 +31,7 @@ export const POST = withRole('admin')(
       return successResponse(warehouse, 201);
     } catch (error) {
       if (error instanceof WarehouseError) return errorResponse(error.message, error.statusCode);
+      logger.error('[admin/warehouses] POST failed', { error });
       return errorResponse('Помилка створення складу', 500);
     }
   }

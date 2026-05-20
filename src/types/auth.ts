@@ -3,6 +3,8 @@ export interface JwtAccessPayload {
   email: string;
   role: string;
   type: 'access';
+  /** Admin user ID who is impersonating `sub`. Absent on regular logins. */
+  impersonatedBy?: number;
 }
 
 export interface JwtRefreshPayload {
@@ -21,6 +23,7 @@ export interface AuthUser {
   email: string;
   role: string;
   fullName?: string;
+  phone?: string;
   wholesaleGroup?: number | null;
   twoFactorEnabled?: boolean;
 }

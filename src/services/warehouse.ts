@@ -19,21 +19,38 @@ export async function createWarehouse(data: {
   longitude?: number;
   isDefault?: boolean;
 }) {
-  // Check unique code
-  const existing = await prisma.warehouse.findUnique({ where: { code: data.code } });
-  if (existing) {
-    throw new WarehouseError('Склад з таким кодом вже існує', 409);
-  }
+  // Run uniqueness check + default-flip + create inside one transaction so
+  // two concurrent POSTs can't both pass the existence check and one end up
+  // with a duplicate (catches the user-friendly error) while a parallel
+  // isDefault flip leaves us with zero or two default warehouses.
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existing = await tx.warehouse.findUnique({ where: { code: data.code } });
+      if (existing) {
+        throw new WarehouseError('Склад з таким кодом вже існує', 409);
+      }
 
-  // If setting as default, unset other defaults
-  if (data.isDefault) {
-    await prisma.warehouse.updateMany({
-      where: { isDefault: true },
-      data: { isDefault: false },
+      if (data.isDefault) {
+        await tx.warehouse.updateMany({
+          where: { isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.warehouse.create({ data });
     });
+  } catch (err) {
+    // P2002: race on the unique index — rethrow as the same human error
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code: string }).code === 'P2002'
+    ) {
+      throw new WarehouseError('Склад з таким кодом вже існує', 409);
+    }
+    throw err;
   }
-
-  return prisma.warehouse.create({ data });
 }
 
 export async function updateWarehouse(
@@ -48,28 +65,40 @@ export async function updateWarehouse(
     isDefault?: boolean;
   }
 ) {
-  const warehouse = await prisma.warehouse.findUnique({ where: { id } });
-  if (!warehouse) {
-    throw new WarehouseError('Склад не знайдено', 404);
-  }
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const warehouse = await tx.warehouse.findUnique({ where: { id } });
+      if (!warehouse) {
+        throw new WarehouseError('Склад не знайдено', 404);
+      }
 
-  // Check unique code if changing
-  if (data.code && data.code !== warehouse.code) {
-    const existing = await prisma.warehouse.findUnique({ where: { code: data.code } });
-    if (existing) {
+      if (data.code && data.code !== warehouse.code) {
+        const existing = await tx.warehouse.findUnique({ where: { code: data.code } });
+        if (existing) {
+          throw new WarehouseError('Склад з таким кодом вже існує', 409);
+        }
+      }
+
+      if (data.isDefault) {
+        await tx.warehouse.updateMany({
+          where: { isDefault: true, id: { not: id } },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.warehouse.update({ where: { id }, data });
+    });
+  } catch (err) {
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code: string }).code === 'P2002'
+    ) {
       throw new WarehouseError('Склад з таким кодом вже існує', 409);
     }
+    throw err;
   }
-
-  // If setting as default, unset other defaults
-  if (data.isDefault) {
-    await prisma.warehouse.updateMany({
-      where: { isDefault: true, id: { not: id } },
-      data: { isDefault: false },
-    });
-  }
-
-  return prisma.warehouse.update({ where: { id }, data });
 }
 
 export async function deleteWarehouse(id: number) {
@@ -80,6 +109,16 @@ export async function deleteWarehouse(id: number) {
 
   if (!warehouse) {
     throw new WarehouseError('Склад не знайдено', 404);
+  }
+
+  // Default warehouse is the fallback for new orders / imports. Deleting it
+  // would orphan a lot of downstream logic; the operator has to flip another
+  // warehouse to default before deleting this one.
+  if (warehouse.isDefault) {
+    throw new WarehouseError(
+      'Не можна видалити основний склад. Спочатку признач інший склад як основний.',
+      400,
+    );
   }
 
   if (warehouse._count.stock > 0) {

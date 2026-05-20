@@ -4,6 +4,8 @@ import { createBundleSchema } from '@/validators/bundle';
 import { createBundle, BundleError } from '@/services/bundle';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse, paginatedResponse, parseSearchParams } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
 export const GET = withRole('manager', 'admin')(async (request: NextRequest) => {
   try {
@@ -38,7 +40,8 @@ export const GET = withRole('manager', 'admin')(async (request: NextRequest) => 
     ]);
 
     return paginatedResponse(bundles, total, page, limit);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/bundles] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -52,9 +55,17 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
     }
 
     const bundle = await createBundle(parsed.data, user.id);
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'bundle',
+      entityId: bundle.id,
+      details: { name: bundle.name },
+    });
     return successResponse(bundle, 201);
   } catch (error) {
     if (error instanceof BundleError) return errorResponse(error.message, error.statusCode);
+    logger.error('[admin/bundles] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

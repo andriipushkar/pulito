@@ -4,121 +4,59 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import Spinner from '@/components/ui/Spinner';
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useSyncExternalStore, useCallback, type ReactNode } from 'react';
 import { Menu, Close } from '@/components/icons';
 import { useAdminHotkeys } from '@/hooks/useAdminHotkeys';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import AdminErrorBoundary from '@/components/admin/ErrorBoundary';
+import AdminSidebar from '@/components/admin/AdminSidebar';
 import CommandPalette from '@/components/admin/CommandPalette';
 import HelpPanel from '@/components/admin/HelpPanel';
-import SiteLogo from '@/components/common/SiteLogo';
-
-const NAV_SECTIONS = [
-  {
-    items: [
-      { href: '/admin', label: 'Dashboard', icon: '📊', exact: true },
-      { href: '/admin/orders', label: 'Замовлення', icon: '📦' },
-      { href: '/admin/users', label: 'Користувачі', icon: '👥' },
-      { href: '/admin/analytics', label: 'Аналітика', icon: '📈' },
-      { href: '/admin/reports', label: 'Звіти', icon: '📊' },
-    ],
-  },
-  {
-    title: 'Контент',
-    items: [
-      { href: '/admin/products', label: 'Товари', icon: '🛒' },
-      { href: '/admin/categories', label: 'Категорії', icon: '📁' },
-      { href: '/admin/brands', label: 'Виробники', icon: '🏭' },
-      { href: '/admin/pages', label: 'Сторінки', icon: '📄' },
-      { href: '/admin/faq', label: 'FAQ', icon: '❓' },
-      { href: '/admin/import', label: 'Імпорт', icon: '📥' },
-      { href: '/admin/publications', label: 'Публікації', icon: '📢' },
-      { href: '/admin/publication-templates', label: 'Шаблони публікацій', icon: '📋' },
-      { href: '/admin/badges', label: 'Бейджі', icon: '🏷️' },
-      { href: '/admin/personal-prices', label: 'Персональні ціни', icon: '💰' },
-      { href: '/admin/wholesale-rules', label: 'Гуртові правила', icon: '📦' },
-      { href: '/admin/referrals', label: 'Реферали', icon: '🔗' },
-      { href: '/admin/loyalty', label: 'Лояльність', icon: '⭐' },
-      { href: '/admin/email-templates', label: 'Email-шаблони', icon: '📧' },
-      { href: '/admin/feedback', label: "Зворотний зв'язок", icon: '💬' },
-    ],
-  },
-  {
-    title: 'Канали',
-    items: [
-      { href: '/admin/channels', label: 'Статистика каналів', icon: '📡' },
-      { href: '/admin/channel-settings', label: 'Налаштування каналів', icon: '🔧' },
-      { href: '/admin/bot-settings', label: 'Налаштування ботів', icon: '🤖' },
-      { href: '/admin/moderation', label: 'Модерація', icon: '🛡️' },
-    ],
-  },
-  {
-    title: 'Маркетплейси',
-    items: [{ href: '/admin/marketplaces', label: 'Маркетплейси', icon: '🏪' }],
-  },
-  {
-    title: 'Налаштування',
-    items: [
-      { href: '/admin/settings', label: 'Загальні', icon: '⚙️' },
-      { href: '/admin/payment-settings', label: 'Платіжні системи', icon: '💳' },
-      { href: '/admin/delivery-settings', label: 'Служби доставки', icon: '🚚' },
-      { href: '/admin/smtp-settings', label: 'Email / SMTP', icon: '📧' },
-      { href: '/admin/homepage', label: 'Головна сторінка', icon: '🏠' },
-      { href: '/admin/banners', label: 'Банери', icon: '🖼️' },
-      { href: '/admin/themes', label: 'Теми', icon: '🎨' },
-      { href: '/admin/seo-templates', label: 'SEO-шаблони', icon: '🔍' },
-      { href: '/admin/seo-audit', label: 'SEO-аудит', icon: '🔗' },
-      { href: '/admin/google-business', label: 'Google Business', icon: '⭐' },
-      { href: '/admin/pallet-delivery', label: 'Палетна доставка', icon: '📦' },
-      { href: '/admin/audit-log', label: 'Журнал дій', icon: '📋' },
-    ],
-  },
-];
-
-// Map paths to breadcrumb labels
-const PATH_LABELS: Record<string, string> = {
-  '/admin': 'Dashboard',
-  '/admin/orders': 'Замовлення',
-  '/admin/products': 'Товари',
-  '/admin/users': 'Користувачі',
-  '/admin/analytics': 'Аналітика',
-  '/admin/reports': 'Звіти',
-  '/admin/categories': 'Категорії',
-  '/admin/brands': 'Виробники',
-  '/admin/pages': 'Сторінки',
-  '/admin/faq': 'FAQ',
-  '/admin/import': 'Імпорт',
-  '/admin/publications': 'Публікації',
-  '/admin/publication-templates': 'Шаблони публікацій',
-  '/admin/badges': 'Бейджі',
-  '/admin/personal-prices': 'Персональні ціни',
-  '/admin/wholesale-rules': 'Гуртові правила',
-  '/admin/referrals': 'Реферали',
-  '/admin/loyalty': 'Лояльність',
-  '/admin/email-templates': 'Email-шаблони',
-  '/admin/feedback': "Зворотний зв'язок",
-  '/admin/channels': 'Статистика каналів',
-  '/admin/channel-settings': 'Налаштування каналів',
-  '/admin/bot-settings': 'Налаштування ботів',
-  '/admin/moderation': 'Модерація',
-  '/admin/settings': 'Налаштування',
-  '/admin/payment-settings': 'Платіжні системи',
-  '/admin/delivery-settings': 'Служби доставки',
-  '/admin/smtp-settings': 'Email / SMTP',
-  '/admin/marketplaces': 'Маркетплейси',
-  '/admin/homepage': 'Головна сторінка',
-  '/admin/banners': 'Банери',
-  '/admin/themes': 'Теми',
-  '/admin/seo-templates': 'SEO-шаблони',
-  '/admin/seo-audit': 'SEO-аудит',
-  '/admin/google-business': 'Google Business',
-  '/admin/pallet-delivery': 'Палетна доставка',
-  '/admin/audit-log': 'Журнал дій',
-};
+import SessionTimeoutBanner from '@/components/admin/SessionTimeoutBanner';
+import ShortcutsModal from '@/components/admin/ShortcutsModal';
+import { useAdminShortcuts } from '@/hooks/useAdminShortcuts';
+import { PATH_LABELS } from './_lib/admin-pages';
 
 const SIDEBAR_COLLAPSED_KEY = 'admin-sidebar-collapsed';
+
+// localStorage-backed store consumed via useSyncExternalStore so the value is
+// read during render without an unconditional setState inside an effect.
+type SidebarListener = () => void;
+const sidebarListeners = new Set<SidebarListener>();
+const subscribeSidebar = (cb: SidebarListener) => {
+  sidebarListeners.add(cb);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === SIDEBAR_COLLAPSED_KEY) cb();
+  };
+  window.addEventListener('storage', onStorage);
+  return () => {
+    sidebarListeners.delete(cb);
+    window.removeEventListener('storage', onStorage);
+  };
+};
+const getSidebarSnapshot = () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+const getSidebarServerSnapshot = () => false;
+const notifySidebar = () => {
+  for (const cb of sidebarListeners) cb();
+};
+
+// Routes that require 2FA for admins. We block access at the layout level
+// rather than at each API to give the admin a clear path to enabling 2FA.
+// Managers are exempted so the shop owner can keep day-to-day staff working
+// without forcing a security-tooling change on them mid-shift.
+const TWO_FA_REQUIRED_PREFIXES = [
+  '/admin/payment-settings',
+  '/admin/smtp-settings',
+  '/admin/settings',
+  '/admin/users',
+  '/admin/audit-log',
+  '/admin/feature-flags',
+  '/admin/tenants',
+  '/admin/billing',
+  '/admin/domains',
+];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return <AdminLayoutInner>{children}</AdminLayoutInner>;
@@ -129,9 +67,19 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  useAdminShortcuts({ onOpenShortcuts: () => setShortcutsOpen(true) });
+  const sidebarCollapsed = useSyncExternalStore(
+    subscribeSidebar,
+    getSidebarSnapshot,
+    getSidebarServerSnapshot,
+  );
+  const setSidebarCollapsed = useCallback((next: boolean) => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+    notifySidebar();
+  }, []);
   const { showHelp, setShowHelp, shortcuts } = useAdminHotkeys();
-  const { notifications, dismiss, dismissAll } = useAdminNotifications();
+  const { notifications, connected, dismiss, dismissAll } = useAdminNotifications();
   const [showNotifs, setShowNotifs] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
@@ -141,6 +89,26 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     apiClient.get<{ enabled: boolean }>('/api/v1/admin/maintenance').then((res) => {
       if (res.success && res.data) setMaintenanceMode(res.data.enabled);
     });
+  }, []);
+
+  // Swap PWA manifest while the operator is inside /admin. When they install
+  // from here, the desktop shortcut opens straight on /admin instead of the
+  // public shop, and uses the admin-specific name + theme.
+  useEffect(() => {
+    const existing = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+    const previousHref = existing?.getAttribute('href') ?? null;
+    if (existing) {
+      existing.href = '/admin/manifest.webmanifest';
+    } else {
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = '/admin/manifest.webmanifest';
+      document.head.appendChild(link);
+    }
+    return () => {
+      const cur = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+      if (cur && previousHref) cur.href = previousHref;
+    };
   }, []);
 
   const toggleMaintenance = async () => {
@@ -156,16 +124,8 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     setMaintenanceLoading(false);
   };
 
-  // Restore sidebar collapsed state
-  useEffect(() => {
-    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-    if (saved === 'true') setSidebarCollapsed(true);
-  }, []);
-
   const toggleSidebarCollapse = () => {
-    const next = !sidebarCollapsed;
-    setSidebarCollapsed(next);
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+    setSidebarCollapsed(!sidebarCollapsed);
   };
 
   // Build breadcrumbs from pathname
@@ -261,133 +221,71 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     );
   }
 
-  // 2FA warning banner (shown but not blocking)
-  const show2faBanner = !user.twoFactorEnabled && pathname !== '/admin/setup-2fa';
+  // 2FA warning banner (shown but not blocking). Admin can dismiss it
+  // ("remind tomorrow") via localStorage — value is the next show-after ISO
+  // timestamp. We re-check on each render so a stale snooze auto-expires.
+  const TWOFA_SNOOZE_KEY = 'admin-2fa-snooze-until';
+  const show2faBanner = (() => {
+    if (user.twoFactorEnabled || pathname === '/admin/setup-2fa') return false;
+    if (typeof window === 'undefined') return true;
+    try {
+      const until = window.localStorage.getItem(TWOFA_SNOOZE_KEY);
+      if (!until) return true;
+      return Date.now() > Number(until);
+    } catch {
+      return true;
+    }
+  })();
+  const snooze2fa = (hours: number) => {
+    try {
+      window.localStorage.setItem(TWOFA_SNOOZE_KEY, String(Date.now() + hours * 3600_000));
+      // Force re-render by changing a state on the next tick — easier to just
+      // navigate to same page programmatically; cheapest: reload.
+      router.refresh();
+    } catch {
+      // ignore
+    }
+  };
 
-  const isActive = (href: string, exact?: boolean) =>
-    exact ? pathname === href : pathname?.startsWith(href);
+  // 2FA hard-block: admin role hitting a critical route without 2FA. We send
+  // them to the setup page instead of the requested route.
+  const requires2fa =
+    user.role === 'admin' &&
+    !user.twoFactorEnabled &&
+    pathname !== '/admin/setup-2fa' &&
+    TWO_FA_REQUIRED_PREFIXES.some((prefix) => pathname?.startsWith(prefix));
 
   const sidebarWidth = sidebarCollapsed ? 'w-16' : 'w-60';
 
-  const sidebar = (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-4">
-        {!sidebarCollapsed && <SiteLogo href="/admin" />}
-        {/* Collapse button (desktop) */}
-        <button
-          onClick={toggleSidebarCollapse}
-          className="hidden rounded-[var(--radius)] p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)] lg:block"
-          aria-label={sidebarCollapsed ? 'Розгорнути меню' : 'Згорнути меню'}
-          title={sidebarCollapsed ? 'Розгорнути' : 'Згорнути'}
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            {sidebarCollapsed ? (
-              <>
-                <path d="M13 17l5-5-5-5" />
-                <path d="M6 17l5-5-5-5" />
-              </>
-            ) : (
-              <>
-                <path d="M11 17l-5-5 5-5" />
-                <path d="M18 17l-5-5 5-5" />
-              </>
-            )}
-          </svg>
-        </button>
-        {/* Close button (mobile) */}
-        <button
-          onClick={() => setSidebarOpen(false)}
-          className="lg:hidden"
-          aria-label="Закрити меню"
-        >
-          <Close size={20} />
-        </button>
-      </div>
+  const handleLogout = () => {
+    logout();
+    router.push('/auth/login');
+  };
 
-      <nav className="flex-1 overflow-y-auto px-2 py-4" aria-label="Головне меню">
-        {NAV_SECTIONS.map((section, si) => (
-          <div key={si} className="mb-4">
-            {section.title && !sidebarCollapsed && (
-              <p className="mb-1 px-3 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                {section.title}
-              </p>
-            )}
-            {section.title && sidebarCollapsed && (
-              <div className="mx-auto mb-1 h-px w-8 bg-[var(--color-border)]" />
-            )}
-            <ul className="space-y-0.5">
-              {section.items.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setSidebarOpen(false)}
-                    title={sidebarCollapsed ? item.label : undefined}
-                    className={`flex items-center gap-2.5 rounded-[var(--radius)] px-3 py-2 text-sm font-medium transition-colors ${
-                      sidebarCollapsed ? 'justify-center' : ''
-                    } ${
-                      isActive(item.href, (item as { exact?: boolean }).exact)
-                        ? 'bg-[var(--color-primary)] text-white'
-                        : 'text-[var(--color-text)] hover:bg-[var(--color-bg-secondary)]'
-                    }`}
-                  >
-                    <span className={sidebarCollapsed ? 'text-lg' : ''}>{item.icon}</span>
-                    {!sidebarCollapsed && item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </nav>
+  const isPlatformAdmin = user.role === 'admin';
 
-      <div className="border-t border-[var(--color-border)] px-4 py-3">
-        {sidebarCollapsed ? (
-          <div className="flex flex-col items-center gap-1">
-            <Link href="/" className="text-xs text-[var(--color-primary)]" title="На сайт">
-              🌐
-            </Link>
-            <button
-              onClick={() => {
-                logout();
-                router.push('/auth/login');
-              }}
-              className="text-xs text-[var(--color-danger)]"
-              title="Вийти"
-            >
-              🚪
-            </button>
-          </div>
-        ) : (
-          <>
-            <p className="truncate text-sm font-medium">{user.fullName || user.email}</p>
-            <p className="text-xs text-[var(--color-text-secondary)]">{user.role}</p>
-            <div className="mt-2 flex gap-2">
-              <Link href="/" className="text-xs text-[var(--color-primary)] hover:underline">
-                На сайт
-              </Link>
-              <button
-                onClick={() => {
-                  logout();
-                  router.push('/auth/login');
-                }}
-                className="text-xs text-[var(--color-danger)] hover:underline"
-              >
-                Вийти
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+  const sidebarForMobile = (
+    <AdminSidebar
+      collapsed={false}
+      onToggleCollapse={toggleSidebarCollapse}
+      onCloseMobile={() => setSidebarOpen(false)}
+      onNavigate={() => setSidebarOpen(false)}
+      userLabel={user.fullName || user.email}
+      userRole={user.role}
+      onLogout={handleLogout}
+      isPlatformAdmin={isPlatformAdmin}
+    />
+  );
+
+  const sidebarForDesktop = (
+    <AdminSidebar
+      collapsed={sidebarCollapsed}
+      onToggleCollapse={toggleSidebarCollapse}
+      userLabel={user.fullName || user.email}
+      userRole={user.role}
+      onLogout={handleLogout}
+      isPlatformAdmin={isPlatformAdmin}
+    />
   );
 
   return (
@@ -401,10 +299,10 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
       {/* Sidebar (desktop) */}
       <aside
-        className={`hidden ${sidebarWidth} shrink-0 border-r border-[var(--color-border)] bg-[var(--color-bg)] transition-all duration-200 lg:block`}
+        className={`hidden ${sidebarWidth} shrink-0 border-r border-[var(--color-border)] bg-[var(--color-bg-secondary)] transition-all duration-200 lg:block`}
         aria-label="Навігація адмін-панелі"
       >
-        {sidebar}
+        {sidebarForDesktop}
       </aside>
 
       {/* Sidebar (mobile overlay) */}
@@ -424,7 +322,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
             className="relative z-10 h-full w-60 bg-[var(--color-bg)]"
             aria-label="Навігація адмін-панелі"
           >
-            {sidebar}
+            {sidebarForMobile}
           </aside>
         </div>
       )}
@@ -484,7 +382,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 ))}
             </nav>
           ) : (
-            <h1 className="text-base font-semibold sm:text-lg">Панель управління</h1>
+            <h1 className="text-base font-semibold sm:text-lg">Dashboard</h1>
           )}
 
           {/* Mobile: show current page title */}
@@ -572,6 +470,18 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               </kbd>
             </button>
 
+            {/* Ask AI — quick access from topbar (formerly in sidebar) */}
+            <Link
+              href="/admin/ask"
+              className="hidden items-center gap-1.5 rounded-[var(--radius)] bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-light)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:shadow-md lg:flex"
+              title="Запитати AI"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+              </svg>
+              <span>AI</span>
+            </Link>
+
             {/* Help panel */}
             <HelpPanel />
 
@@ -580,7 +490,8 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               <button
                 onClick={() => setShowNotifs(!showNotifs)}
                 className="relative rounded-[var(--radius)] p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]"
-                aria-label="Сповіщення"
+                aria-label={connected ? 'Сповіщення (live)' : 'Сповіщення (offline)'}
+                title={connected ? 'Live підключення активне' : 'Live підключення розірвано'}
               >
                 <svg
                   width="20"
@@ -600,48 +511,101 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                     {notifications.length > 9 ? '9+' : notifications.length}
                   </span>
                 )}
+                {notifications.length === 0 && (
+                  <span
+                    className={`absolute -right-0.5 -top-0.5 inline-block h-2 w-2 rounded-full ${
+                      connected ? 'animate-pulse bg-green-500' : 'bg-gray-400'
+                    }`}
+                    aria-hidden="true"
+                  />
+                )}
               </button>
               {showNotifs && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg sm:w-80">
-                  <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2">
-                    <span className="text-sm font-medium">Сповіщення</span>
+                <div className="absolute right-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg sm:w-96">
+                  <div className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2">
+                    <div>
+                      <p className="text-sm font-semibold">Сповіщення</p>
+                      {notifications.length > 0 && (
+                        <p className="text-[10px] text-[var(--color-text-secondary)]">
+                          {notifications.length} непрочитан{notifications.length === 1 ? 'е' : 'их'}
+                        </p>
+                      )}
+                    </div>
                     {notifications.length > 0 && (
                       <button
                         onClick={dismissAll}
-                        className="text-xs text-[var(--color-text-secondary)] hover:underline"
+                        className="rounded-md bg-[var(--color-bg)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border)] hover:text-[var(--color-text)]"
                       >
-                        Очистити
+                        Прочитати все
                       </button>
                     )}
                   </div>
-                  <div className="max-h-64 overflow-y-auto">
+                  <div className="max-h-80 overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <p className="px-3 py-4 text-center text-xs text-[var(--color-text-secondary)]">
-                        Немає нових сповіщень
-                      </p>
-                    ) : (
-                      notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className="flex items-start gap-2 border-b border-[var(--color-border)] px-3 py-2 last:border-0 hover:bg-[var(--color-bg-secondary)]"
-                        >
-                          <span className="mt-0.5 text-sm">
-                            {n.type === 'new_order' ? '📦' : '💬'}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs">{n.message}</p>
-                            <p className="text-[10px] text-[var(--color-text-secondary)]">
-                              {new Date(n.timestamp).toLocaleTimeString('uk-UA')}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => dismiss(n.id)}
-                            className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+                      <div className="px-3 py-8 text-center">
+                        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-secondary)]">
+                          <svg
+                            className="h-5 w-5 text-[var(--color-text-secondary)]"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
                           >
-                            x
-                          </button>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
+                            />
+                          </svg>
                         </div>
-                      ))
+                        <p className="text-xs text-[var(--color-text-secondary)]">
+                          Немає нових сповіщень
+                        </p>
+                      </div>
+                    ) : (
+                      (() => {
+                        const groups: Record<string, typeof notifications> = {};
+                        for (const n of notifications) {
+                          const key = n.type === 'new_order' ? 'Замовлення' : 'Інше';
+                          (groups[key] ||= []).push(n);
+                        }
+                        return Object.entries(groups).map(([groupName, items]) => (
+                          <div key={groupName}>
+                            <p className="border-b border-[var(--color-border)]/40 bg-[var(--color-bg-secondary)]/50 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                              {groupName} • {items.length}
+                            </p>
+                            {items.map((n) => (
+                              <div
+                                key={n.id}
+                                className="group flex items-start gap-2 border-b border-[var(--color-border)]/40 px-3 py-2 last:border-0 hover:bg-[var(--color-bg-secondary)]"
+                              >
+                                <span className="mt-0.5 text-sm">
+                                  {n.type === 'new_order' ? '📦' : '💬'}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs leading-snug">{n.message}</p>
+                                  <p className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">
+                                    {new Date(n.timestamp).toLocaleTimeString('uk-UA', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => dismiss(n.id)}
+                                  className="rounded p-0.5 text-[var(--color-text-secondary)] opacity-0 transition-opacity hover:bg-[var(--color-border)] hover:text-[var(--color-text)] group-hover:opacity-100"
+                                  aria-label="Прочитано"
+                                  title="Прочитано"
+                                >
+                                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ));
+                      })()
                     )}
                   </div>
                 </div>
@@ -660,10 +624,11 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
         </header>
 
         <main id="admin-main-content" className="flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6">
+          <SessionTimeoutBanner />
           {show2faBanner && (
-            <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
               <svg
-                className="h-5 w-5 shrink-0 text-amber-500"
+                className="h-4 w-4 shrink-0 text-amber-600"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -675,28 +640,81 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
                 />
               </svg>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-amber-800">
-                  Рекомендуємо увімкнути двофакторну автентифікацію
-                </p>
-                <p className="text-xs text-amber-600">
-                  2FA захищає ваш акаунт від несанкціонованого доступу
-                </p>
-              </div>
+              <p className="flex-1 text-xs font-medium text-amber-900">
+                Увімкніть двофакторну автентифікацію для захисту акаунту
+              </p>
               <a
                 href="/admin/setup-2fa"
-                className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                className="shrink-0 rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-700"
               >
                 Увімкнути
               </a>
+              <button
+                type="button"
+                onClick={() => snooze2fa(24)}
+                className="shrink-0 text-[11px] font-medium text-amber-700 hover:underline"
+                title="Нагадати завтра"
+              >
+                Нагадати завтра
+              </button>
+              <button
+                type="button"
+                onClick={() => snooze2fa(24 * 30)}
+                className="shrink-0 rounded p-1 text-amber-700 hover:bg-amber-100"
+                aria-label="Сховати на місяць"
+                title="Сховати на місяць"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           )}
-          <AdminErrorBoundary>{children}</AdminErrorBoundary>
+          {requires2fa ? (
+            <div className="mx-auto max-w-2xl rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+                <svg
+                  className="h-7 w-7 text-red-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                  />
+                </svg>
+              </div>
+              <h2 className="mb-2 text-xl font-bold text-red-800">
+                Цей розділ потребує двофакторної автентифікації
+              </h2>
+              <p className="mb-6 text-sm text-red-700">
+                Для доступу до критичних налаштувань (платежі, користувачі, журнал дій,
+                загальні налаштування) адміністратор повинен увімкнути 2FA. Це захищає
+                акаунт від несанкціонованого доступу навіть при компрометації пароля.
+              </p>
+              <a
+                href="/admin/setup-2fa"
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700"
+              >
+                Увімкнути 2FA зараз
+              </a>
+              <p className="mt-4 text-xs text-red-600">
+                Зайде хвилина — додайте додаток-аутентифікатор (Google Authenticator,
+                1Password) і ви знову матимете повний доступ.
+              </p>
+            </div>
+          ) : (
+            <AdminErrorBoundary>{children}</AdminErrorBoundary>
+          )}
         </main>
       </div>
 
       {/* Command Palette */}
       <CommandPalette />
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       {/* Keyboard shortcuts help modal */}
       {showHelp && (

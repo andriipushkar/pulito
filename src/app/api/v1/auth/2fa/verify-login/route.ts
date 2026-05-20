@@ -7,6 +7,7 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { serializeRefreshTokenCookie } from '@/utils/cookies';
 import { getClientIp, getDeviceInfo } from '@/utils/request';
 import { env } from '@/config/env';
+import { logAudit } from '@/services/audit';
 
 const verifyLoginSchema = z.object({
   tempToken: z.string().min(1, 'Токен обов\'язковий'),
@@ -40,12 +41,36 @@ export async function POST(request: NextRequest) {
     const ipAddress = getClientIp(request);
     const deviceInfo = getDeviceInfo(request);
 
-    const { user, tokens } = await verifyTwoFactorLogin(
-      parsed.data.tempToken,
-      parsed.data.code,
+    let result: Awaited<ReturnType<typeof verifyTwoFactorLogin>>;
+    try {
+      result = await verifyTwoFactorLogin(
+        parsed.data.tempToken,
+        parsed.data.code,
+        ipAddress,
+        deviceInfo,
+      );
+    } catch (error) {
+      if (error instanceof AuthError && error.statusCode === 401) {
+        await logAudit({
+          userId: null,
+          actionType: 'login',
+          entityType: 'user',
+          details: { success: false, method: '2fa', reason: 'invalid_code' },
+          ipAddress,
+        });
+      }
+      throw error;
+    }
+
+    const { user, tokens } = result;
+    await logAudit({
+      userId: user.id,
+      actionType: 'login',
+      entityType: 'user',
+      entityId: user.id,
+      details: { method: '2fa' },
       ipAddress,
-      deviceInfo,
-    );
+    });
 
     const refreshTtl = parseTtlToSeconds(env.JWT_REFRESH_TTL);
     const response = successResponse({ user, accessToken: tokens.accessToken });

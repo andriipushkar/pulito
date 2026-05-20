@@ -1,3 +1,9 @@
+import { recordMarketplaceCall } from '@/services/marketplace-rate-limit';
+import { fetchWithMarketplaceRetry } from '@/services/marketplace-retry';
+import { marketplaceLogger } from '@/services/marketplace-logger';
+
+const log = marketplaceLogger('prom', { platform: 'prom' });
+
 const BASE_URL = 'https://my.prom.ua/api/v1/';
 
 interface PromProduct {
@@ -43,7 +49,8 @@ export class PromClient {
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = `${BASE_URL}${path.replace(/^\//, '')}`;
 
-    const res = await fetch(url, {
+    recordMarketplaceCall('prom');
+    const res = await fetchWithMarketplaceRetry(url, {
       ...options,
       headers: {
         Authorization: `Bearer ${this.apiToken}`,
@@ -73,7 +80,7 @@ export class PromClient {
         total: data._meta?.total || data.products?.length || 0,
       };
     } catch (error) {
-      console.error('[Prom] getProducts error:', error);
+      log.error('getProducts error', { error: error instanceof Error ? error.message : String(error) });
       return { items: [], total: 0 };
     }
   }
@@ -83,6 +90,7 @@ export class PromClient {
     description?: string;
     price: number;
     sku?: string;
+    barcode?: string;
     quantity?: number;
     images?: string[];
   }): Promise<{ success: boolean; externalId?: string; error?: string }> {
@@ -93,6 +101,7 @@ export class PromClient {
         price: data.price,
         currency: 'UAH',
         sku: data.sku || '',
+        ...(data.barcode ? { barcode: data.barcode } : {}),
         quantity_in_stock: data.quantity ?? 1,
         status: 'on_display',
         images: (data.images || []).slice(0, 12).map((url) => ({ url })),
@@ -109,7 +118,7 @@ export class PromClient {
       return { success: false, error: 'Не вдалося створити товар' };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Prom.ua API error';
-      console.error('[Prom] createProduct error:', message);
+      log.error('createProduct error', { error: message });
       return { success: false, error: message };
     }
   }
@@ -133,7 +142,7 @@ export class PromClient {
       return { success: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Prom.ua API error';
-      console.error('[Prom] updateProduct error:', message);
+      log.error('updateProduct error', { error: message });
       return { success: false, error: message };
     }
   }
@@ -153,7 +162,7 @@ export class PromClient {
       const data = await this.request<{ orders: PromOrder[] }>(`orders/list${query}`);
       return data.orders || [];
     } catch (error) {
-      console.error('[Prom] getOrders error:', error);
+      log.error('getOrders error', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -167,7 +176,7 @@ export class PromClient {
       const data = await this.request<{ returns: PromReturn[] }>(`returns/list${query}`);
       return data.returns || [];
     } catch (error) {
-      console.error('[Prom] getReturns error:', error);
+      log.error('getReturns error', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }

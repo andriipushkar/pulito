@@ -30,6 +30,17 @@ export default function AdminHomepagePage() {
 
   useEffect(() => { loadBlocks(); }, [loadBlocks]);
 
+  // Warn user if they try to leave with unsaved changes
+  useEffect(() => {
+    if (!hasChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasChanges]);
+
   const toggleBlock = (index: number) => {
     const updated = [...blocks];
     updated[index] = { ...updated[index], enabled: !updated[index].enabled };
@@ -77,16 +88,26 @@ export default function AdminHomepagePage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold">Блоки головної сторінки</h2>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Перетягуйте блоки для зміни порядку. Вимикайте непотрібні блоки.
+            Перетягуйте блоки за іконку <span className="font-mono">⠿</span> для зміни порядку. Вимикайте непотрібні.
           </p>
         </div>
-        <Button onClick={saveBlocks} disabled={!hasChanges || isSaving}>
-          {isSaving ? 'Збереження...' : 'Зберегти'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-[var(--color-primary)] hover:underline"
+          >
+            Переглянути головну ↗
+          </a>
+          <Button onClick={saveBlocks} disabled={!hasChanges || isSaving}>
+            {isSaving ? 'Збереження...' : 'Зберегти'}
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -131,9 +152,14 @@ export default function AdminHomepagePage() {
       </div>
 
       {hasChanges && (
-        <p className="mt-4 text-sm text-[var(--color-warning)]">
-          Є незбережені зміни
-        </p>
+        <div className="sticky bottom-4 mt-6 flex items-center justify-between rounded-[var(--radius)] border border-amber-300 bg-amber-50 px-4 py-3 shadow-lg">
+          <p className="text-sm text-amber-800">
+            <strong>Є незбережені зміни</strong> — не забудьте зберегти.
+          </p>
+          <Button onClick={saveBlocks} disabled={isSaving} size="sm">
+            {isSaving ? 'Збереження…' : 'Зберегти'}
+          </Button>
+        </div>
       )}
     </div>
   );

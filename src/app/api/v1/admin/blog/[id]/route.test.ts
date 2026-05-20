@@ -13,11 +13,11 @@ vi.mock('@/config/env', () => ({
   },
 }));
 vi.mock('@/middleware/auth', () => ({
-  withRole:
-    (..._roles: string[]) =>
-    (handler: any) =>
-      handler,
+  withRole: (..._roles: string[]) => (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     blogPost: { findUnique: vi.fn() },

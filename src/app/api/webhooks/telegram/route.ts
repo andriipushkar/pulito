@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { handleTelegramUpdate } from '@/services/telegram';
 import { logWebhook } from '@/services/webhook-log';
+import { redis } from '@/lib/redis';
+
+// Telegram retries updates on any non-2xx response and on client timeouts.
+// We dedupe by `update_id` for 24h so a retried delivery doesn't run the
+// handler twice (which would post duplicate messages, double-create
+// feedback rows, etc).
+async function isDuplicateUpdate(updateId: number | undefined): Promise<boolean> {
+  if (!updateId) return false;
+  try {
+    // SETNX returns 1 if the key was set (first time we've seen this id),
+    // 0 if it already existed (duplicate). TTL caps memory.
+    const set = await redis.set(`tg:dedupe:${updateId}`, '1', 'EX', 86_400, 'NX');
+    return set !== 'OK';
+  } catch {
+    // Redis down — skip dedupe rather than dropping legitimate updates.
+    return false;
+  }
+}
 
 export async function POST(request: NextRequest) {
   const start = Date.now();
@@ -19,6 +37,11 @@ export async function POST(request: NextRequest) {
 
     const update = await request.json();
     const event = update.message ? 'message' : update.callback_query ? 'callback' : update.inline_query ? 'inline' : 'other';
+
+    if (await isDuplicateUpdate(update.update_id)) {
+      logWebhook({ source: 'telegram', event: `${event}:duplicate`, statusCode: 200, durationMs: Date.now() - start });
+      return NextResponse.json({ ok: true, deduped: true });
+    }
 
     handleTelegramUpdate(update)
       .then(() => logWebhook({ source: 'telegram', event, statusCode: 200, durationMs: Date.now() - start }))

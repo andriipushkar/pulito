@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { processProductImage, ImageError } from '@/services/image';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { cacheInvalidate } from '@/services/cache';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole(
   'manager',
@@ -63,6 +64,7 @@ export const POST = withRole(
     if (error instanceof ImageError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/products/[id]/images] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

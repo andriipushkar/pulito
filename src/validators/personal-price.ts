@@ -19,23 +19,42 @@ export const createPersonalPriceSchema = z
     fixedPrice: z.number().min(0).optional(),
     validFrom: z.string().optional(),
     validUntil: z.string().optional(),
+    stackableWith: z.array(z.string().max(50)).max(10).optional(),
   })
+  // Exactly one target (product XOR category) — otherwise a single rule would
+  // try to apply to both scopes and tie-break logic gets ambiguous.
   .refine(
-    (data) => data.productId || data.categoryId,
-    { message: 'Потрібен productId або categoryId', path: ['productId'] }
+    (data) => Boolean(data.productId) !== Boolean(data.categoryId),
+    { message: 'Вкажіть або productId, або categoryId — не обидва', path: ['productId'] },
   )
+  // Exactly one discount kind (percent XOR fixed price) — same reason.
   .refine(
-    (data) => data.discountPercent !== undefined || data.fixedPrice !== undefined,
-    { message: 'Потрібен discountPercent або fixedPrice', path: ['discountPercent'] }
+    (data) =>
+      (data.discountPercent !== undefined) !== (data.fixedPrice !== undefined),
+    {
+      message: 'Вкажіть або discountPercent, або fixedPrice — не обидва',
+      path: ['discountPercent'],
+    },
   );
 
 export type CreatePersonalPriceInput = z.infer<typeof createPersonalPriceSchema>;
 
-export const updatePersonalPriceSchema = z.object({
-  discountPercent: z.number().min(0).max(100).optional(),
-  fixedPrice: z.number().min(0).optional(),
-  validFrom: z.string().nullable().optional(),
-  validUntil: z.string().nullable().optional(),
-});
+export const updatePersonalPriceSchema = z
+  .object({
+    discountPercent: z.number().min(0).max(100).optional(),
+    fixedPrice: z.number().min(0).optional(),
+    validFrom: z.string().nullable().optional(),
+    validUntil: z.string().nullable().optional(),
+    stackableWith: z.array(z.string().max(50)).max(10).optional(),
+  })
+  .refine(
+    (data) =>
+      data.discountPercent === undefined ||
+      data.fixedPrice === undefined,
+    {
+      message: 'Не можна одночасно встановлювати discountPercent та fixedPrice',
+      path: ['discountPercent'],
+    },
+  );
 
 export type UpdatePersonalPriceInput = z.infer<typeof updatePersonalPriceSchema>;

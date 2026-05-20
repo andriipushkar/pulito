@@ -9,7 +9,9 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import WysiwygEditor from '@/components/admin/WysiwygEditor';
+import SpecsEditor from '@/components/admin/SpecsEditor';
 import BrandSelector from '@/components/admin/BrandSelector';
+import BarcodeInput from '@/components/admin/BarcodeInput';
 import { useFormValidation } from '@/hooks/useFormValidation';
 
 interface CategoryOption {
@@ -19,6 +21,7 @@ interface CategoryOption {
 
 const EMPTY_FORM = {
   code: '',
+  barcode: '',
   name: '',
   categoryId: '',
   brandId: '',
@@ -44,6 +47,9 @@ export default function AdminProductCreatePage() {
   const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [stagedImages, setStagedImages] = useState<File[]>([]);
+  const [removeBg, setRemoveBg] = useState(true);
   const { errors, validateAll, clearError } = useFormValidation({
     name: { required: "Назва обов'язкова", minLength: { value: 2, message: 'Мінімум 2 символи' } },
     code: { required: "Код обов'язковий" },
@@ -76,6 +82,7 @@ export default function AdminProductCreatePage() {
       const payload: Record<string, unknown> = {
         code: form.code.trim(),
         name: form.name.trim(),
+        barcode: form.barcode.trim() || null,
         priceRetail: Number(form.priceRetail),
         quantity: Number(form.quantity) || 0,
         isActive: form.isActive,
@@ -97,8 +104,23 @@ export default function AdminProductCreatePage() {
 
       const res = await apiClient.post<{ id: number }>('/api/v1/admin/products', payload);
       if (res.success && res.data) {
-        toast.success('Товар створено — тепер можна додати фото');
-        router.push(`/admin/products/${res.data.id}`);
+        const productId = res.data.id;
+        // Upload staged images now that we have a product ID
+        if (stagedImages.length > 0) {
+          toast.success('Товар створено. Завантажуємо фото…');
+          const fd = new FormData();
+          for (const f of stagedImages) fd.append('images', f);
+          fd.append('isMain', stagedImages.length === 1 ? 'true' : 'false');
+          fd.append('removeBg', removeBg ? 'true' : 'false');
+          try {
+            await apiClient.upload(`/api/v1/admin/products/${productId}/images`, fd);
+          } catch {
+            toast.error('Товар створено, але деякі фото не завантажились');
+          }
+        } else {
+          toast.success('Товар створено');
+        }
+        router.push(`/admin/products/${productId}`);
       } else {
         toast.error(res.error || 'Помилка створення');
       }
@@ -126,10 +148,71 @@ export default function AdminProductCreatePage() {
         <h2 className="mt-1 text-xl font-bold">Новий товар</h2>
       </div>
 
-      {/* Images placeholder */}
-      <div className="mb-6 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 text-sm text-[var(--color-text-secondary)]">
-        Зображення можна буде додати після збереження товару — щоб система знала, з яким товаром їх
-        пов’язати.
+      {/* Images — staged: previewed locally, uploaded after product is created */}
+      <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <h3 className="mb-3 text-sm font-semibold">Зображення</h3>
+        <div className="flex flex-wrap items-start gap-3">
+          {stagedImages.map((file, i) => (
+            <div
+              key={i}
+              className="relative h-24 w-24 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={URL.createObjectURL(file)}
+                alt=""
+                className="h-full w-full object-cover"
+                onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+              />
+              <button
+                type="button"
+                onClick={() => setStagedImages((prev) => prev.filter((_, idx) => idx !== i))}
+                className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"
+                aria-label="Видалити фото"
+              >
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
+          <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span className="text-[10px] font-medium">Додати фото</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = e.target.files ? Array.from(e.target.files) : [];
+                if (files.length) setStagedImages((prev) => [...prev, ...files]);
+                e.target.value = '';
+              }}
+            />
+          </label>
+        </div>
+        {stagedImages.length === 0 && (
+          <p className="mt-2 text-[11px] text-[var(--color-text-secondary)]">
+            Фото завантажаться автоматично після створення товару
+          </p>
+        )}
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={removeBg}
+            onChange={(e) => setRemoveBg(e.target.checked)}
+            className="accent-[var(--color-primary)]"
+          />
+          <span>
+            Автоматично видалити фон при завантаженні
+            <span className="ml-1 text-xs text-[var(--color-text-secondary)]">
+              (товар буде розміщено на фоні сайту)
+            </span>
+          </span>
+        </label>
       </div>
 
       {/* Main info */}
@@ -154,6 +237,44 @@ export default function AdminProductCreatePage() {
             }}
             error={errors.code}
           />
+          <BarcodeInput
+            value={form.barcode}
+            onChange={(v) => updateField('barcode', v)}
+            onScanned={async (barcode) => {
+              // Auto-fill from Open Food Facts when a valid barcode is entered
+              try {
+                const res = await apiClient.post<{
+                  source: 'local' | 'open_food_facts' | 'none';
+                  existing?: { id: number; name: string };
+                  data?: { name: string | null; brand: string | null; imageUrl: string | null; quantity: string | null };
+                }>('/api/v1/admin/products/lookup-barcode', { barcode });
+                if (!res.success || !res.data) return;
+                if (res.data.source === 'local' && res.data.existing) {
+                  toast.error(
+                    `Товар із цим штрихкодом уже існує: «${res.data.existing.name}». Відкрийте його замість створення дубля.`,
+                    { duration: 6000 },
+                  );
+                  return;
+                }
+                if (res.data.source === 'open_food_facts' && res.data.data) {
+                  const d = res.data.data;
+                  setForm((prev) => ({
+                    ...prev,
+                    // Don't overwrite what the admin already typed
+                    name: prev.name || d.name || prev.name,
+                    code: prev.code || barcode,
+                  }));
+                  toast.success(
+                    `Знайдено в Open Food Facts${d.brand ? ` (${d.brand})` : ''}. Перевірте поля.`,
+                  );
+                } else {
+                  toast(`Штрихкод збережено. Не знайдено в довіднику — заповніть вручну.`);
+                }
+              } catch {
+                // ignore — server-side error already logs
+              }
+            }}
+          />
           <div>
             <label className="mb-1 block text-sm font-medium">Категорія</label>
             <Select
@@ -172,6 +293,8 @@ export default function AdminProductCreatePage() {
           <Input
             label="Роздрібна ціна *"
             type="number"
+            min="0"
+            step="0.01"
             value={form.priceRetail}
             onChange={(e) => {
               updateField('priceRetail', e.target.value);
@@ -182,24 +305,31 @@ export default function AdminProductCreatePage() {
           <Input
             label="Ціна: Дрібний опт"
             type="number"
+            min="0"
+            step="0.01"
             value={form.priceWholesale}
             onChange={(e) => updateField('priceWholesale', e.target.value)}
           />
           <Input
             label="Ціна: Середній опт"
             type="number"
+            min="0"
+            step="0.01"
             value={form.priceWholesale2}
             onChange={(e) => updateField('priceWholesale2', e.target.value)}
           />
           <Input
             label="Ціна: Великий опт"
             type="number"
+            min="0"
+            step="0.01"
             value={form.priceWholesale3}
             onChange={(e) => updateField('priceWholesale3', e.target.value)}
           />
           <Input
             label="Кількість *"
             type="number"
+            min="0"
             value={form.quantity}
             onChange={(e) => {
               updateField('quantity', e.target.value);
@@ -266,7 +396,83 @@ export default function AdminProductCreatePage() {
 
       {/* Description */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Опис</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">Опис</h3>
+          <button
+            type="button"
+            disabled={isGenerating || !form.name.trim()}
+            onClick={async () => {
+              if (!form.name.trim()) {
+                toast.error('Спочатку введіть назву товару');
+                return;
+              }
+              setIsGenerating(true);
+              try {
+                const res = await apiClient.post<{
+                  seoTitle: string;
+                  seoDescription: string;
+                  shortDescription: string;
+                  fullDescription: string;
+                }>('/api/v1/admin/products/ai-generate-preview', {
+                  name: form.name,
+                  categoryId: form.categoryId ? Number(form.categoryId) : null,
+                  brandId: form.brandId ? Number(form.brandId) : null,
+                  priceRetail: Number(form.priceRetail) || 0,
+                  shortDescription: form.description || null,
+                });
+                if (!res.success || !res.data) {
+                  toast.error(res.error || 'Не вдалося згенерувати');
+                  return;
+                }
+                const conflicts: string[] = [];
+                if (form.seoTitle.trim()) conflicts.push('SEO Title');
+                if (form.seoDescription.trim()) conflicts.push('SEO Description');
+                if (form.description.trim()) conflicts.push('Короткий опис');
+                if (form.descriptionHtml.trim()) conflicts.push('Повний опис');
+                if (
+                  conflicts.length > 0 &&
+                  !window.confirm(
+                    `Замінити заповнені поля?\n\n${conflicts.join(', ')}\n\nOK — замінити, Cancel — лишити як є.`,
+                  )
+                ) {
+                  setForm((prev) => ({
+                    ...prev,
+                    seoTitle: prev.seoTitle || res.data!.seoTitle,
+                    seoDescription: prev.seoDescription || res.data!.seoDescription,
+                    description: prev.description || res.data!.shortDescription,
+                    descriptionHtml: prev.descriptionHtml || res.data!.fullDescription,
+                  }));
+                  toast.success('Заповнено лише порожні поля');
+                  return;
+                }
+                setForm((prev) => ({
+                  ...prev,
+                  seoTitle: res.data!.seoTitle,
+                  seoDescription: res.data!.seoDescription,
+                  description: res.data!.shortDescription,
+                  descriptionHtml: res.data!.fullDescription,
+                }));
+                toast.success('Згенеровано — перевірте поля');
+              } catch (err) {
+                console.error('[AI generate-preview]', err);
+                toast.error('Помилка мережі');
+              } finally {
+                setIsGenerating(false);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
+            title={!form.name.trim() ? 'Спочатку введіть назву товару' : 'Згенерувати SEO-опис на основі назви, бренду, категорії'}
+          >
+            {isGenerating ? (
+              <>
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Генеруємо…
+              </>
+            ) : (
+              <>✨ Згенерувати</>
+            )}
+          </button>
+        </div>
         <div className="mb-3">
           <label className="mb-1 block text-sm font-medium">Короткий опис</label>
           <textarea
@@ -285,13 +491,17 @@ export default function AdminProductCreatePage() {
         />
       </div>
 
-      {/* Specifications */}
+      {/* Specifications — structured key/value pairs */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Характеристики</h3>
-        <WysiwygEditor
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Характеристики</h3>
+          <span className="text-[11px] text-[var(--color-text-secondary)]">
+            Об'єм, склад, виробник, інструкція тощо
+          </span>
+        </div>
+        <SpecsEditor
           value={form.specifications}
-          onChange={(html) => updateField('specifications', html)}
-          placeholder="Склад, об’єм, маса, інструкція тощо. Покажеться як вкладка «Характеристики»."
+          onChange={(next) => updateField('specifications', next)}
         />
       </div>
 

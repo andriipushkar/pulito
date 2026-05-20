@@ -3,6 +3,8 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { verifyTOTP } from '@/services/totp';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 const disableSchema = z.object({
   code: z.string().min(1, 'Код обов\'язковий'),
@@ -60,6 +62,15 @@ export const POST = withRole('admin', 'manager')(async (request, { user }) => {
 
     // Clear rate limit on success
     await redis.del(rateLimitKey);
+
+    await logAudit({
+      userId: user.id,
+      actionType: 'user_edit',
+      entityType: 'user',
+      entityId: user.id,
+      details: { action: '2fa_disabled' },
+      ipAddress: getClientIp(request),
+    });
 
     return successResponse({ twoFactorEnabled: false });
   } catch {

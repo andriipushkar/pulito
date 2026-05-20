@@ -35,15 +35,17 @@ export async function earnPoints(userId: number, orderId: number, orderAmount: n
   const pointsEarned = Math.floor(orderAmount * BASE_POINTS_RATE * multiplier);
   if (pointsEarned <= 0) return;
 
-  await prisma.$transaction([
-    prisma.loyaltyAccount.update({
+  // Recalculate inside the same transaction so a crash between the points
+  // credit and the level update can't leave the account on a stale tier.
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.loyaltyAccount.update({
       where: { userId },
       data: {
         points: { increment: pointsEarned },
         totalSpent: { increment: orderAmount },
       },
-    }),
-    prisma.loyaltyTransaction.create({
+    });
+    await tx.loyaltyTransaction.create({
       data: {
         userId,
         type: 'earn',
@@ -51,35 +53,53 @@ export async function earnPoints(userId: number, orderId: number, orderAmount: n
         orderId,
         description: `Нарахування за замовлення #${orderId}`,
       },
-    }),
-  ]);
+    });
 
-  // Recalculate level
-  await recalculateLevel(userId);
+    // Inline tier recalc against the same set of levels we read above.
+    if (levels.length > 0) {
+      const totalSpent = Number(updated.totalSpent);
+      let newLevel = levels[0];
+      for (const level of levels) {
+        if (totalSpent >= Number(level.minSpent)) newLevel = level;
+      }
+      if (newLevel.name !== updated.level) {
+        await tx.loyaltyAccount.update({
+          where: { userId },
+          data: { level: newLevel.name },
+        });
+      }
+    }
+  });
 }
 
 export async function spendPoints(userId: number, points: number, orderId: number) {
-  const account = await getOrCreateLoyaltyAccount(userId);
+  await getOrCreateLoyaltyAccount(userId);
 
-  if (account.points < points) {
-    throw new LoyaltyError(`Недостатньо балів. Доступно: ${account.points}`, 400);
+  // Atomic claim: only decrement when current balance is sufficient. Two
+  // parallel spendPoints calls now serialise here — the loser sees count=0
+  // and gets a proper error instead of letting the user "spend" 2× the same
+  // points.
+  const claimed = await prisma.loyaltyAccount.updateMany({
+    where: { userId, points: { gte: points } },
+    data: { points: { decrement: points } },
+  });
+  if (claimed.count === 0) {
+    const current = await prisma.loyaltyAccount.findUnique({
+      where: { userId },
+      select: { points: true },
+    });
+    throw new LoyaltyError(`Недостатньо балів. Доступно: ${current?.points ?? 0}`, 400);
   }
 
-  await prisma.$transaction([
-    prisma.loyaltyAccount.update({
-      where: { userId },
-      data: { points: { decrement: points } },
-    }),
-    prisma.loyaltyTransaction.create({
-      data: {
-        userId,
-        type: 'spend',
-        points: -points,
-        orderId,
-        description: `Списання за замовлення #${orderId}`,
-      },
-    }),
-  ]);
+  await prisma.loyaltyTransaction.create({
+    data: {
+      userId,
+      type: 'spend',
+      points: -points,
+      orderId,
+      description: `Списання за замовлення #${orderId}`,
+    },
+  });
 }
 
 export async function adjustPoints(data: AdjustPointsInput) {
@@ -88,26 +108,36 @@ export async function adjustPoints(data: AdjustPointsInput) {
   const pointsDelta = data.type === 'manual_add' ? data.points : -data.points;
 
   if (data.type === 'manual_deduct') {
-    const account = await prisma.loyaltyAccount.findUnique({ where: { userId: data.userId } });
-    if (account && account.points < data.points) {
-      throw new LoyaltyError(`Недостатньо балів для списання. Доступно: ${account.points}`, 400);
+    // Atomic deduct: refuse if balance would go negative.
+    const claimed = await prisma.loyaltyAccount.updateMany({
+      where: { userId: data.userId, points: { gte: data.points } },
+      data: { points: { decrement: data.points } },
+    });
+    if (claimed.count === 0) {
+      const current = await prisma.loyaltyAccount.findUnique({
+        where: { userId: data.userId },
+        select: { points: true },
+      });
+      throw new LoyaltyError(
+        `Недостатньо балів для списання. Доступно: ${current?.points ?? 0}`,
+        400,
+      );
     }
-  }
-
-  await prisma.$transaction([
-    prisma.loyaltyAccount.update({
+  } else {
+    await prisma.loyaltyAccount.update({
       where: { userId: data.userId },
       data: { points: { increment: pointsDelta } },
-    }),
-    prisma.loyaltyTransaction.create({
-      data: {
-        userId: data.userId,
-        type: data.type,
-        points: pointsDelta,
-        description: data.description,
-      },
-    }),
-  ]);
+    });
+  }
+
+  await prisma.loyaltyTransaction.create({
+    data: {
+      userId: data.userId,
+      type: data.type,
+      points: pointsDelta,
+      description: data.description,
+    },
+  });
 }
 
 export async function recalculateLevel(userId: number) {
@@ -200,20 +230,23 @@ export async function getLoyaltyLevels() {
 export async function updateLoyaltySettings(
   levels: { name: string; minSpent: number; pointsMultiplier: number; discountPercent: number; sortOrder: number }[]
 ) {
-  // Replace all levels
-  await prisma.loyaltyLevel.deleteMany({});
-
-  for (const level of levels) {
-    await prisma.loyaltyLevel.create({
-      data: {
-        name: level.name,
-        minSpent: level.minSpent,
-        pointsMultiplier: level.pointsMultiplier,
-        discountPercent: level.discountPercent,
-        sortOrder: level.sortOrder,
-      },
-    });
-  }
+  // Replace all levels atomically — a crash mid-loop would otherwise leave
+  // an empty levels table, which makes recalculateLevel + earnPoints silently
+  // fall back to a multiplier of 1 and ignore tier benefits entirely.
+  await prisma.$transaction(async (tx) => {
+    await tx.loyaltyLevel.deleteMany({});
+    for (const level of levels) {
+      await tx.loyaltyLevel.create({
+        data: {
+          name: level.name,
+          minSpent: level.minSpent,
+          pointsMultiplier: level.pointsMultiplier,
+          discountPercent: level.discountPercent,
+          sortOrder: level.sortOrder,
+        },
+      });
+    }
+  });
 
   return getLoyaltyLevels();
 }

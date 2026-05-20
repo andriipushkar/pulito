@@ -7,12 +7,14 @@ vi.mock('@/lib/prisma', () => ({
     order: {
       aggregate: vi.fn(),
       count: vi.fn(),
+      findMany: vi.fn(),
     },
     user: {
       count: vi.fn(),
     },
     product: {
       count: vi.fn(),
+      findMany: vi.fn(),
     },
     orderItem: {
       groupBy: vi.fn(),
@@ -41,11 +43,29 @@ describe('getDashboardStats', () => {
       .mockResolvedValueOnce(3);  // pending wholesale
     mockPrisma.product.count
       .mockResolvedValueOnce(200) // total
-      .mockResolvedValueOnce(10); // out of stock
+      .mockResolvedValueOnce(10)  // out of stock
+      .mockResolvedValueOnce(4);  // low stock
     mockPrisma.orderItem.groupBy.mockResolvedValue([
-      { productName: 'Product A', _sum: { quantity: 50 } },
-      { productName: 'Product B', _sum: { quantity: 30 } },
+      { productId: 1, _sum: { quantity: 50 } },
+      { productId: 2, _sum: { quantity: 30 } },
     ] as never);
+    mockPrisma.product.findMany.mockResolvedValue([
+      { id: 1, name: 'Product A', slug: 'product-a' },
+      { id: 2, name: 'Product B', slug: 'product-b' },
+    ] as never);
+    mockPrisma.order.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          orderNumber: 'ORD-1',
+          status: 'new_order',
+          totalAmount: 100,
+          contactName: 'Test',
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+        },
+      ] as never)
+      .mockResolvedValueOnce([] as never) // weekly orders
+      .mockResolvedValueOnce([] as never); // today orders for hourly bucket
 
     const result = await getDashboardStats();
 
@@ -67,12 +87,17 @@ describe('getDashboardStats', () => {
     expect(result.products).toEqual({
       total: 200,
       outOfStock: 10,
+      lowStock: 4,
     });
 
     expect(result.topProducts).toEqual([
-      { name: 'Product A', quantity: 50 },
-      { name: 'Product B', quantity: 30 },
+      { id: 1, name: 'Product A', slug: 'product-a', quantity: 50 },
+      { id: 2, name: 'Product B', slug: 'product-b', quantity: 30 },
     ]);
+
+    expect(result.recentOrders).toHaveLength(1);
+    expect(result.recentOrders[0].orderNumber).toBe('ORD-1');
+    expect(result.weeklyRevenue).toHaveLength(7);
   });
 
   it('should handle zero revenue', async () => {
@@ -83,12 +108,15 @@ describe('getDashboardStats', () => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.product.count.mockResolvedValue(0);
     mockPrisma.orderItem.groupBy.mockResolvedValue([] as never);
+    mockPrisma.product.findMany.mockResolvedValue([] as never);
+    mockPrisma.order.findMany.mockResolvedValue([] as never);
 
     const result = await getDashboardStats();
 
     expect(result.orders.todayRevenue).toBe(0);
     expect(result.orders.yesterdayRevenue).toBe(0);
     expect(result.topProducts).toEqual([]);
+    expect(result.recentOrders).toEqual([]);
   });
 
   it('should handle null quantity in top products', async () => {
@@ -97,8 +125,12 @@ describe('getDashboardStats', () => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.product.count.mockResolvedValue(0);
     mockPrisma.orderItem.groupBy.mockResolvedValue([
-      { productName: 'Product X', _sum: { quantity: null } },
+      { productId: 99, _sum: { quantity: null } },
     ] as never);
+    mockPrisma.product.findMany.mockResolvedValue([
+      { id: 99, name: 'Product X', slug: 'product-x' },
+    ] as never);
+    mockPrisma.order.findMany.mockResolvedValue([] as never);
 
     const result = await getDashboardStats();
     expect(result.topProducts[0].quantity).toBe(0);

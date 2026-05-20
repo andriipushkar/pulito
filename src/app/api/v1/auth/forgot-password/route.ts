@@ -4,6 +4,8 @@ import { requestPasswordReset } from '@/services/verification';
 import { checkRateLimit, RATE_LIMITS, RateLimitError } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { getClientIp } from '@/utils/request';
+import { logAudit } from '@/services/audit';
+import { prisma } from '@/lib/prisma';
 
 const schema = z.object({
   email: z.string().email('Невірний формат email'),
@@ -27,6 +29,23 @@ export async function POST(request: NextRequest) {
     }
 
     await requestPasswordReset(parsed.data.email);
+
+    // Look up the user to attribute the audit entry. We always return the same
+    // response below to prevent email enumeration, but the audit row needs the
+    // userId for accountability — emails that don't match are still recorded
+    // with userId=null so we can spot fishing attempts.
+    const user = await prisma.user.findUnique({
+      where: { email: parsed.data.email },
+      select: { id: true },
+    });
+    await logAudit({
+      userId: user?.id ?? null,
+      actionType: 'password_reset',
+      entityType: 'user',
+      entityId: user?.id ?? null,
+      details: { action: 'forgot_password_requested', email: parsed.data.email, matched: !!user },
+      ipAddress: ip,
+    });
 
     // Always return success to prevent email enumeration
     return successResponse({

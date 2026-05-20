@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
-import { paginatedResponse, errorResponse, parseSearchParams } from '@/utils/api-response';
+import { paginatedResponse, errorResponse, successResponse, parseSearchParams } from '@/utils/api-response';
+import { syncReturns } from '@/services/marketplace-sync';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(
   async (request: NextRequest) => {
@@ -36,8 +38,20 @@ export const GET = withRole('admin', 'manager')(
       ]);
 
       return paginatedResponse(returns, total, page, limit);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/marketplaces/returns] GET failed', { error: err });
       return errorResponse('Помилка завантаження повернень', 500);
     }
   }
 );
+
+export const POST = withRole('admin')(async () => {
+  try {
+    const result = await syncReturns();
+    return successResponse(result);
+  } catch (error) {
+    logger.error('[admin/marketplaces/returns] POST failed', { error });
+    const message = error instanceof Error ? error.message : 'Помилка синхронізації повернень';
+    return errorResponse(message, 500);
+  }
+});

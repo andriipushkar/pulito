@@ -12,13 +12,20 @@ vi.mock('@/config/env', () => ({
   },
 }));
 vi.mock('@/middleware/auth', () => ({
-  withRole:
-    (..._roles: string[]) =>
-    (handler: any) =>
-      handler,
+  withRole: (..._roles: string[]) => (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/marketplace-sync', () => ({
   getConnectionStatus: vi.fn(),
+}));
+vi.mock('@/services/marketplace-health', () => ({
+  MARKETPLACE_PLATFORMS: ['rozetka', 'prom'] as const,
+  getAllHealthStatuses: vi.fn().mockResolvedValue({}),
+}));
+vi.mock('@/services/marketplace-rate-limit', () => ({
+  getAllRateUsage: vi.fn().mockReturnValue({}),
 }));
 vi.mock('@/utils/api-response', () => ({
   successResponse: (data: any, status = 200) => Response.json(data, { status }),
@@ -44,7 +51,10 @@ describe('GET /api/v1/admin/marketplaces', () => {
   });
 
   it('returns 500 on error', async () => {
-    (getConnectionStatus as any).mockRejectedValue(new Error('fail'));
+    // getConnectionStatus rejections are swallowed per-platform; make the
+    // outer call fail by rejecting getAllHealthStatuses instead.
+    const { getAllHealthStatuses } = await import('@/services/marketplace-health');
+    vi.mocked(getAllHealthStatuses).mockRejectedValueOnce(new Error('fail'));
 
     const res = await (GET as any)();
 

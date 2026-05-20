@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import PageHeader from '@/components/account/PageHeader';
+import { plural } from '@/utils/format';
 
 interface Address {
   id: number;
@@ -119,7 +120,11 @@ export default function AddressesPage() {
           </svg>
         }
         title="Адреси доставки"
-        subtitle={`${addresses.length} ${addresses.length === 1 ? 'адреса' : addresses.length < 5 ? 'адреси' : 'адрес'} збережено`}
+        subtitle={
+          addresses.length === 0
+            ? 'У вас ще немає збережених адрес'
+            : `${addresses.length} ${plural(addresses.length, ['адреса', 'адреси', 'адрес'])} збережено`
+        }
         actions={
           !showForm ? (
             <button

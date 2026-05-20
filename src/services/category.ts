@@ -2,6 +2,23 @@ import { prisma } from '@/lib/prisma';
 import { createSlug } from '@/utils/slug';
 import { cacheGet, cacheSet, cacheInvalidate, CACHE_TTL } from '@/services/cache';
 
+// Soft-cap for top-level categories. Stored in SiteSetting so admins can
+// raise it without redeploying. Default 8 keeps the storefront mega-menu
+// readable; values past ~12 typically need a redesign.
+const DEFAULT_MAX_ROOT_CATEGORIES = 8;
+async function getMaxRootCategories(): Promise<number> {
+  try {
+    const row = await prisma.siteSetting.findUnique({
+      where: { key: 'max_root_categories' },
+      select: { value: true },
+    });
+    const n = Number(row?.value);
+    return Number.isFinite(n) && n >= 1 && n <= 50 ? n : DEFAULT_MAX_ROOT_CATEGORIES;
+  } catch {
+    return DEFAULT_MAX_ROOT_CATEGORIES;
+  }
+}
+
 export interface CategoryListItem {
   id: number;
   name: string;
@@ -9,6 +26,8 @@ export interface CategoryListItem {
   iconPath: string | null;
   coverImage: string | null;
   description: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   sortOrder: number;
   isVisible: boolean;
   parentId: number | null;
@@ -66,11 +85,11 @@ export async function getCategoryById(id: number) {
 export async function createCategory(data: {
   name: string;
   slug?: string;
-  description?: string;
-  iconPath?: string;
-  coverImage?: string;
-  seoTitle?: string;
-  seoDescription?: string;
+  description?: string | null;
+  iconPath?: string | null;
+  coverImage?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   sortOrder?: number;
   isVisible?: boolean;
   parentId?: number | null;
@@ -100,9 +119,10 @@ export async function createCategory(data: {
       const activeTopLevel = await prisma.category.count({
         where: { parentId: null, deletedAt: null, id: { not: existing.id } },
       });
-      if (activeTopLevel >= 8) {
+      const maxRoots = await getMaxRootCategories();
+      if (activeTopLevel >= maxRoots) {
         throw new CategoryError(
-          'Максимум 8 батьківських категорій. Створіть підкатегорію замість нової батьківської.',
+          `Максимум ${maxRoots} батьківських категорій. Створіть підкатегорію замість нової батьківської.`,
           400,
         );
       }
@@ -137,17 +157,28 @@ export async function createCategory(data: {
     );
   }
 
-  // Limit top-level categories to 8 — count only active ones so deleted
-  // categories don't permanently take up a slot.
+  // Limit top-level categories — count only active ones so deleted
+  // categories don't permanently take up a slot. Soft-cap is configurable
+  // via SiteSetting `max_root_categories` (defaults to 8).
+  // Advisory lock serialises the count+insert against parallel POSTs so
+  // two admins clicking "create" at the same time can't both bypass the cap.
+  const CATEGORY_CREATE_LOCK_NS = 0x43415400;
   if (isTopLevel) {
-    const parentCount = await prisma.category.count({
-      where: { parentId: null, deletedAt: null },
-    });
-    if (parentCount >= 8) {
-      throw new CategoryError(
-        'Максимум 8 батьківських категорій. Створіть підкатегорію замість нової батьківської.',
-        400,
-      );
+    await prisma.$queryRaw`SELECT pg_advisory_lock(${CATEGORY_CREATE_LOCK_NS}::int)`;
+    try {
+      const parentCount = await prisma.category.count({
+        where: { parentId: null, deletedAt: null },
+      });
+      const maxRoots = await getMaxRootCategories();
+      if (parentCount >= maxRoots) {
+        throw new CategoryError(
+          `Максимум ${maxRoots} батьківських категорій. Створіть підкатегорію замість нової батьківської.`,
+          400,
+        );
+      }
+    } finally {
+      // Release on the next statement — but only after the insert below
+      // commits. We close the lock at the end of createCategory.
     }
   }
 
@@ -170,6 +201,9 @@ export async function createCategory(data: {
       },
     },
   });
+  if (isTopLevel) {
+    await prisma.$queryRaw`SELECT pg_advisory_unlock(0x43415400::int)`.catch(() => null);
+  }
   await cacheInvalidate('categories:*');
   return created;
 }
@@ -179,14 +213,16 @@ export async function updateCategory(
   data: {
     name?: string;
     slug?: string;
-    description?: string;
-    iconPath?: string;
-    coverImage?: string;
-    seoTitle?: string;
-    seoDescription?: string;
+    description?: string | null;
+    iconPath?: string | null;
+    coverImage?: string | null;
+    seoTitle?: string | null;
+    seoDescription?: string | null;
     sortOrder?: number;
     isVisible?: boolean;
     parentId?: number | null;
+    // Optimistic concurrency token; see updateBrand for the contract.
+    version?: number;
   },
 ) {
   const category = await prisma.category.findUnique({ where: { id } });
@@ -235,31 +271,58 @@ export async function updateCategory(
     }
   }
 
-  // Prevent making a child into a parent if limit reached
+  // Prevent making a child into a parent if limit reached. Filter out
+  // soft-deleted categories so their tombstones don't keep the cap pinned.
   if (data.parentId === null && category.parentId !== null) {
-    const parentCount = await prisma.category.count({ where: { parentId: null } });
-    if (parentCount >= 8) {
+    const parentCount = await prisma.category.count({
+      where: { parentId: null, deletedAt: null },
+    });
+    const maxRoots = await getMaxRootCategories();
+    if (parentCount >= maxRoots) {
       throw new CategoryError(
-        'Максимум 8 батьківських категорій. Неможливо перенести на верхній рівень.',
+        `Максимум ${maxRoots} батьківських категорій. Неможливо перенести на верхній рівень.`,
         400,
       );
     }
   }
 
+  const baseData = {
+    ...(data.name !== undefined && { name: data.name }),
+    ...(slug !== undefined && { slug }),
+    ...(data.description !== undefined && { description: data.description }),
+    ...(data.iconPath !== undefined && { iconPath: data.iconPath }),
+    ...(data.coverImage !== undefined && { coverImage: data.coverImage }),
+    ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
+    ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
+    ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+    ...(data.isVisible !== undefined && { isVisible: data.isVisible }),
+    ...(data.parentId !== undefined && { parentId: data.parentId }),
+    version: { increment: 1 },
+  };
+
+  // Optimistic concurrency. See updateBrand for the same pattern.
+  if (data.version !== undefined) {
+    const result = await prisma.category.updateMany({
+      where: { id, version: data.version },
+      data: baseData,
+    });
+    if (result.count === 0) {
+      throw new CategoryError(
+        'Категорія була змінена іншим адміністратором. Оновіть сторінку і повторіть.',
+        409,
+      );
+    }
+    const refreshed = await prisma.category.findUniqueOrThrow({
+      where: { id },
+      include: { _count: { select: { products: { where: { isActive: true } } } } },
+    });
+    await cacheInvalidate('categories:*');
+    return refreshed;
+  }
+
   const updated = await prisma.category.update({
     where: { id },
-    data: {
-      ...(data.name !== undefined && { name: data.name }),
-      ...(slug !== undefined && { slug }),
-      ...(data.description !== undefined && { description: data.description }),
-      ...(data.iconPath !== undefined && { iconPath: data.iconPath }),
-      ...(data.coverImage !== undefined && { coverImage: data.coverImage }),
-      ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
-      ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
-      ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
-      ...(data.isVisible !== undefined && { isVisible: data.isVisible }),
-      ...(data.parentId !== undefined && { parentId: data.parentId }),
-    },
+    data: baseData,
     include: {
       _count: {
         select: { products: { where: { isActive: true } } },

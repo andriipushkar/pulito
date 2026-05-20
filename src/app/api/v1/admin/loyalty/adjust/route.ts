@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { adjustPoints, LoyaltyError } from '@/services/loyalty';
 import { adjustPointsSchema } from '@/validators/loyalty';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('admin', 'manager')(async (request: NextRequest) => {
   try {
@@ -18,6 +19,7 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest) =>
     if (error instanceof LoyaltyError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/loyalty/adjust] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

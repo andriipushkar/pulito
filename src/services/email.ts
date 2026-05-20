@@ -1,16 +1,26 @@
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { env } from '@/config/env';
+import { getSmtpConfig } from '@/services/smtp-config';
 
-const transporter = nodemailer.createTransport({
-  host: env.SMTP_HOST,
-  port: Number(env.SMTP_PORT),
-  secure: Number(env.SMTP_PORT) === 465,
-  auth: {
-    user: env.SMTP_USER,
-    pass: env.SMTP_PASS,
-  },
-});
+// Transporter is recreated whenever the SMTP config changes (host/port/auth).
+// We memoize one instance per config signature so we don't pay nodemailer setup
+// cost on every send, but we still pick up admin-UI changes after cache flush.
+let cachedTransporter: { signature: string; transporter: ReturnType<typeof nodemailer.createTransport> } | null = null;
+
+async function getTransporter() {
+  const cfg = await getSmtpConfig();
+  const signature = `${cfg.host}|${cfg.port}|${cfg.secure}|${cfg.user}|${cfg.pass}`;
+  if (cachedTransporter?.signature === signature) return cachedTransporter.transporter;
+  const transporter = nodemailer.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure,
+    auth: { user: cfg.user, pass: cfg.pass },
+  });
+  cachedTransporter = { signature, transporter };
+  return transporter;
+}
 
 export class EmailError extends Error {
   constructor(
@@ -108,10 +118,18 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
   }
 
   try {
+    const cfg = await getSmtpConfig();
+    const transporter = await getTransporter();
+    // SMTP_FROM may be either a bare address ("a@b.com") or a fully-formatted
+    // RFC 5322 string ('"Name" <a@b.com>'). Wrap only if it's still bare,
+    // otherwise we'd nest the display name and produce an invalid header.
+    const isFormatted = (v: string) => v.includes('<') && v.includes('>');
+    const fromSource = cfg.from || cfg.user;
+    const defaultFrom = isFormatted(fromSource) ? fromSource : `"${cfg.fromName}" <${fromSource}>`;
     const result = await withRetry(async () => {
       attempts++;
       return transporter.sendMail({
-        from: options.from || env.SMTP_FROM || `"Pulito Trade" <${env.SMTP_USER}>`,
+        from: options.from || defaultFrom,
         ...(options.replyTo ? { replyTo: options.replyTo } : {}),
         to: options.to,
         subject: options.subject,
@@ -151,6 +169,56 @@ export async function sendVerificationEmail(email: string, token: string): Promi
         <a href="${url}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Підтвердити email</a>
         <p style="color:#64748b;font-size:14px">Або скопіюйте це посилання: <br/>${url}</p>
         <p style="color:#64748b;font-size:14px">Посилання дійсне протягом 24 годин.</p>
+      </div>
+    `,
+  });
+}
+
+// HTML escape for user-controlled fields injected into email markup.
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export interface OrderConfirmationEmail {
+  to: string;
+  contactName: string;
+  orderNumber: string;
+  totalAmount: number | string;
+  itemsCount: number;
+  deliveryMethod?: string | null;
+  paymentMethod?: string | null;
+}
+
+/**
+ * Customer-facing "your order is in" email. Sent fire-and-forget after
+ * createOrder. Guests in particular need this — without it they have no
+ * record of orderNumber once they close the tab.
+ */
+export async function sendOrderConfirmationEmail(opts: OrderConfirmationEmail): Promise<void> {
+  const trackUrl = `${env.APP_URL}/order/${encodeURIComponent(opts.orderNumber)}/track`;
+  const total = Number(opts.totalAmount).toFixed(2);
+  await sendEmail({
+    to: opts.to,
+    subject: `Замовлення #${opts.orderNumber} прийнято — Pulito Trade`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#111">
+        <h2 style="color:#2563eb;margin-bottom:8px">Дякуємо за замовлення!</h2>
+        <p style="margin-top:0">Вітаємо, ${escapeHtml(opts.contactName) || 'клієнте'}!</p>
+        <p>Ми отримали ваше замовлення <strong>#${escapeHtml(opts.orderNumber)}</strong>. Менеджер зв'яжеться з вами найближчим часом для підтвердження.</p>
+        <table style="margin:16px 0;border-collapse:collapse">
+          <tr><td style="padding:4px 12px 4px 0;color:#64748b">Сума:</td><td style="padding:4px 0"><strong>${total} ₴</strong></td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#64748b">Товарів:</td><td style="padding:4px 0">${opts.itemsCount}</td></tr>
+          ${opts.deliveryMethod ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Доставка:</td><td style="padding:4px 0">${escapeHtml(opts.deliveryMethod)}</td></tr>` : ''}
+          ${opts.paymentMethod ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Оплата:</td><td style="padding:4px 0">${escapeHtml(opts.paymentMethod)}</td></tr>` : ''}
+        </table>
+        <a href="${trackUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Відстежити замовлення</a>
+        <p style="color:#64748b;font-size:14px;margin-top:24px">Якщо у вас виникли питання — відповідайте на цей лист, ми на зв'язку.</p>
       </div>
     `,
   });

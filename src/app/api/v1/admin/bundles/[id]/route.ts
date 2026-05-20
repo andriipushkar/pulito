@@ -4,6 +4,8 @@ import { updateBundleSchema } from '@/validators/bundle';
 import { updateBundle, deleteBundle, calculateBundlePrice, BundleError } from '@/services/bundle';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
 export const GET = withRole('manager', 'admin')(
   async (_request: NextRequest, { params }) => {
@@ -42,13 +44,14 @@ export const GET = withRole('manager', 'admin')(
       return successResponse({ ...bundle, pricing });
     } catch (error) {
       if (error instanceof BundleError) return errorResponse(error.message, error.statusCode);
+      logger.error('[admin/bundles/[id]] GET failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }
 );
 
 export const PATCH = withRole('manager', 'admin')(
-  async (request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
@@ -62,25 +65,40 @@ export const PATCH = withRole('manager', 'admin')(
       }
 
       const bundle = await updateBundle(numId, parsed.data);
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_update',
+        entityType: 'bundle',
+        entityId: numId,
+        details: { fields: Object.keys(parsed.data) },
+      });
       return successResponse(bundle);
     } catch (error) {
       if (error instanceof BundleError) return errorResponse(error.message, error.statusCode);
+      logger.error('[admin/bundles/[id]] PATCH failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }
 );
 
 export const DELETE = withRole('manager', 'admin')(
-  async (_request: NextRequest, { params }) => {
+  async (_request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const numId = Number(id);
       if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
 
       await deleteBundle(numId);
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_delete',
+        entityType: 'bundle',
+        entityId: numId,
+      });
       return successResponse({ message: 'Комплект видалено' });
     } catch (error) {
       if (error instanceof BundleError) return errorResponse(error.message, error.statusCode);
+      logger.error('[admin/bundles/[id]] DELETE failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

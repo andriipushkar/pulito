@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { getImportLogs } from '@/services/import';
 import { paginatedResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('manager', 'admin')(async (request: NextRequest) => {
   try {
@@ -10,7 +11,8 @@ export const GET = withRole('manager', 'admin')(async (request: NextRequest) => 
 
     const { logs, total } = await getImportLogs(page, limit);
     return paginatedResponse(logs, total, page, limit);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/import/logs] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

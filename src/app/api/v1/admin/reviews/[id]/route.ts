@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { moderateReview, replyToReview, deleteReview } from '@/services/review';
 import { moderateReviewSchema, replyReviewSchema } from '@/validators/review';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const PATCH = withRole('admin', 'manager')(
   async (request: NextRequest, { params }) => {
@@ -26,7 +27,8 @@ export const PATCH = withRole('admin', 'manager')(
       if (!parsed.success) return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
       const review = await moderateReview(reviewId, parsed.data.status);
       return successResponse(review);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/reviews/[id]] PATCH failed', { error: err });
       return errorResponse('Помилка сервера', 500);
     }
   }
@@ -40,7 +42,8 @@ export const DELETE = withRole('admin', 'manager')(
       if (isNaN(reviewId)) return errorResponse('Невірний ID', 400);
       await deleteReview(reviewId);
       return successResponse({ deleted: true });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/reviews/[id]] DELETE failed', { error: err });
       return errorResponse('Помилка сервера', 500);
     }
   }

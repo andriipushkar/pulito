@@ -51,7 +51,10 @@ export async function getPersonalPrices(filters: PersonalPriceFilterInput) {
   return { items, total };
 }
 
-export async function createPersonalPrice(data: CreatePersonalPriceInput, createdBy: number) {
+export async function createPersonalPrice(
+  data: CreatePersonalPriceInput & { stackableWith?: string[] },
+  createdBy: number,
+) {
   return prisma.personalPrice.create({
     data: {
       userId: data.userId,
@@ -61,13 +64,19 @@ export async function createPersonalPrice(data: CreatePersonalPriceInput, create
       fixedPrice: data.fixedPrice ?? null,
       validFrom: data.validFrom ? new Date(data.validFrom) : null,
       validUntil: data.validUntil ? new Date(data.validUntil) : null,
+      // Persist the stacking rule so getEffectivePrice can return it.
+      // Defaults to `[]` (= "does not stack with anything") at the DB level.
+      stackableWith: data.stackableWith ?? [],
       createdBy,
     },
     select: personalPriceSelect,
   });
 }
 
-export async function updatePersonalPrice(id: number, data: UpdatePersonalPriceInput) {
+export async function updatePersonalPrice(
+  id: number,
+  data: UpdatePersonalPriceInput & { stackableWith?: string[] },
+) {
   const existing = await prisma.personalPrice.findUnique({ where: { id } });
   if (!existing) {
     throw new PersonalPriceError('Персональну ціну не знайдено', 404);
@@ -80,6 +89,7 @@ export async function updatePersonalPrice(id: number, data: UpdatePersonalPriceI
       fixedPrice: data.fixedPrice ?? existing.fixedPrice,
       validFrom: data.validFrom !== undefined ? (data.validFrom ? new Date(data.validFrom) : null) : existing.validFrom,
       validUntil: data.validUntil !== undefined ? (data.validUntil ? new Date(data.validUntil) : null) : existing.validUntil,
+      ...(data.stackableWith !== undefined && { stackableWith: data.stackableWith }),
     },
     select: personalPriceSelect,
   });
@@ -98,7 +108,7 @@ export async function getEffectivePrice(
   userId: number,
   productId: number,
   categoryId: number | null
-): Promise<{ discountPercent: number | null; fixedPrice: number | null } | null> {
+): Promise<{ discountPercent: number | null; fixedPrice: number | null; stackableWith: string[] } | null> {
   const now = new Date();
 
   // Product-specific price takes priority
@@ -111,13 +121,14 @@ export async function getEffectivePrice(
         { OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
       ],
     },
-    select: { discountPercent: true, fixedPrice: true },
+    select: { discountPercent: true, fixedPrice: true, stackableWith: true },
   });
 
   if (productPrice) {
     return {
       discountPercent: productPrice.discountPercent ? Number(productPrice.discountPercent) : null,
       fixedPrice: productPrice.fixedPrice ? Number(productPrice.fixedPrice) : null,
+      stackableWith: productPrice.stackableWith ?? [],
     };
   }
 
@@ -133,13 +144,14 @@ export async function getEffectivePrice(
           { OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
         ],
       },
-      select: { discountPercent: true, fixedPrice: true },
+      select: { discountPercent: true, fixedPrice: true, stackableWith: true },
     });
 
     if (categoryPrice) {
       return {
         discountPercent: categoryPrice.discountPercent ? Number(categoryPrice.discountPercent) : null,
         fixedPrice: categoryPrice.fixedPrice ? Number(categoryPrice.fixedPrice) : null,
+        stackableWith: categoryPrice.stackableWith ?? [],
       };
     }
   }

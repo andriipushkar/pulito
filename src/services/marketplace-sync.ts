@@ -2,8 +2,27 @@ import { prisma } from '@/lib/prisma';
 import { RozetkaClient } from './marketplace-rozetka';
 import { PromClient } from './marketplace-prom';
 import { getChannelConfig, type MarketplaceConfig } from '@/services/channel-config';
+import { marketplaceLogger } from '@/services/marketplace-logger';
 
-type Platform = 'rozetka' | 'prom';
+const log = marketplaceLogger('sync');
+import {
+  publishToMarketplace,
+  updateMarketplaceListing,
+  getOlxOrders,
+  getEpicentrkOrders,
+  getOlxReturns,
+  getEpicentrkReturns,
+  getMarketplacePrice,
+  getMarketplaceStock,
+  getFulfilmentMode,
+  type MarketplaceListingData,
+  type NormalizedOrder,
+  type NormalizedReturn,
+} from '@/services/marketplaces';
+import { env } from '@/config/env';
+
+export type Platform = 'olx' | 'rozetka' | 'prom' | 'epicentrk';
+type ClientBackedPlatform = 'rozetka' | 'prom';
 
 function asString(value: string | boolean | undefined): string {
   if (typeof value === 'string') return value;
@@ -11,14 +30,23 @@ function asString(value: string | boolean | undefined): string {
   return '';
 }
 
-function getClient(platform: Platform, config: MarketplaceConfig): RozetkaClient | PromClient {
+function hasClientBackedSync(platform: Platform): platform is ClientBackedPlatform {
+  return platform === 'rozetka' || platform === 'prom';
+}
+
+function getClient(
+  platform: ClientBackedPlatform,
+  config: MarketplaceConfig,
+): RozetkaClient | PromClient {
   switch (platform) {
     case 'rozetka':
       return new RozetkaClient(asString(config.apiKey), asString(config.sellerId));
     case 'prom':
       return new PromClient(asString(config.apiToken));
-    default:
-      throw new Error(`Невідома платформа: ${platform}`);
+    default: {
+      const _exhaustive: never = platform;
+      throw new Error(`Невідома платформа: ${String(_exhaustive)}`);
+    }
   }
 }
 
@@ -30,7 +58,7 @@ export async function syncProductsToMarketplace(
     throw new Error(`${platform} не налаштовано або вимкнено`);
   }
 
-  const client = getClient(platform, config);
+  const client = hasClientBackedSync(platform) ? getClient(platform, config) : null;
   let created = 0;
   let updated = 0;
   let failed = 0;
@@ -58,33 +86,81 @@ export async function syncProductsToMarketplace(
 
   for (const product of products) {
     try {
+      // Skip products explicitly excluded from this marketplace.
+      const excluded = Array.isArray(product.excludedMarketplaces)
+        ? (product.excludedMarketplaces as string[])
+        : [];
+      if (excluded.includes(platform)) continue;
+
       const publication = product.publications[0];
       const channelEntry = publication?.channelResults[0];
+      const imageUrls = product.images
+        .map((img) => img.pathFull || img.pathOriginal || img.pathMedium)
+        .filter((u): u is string => Boolean(u));
 
       if (channelEntry?.externalId) {
         // Update existing listing
-        const result = await client.updateProduct(channelEntry.externalId, {
-          name: product.name,
-          price: Number(product.priceRetail),
-          quantity: product.quantity,
-        });
-        if (result.success) updated++;
+        let ok = false;
+        const allocatedStock = await getMarketplaceStock(platform, product.quantity, product.id);
+        if (client) {
+          const result = await client.updateProduct(channelEntry.externalId, {
+            name: product.name,
+            price: await getMarketplacePrice(platform, Number(product.priceRetail)),
+            quantity: allocatedStock,
+          });
+          ok = result.success;
+        } else {
+          const result = await updateMarketplaceListing(
+            platform,
+            channelEntry.externalId,
+            {
+              title: product.name,
+              description: product.content?.fullDescription || product.name,
+              price: Number(product.priceRetail),
+              quantity: allocatedStock,
+              images: imageUrls,
+            },
+            env.APP_URL,
+          );
+          ok = result.status === 'published';
+        }
+        if (ok) updated++;
         else failed++;
       } else {
         // Create new listing
-        const imageUrls = product.images
-          .map((img) => img.pathFull || img.pathOriginal || img.pathMedium)
-          .filter((u): u is string => Boolean(u));
-        const result = await client.createProduct({
-          name: product.name,
-          description: product.content?.fullDescription || undefined,
-          price: Number(product.priceRetail),
-          quantity: product.quantity,
-          images: imageUrls,
-          ...(platform === 'rozetka' ? { article: product.code } : { sku: product.code }),
-        });
+        let externalId: string | undefined;
+        let permalink: string | undefined;
+        const allocatedStock = await getMarketplaceStock(platform, product.quantity, product.id);
+        if (client) {
+          const result = await client.createProduct({
+            name: product.name,
+            description: product.content?.fullDescription || undefined,
+            price: await getMarketplacePrice(platform, Number(product.priceRetail)),
+            quantity: allocatedStock,
+            images: imageUrls,
+            ...(product.barcode ? { barcode: product.barcode } : {}),
+            ...(platform === 'rozetka' ? { article: product.code } : { sku: product.code }),
+          });
+          if (result.success) externalId = result.externalId;
+        } else {
+          const data: MarketplaceListingData = {
+            title: product.name,
+            description: product.content?.fullDescription || product.name,
+            price: Number(product.priceRetail),
+            images: imageUrls,
+            productCode: product.code,
+            barcode: product.barcode ?? undefined,
+            quantity: allocatedStock,
+            localCategoryId: product.categoryId ?? undefined,
+          };
+          const result = await publishToMarketplace(platform, data, env.APP_URL);
+          if (result.status === 'published') {
+            externalId = result.externalId;
+            permalink = result.permalink;
+          }
+        }
 
-        if (result.success && result.externalId) {
+        if (externalId) {
           // Save the external ID in publication channel
           if (publication) {
             await prisma.publicationChannel.upsert({
@@ -94,12 +170,17 @@ export async function syncProductsToMarketplace(
                   channel: platform,
                 },
               },
-              update: { externalId: result.externalId, status: 'published' },
+              update: {
+                externalId,
+                status: 'published',
+                ...(permalink ? { permalink } : {}),
+              },
               create: {
                 publicationId: publication.id,
                 channel: platform,
-                externalId: result.externalId,
+                externalId,
                 status: 'published',
+                ...(permalink ? { permalink } : {}),
               },
             });
           }
@@ -109,10 +190,11 @@ export async function syncProductsToMarketplace(
         }
       }
     } catch (error) {
-      console.error(
-        `[MarketplaceSync] Помилка синхронізації товару ${product.id} на ${platform}:`,
-        error,
-      );
+      log.error('Помилка синхронізації товару', {
+        platform,
+        productId: product.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
       failed++;
     }
   }
@@ -131,7 +213,7 @@ export async function syncStockToMarketplace(
     throw new Error(`${platform} не налаштовано або вимкнено`);
   }
 
-  const client = getClient(platform, config);
+  const client = hasClientBackedSync(platform) ? getClient(platform, config) : null;
   let updated = 0;
   let failed = 0;
 
@@ -152,14 +234,32 @@ export async function syncStockToMarketplace(
     if (!pub.externalId || !pub.publication.product) continue;
 
     try {
-      const result = await client.updateStock(pub.externalId, pub.publication.product.quantity);
-      if (result.success) updated++;
+      const allocatedStock = await getMarketplaceStock(
+        platform,
+        pub.publication.product.quantity,
+        pub.publication.productId ?? undefined,
+      );
+      let ok = false;
+      if (client) {
+        const result = await client.updateStock(pub.externalId, allocatedStock);
+        ok = result.success;
+      } else {
+        const result = await updateMarketplaceListing(
+          platform,
+          pub.externalId,
+          { quantity: allocatedStock },
+          env.APP_URL,
+        );
+        ok = result.status === 'published';
+      }
+      if (ok) updated++;
       else failed++;
     } catch (error) {
-      console.error(
-        `[MarketplaceSync] Помилка оновлення залишків ${pub.externalId} на ${platform}:`,
-        error,
-      );
+      log.error('Помилка оновлення залишків', {
+        platform,
+        externalId: pub.externalId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       failed++;
     }
   }
@@ -167,6 +267,61 @@ export async function syncStockToMarketplace(
   await updateLastSyncTime(platform, 'stock');
 
   return { updated, failed };
+}
+
+async function fetchOrdersForPlatform(
+  platform: Platform,
+  config: MarketplaceConfig,
+  dateFrom: string,
+): Promise<NormalizedOrder[]> {
+  if (hasClientBackedSync(platform)) {
+    const client = getClient(platform, config);
+    const raw = await client.getOrders(dateFrom);
+    return raw.map((order): NormalizedOrder => {
+      const items =
+        'items' in order
+          ? order.items.map((it) => ({
+              name: it.name,
+              quantity: Number(it.quantity),
+              price: Number(it.price),
+              code: 'id' in it ? String(it.id) : undefined,
+            }))
+          : 'products' in order
+          ? order.products.map((it) => ({
+              name: it.name,
+              quantity: Number(it.quantity),
+              price: Number(it.price),
+              code: 'id' in it ? String(it.id) : undefined,
+            }))
+          : [];
+
+      const buyerName =
+        'buyer' in order
+          ? order.buyer.name
+          : `${order.client_first_name || ''} ${order.client_last_name || ''}`.trim();
+      const buyerPhone =
+        'buyer' in order ? order.buyer.phone : 'phone' in order ? order.phone : undefined;
+      const buyerEmail =
+        'buyer' in order
+          ? order.buyer.email
+          : 'email' in order
+          ? (order as { email?: string }).email
+          : undefined;
+
+      return {
+        id: String(order.id),
+        buyerName: buyerName || 'Покупець',
+        buyerPhone,
+        buyerEmail,
+        items,
+        createdAt: 'created' in order ? order.created : 'date_created' in order ? order.date_created : undefined,
+      };
+    });
+  }
+
+  if (platform === 'olx') return getOlxOrders(dateFrom);
+  if (platform === 'epicentrk') return getEpicentrkOrders(dateFrom);
+  return [];
 }
 
 export async function importOrdersFromMarketplace(
@@ -177,65 +332,40 @@ export async function importOrdersFromMarketplace(
     throw new Error(`${platform} не налаштовано або вимкнено`);
   }
 
-  const client = getClient(platform, config);
   let imported = 0;
   let skipped = 0;
   let failed = 0;
 
-  // Fetch orders from the last 7 days
   const dateFrom = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const orders = await client.getOrders(dateFrom);
+  const orders = await fetchOrdersForPlatform(platform, config, dateFrom);
+  const fulfilmentMode = await getFulfilmentMode(platform);
+
+  // Aggregates which local products had their stock decremented; flushed once
+  // after all orders are imported so other marketplaces get the latest figure.
+  // FBO orders never touch local stock — the marketplace is holding the goods.
+  const touchedProductIds = new Set<number>();
+
+  // Items that ended up oversold during this run — flushed into a single
+  // Telegram alert at the end so the manager isn't spammed per line item.
+  const oversoldByOrder = new Map<
+    string,
+    { code: string; name?: string; requested: number; available: number }[]
+  >();
 
   for (const order of orders) {
     try {
       const externalOrderId = String(order.id);
 
-      // Atomic check-and-import to prevent duplicate orders from concurrent syncs
       const result = await prisma.$transaction(async (tx) => {
         const existing = await tx.order.findFirst({
           where: { externalId: externalOrderId, source: platform },
         });
+        if (existing) return { kind: 'skipped' as const };
 
-        if (existing) return 'skipped' as const;
-
-        const orderItems =
-          'items' in order
-            ? (order.items as {
-                name: string;
-                quantity: number;
-                price: number | string;
-                code?: string;
-              }[])
-            : (
-                order as {
-                  products?: {
-                    name: string;
-                    quantity: number;
-                    price: number | string;
-                    code?: string;
-                  }[];
-                }
-              ).products || [];
-
-        const totalAmount = orderItems.reduce(
+        const totalAmount = order.items.reduce(
           (sum, item) => sum + Number(item.price) * item.quantity,
           0,
         );
-
-        const buyerName =
-          'buyer' in order
-            ? (order.buyer as { name: string }).name
-            : `${(order as { client_first_name?: string }).client_first_name || ''} ${(order as { client_last_name?: string }).client_last_name || ''}`.trim();
-
-        const buyerPhone =
-          'buyer' in order
-            ? (order.buyer as { phone: string }).phone
-            : (order as { phone?: string }).phone || '';
-
-        const buyerEmail =
-          'buyer' in order
-            ? (order.buyer as { email?: string }).email || ''
-            : (order as { email?: string }).email || '';
 
         await tx.order.create({
           data: {
@@ -245,14 +375,14 @@ export async function importOrdersFromMarketplace(
             status: 'new_order',
             clientType: 'retail',
             totalAmount,
-            itemsCount: orderItems.reduce((s, i) => s + i.quantity, 0),
-            contactName: buyerName || 'Покупець',
-            contactPhone: buyerPhone,
-            contactEmail: buyerEmail,
+            itemsCount: order.items.reduce((s, i) => s + i.quantity, 0),
+            contactName: order.buyerName || 'Покупець',
+            contactPhone: order.buyerPhone || '',
+            contactEmail: order.buyerEmail || '',
             deliveryMethod: 'nova_poshta',
             paymentMethod: 'cod',
             items: {
-              create: orderItems.map((item) => ({
+              create: order.items.map((item) => ({
                 productCode: item.code || 'UNKNOWN',
                 productName: item.name,
                 quantity: item.quantity,
@@ -263,23 +393,333 @@ export async function importOrdersFromMarketplace(
           },
         });
 
-        return 'imported' as const;
+        // Atomically decrement local stock for each line item so other
+        // marketplaces don't continue advertising units we no longer have.
+        // If the local quantity is already lower than requested, we still
+        // create the order (the marketplace already accepted the sale) and
+        // log the discrepancy for manual reconciliation.
+        // FBO orders skip this entirely — the marketplace owns the inventory.
+        const affected: number[] = [];
+        const oversold: { code: string; name?: string; requested: number; available: number }[] = [];
+        if (fulfilmentMode === 'fbo') {
+          return { kind: 'imported' as const, affected, oversold };
+        }
+        for (const item of order.items) {
+          if (!item.code) continue;
+          const product = await tx.product.findUnique({
+            where: { code: item.code },
+            select: { id: true, quantity: true, name: true },
+          });
+          if (!product) continue;
+          const decremented = await tx.product.updateMany({
+            where: { id: product.id, quantity: { gte: item.quantity } },
+            data: { quantity: { decrement: item.quantity } },
+          });
+          if (decremented.count === 0) {
+            log.warn('Недостатньо залишку', {
+              platform,
+              externalOrderId,
+              productCode: item.code,
+              requested: item.quantity,
+              available: product.quantity,
+            });
+            // Force quantity to 0 (we already owe the customer the product).
+            await tx.product.update({
+              where: { id: product.id },
+              data: { quantity: 0 },
+            });
+            oversold.push({
+              code: item.code,
+              name: product.name,
+              requested: item.quantity,
+              available: product.quantity,
+            });
+          }
+          affected.push(product.id);
+        }
+        return { kind: 'imported' as const, affected, oversold };
       });
 
-      if (result === 'skipped') skipped++;
-      else imported++;
+      if (result.kind === 'skipped') skipped++;
+      else {
+        imported++;
+        for (const id of result.affected) touchedProductIds.add(id);
+        if (result.oversold.length > 0) {
+          oversoldByOrder.set(String(order.id), result.oversold);
+        }
+      }
     } catch (error) {
-      console.error(
-        `[MarketplaceSync] Помилка імпорту замовлення ${order.id} з ${platform}:`,
-        error,
-      );
+      log.error('Помилка імпорту замовлення', {
+        platform,
+        externalOrderId: String(order.id),
+        error: error instanceof Error ? error.message : String(error),
+      });
       failed++;
     }
   }
 
   await updateLastSyncTime(platform, 'orders');
 
+  // Fire-and-forget: propagate the new stock to every other marketplace so the
+  // race window between "OLX sold one" and "Rozetka still says available" shrinks.
+  if (touchedProductIds.size > 0) {
+    void syncProductsStockToMarketplaces([...touchedProductIds]).catch((err) => {
+      log.error('Failed to propagate stock after import', { error: err instanceof Error ? err.message : String(err) });
+    });
+  }
+
+  // Fire-and-forget: alert the manager about every oversold order.
+  if (oversoldByOrder.size > 0) {
+    void (async () => {
+      try {
+        const { notifyManagerOversoldAlert } = await import('@/services/telegram');
+        for (const [externalOrderId, items] of oversoldByOrder) {
+          await notifyManagerOversoldAlert({ platform, externalOrderId, items });
+        }
+      } catch (err) {
+        log.error('Failed to send oversold alert', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    })();
+  }
+
   return { imported, skipped, failed };
+}
+
+/**
+ * Pushes the current price of the given products to every enabled marketplace
+ * that has published listings for them. Per-marketplace markup applies
+ * automatically via updateMarketplaceListing/client.updateProduct.
+ *
+ * Fire-and-forget. Errors are logged, never thrown.
+ */
+export async function syncProductsPriceToMarketplaces(productIds: number[]): Promise<void> {
+  if (productIds.length === 0) return;
+
+  try {
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, priceRetail: true },
+    });
+    const priceMap = new Map(products.map((p) => [p.id, Number(p.priceRetail)]));
+
+    const platforms: Platform[] = ['olx', 'rozetka', 'prom', 'epicentrk'];
+
+    for (const platform of platforms) {
+      const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
+      if (!config?.enabled) continue;
+
+      const listings = await prisma.publicationChannel.findMany({
+        where: {
+          channel: platform,
+          status: 'published',
+          externalId: { not: null },
+          publication: { productId: { in: productIds } },
+        },
+        select: {
+          externalId: true,
+          publication: { select: { productId: true } },
+        },
+      });
+
+      for (const listing of listings) {
+        if (!listing.externalId || listing.publication.productId == null) continue;
+        const newPrice = priceMap.get(listing.publication.productId);
+        if (newPrice == null) continue;
+
+        try {
+          if (hasClientBackedSync(platform)) {
+            const client = getClient(platform, config);
+            await client.updateProduct(listing.externalId, {
+              price: await (
+                await import('@/services/marketplaces')
+              ).getMarketplacePrice(platform, newPrice),
+            });
+          } else {
+            await updateMarketplaceListing(
+              platform,
+              listing.externalId,
+              { price: newPrice },
+              env.APP_URL,
+            );
+          }
+        } catch (err) {
+          log.error('Не вдалось оновити ціну', {
+            platform,
+            externalId: listing.externalId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
+  } catch (err) {
+    log.error('syncProductsPriceToMarketplaces fatal', { error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+/**
+ * Pushes the current quantity of the given products to every enabled marketplace
+ * that has published listings for them. Designed to be called fire-and-forget
+ * after order checkout so listings reflect reality without overselling.
+ *
+ * Errors are caught per-listing and logged — they should never propagate up to
+ * the caller (the order has already been created).
+ */
+/**
+ * Maps our local order status to the marketplace's status code.
+ * Returns null when the marketplace doesn't expect us to push this transition
+ * (e.g. status that the marketplace owns itself).
+ */
+function mapLocalToMarketplaceStatus(
+  platform: Platform,
+  localStatus: string,
+): string | null {
+  // We only push statuses that mean "we did something" (shipped) or "we're
+  // closing it" (completed/cancelled). The marketplace owns its own "new/processing".
+  const common: Record<string, Record<string, string>> = {
+    olx: { shipped: 'shipped', completed: 'finished', cancelled: 'cancelled' },
+    rozetka: { shipped: 'sent', completed: 'finished', cancelled: 'canceled' },
+    prom: { shipped: 'delivered', completed: 'received', cancelled: 'canceled' },
+    epicentrk: { shipped: 'shipped', completed: 'completed', cancelled: 'cancelled' },
+  };
+  return common[platform]?.[localStatus] || null;
+}
+
+/**
+ * Pushes a local order status change back to the originating marketplace.
+ * Fire-and-forget. Errors are logged.
+ */
+export async function pushOrderStatusToMarketplace(
+  orderId: number,
+  newStatus: string,
+): Promise<void> {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { externalId: true, source: true },
+    });
+    if (!order?.externalId) return;
+    const source = order.source as Platform;
+    if (!['olx', 'rozetka', 'prom', 'epicentrk'].includes(source)) return;
+
+    const mappedStatus = mapLocalToMarketplaceStatus(source, newStatus);
+    if (!mappedStatus) return;
+
+    const config = (await getChannelConfig(source)) as MarketplaceConfig | null;
+    if (!config?.enabled) return;
+
+    const externalId = order.externalId;
+
+    try {
+      if (source === 'rozetka' && config.apiKey) {
+        await fetch(`https://api-seller.rozetka.com.ua/orders/${externalId}`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: mappedStatus }),
+          signal: AbortSignal.timeout(15000),
+        });
+      } else if (source === 'prom' && config.apiToken) {
+        await fetch('https://my.prom.ua/api/v1/orders/set_status', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${config.apiToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: mappedStatus, ids: [Number(externalId)] }),
+          signal: AbortSignal.timeout(15000),
+        });
+      } else if (source === 'olx' && config.accessToken) {
+        await fetch(`https://www.olx.ua/api/partner/orders/${externalId}/status`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${config.accessToken}`,
+            'Content-Type': 'application/json',
+            Version: '2.0',
+          },
+          body: JSON.stringify({ status: mappedStatus }),
+          signal: AbortSignal.timeout(15000),
+        });
+      } else if (source === 'epicentrk' && config.apiKey) {
+        await fetch(`https://marketplace.epicentrk.ua/api/v1/orders/${externalId}/status`, {
+          method: 'PUT',
+          headers: { 'X-Api-Key': String(config.apiKey), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: mappedStatus }),
+          signal: AbortSignal.timeout(15000),
+        });
+      }
+    } catch (err) {
+      log.error('Не вдалось оновити статус замовлення', {
+        platform: source,
+        externalId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  } catch (err) {
+    log.error('pushOrderStatusToMarketplace fatal', { error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+export async function syncProductsStockToMarketplaces(productIds: number[]): Promise<void> {
+  if (productIds.length === 0) return;
+
+  try {
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, quantity: true },
+    });
+    const stockMap = new Map(products.map((p) => [p.id, p.quantity]));
+
+    const platforms: Platform[] = ['olx', 'rozetka', 'prom', 'epicentrk'];
+
+    for (const platform of platforms) {
+      const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
+      if (!config?.enabled) continue;
+
+      const listings = await prisma.publicationChannel.findMany({
+        where: {
+          channel: platform,
+          status: 'published',
+          externalId: { not: null },
+          publication: { productId: { in: productIds } },
+        },
+        select: {
+          externalId: true,
+          publication: { select: { productId: true } },
+        },
+      });
+
+      for (const listing of listings) {
+        if (!listing.externalId || listing.publication.productId == null) continue;
+        const newQty = stockMap.get(listing.publication.productId);
+        if (newQty == null) continue;
+
+        const allocatedQty = await getMarketplaceStock(
+          platform,
+          newQty,
+          listing.publication.productId,
+        );
+        try {
+          if (hasClientBackedSync(platform)) {
+            const client = getClient(platform, config);
+            await client.updateStock(listing.externalId, allocatedQty);
+          } else {
+            await updateMarketplaceListing(
+              platform,
+              listing.externalId,
+              { quantity: allocatedQty },
+              env.APP_URL,
+            );
+          }
+        } catch (err) {
+          log.error('Не вдалось оновити залишок', {
+            platform,
+            externalId: listing.externalId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
+  } catch (err) {
+    log.error('syncProductsStockToMarketplaces fatal', { error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 export async function getConnectionStatus(platform: Platform): Promise<{
@@ -324,29 +764,59 @@ export async function getConnectionStatus(platform: Platform): Promise<{
   };
 }
 
-export async function syncReturns(): Promise<{ synced: number }> {
-  let synced = 0;
-
-  const connections = await prisma.marketplaceConnection.findMany({
-    where: { isActive: true },
+export async function getOrCreateConnectionId(platform: Platform): Promise<number> {
+  const existing = await prisma.marketplaceConnection.findUnique({ where: { platform } });
+  if (existing) return existing.id;
+  const created = await prisma.marketplaceConnection.create({
+    data: { platform, isActive: true },
   });
+  return created.id;
+}
+
+async function fetchReturnsForPlatform(
+  platform: Platform,
+  config: MarketplaceConfig,
+  dateFrom: string,
+): Promise<NormalizedReturn[]> {
+  if (hasClientBackedSync(platform)) {
+    const client = getClient(platform, config);
+    const raw = await client.getReturns(dateFrom);
+    return raw.map((r): NormalizedReturn => ({
+      id: String(r.id),
+      orderId: 'order_id' in r && r.order_id ? String(r.order_id) : undefined,
+      status: r.status,
+      reason: r.reason || undefined,
+      quantity: r.quantity || 1,
+      refundAmount: r.refund_amount || undefined,
+      createdAt: 'created' in r && typeof r.created === 'string' ? r.created : undefined,
+    }));
+  }
+  if (platform === 'olx') return getOlxReturns(dateFrom);
+  if (platform === 'epicentrk') return getEpicentrkReturns(dateFrom);
+  return [];
+}
+
+export async function syncReturns(): Promise<{ synced: number; perPlatform: Record<string, number> }> {
+  let synced = 0;
+  const perPlatform: Record<string, number> = {};
 
   const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  for (const connection of connections) {
+  const platforms: Platform[] = ['olx', 'rozetka', 'prom', 'epicentrk'];
+
+  for (const platform of platforms) {
+    perPlatform[platform] = 0;
     try {
-      const platform = connection.platform as Platform;
       const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
       if (!config?.enabled) continue;
 
-      const client = getClient(platform, config);
-      const returns = await client.getReturns(dateFrom);
+      const connectionId = await getOrCreateConnectionId(platform);
+      const returns = await fetchReturnsForPlatform(platform, config, dateFrom);
 
       for (const ret of returns) {
-        const externalReturnId = String(ret.id);
-        const externalOrderId = String('order_id' in ret ? ret.order_id : '');
+        const externalReturnId = ret.id;
+        const externalOrderId = ret.orderId || '';
 
-        // Try to find matching local order
         const localOrder = externalOrderId
           ? await prisma.order.findFirst({
               where: { externalId: externalOrderId, source: platform },
@@ -357,7 +827,7 @@ export async function syncReturns(): Promise<{ synced: number }> {
         await prisma.marketplaceReturn.upsert({
           where: {
             connectionId_externalReturnId: {
-              connectionId: connection.id,
+              connectionId,
               externalReturnId,
             },
           },
@@ -365,35 +835,36 @@ export async function syncReturns(): Promise<{ synced: number }> {
             reason: ret.reason || null,
             status: mapReturnStatus(ret.status),
             quantity: ret.quantity || 1,
-            refundAmount: ret.refund_amount || null,
+            refundAmount: ret.refundAmount || null,
           },
           create: {
-            connectionId: connection.id,
+            connectionId,
             externalReturnId,
             orderId: localOrder?.id || null,
             reason: ret.reason || null,
             status: mapReturnStatus(ret.status),
             quantity: ret.quantity || 1,
-            refundAmount: ret.refund_amount || null,
+            refundAmount: ret.refundAmount || null,
           },
         });
 
         synced++;
+        perPlatform[platform]++;
       }
 
       await updateLastSyncTime(platform, 'returns');
     } catch (error) {
-      console.error(
-        `[MarketplaceSync] Помилка синхронізації повернень для ${connection.platform}:`,
-        error,
-      );
+      log.error('Помилка синхронізації повернень', {
+        platform,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
-  return { synced };
+  return { synced, perPlatform };
 }
 
-function mapReturnStatus(
+export function mapReturnStatus(
   externalStatus: string,
 ): 'pending' | 'approved' | 'rejected' | 'completed' {
   const statusMap: Record<string, 'pending' | 'approved' | 'rejected' | 'completed'> = {
@@ -408,6 +879,68 @@ function mapReturnStatus(
     closed: 'completed',
   };
   return statusMap[externalStatus.toLowerCase()] || 'pending';
+}
+
+/**
+ * Push a return-status decision back to the marketplace API. Best-effort:
+ * returns success on 2xx/404 (404 means the marketplace already finalised it),
+ * otherwise an error. Different marketplaces expose different endpoints; for
+ * platforms without a documented return-decision API the call is a no-op that
+ * returns success=true so the local status update can proceed.
+ */
+export async function pushReturnDecision(
+  platform: Platform,
+  externalReturnId: string,
+  decision: 'approved' | 'rejected' | 'completed',
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
+    if (!config?.enabled) {
+      return { success: false, error: `${platform} не налаштовано` };
+    }
+
+    const actionMap: Record<typeof decision, string> = {
+      approved: 'accept',
+      rejected: 'reject',
+      completed: 'complete',
+    };
+
+    switch (platform) {
+      case 'rozetka': {
+        const apiKey = typeof config.apiKey === 'string' ? config.apiKey : '';
+        if (!apiKey) return { success: false, error: 'Rozetka API key не вказано' };
+        const res = await fetch(
+          `https://api-seller.rozetka.com.ua/returns/${encodeURIComponent(externalReturnId)}/${actionMap[decision]}`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(15000),
+          },
+        );
+        if (res.ok || res.status === 404) return { success: true };
+        return { success: false, error: `HTTP ${res.status}` };
+      }
+      case 'prom': {
+        const token = typeof config.apiToken === 'string' ? config.apiToken : '';
+        if (!token) return { success: false, error: 'Prom API token не вказано' };
+        const res = await fetch('https://my.prom.ua/api/v1/returns/set_status', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: Number(externalReturnId), status: decision }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (res.ok || res.status === 404) return { success: true };
+        return { success: false, error: `HTTP ${res.status}` };
+      }
+      case 'olx':
+      case 'epicentrk':
+      default:
+        // No documented partner API for return decisions — local-only status update.
+        return { success: true };
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Помилка push' };
+  }
 }
 
 async function updateLastSyncTime(platform: string, type: string) {

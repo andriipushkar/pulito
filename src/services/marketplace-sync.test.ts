@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { mockClient, MockClientClass, mockTxOrder } = vi.hoisted(() => {
+const { mockClient, MockClientClass, mockTxOrder, mockTxProduct } = vi.hoisted(() => {
   const mockClient = {
     createProduct: vi.fn(),
     updateProduct: vi.fn(),
@@ -17,7 +17,12 @@ const { mockClient, MockClientClass, mockTxOrder } = vi.hoisted(() => {
     findFirst: vi.fn(),
     create: vi.fn(),
   };
-  return { mockClient, MockClientClass, mockTxOrder };
+  const mockTxProduct = {
+    findUnique: vi.fn(),
+    updateMany: vi.fn(),
+    update: vi.fn(),
+  };
+  return { mockClient, MockClientClass, mockTxOrder, mockTxProduct };
 });
 
 vi.mock('@/lib/prisma', () => ({
@@ -26,7 +31,9 @@ vi.mock('@/lib/prisma', () => ({
     publicationChannel: { findMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     order: { findFirst: vi.fn(), create: vi.fn() },
     siteSetting: { upsert: vi.fn(), findMany: vi.fn() },
-    $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn({ order: mockTxOrder })),
+    $transaction: vi.fn((fn: (tx: unknown) => unknown) =>
+      fn({ order: mockTxOrder, product: mockTxProduct }),
+    ),
   },
 }));
 
@@ -49,6 +56,7 @@ import {
   syncStockToMarketplace,
   importOrdersFromMarketplace,
   getConnectionStatus,
+  pushReturnDecision,
 } from './marketplace-sync';
 
 const mockPrisma = prisma as unknown as {
@@ -345,6 +353,60 @@ describe('importOrdersFromMarketplace', () => {
     expect(mockTxOrder.create).not.toHaveBeenCalled();
   });
 
+  it('decrements local product stock when item has a code', async () => {
+    mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'key', sellerId: 'shop1' });
+    mockClient.getOrders.mockResolvedValue([
+      {
+        id: 400,
+        status: 'new',
+        amount: 200,
+        buyer: { name: 'Buyer', phone: '+380333333333' },
+        items: [{ name: 'Item', quantity: 3, price: 200, id: 'SKU-1' }],
+      },
+    ]);
+    mockTxOrder.findFirst.mockResolvedValue(null);
+    mockTxOrder.create.mockResolvedValue({ id: 10 });
+    mockTxProduct.findUnique.mockResolvedValue({ id: 77 });
+    mockTxProduct.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
+
+    const result = await importOrdersFromMarketplace('rozetka');
+
+    expect(result).toEqual({ imported: 1, skipped: 0, failed: 0 });
+    expect(mockTxProduct.updateMany).toHaveBeenCalledWith({
+      where: { id: 77, quantity: { gte: 3 } },
+      data: { quantity: { decrement: 3 } },
+    });
+    expect(mockTxProduct.update).not.toHaveBeenCalled();
+  });
+
+  it('forces quantity to 0 when local stock is insufficient', async () => {
+    mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'key', sellerId: 'shop1' });
+    mockClient.getOrders.mockResolvedValue([
+      {
+        id: 500,
+        status: 'new',
+        amount: 100,
+        buyer: { name: 'Buyer', phone: '+380444444444' },
+        items: [{ name: 'Item', quantity: 5, price: 100, id: 'SKU-2' }],
+      },
+    ]);
+    mockTxOrder.findFirst.mockResolvedValue(null);
+    mockTxOrder.create.mockResolvedValue({ id: 11 });
+    mockTxProduct.findUnique.mockResolvedValue({ id: 88 });
+    mockTxProduct.updateMany.mockResolvedValue({ count: 0 });
+    mockTxProduct.update.mockResolvedValue({ id: 88, quantity: 0 });
+    mockPrisma.siteSetting.upsert.mockResolvedValue({});
+
+    const result = await importOrdersFromMarketplace('rozetka');
+
+    expect(result).toEqual({ imported: 1, skipped: 0, failed: 0 });
+    expect(mockTxProduct.update).toHaveBeenCalledWith({
+      where: { id: 88 },
+      data: { quantity: 0 },
+    });
+  });
+
   it('should handle parse errors gracefully', async () => {
     mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'key', sellerId: 'shop1' });
     mockClient.getOrders.mockResolvedValue([
@@ -402,5 +464,95 @@ describe('getConnectionStatus', () => {
       lastSyncOrders: null,
       publishedCount: 0,
     });
+  });
+});
+
+describe('pushReturnDecision', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('returns failure when platform is not configured', async () => {
+    mockGetChannelConfig.mockResolvedValue(null);
+    const res = await pushReturnDecision('rozetka', 'ext-1', 'approved');
+    expect(res.success).toBe(false);
+  });
+
+  it('hits Rozetka /returns/{id}/accept on approved', async () => {
+    mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'k' });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await pushReturnDecision('rozetka', 'ext-1', 'approved');
+
+    expect(res.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/returns/ext-1/accept');
+  });
+
+  it('hits Rozetka /returns/{id}/reject on rejected', async () => {
+    mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'k' });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await pushReturnDecision('rozetka', '42', 'rejected');
+
+    expect(res.success).toBe(true);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/returns/42/reject');
+  });
+
+  it('hits Prom /returns/set_status', async () => {
+    mockGetChannelConfig.mockResolvedValue({ enabled: true, apiToken: 't' });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await pushReturnDecision('prom', '7', 'completed');
+
+    expect(res.success).toBe(true);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/returns/set_status');
+  });
+
+  it('treats remote 404 as success (return already finalised)', async () => {
+    mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'k' });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await pushReturnDecision('rozetka', '1', 'approved');
+
+    expect(res.success).toBe(true);
+  });
+
+  it('returns failure on 5xx from marketplace', async () => {
+    mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'k' });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 502 });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await pushReturnDecision('rozetka', '1', 'approved');
+
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('502');
+  });
+
+  it('is a no-op success for OLX (no public API)', async () => {
+    mockGetChannelConfig.mockResolvedValue({ enabled: true, accessToken: 'a' });
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await pushReturnDecision('olx', '1', 'approved');
+
+    expect(res.success).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op success for Epicentr K (no public API)', async () => {
+    mockGetChannelConfig.mockResolvedValue({ enabled: true, apiKey: 'k' });
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await pushReturnDecision('epicentrk', '1', 'completed');
+
+    expect(res.success).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

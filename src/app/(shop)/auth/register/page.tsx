@@ -9,10 +9,24 @@ import Button from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { z } from 'zod';
 
+const PASSWORD_HINT =
+  'Мінімум 8 символів, велика та мала літера, цифра і спецсимвол (!@#$…)';
+
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Мінімум 2 символи'),
   email: z.string().email('Невірний формат email'),
-  password: z.string().min(8, 'Мінімум 8 символів'),
+  password: z
+    .string()
+    .min(8, 'Мінімум 8 символів')
+    .max(128, 'Максимум 128 символів')
+    .refine(
+      (val) =>
+        /[A-Z]/.test(val) &&
+        /[a-z]/.test(val) &&
+        /\d/.test(val) &&
+        /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/]/.test(val),
+      { message: PASSWORD_HINT },
+    ),
   phone: z.string().optional(),
   companyName: z.string().max(200, 'Максимум 200 символів').optional(),
   edrpou: z
@@ -106,15 +120,18 @@ export default function RegisterPage() {
           placeholder="your@email.com"
           autoComplete="email"
         />
-        <Input
-          label="Пароль"
-          type="password"
-          value={form.password}
-          onChange={(e) => handleChange('password', e.target.value)}
-          error={errors.password}
-          placeholder="Мінімум 8 символів"
-          autoComplete="new-password"
-        />
+        <div>
+          <Input
+            label="Пароль"
+            type="password"
+            value={form.password}
+            onChange={(e) => handleChange('password', e.target.value)}
+            error={errors.password}
+            placeholder="Мінімум 8 символів"
+            autoComplete="new-password"
+          />
+          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{PASSWORD_HINT}</p>
+        </div>
         <PhoneInput
           label="Телефон (опційно)"
           value={form.phone}

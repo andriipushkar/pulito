@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
+vi.mock('@/middleware/auth', () => ({
+  withRole: (..._roles: string[]) => (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('@/services/typesense', () => ({
+  removeProductFromIndex: vi.fn(),
+  indexProduct: vi.fn(),
+}));
 vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
 vi.mock('@/validators/product', () => ({ updateProductSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/product', () => ({
@@ -127,7 +137,7 @@ describe('DELETE /api/v1/admin/products/[id]', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('deletes product on success', async () => {
-    vi.mocked(deleteProduct).mockResolvedValue(undefined as any);
+    vi.mocked(deleteProduct).mockResolvedValue({ hard: true } as any);
     const req = new Request('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req as any, mockCtx as any);
     expect(res.status).toBe(200);

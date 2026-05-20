@@ -3,7 +3,7 @@ import { withAuth, withOptionalAuth } from '@/middleware/auth';
 import { createOrder, getUserOrders, OrderError } from '@/services/order';
 import { getCartWithPersonalPrices } from '@/services/cart';
 import { spendPoints, LoyaltyError } from '@/services/loyalty';
-import { getIdempotentResponse, setIdempotentResponse } from '@/services/idempotency';
+import { reserveIdempotencyKey, updateIdempotentResponse } from '@/services/idempotency';
 import { checkoutSchema, guestCheckoutSchema, orderFilterSchema } from '@/validators/order';
 import { successResponse, errorResponse, paginatedResponse } from '@/utils/api-response';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
@@ -29,12 +29,22 @@ export const GET = createApiHandler(RATE_LIMITS.orders, withAuth(async (request:
 
 export const POST = createApiHandler(RATE_LIMITS.orders, withOptionalAuth(async (request: NextRequest, { user }) => {
   try {
-    // Idempotency key support
+    // Idempotency key support — atomic reserve closes the double-click race
+    // where two requests both see "no cached response" and both create orders.
     const idempotencyKey = request.headers.get('x-idempotency-key');
     if (idempotencyKey) {
-      const cached = await getIdempotentResponse(idempotencyKey);
-      if (cached) {
-        return NextResponse.json(JSON.parse(cached), { status: 201 });
+      const slot = await reserveIdempotencyKey(idempotencyKey);
+      if (!slot.reserved) {
+        if ('inFlight' in slot) {
+          return errorResponse(
+            'Замовлення вже опрацьовується. Зачекайте кілька секунд і перевірте список замовлень.',
+            409,
+          );
+        }
+        if (slot.cached) {
+          return NextResponse.json(JSON.parse(slot.cached), { status: 201 });
+        }
+        return errorResponse('Це замовлення вже опрацьовано', 409);
       }
     }
 
@@ -78,8 +88,18 @@ export const POST = createApiHandler(RATE_LIMITS.orders, withOptionalAuth(async 
       }
 
       const orderItems = cartItems.map((item) => {
+        // Price priority:
+        //  1. volumeDiscount.discountedPrice (merchant-set quantity-tier promo)
+        //  2. personalPrice (admin-set per-user/per-category override)
+        //  3. wholesale group tier (for B2B clients)
+        //  4. priceRetail (default)
+        // Volume wins because the merchant explicitly configured the discount
+        // and it's already shown to the customer in the cart row — silently
+        // applying personal/wholesale instead would mismatch the cart display.
         let price: number;
-        if (item.personalPrice !== null) {
+        if (item.volumeDiscount) {
+          price = item.volumeDiscount.discountedPrice;
+        } else if (item.personalPrice !== null) {
           price = item.personalPrice;
         } else if (clientType === 'wholesale') {
           const resolved = resolveWholesalePrice(item.product, wholesaleGroup);
@@ -113,12 +133,21 @@ export const POST = createApiHandler(RATE_LIMITS.orders, withOptionalAuth(async 
         }
       }
 
-      const order = await createOrder(user.id, parsed.data, orderItems, clientType);
+      const order = await createOrder(
+        user.id,
+        parsed.data,
+        orderItems,
+        clientType,
+        loyaltyPointsToSpend ?? 0,
+      );
 
-      // Spend loyalty points after order is created (pre-validated above)
-      if (loyaltyPointsToSpend && loyaltyPointsToSpend > 0) {
+      // Use the actually-applied discount from the created order (the service
+      // clamps to the cart total) so we never debit more points than the
+      // customer received as a discount.
+      const pointsActuallySpent = Number(order.discountAmount);
+      if (pointsActuallySpent > 0) {
         try {
-          await spendPoints(user.id, loyaltyPointsToSpend, order.id);
+          await spendPoints(user.id, pointsActuallySpent, order.id);
         } catch (error) {
           if (error instanceof LoyaltyError) {
             // Points were pre-validated, so this is unexpected — log but don't fail
@@ -130,7 +159,10 @@ export const POST = createApiHandler(RATE_LIMITS.orders, withOptionalAuth(async 
       const paymentRequired = parsed.data.paymentMethod === 'online';
       const responseData = { ...order, paymentRequired };
       if (idempotencyKey) {
-        await setIdempotentResponse(idempotencyKey, JSON.stringify({ success: true, data: responseData }));
+        await updateIdempotentResponse(
+          idempotencyKey,
+          JSON.stringify({ success: true, data: responseData }),
+        );
       }
 
       // Server-side tracking (non-blocking)
@@ -186,7 +218,10 @@ export const POST = createApiHandler(RATE_LIMITS.orders, withOptionalAuth(async 
       const paymentRequired = parsed.data.paymentMethod === 'online';
       const responseData = { ...order, paymentRequired };
       if (idempotencyKey) {
-        await setIdempotentResponse(idempotencyKey, JSON.stringify({ success: true, data: responseData }));
+        await updateIdempotentResponse(
+          idempotencyKey,
+          JSON.stringify({ success: true, data: responseData }),
+        );
       }
       return successResponse(responseData, 201);
     }

@@ -1,6 +1,7 @@
 import { withRole } from '@/middleware/auth';
 import { bulkGenerateProductSeo, SeoTemplateError } from '@/services/seo-template';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('admin')(
   async () => {
@@ -11,6 +12,7 @@ export const POST = withRole('admin')(
       if (error instanceof SeoTemplateError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/seo-templates/generate] POST failed', { error });
       return errorResponse('Помилка генерації SEO', 500);
     }
   }

@@ -1,9 +1,10 @@
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { getBilling, checkUsageLimits, BillingError } from '@/services/billing';
+import { logger } from '@/lib/logger';
 
-export const GET = withRole('admin')(
+export const GET = withRole2fa('admin')(
   async (_request, { user }) => {
     try {
       const membership = await prisma.tenantUser.findFirst({
@@ -22,6 +23,7 @@ export const GET = withRole('admin')(
       if (error instanceof BillingError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/billing] GET failed', { error });
       return errorResponse('Помилка завантаження біллінгу', 500);
     }
   }

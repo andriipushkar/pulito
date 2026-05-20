@@ -21,11 +21,6 @@ vi.mock('fs/promises', () => ({
   },
 }));
 
-vi.mock('xlsx', () => ({
-  read: vi.fn(),
-  utils: { sheet_to_json: vi.fn() },
-}));
-
 import { prisma } from '@/lib/prisma';
 import { syncPricesFromFile, parsePriceCsv, parsePriceXlsx } from './price-sync';
 

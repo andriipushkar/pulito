@@ -17,6 +17,7 @@ model Category {
   parent         Category?  @relation("CategoryTree", fields: [parentId], references: [id])
   children       Category[] @relation("CategoryTree")
   mergedFrom     Json?      @map("merged_from")
+  version        Int        @default(0)
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
@@ -40,10 +41,19 @@ model Banner {
   buttonLink   String?  @map("button_link")
   sortOrder    Int      @default(0) @map("sort_order")
   isActive     Boolean  @default(true) @map("is_active")
+  // A/B testing — banners with the same `variantGroup` are eligible to be
+  // shown to the same visitor (one randomly, weighted by `variantWeight`).
+  // Null group → standalone banner, always shown if active.
+  variantGroup  String?  @map("variant_group")
+  variantWeight Int      @default(1) @map("variant_weight")
+  // Engagement counters incremented by /api/v1/banners/{id}/impression and /click.
+  impressions   Int      @default(0)
+  clicks        Int      @default(0)
   createdBy    Int?     @map("created_by")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  @@index([variantGroup, isActive])
   @@map("banners")
 }
 
@@ -51,36 +61,63 @@ model Banner {
 // 23.11 Static_Pages
 // ─────────────────────────────────────
 model StaticPage {
-  id             Int      @id @default(autoincrement())
-  slug           String   @unique
+  id             Int          @id @default(autoincrement())
+  slug           String       @unique
   title          String
   content        String
-  seoTitle       String?  @map("seo_title")
-  seoDescription String?  @map("seo_description")
-  isPublished    Boolean  @default(true) @map("is_published")
-  sortOrder      Int      @default(0) @map("sort_order")
-  updatedBy      Int?     @map("updated_by")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  seoTitle       String?      @map("seo_title")
+  seoDescription String?      @map("seo_description")
+  isPublished    Boolean      @default(true) @map("is_published")
+  sortOrder      Int          @default(0) @map("sort_order")
+  // Hierarchy — pages can nest one level deep (e.g. "About" → "Team", "About"
+  // → "Mission"). Used for the footer menu builder.
+  parentId       Int?         @map("parent_id")
+  parent         StaticPage?  @relation("StaticPageTree", fields: [parentId], references: [id])
+  children       StaticPage[] @relation("StaticPageTree")
+  updatedBy      Int?         @map("updated_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
+  @@index([parentId])
   @@map("static_pages")
 }
 
 // ─────────────────────────────────────
-// 23.12 FAQ_Items
+// 23.12 FAQ_Items + FAQ_Categories
 // ─────────────────────────────────────
+model FaqCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  iconPath    String?   @map("icon_path")
+  sortOrder   Int       @default(0) @map("sort_order")
+  isPublished Boolean   @default(true) @map("is_published")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  items       FaqItem[]
+
+  @@map("faq_categories")
+}
+
 model FaqItem {
-  id          Int      @id @default(autoincrement())
-  category    String
-  question    String
-  answer      String
-  sortOrder   Int      @default(0) @map("sort_order")
-  isPublished Boolean  @default(true) @map("is_published")
-  clickCount  Int      @default(0) @map("click_count")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           Int          @id @default(autoincrement())
+  // Legacy free-text category — kept for the migration window. New writes
+  // populate categoryRefId; old data is backfilled by the migration.
+  category     String
+  categoryRefId Int?         @map("category_ref_id")
+  categoryRef   FaqCategory? @relation(fields: [categoryRefId], references: [id])
+  question     String
+  answer       String
+  sortOrder    Int          @default(0) @map("sort_order")
+  isPublished  Boolean      @default(true) @map("is_published")
+  clickCount   Int          @default(0) @map("click_count")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
 
   @@index([category, sortOrder])
+  @@index([categoryRefId, sortOrder])
   @@index([isPublished])
   @@map("faq_items")
 }

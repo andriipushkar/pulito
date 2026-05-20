@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { sanitizeHtml } from '@/utils/sanitize';
 
 export class FaqError extends Error {
   constructor(
@@ -11,14 +12,35 @@ export class FaqError extends Error {
 }
 
 export async function getPublishedFaq() {
-  const items = await prisma.faqItem.findMany({
+  // Prefer the new FaqCategory model when it has any published categories;
+  // fall back to the legacy `category` string grouping for items that still
+  // haven't been migrated. This keeps the storefront stable mid-migration.
+  const categoryRows = await prisma.faqCategory.findMany({
     where: { isPublished: true },
-    orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    include: {
+      items: {
+        where: { isPublished: true },
+        orderBy: { sortOrder: 'asc' },
+      },
+    },
   });
 
-  // Group by category
-  const grouped: Record<string, typeof items> = {};
-  for (const item of items) {
+  const grouped: Record<string, Awaited<ReturnType<typeof prisma.faqItem.findMany>>> = {};
+
+  // First pass: items linked via categoryRefId.
+  for (const cat of categoryRows) {
+    if (cat.items.length > 0) {
+      grouped[cat.name] = cat.items;
+    }
+  }
+
+  // Second pass: legacy items without categoryRefId still need to surface.
+  const orphans = await prisma.faqItem.findMany({
+    where: { isPublished: true, categoryRefId: null },
+    orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
+  });
+  for (const item of orphans) {
     if (!grouped[item.category]) grouped[item.category] = [];
     grouped[item.category].push(item);
   }
@@ -27,13 +49,20 @@ export async function getPublishedFaq() {
 }
 
 export async function getFaqCategories() {
-  const items = await prisma.faqItem.findMany({
-    where: { isPublished: true },
+  // Same dual-source as getPublishedFaq — categories from the new table plus
+  // any legacy string categories with orphaned items.
+  const refs = await prisma.faqCategory.findMany({
+    where: { isPublished: true, items: { some: { isPublished: true } } },
+    select: { name: true },
+    orderBy: { sortOrder: 'asc' },
+  });
+  const orphans = await prisma.faqItem.findMany({
+    where: { isPublished: true, categoryRefId: null },
     select: { category: true },
     distinct: ['category'],
-    orderBy: { category: 'asc' },
   });
-  return items.map((i) => i.category);
+  const names = new Set([...refs.map((r) => r.name), ...orphans.map((o) => o.category)]);
+  return Array.from(names).sort();
 }
 
 export async function searchFaq(query: string) {
@@ -73,7 +102,9 @@ export async function createFaqItem(data: {
     data: {
       category: data.category,
       question: data.question,
-      answer: data.answer,
+      // Answer is rendered as HTML on the storefront — sanitize at write time
+      // so a stored-XSS payload can't reach the visitor's browser.
+      answer: sanitizeHtml(data.answer),
       sortOrder: data.sortOrder ?? 0,
       isPublished: data.isPublished ?? true,
     },
@@ -93,7 +124,13 @@ export async function updateFaqItem(
   const item = await prisma.faqItem.findUnique({ where: { id } });
   if (!item) throw new FaqError('Питання не знайдено', 404);
 
-  return prisma.faqItem.update({ where: { id }, data });
+  return prisma.faqItem.update({
+    where: { id },
+    data: {
+      ...data,
+      ...(data.answer !== undefined && { answer: sanitizeHtml(data.answer) }),
+    },
+  });
 }
 
 export async function deleteFaqItem(id: number) {

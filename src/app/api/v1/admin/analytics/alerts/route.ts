@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const createAlertSchema = z.object({
   metric: z.enum(['daily_revenue', 'daily_orders', 'avg_check', 'stock_zero', 'new_users', 'cancelled_orders']),
@@ -31,7 +32,8 @@ export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { 
     });
 
     return successResponse(mapped);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/analytics/alerts] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -66,7 +68,8 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest, { 
       channel: parsed.data.channel,
       isActive: true,
     });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/analytics/alerts] POST failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

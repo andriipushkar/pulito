@@ -34,6 +34,8 @@ model PersonalPrice {
   fixedPrice      Decimal?  @map("fixed_price") @db.Decimal(10, 2)
   validFrom       DateTime? @map("valid_from")
   validUntil      DateTime? @map("valid_until")
+  // Stacking — same semantics as other discount models.
+  stackableWith   String[]  @default([]) @map("stackable_with")
   createdBy       Int       @map("created_by")
   creator         User      @relation("PersonalPriceCreator", fields: [createdBy], references: [id])
   createdAt       DateTime  @default(now()) @map("created_at")

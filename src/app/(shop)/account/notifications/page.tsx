@@ -102,7 +102,6 @@ export default function NotificationsPage() {
             </svg>
           }
           title="Сповіщення"
-          subtitle="Усі сповіщення прочитані"
         />
         <EmptyState
           icon={

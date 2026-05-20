@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { cacheGet, cacheSet } from '@/services/cache';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { parseDays } from '@/utils/analytics-days';
 
 /** Helper: get period comparison dates */
 function getPeriods(days: number) {
@@ -27,7 +28,7 @@ export const GET = withRole(
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'sales';
-    const days = Number(searchParams.get('days')) || 30;
+    const days = parseDays(searchParams.get('days'), 30);
 
     // Cache analytics for 15 minutes to reduce DB load
     const cacheKey = `analytics:${type}:${days}`;

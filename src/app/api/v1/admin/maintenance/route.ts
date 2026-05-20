@@ -3,17 +3,23 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { cacheInvalidate } from '@/services/cache';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(async () => {
   try {
-    const setting = await prisma.siteSetting.findUnique({
-      where: { key: 'maintenance_mode' },
+    const settings = await prisma.siteSetting.findMany({
+      where: { key: { in: ['maintenance_mode', 'maintenance_message'] } },
+      select: { key: true, value: true },
     });
+    const byKey = new Map(settings.map((s) => [s.key, s.value]));
     return successResponse({
-      enabled: setting?.value === 'true',
-      message: (await prisma.siteSetting.findUnique({ where: { key: 'maintenance_message' } }))?.value || '',
+      enabled: byKey.get('maintenance_mode') === 'true',
+      message: byKey.get('maintenance_message') || '',
     });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/maintenance GET] failed', { error: err });
     return errorResponse('Помилка', 500);
   }
 });
@@ -39,8 +45,17 @@ export const PUT = withRole('admin')(async (request: NextRequest, { user }) => {
     await cacheInvalidate('maintenance:*');
     await cacheInvalidate('settings:*');
 
+    await logAudit({
+      userId: user.id,
+      actionType: 'rule_change',
+      entityType: 'settings',
+      details: { scope: 'maintenance', enabled: !!enabled, messageProvided: message !== undefined },
+      ipAddress: getClientIp(request),
+    });
+
     return successResponse({ enabled: !!enabled });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/maintenance PUT] failed', { error: err });
     return errorResponse('Помилка', 500);
   }
 });

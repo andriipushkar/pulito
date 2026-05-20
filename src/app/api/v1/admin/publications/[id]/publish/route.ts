@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { publishNow, PublicationError } from '@/services/publication';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('admin', 'manager')(async (_request: NextRequest, { params }) => {
   try {
@@ -26,6 +27,7 @@ export const POST = withRole('admin', 'manager')(async (_request: NextRequest, {
     if (error instanceof PublicationError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/publications/[id]/publish] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

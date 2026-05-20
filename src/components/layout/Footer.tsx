@@ -1,33 +1,33 @@
-'use client';
-
 import Link from 'next/link';
 import Container from '@/components/ui/Container';
-import SubscriptionForm from './SubscriptionForm';
-import { Telegram, Viber, Instagram, Facebook, TikTok } from '@/components/icons';
-import { useSettings } from '@/hooks/useSettings';
+import OpenStatus from './OpenStatus';
+import PaymentBadges from './PaymentBadges';
+import DeliveryBadges from './DeliveryBadges';
+import { Telegram, Viber, Instagram, Facebook, TikTok, MapPin, Phone, Mail } from '@/components/icons';
+import type { SiteSettings } from '@/types/settings';
 
 const iconMap: Record<string, React.FC<{ size: number }>> = {
   social_telegram: Telegram,
-  social_viber: Viber,
-  social_instagram: Instagram,
-  social_facebook: Facebook,
   social_tiktok: TikTok,
+  social_instagram: Instagram,
+  social_viber: Viber,
+  social_facebook: Facebook,
 };
 
 const socialLabels: Record<string, string> = {
   social_telegram: 'Telegram',
-  social_viber: 'Viber',
-  social_instagram: 'Instagram',
-  social_facebook: 'Facebook',
   social_tiktok: 'TikTok',
+  social_instagram: 'Instagram',
+  social_viber: 'Viber',
+  social_facebook: 'Facebook',
 };
 
 const SOCIAL_KEYS = [
   'social_telegram',
-  'social_viber',
-  'social_instagram',
-  'social_facebook',
   'social_tiktok',
+  'social_instagram',
+  'social_viber',
+  'social_facebook',
 ] as const;
 
 const buyerLinks = [
@@ -36,7 +36,6 @@ const buyerLinks = [
   { href: '/pages/returns', label: 'Повернення' },
   { href: '/faq', label: 'Часті питання' },
   { href: '/pages/cooperation', label: 'Умови співпраці' },
-  { href: '/contacts', label: 'Контакти' },
 ];
 
 const catalogLinks = [
@@ -45,226 +44,191 @@ const catalogLinks = [
   { href: '/catalog?sort=newest', label: 'Новинки' },
   { href: '/bundles', label: 'Комплекти' },
   { href: '/blog', label: 'Блог' },
-  { href: '/calculator', label: 'Калькулятор' },
 ];
 
-export default function Footer() {
-  const settings = useSettings();
+const DEFAULT_DESCRIPTION =
+  'Інтернет-магазин побутової хімії та засобів для дому. Широкий асортимент, вигідні ціни, швидка доставка по Україні.';
 
+function mapsLinkFor(address: string, placeId: string): string {
+  if (placeId) return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
+const linkClass =
+  'rounded-sm text-sm text-white/65 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-light)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-footer-bg)]';
+
+const socialIconClass =
+  'flex h-9 w-9 items-center justify-center rounded-md text-white/75 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-light)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-footer-bg)]';
+
+export default function Footer({ settings }: { settings: SiteSettings }) {
   const socialLinks = SOCIAL_KEYS.filter((key) => settings[key]).map((key) => ({
     href: settings[key],
     label: socialLabels[key],
     Icon: iconMap[key],
   }));
 
+  const mapsHref = mapsLinkFor(settings.site_address, settings.google_business_place_id);
+  const description = settings.company_description || DEFAULT_DESCRIPTION;
+
   return (
-    <footer className="bg-[var(--color-text)] text-white/70">
+    <footer
+      aria-labelledby="footer-heading"
+      className="bg-[var(--color-footer-bg)] text-white/65"
+    >
+      <h2 id="footer-heading" className="sr-only">
+        Інформація сайту
+      </h2>
+
       <Container className="py-8 lg:py-10">
-        {/* Mobile */}
-        <div className="lg:hidden">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 text-lg font-bold text-white"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-primary)] text-xs font-black text-white">
-                {settings.site_name.charAt(0)}
-              </span>
-              <span className="text-[var(--color-primary)]">{settings.site_name}</span>
-            </Link>
-            <div className="flex gap-2">
-              {socialLinks.map(({ href, label, Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={label}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white/60 transition-colors hover:bg-[var(--color-primary)] hover:text-white"
-                >
-                  <Icon size={16} />
-                </a>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/70">
-                Покупцям
-              </h3>
-              <ul className="flex flex-col gap-1.5">
-                {buyerLinks.map(({ href, label }) => (
-                  <li key={href}>
-                    <Link href={href} className="text-[13px] transition-colors hover:text-white">
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/70">
-                Каталог
-              </h3>
-              <ul className="flex flex-col gap-1.5">
-                {catalogLinks.map(({ href, label }) => (
-                  <li key={href}>
-                    <Link href={href} className="text-[13px] transition-colors hover:text-white">
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-4">
-                <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/70">
-                  Контакти
-                </h3>
-                <a
-                  href={`tel:${settings.site_phone}`}
-                  className="text-[13px] font-medium text-white"
-                >
-                  {settings.site_phone_display}
-                </a>
-                <p className="text-[11px] text-white/70">{settings.working_hours}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-2xl bg-white/5 p-4">
-            <p className="mb-2 text-xs font-semibold text-white/60">Знижки та новини на пошту</p>
-            <SubscriptionForm />
-          </div>
-        </div>
-
-        {/* Desktop */}
-        <div className="hidden items-start gap-10 lg:flex xl:gap-14">
-          <div className="w-[220px] shrink-0">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 text-lg font-bold text-white"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-primary)] text-xs font-black text-white">
-                {settings.site_name.charAt(0)}
-              </span>
-              <span className="text-[var(--color-primary)]">{settings.site_name}</span>
-            </Link>
-            <p className="mt-2 text-xs leading-relaxed text-white/50">
-              {settings.company_description}
-            </p>
-            <h4 className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wider text-white/70">
-              Ми в соцмережах
-            </h4>
-            <div className="flex gap-2">
-              {socialLinks.map(({ href, label, Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={label}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white/50 transition-all hover:bg-[var(--color-primary)] hover:text-white"
-                >
-                  <Icon size={15} />
-                </a>
-              ))}
-            </div>
-          </div>
-
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1.2fr] lg:gap-12">
+          {/* Brand */}
           <div>
-            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/70">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-lg font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-light)] focus-visible:rounded"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)] text-sm font-black text-white">
+                {settings.site_name.charAt(0)}
+              </span>
+              <span className="text-[var(--color-primary-light)]">{settings.site_name}</span>
+            </Link>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/55">
+              {description}
+            </p>
+
+            {socialLinks.length > 0 && (
+              <>
+                <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-white/55">
+                  Ми в соцмережах
+                </h3>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {socialLinks.map(({ href, label, Icon }) => (
+                    <a
+                      key={label}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={label}
+                      className={socialIconClass}
+                    >
+                      <Icon size={20} />
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Buyers */}
+          <nav aria-label="Покупцям">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/55">
               Покупцям
             </h3>
-            <ul className="flex flex-col gap-1.5">
+            <ul className="flex flex-col gap-2">
               {buyerLinks.map(({ href, label }) => (
                 <li key={href}>
-                  <Link href={href} className="text-[13px] transition-colors hover:text-white">
+                  <Link href={href} className={linkClass}>
                     {label}
                   </Link>
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          <div>
-            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/70">
+          {/* Catalog */}
+          <nav aria-label="Каталог">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/55">
               Каталог
             </h3>
-            <ul className="flex flex-col gap-1.5">
+            <ul className="flex flex-col gap-2">
               {catalogLinks.map(({ href, label }) => (
                 <li key={href}>
-                  <Link href={href} className="text-[13px] transition-colors hover:text-white">
+                  <Link href={href} className={linkClass}>
                     {label}
                   </Link>
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
 
+          {/* Contacts */}
           <div>
-            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/70">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/55">
               Контакти
             </h3>
-            <a
-              href={`tel:${settings.site_phone}`}
-              className="text-sm font-medium text-white transition-colors hover:text-[var(--color-primary)]"
-            >
-              {settings.site_phone_display}
-            </a>
-            <p className="mt-1 text-xs text-white/70">{settings.working_hours}</p>
-            <a
-              href={`mailto:${settings.site_email}`}
-              className="mt-1.5 block text-xs transition-colors hover:text-white"
-            >
-              {settings.site_email}
-            </a>
-          </div>
+            <address className="flex flex-col gap-3 not-italic">
+              <a
+                href={`tel:${settings.site_phone}`}
+                className="group inline-flex items-start gap-2 text-base font-semibold text-white transition-colors hover:text-[var(--color-primary-light)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-light)] focus-visible:rounded"
+              >
+                <Phone size={16} className="mt-1 text-white/55 transition-colors group-hover:text-[var(--color-primary-light)]" />
+                <span>{settings.site_phone_display}</span>
+              </a>
 
-          <div className="ml-auto w-[220px] shrink-0">
-            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/70">
-              Підписка
-            </h3>
-            <p className="mb-2 text-xs text-white/50">Знижки та новини на вашу пошту</p>
-            <SubscriptionForm />
+              <div className="ml-6">
+                <OpenStatus />
+                <p className="mt-1 text-xs text-white/45">{settings.working_hours}</p>
+              </div>
+
+              {settings.site_email && (
+                <a
+                  href={`mailto:${settings.site_email}`}
+                  className="group inline-flex items-start gap-2 text-sm text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-light)] focus-visible:rounded"
+                >
+                  <Mail size={16} className="mt-0.5 text-white/55 transition-colors group-hover:text-white" />
+                  <span>{settings.site_email}</span>
+                </a>
+              )}
+
+              {settings.site_address && (
+                <div className="flex items-start gap-2">
+                  <MapPin size={16} className="mt-0.5 shrink-0 text-white/55" />
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-sm text-white/70">{settings.site_address}</span>
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center rounded-full bg-white/[0.08] px-2 py-0.5 text-[11px] font-medium text-[var(--color-primary-light)] transition-colors hover:bg-white/[0.14] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-light)]"
+                    >
+                      На мапі
+                    </a>
+                  </div>
+                </div>
+              )}
+            </address>
           </div>
         </div>
       </Container>
 
       {/* Bottom bar */}
-      <div className="border-t border-white/10">
-        <Container className="flex flex-col items-center gap-3 py-4 sm:flex-row sm:justify-between">
-          <div className="flex items-center gap-2">
-            <span className="mr-1 text-[11px] text-white/60">Приймаємо:</span>
-            {[
-              { name: 'VISA', bg: 'bg-[#1A1F71]' },
-              { name: 'MC', bg: 'bg-[#EB001B]' },
-              { name: 'LiqPay', bg: 'bg-[#7AB72B]' },
-              { name: 'mono', bg: 'bg-[#000000]' },
-            ].map(({ name, bg }) => (
-              <span
-                key={name}
-                className={`${bg} rounded px-2 py-0.5 text-[10px] font-semibold text-white/80`}
-              >
-                {name}
-              </span>
-            ))}
+      <div className="border-t border-white/[0.08]">
+        <Container className="flex flex-col items-center gap-4 py-4 lg:flex-row lg:justify-between">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+            <PaymentBadges />
+            <span aria-hidden="true" className="h-5 w-px bg-white/15" />
+            <DeliveryBadges />
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-white/60">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-white/55">
             <span>
-              &copy; {new Date().getFullYear()} {settings.site_name}. Всі права захищені.
+              &copy; {new Date().getFullYear()} {settings.site_name}
             </span>
-            <Link href="/pages/privacy-policy" className="transition-colors hover:text-white/60">
+            <Link href="/pages/privacy-policy" className="transition-colors hover:text-white">
               Політика конфіденційності
             </Link>
-            <Link href="/pages/public-offer" className="transition-colors hover:text-white/60">
+            <Link href="/pages/public-offer" className="transition-colors hover:text-white">
               Публічна оферта
             </Link>
           </div>
         </Container>
       </div>
 
-      {/* Mobile bottom nav spacer */}
-      <div className="h-20 lg:hidden" />
+      {/* Mobile bottom-nav spacer: 60px nav + safe area */}
+      <div
+        aria-hidden="true"
+        className="lg:hidden"
+        style={{ height: 'calc(76px + env(safe-area-inset-bottom, 0px))' }}
+      />
     </footer>
   );
 }

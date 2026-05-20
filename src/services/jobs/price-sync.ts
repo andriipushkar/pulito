@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import path from 'path';
 import fs from 'fs/promises';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const PRICE_FILE_DIR = path.join(process.cwd(), 'uploads', 'price-lists');
 
@@ -64,12 +64,32 @@ function parsePriceCsv(content: string): PriceEntry[] {
  * Parse XLSX/XLS price list. Expects same column structure as CSV:
  * Код | Назва | Ціна євро | Роздріб грн | Опт1 | Опт2 | Опт3
  */
-function parsePriceXlsx(buffer: Buffer): PriceEntry[] {
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) return [];
+async function parsePriceXlsx(buffer: Buffer): Promise<PriceEntry[]> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return [];
 
-  const rows: unknown[][] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '' });
+  // Materialise sheet as array-of-arrays (row[0]=code, row[3]=retail, ...).
+  // ExcelJS cell values can be objects (formulas/rich text) — for this loader
+  // a string coercion + parseFloat is enough since the source files are flat.
+  const rows: unknown[][] = [];
+  sheet.eachRow({ includeEmpty: false }, (row) => {
+    const arr: unknown[] = [];
+    // row.values is 1-indexed and prepends a leading undefined.
+    const values = row.values as unknown[];
+    for (let i = 1; i < values.length; i++) {
+      const v = values[i];
+      if (v && typeof v === 'object' && 'result' in (v as Record<string, unknown>)) {
+        arr.push((v as { result: unknown }).result ?? '');
+      } else if (v && typeof v === 'object' && 'text' in (v as Record<string, unknown>)) {
+        arr.push((v as { text: unknown }).text ?? '');
+      } else {
+        arr.push(v ?? '');
+      }
+    }
+    rows.push(arr);
+  });
   if (rows.length < 2) return [];
 
   const entries: PriceEntry[] = [];
@@ -127,7 +147,7 @@ export async function syncPricesFromFile() {
     entries = parsePriceCsv(raw);
   } else if (ext === '.xlsx' || ext === '.xls') {
     const buffer = await fs.readFile(latestFile);
-    entries = parsePriceXlsx(buffer);
+    entries = await parsePriceXlsx(buffer);
   } else {
     const raw = await fs.readFile(latestFile, 'utf-8');
     entries = JSON.parse(raw);

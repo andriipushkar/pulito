@@ -31,7 +31,33 @@ export default function AdminEmailTemplatesPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [isSendingTest, setIsSendingTest] = useState(false);
-  const [testResult, setTestResult] = useState('');
+  const [previewWithVars, setPreviewWithVars] = useState(true);
+  const [versions, setVersions] = useState<Array<{
+    id: number;
+    version: number;
+    subject: string;
+    bodyHtml: string;
+    createdAt: string;
+    createdBy: number | null;
+  }>>([]);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
+
+  // Sample values for preview — keep keys aligned with the hint below
+  const SAMPLE_VARS: Record<string, string> = {
+    name: 'Андрій',
+    orderNumber: 'PT-2026-00123',
+    status: 'Підтверджено',
+    link: 'https://pulito.trade/orders/PT-2026-00123',
+    amount: '1 250 ₴',
+    code: 'WELCOME10',
+    discount: '10%',
+    storeName: 'Pulito Trade',
+  };
+
+  const substitute = (text: string) =>
+    text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => SAMPLE_VARS[key] ?? `{{${key}}}`);
 
   const loadTemplates = () => {
     setIsLoading(true);
@@ -48,6 +74,48 @@ export default function AdminEmailTemplatesPage() {
     setEditSubject(tpl.subject);
     setEditBody(tpl.bodyHtml);
     setShowPreview(false);
+    setVersions([]);
+    setVersionsOpen(false);
+  };
+
+  const loadVersions = async (templateId: number) => {
+    setIsLoadingVersions(true);
+    try {
+      const res = await apiClient.get<typeof versions>(
+        `/api/v1/admin/email-templates/${templateId}/versions`,
+      );
+      if (res.success && res.data) setVersions(res.data);
+    } finally {
+      setIsLoadingVersions(false);
+    }
+  };
+
+  const restoreVersion = async (versionId: number) => {
+    if (!editingTemplate) return;
+    if (!confirm('Відновити цю версію? Поточний стан буде збережено як нову версію.')) return;
+    setRestoringVersionId(versionId);
+    try {
+      const res = await apiClient.post(
+        `/api/v1/admin/email-templates/${editingTemplate.id}/versions/${versionId}/restore`,
+      );
+      if (res.success) {
+        toast.success('Версію відновлено');
+        // Refresh template + versions
+        const refreshed = await apiClient.get<EmailTemplate>(
+          `/api/v1/admin/email-templates/${editingTemplate.id}`,
+        );
+        if (refreshed.success && refreshed.data) {
+          setEditingTemplate(refreshed.data);
+          setEditSubject(refreshed.data.subject);
+          setEditBody(refreshed.data.bodyHtml);
+        }
+        loadVersions(editingTemplate.id);
+      } else {
+        toast.error(res.error || 'Не вдалося відновити');
+      }
+    } finally {
+      setRestoringVersionId(null);
+    }
   };
 
   const handleSave = async () => {
@@ -102,8 +170,26 @@ export default function AdminEmailTemplatesPage() {
 
           {showPreview ? (
             <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-white p-6">
-              <p className="mb-4 text-sm text-[var(--color-text-secondary)]">Тема: <strong>{editSubject}</strong></p>
-              <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(editBody) }} />
+              <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-3">
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  Тема: <strong className="text-gray-800">{previewWithVars ? substitute(editSubject) : editSubject}</strong>
+                </p>
+                <label className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={previewWithVars}
+                    onChange={(e) => setPreviewWithVars(e.target.checked)}
+                    className="accent-[var(--color-primary)]"
+                  />
+                  Підставити зразкові змінні
+                </label>
+              </div>
+              <div
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeHtml(previewWithVars ? substitute(editBody) : editBody),
+                }}
+              />
             </div>
           ) : (
             <div>
@@ -114,7 +200,15 @@ export default function AdminEmailTemplatesPage() {
 
           <div className="rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-3 text-xs text-[var(--color-text-secondary)]">
             <p className="font-semibold">Доступні змінні:</p>
-            <p className="mt-1">{'{{name}}'} — Ім&apos;я клієнта, {'{{orderNumber}}'} — Номер замовлення, {'{{status}}'} — Статус, {'{{link}}'} — Посилання, {'{{amount}}'} — Сума</p>
+            <p className="mt-1">
+              {'{{name}}'} — Ім&apos;я, {'{{orderNumber}}'} — Номер замовлення, {'{{status}}'} —
+              Статус, {'{{link}}'} — Посилання, {'{{amount}}'} — Сума, {'{{code}}'} — Промокод,{' '}
+              {'{{discount}}'} — Знижка, {'{{storeName}}'} — Назва магазину
+            </p>
+            <p className="mt-1 italic">
+              Натисніть «Попередній перегляд» — і змінні підставляться зразковими значеннями
+              (ім&apos;я «Андрій», замовлення «PT-2026-00123» тощо) для перевірки.
+            </p>
           </div>
 
           {/* Test email */}
@@ -132,14 +226,17 @@ export default function AdminEmailTemplatesPage() {
                 variant="outline"
                 onClick={async () => {
                   if (!testEmail || !editingTemplate) return;
+                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+                    toast.error('Невірний формат email');
+                    return;
+                  }
                   setIsSendingTest(true);
-                  setTestResult('');
                   const res = await apiClient.post(`/api/v1/admin/email-templates/${editingTemplate.id}/test`, {
                     email: testEmail,
                     subject: editSubject,
                     bodyHtml: editBody,
                   });
-                  if (res.success) toast.success('Тестовий лист надіслано');
+                  if (res.success) toast.success(`Тестовий лист надіслано на ${testEmail}`);
                   else toast.error(res.error || 'Помилка відправки');
                   setIsSendingTest(false);
                 }}
@@ -149,10 +246,70 @@ export default function AdminEmailTemplatesPage() {
                 Надіслати тест
               </Button>
             </div>
-            {testResult && (
-              <p className={`mt-2 text-xs ${testResult.includes('надіслано') ? 'text-green-600' : 'text-[var(--color-danger)]'}`}>
-                {testResult}
-              </p>
+          </div>
+
+          {/* Versions: list previous snapshots, allow restore. The restore
+              endpoint snapshots the current state first → reversible. */}
+          <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-semibold">Історія версій</p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (!editingTemplate) return;
+                  setVersionsOpen((v) => !v);
+                  if (!versionsOpen) loadVersions(editingTemplate.id);
+                }}
+              >
+                {versionsOpen ? 'Сховати' : 'Показати'}
+              </Button>
+            </div>
+            {versionsOpen && (
+              <>
+                {isLoadingVersions && (
+                  <p className="text-xs text-[var(--color-text-secondary)]">Завантаження…</p>
+                )}
+                {!isLoadingVersions && versions.length === 0 && (
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    Версій ще немає — кожен PUT створює нову версію автоматично.
+                  </p>
+                )}
+                {versions.length > 0 && (
+                  <table className="w-full text-xs">
+                    <thead className="text-left text-[var(--color-text-secondary)]">
+                      <tr>
+                        <th className="px-2 py-1">#</th>
+                        <th className="px-2 py-1">Тема</th>
+                        <th className="px-2 py-1">Дата</th>
+                        <th className="px-2 py-1 text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {versions.map((v) => (
+                        <tr key={v.id} className="border-t border-[var(--color-border)]">
+                          <td className="px-2 py-1 font-mono">v{v.version}</td>
+                          <td className="px-2 py-1">
+                            <span className="truncate" title={v.subject}>{v.subject}</span>
+                          </td>
+                          <td className="px-2 py-1 text-[var(--color-text-secondary)]">
+                            {new Date(v.createdAt).toLocaleString('uk-UA')}
+                          </td>
+                          <td className="px-2 py-1 text-right">
+                            <button
+                              onClick={() => restoreVersion(v.id)}
+                              disabled={restoringVersionId === v.id}
+                              className="text-[var(--color-primary)] hover:underline disabled:opacity-50"
+                            >
+                              {restoringVersionId === v.id ? '…' : '↻ Відновити'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -193,8 +350,12 @@ export default function AdminEmailTemplatesPage() {
             </div>
           ))}
           {templates.length === 0 && (
-            <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-8 text-center text-[var(--color-text-secondary)]">
-              Email-шаблонів немає
+            <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-12 text-center text-[var(--color-text-secondary)]">
+              <span className="text-3xl" aria-hidden="true">📧</span>
+              <p className="text-sm font-medium">Email-шаблонів ще немає</p>
+              <p className="max-w-md text-xs">
+                Шаблони створюються автоматично через міграції — якщо їх немає, перевірте seed
+              </p>
             </div>
           )}
         </div>

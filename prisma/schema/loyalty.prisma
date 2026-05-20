@@ -36,6 +36,9 @@ model LoyaltyLevel {
   discountPercent  Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
   benefits         Json?
   sortOrder        Int     @default(0) @map("sort_order")
+  // Default points TTL (months) — null = never expire. Used by an expiry
+  // cron to zero out stale points and encourage repeat purchases.
+  pointsExpiryMonths Int? @map("points_expiry_months")
 
   @@map("loyalty_levels")
 }

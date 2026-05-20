@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { sendProductPhotoToUser as sendTelegramPhoto } from '@/services/telegram';
 import { sendProductPhotoToUser as sendViberPhoto } from '@/services/viber';
+import { logger } from '@/lib/logger';
 
 const sendPhotoSchema = z.object({
   productId: z.number().int().positive(),
@@ -12,7 +13,8 @@ const sendPhotoSchema = z.object({
 });
 
 export const POST = withRole('admin', 'manager')(
-  async (request: NextRequest, { params }) => {
+  async (request: NextRequest, { user, params }) => {
+    void request;
     try {
       const { id } = await params!;
       const orderId = Number(id);
@@ -29,7 +31,7 @@ export const POST = withRole('admin', 'manager')(
       // Get order with user
       const order = await prisma.order.findUnique({
         where: { id: orderId },
-        select: { id: true, orderNumber: true, userId: true },
+        select: { id: true, orderNumber: true, userId: true, status: true },
       });
       if (!order) return errorResponse('Замовлення не знайдено', 404);
       if (!order.userId) return errorResponse('Замовлення не прив\'язане до користувача', 400);
@@ -70,17 +72,26 @@ export const POST = withRole('admin', 'manager')(
         return errorResponse('Користувач не має прив\'язаних месенджерів', 400);
       }
 
-      // Log as order comment
+      // Record the send in the order's status history (without changing the
+      // status) instead of overwriting managerComment, which destroyed the
+      // manager's own note every time. The history panel already renders these
+      // entries chronologically, so the audit trail is preserved without
+      // touching the manager-comment field.
       const channels = [telegramSent && 'Telegram', viberSent && 'Viber'].filter(Boolean).join(', ');
-      await prisma.order.update({
-        where: { id: order.id },
+      await prisma.orderStatusHistory.create({
         data: {
-          managerComment: `Фото товару "${product.name}" відправлено клієнту (${channels})${message ? `: ${message}` : ''}`,
+          orderId: order.id,
+          oldStatus: order.status,
+          newStatus: order.status,
+          changedBy: user.id,
+          changeSource: 'manager',
+          comment: `Надіслано фото "${product.name}" клієнту (${channels})${message ? `: ${message}` : ''}`,
         },
       });
 
       return successResponse({ telegramSent, viberSent, channels });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/orders/[id]/send-product-photo] POST failed', { error: err });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

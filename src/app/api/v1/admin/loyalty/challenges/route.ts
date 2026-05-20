@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const createChallengeSchema = z.object({
   name: z.string().min(1).max(200),
@@ -30,7 +31,8 @@ export const GET = withRole('admin', 'manager')(async () => {
     }));
 
     return successResponse(result);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/loyalty/challenges] GET failed', { error: err });
     return errorResponse('Помилка завантаження челенджів', 500);
   }
 });
@@ -53,7 +55,8 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
     });
 
     return successResponse(challenge, 201);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/loyalty/challenges] POST failed', { error: err });
     return errorResponse('Помилка створення челенджу', 500);
   }
 });

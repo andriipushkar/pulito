@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse, paginatedResponse, parseSearchParams } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(
   async (request: NextRequest) => {
@@ -33,7 +34,8 @@ export const GET = withRole('admin', 'manager')(
       ]);
 
       return paginatedResponse(rules, total, page, limit);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/moderation/rules] GET failed', { error: err });
       return errorResponse('Помилка завантаження правил модерації', 500);
     }
   }
@@ -72,7 +74,8 @@ export const POST = withRole('admin', 'manager')(
       });
 
       return successResponse(rule, 201);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/moderation/rules] POST failed', { error: err });
       return errorResponse('Помилка створення правила модерації', 500);
     }
   }

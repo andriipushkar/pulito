@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import Badge from '@/components/ui/Badge';
 import PriceDisplay from './PriceDisplay';
 import { Heart, HeartFilled, Cart, Search, Compare } from '@/components/icons';
@@ -14,6 +15,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useComparison } from '@/hooks/useComparison';
 import { apiClient } from '@/lib/api-client';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
+import { gtagEvent } from '@/lib/gtag';
+import { useWishlistBulk } from '@/providers/WishlistBulkProvider';
 import type { ProductListItem } from '@/types/product';
 
 const WISHLIST_STORAGE_KEY = 'pulito-wishlist';
@@ -72,8 +75,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { user } = useAuth();
   const { has: hasCompare, toggle: toggleCompare } = useComparison();
   const isCompared = hasCompare(product.id);
+  const wishlistBulk = useWishlistBulk();
   const [showQuickView, setShowQuickView] = useState(false);
   const [isWished, setIsWished] = useState(false);
+  const [isTogglingWish, setIsTogglingWish] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const inStock = product.quantity > 0;
@@ -82,8 +87,28 @@ export default function ProductCard({ product }: ProductCardProps) {
   const blurImage = product.images[0]?.pathBlur;
   const attributes = extractAttributes(product.name, product.content?.shortDescription);
 
+  const oldPrice = product.priceRetailOld ? Number(product.priceRetailOld) : null;
+  const currentPrice = Number(product.priceRetail);
+  const discountPercent =
+    oldPrice && oldPrice > currentPrice ? Math.round(((oldPrice - currentPrice) / oldPrice) * 100) : 0;
+
+  const isNew = (() => {
+    const created = new Date(product.createdAt as string | Date).getTime();
+    return Number.isFinite(created) && Date.now() - created < 30 * 24 * 60 * 60 * 1000;
+  })();
+
+  const avgRating = product.avgRating ?? null;
+  const reviewCount = product.reviewCount ?? 0;
+
   useEffect(() => {
     if (user) {
+      if (wishlistBulk && wishlistBulk.loaded) {
+        setIsWished(wishlistBulk.isWished(product.id));
+        return;
+      }
+      if (wishlistBulk) {
+        return;
+      }
       apiClient
         .get<{ wishlisted: boolean }>(`/api/v1/me/wishlists/default/items/${product.id}`)
         .then((res) => {
@@ -93,24 +118,36 @@ export default function ProductCard({ product }: ProductCardProps) {
     } else {
       setIsWished(getLocalWishlist().includes(product.id));
     }
-  }, [user, product.id]);
+  }, [user, product.id, wishlistBulk]);
 
   const handleToggleWishlist = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (isTogglingWish) return;
       const newState = !isWished;
       setIsWished(newState);
 
       if (user) {
+        setIsTogglingWish(true);
+        wishlistBulk?.setWished(product.id, newState);
         try {
-          if (newState) {
-            await apiClient.post(`/api/v1/me/wishlists/default/items/${product.id}`);
+          const res = newState
+            ? await apiClient.post(`/api/v1/me/wishlists/default/items/${product.id}`)
+            : await apiClient.delete(`/api/v1/me/wishlists/default/items/${product.id}`);
+          if (!res.success) {
+            setIsWished(!newState);
+            wishlistBulk?.setWished(product.id, !newState);
+            toast.error(res.error || 'Не вдалося оновити обране');
           } else {
-            await apiClient.delete(`/api/v1/me/wishlists/default/items/${product.id}`);
+            toast.success(newState ? 'Додано в обране' : 'Видалено з обраного');
           }
         } catch {
           setIsWished(!newState);
+          wishlistBulk?.setWished(product.id, !newState);
+          toast.error('Не вдалося оновити обране');
+        } finally {
+          setIsTogglingWish(false);
         }
       } else {
         const ids = getLocalWishlist();
@@ -123,7 +160,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         }
       }
     },
-    [isWished, user, product.id],
+    [isWished, isTogglingWish, user, product.id, wishlistBulk],
   );
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -141,6 +178,14 @@ export default function ProductCard({ product }: ProductCardProps) {
       imagePath: mainImage,
       quantity: 1,
       maxQuantity: product.quantity,
+    });
+    gtagEvent.addToCart({
+      item_id: product.code || String(product.id),
+      item_name: product.name,
+      price: Number(product.priceRetail),
+      quantity: 1,
+      item_category: product.category?.name,
+      item_brand: product.brand?.name,
     });
   };
 
@@ -212,8 +257,14 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
 
-        {product.badges.length > 0 && (
+        {(product.badges.length > 0 || isNew || (inStock && product.quantity <= 3)) && (
           <div className="absolute left-1 top-1 flex flex-col gap-0.5 sm:left-2 sm:top-2 sm:gap-1">
+            {isNew && !product.badges.some((b) => /new|новин/i.test(b.badgeType)) && (
+              <Badge color="#1976D2">Новинка</Badge>
+            )}
+            {inStock && product.quantity <= 3 && (
+              <Badge color="#F4511E">Закінчується</Badge>
+            )}
             {product.badges.slice(0, 2).map((badge) => (
               <Badge key={badge.id} color={badge.customColor || undefined}>
                 {badge.customText || badge.badgeType}
@@ -222,10 +273,20 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
 
+        {discountPercent > 0 && (
+          <div className="pointer-events-none absolute bottom-1 left-1 z-[1] sm:bottom-2 sm:left-2">
+            <span className="inline-flex items-center rounded-full bg-[var(--color-discount)] px-2.5 py-1 text-[11px] font-extrabold leading-none text-white shadow-md sm:text-xs">
+              −{discountPercent}%
+            </span>
+          </div>
+        )}
+
         <div className="absolute right-1 top-1 flex flex-col gap-1 translate-x-10 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 max-sm:translate-x-0 max-sm:opacity-100 sm:right-2 sm:top-2">
           <button
-            className={`rounded-full bg-white/90 p-1 shadow-[var(--shadow)] backdrop-blur-sm transition-colors sm:p-1.5 ${isWished ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]'}`}
+            className={`rounded-full bg-white/90 p-1 shadow-[var(--shadow)] backdrop-blur-sm transition-colors disabled:opacity-50 sm:p-1.5 ${isWished ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]'}`}
             aria-label={isWished ? 'Видалити з обраного' : 'Додати в обране'}
+            aria-pressed={isWished}
+            disabled={isTogglingWish}
             onClick={handleToggleWishlist}
           >
             {isWished ? <HeartFilled size={16} /> : <Heart size={16} />}
@@ -237,10 +298,17 @@ export default function ProductCard({ product }: ProductCardProps) {
                 : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
             }`}
             aria-label={isCompared ? 'Видалити з порівняння' : 'Додати до порівняння'}
+            aria-pressed={isCompared}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              toggleCompare(product.id);
+              try {
+                toggleCompare(product.id);
+                toast.success(isCompared ? 'Видалено з порівняння' : 'Додано до порівняння');
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : 'Не вдалося оновити список';
+                toast.error(msg);
+              }
             }}
           >
             <Compare size={16} />
@@ -272,6 +340,29 @@ export default function ProductCard({ product }: ProductCardProps) {
         >
           {product.name}
         </Link>
+
+        {avgRating !== null && avgRating > 0 && (
+          <div className="mb-1 inline-flex items-center gap-1 text-[11px] text-[var(--color-text-secondary)]">
+            <span className="flex items-center" aria-label={`Рейтинг ${avgRating.toFixed(1)} з 5`}>
+              {[0, 1, 2, 3, 4].map((i) => {
+                const filled = avgRating >= i + 1;
+                const half = !filled && avgRating > i + 0.25 && avgRating < i + 0.75;
+                return (
+                  <svg
+                    key={i}
+                    className={`h-3 w-3 ${filled ? 'text-[var(--color-gold)]' : half ? 'text-[var(--color-gold-light)]' : 'text-[var(--color-border)]'}`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M10 1.5l2.6 5.6 6.1.9-4.4 4.3 1 6.1L10 15.6 4.7 18.4l1-6.1L1.3 8l6.1-.9L10 1.5z" />
+                  </svg>
+                );
+              })}
+            </span>
+            {reviewCount > 0 && <span className="font-medium">({reviewCount})</span>}
+          </div>
+        )}
 
         {product.brand && (
           <Link

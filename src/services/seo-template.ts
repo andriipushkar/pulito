@@ -34,7 +34,26 @@ export async function getSeoTemplateByEntity(entityType: string, categoryId?: nu
   });
 }
 
+/** Validate template lengths against SERP display limits (Google cuts at
+ * ~70 chars for title, ~160 for description). Throw early so admin sees
+ * the problem in the form, not silently in production search results. */
+function validateTemplate(data: Partial<SeoTemplateInput>) {
+  if (data.titleTemplate !== undefined) {
+    const t = data.titleTemplate.trim();
+    if (t.length === 0) throw new SeoTemplateError('Title template не може бути порожнім', 400);
+    if (t.length > 200)
+      throw new SeoTemplateError('Title template має бути до 200 символів (з підстановкою — до 70)', 400);
+  }
+  if (data.descriptionTemplate !== undefined) {
+    const d = data.descriptionTemplate.trim();
+    if (d.length === 0) throw new SeoTemplateError('Description template не може бути порожнім', 400);
+    if (d.length > 500)
+      throw new SeoTemplateError('Description template має бути до 500 символів (з підстановкою — до 160)', 400);
+  }
+}
+
 export async function createSeoTemplate(data: SeoTemplateInput) {
+  validateTemplate(data);
   return prisma.seoTemplate.create({
     data: {
       entityType: data.entityType,
@@ -50,10 +69,20 @@ export async function createSeoTemplate(data: SeoTemplateInput) {
 export async function updateSeoTemplate(id: number, data: Partial<SeoTemplateInput>) {
   const template = await prisma.seoTemplate.findUnique({ where: { id } });
   if (!template) throw new SeoTemplateError('Шаблон не знайдено', 404);
+  validateTemplate(data);
+
+  // Whitelist to prevent mass-assignment of arbitrary fields from the request body.
+  const allowed: Partial<SeoTemplateInput> = {};
+  if (data.entityType !== undefined) allowed.entityType = data.entityType;
+  if (data.scope !== undefined) allowed.scope = data.scope;
+  if (data.titleTemplate !== undefined) allowed.titleTemplate = data.titleTemplate;
+  if (data.descriptionTemplate !== undefined) allowed.descriptionTemplate = data.descriptionTemplate;
+  if (data.altTemplate !== undefined) allowed.altTemplate = data.altTemplate;
+  if (data.categoryId !== undefined) allowed.categoryId = data.categoryId;
 
   return prisma.seoTemplate.update({
     where: { id },
-    data,
+    data: allowed,
   });
 }
 

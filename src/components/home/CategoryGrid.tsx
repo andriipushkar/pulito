@@ -75,7 +75,7 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
   if (displayCategories.length === 0) return null;
 
   return (
-    <section className="lg:hidden">
+    <section>
       <div className="mb-3 flex items-center justify-between sm:mb-4">
         <h2 className="relative text-lg font-bold tracking-tight text-[var(--color-text)] sm:text-2xl">
           Категорії
@@ -122,8 +122,8 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
         </div>
       </div>
 
-      {/* Desktop: horizontal scroll like mobile but bigger */}
-      <div className="-mx-6 hidden px-6 sm:block lg:-mx-8 lg:px-8">
+      {/* Tablet (sm-md): horizontal scroll */}
+      <div className="-mx-6 hidden px-6 sm:block lg:hidden">
         <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
           {displayCategories.map((cat, idx) => {
             const bg = categoryBgs[idx % categoryBgs.length];
@@ -131,9 +131,9 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
               <Link
                 key={cat.id}
                 href={`/catalog?category=${cat.slug}`}
-                className="group flex w-[120px] shrink-0 flex-col items-center gap-2 transition-transform duration-200 hover:-translate-y-1 lg:w-[130px]"
+                className="group flex w-[120px] shrink-0 flex-col items-center gap-2 transition-transform duration-200 hover:-translate-y-1"
               >
-                <div className={`relative flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-[22px] ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] ring-2 ring-white transition-transform duration-200 group-hover:scale-105 lg:h-[96px] lg:w-[96px]`}>
+                <div className={`relative flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-[22px] ${bg} text-[var(--color-primary)] shadow-[var(--shadow)] ring-2 ring-white transition-transform duration-200 group-hover:scale-105`}>
                   {cat.coverImage ? (
                     <Image
                       src={cat.coverImage}
@@ -147,8 +147,46 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
                   )}
                 </div>
                 <div className="text-center">
-                  <h3 className="line-clamp-2 text-xs font-bold leading-tight text-[var(--color-text)] lg:text-sm">{cat.name}</h3>
+                  <h3 className="line-clamp-2 text-xs font-bold leading-tight text-[var(--color-text)]">{cat.name}</h3>
                   <span className="mt-0.5 text-[10px] font-medium text-[var(--color-text-secondary)]">
+                    {cat._count.products} товарів
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Desktop (lg+): tiles centered horizontally, wrap to next line if needed */}
+      <div className="hidden lg:block">
+        <div className="flex flex-wrap justify-center gap-4 xl:gap-3">
+          {displayCategories.map((cat, idx) => {
+            const bg = categoryBgs[idx % categoryBgs.length];
+            return (
+              <Link
+                key={cat.id}
+                href={`/catalog?category=${cat.slug}`}
+                className="group flex w-[140px] shrink-0 flex-col items-center gap-2 rounded-2xl bg-white p-3 shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[var(--shadow-md)] xl:w-[128px]"
+              >
+                <div className={`relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl ${bg} text-[var(--color-primary)] ring-2 ring-white transition-transform duration-200 group-hover:scale-105 xl:h-[72px] xl:w-[72px]`}>
+                  {cat.coverImage ? (
+                    <Image
+                      src={cat.coverImage}
+                      alt={cat.name}
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <CategoryIcon index={idx} />
+                  )}
+                </div>
+                <div className="text-center">
+                  <h3 className="line-clamp-2 text-sm font-bold leading-tight text-[var(--color-text)] xl:text-xs">
+                    {cat.name}
+                  </h3>
+                  <span className="mt-0.5 text-[11px] font-medium text-[var(--color-text-secondary)] xl:text-[10px]">
                     {cat._count.products} товарів
                   </span>
                 </div>

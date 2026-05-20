@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { createOrder } from '@/services/order';
+import { sendEmail } from '@/services/email';
 import { logger } from '@/lib/logger';
 
 const FREQUENCY_DAYS: Record<string, number> = {
@@ -8,6 +9,8 @@ const FREQUENCY_DAYS: Record<string, number> = {
   monthly: 30,
   bimonthly: 60,
 };
+
+const APP_URL = process.env.APP_URL || 'https://pulito.trade';
 
 export async function processSubscriptionOrders() {
   const now = new Date();
@@ -97,17 +100,55 @@ export async function processSubscriptionOrders() {
         });
       }
 
-      // Update subscription: next delivery and last order
+      // Update subscription: next delivery and last order.
+      // `remindAt` = next-delivery minus 24h so the reminder cron can send a
+      // "your subscription order ships tomorrow" email; reset reminderSentAt
+      // so the new cycle's reminder is allowed to fire.
       const days = FREQUENCY_DAYS[subscription.frequency] ?? 30;
       const nextDeliveryAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+      const remindAt = new Date(nextDeliveryAt.getTime() - 24 * 60 * 60 * 1000);
 
       await prisma.subscription.update({
         where: { id: subscription.id },
         data: {
           nextDeliveryAt,
           lastOrderId: order.id,
+          remindAt,
+          reminderSentAt: null,
+          // Successful order means the previous payment retry state is no
+          // longer relevant — reset.
+          paymentRetryCount: 0,
+          lastFailedPaymentAt: null,
         },
       });
+
+      // Notify customer so they can pay manually (no auto-charge yet).
+      // Wrapped in try/catch so email failure does not abort the cron loop.
+      try {
+        const finalTotal =
+          roundedDiscount > 0
+            ? Math.max(0, Math.round((itemsTotal - roundedDiscount) * 100) / 100)
+            : itemsTotal;
+        const firstName = subscription.user.fullName?.split(' ')[0] ?? null;
+        await sendEmail({
+          to: subscription.user.email,
+          subject: `Ваше підписне замовлення #${order.orderNumber} готове до оплати`,
+          html: `
+            <p>${firstName ? `Привіт, ${firstName}` : 'Привіт'}!</p>
+            <p>За вашою підпискою створено нове замовлення:</p>
+            <ul>${cartItems.map((i) => `<li>${i.productName} — ${i.quantity} шт</li>`).join('')}</ul>
+            <p>До оплати: <strong>${finalTotal.toFixed(2)} ₴</strong>${
+              roundedDiscount > 0 ? ` (зі знижкою підписки –${discountPercent}%)` : ''
+            }</p>
+            <p><a href="${APP_URL}/account/orders" style="display:inline-block;padding:12px 24px;background:#0066cc;color:#fff;text-decoration:none;border-radius:8px">Оплатити</a></p>
+            <p style="color:#666;font-size:12px">Управляйте підпискою: <a href="${APP_URL}/account/subscriptions">${APP_URL}/account/subscriptions</a></p>
+          `,
+        });
+      } catch (emailErr) {
+        logger.warn(
+          `[subscription-cron] Підписка #${subscription.id}: email-нотифікація не надіслана: ${emailErr instanceof Error ? emailErr.message : String(emailErr)}`,
+        );
+      }
 
       processed++;
       logger.info(`[subscription-cron] Підписка #${subscription.id}: створено замовлення #${order.orderNumber}`);
@@ -118,4 +159,135 @@ export async function processSubscriptionOrders() {
   }
 
   return { processed, failed, skipped };
+}
+
+const PAYMENT_RETRY_LIMIT = 2;
+const PAYMENT_RETRY_AFTER_DAYS = 7;
+
+/**
+ * Sweep "failed" subscription payments: orders created by the subscription
+ * cron that are still `paymentStatus=pending` after PAYMENT_RETRY_AFTER_DAYS.
+ *
+ * Behaviour:
+ *   1st detection → bump `paymentRetryCount`, set `lastFailedPaymentAt`
+ *     and push `nextDeliveryAt` forward by 7d so the order-creation cron
+ *     will retry on the next pass.
+ *   2nd detection (count >= LIMIT) → pause subscription with
+ *     `pausedReason='payment_failed_auto'` and `cancelReason` unset
+ *     (a paused subscription can be resumed by user/admin).
+ *
+ * Designed to be called from a daily cron, independent from the
+ * order-creation cron that runs every 30 min.
+ */
+export async function processFailedSubscriptionPayments() {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - PAYMENT_RETRY_AFTER_DAYS * 86_400_000);
+
+  const candidates = await prisma.subscription.findMany({
+    where: {
+      status: 'active',
+      lastOrderId: { not: null },
+    },
+    select: {
+      id: true,
+      lastOrderId: true,
+      paymentRetryCount: true,
+      frequency: true,
+      nextDeliveryAt: true,
+    },
+  });
+
+  let retried = 0;
+  let paused = 0;
+
+  for (const sub of candidates) {
+    if (!sub.lastOrderId) continue;
+    const lastOrder = await prisma.order.findUnique({
+      where: { id: sub.lastOrderId },
+      select: { paymentStatus: true, createdAt: true, status: true },
+    });
+    if (!lastOrder) continue;
+    if (lastOrder.paymentStatus !== 'pending') continue;
+    if (lastOrder.createdAt > cutoff) continue;
+    if (lastOrder.status === 'cancelled') continue;
+
+    const nextCount = sub.paymentRetryCount + 1;
+    if (nextCount > PAYMENT_RETRY_LIMIT) {
+      await prisma.subscription.update({
+        where: { id: sub.id },
+        data: {
+          status: 'paused',
+          pausedAt: now,
+          pausedReason: 'payment_failed_auto',
+        },
+      });
+      paused++;
+      logger.warn(`[subscription-payments] #${sub.id} paused after ${nextCount} failed attempts`);
+    } else {
+      // Bump retry count; push nextDeliveryAt to retry in PAYMENT_RETRY_AFTER_DAYS
+      const retryAt = new Date(now.getTime() + PAYMENT_RETRY_AFTER_DAYS * 86_400_000);
+      await prisma.subscription.update({
+        where: { id: sub.id },
+        data: {
+          paymentRetryCount: nextCount,
+          lastFailedPaymentAt: now,
+          nextDeliveryAt: retryAt,
+        },
+      });
+      retried++;
+      logger.info(`[subscription-payments] #${sub.id} retry ${nextCount}/${PAYMENT_RETRY_LIMIT}`);
+    }
+  }
+
+  return { retried, paused };
+}
+
+/**
+ * Send "your subscription delivery is tomorrow" reminders. Picks subscriptions
+ * where remindAt <= now and reminderSentAt is null (one-shot per cycle).
+ *
+ * Failure to send email does not abort — the row is still marked sent so we
+ * don't spam the same person on every cron tick if their provider is down.
+ */
+export async function processSubscriptionReminders() {
+  const now = new Date();
+  const due = await prisma.subscription.findMany({
+    where: {
+      status: 'active',
+      remindAt: { lte: now },
+      reminderSentAt: null,
+    },
+    include: {
+      user: { select: { fullName: true, email: true } },
+      items: { include: { product: { select: { name: true } } } },
+    },
+    take: 200, // batch cap
+  });
+
+  let sent = 0;
+  for (const sub of due) {
+    try {
+      const firstName = sub.user.fullName?.split(' ')[0] ?? null;
+      await sendEmail({
+        to: sub.user.email,
+        subject: 'Завтра — день вашої підписної доставки',
+        html: `
+          <p>${firstName ? `Привіт, ${firstName}` : 'Привіт'}!</p>
+          <p>Завтра автоматично сформується ваше підписне замовлення на:</p>
+          <ul>${sub.items.map((i) => `<li>${i.product.name} — ${i.quantity} шт</li>`).join('')}</ul>
+          <p>Якщо хочете щось змінити чи поставити паузу — встигніть до ранку:</p>
+          <p><a href="${APP_URL}/account/subscriptions">${APP_URL}/account/subscriptions</a></p>
+        `,
+      });
+      sent++;
+    } catch (err) {
+      logger.warn(`[subscription-reminder] #${sub.id} email failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      await prisma.subscription.update({
+        where: { id: sub.id },
+        data: { reminderSentAt: new Date() },
+      });
+    }
+  }
+  return { sent, total: due.length };
 }

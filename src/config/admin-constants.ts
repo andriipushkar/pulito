@@ -13,12 +13,13 @@ export const WHOLESALE_GROUPS = {
   LARGE: 3,
 } as const;
 
-/** Allowed order status transitions */
+/** Allowed order status transitions. Mirror of services/order.ts. */
 export const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
   new_order: ['processing', 'cancelled'],
   processing: ['confirmed', 'cancelled'],
-  confirmed: ['paid', 'shipped', 'cancelled'],
-  paid: ['shipped', 'cancelled'],
+  confirmed: ['paid', 'packed', 'shipped', 'cancelled'],
+  paid: ['packed', 'shipped', 'cancelled'],
+  packed: ['shipped', 'cancelled'],
   shipped: ['completed', 'returned'],
   completed: ['returned'],
   cancelled: [],

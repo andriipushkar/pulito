@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 /**
  * POST /api/v1/admin/revalidate
@@ -49,7 +50,8 @@ export const POST = withRole('admin', 'manager')(
       }
 
       return successResponse({ revalidated });
-    } catch {
+    } catch (err) {
+      logger.error('[admin/revalidate] POST failed', { error: err });
       return errorResponse('Помилка ревалідації', 500);
     }
   }

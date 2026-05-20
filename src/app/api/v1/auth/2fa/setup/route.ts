@@ -9,7 +9,10 @@ import QRCode from 'qrcode';
  * Generates a new TOTP secret for the authenticated admin/manager user.
  * Returns secret, otpauth URL, and QR code as data URL.
  */
-export const POST = withRole('admin', 'manager')(async (_request, { user }) => {
+// 2FA is available to all authenticated users — both staff and customers.
+// Previously this was gated to admin/manager which broke the storefront
+// security tab in the customer cabinet.
+export const POST = withRole('admin', 'manager', 'client', 'wholesaler')(async (_request, { user }) => {
   try {
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },

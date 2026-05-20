@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import PageHeader from '@/components/account/PageHeader';
 import StatCard from '@/components/account/StatCard';
+import ChallengeCard from '@/components/account/ChallengeCard';
 
 interface LoyaltyDashboard {
   account: { points: number; totalSpent: number; level: string };
@@ -43,17 +44,36 @@ const TYPE_ICONS: Record<string, string> = {
   expire: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
 };
 
+interface Challenge {
+  id: number;
+  name: string;
+  description: string;
+  type: string;
+  target: number;
+  reward: number;
+  currentValue: number;
+  isCompleted: boolean;
+  isRewarded: boolean;
+  endDate: string | null;
+}
+
 export default function LoyaltyPage() {
   const [data, setData] = useState<LoyaltyDashboard | null>(null);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    apiClient
-      .get<LoyaltyDashboard>('/api/v1/me/loyalty')
-      .then((res) => {
+    Promise.all([
+      apiClient.get<LoyaltyDashboard>('/api/v1/me/loyalty').then((res) => {
         if (res.success && res.data) setData(res.data);
-      })
-      .finally(() => setIsLoading(false));
+      }),
+      apiClient
+        .get<Challenge[]>('/api/v1/me/loyalty/challenges')
+        .then((res) => {
+          if (res.success && res.data) setChallenges(res.data);
+        })
+        .catch(() => {}),
+    ]).finally(() => setIsLoading(false));
   }, []);
 
   if (isLoading) {
@@ -86,8 +106,8 @@ export default function LoyaltyPage() {
         subtitle={currentLevel ? `Рівень: ${account.level} — знижка ${currentLevel.discountPercent}%` : undefined}
       />
 
-      {/* ── Level badge ── */}
-      <div className={`relative overflow-hidden rounded-2xl border border-l-4 p-5 ${LEVEL_BG[account.level] || 'bg-blue-50'} border-opacity-30`} style={{ borderColor: levelColor, borderLeftColor: levelColor }}>
+      {/* ── Unified status card: level + points + discount + progress ── */}
+      <div className={`relative overflow-hidden rounded-2xl border border-l-4 p-5 sm:p-6 ${LEVEL_BG[account.level] || 'bg-blue-50'} border-opacity-30`} style={{ borderColor: levelColor, borderLeftColor: levelColor }}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${LEVEL_BG[account.level] || 'bg-blue-50'}`} style={{ color: levelColor }}>
@@ -110,22 +130,37 @@ export default function LoyaltyPage() {
             <p className="text-xs font-medium text-[var(--color-text-secondary)]">балів на рахунку</p>
           </div>
         </div>
+
+        {/* Inline progress to next level */}
+        {nextLevel && (
+          <div className="mt-5 border-t border-[var(--color-border)]/40 pt-4">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                До рівня <strong className="capitalize text-[var(--color-text)]">{nextLevel.name}</strong>
+              </span>
+              <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                {account.totalSpent.toFixed(0)} / {Number(nextLevel.minSpent).toFixed(0)} ₴ &middot; {progressToNext.toFixed(0)}%
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-white/60">
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${progressToNext}%`,
+                  background: `linear-gradient(90deg, ${levelColor}, ${LEVEL_COLORS[nextLevel.name] || levelColor})`,
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Stats ── */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          label="Баланс балів"
-          value={account.points}
-          icon={
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-            </svg>
-          }
-        />
+      {/* ── Two complementary stats: total spent + current discount ── */}
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Загальні витрати"
           value={`${account.totalSpent.toFixed(0)} ₴`}
+          subtitle="За весь час покупок"
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
@@ -133,8 +168,13 @@ export default function LoyaltyPage() {
           }
         />
         <StatCard
-          label="Знижка"
+          label="Поточна знижка"
           value={currentLevel ? `${currentLevel.discountPercent}%` : '—'}
+          subtitle={
+            nextLevel
+              ? `Наступний рівень — більша знижка`
+              : 'Максимальний рівень — найбільша знижка'
+          }
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
@@ -144,29 +184,22 @@ export default function LoyaltyPage() {
         />
       </div>
 
-      {/* ── Progress to next level ── */}
-      {nextLevel && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-medium">
-              До рівня <strong className="capitalize">{nextLevel.name}</strong>
-            </span>
-            <span className="text-sm font-semibold" style={{ color: LEVEL_COLORS[nextLevel.name] || levelColor }}>
-              {progressToNext.toFixed(0)}%
-            </span>
+      {/* ── Active challenges ── */}
+      {challenges.length > 0 && (
+        <div>
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+            </div>
+            Челенджі
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {challenges.map((c) => (
+              <ChallengeCard key={c.id} challenge={c} />
+            ))}
           </div>
-          <div className="relative h-3 overflow-hidden rounded-full bg-[var(--color-bg-secondary)]">
-            <div
-              className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{
-                width: `${progressToNext}%`,
-                background: `linear-gradient(90deg, ${levelColor}, ${LEVEL_COLORS[nextLevel.name] || levelColor})`,
-              }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-            {account.totalSpent.toFixed(0)} / {Number(nextLevel.minSpent).toFixed(0)} ₴
-          </p>
         </div>
       )}
 

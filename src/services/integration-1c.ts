@@ -48,6 +48,11 @@ export function transform1CProduct(data: OneCProduct) {
     priceWholesale: data.priceWholesale ?? null,
     quantity: data.quantity ?? 0,
     isActive: data.isActive ?? true,
+    weightGrams: data.weightGrams != null ? Math.round(data.weightGrams) : null,
+    lengthMm: data.lengthMm ?? null,
+    widthMm: data.widthMm ?? null,
+    heightMm: data.heightMm ?? null,
+    cost: data.cost ?? null,
   };
 }
 
@@ -159,6 +164,13 @@ export async function importProductsFrom1C(products: OneCProduct[]): Promise<Syn
             priceWholesale: data.priceWholesale,
             quantity: data.quantity,
             isActive: data.isActive,
+            // Only overwrite physical params/cost when 1C explicitly sends a
+            // value — otherwise we'd null-out fields edited in the admin UI.
+            ...(data.weightGrams !== null ? { weightGrams: data.weightGrams } : {}),
+            ...(data.lengthMm !== null ? { lengthMm: data.lengthMm } : {}),
+            ...(data.widthMm !== null ? { widthMm: data.widthMm } : {}),
+            ...(data.heightMm !== null ? { heightMm: data.heightMm } : {}),
+            ...(data.cost !== null ? { cost: data.cost } : {}),
             ...(categoryId !== null ? { categoryId } : {}),
           },
         });
@@ -178,6 +190,11 @@ export async function importProductsFrom1C(products: OneCProduct[]): Promise<Syn
             priceWholesale: data.priceWholesale,
             quantity: data.quantity,
             isActive: data.isActive,
+            weightGrams: data.weightGrams,
+            lengthMm: data.lengthMm,
+            widthMm: data.widthMm,
+            heightMm: data.heightMm,
+            cost: data.cost,
             categoryId,
           },
         });

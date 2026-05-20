@@ -20,12 +20,18 @@ export class BrandError extends Error {
   }
 }
 
-export async function getBrands(options?: { includeHidden?: boolean }) {
+export async function getBrands(options?: {
+  includeHidden?: boolean;
+  includeProductCount?: boolean;
+}) {
   const where: Prisma.BrandWhereInput = { deletedAt: null };
   if (!options?.includeHidden) where.isVisible = true;
   return prisma.brand.findMany({
     where,
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    ...(options?.includeProductCount
+      ? { include: { _count: { select: { products: { where: { isActive: true } } } } } }
+      : {}),
   });
 }
 
@@ -68,15 +74,40 @@ export async function getBrandBySlug(slug: string) {
   });
 }
 
-export async function createBrand(data: {
-  name: string;
+interface BrandWritable {
+  name?: string;
   slug?: string;
   description?: string | null;
   logoPath?: string | null;
+  website?: string | null;
+  country?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   isVisible?: boolean;
   sortOrder?: number;
-}) {
+  // Optimistic concurrency: when provided, PUT only succeeds if the row's
+  // current version matches; otherwise BrandError(409) is thrown.
+  version?: number;
+}
+
+function pickOptionalFields(data: BrandWritable) {
+  // Treat empty website strings as null (form submits "" for cleared fields).
+  const w = data.website === '' ? null : data.website;
+  return {
+    ...(data.description !== undefined && { description: data.description }),
+    ...(data.logoPath !== undefined && { logoPath: data.logoPath }),
+    ...(w !== undefined && { website: w }),
+    ...(data.country !== undefined && { country: data.country }),
+    ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
+    ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
+    ...(data.isVisible !== undefined && { isVisible: data.isVisible }),
+    ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+  };
+}
+
+export async function createBrand(data: BrandWritable & { name: string }) {
   const slug = data.slug || createSlug(data.name);
+  const optional = pickOptionalFields(data);
 
   // Resurrect a soft-deleted brand with the same slug instead of failing —
   // identical pattern to categories (the unique index would otherwise burn
@@ -85,14 +116,7 @@ export async function createBrand(data: {
   if (existing?.deletedAt) {
     const revived = await prisma.brand.update({
       where: { id: existing.id },
-      data: {
-        name: data.name,
-        description: data.description ?? null,
-        logoPath: data.logoPath ?? null,
-        isVisible: data.isVisible ?? true,
-        sortOrder: data.sortOrder ?? 0,
-        deletedAt: null,
-      },
+      data: { name: data.name, ...optional, deletedAt: null },
     });
     await invalidateBrandCaches();
     return revived;
@@ -106,14 +130,7 @@ export async function createBrand(data: {
   if (nameClash?.deletedAt) {
     const revived = await prisma.brand.update({
       where: { id: nameClash.id },
-      data: {
-        slug,
-        description: data.description ?? null,
-        logoPath: data.logoPath ?? null,
-        isVisible: data.isVisible ?? true,
-        sortOrder: data.sortOrder ?? 0,
-        deletedAt: null,
-      },
+      data: { slug, ...optional, deletedAt: null },
     });
     await invalidateBrandCaches();
     return revived;
@@ -123,30 +140,13 @@ export async function createBrand(data: {
   }
 
   const created = await prisma.brand.create({
-    data: {
-      name: data.name,
-      slug,
-      description: data.description ?? null,
-      logoPath: data.logoPath ?? null,
-      isVisible: data.isVisible ?? true,
-      sortOrder: data.sortOrder ?? 0,
-    },
+    data: { name: data.name, slug, ...optional },
   });
   await invalidateBrandCaches();
   return created;
 }
 
-export async function updateBrand(
-  id: number,
-  data: {
-    name?: string;
-    slug?: string;
-    description?: string | null;
-    logoPath?: string | null;
-    isVisible?: boolean;
-    sortOrder?: number;
-  },
-) {
+export async function updateBrand(id: number, data: BrandWritable) {
   const brand = await prisma.brand.findFirst({ where: { id, deletedAt: null } });
   if (!brand) throw new BrandError('Виробника не знайдено', 404);
 
@@ -167,15 +167,37 @@ export async function updateBrand(
     if (slugClash) throw new BrandError(`Виробник з slug "${resolvedSlug}" вже існує`, 409);
   }
 
+  // Optimistic concurrency: client must send the version it read. updateMany
+  // returns count=0 if the version no longer matches → another admin edited
+  // in the meantime. Bump version atomically on success.
+  if (data.version !== undefined) {
+    const result = await prisma.brand.updateMany({
+      where: { id, version: data.version },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(resolvedSlug && { slug: resolvedSlug }),
+        ...pickOptionalFields(data),
+        version: { increment: 1 },
+      },
+    });
+    if (result.count === 0) {
+      throw new BrandError(
+        'Виробник був змінений іншим адміністратором. Оновіть сторінку і повторіть.',
+        409,
+      );
+    }
+    const refreshed = await prisma.brand.findUniqueOrThrow({ where: { id } });
+    await invalidateBrandCaches();
+    return refreshed;
+  }
+
   const updated = await prisma.brand.update({
     where: { id },
     data: {
       ...(data.name !== undefined && { name: data.name }),
       ...(resolvedSlug && { slug: resolvedSlug }),
-      ...(data.description !== undefined && { description: data.description }),
-      ...(data.logoPath !== undefined && { logoPath: data.logoPath }),
-      ...(data.isVisible !== undefined && { isVisible: data.isVisible }),
-      ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+      ...pickOptionalFields(data),
+      version: { increment: 1 },
     },
   });
   await invalidateBrandCaches();

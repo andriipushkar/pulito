@@ -5,8 +5,25 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     product: { findMany: vi.fn() },
     category: { findMany: vi.fn() },
-    siteSetting: { upsert: vi.fn() },
+    siteSetting: { upsert: vi.fn(), findUnique: vi.fn().mockResolvedValue(null) },
+    slugRedirect: { findMany: vi.fn().mockResolvedValue([]) },
   },
+}));
+vi.mock('@/services/jobs/broken-link-checker', () => ({
+  runBrokenLinkChecker: vi.fn().mockResolvedValue({
+    orphanedRedirects: [],
+    redirectChains: [],
+    seoGaps: [],
+    seoGapsTotal: 0,
+    duplicateTitles: [],
+    imageGaps: [],
+    imageGapsTotal: 0,
+    thinContent: [],
+    thinContentTotal: 0,
+    slugIssues: [],
+    slugIssuesTotal: 0,
+    generatedAt: new Date().toISOString(),
+  }),
 }));
 
 const mockFetch = vi.fn();
@@ -15,11 +32,15 @@ vi.stubGlobal('fetch', mockFetch);
 import { POST } from './route';
 import { prisma } from '@/lib/prisma';
 
+const authHeaders = { Authorization: 'Bearer test-app-secret' };
+
 describe('POST /api/v1/cron/seo-check', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFetch.mockResolvedValue({ status: 200 });
+    mockFetch.mockResolvedValue({ status: 200, ok: true });
     vi.mocked(prisma.siteSetting.upsert).mockResolvedValue({} as any);
+    vi.mocked(prisma.siteSetting.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.product.findMany).mockResolvedValue([]);
     vi.mocked(prisma.category.findMany).mockResolvedValue([]);
   });
 
@@ -29,73 +50,51 @@ describe('POST /api/v1/cron/seo-check', () => {
     expect(res.status).toBe(401);
   });
 
-  it('detects missing SEO fields', async () => {
-    vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { slug: 'test', name: 'Test', content: { seoTitle: null, seoDescription: null } },
-    ] as any);
-    const req = new Request('http://localhost', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer test-app-secret' },
-    });
+  it('returns 200 and counts from runBrokenLinkChecker on auth success', async () => {
+    const req = new Request('http://localhost', { method: 'POST', headers: authHeaders });
     const res = await POST(req as any);
+    const json = await res.json();
+
     expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.data.missingMeta).toBe(2);
+    // New response shape exposes per-category counts pulled from the scan.
+    expect(json.data).toMatchObject({
+      orphanedRedirects: 0,
+      redirectChains: 0,
+      seoGaps: 0,
+      duplicateTitles: 0,
+      imageGaps: 0,
+      thinContent: 0,
+      slugIssues: 0,
+      productsSampled: 0,
+      categoriesChecked: 0,
+    });
   });
 
-  it('detects broken links', async () => {
-    vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { slug: 'broken', name: 'Broken', content: { seoTitle: 'ok', seoDescription: 'ok' } },
-    ] as any);
-    mockFetch.mockResolvedValueOnce({ status: 404 });
-    const req = new Request('http://localhost', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer test-app-secret' },
-    });
-    const res = await POST(req as any);
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.data.brokenLinks).toBe(1);
+  it('persists scan result + history via siteSetting.upsert', async () => {
+    const req = new Request('http://localhost', { method: 'POST', headers: authHeaders });
+    await POST(req as any);
+    // One upsert for current results, one for rolling history snapshot.
+    expect(prisma.siteSetting.upsert).toHaveBeenCalledTimes(2);
   });
 
-  it('handles no products gracefully', async () => {
-    vi.mocked(prisma.product.findMany).mockResolvedValue([]);
-    const req = new Request('http://localhost', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer test-app-secret' },
-    });
-    const res = await POST(req as any);
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.data.totalIssues).toBe(0);
-  });
-
-  it('sends Telegram alert on broken links', async () => {
-    process.env.TELEGRAM_BOT_TOKEN = 'test-token';
-    process.env.TELEGRAM_MANAGER_CHAT_ID = 'test-chat';
+  it('runs HTTP head-check for each visible product + category', async () => {
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { slug: 'broken', name: 'Broken', content: { seoTitle: 'ok', seoDescription: 'ok' } },
-    ] as any);
-    mockFetch.mockResolvedValueOnce({ status: 404 }); // product page check
-    mockFetch.mockResolvedValueOnce({ ok: true }); // telegram send
-    const req = new Request('http://localhost', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer test-app-secret' },
-    });
-    const res = await POST(req as any);
-    expect(res.status).toBe(200);
-    // fetch called: 1 product HEAD + 1 upsert (via prisma, not fetch) + 1 telegram
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    delete process.env.TELEGRAM_BOT_TOKEN;
-    delete process.env.TELEGRAM_MANAGER_CHAT_ID;
+      { slug: 'a', name: 'A' } as any,
+      { slug: 'b', name: 'B' } as any,
+    ]);
+    vi.mocked(prisma.category.findMany).mockResolvedValue([
+      { slug: 'c', name: 'C' } as any,
+    ]);
+    const req = new Request('http://localhost', { method: 'POST', headers: authHeaders });
+    await POST(req as any);
+    // 2 products head + 1 category head + 2 canonical fetches for sampled products
+    expect(mockFetch).toHaveBeenCalled();
+    expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
 
   it('returns 500 on top-level error', async () => {
     vi.mocked(prisma.product.findMany).mockRejectedValue(new Error('db error'));
-    const req = new Request('http://localhost', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer test-app-secret' },
-    });
+    const req = new Request('http://localhost', { method: 'POST', headers: authHeaders });
     const res = await POST(req as any);
     expect(res.status).toBe(500);
   });

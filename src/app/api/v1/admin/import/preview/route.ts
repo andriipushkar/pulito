@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { parsePreview, ImportError } from '@/services/import';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('manager', 'admin')(async (request: NextRequest) => {
   try {
@@ -13,8 +14,8 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
     }
 
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!ext || !['xlsx', 'xls', 'csv'].includes(ext)) {
-      return errorResponse('Підтримуються формати .xlsx, .xls та .csv', 400);
+    if (!ext || !['xlsx', 'xls', 'csv', 'xml', 'yml'].includes(ext)) {
+      return errorResponse('Підтримуються формати .xlsx, .xls, .csv, .xml, .yml', 400);
     }
 
     if (file.size > 10 * 1024 * 1024) {
@@ -29,6 +30,7 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
     if (error instanceof ImportError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/import/preview] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

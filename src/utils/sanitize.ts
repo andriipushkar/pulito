@@ -22,9 +22,11 @@ export function sanitizeHtml(dirty: string): string {
     ALLOWED_ATTR: [
       'href', 'target', 'rel',
       'src', 'alt', 'width', 'height', 'loading',
-      'class',
+      'class', 'style',
       'colspan', 'rowspan',
       'controls', 'type',
+      // TipTap multicolor highlight stores the colour via data-color too
+      'data-color',
     ],
   });
 }

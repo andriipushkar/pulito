@@ -7,6 +7,15 @@ vi.mock('@/config/env', () => ({
   },
 }));
 
+// Bypass the Redis-backed daily quota guard — tests focus on the publish
+// flow, not the rate-limit logic (covered separately in instagram-quota.test).
+vi.mock('./instagram-quota', () => ({
+  INSTAGRAM_DAILY_LIMIT: 25,
+  getInstagramQuota: vi.fn().mockResolvedValue({ used: 0, limit: 25, remaining: 25, exhausted: false }),
+  consumeInstagramQuota: vi.fn().mockResolvedValue(undefined),
+  assertInstagramQuotaAvailable: vi.fn().mockResolvedValue(undefined),
+}));
+
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 

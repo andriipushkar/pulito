@@ -1,5 +1,5 @@
 export const ROUTE_LIMITS: Record<string, { max: number; window: number }> = {
-  '/api/v1/auth': { max: 5, window: 60 },
+  '/api/v1/auth': { max: 10, window: 60 },
   '/api/v1/products/search': { max: 30, window: 60 },
   '/api/v1/products/instant-search': { max: 60, window: 60 },
   '/api/v1/orders': { max: 10, window: 60 },
@@ -9,7 +9,6 @@ export const ROUTE_LIMITS: Record<string, { max: number; window: number }> = {
   '/api/v1/me/subscriptions': { max: 10, window: 60 },
   '/api/v1/blog': { max: 60, window: 60 },
   '/api/v1/bundles': { max: 60, window: 60 },
-  '/api/v1/calculator': { max: 20, window: 60 },
   '/api/v1/events': { max: 120, window: 60 },
   '/api/v1/admin': { max: 60, window: 60 },
   '/api/v1/cron': { max: 5, window: 60 },

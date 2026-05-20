@@ -500,3 +500,63 @@ export async function getPersonalizedRecommendations(
   await redis.setex(cacheKey, CACHE_TTL.MEDIUM, JSON.stringify(finalResult));
   return finalResult;
 }
+
+/**
+ * Get "frequently bought together" recommendations for the entire cart.
+ * Aggregates scores across all cart items, excludes products already in cart
+ * or out-of-stock. Used on checkout (FrequentlyBought block).
+ */
+export async function getCartRecommendations(
+  productIds: number[],
+  limit = 4,
+): Promise<
+  {
+    id: number;
+    name: string;
+    slug: string;
+    code: string;
+    priceRetail: unknown;
+    imagePath: string | null;
+    isPromo: boolean;
+    images: { pathThumbnail: string | null }[];
+  }[]
+> {
+  if (productIds.length === 0) return [];
+
+  const aggregated = await prisma.productRecommendation.groupBy({
+    by: ['recommendedProductId'],
+    where: {
+      productId: { in: productIds },
+      recommendationType: { in: ['bought_together', 'collaborative', 'manual'] },
+      recommendedProductId: { notIn: productIds },
+    },
+    _sum: { score: true },
+    orderBy: { _sum: { score: 'desc' } },
+    take: limit * 3,
+  });
+
+  if (aggregated.length === 0) return [];
+
+  const candidateIds = aggregated
+    .map((row) => row.recommendedProductId)
+    .filter((id): id is number => id !== null);
+
+  const products = await prisma.product.findMany({
+    where: {
+      id: { in: candidateIds },
+      isActive: true,
+      quantity: { gt: 0 },
+    },
+    select: PRODUCT_SELECT,
+  });
+
+  // Re-sort by aggregated score order
+  const orderIndex = new Map<number, number>(
+    candidateIds.map((id, index) => [id, index]),
+  );
+  products.sort(
+    (a, b) => (orderIndex.get(a.id) ?? 999) - (orderIndex.get(b.id) ?? 999),
+  );
+
+  return products.slice(0, limit);
+}

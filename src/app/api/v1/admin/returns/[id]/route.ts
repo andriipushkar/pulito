@@ -3,6 +3,7 @@ import { withRole } from '@/middleware/auth';
 import { processReturn, markReturnReceived, markReturnRefunded, ReturnError } from '@/services/return-request';
 import { processReturnSchema } from '@/validators/return-request';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const PATCH = withRole('admin', 'manager')(async (request: NextRequest, { user, params }) => {
   try {
@@ -34,6 +35,7 @@ export const PATCH = withRole('admin', 'manager')(async (request: NextRequest, {
     if (error instanceof ReturnError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/returns/[id]] PATCH failed', { error });
     return errorResponse('Помилка сервера', 500);
   }
 });

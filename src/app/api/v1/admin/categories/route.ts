@@ -3,12 +3,14 @@ import { withRole } from '@/middleware/auth';
 import { createCategorySchema } from '@/validators/category';
 import { createCategory, getCategories, CategoryError } from '@/services/category';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('manager', 'admin')(async () => {
   try {
     const categories = await getCategories({ includeHidden: true });
     return successResponse(categories);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/categories] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -29,6 +31,7 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
     if (error instanceof CategoryError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/categories] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

@@ -1,6 +1,12 @@
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
-import { getCartWithPersonalPrices, addToCart, clearCart, mergeCart } from '@/services/cart';
+import {
+  getCartWithPersonalPrices,
+  addToCart,
+  clearCart,
+  mergeCart,
+  replaceCart,
+} from '@/services/cart';
 import { CartError } from '@/services/cart';
 import { addToCartSchema } from '@/validators/order';
 import { successResponse, errorResponse } from '@/utils/api-response';
@@ -45,11 +51,20 @@ export const DELETE = createApiHandler(RATE_LIMITS.cart, withAuth(async (_reques
 export const PUT = createApiHandler(RATE_LIMITS.cart, withAuth(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
-    if (Array.isArray(body.items)) {
-      const items = await mergeCart(user.id, body.items);
-      return successResponse(items);
+    if (!Array.isArray(body.items)) {
+      return errorResponse('items масив обовʼязковий', 400);
     }
-    return errorResponse('items масив обовʼязковий', 400);
+    // Two modes:
+    //  - "merge" (default) → preserve server items, add any local-only items.
+    //    Used on first login when local cart should join the server cart.
+    //  - "replace" → mirror the client list exactly. Used on checkout submit
+    //    so items removed in the UI don't sneak back into the created order.
+    const mode = body.mode === 'replace' ? 'replace' : 'merge';
+    const items =
+      mode === 'replace'
+        ? await replaceCart(user.id, body.items)
+        : await mergeCart(user.id, body.items);
+    return successResponse(items);
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }

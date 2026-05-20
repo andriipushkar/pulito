@@ -3,6 +3,8 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { verifyTOTP, generateBackupCodes, hashBackupCode } from '@/services/totp';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 const verifySchema = z.object({
   code: z.string().regex(/^\d{6}$/, 'Код має бути 6 цифр'),
@@ -84,6 +86,15 @@ export const POST = withRole('admin', 'manager')(async (request, { user }) => {
 
     // Clear rate limit on success
     await redis.del(rateLimitKey);
+
+    await logAudit({
+      userId: user.id,
+      actionType: 'user_edit',
+      entityType: 'user',
+      entityId: user.id,
+      details: { action: '2fa_enabled' },
+      ipAddress: getClientIp(request),
+    });
 
     return successResponse({
       twoFactorEnabled: true,

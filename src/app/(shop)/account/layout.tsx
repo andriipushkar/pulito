@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { displayName } from '@/utils/format';
 import Spinner from '@/components/ui/Spinner';
 import type { ReactNode } from 'react';
 
@@ -275,53 +276,54 @@ const IconClose = () => (
 );
 
 const MAIN_NAV: NavItem[] = [
-  { href: '/account', label: 'Головна', icon: <IconHome />, exact: true, section: 'Основне' },
-  { href: '/account/orders', label: 'Замовлення', icon: <IconOrders />, section: 'Основне' },
-  { href: '/account/wishlist', label: 'Обране', icon: <IconHeart />, section: 'Основне' },
-  { href: '/account/notifications', label: 'Сповіщення', icon: <IconBell />, section: 'Основне' },
+  { href: '/account', label: 'Головна', icon: <IconHome />, exact: true },
+  { href: '/account/orders', label: 'Замовлення', icon: <IconOrders /> },
+  { href: '/account/wishlist', label: 'Обране', icon: <IconHeart /> },
+  { href: '/account/notifications', label: 'Сповіщення', icon: <IconBell /> },
 ];
 
-const RETAIL_SERVICES: NavItem[] = [
-  { href: '/account/pricelist', label: 'Прайс-листи', icon: <IconDocument />, section: 'Сервіси' },
-  { href: '/account/addresses', label: 'Адреси', icon: <IconMapPin />, section: 'Сервіси' },
-  {
-    href: '/account/referral',
-    label: 'Реферальна програма',
-    icon: <IconUsers />,
-    section: 'Сервіси',
-  },
-  { href: '/account/loyalty', label: 'Бонусна програма', icon: <IconGift />, section: 'Сервіси' },
-  { href: '/account/settings', label: 'Налаштування', icon: <IconSettings />, section: 'Сервіси' },
-  {
-    href: '/account/wholesale-request',
-    label: 'Стати гуртівником',
-    icon: <IconRocket />,
-    section: 'Сервіси',
-  },
+// Retail user: grouped sections
+const RETAIL_LOYALTY: NavItem[] = [
+  { href: '/account/loyalty', label: 'Бонусна програма', icon: <IconGift /> },
+  { href: '/account/referral', label: 'Реферальна програма', icon: <IconUsers /> },
 ];
 
-const WHOLESALE_SERVICES: NavItem[] = [
-  {
-    href: '/account/quick-order',
-    label: 'Швидке замовлення',
-    icon: <IconBolt />,
-    section: 'Сервіси',
-  },
-  { href: '/account/pricelist', label: 'Прайс-листи', icon: <IconDocument />, section: 'Сервіси' },
-  { href: '/account/finance', label: 'Фінанси', icon: <IconChart />, section: 'Сервіси' },
-  { href: '/account/notes', label: 'Нотатки', icon: <IconNote />, section: 'Сервіси' },
-  { href: '/account/manager', label: 'Менеджер', icon: <IconUserCircle />, section: 'Сервіси' },
-  { href: '/account/status', label: 'Мої умови', icon: <IconShield />, section: 'Сервіси' },
-  { href: '/account/addresses', label: 'Адреси', icon: <IconMapPin />, section: 'Сервіси' },
-  {
-    href: '/account/referral',
-    label: 'Реферальна програма',
-    icon: <IconUsers />,
-    section: 'Сервіси',
-  },
-  { href: '/account/loyalty', label: 'Бонусна програма', icon: <IconGift />, section: 'Сервіси' },
-  { href: '/account/settings', label: 'Налаштування', icon: <IconSettings />, section: 'Сервіси' },
+const RETAIL_REFERENCE: NavItem[] = [
+  { href: '/account/pricelist', label: 'Прайс-листи', icon: <IconDocument /> },
+  { href: '/account/addresses', label: 'Адреси', icon: <IconMapPin /> },
 ];
+
+const RETAIL_SETTINGS_GROUP: NavItem[] = [
+  { href: '/account/settings', label: 'Налаштування', icon: <IconSettings /> },
+];
+
+const WHOLESALE_WORK: NavItem[] = [
+  { href: '/account/quick-order', label: 'Швидке замовлення', icon: <IconBolt /> },
+  { href: '/account/finance', label: 'Фінанси', icon: <IconChart /> },
+  { href: '/account/notes', label: 'Нотатки', icon: <IconNote /> },
+  { href: '/account/manager', label: 'Менеджер', icon: <IconUserCircle /> },
+  { href: '/account/status', label: 'Мої умови', icon: <IconShield /> },
+];
+
+const WHOLESALE_REFERENCE: NavItem[] = [
+  { href: '/account/pricelist', label: 'Прайс-листи', icon: <IconDocument /> },
+  { href: '/account/addresses', label: 'Адреси', icon: <IconMapPin /> },
+];
+
+const WHOLESALE_LOYALTY: NavItem[] = [
+  { href: '/account/loyalty', label: 'Бонусна програма', icon: <IconGift /> },
+  { href: '/account/referral', label: 'Реферальна програма', icon: <IconUsers /> },
+];
+
+const WHOLESALE_SETTINGS_GROUP: NavItem[] = [
+  { href: '/account/settings', label: 'Налаштування', icon: <IconSettings /> },
+];
+
+const WHOLESALE_CTA: NavItem = {
+  href: '/account/wholesale-request',
+  label: 'Стати гуртівником',
+  icon: <IconRocket />,
+};
 
 function NavSection({
   label,
@@ -367,6 +369,21 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/auth/login');
+    }
+  }, [isLoading, user, router]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -376,23 +393,69 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    router.push('/auth/login');
-    return null;
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
-  const serviceItems = user.role === 'wholesaler' ? WHOLESALE_SERVICES : RETAIL_SERVICES;
+  const isWholesaler = user.role === 'wholesaler';
+  const hasPendingWholesale = user.wholesaleStatus === 'pending';
+
+  // Build sidebar sections based on user role
+  const navSections: { label: string; items: NavItem[] }[] = isWholesaler
+    ? [
+        { label: 'Основне', items: MAIN_NAV },
+        { label: 'Робота', items: WHOLESALE_WORK },
+        { label: 'Програми лояльності', items: WHOLESALE_LOYALTY },
+        { label: 'Довідка', items: WHOLESALE_REFERENCE },
+        { label: 'Налаштування', items: WHOLESALE_SETTINGS_GROUP },
+      ]
+    : [
+        { label: 'Основне', items: MAIN_NAV },
+        { label: 'Програми лояльності', items: RETAIL_LOYALTY },
+        { label: 'Довідка', items: RETAIL_REFERENCE },
+        {
+          label: 'Налаштування',
+          items: hasPendingWholesale
+            ? RETAIL_SETTINGS_GROUP
+            : [...RETAIL_SETTINGS_GROUP, WHOLESALE_CTA],
+        },
+      ];
 
   const isActiveItem = (item: NavItem) =>
     item.exact ? pathname === item.href : pathname?.startsWith(item.href);
 
-  const initials = user.fullName
-    ? user.fullName
-        .split(' ')
+  // Build breadcrumb crumbs from the current pathname
+  const allSidebarItems: NavItem[] = [
+    ...MAIN_NAV,
+    ...RETAIL_LOYALTY,
+    ...RETAIL_REFERENCE,
+    ...RETAIL_SETTINGS_GROUP,
+    ...WHOLESALE_WORK,
+    ...WHOLESALE_REFERENCE,
+    ...WHOLESALE_LOYALTY,
+    ...WHOLESALE_SETTINGS_GROUP,
+    WHOLESALE_CTA,
+  ];
+  const currentPageLabel = (() => {
+    if (!pathname || pathname === '/account') return null;
+    const match = allSidebarItems.find(
+      (i) => !i.exact && pathname.startsWith(i.href) && i.href !== '/account',
+    );
+    return match?.label || null;
+  })();
+
+  const name = displayName(user);
+  const initials = name === 'Користувач'
+    ? '?'
+    : name
+        .split(/\s+/)
         .map((n) => n[0])
         .join('')
         .toUpperCase()
-        .slice(0, 2)
-    : user.email?.[0]?.toUpperCase() || '?';
+        .slice(0, 2);
 
   const sidebarContent = (
     <>
@@ -402,9 +465,7 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-[var(--color-text)]">
-            {user.fullName || 'Користувач'}
-          </p>
+          <p className="truncate text-sm font-semibold text-[var(--color-text)]">{name}</p>
           <p className="truncate text-xs text-[var(--color-text-secondary)]">{user.email}</p>
         </div>
       </div>
@@ -420,20 +481,26 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
 
       {/* Nav sections */}
       <div className="space-y-4 px-1">
-        <NavSection label="Основне" items={MAIN_NAV} isActive={isActiveItem} />
-        <NavSection label="Сервіси" items={serviceItems} isActive={isActiveItem} />
+        {navSections.map((section) => (
+          <NavSection
+            key={section.label}
+            label={section.label}
+            items={section.items}
+            isActive={isActiveItem}
+          />
+        ))}
       </div>
 
       <div className="my-2 border-t border-[var(--color-border)]/60" />
 
-      {/* Logout */}
+      {/* Logout — subdued outlined style */}
       <div className="px-1">
         <button
           onClick={() => {
             logout();
             router.push('/');
           }}
-          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-red-500 transition-colors hover:bg-red-50"
+          className="flex w-full items-center gap-2.5 rounded-lg border border-[var(--color-border)]/60 px-3 py-2 text-[13px] font-medium text-[var(--color-text-secondary)] transition-colors hover:border-red-200 hover:bg-red-50/40 hover:text-red-500"
         >
           <IconLogout />
           <span>Вийти</span>
@@ -444,6 +511,21 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto w-full max-w-[1680px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      {/* ── Breadcrumbs ── */}
+      <nav aria-label="Хлібні крихти" className="mb-4 flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+        <Link href="/" className="transition-colors hover:text-[var(--color-text)]">Головна</Link>
+        <span aria-hidden="true">/</span>
+        {currentPageLabel ? (
+          <>
+            <Link href="/account" className="transition-colors hover:text-[var(--color-text)]">Кабінет</Link>
+            <span aria-hidden="true">/</span>
+            <span className="font-medium text-[var(--color-text)]">{currentPageLabel}</span>
+          </>
+        ) : (
+          <span className="font-medium text-[var(--color-text)]">Кабінет</span>
+        )}
+      </nav>
+
       <div className="gap-6 lg:grid lg:grid-cols-[260px_1fr] xl:gap-8">
         {/* ── Mobile nav toggle ── */}
         <div className="mb-4 lg:hidden">
@@ -458,14 +540,24 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
 
         {/* ── Mobile nav overlay ── */}
         {mobileNavOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileNavOpen(false)} />
+          <div
+            className="fixed inset-0 z-50 lg:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Меню акаунту"
+          >
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setMobileNavOpen(false)}
+              aria-hidden="true"
+            />
             <div className="absolute inset-y-0 left-0 w-72 animate-slide-in-left overflow-y-auto bg-[var(--color-bg)] p-3 shadow-xl">
               <div className="mb-2 flex items-center justify-between px-2">
                 <span className="text-sm font-semibold text-[var(--color-text)]">Акаунт</span>
                 <button
                   onClick={() => setMobileNavOpen(false)}
                   className="rounded-lg p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+                  aria-label="Закрити меню"
                 >
                   <IconClose />
                 </button>

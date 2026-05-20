@@ -85,11 +85,11 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
         <ul
           className={`flex items-center justify-center gap-1 overflow-hidden transition-all duration-300 ${shrink ? 'py-1' : 'py-2'}`}
         >
-          {/* Static catalog link */}
+          {/* Static catalog link — primary action, white-on-blue with subtle pop */}
           <li>
             <Link
               href="/catalog"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[var(--color-gold-dark)] to-[var(--color-gold)] px-4 py-2 text-sm font-semibold text-white shadow-[var(--shadow-gold)] transition-all hover:from-[var(--color-gold)] hover:to-[var(--color-gold-light)]"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/30 backdrop-blur-sm transition-all hover:bg-white hover:text-[var(--color-primary-dark)]"
             >
               <svg
                 className="h-4 w-4"
@@ -108,14 +108,14 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
             </Link>
           </li>
 
-          {/* Static "Акції" link */}
+          {/* Static "Акції" link — accent via icon color only, same shape as other nav items */}
           {!visibleParents.some((c) => /акці|sale|promo/i.test(c.slug)) && (
             <li>
               <Link
                 href="/catalog?promo=true"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-gradient-to-r from-[#FF6B35] to-[#F44336] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:brightness-110"
+                className="group inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-white/90 transition-all hover:bg-white/10 hover:text-white"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="h-4 w-4 text-[var(--color-gold-light)] transition-colors group-hover:text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2c.5 2.5 3 5 5 7-1 4-3 7-5 9-2-2-4-5-5-9 2-2 4.5-4.5 5-7z" />
                 </svg>
                 Акції

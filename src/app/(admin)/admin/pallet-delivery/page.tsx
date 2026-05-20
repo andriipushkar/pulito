@@ -7,6 +7,7 @@ import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import PalletListSection from '@/components/admin/PalletListSection';
 
 interface PalletRegion {
   name: string;
@@ -92,9 +93,12 @@ export default function AdminPalletDeliveryPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Палетна доставка</h1>
-        <Button onClick={() => setConfirmSave(true)} isLoading={isSaving}>Зберегти</Button>
+        <Button onClick={() => setConfirmSave(true)} isLoading={isSaving}>Зберегти конфіг</Button>
       </div>
 
+      <PalletListSection />
+
+      <h2 className="mb-3 text-lg font-semibold">Налаштування тарифу</h2>
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
         <div className="mb-4 flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm">
@@ -157,6 +161,9 @@ export default function AdminPalletDeliveryPage() {
               + Додати регіон
             </button>
           </div>
+          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
+            Множник застосовується до базової ціни для конкретного регіону (1.0 — без націнки, 1.5 — +50%, 0.9 — −10%).
+          </p>
           <div className="space-y-2">
             {config.regions.map((region, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -167,6 +174,7 @@ export default function AdminPalletDeliveryPage() {
                 />
                 <Input
                   type="number"
+                  step="0.1"
                   value={String(region.multiplier)}
                   onChange={(e) => updateRegion(i, 'multiplier', Number(e.target.value))}
                   placeholder="Множник"
@@ -180,6 +188,11 @@ export default function AdminPalletDeliveryPage() {
                 </button>
               </div>
             ))}
+            {config.regions.length === 0 && (
+              <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-6 text-center text-xs text-[var(--color-text-secondary)]">
+                Регіонів не задано — буде застосована базова ціна для всіх адрес.
+              </div>
+            )}
           </div>
         </div>
       </div>

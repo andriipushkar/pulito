@@ -33,11 +33,46 @@ model BlogPost {
   publishedAt    DateTime?     @map("published_at")
   viewsCount     Int           @default(0) @map("views_count")
   authorId       Int           @map("author_id")
+  // Soft-delete so an accidental delete can be undone without restoring from
+  // backup. The blog list / RSS / sitemap all filter `deletedAt: null`.
+  deletedAt      DateTime?     @map("deleted_at")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  comments       BlogComment[]
 
   @@index([slug])
   @@index([isPublished, publishedAt(sort: Desc)])
   @@index([categoryId])
+  @@index([deletedAt])
   @@map("blog_posts")
+}
+
+enum BlogCommentStatus {
+  pending
+  approved
+  rejected
+  spam
+}
+
+model BlogComment {
+  id            Int               @id @default(autoincrement())
+  postId        Int               @map("post_id")
+  post          BlogPost          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorName    String            @map("author_name")
+  authorEmail   String?           @map("author_email")
+  authorUserId  Int?              @map("author_user_id")
+  content       String            @db.VarChar(2000)
+  status        BlogCommentStatus @default(pending)
+  ipAddress     String?           @map("ip_address")
+  parentId      Int?              @map("parent_id")
+  parent        BlogComment?      @relation("CommentTree", fields: [parentId], references: [id])
+  replies       BlogComment[]     @relation("CommentTree")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  approvedAt    DateTime?         @map("approved_at")
+  approvedBy    Int?              @map("approved_by")
+
+  @@index([postId, status])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("blog_comments")
 }

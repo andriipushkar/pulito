@@ -3,6 +3,9 @@ import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { importProducts, ImportError } from '@/services/import';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('manager', 'admin')(async (request: NextRequest, { user }) => {
   try {
@@ -14,8 +17,8 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
     }
 
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!ext || !['xlsx', 'xls', 'csv'].includes(ext)) {
-      return errorResponse('Підтримуються формати .xlsx, .xls та .csv', 400);
+    if (!ext || !['xlsx', 'xls', 'csv', 'xml', 'yml'].includes(ext)) {
+      return errorResponse('Підтримуються формати .xlsx, .xls, .csv, .xml, .yml', 400);
     }
 
     const maxSize = 10 * 1024 * 1024; // 10MB
@@ -23,23 +26,43 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
       return errorResponse('Максимальний розмір файлу: 10 МБ', 400);
     }
 
+    const dryRun = request.nextUrl.searchParams.get('dryRun') === '1';
+
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await importProducts(buffer, file.name, user.id);
+    const result = await importProducts(buffer, file.name, user.id, { dryRun });
 
-    // Revalidate all cached pages after bulk import
-    try {
-      revalidatePath('/catalog');
-      revalidatePath('/');
-    } catch { /* best-effort */ }
+    if (!dryRun) {
+      await logAudit({
+        userId: user.id,
+        actionType: 'import_action',
+        entityType: 'product',
+        entityId: result.importLogId,
+        details: { filename: file.name, size: file.size },
+        ipAddress: getClientIp(request),
+      });
 
-    // Trigger full Typesense reindex after import
-    import('@/services/typesense').then((ts) => ts.indexAllProducts()).catch(() => {});
+      // Revalidate all cached pages after bulk import
+      try {
+        revalidatePath('/catalog');
+        revalidatePath('/');
+      } catch { /* best-effort */ }
+
+      // Trigger full Typesense reindex after import. Fire-and-forget so the HTTP
+      // response isn't blocked by indexing, but log failures so we notice when
+      // search drifts out of sync after a bulk import.
+      import('@/services/typesense')
+        .then((ts) => ts.indexAllProducts())
+        .catch((err) => {
+          logger.error('[admin/import/products] Typesense reindex failed', { error: err });
+        });
+    }
 
     return successResponse(result, 200);
   } catch (error) {
     if (error instanceof ImportError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/import/products] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

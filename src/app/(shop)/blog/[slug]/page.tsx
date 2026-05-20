@@ -11,6 +11,7 @@ import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import BlogContent from '@/components/blog/BlogContent';
 import BlogJsonLd from '@/components/blog/BlogJsonLd';
 import RelatedPosts from '@/components/blog/RelatedPosts';
+import BlogComments from '@/components/blog/BlogComments';
 import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import { getPostBySlug, getRelatedPosts } from '@/services/blog';
 
@@ -196,6 +197,10 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           </div>
         )}
       </article>
+
+      <div className="mx-auto max-w-3xl">
+        <BlogComments postId={post.id} />
+      </div>
 
       {/* Related posts */}
       <RelatedPosts posts={relatedPosts} />

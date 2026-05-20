@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { retryChannel, PublicationError } from '@/services/publication';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole('admin', 'manager')(async (request: NextRequest, { params }) => {
   try {
@@ -18,6 +19,7 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest, { 
     if (error instanceof PublicationError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/publications/[id]/retry] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

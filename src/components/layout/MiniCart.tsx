@@ -32,7 +32,7 @@ export default function MiniCart({ onClose }: MiniCartProps) {
   }, [onClose]);
 
   const isWholesaler = user?.role === 'wholesaler';
-  const cartTotal = total(user?.role);
+  const cartTotal = total(user?.role, user?.wholesaleGroup);
 
   return (
     <div

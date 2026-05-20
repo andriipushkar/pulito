@@ -3,16 +3,23 @@ import { withRole } from '@/middleware/auth';
 import { createBrandSchema } from '@/validators/brand';
 import { getBrands, createBrand, BrandError } from '@/services/brand';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole(
   'manager',
   'admin',
 )(async (request: NextRequest) => {
   try {
-    const includeHidden = request.nextUrl.searchParams.get('includeHidden') === 'true';
-    const brands = await getBrands({ includeHidden: includeHidden || true });
+    // Admin sees hidden brands by default; explicit ?includeHidden=false hides them.
+    const param = request.nextUrl.searchParams.get('includeHidden');
+    const includeHidden = param === null ? true : param === 'true';
+    const brands = await getBrands({
+      includeHidden,
+      includeProductCount: true,
+    });
     return successResponse(brands);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/brands] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
@@ -33,6 +40,7 @@ export const POST = withRole(
     if (error instanceof BrandError) {
       return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/brands] POST failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

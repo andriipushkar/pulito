@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { getImportLogById } from '@/services/import';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('manager', 'admin')(
   async (_request: NextRequest, { params }) => {
@@ -16,7 +17,8 @@ export const GET = withRole('manager', 'admin')(
       }
 
       return successResponse(log);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/import/logs/[id]] GET failed', { error: err });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

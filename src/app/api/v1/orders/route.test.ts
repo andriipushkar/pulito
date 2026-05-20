@@ -32,6 +32,11 @@ vi.mock('@/services/loyalty', () => {
 });
 
 vi.mock('@/services/idempotency', () => ({
+  // Default: no prior request, slot reserved.
+  reserveIdempotencyKey: vi.fn().mockResolvedValue({ reserved: true }),
+  updateIdempotentResponse: vi.fn().mockResolvedValue(undefined),
+  // Legacy exports — still used by other code paths (e.g. payment); harmless
+  // to keep alongside the new API.
   getIdempotentResponse: vi.fn().mockResolvedValue(null),
   setIdempotentResponse: vi.fn(),
 }));
@@ -189,10 +194,11 @@ describe('POST /api/v1/orders', () => {
   });
 
   it('returns cached response when idempotency key exists', async () => {
-    const { getIdempotentResponse } = await import('@/services/idempotency');
-    vi.mocked(getIdempotentResponse).mockResolvedValue(
-      JSON.stringify({ success: true, data: { id: 99 } }),
-    );
+    const { reserveIdempotencyKey } = await import('@/services/idempotency');
+    vi.mocked(reserveIdempotencyKey).mockResolvedValue({
+      reserved: false,
+      cached: JSON.stringify({ success: true, data: { id: 99 } }),
+    });
     const req = new NextRequest('http://localhost/api/v1/orders', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -246,6 +252,7 @@ describe('POST /api/v1/orders', () => {
       expect.anything(),
       expect.arrayContaining([expect.objectContaining({ price: 80 })]),
       'wholesale',
+      expect.any(Number),
     );
   });
 
@@ -284,6 +291,7 @@ describe('POST /api/v1/orders', () => {
       expect.anything(),
       expect.arrayContaining([expect.objectContaining({ price: 50 })]),
       'retail',
+      expect.any(Number),
     );
   });
 
@@ -327,8 +335,8 @@ describe('POST /api/v1/orders', () => {
   });
 
   it('sets idempotency response for authenticated order', async () => {
-    const { setIdempotentResponse, getIdempotentResponse } = await import('@/services/idempotency');
-    vi.mocked(getIdempotentResponse).mockResolvedValue(null);
+    const { updateIdempotentResponse, reserveIdempotencyKey } = await import('@/services/idempotency');
+    vi.mocked(reserveIdempotencyKey).mockResolvedValue({ reserved: true });
 
     mockCheckoutParse.mockReturnValue({
       success: true,
@@ -361,7 +369,7 @@ describe('POST /api/v1/orders', () => {
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.data.paymentRequired).toBe(true);
-    expect(setIdempotentResponse).toHaveBeenCalledWith('idem-key', expect.any(String));
+    expect(updateIdempotentResponse).toHaveBeenCalledWith('idem-key', expect.any(String));
   });
 
   it('silently ignores non-LoyaltyError when spending points fails', async () => {
@@ -554,8 +562,8 @@ describe('POST /api/v1/orders (guest checkout)', () => {
     ] as any);
     mockCreateOrder.mockResolvedValue({ id: 11, orderNumber: 'ORD-011' });
 
-    const { setIdempotentResponse, getIdempotentResponse } = await import('@/services/idempotency');
-    vi.mocked(getIdempotentResponse).mockResolvedValue(null);
+    const { updateIdempotentResponse, reserveIdempotencyKey } = await import('@/services/idempotency');
+    vi.mocked(reserveIdempotencyKey).mockResolvedValue({ reserved: true });
 
     const req = new NextRequest('http://localhost/api/v1/orders', {
       method: 'POST',
@@ -566,6 +574,6 @@ describe('POST /api/v1/orders (guest checkout)', () => {
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.data.paymentRequired).toBe(true);
-    expect(setIdempotentResponse).toHaveBeenCalledWith('guest-idem', expect.any(String));
+    expect(updateIdempotentResponse).toHaveBeenCalledWith('guest-idem', expect.any(String));
   });
 });

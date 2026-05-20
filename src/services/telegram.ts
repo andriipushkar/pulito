@@ -1,7 +1,21 @@
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { redis } from '@/lib/redis';
+import { isValidGtin } from '@/utils/gtin';
 import { findAutoReply } from './bot-auto-reply';
 import { pickWelcomeMessage } from './bot-welcome';
+
+// Telegram parses our messages with parse_mode: HTML — any `<`, `>`, `&` from
+// user-supplied fields (name, phone, email, order comment) must be escaped or
+// the whole message is rejected with HTTP 400 and the manager never sees the
+// notification. Mirror the standard React escaping rules.
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -419,6 +433,115 @@ async function handleOrders(chatId: number) {
   await sendMessage(chatId, text);
 }
 
+/**
+ * /barcode <EAN> — quick lookup for warehouse workers. Searches by barcode
+ * first (exact match), falls back to variant SKU, then plain text search.
+ * Replies with name, code, stock and price — what a packer needs to
+ * confirm they grabbed the right item.
+ */
+async function handleBarcodeLookup(chatId: number, rawCode: string) {
+  const digits = rawCode.replace(/\D/g, '');
+  if (!digits) {
+    await sendMessage(chatId, 'Вкажіть штрихкод: <code>/barcode 4823033008007</code>');
+    return;
+  }
+  if (!isValidGtin(digits)) {
+    await sendMessage(
+      chatId,
+      `⚠️ <b>${digits}</b> — невалідна контрольна цифра (GS1). Перевірте останню цифру.`,
+    );
+    return;
+  }
+
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
+
+  // 1. Try product by barcode
+  const product = await prisma.product.findUnique({
+    where: { barcode: digits },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      code: true,
+      priceRetail: true,
+      priceWholesale: true,
+      quantity: true,
+      imagePath: true,
+      isActive: true,
+    },
+  });
+
+  if (product) {
+    const stockIcon = product.quantity === 0 ? '❌' : product.quantity <= 5 ? '⚠️' : '✅';
+    const text = [
+      `<b>${product.name}</b>`,
+      `Код: <code>${product.code}</code>`,
+      `Штрихкод: <code>${digits}</code>`,
+      `Залишок: ${stockIcon} <b>${product.quantity}</b> шт`,
+      `Ціна: <b>${Number(product.priceRetail).toFixed(2)} ₴</b>` +
+        (product.priceWholesale
+          ? ` (опт ${Number(product.priceWholesale).toFixed(2)} ₴)`
+          : ''),
+      product.isActive ? '' : '⚠️ <i>Товар деактивовано</i>',
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const imageUrl = product.imagePath ? `${appUrl}${product.imagePath}` : null;
+    await sendProductMessage(chatId, text, imageUrl, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔗 Відкрити на сайті', url: `${appUrl}/product/${product.slug}` }],
+        ],
+      },
+    });
+    return;
+  }
+
+  // 2. Try variant by barcode
+  const variant = await prisma.productVariant.findUnique({
+    where: { barcode: digits },
+    select: {
+      sku: true,
+      name: true,
+      quantity: true,
+      priceRetail: true,
+      product: { select: { name: true, slug: true, code: true } },
+    },
+  });
+
+  if (variant) {
+    const stockIcon = variant.quantity === 0 ? '❌' : variant.quantity <= 5 ? '⚠️' : '✅';
+    const text = [
+      `<b>${variant.product.name}</b>`,
+      `Варіант: <b>${variant.name}</b>`,
+      `SKU: <code>${variant.sku}</code>`,
+      `Штрихкод: <code>${digits}</code>`,
+      `Залишок: ${stockIcon} <b>${variant.quantity}</b> шт`,
+      variant.priceRetail
+        ? `Ціна варіанта: <b>${Number(variant.priceRetail).toFixed(2)} ₴</b>`
+        : 'Ціна: за основним товаром',
+    ].join('\n');
+    await sendMessage(chatId, text, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔗 Відкрити товар', url: `${appUrl}/product/${variant.product.slug}` }],
+        ],
+      },
+    });
+    return;
+  }
+
+  await sendMessage(
+    chatId,
+    `Не знайдено товар зі штрихкодом <code>${digits}</code>.\n\nЯкщо це новий товар — додайте його в адмінці.`,
+    {
+      reply_markup: {
+        inline_keyboard: [[{ text: '🔍 Пошук за назвою', callback_data: 'search' }]],
+      },
+    },
+  );
+}
+
 async function handleSearch(chatId: number, query: string) {
   const products = await prisma.product.findMany({
     where: {
@@ -531,11 +654,37 @@ async function handlePopular(chatId: number) {
   }
 }
 
-// Track users awaiting feedback text input
-const feedbackAwaiters = new Set<number>();
+// Track users awaiting feedback text input. Stored in Redis so multiple
+// worker processes (PM2 cluster, multiple pods) share the same flag — the
+// previous in-memory Set would silently desync between workers.
+const FEEDBACK_TTL_SECONDS = 60 * 30;
+const feedbackKey = (chatId: number) => `tg:feedback:${chatId}`;
+const feedbackAwaiters = {
+  async has(chatId: number): Promise<boolean> {
+    try {
+      return (await redis.exists(feedbackKey(chatId))) === 1;
+    } catch {
+      return false;
+    }
+  },
+  async add(chatId: number): Promise<void> {
+    try {
+      await redis.set(feedbackKey(chatId), '1', 'EX', FEEDBACK_TTL_SECONDS);
+    } catch {
+      // Redis down — feedback flow will just fall back to default reply.
+    }
+  },
+  async delete(chatId: number): Promise<void> {
+    try {
+      await redis.del(feedbackKey(chatId));
+    } catch {
+      // ignored
+    }
+  },
+};
 
 async function handleFeedbackStart(chatId: number) {
-  feedbackAwaiters.add(chatId);
+  await feedbackAwaiters.add(chatId);
   await sendMessage(
     chatId,
     '✍️ Напишіть ваш відгук або побажання одним повідомленням.\n\nДля скасування натисніть /cancel',
@@ -543,7 +692,7 @@ async function handleFeedbackStart(chatId: number) {
 }
 
 async function handleFeedbackSubmit(chatId: number, message: string, firstName: string) {
-  feedbackAwaiters.delete(chatId);
+  await feedbackAwaiters.delete(chatId);
 
   const user = await findLinkedUser(chatId);
   const name = user?.fullName || firstName;
@@ -656,7 +805,7 @@ async function handleContact(chatId: number) {
 async function handleHelp(chatId: number) {
   await sendMessage(
     chatId,
-    `<b>Доступні команди:</b>\n\n/start — Головне меню\n/catalog — Каталог товарів\n/promo — Акційні товари\n/new — Новинки\n/popular — Популярні товари\n/search — Пошук товарів\n/orders — Мої замовлення\n/feedback — Залишити відгук\n/settings — Налаштування сповіщень\n/contact — Контакти\n/help — Ця довідка\n\nАбо просто напишіть назву товару для пошуку.`,
+    `<b>Доступні команди:</b>\n\n/start — Головне меню\n/catalog — Каталог товарів\n/promo — Акційні товари\n/new — Новинки\n/popular — Популярні товари\n/search — Пошук товарів\n/barcode &lt;EAN&gt; — Пошук за штрихкодом\n/orders — Мої замовлення\n/feedback — Залишити відгук\n/settings — Налаштування сповіщень\n/contact — Контакти\n/help — Ця довідка\n\n💡 Просто пришліть 8-14 цифр — бот сам розпізнає штрихкод. Або напишіть назву товару для пошуку.`,
   );
 }
 
@@ -739,17 +888,17 @@ export async function notifyManagerNewOrder(order: {
 
   const clientLabel = order.clientType === 'wholesale' ? 'Гуртовий' : 'Роздрібний';
   const text = [
-    `🆕 <b>Нове замовлення #${order.orderNumber}</b>`,
+    `🆕 <b>Нове замовлення #${escapeHtml(order.orderNumber)}</b>`,
     '',
-    `👤 ${order.contactName}`,
-    `📱 ${order.contactPhone}`,
-    order.contactEmail ? `📧 ${order.contactEmail}` : '',
+    `👤 ${escapeHtml(order.contactName)}`,
+    `📱 ${escapeHtml(order.contactPhone)}`,
+    order.contactEmail ? `📧 ${escapeHtml(order.contactEmail)}` : '',
     '',
     `💰 Сума: <b>${Number(order.totalAmount).toFixed(2)} ₴</b>`,
     `📦 Товарів: ${order.itemsCount}`,
-    `🏷 Тип: ${clientLabel}`,
-    `🚚 Доставка: ${order.deliveryMethod}`,
-    `💳 Оплата: ${order.paymentMethod}`,
+    `🏷 Тип: ${escapeHtml(clientLabel)}`,
+    `🚚 Доставка: ${escapeHtml(order.deliveryMethod)}`,
+    `💳 Оплата: ${escapeHtml(order.paymentMethod)}`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -758,6 +907,110 @@ export async function notifyManagerNewOrder(order: {
     await sendMessage(Number(chatId), text);
   } catch {
     // Don't fail order creation if notification fails
+  }
+}
+
+/**
+ * Notify manager about products dropping below safety stock threshold.
+ * No-op if Telegram is not configured.
+ */
+export async function notifyManagerLowStock(
+  products: { id: number; code: string; name: string; quantity: number }[],
+) {
+  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
+  if (!chatId || !BOT_TOKEN || products.length === 0) return;
+
+  const lines = [
+    `📉 <b>Низький залишок (${products.length} ${products.length === 1 ? 'товар' : 'товарів'})</b>`,
+    '',
+    ...products.slice(0, 20).map((p) => `• <b>${p.code}</b> ${p.name.slice(0, 50)} — <b>${p.quantity}</b> шт.`),
+  ];
+  if (products.length > 20) lines.push(`...та ще ${products.length - 20}`);
+  lines.push('', `${process.env.APP_URL || ''}/admin/products?lowStock=1`);
+
+  try {
+    await sendMessage(Number(chatId), lines.join('\n'));
+  } catch {
+    // Best-effort
+  }
+}
+
+/**
+ * Notify manager that a marketplace order was imported but local stock was
+ * insufficient — the customer was already charged on the marketplace, so we
+ * force quantity to 0 and ping the manager to reconcile (reorder, switch the
+ * product offline elsewhere, contact the buyer).
+ */
+export async function notifyManagerOversoldAlert(args: {
+  platform: string;
+  externalOrderId: string;
+  items: { code: string; name?: string; requested: number; available: number }[];
+}) {
+  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
+  if (!chatId || !BOT_TOKEN || args.items.length === 0) return;
+
+  const platformLabels: Record<string, string> = {
+    olx: 'OLX',
+    rozetka: 'Rozetka',
+    prom: 'Prom.ua',
+    epicentrk: 'Epicentr K',
+  };
+  const platformName = platformLabels[args.platform] || args.platform;
+
+  const lines = [
+    `❗️ <b>Перепродаж на ${platformName}</b>`,
+    `Замовлення <code>${args.externalOrderId}</code>`,
+    '',
+    'Залишку не вистачило:',
+    ...args.items.slice(0, 10).map(
+      (i) =>
+        `• <b>${i.code}</b>${i.name ? ` ${i.name.slice(0, 40)}` : ''} — потрібно ${i.requested}, є ${i.available}`,
+    ),
+  ];
+  if (args.items.length > 10) lines.push(`...та ще ${args.items.length - 10} позицій`);
+  lines.push('', `${process.env.APP_URL || ''}/admin/orders`);
+
+  try {
+    await sendMessage(Number(chatId), lines.join('\n'));
+  } catch {
+    // Best-effort
+  }
+}
+
+/**
+ * Notify manager that a marketplace just transitioned from healthy to error.
+ * No-op if Telegram is not configured.
+ */
+export async function notifyManagerMarketplaceAlert(args: {
+  platform: string;
+  error: string;
+  previousStatus: string;
+  newStatus: string;
+}) {
+  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
+  if (!chatId || !BOT_TOKEN) return;
+
+  const platformLabels: Record<string, string> = {
+    olx: 'OLX',
+    rozetka: 'Rozetka',
+    prom: 'Prom.ua',
+    epicentrk: 'Epicentr K',
+  };
+  const platformName = platformLabels[args.platform] || args.platform;
+
+  const text = [
+    `⚠️ <b>Маркетплейс ${platformName} — помилка підключення</b>`,
+    '',
+    `Стан: ${args.previousStatus} → <b>${args.newStatus}</b>`,
+    `Помилка: <code>${args.error.slice(0, 500)}</code>`,
+    '',
+    `Перевірте кабінет: ${process.env.APP_URL || ''}/admin/marketplaces`,
+  ].join('\n');
+
+  try {
+    await sendMessage(Number(chatId), text);
+  } catch {
+    // Best-effort
   }
 }
 
@@ -782,14 +1035,15 @@ export async function notifyClientStatusChange(
 
   const chatId = Number(user.telegramChatId);
   const statusLabel = STATUS_LABELS[newStatus] || newStatus;
+  const safeOrderNumber = escapeHtml(orderNumber);
   const lines = [
-    `📦 <b>Замовлення #${orderNumber}</b>`,
+    `📦 <b>Замовлення #${safeOrderNumber}</b>`,
     '',
-    `Статус змінено: <b>${statusLabel}</b>`,
+    `Статус змінено: <b>${escapeHtml(statusLabel)}</b>`,
   ];
 
   if (newStatus === 'shipped' && trackingNumber) {
-    lines.push(`📋 ТТН: <b>${trackingNumber}</b>`);
+    lines.push(`📋 ТТН: <b>${escapeHtml(trackingNumber)}</b>`);
   }
 
   if (newStatus === 'cancelled') {
@@ -801,11 +1055,15 @@ export async function notifyClientStatusChange(
   }
 
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  // Link directly to the public tracking page for THIS order, not the orders
+  // list — saves the customer from hunting through pages and works whether
+  // they're logged in or not.
+  const orderUrl = `${appUrl}/order/${encodeURIComponent(orderNumber)}/track`;
 
   try {
     await sendMessage(chatId, lines.join('\n'), {
       reply_markup: {
-        inline_keyboard: [[{ text: '📋 Деталі замовлення', url: `${appUrl}/account/orders` }]],
+        inline_keyboard: [[{ text: '📋 Деталі замовлення', url: orderUrl }]],
       },
     });
   } catch {
@@ -1057,8 +1315,8 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
 
       // Cancel feedback mode
       if (text === '/cancel') {
-        if (feedbackAwaiters.has(chatId)) {
-          feedbackAwaiters.delete(chatId);
+        if (await feedbackAwaiters.has(chatId)) {
+          await feedbackAwaiters.delete(chatId);
           await sendMessage(chatId, 'Відгук скасовано.', {
             reply_markup: {
               inline_keyboard: [[{ text: '⬅️ Головне меню', callback_data: 'menu' }]],
@@ -1079,9 +1337,21 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
       if (text === '/contact') return handleContact(chatId);
       if (text === '/prices') return handleWholesalePrices(chatId);
       if (text.startsWith('/search ')) return handleSearch(chatId, text.slice(8).trim());
+      if (text.startsWith('/barcode ') || text.startsWith('/штрихкод ')) {
+        const q = text.replace(/^\/(barcode|штрихкод)\s+/, '').trim();
+        return handleBarcodeLookup(chatId, q);
+      }
+
+      // Bare digit sequence (10-14 digits) — treat as barcode scan. Lets
+      // a warehouse worker just paste/scan the number without remembering
+      // the /barcode prefix.
+      const digits = text.replace(/\D/g, '');
+      if (digits.length >= 8 && digits.length <= 14 && digits === text.trim()) {
+        return handleBarcodeLookup(chatId, digits);
+      }
 
       // If user is submitting feedback text
-      if (feedbackAwaiters.has(chatId)) {
+      if (await feedbackAwaiters.has(chatId)) {
         return handleFeedbackSubmit(chatId, text, from.first_name);
       }
 

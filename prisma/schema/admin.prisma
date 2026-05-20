@@ -11,6 +11,8 @@ enum AuditActionType {
   theme_change
   page_edit
   rule_change
+  data_create
+  data_update
   data_delete
   user_block
   user_unblock
@@ -18,6 +20,9 @@ enum AuditActionType {
   password_reset
   wholesale_approve
   wholesale_reject
+  impersonate_start
+  impersonate_stop
+  gdpr_export
 }
 
 model AuditLog {
@@ -35,6 +40,8 @@ model AuditLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId, createdAt])
   @@map("audit_log")
 }
 
@@ -64,6 +71,13 @@ model ImportLog {
   startedAt     DateTime?    @map("started_at")
   completedAt   DateTime?    @map("completed_at")
   durationMs    Int?         @map("duration_ms")
+  // Product IDs touched by this import — needed for rollback ("undo" button).
+  // Created entries get soft-deleted; updated ones get prices reverted via
+  // PriceHistory.importId. Without this list we'd have to guess by date.
+  createdProductIds Int[] @default([]) @map("created_product_ids")
+  updatedProductIds Int[] @default([]) @map("updated_product_ids")
+  rollbackedAt      DateTime? @map("rollbacked_at")
+  rollbackedBy      Int?      @map("rollbacked_by")
 
   @@index([managerId])
   @@index([status])
@@ -190,7 +204,65 @@ model ChannelStats {
 }
 
 // ─────────────────────────────────────
-// Webhook Logs
+// Polymorphic Tags
+// ─────────────────────────────────────
+model Tag {
+  id        Int         @id @default(autoincrement())
+  name      String      @db.VarChar(64)
+  slug      String      @unique @db.VarChar(64)
+  color     String?     @db.VarChar(16)
+  createdAt DateTime    @default(now()) @map("created_at")
+  entities  EntityTag[]
+
+  @@map("tags")
+}
+
+model EntityTag {
+  id         Int      @id @default(autoincrement())
+  tagId      Int      @map("tag_id")
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  entityType String   @map("entity_type") @db.VarChar(32)
+  entityId   Int      @map("entity_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([tagId, entityType, entityId], map: "entity_tags_unique")
+  @@index([entityType, entityId], map: "entity_tags_entity_idx")
+  @@map("entity_tags")
+}
+
+// Webhook Subscriptions (outbound)
+// ─────────────────────────────────────
+model WebhookSubscription {
+  id         Int                  @id @default(autoincrement())
+  name       String               @db.VarChar(255)
+  url        String
+  secret     String               @db.VarChar(64)
+  events     String[]             @default([])
+  isActive   Boolean              @default(true) @map("is_active")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+  deliveries WebhookDelivery[]
+
+  @@map("webhook_subscriptions")
+}
+
+model WebhookDelivery {
+  id             Int                 @id @default(autoincrement())
+  subscriptionId Int                 @map("subscription_id")
+  subscription   WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  event          String              @db.VarChar(64)
+  payload        Json?
+  statusCode     Int?                @map("status_code")
+  error          String?
+  attempt        Int                 @default(1)
+  durationMs     Int?                @map("duration_ms")
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  @@index([subscriptionId, createdAt(sort: Desc)])
+  @@map("webhook_deliveries")
+}
+
+// Webhook Logs (inbound from third-party services)
 // ─────────────────────────────────────
 model WebhookLog {
   id          Int      @id @default(autoincrement())

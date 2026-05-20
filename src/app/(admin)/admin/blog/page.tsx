@@ -16,24 +16,39 @@ interface BlogPost {
   status: 'published' | 'draft';
   views: number;
   createdAt: string;
+  deletedAt?: string | null;
 }
 
 export default function AdminBlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  // Derive isLoading from request/completion tokens to avoid synchronous setState in effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  const [completedToken, setCompletedToken] = useState(-1);
+  const isLoading = completedToken !== reloadToken;
+  const loadPosts = () => setReloadToken((n) => n + 1);
 
-  const loadPosts = () => {
-    setIsLoading(true);
+  useEffect(() => {
+    let cancelled = false;
+    const qs = showArchived ? '?includeDeleted=true' : '';
     apiClient
-      .get<BlogPost[]>('/api/v1/admin/blog')
+      .get<BlogPost[]>(`/api/v1/admin/blog${qs}`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) setPosts(res.data);
+        else toast.error(res.error || 'Помилка завантаження статей');
       })
-      .finally(() => setIsLoading(false));
-  };
-
-  useEffect(() => { loadPosts(); }, []);
+      .catch(() => {
+        if (!cancelled) toast.error('Помилка завантаження статей');
+      })
+      .finally(() => {
+        if (!cancelled) setCompletedToken(reloadToken);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken, showArchived]);
 
   const handleDelete = async () => {
     if (deleteId === null) return;
@@ -45,17 +60,36 @@ export default function AdminBlogPage() {
     loadPosts();
   };
 
+  const handleRestore = async (id: number) => {
+    const res = await apiClient.post(`/api/v1/admin/blog/${id}/restore`);
+    if (res.success) toast.success('Статтю відновлено (залишається чернеткою)');
+    else toast.error(res.error || 'Не вдалося відновити');
+    loadPosts();
+  };
+
   if (isLoading) {
     return <AdminTableSkeleton rows={6} columns={6} />;
   }
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold">Блог</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="accent-[var(--color-primary)]"
+            />
+            Показати архівні
+          </label>
           <Link href="/admin/blog/categories">
             <Button variant="outline">Категорії</Button>
+          </Link>
+          <Link href="/admin/blog/comments">
+            <Button variant="outline">💬 Коментарі</Button>
           </Link>
           <Link href="/admin/blog/new">
             <Button>+ Нова стаття</Button>
@@ -95,12 +129,28 @@ export default function AdminBlogPage() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
-                    <Link href={`/admin/blog/${post.id}`} className="text-xs text-[var(--color-primary)] hover:underline">
-                      Редагувати
-                    </Link>
-                    <button onClick={() => setDeleteId(post.id)} className="text-xs text-[var(--color-danger)] hover:underline">
-                      Видалити
-                    </button>
+                    {post.deletedAt ? (
+                      <>
+                        <span className="text-xs text-[var(--color-text-secondary)]">
+                          🗑 архівовано
+                        </span>
+                        <button
+                          onClick={() => handleRestore(post.id)}
+                          className="text-xs text-emerald-600 hover:underline"
+                        >
+                          ↻ Відновити
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link href={`/admin/blog/${post.id}`} className="text-xs text-[var(--color-primary)] hover:underline">
+                          Редагувати
+                        </Link>
+                        <button onClick={() => setDeleteId(post.id)} className="text-xs text-[var(--color-danger)] hover:underline">
+                          Видалити
+                        </button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>

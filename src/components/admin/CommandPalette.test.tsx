@@ -6,6 +6,7 @@ import '@testing-library/jest-dom/vitest';
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
+  usePathname: () => '/admin',
 }));
 
 import CommandPalette from './CommandPalette';
@@ -27,29 +28,30 @@ describe('CommandPalette', () => {
   it('opens with Ctrl+K and shows search input', () => {
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-    expect(screen.getByPlaceholderText('Перейти до...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…')).toBeInTheDocument();
   });
 
   it('shows command items when open', () => {
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    // Empty query surfaces Quick Actions first; navigation items follow.
+    expect(screen.getByText('+ Створити товар')).toBeInTheDocument();
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Замовлення')).toBeInTheDocument();
   });
 
   it('filters commands based on search query', () => {
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-    const input = screen.getByPlaceholderText('Перейти до...');
-    fireEvent.change(input, { target: { value: 'Замовлення' } });
-    expect(screen.getByText('Замовлення')).toBeInTheDocument();
+    const input = screen.getByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…');
+    fireEvent.change(input, { target: { value: 'Користувачі' } });
+    expect(screen.getByText('Користувачі')).toBeInTheDocument();
     expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
   });
 
   it('shows "nothing found" for non-matching query', () => {
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-    const input = screen.getByPlaceholderText('Перейти до...');
+    const input = screen.getByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…');
     fireEvent.change(input, { target: { value: 'xyznonexistent' } });
     expect(screen.getByText('Нічого не знайдено')).toBeInTheDocument();
   });
@@ -57,25 +59,27 @@ describe('CommandPalette', () => {
   it('navigates on Enter and closes palette', () => {
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-    const input = screen.getByPlaceholderText('Перейти до...');
+    const input = screen.getByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…');
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(mockPush).toHaveBeenCalledWith('/admin');
+    // First entry on empty query is the top Quick Action.
+    expect(mockPush).toHaveBeenCalledWith('/admin/products/new');
   });
 
   it('closes on Escape', () => {
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-    const input = screen.getByPlaceholderText('Перейти до...');
+    const input = screen.getByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…');
     fireEvent.keyDown(input, { key: 'Escape' });
-    expect(screen.queryByPlaceholderText('Перейти до...')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…')).not.toBeInTheDocument();
   });
 
   it('navigates with arrow keys', () => {
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-    const input = screen.getByPlaceholderText('Перейти до...');
+    const input = screen.getByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…');
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(mockPush).toHaveBeenCalledWith('/admin/orders');
+    // ArrowDown advances from index 0 to 1 — second Quick Action.
+    expect(mockPush).toHaveBeenCalledWith('/admin/pages?new=1');
   });
 });

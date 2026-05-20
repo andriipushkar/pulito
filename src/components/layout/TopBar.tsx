@@ -35,7 +35,7 @@ export default function TopBar() {
     }));
 
   return (
-    <div className="topbar border-b border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text-secondary)]">
+    <div className="topbar border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text)]">
       {/* Mobile */}
       <Container className="flex items-center justify-between py-1.5 sm:hidden">
         <div className="flex items-center gap-2">

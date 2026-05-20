@@ -23,6 +23,7 @@ vi.mock('@/lib/prisma', () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
       count: vi.fn(),
     },
     category: {
@@ -479,16 +480,25 @@ describe('updateProduct', () => {
 // deleteProduct
 // ---------------------------------------------------------------------------
 describe('deleteProduct', () => {
-  it('should soft-delete (deactivate) the product', async () => {
+  it('should soft-delete (deactivate) the product when FK constraint blocks hard delete', async () => {
     mockPrisma.product.findUnique.mockResolvedValue({ id: 1 } as never);
+    // Simulate FK constraint by throwing P2003 from prisma.product.delete,
+    // which triggers the soft-delete fallback.
+    const { Prisma } = await import('@/../generated/prisma');
+    const fkErr = new Prisma.PrismaClientKnownRequestError('FK', {
+      code: 'P2003',
+      clientVersion: 'test',
+    });
+    mockPrisma.product.delete.mockRejectedValue(fkErr as never);
     mockPrisma.product.update.mockResolvedValue({} as never);
 
-    await deleteProduct(1);
+    const result = await deleteProduct(1);
 
+    expect(result).toEqual({ hard: false });
     const call = mockPrisma.product.update.mock.calls[0][0];
     expect(call.where).toEqual({ id: 1 });
-    // Soft delete sets deletedAt and/or isActive: false
-    expect(call.data.isActive === false || call.data.deletedAt).toBeTruthy();
+    expect(call.data.isActive).toBe(false);
+    expect(call.data.deletedAt).toBeInstanceOf(Date);
   });
 
   it('should throw 404 when product not found', async () => {
@@ -956,7 +966,11 @@ describe('updateProduct - additional branches', () => {
       priceRetail: 100, priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
-    mockPrisma.product.findFirst.mockResolvedValue({ id: 2, slug: 'new-name' } as never);
+    // First findFirst checks raw slug → conflict triggers code suffix;
+    // second findFirst re-checks the suffixed slug → null = available.
+    mockPrisma.product.findFirst
+      .mockResolvedValueOnce({ id: 2, slug: 'new-name' } as never)
+      .mockResolvedValueOnce(null as never);
     mockPrisma.slugRedirect.upsert.mockResolvedValue({} as never);
     mockPrisma.product.update.mockResolvedValue({ id: 1 } as never);
 

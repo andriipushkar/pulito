@@ -84,7 +84,30 @@ export interface UserStats {
   totalPurchases: number;
   avgCheck: number;
   lastOrderDate: string | null;
+  firstOrderDate?: string | null;
+  daysSinceLastOrder?: number | null;
+  predictedLtv12mo?: number;
+  segments?: string[];
 }
+
+export interface UserTimelineEntry {
+  id: string;
+  kind: 'order' | 'review' | 'audit' | 'event';
+  at: string;
+  title: string;
+  body?: string;
+  href?: string;
+}
+
+export const SEGMENT_LABELS: Record<string, { label: string; color: string }> = {
+  vip: { label: 'VIP', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  loyal: { label: 'Лояльний', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  new: { label: 'Новий', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  'one-time': { label: 'Разовий', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+  'at-risk': { label: 'У ризику', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  churned: { label: 'Втрачений', color: 'bg-red-100 text-red-700 border-red-200' },
+  'no-orders': { label: 'Без замовлень', color: 'bg-gray-100 text-gray-500 border-gray-200' },
+};
 
 export interface UserAuditEntry {
   id: number;
@@ -159,6 +182,18 @@ export interface DashboardStats {
   products: {
     total: number;
     outOfStock: number;
+    lowStock: number;
+    withoutBarcode?: number;
   };
-  topProducts: { name: string; quantity: number }[];
+  topProducts: { id: number | null; name: string; slug: string | null; quantity: number }[];
+  recentOrders: {
+    id: number;
+    orderNumber: string;
+    status: string;
+    totalAmount: number;
+    contactName: string;
+    createdAt: string;
+  }[];
+  weeklyRevenue: { date: string; revenue: number; count: number }[];
+  hourlyToday: { hour: number; count: number; revenue: number }[];
 }

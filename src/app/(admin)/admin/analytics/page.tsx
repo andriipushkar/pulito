@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { formatPrice } from '@/utils/format';
 import { WHOLESALE_GROUP_LABELS } from '@/types/user';
 import type { WholesaleGroup } from '@/types/user';
 import Spinner from '@/components/ui/Spinner';
@@ -90,6 +91,14 @@ const SELF_CONTAINED_TABS: AnalyticsTab[] = [
 
 const DAY_NAMES = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
+function NoData({ msg = 'Немає даних за вибраний період' }: { msg?: string }) {
+  return (
+    <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] py-12 text-center text-sm text-[var(--color-text-secondary)]">
+      {msg}
+    </div>
+  );
+}
+
 export default function AdminAnalyticsPage() {
   const [tab, setTab] = useState<AnalyticsTab>('dashboard');
   const [days, setDays] = useState(30);
@@ -108,17 +117,26 @@ export default function AdminAnalyticsPage() {
       });
       if (res.success && res.data?.url) {
         window.open(res.data.url, '_blank');
+        toast.success('PDF згенеровано');
+      } else {
+        toast.error(res.error || 'Не вдалося згенерувати PDF');
       }
+    } catch {
+      toast.error('Помилка генерації PDF');
     } finally {
       setIsExporting(false);
     }
   }, [tab, days]);
 
   const exportCsv = useCallback(() => {
-    if (!data || typeof data !== 'object') return;
+    if (!data || typeof data !== 'object') {
+      toast.error('Немає даних для експорту');
+      return;
+    }
     const d = data as Record<string, unknown>;
     let csv = '';
-    let filename = `${tab}-export.csv`;
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const filename = `${tab}-${dateStamp}.csv`;
 
     if (tab === 'sales' && Array.isArray((d as { daily?: unknown }).daily)) {
       const daily = (d as { daily: { date: string; revenue: number; count: number }[] }).daily;
@@ -148,6 +166,7 @@ export default function AdminAnalyticsPage() {
           )
           .join('\n');
     } else {
+      toast.error('Для цієї вкладки CSV-експорт недоступний');
       return;
     }
 
@@ -158,6 +177,7 @@ export default function AdminAnalyticsPage() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success('CSV завантажено');
   }, [data, tab]);
 
   useEffect(() => {
@@ -166,15 +186,25 @@ export default function AdminAnalyticsPage() {
       setIsLoading(false);
       return;
     }
+    let cancelled = false;
     setData(null);
     setIsLoading(true);
     apiClient
       .get(`/api/v1/admin/analytics?type=${tab}&days=${days}`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) setData(res.data);
+        else toast.error(res.error || 'Помилка завантаження аналітики');
       })
-      .catch(() => toast.error('Помилка завантаження аналітики'))
-      .finally(() => setIsLoading(false));
+      .catch(() => {
+        if (!cancelled) toast.error('Помилка завантаження аналітики');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [tab, days]);
 
   const tabs: { key: AnalyticsTab; label: string }[] = [
@@ -309,7 +339,7 @@ function DashboardView({ data }: { data: unknown }) {
     insights: string[];
     forecast: { avgDaily: number; forecast7: number; forecast30: number };
   } | null;
-  if (!d?.kpi) return null;
+  if (!d?.kpi) return <NoData />;
 
   const { kpi, insights, forecast } = d;
   return (
@@ -318,11 +348,11 @@ function DashboardView({ data }: { data: unknown }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard
           label="Виручка"
-          value={`${kpi.revenue.toFixed(0)} грн`}
+          value={formatPrice(kpi.revenue)}
           change={kpi.revenueChange}
         />
         <KpiCard label="Замовлень" value={kpi.orders} change={kpi.ordersChange} />
-        <KpiCard label="Середній чек" value={`${kpi.avgCheck} грн`} change={kpi.avgCheckChange} />
+        <KpiCard label="Середній чек" value={formatPrice(kpi.avgCheck)} change={kpi.avgCheckChange} />
         <KpiCard label="Нових користувачів" value={kpi.newUsers} change={kpi.newUsersChange} />
         <KpiCard label="Очікують обробки" value={kpi.pendingOrders} warn={kpi.pendingOrders > 5} />
         <KpiCard label="Мало на складі" value={kpi.lowStockCount} warn={kpi.lowStockCount > 0} />
@@ -349,15 +379,15 @@ function DashboardView({ data }: { data: unknown }) {
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs text-[var(--color-text-secondary)]">Середній день</p>
-            <p className="text-xl font-bold">{forecast.avgDaily} грн</p>
+            <p className="text-xl font-bold">{formatPrice(forecast.avgDaily)}</p>
           </div>
           <div>
             <p className="text-xs text-[var(--color-text-secondary)]">Прогноз на 7 днів</p>
-            <p className="text-xl font-bold">{forecast.forecast7} грн</p>
+            <p className="text-xl font-bold">{formatPrice(forecast.forecast7)}</p>
           </div>
           <div>
             <p className="text-xs text-[var(--color-text-secondary)]">Прогноз на 30 днів</p>
-            <p className="text-xl font-bold">{forecast.forecast30} грн</p>
+            <p className="text-xl font-bold">{formatPrice(forecast.forecast30)}</p>
           </div>
         </div>
       </div>
@@ -396,7 +426,7 @@ function SalesView({ data }: { data: unknown }) {
     summary: { totalRevenue: number; totalOrders: number; avgCheck: number };
     comparison: { revenue: number | null; orders: number | null; avgCheck: number | null };
   } | null;
-  if (!d?.daily || !d?.summary) return null;
+  if (!d?.daily || !d?.summary) return <NoData />;
   const { daily, summary, comparison } = d;
   const maxRevenue = Math.max(...daily.map((r) => r.revenue), 1);
 
@@ -406,7 +436,7 @@ function SalesView({ data }: { data: unknown }) {
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <p className="text-xs text-[var(--color-text-secondary)]">Виручка</p>
           <div className="flex items-baseline gap-2">
-            <p className="text-2xl font-bold">{summary.totalRevenue.toFixed(0)} грн</p>
+            <p className="text-2xl font-bold">{formatPrice(summary.totalRevenue)}</p>
             <Change value={comparison?.revenue ?? null} />
           </div>
         </div>
@@ -420,7 +450,7 @@ function SalesView({ data }: { data: unknown }) {
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <p className="text-xs text-[var(--color-text-secondary)]">Середній чек</p>
           <div className="flex items-baseline gap-2">
-            <p className="text-2xl font-bold">{summary.avgCheck.toFixed(0)} грн</p>
+            <p className="text-2xl font-bold">{formatPrice(summary.avgCheck)}</p>
             <Change value={comparison?.avgCheck ?? null} />
           </div>
         </div>
@@ -472,7 +502,7 @@ function SalesView({ data }: { data: unknown }) {
                   fill="var(--color-primary)"
                 />
                 <title>
-                  {d.date}: {d.revenue.toFixed(0)} грн ({d.count} зам.)
+                  {d.date}: {formatPrice(d.revenue)} ({d.count} зам.)
                 </title>
               </g>
             ))}
@@ -486,7 +516,7 @@ function SalesView({ data }: { data: unknown }) {
                   style={{ height: `${(d.revenue / maxRevenue) * 100}%`, minHeight: 2 }}
                 />
                 <div className="absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white group-hover:block">
-                  {d.date}: {d.revenue.toFixed(0)} грн ({d.count} зам.)
+                  {d.date}: {formatPrice(d.revenue)} ({d.count} зам.)
                 </div>
               </div>
             ))}
@@ -516,7 +546,7 @@ function ProductsView({ data }: { data: unknown }) {
       marginPct: number;
     }[];
   } | null;
-  if (!d?.topProducts) return null;
+  if (!d?.topProducts) return <NoData />;
 
   return (
     <div>
@@ -546,7 +576,7 @@ function ProductsView({ data }: { data: unknown }) {
                 <td className="px-4 py-2 text-xs">{p.productName}</td>
                 <td className="px-4 py-2 text-right text-xs">{p._sum.quantity}</td>
                 <td className="px-4 py-2 text-right text-xs">
-                  {Number(p._sum.subtotal).toFixed(0)} грн
+                  {formatPrice(Number(p._sum.subtotal))}
                 </td>
                 <td className="px-4 py-2 text-right text-xs">{p._count}</td>
               </tr>
@@ -575,8 +605,8 @@ function ProductsView({ data }: { data: unknown }) {
                   <tr key={m.id} className="border-t border-[var(--color-border)]">
                     <td className="px-4 py-2 text-xs">{m.code}</td>
                     <td className="px-4 py-2 text-xs">{m.name}</td>
-                    <td className="px-4 py-2 text-right text-xs">{m.retail.toFixed(2)} грн</td>
-                    <td className="px-4 py-2 text-right text-xs">{m.wholesale.toFixed(2)} грн</td>
+                    <td className="px-4 py-2 text-right text-xs">{formatPrice(m.retail)}</td>
+                    <td className="px-4 py-2 text-right text-xs">{formatPrice(m.wholesale)}</td>
                     <td className="px-4 py-2 text-right text-xs">
                       <span
                         className={
@@ -621,7 +651,7 @@ function ClientsView({ data }: { data: unknown }) {
       avgCheck: number;
     }[];
   } | null;
-  if (!d?.topClients) return null;
+  if (!d?.topClients) return <NoData />;
 
   return (
     <div>
@@ -673,11 +703,11 @@ function ClientsView({ data }: { data: unknown }) {
                   </div>
                   <div className="flex justify-between">
                     <span>Виручка:</span>
-                    <b>{gs.revenue.toFixed(0)} грн</b>
+                    <b>{formatPrice(gs.revenue)}</b>
                   </div>
                   <div className="flex justify-between">
                     <span>Середній чек:</span>
-                    <b>{gs.avgCheck} грн</b>
+                    <b>{formatPrice(gs.avgCheck)}</b>
                   </div>
                 </div>
               </div>
@@ -703,7 +733,7 @@ function ClientsView({ data }: { data: unknown }) {
               )}
             </div>
             <div className="text-right">
-              <p className="text-sm font-semibold">{Number(c._sum.totalAmount).toFixed(0)} грн</p>
+              <p className="text-sm font-semibold">{formatPrice(Number(c._sum.totalAmount))}</p>
               <p className="text-xs text-[var(--color-text-secondary)]">{c._count} замовлень</p>
             </div>
           </div>
@@ -724,7 +754,7 @@ function OrdersView({ data }: { data: unknown }) {
     returnRate: number;
     heatmap: number[][];
   } | null;
-  if (!d?.statusCounts) return null;
+  if (!d?.statusCounts) return <NoData />;
 
   const maxHeat = d.heatmap ? Math.max(...d.heatmap.flat(), 1) : 1;
 

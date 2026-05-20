@@ -72,6 +72,8 @@ model User {
 
   orders              Order[]
   cartItems           CartItem[]
+  cartRecoveryEvents  CartRecoveryEvent[]
+  winBackEvents       WinBackEvent[]
   wishlists           Wishlist[]
   notifications       UserNotification[]
   addresses           UserAddress[]
@@ -96,6 +98,7 @@ model User {
   loyaltyAccount      LoyaltyAccount?
   loyaltyTransactions LoyaltyTransaction[]
   pushSubscriptions   PushSubscription[]
+  backInStockSubs     BackInStockSubscription[]
   reviews             Review[]
   loginHistory        LoginHistory[]
   subscriptions       Subscription[]
@@ -109,6 +112,7 @@ model User {
   campaignLogs        CampaignLog[]
   purchasePredictions PurchasePrediction[]
   tenantUsers         TenantUser[]
+  marketplaceMessages MarketplaceMessage[]       @relation("MarketplaceMessageAssignee")
 
   deletedAt DateTime? @map("deleted_at")
 

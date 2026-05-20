@@ -6,9 +6,11 @@ vi.mock('@/lib/prisma', () => ({
     order: {
       create: vi.fn(),
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     cartItem: {
       deleteMany: vi.fn(),
@@ -20,6 +22,10 @@ vi.mock('@/lib/prisma', () => ({
       updateMany: vi.fn(),
       update: vi.fn(),
       findUnique: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    payment: {
+      upsert: vi.fn().mockResolvedValue({}),
     },
     orderItem: {
       delete: vi.fn(),
@@ -50,6 +56,14 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/services/telegram', () => ({
   notifyManagerNewOrder: vi.fn(),
   notifyClientStatusChange: vi.fn(),
+}));
+
+vi.mock('@/lib/redis', () => ({
+  redis: {
+    get: vi.fn().mockResolvedValue(null),
+    setex: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+  },
 }));
 
 vi.mock('@/services/loyalty', () => ({
@@ -448,27 +462,91 @@ describe('updateOrderStatus', () => {
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
 
     const result = await updateOrderStatus(1, 'processing', 10, 'manager');
 
     expect(result).toEqual(updatedOrder);
-    expect(mockPrisma.order.update).toHaveBeenCalledWith(
+    expect(mockPrisma.order.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 1 },
+        where: { id: 1, status: 'new_order' },
+        data: expect.objectContaining({ status: 'processing' }),
+      }),
+    );
+    expect(mockPrisma.orderStatusHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
         data: expect.objectContaining({
-          status: 'processing',
-          statusHistory: {
-            create: expect.objectContaining({
-              oldStatus: 'new_order',
-              newStatus: 'processing',
-              changedBy: 10,
-              changeSource: 'manager',
-            }),
-          },
+          orderId: 1,
+          oldStatus: 'new_order',
+          newStatus: 'processing',
+          changedBy: 10,
+          changeSource: 'manager',
         }),
       }),
     );
+  });
+
+  it('syncs paymentStatus and stamps Payment when status → paid', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'confirmed',
+      userId: 1,
+      paymentMethod: 'cod',
+      paymentStatus: 'pending',
+      totalAmount: 250,
+      items: [{ productId: 1, quantity: 2 }],
+    };
+    const updatedOrder = makeOrderDetail({ status: 'paid', paymentStatus: 'paid' });
+
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
+
+    await updateOrderStatus(1, 'paid', 10, 'manager');
+
+    expect(mockPrisma.order.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 1, status: 'confirmed' },
+        data: expect.objectContaining({ status: 'paid', paymentStatus: 'paid' }),
+      }),
+    );
+    expect(mockPrisma.payment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orderId: 1 },
+        update: expect.objectContaining({ paidAt: expect.any(Date), paymentStatus: 'paid' }),
+        create: expect.objectContaining({
+          orderId: 1,
+          paymentMethod: 'cod',
+          paymentStatus: 'paid',
+          amount: 250,
+        }),
+      }),
+    );
+  });
+
+  it('does not re-stamp Payment if order was already paid', async () => {
+    const foundOrder = {
+      id: 1,
+      status: 'paid',
+      userId: 1,
+      paymentMethod: 'card_prepay',
+      paymentStatus: 'paid',
+      totalAmount: 100,
+      items: [],
+    };
+    mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(
+      makeOrderDetail({ status: 'shipped' }) as never,
+    );
+
+    mockPrisma.payment.upsert.mockClear();
+    await updateOrderStatus(1, 'shipped', 10, 'manager');
+
+    expect(mockPrisma.payment.upsert).not.toHaveBeenCalled();
   });
 
   it('should throw 400 for invalid status transition', async () => {
@@ -519,7 +597,8 @@ describe('updateOrderStatus', () => {
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.update.mockResolvedValue({} as never);
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
 
     const result = await updateOrderStatus(1, 'cancelled', 5, 'client_action');
 
@@ -538,7 +617,8 @@ describe('updateOrderStatus', () => {
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.update.mockResolvedValue({} as never);
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
 
     const result = await updateOrderStatus(1, 'cancelled', 5, 'client_action');
 
@@ -603,7 +683,8 @@ describe('updateOrderStatus', () => {
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.update.mockResolvedValue({} as never);
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
 
     await updateOrderStatus(1, 'cancelled', 10, 'manager');
 
@@ -630,7 +711,8 @@ describe('updateOrderStatus', () => {
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.update.mockResolvedValue({} as never);
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
 
     await updateOrderStatus(1, 'returned', 10, 'manager');
 
@@ -651,7 +733,8 @@ describe('updateOrderStatus', () => {
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
 
     await updateOrderStatus(1, 'processing', 10, 'manager');
 
@@ -669,18 +752,16 @@ describe('updateOrderStatus', () => {
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
 
     await updateOrderStatus(1, 'processing', 10, 'manager', 'Прийнято до обробки');
 
-    expect(mockPrisma.order.update).toHaveBeenCalledWith(
+    expect(mockPrisma.orderStatusHistory.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          statusHistory: {
-            create: expect.objectContaining({
-              comment: 'Прийнято до обробки',
-            }),
-          },
+          orderId: 1,
+          comment: 'Прийнято до обробки',
         }),
       }),
     );
@@ -697,11 +778,12 @@ describe('updateOrderStatus', () => {
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
 
     await updateOrderStatus(1, 'cancelled', 10, 'manager', 'Клієнт передумав');
 
-    expect(mockPrisma.order.update).toHaveBeenCalledWith(
+    expect(mockPrisma.order.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           cancelledReason: 'Клієнт передумав',
@@ -741,7 +823,8 @@ describe('updateOrderStatus', () => {
       mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
       mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
       mockPrisma.product.update.mockResolvedValue({} as never);
-      mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+      mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
       // Fire-and-forget paths need thenable mocks
       mockPrisma.referral.findFirst.mockResolvedValue(null as never);
       mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue(null as never);
@@ -966,10 +1049,16 @@ describe('editOrderItems', () => {
     });
   });
 
-  it('should recalculate totals after editing', async () => {
+  it('should recalculate totals after editing (items + deliveryCost − discount)', async () => {
     const order = {
       id: 1,
       status: 'new_order',
+      paymentStatus: 'pending',
+      clientType: 'retail',
+      deliveryCost: 50,
+      discountAmount: 30,
+      userId: 1,
+      user: { wholesaleGroup: null },
       items: [],
     };
 
@@ -987,7 +1076,8 @@ describe('editOrderItems', () => {
     expect(mockPrisma.order.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          totalAmount: 350,
+          // 200 + 150 (items) + 50 (delivery) − 30 (discount) = 370
+          totalAmount: 370,
           itemsCount: 5,
         }),
       }),
@@ -1074,7 +1164,9 @@ describe('getAllOrders', () => {
         where: {
           createdAt: {
             gte: new Date('2026-01-01'),
-            lte: new Date('2026-01-31'),
+            // Inclusive end-of-day: filter is `lt` start of next day, so
+            // 2026-01-31 23:59:59 still passes.
+            lt: new Date('2026-02-01'),
           },
         },
       }),
@@ -1216,7 +1308,7 @@ describe('getUserOrders - date filters', () => {
     expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          createdAt: expect.objectContaining({ lte: new Date('2026-12-31') }),
+          createdAt: expect.objectContaining({ lt: new Date('2027-01-01') }),
         }),
       }),
     );
@@ -1231,7 +1323,7 @@ describe('getUserOrders - date filters', () => {
     expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          createdAt: { gte: new Date('2026-01-01'), lte: new Date('2026-12-31') },
+          createdAt: { gte: new Date('2026-01-01'), lt: new Date('2027-01-01') },
         }),
       }),
     );
@@ -1292,7 +1384,8 @@ describe('updateOrderStatus - items without productId', () => {
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.update.mockResolvedValue({} as never);
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
 
     await updateOrderStatus(1, 'cancelled', 10, 'manager');
 
@@ -1563,7 +1656,8 @@ describe('updateOrderStatus - completed with referral bonus', () => {
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
     mockPrisma.referral.findFirst.mockResolvedValue({
       id: 10,
       referrerUserId: 99,
@@ -1604,7 +1698,8 @@ describe('updateOrderStatus - cancelled with loyalty points reversal', () => {
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
     mockPrisma.referral.findFirst.mockResolvedValue(null as never);
     mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue({
       points: 50,
@@ -1643,7 +1738,8 @@ describe('updateOrderStatus - cancelled with loyalty points reversal', () => {
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
     mockPrisma.referral.findFirst.mockResolvedValue(null as never);
     mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue(null as never);
 
@@ -1681,7 +1777,8 @@ describe('updateOrderStatus - cancelled with loyalty points reversal', () => {
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.update.mockResolvedValue({} as never);
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
     mockPrisma.referral.findFirst.mockResolvedValue(null as never);
     mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue({
       points: 30,
@@ -1718,7 +1815,8 @@ describe('updateOrderStatus - cancelled with loyalty points reversal', () => {
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
     mockPrisma.referral.findFirst.mockResolvedValue(null as never);
     mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue({
       points: 0,
@@ -1757,7 +1855,8 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
     mockPrisma.referral.findFirst.mockResolvedValue({
       id: 10,
       referrerUserId: 99,
@@ -1799,7 +1898,8 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
     mockPrisma.referral.findFirst.mockResolvedValue({
       id: 10,
       referrerUserId: 99,
@@ -1879,7 +1979,8 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
 
     mockPrisma.order.findUnique.mockResolvedValue(foundOrder as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(updatedOrder as never);
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
     mockPrisma.referral.findFirst.mockResolvedValue(null as never);
 
     const result = await updateOrderStatus(1, 'completed', 10, 'manager');
@@ -1908,7 +2009,8 @@ describe('updateOrderStatus — B2B auto-invoice email on confirmed', () => {
       items: [],
     } as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(
       makeOrderDetail({
         status: 'confirmed',
         contactEmail: 'b2b@example.com',
@@ -1984,7 +2086,8 @@ describe('updateOrderStatus — B2B auto-invoice email on confirmed', () => {
       items: [],
     } as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.order.update.mockResolvedValue(
+    mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(
       makeOrderDetail({
         status: 'processing',
         companyName: 'ТОВ',

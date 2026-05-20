@@ -47,13 +47,28 @@ export default function GoogleBusinessPage() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Reload is triggered via a token bump; the effect performs the fetch
+  // so setState only runs in the async callback.
+  const [reloadToken, setReloadToken] = useState(0);
+  const [forceReload, setForceReload] = useState(false);
 
   const load = (force = false) => {
-    if (force) setRefreshing(true);
-    else setIsLoading(true);
+    if (force) {
+      setRefreshing(true);
+      setForceReload(true);
+    } else {
+      setIsLoading(true);
+      setForceReload(false);
+    }
+    setReloadToken((n) => n + 1);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
     apiClient
-      .get<ApiResponse>(`/api/v1/admin/google-business${force ? '?force=1' : ''}`)
+      .get<ApiResponse>(`/api/v1/admin/google-business${forceReload ? '?force=1' : ''}`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) {
           setData(res.data);
         } else {
@@ -61,14 +76,15 @@ export default function GoogleBusinessPage() {
         }
       })
       .finally(() => {
+        if (cancelled) return;
         setIsLoading(false);
         setRefreshing(false);
       });
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- forceReload is captured at load() time, not on each render
+  }, [reloadToken]);
 
   if (isLoading) {
     return (
@@ -187,7 +203,20 @@ export default function GoogleBusinessPage() {
       <div>
         <h3 className="mb-3 text-lg font-semibold">Останні відгуки</h3>
         {d.reviews.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-secondary)]">Відгуків ще немає.</p>
+          <div className="flex flex-col items-center gap-2 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-8 text-center text-[var(--color-text-secondary)]">
+            <span className="text-2xl" aria-hidden="true">⭐</span>
+            <p className="text-sm">Відгуків ще немає</p>
+            {d.reviewUrl && (
+              <a
+                href={d.reviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[var(--color-primary)] hover:underline"
+              >
+                Поділіться лінком, щоб клієнти могли залишити перший відгук →
+              </a>
+            )}
+          </div>
         ) : (
           <div className="space-y-3">
             {d.reviews.map((r) => (
@@ -197,12 +226,15 @@ export default function GoogleBusinessPage() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {}
                     {r.authorPhotoUrl ? (
+                      // 32px Google reviewer avatar from an arbitrary host — not worth
+                      // routing through next/image (which requires per-host whitelisting).
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={r.authorPhotoUrl}
                         alt={r.authorName}
                         className="h-8 w-8 rounded-full"
+                        loading="lazy"
                       />
                     ) : null}
                     <span className="font-medium">{r.authorName}</span>

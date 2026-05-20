@@ -20,22 +20,30 @@ interface Warehouse {
 
 export default function AdminWarehousesPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', code: '', city: '' });
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  // Derive isLoading from request/completion tokens to avoid synchronous setState in effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  const [completedToken, setCompletedToken] = useState(-1);
+  const isLoading = completedToken !== reloadToken;
+  const loadWarehouses = () => setReloadToken((n) => n + 1);
 
-  const loadWarehouses = () => {
-    setIsLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     apiClient
       .get<Warehouse[]>('/api/v1/admin/warehouses')
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) setWarehouses(res.data);
       })
-      .finally(() => setIsLoading(false));
-  };
-
-  useEffect(() => { loadWarehouses(); }, []);
+      .finally(() => {
+        if (!cancelled) setCompletedToken(reloadToken);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   const handleCreate = async () => {
     if (!form.name.trim() || !form.code.trim()) {

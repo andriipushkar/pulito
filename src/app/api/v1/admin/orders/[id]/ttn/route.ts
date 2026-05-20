@@ -3,16 +3,26 @@ import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { createTTNSchema } from '@/validators/nova-poshta';
 import { createInternetDocument, NovaPoshtaError } from '@/services/nova-poshta';
+import { pushTrackingSafe } from '@/services/marketplace-tracking';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
+// Nova Poshta TTN is always 14 digits (the marketplace tracking push also
+// expects exactly this format). Enforce server-side so non-frontend callers
+// — bulk-TTN scripts, integrations — can't sneak in "abc" and ship that to
+// the marketplace channel.
 const manualTTNSchema = z.object({
-  trackingNumber: z.string().min(1, 'Введіть номер ТТН').max(50),
+  trackingNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{14}$/, 'ТТН має містити рівно 14 цифр (номер Нової Пошти)'),
 });
 
 // Manual TTN entry
 export const PUT = withRole('admin', 'manager')(
-  async (request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const orderId = Number(id);
@@ -22,7 +32,7 @@ export const PUT = withRole('admin', 'manager')(
 
       const order = await prisma.order.findUnique({
         where: { id: orderId },
-        select: { id: true },
+        select: { id: true, trackingNumber: true },
       });
       if (!order) {
         return errorResponse('Замовлення не знайдено', 404);
@@ -40,15 +50,32 @@ export const PUT = withRole('admin', 'manager')(
         select: { id: true, trackingNumber: true },
       });
 
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_update',
+        entityType: 'order',
+        entityId: orderId,
+        details: {
+          field: 'trackingNumber',
+          before: order.trackingNumber,
+          after: parsed.data.trackingNumber,
+          source: 'manual',
+        },
+      });
+
+      // Fire-and-forget: notify the marketplace (if this order came from one).
+      void pushTrackingSafe(orderId, parsed.data.trackingNumber);
+
       return successResponse(updated);
-    } catch {
+    } catch (err) {
+      logger.error('[admin/orders/[id]/ttn] PUT failed', { error: err });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }
 );
 
 export const POST = withRole('admin', 'manager')(
-  async (request: NextRequest, { params }) => {
+  async (request: NextRequest, { params, user }) => {
     try {
       const { id } = await params!;
       const orderId = Number(id);
@@ -85,6 +112,16 @@ export const POST = withRole('admin', 'manager')(
         data: { trackingNumber: result.intDocNumber },
       });
 
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_update',
+        entityType: 'order',
+        entityId: orderId,
+        details: { field: 'trackingNumber', after: result.intDocNumber, source: 'nova_poshta_api' },
+      });
+
+      void pushTrackingSafe(orderId, result.intDocNumber);
+
       return successResponse({
         trackingNumber: result.intDocNumber,
         ref: result.ref,
@@ -95,6 +132,7 @@ export const POST = withRole('admin', 'manager')(
       if (error instanceof NovaPoshtaError) {
         return errorResponse(error.message, error.statusCode);
       }
+      logger.error('[admin/orders/[id]/ttn] POST failed', { error });
       return errorResponse('Внутрішня помилка сервера', 500);
     }
   }

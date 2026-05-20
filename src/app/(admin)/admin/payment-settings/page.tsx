@@ -139,18 +139,26 @@ export default function PaymentSettingsPage() {
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, TestResult | null>>({});
 
-  const loadSettings = useCallback(async () => {
-    const res = await apiClient.get<Record<string, string>>('/api/v1/admin/payment-settings');
-    if (res.success && res.data) {
-      setSettings(res.data);
-      setDirty(new Set());
-    }
-    setIsLoading(false);
-  }, []);
+  // Reload via token bump; fetch lives in the effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  const loadSettings = useCallback(() => setReloadToken((n) => n + 1), []);
 
   useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
+    let cancelled = false;
+    apiClient
+      .get<Record<string, string>>('/api/v1/admin/payment-settings')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) {
+          setSettings(res.data);
+          setDirty(new Set());
+        }
+        setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   const updateField = (key: string, value: string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -360,7 +368,7 @@ export default function PaymentSettingsPage() {
       {/* Apple Pay / Google Pay quick-checkout */}
       <div className="mb-6 rounded-xl border border-black/20 bg-gradient-to-br from-gray-50 to-gray-100 p-5">
         <div className="mb-3 flex items-start gap-3">
-          <span className="text-2xl"></span>
+          <span className="text-2xl">⚡</span>
           <div className="flex-1">
             <h3 className="font-semibold">Apple Pay та Google Pay</h3>
             <p className="text-xs text-[var(--color-text-secondary)]">
@@ -374,7 +382,7 @@ export default function PaymentSettingsPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-black text-xs font-bold text-white"></span>
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-black text-xs font-bold text-white">A</span>
               <span className="text-sm font-medium">Apple Pay</span>
             </div>
             <button

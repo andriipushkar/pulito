@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import { useCart } from '@/hooks/useCart';
-import * as XLSX from 'xlsx';
+import { readSheet } from 'read-excel-file/browser';
 
 interface ResolvedLine {
   code: string;
@@ -46,12 +47,11 @@ function parseCsvContent(text: string): string {
   return results.join('\n');
 }
 
-function parseXlsxContent(buffer: ArrayBuffer): string {
-  const workbook = XLSX.read(buffer, { type: 'array' });
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) return '';
-  const sheet = workbook.Sheets[sheetName];
-  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+async function parseXlsxContent(file: File): Promise<string> {
+  // read-excel-file ships ~50KB minified vs xlsx ~1MB+; we only need the
+  // first sheet as an array of [code, qty] pairs. readSheet (vs the default
+  // readXlsxFile) returns the rows directly without wrapping in {sheet,data}.
+  const rows = await readSheet(file);
   const results: string[] = [];
   for (const row of rows) {
     if (row.length >= 2) {
@@ -80,8 +80,7 @@ export default function QuickOrderPage() {
     const ext = file.name.split('.').pop()?.toLowerCase();
     try {
       if (ext === 'xlsx' || ext === 'xls') {
-        const buffer = await file.arrayBuffer();
-        const parsed = parseXlsxContent(buffer);
+        const parsed = await parseXlsxContent(file);
         setInput((prev) => (prev ? prev + '\n' + parsed : parsed));
       } else if (ext === 'csv') {
         const text = await file.text();
@@ -94,7 +93,7 @@ export default function QuickOrderPage() {
         setInput((prev) => (prev ? prev + '\n' + parsed : parsed));
       }
     } catch {
-      alert('Помилка при читанні файлу');
+      toast.error('Не вдалося прочитати файл. Перевірте формат і спробуйте ще раз.');
     }
   }, []);
 

@@ -311,7 +311,13 @@ export default function AdminThemesPage() {
         ))}
 
         {themes.length === 0 && (
-          <div className="py-8 text-center text-[var(--color-text-secondary)]">Тем не знайдено</div>
+          <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-12 text-center text-[var(--color-text-secondary)]">
+            <span className="text-3xl" aria-hidden="true">🎨</span>
+            <p className="text-sm font-medium">Тем не знайдено</p>
+            <p className="max-w-md text-xs">
+              Завантажте ZIP-архів з темою, або поверніться до базової теми, перезапустивши seed
+            </p>
+          </div>
         )}
       </div>
 

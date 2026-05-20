@@ -51,6 +51,10 @@ export default function PalletDeliveryForm({ onChange, errors }: PalletDeliveryF
 
     if (res.success && res.data) {
       setResult(res.data);
+      // CheckoutInput now has palletWeightKg/Region/Cost — persist so the
+      // backend can record them on the Order. Pallet admin still groups
+      // orders manually from /admin/pallet-delivery; these fields just
+      // capture the per-order quote at checkout.
       onChange('palletWeightKg', weightKg);
       onChange('palletRegion', region);
       onChange('palletDeliveryCost', String(res.data.cost));

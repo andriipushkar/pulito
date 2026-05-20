@@ -5,7 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Trash } from '@/components/icons';
 import QuantitySelector from '@/components/product/QuantitySelector';
-import type { CartItem } from '@/providers/CartProvider';
+import { useAuth } from '@/hooks/useAuth';
+import { pickCartPrice, type CartItem } from '@/providers/CartProvider';
 
 interface CartItemRowProps {
   item: CartItem;
@@ -14,7 +15,22 @@ interface CartItemRowProps {
 }
 
 export default function CartItemRow({ item, onUpdateQuantity, onRemove }: CartItemRowProps) {
-  const subtotal = item.priceRetail * item.quantity;
+  // Pick the same tier the server will charge — otherwise a B2B customer in
+  // wholesale group 2 sees retail 100 ₴ in the cart and is billed 80 ₴ at
+  // checkout (or, worse, the opposite). Volume/personal overrides still apply
+  // on the server side; this just covers the wholesale tier case.
+  const { user } = useAuth();
+  const wg = typeof user?.wholesaleGroup === 'number' ? user.wholesaleGroup : null;
+  const effectivePrice = pickCartPrice(item, wg);
+  const subtotal = effectivePrice * item.quantity;
+
+  const confirmAndRemove = () => {
+    if (
+      window.confirm(`Видалити "${item.name}" з кошика?`)
+    ) {
+      onRemove(item.productId);
+    }
+  };
 
   // Swipe-to-delete state
   const touchStartX = useRef(0);
@@ -59,7 +75,7 @@ export default function CartItemRow({ item, onUpdateQuantity, onRemove }: CartIt
       {/* Delete background (revealed on swipe) */}
       <div className="absolute inset-y-0 right-0 flex w-24 items-center justify-center bg-[var(--color-danger)] text-white sm:hidden">
         <button
-          onClick={() => onRemove(item.productId)}
+          onClick={confirmAndRemove}
           className="flex flex-col items-center gap-1"
           aria-label="Видалити"
         >
@@ -102,12 +118,12 @@ export default function CartItemRow({ item, onUpdateQuantity, onRemove }: CartIt
               {item.name}
             </Link>
             <p className="text-xs text-[var(--color-text-secondary)]">Код: {item.code}</p>
-            <p className="mt-1 text-sm font-semibold sm:hidden">{item.priceRetail.toFixed(2)} ₴</p>
+            <p className="mt-1 text-sm font-semibold sm:hidden">{effectivePrice.toFixed(2)} ₴</p>
           </div>
 
           {/* Price (desktop) */}
           <div className="hidden w-24 text-right sm:block">
-            <span className="text-sm font-medium">{item.priceRetail.toFixed(2)} ₴</span>
+            <span className="text-sm font-medium">{effectivePrice.toFixed(2)} ₴</span>
           </div>
 
           {/* Quantity */}
@@ -125,7 +141,7 @@ export default function CartItemRow({ item, onUpdateQuantity, onRemove }: CartIt
 
           {/* Remove (desktop only — mobile uses swipe) */}
           <button
-            onClick={() => onRemove(item.productId)}
+            onClick={confirmAndRemove}
             className="hidden self-start rounded-[var(--radius)] p-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-danger)] sm:block"
             aria-label="Видалити"
           >

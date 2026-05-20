@@ -1,9 +1,11 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { createWriteStream, mkdirSync, existsSync, writeFileSync } from 'fs';
+import crypto from 'crypto';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/config/env';
+import { redis } from '@/lib/redis';
 import type { Prisma } from '../../generated/prisma';
 import {
   BRAND,
@@ -60,11 +62,38 @@ const TEMPLATE_LABELS: Record<TemplateKey, string> = {
 
 // ── Main entry point ──
 
+// Cache the generated file URL for identical (template, format, params) calls.
+// Reports are expensive (multi-aggregate Prisma queries + ExcelJS/PDFKit) and
+// the same admin often runs them 2–3 times in a row tweaking filters.
+const REPORT_CACHE_TTL_SECONDS = 5 * 60;
+
+function reportCacheKey(templateKey: TemplateKey, format: Format, params: ReportParams): string {
+  const json = JSON.stringify({ templateKey, format, params });
+  const hash = crypto.createHash('sha256').update(json).digest('hex').slice(0, 16);
+  return `reports:cache:${templateKey}:${format}:${hash}`;
+}
+
 export async function generateReport(
   templateKey: TemplateKey,
   format: Format,
   params: ReportParams,
 ): Promise<{ url: string }> {
+  const cacheKey = reportCacheKey(templateKey, format, params);
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      // Verify the underlying file is still on disk before returning — a
+      // stale Redis entry after `rm uploads/reports/*` would otherwise hand
+      // the admin a broken link.
+      const cachedPath = path.join(env.UPLOAD_DIR, 'reports', path.basename(cached));
+      if (existsSync(cachedPath)) {
+        return { url: `/uploads/reports/${path.basename(cached)}` };
+      }
+    }
+  } catch {
+    // Redis down — fall through to regeneration.
+  }
+
   const reportsDir = path.join(env.UPLOAD_DIR, 'reports');
   if (!existsSync(reportsDir)) {
     mkdirSync(reportsDir, { recursive: true });
@@ -84,10 +113,16 @@ export async function generateReport(
   } else {
     const sheetName = TEMPLATE_LABELS[templateKey];
     if (format === 'csv') {
-      renderCsv(rows, filePath);
+      await renderCsv(rows, filePath);
     } else {
-      renderXlsx(rows, sheetName, filePath);
+      await renderXlsx(rows, sheetName, filePath);
     }
+  }
+
+  try {
+    await redis.set(cacheKey, fileName, 'EX', REPORT_CACHE_TTL_SECONDS);
+  } catch {
+    // Caching is best-effort — don't fail the report on Redis hiccup.
   }
 
   return { url: publicUrl };
@@ -97,11 +132,16 @@ export async function generateReport(
 
 function buildDateRange(params: ReportParams): { gte?: Date; lte?: Date } {
   const range: { gte?: Date; lte?: Date } = {};
-  if (params.dateFrom) range.gte = new Date(params.dateFrom);
+  if (params.dateFrom) {
+    const d = new Date(params.dateFrom);
+    if (!Number.isNaN(d.getTime())) range.gte = d;
+  }
   if (params.dateTo) {
     const d = new Date(params.dateTo);
-    d.setHours(23, 59, 59, 999);
-    range.lte = d;
+    if (!Number.isNaN(d.getTime())) {
+      d.setHours(23, 59, 59, 999);
+      range.lte = d;
+    }
   }
   return range;
 }
@@ -654,30 +694,62 @@ const DATA_FETCHERS: Record<TemplateKey, (params: ReportParams) => Promise<RowDa
   acquisition_channels: fetchAcquisitionChannels,
   summary_report: fetchSummaryReport,
   custom: async (params: ReportParams) => {
-    // Custom report - fetch data based on entity param
+    // Custom report — entity values match the API-side whitelist
+    // (orders / products / users / wholesalers). Fall back to products for
+    // unknown values rather than throwing — the entity has been validated
+    // before reaching this point.
     const entity = params.entity || 'products';
     if (entity === 'orders') return fetchSalesSummary(params);
-    if (entity === 'clients') return fetchClientsActivity(params);
+    if (entity === 'users' || entity === 'clients') return fetchClientsActivity(params);
+    if (entity === 'wholesalers') return fetchWholesaleGroups(params);
     return fetchProductsStock(params);
   },
 };
 
 // ── Renderers ──
 
-function renderXlsx(rows: RowData[], sheetName: string, filePath: string): void {
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
-  const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-  writeFileSync(filePath, buffer);
+// CSV/XLSX formula injection guard. Excel evaluates any cell starting with
+// `=`, `+`, `-`, `@`, `\t`, `\r` as a formula — a customer with fullName
+// "=SUM(A1)+cmd|'/c calc'" can hijack the file. Prefix with `'` to neutralise.
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+function escapeFormulaCells(rows: RowData[]): RowData[] {
+  return rows.map((row) => {
+    const safe: RowData = {};
+    for (const [key, value] of Object.entries(row)) {
+      if (typeof value === 'string' && FORMULA_LEAD.test(value)) {
+        safe[key] = `'${value}`;
+      } else {
+        safe[key] = value;
+      }
+    }
+    return safe;
+  });
 }
 
-function renderCsv(rows: RowData[], filePath: string): void {
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-  const csv = XLSX.utils.sheet_to_csv(ws);
-  writeFileSync(filePath, csv, 'utf-8');
+async function renderXlsx(rows: RowData[], sheetName: string, filePath: string): Promise<void> {
+  const safeRows = escapeFormulaCells(rows);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(sheetName.slice(0, 31));
+  if (safeRows.length > 0) {
+    ws.columns = Object.keys(safeRows[0]).map((k) => ({ header: k, key: k }));
+  }
+  // Always call addRows (even with []) so downstream observability/tests can
+  // see that the writer ran without special-casing the empty path.
+  ws.addRows(safeRows);
+  const buffer = await wb.xlsx.writeBuffer();
+  writeFileSync(filePath, Buffer.from(buffer));
+}
+
+async function renderCsv(rows: RowData[], filePath: string): Promise<void> {
+  const safeRows = escapeFormulaCells(rows);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Sheet1');
+  if (safeRows.length > 0) {
+    ws.columns = Object.keys(safeRows[0]).map((k) => ({ header: k, key: k }));
+  }
+  ws.addRows(safeRows);
+  const buffer = await wb.csv.writeBuffer();
+  writeFileSync(filePath, Buffer.from(buffer as ArrayBufferLike));
 }
 
 async function renderPdf(

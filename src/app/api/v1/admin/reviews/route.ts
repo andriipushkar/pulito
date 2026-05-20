@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { getReviewsForModeration } from '@/services/review';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
   try {
@@ -12,7 +13,8 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
 
     const { reviews, total } = await getReviewsForModeration(page, limit, status);
     return successResponse({ reviews, total, page, limit });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/reviews] GET failed', { error: err });
     return errorResponse('Помилка сервера', 500);
   }
 });

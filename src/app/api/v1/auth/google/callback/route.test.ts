@@ -20,7 +20,7 @@ vi.mock('@/services/google-oauth', () => {
   return {
     exchangeCodeForTokens: vi.fn(),
     getGoogleUserProfile: vi.fn(),
-    verifyOAuthState: vi.fn().mockReturnValue(true),
+    verifyOAuthState: vi.fn().mockReturnValue({ valid: true, returnUrl: null }),
     GoogleOAuthError,
   };
 });
@@ -43,21 +43,39 @@ vi.mock('@/middleware/auth', () => ({
   withRole: () => (handler: Function) => handler,
 }));
 
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/lib/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+vi.mock('@/utils/request', () => ({
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+  getDeviceInfo: vi.fn().mockReturnValue({ userAgent: 'test', ip: '127.0.0.1' }),
+}));
+
 import { GET } from './route';
-import { exchangeCodeForTokens, getGoogleUserProfile, GoogleOAuthError } from '@/services/google-oauth';
+import {
+  exchangeCodeForTokens,
+  getGoogleUserProfile,
+  verifyOAuthState,
+  GoogleOAuthError,
+} from '@/services/google-oauth';
 import { loginWithGoogle } from '@/services/auth';
 
 const mockExchange = exchangeCodeForTokens as ReturnType<typeof vi.fn>;
 const mockGetProfile = getGoogleUserProfile as ReturnType<typeof vi.fn>;
+const mockVerifyState = verifyOAuthState as ReturnType<typeof vi.fn>;
 const mockLoginWithGoogle = loginWithGoogle as ReturnType<typeof vi.fn>;
 
 describe('GET /api/v1/auth/google/callback', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyState.mockReturnValue({ valid: true, returnUrl: null });
+  });
 
   it('redirects to callback on success', async () => {
     mockExchange.mockResolvedValue({ access_token: 'gtoken' });
     mockGetProfile.mockResolvedValue({ id: 'g1', email: 'u@g.com', name: 'User', picture: 'pic' });
-    mockLoginWithGoogle.mockResolvedValue({ tokens: { accessToken: 'at', refreshToken: 'rt' } });
+    mockLoginWithGoogle.mockResolvedValue({ user: { id: 42, email: 'u@g.com' }, tokens: { accessToken: 'at', refreshToken: 'rt' } });
 
     const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=authcode&state=validstate', {
       headers: { cookie: 'oauth_state=validstate' },
@@ -65,6 +83,32 @@ describe('GET /api/v1/auth/google/callback', () => {
     const res = await GET(req);
     expect(res.status).toBe(307);
     expect(res.headers.get('location')).toContain('/auth/callback');
+    expect(res.headers.get('location')).not.toContain('returnUrl');
+  });
+
+  it('forwards returnUrl from verified state to /auth/callback', async () => {
+    mockExchange.mockResolvedValue({ access_token: 'gtoken' });
+    mockGetProfile.mockResolvedValue({ id: 'g1', email: 'u@g.com', name: 'User', picture: 'pic' });
+    mockLoginWithGoogle.mockResolvedValue({ user: { id: 42, email: 'u@g.com' }, tokens: { accessToken: 'at', refreshToken: 'rt' } });
+    mockVerifyState.mockReturnValue({ valid: true, returnUrl: '/admin' });
+
+    const req = new NextRequest(
+      'http://localhost/api/v1/auth/google/callback?code=authcode&state=validstate',
+    );
+    const res = await GET(req);
+    expect(res.status).toBe(307);
+    const loc = res.headers.get('location') || '';
+    expect(loc).toContain('/auth/callback');
+    expect(loc).toMatch(/returnUrl=%2Fadmin|returnUrl=\/admin/);
+  });
+
+  it('redirects to login on invalid state', async () => {
+    mockVerifyState.mockReturnValue({ valid: false });
+    const req = new NextRequest(
+      'http://localhost/api/v1/auth/google/callback?code=authcode&state=bad',
+    );
+    const res = await GET(req);
+    expect(res.headers.get('location')).toContain('error=invalid_state');
   });
 
   it('redirects to login with error=oauth_denied when error param', async () => {

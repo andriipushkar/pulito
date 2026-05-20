@@ -46,6 +46,7 @@ export function useAdminNotifications() {
           },
           ...prev.slice(0, 19),
         ]);
+        window.dispatchEvent(new CustomEvent('admin:new-order', { detail: data }));
       });
 
       es.addEventListener('new_review', (e) => {
@@ -59,6 +60,7 @@ export function useAdminNotifications() {
           },
           ...prev.slice(0, 19),
         ]);
+        window.dispatchEvent(new CustomEvent('admin:new-review', { detail: data }));
       });
 
       es.addEventListener('error', () => {

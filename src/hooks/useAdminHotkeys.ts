@@ -22,6 +22,9 @@ export function useAdminHotkeys() {
     { key: 'u', ctrl: true, shift: true, description: 'Користувачі', action: () => router.push('/admin/users') },
     { key: 'a', ctrl: true, shift: true, description: 'Аналітика', action: () => router.push('/admin/analytics') },
     { key: 'c', ctrl: true, shift: true, description: 'Категорії', action: () => router.push('/admin/categories') },
+    { key: 'n', ctrl: false, shift: true, description: 'Створити новий товар', action: () => router.push('/admin/products/new') },
+    { key: 'r', ctrl: false, shift: true, description: 'Звіти', action: () => router.push('/admin/reports') },
+    { key: '?', ctrl: false, shift: true, description: 'Довідка по гарячих клавішах', action: () => setShowHelp((p) => !p) },
     { key: '/', ctrl: false, shift: false, description: 'Довідка по гарячих клавішах', action: () => setShowHelp((p) => !p) },
   ];
 

@@ -11,7 +11,9 @@ import Select from '@/components/ui/Select';
 import Pagination from '@/components/ui/Pagination';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import SavedViews from '@/components/admin/SavedViews';
 import PageSizeSelector from '@/components/admin/PageSizeSelector';
+import ProductQuickEditDrawer from '@/components/admin/ProductQuickEditDrawer';
 import { useDebounce } from '@/hooks/useDebounce';
 import Image from 'next/image';
 import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
@@ -27,6 +29,7 @@ interface AdminProduct {
   isActive: boolean;
   isPromo: boolean;
   imagePath: string | null;
+  barcode: string | null;
   ordersCount: number;
   sortOrder: number;
   category: { id: number; name: string } | null;
@@ -79,7 +82,24 @@ const BULK_ACTIONS = [
   { value: 'delete', label: 'Видалити' },
   { value: 'change_category', label: 'Змінити категорію' },
   { value: 'change_brand', label: 'Змінити виробника' },
+  { value: 'change_price', label: 'Змінити ціни…' },
   { value: 'export', label: 'Експорт обраних (XLSX)' },
+  { value: 'labels', label: '🏷 Друк етикеток (PDF)' },
+];
+
+const PRICE_TARGET_OPTIONS = [
+  { value: 'retail', label: 'Роздріб' },
+  { value: 'wholesale', label: 'Дрібний опт' },
+  { value: 'wholesale2', label: 'Середній опт' },
+  { value: 'wholesale3', label: 'Великий опт' },
+  { value: 'all', label: 'Усі ціни' },
+];
+
+const PRICE_MODE_OPTIONS = [
+  { value: 'percent', label: '± % від поточної' },
+  { value: 'add', label: '± грн від поточної' },
+  { value: 'fixed', label: 'Встановити фіксовану' },
+  { value: 'round', label: 'Округлити до кратного' },
 ];
 
 export default function AdminProductsPage() {
@@ -97,10 +117,17 @@ export default function AdminProductsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [bulkBrandId, setBulkBrandId] = useState('');
+  const [bulkPriceTarget, setBulkPriceTarget] = useState('retail');
+  const [bulkPriceMode, setBulkPriceMode] = useState('percent');
+  const [bulkPriceValue, setBulkPriceValue] = useState('');
+  const [bulkPriceRound, setBulkPriceRound] = useState('10');
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [rowDelete, setRowDelete] = useState<AdminProduct | null>(null);
+  const [quickEditId, setQuickEditId] = useState<number | null>(null);
   const [isDeletingRow, setIsDeletingRow] = useState(false);
   const [pendingSortOrder, setPendingSortOrder] = useState<Record<number, string>>({});
+  const [pendingPrice, setPendingPrice] = useState<Record<number, string>>({});
+  const [pendingQty, setPendingQty] = useState<Record<number, string>>({});
 
   const page = Number(searchParams.get('page')) || 1;
   const limit = Number(searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
@@ -131,8 +158,7 @@ export default function AdminProductsPage() {
     });
   }, []);
 
-  const loadProducts = useCallback(() => {
-    setIsLoading(true);
+  const buildProductsQuery = useCallback(() => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     const s = searchParams.get('search');
     if (s) params.set('search', s);
@@ -144,31 +170,47 @@ export default function AdminProductsPage() {
     if (active) params.set('isActive', active);
     const stock = searchParams.get('stock');
     if (stock) params.set('stock', stock);
+    const missingBarcode = searchParams.get('missingBarcode');
+    if (missingBarcode) params.set('missingBarcode', missingBarcode);
     const sort = searchParams.get('sort');
     if (sort) params.set('sort', sort);
+    return params.toString();
+  }, [page, limit, searchParams]);
 
+  const [reloadToken, setReloadToken] = useState(0);
+  const loadProducts = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    const qs = buildProductsQuery();
     apiClient
-      .get<AdminProduct[]>(`/api/v1/admin/products?${params}`)
+      .get<AdminProduct[]>(`/api/v1/admin/products?${qs}`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) {
           setProducts(res.data);
           setTotal(res.pagination?.total || 0);
           setSelected(new Set());
         } else {
-          toast.error('Не вдалося завантажити товари');
+          toast.error(res.error || 'Не вдалося завантажити товари');
         }
       })
-      .catch(() => toast.error('Помилка мережі'))
-      .finally(() => setIsLoading(false));
-  }, [page, limit, searchParams]);
-
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+      .catch(() => {
+        if (!cancelled) toast.error('Помилка мережі');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [buildProductsQuery, reloadToken]);
 
   const [isReindexing, setIsReindexing] = useState(false);
+  const [confirmReindex, setConfirmReindex] = useState(false);
   const handleReindex = async () => {
-    if (!confirm('Перебудувати пошуковий індекс (Typesense)? Може зайняти кілька хвилин.')) return;
+    setConfirmReindex(false);
     setIsReindexing(true);
     try {
       const res = await apiClient.post<{ indexed: number }>('/api/v1/admin/typesense/reindex');
@@ -218,9 +260,14 @@ export default function AdminProductsPage() {
 
     // Require confirmation for destructive actions
     if (
-      ['activate', 'deactivate', 'delete', 'change_category', 'change_brand'].includes(
-        bulkAction,
-      ) &&
+      [
+        'activate',
+        'deactivate',
+        'delete',
+        'change_category',
+        'change_brand',
+        'change_price',
+      ].includes(bulkAction) &&
       !confirmBulk
     ) {
       setConfirmBulk(true);
@@ -270,6 +317,34 @@ export default function AdminProductsPage() {
         } else {
           toast.error(res.error || 'Помилка');
         }
+      } else if (bulkAction === 'change_price') {
+        const valNum = bulkPriceMode === 'round' ? undefined : Number(bulkPriceValue);
+        if (bulkPriceMode !== 'round' && (bulkPriceValue === '' || Number.isNaN(valNum))) {
+          toast.error('Вкажіть число');
+          setIsProcessing(false);
+          return;
+        }
+        const res = await apiClient.post<{ updated: number; skipped: number }>(
+          '/api/v1/admin/products/bulk',
+          {
+            action: 'change_price',
+            productIds: ids,
+            priceTarget: bulkPriceTarget,
+            priceMode: bulkPriceMode,
+            priceValue: valNum,
+            priceRound: bulkPriceMode === 'round' ? Number(bulkPriceRound) : undefined,
+          },
+        );
+        if (res.success && res.data) {
+          toast.success(
+            `Ціни оновлено: ${res.data.updated} товарів` +
+              (res.data.skipped > 0 ? `, без змін: ${res.data.skipped}` : ''),
+          );
+          setBulkPriceValue('');
+          loadProducts();
+        } else {
+          toast.error(res.error || 'Помилка зміни цін');
+        }
       } else if (bulkAction === 'export') {
         const res = await apiClient.post<{ url: string }>('/api/v1/admin/products/bulk', {
           action: 'export',
@@ -280,6 +355,33 @@ export default function AdminProductsPage() {
           toast.success(`Експортовано ${ids.length} товарів`);
         } else {
           toast.error(res.error || 'Помилка експорту');
+        }
+      } else if (bulkAction === 'labels') {
+        const raw = window.prompt('Скільки копій кожної етикетки?', '1');
+        if (raw === null) return;
+        const copies = Math.max(1, Math.min(100, parseInt(raw, 10) || 1));
+        try {
+          const resp = await fetch('/api/v1/admin/products/labels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productIds: ids, copiesEach: copies }),
+          });
+          if (!resp.ok) {
+            const errBody = await resp.json().catch(() => ({ error: 'Помилка' }));
+            toast.error(errBody.error || `Помилка ${resp.status}`);
+            return;
+          }
+          const skipped = Number(resp.headers.get('X-Skipped') || '0');
+          const printed = Number(resp.headers.get('X-Printed') || '0');
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+          toast.success(
+            `Згенеровано ${printed} етикеток` +
+              (skipped > 0 ? `, пропущено ${skipped} (без штрихкоду)` : ''),
+          );
+        } catch (err) {
+          toast.error(`Помилка: ${String(err)}`);
         }
       } else if (bulkAction === 'delete') {
         const res = await apiClient.post('/api/v1/admin/products/bulk', {
@@ -341,6 +443,60 @@ export default function AdminProductsPage() {
     }
   };
 
+  const commitInlinePrice = async (product: AdminProduct, raw: string) => {
+    const next = Number(raw);
+    if (!Number.isFinite(next) || next <= 0 || next === Number(product.priceRetail)) {
+      setPendingPrice((prev) => {
+        const copy = { ...prev };
+        delete copy[product.id];
+        return copy;
+      });
+      return;
+    }
+    const res = await apiClient.put(`/api/v1/admin/products/${product.id}`, {
+      priceRetail: next,
+    });
+    if (res.success) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, priceRetail: next } : p)),
+      );
+      toast.success('Ціна оновлена');
+    } else {
+      toast.error(res.error || 'Помилка');
+    }
+    setPendingPrice((prev) => {
+      const copy = { ...prev };
+      delete copy[product.id];
+      return copy;
+    });
+  };
+
+  const commitInlineQty = async (product: AdminProduct, raw: string) => {
+    const next = Number(raw);
+    if (!Number.isFinite(next) || next < 0 || next === product.quantity) {
+      setPendingQty((prev) => {
+        const copy = { ...prev };
+        delete copy[product.id];
+        return copy;
+      });
+      return;
+    }
+    const res = await apiClient.put(`/api/v1/admin/products/${product.id}`, { quantity: next });
+    if (res.success) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, quantity: next } : p)),
+      );
+      toast.success('Залишок оновлено');
+    } else {
+      toast.error(res.error || 'Помилка');
+    }
+    setPendingQty((prev) => {
+      const copy = { ...prev };
+      delete copy[product.id];
+      return copy;
+    });
+  };
+
   const commitSortOrder = async (product: AdminProduct, raw: string) => {
     const next = Number(raw);
     if (!Number.isFinite(next) || next === product.sortOrder) {
@@ -365,6 +521,22 @@ export default function AdminProductsPage() {
     });
   };
 
+  const handleDuplicate = async (product: AdminProduct) => {
+    try {
+      const res = await apiClient.post<{ id: number; code: string; name: string }>(
+        `/api/v1/admin/products/${product.id}/duplicate`,
+      );
+      if (res.success && res.data) {
+        toast.success(`Створено копію: ${res.data.code}`);
+        router.push(`/admin/products/${res.data.id}`);
+      } else {
+        toast.error(res.error || 'Не вдалося дублювати товар');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    }
+  };
+
   const handleRowDelete = async () => {
     if (!rowDelete) return;
     const product = rowDelete;
@@ -387,7 +559,7 @@ export default function AdminProductsPage() {
     }
   };
 
-  const activeFilters = ['categoryId', 'brandId', 'isActive', 'stock', 'sort'].filter(
+  const activeFilters = ['categoryId', 'brandId', 'isActive', 'stock', 'sort', 'missingBarcode'].filter(
     (k) => searchParams.get(k) && (k !== 'sort' || searchParams.get(k) !== 'id_desc'),
   ).length;
 
@@ -407,7 +579,7 @@ export default function AdminProductsPage() {
             ({total})
           </span>
         </h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Input
             placeholder="Пошук за назвою або кодом..."
             value={search}
@@ -420,26 +592,18 @@ export default function AdminProductsPage() {
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             Фільтри{activeFilters > 0 ? ` (${activeFilters})` : ''}
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportAll} isLoading={isProcessing}>
-            Експорт
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.open('/api/v1/admin/export?type=products_full', '_blank')}
-          >
-            Експорт повний
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleReindex}
-            isLoading={isReindexing}
-            title="Перебудувати пошуковий індекс Typesense"
-          >
-            Реіндекс пошуку
-          </Button>
+          <ProductsMoreMenu
+            onExport={handleExportAll}
+            onExportFull={() => window.open('/api/v1/admin/export?type=products_full', '_blank')}
+            onReindex={() => setConfirmReindex(true)}
+            isProcessing={isProcessing}
+            isReindexing={isReindexing}
+          />
         </div>
+      </div>
+
+      <div className="mb-3">
+        <SavedViews storageKey="products" basePath="/admin/products" />
       </div>
 
       {/* Filters panel */}
@@ -489,12 +653,23 @@ export default function AdminProductsPage() {
               onChange={(e) => updateFilter('sort', e.target.value)}
             />
           </div>
+          <div className="flex items-end">
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={searchParams.get('missingBarcode') === '1'}
+                onChange={(e) => updateFilter('missingBarcode', e.target.checked ? '1' : '')}
+                className="accent-[var(--color-primary)]"
+              />
+              Тільки без штрихкоду
+            </label>
+          </div>
         </div>
       )}
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
           <span className="text-sm text-[var(--color-text-secondary)]">
             Обрано: <strong>{selected.size}</strong>
           </span>
@@ -533,6 +708,64 @@ export default function AdminProductsPage() {
               ))}
             </select>
           )}
+          {bulkAction === 'change_price' && (
+            <>
+              <select
+                value={bulkPriceTarget}
+                onChange={(e) => setBulkPriceTarget(e.target.value)}
+                className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
+                aria-label="Тип ціни"
+              >
+                {PRICE_TARGET_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={bulkPriceMode}
+                onChange={(e) => setBulkPriceMode(e.target.value)}
+                className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
+                aria-label="Спосіб оновлення"
+              >
+                {PRICE_MODE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              {bulkPriceMode === 'round' ? (
+                <select
+                  value={bulkPriceRound}
+                  onChange={(e) => setBulkPriceRound(e.target.value)}
+                  className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
+                  aria-label="Крок округлення"
+                >
+                  <option value="1">до 1 грн</option>
+                  <option value="5">до 5 грн</option>
+                  <option value="10">до 10 грн</option>
+                  <option value="50">до 50 грн</option>
+                  <option value="100">до 100 грн</option>
+                </select>
+              ) : (
+                <input
+                  type="number"
+                  step="0.01"
+                  value={bulkPriceValue}
+                  onChange={(e) => setBulkPriceValue(e.target.value)}
+                  placeholder={
+                    bulkPriceMode === 'percent'
+                      ? '+10 або -5'
+                      : bulkPriceMode === 'add'
+                        ? '+5 або -3'
+                        : '100'
+                  }
+                  className="w-28 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
+                  aria-label="Значення"
+                />
+              )}
+            </>
+          )}
           <Button
             size="sm"
             onClick={handleBulkAction}
@@ -561,14 +794,14 @@ export default function AdminProductsPage() {
                     />
                   </th>
                   <th className="px-4 py-3 text-left font-medium">Товар</th>
-                  <th className="px-4 py-3 text-left font-medium">Код</th>
-                  <th className="px-4 py-3 text-left font-medium">Категорія</th>
-                  <th className="px-4 py-3 text-left font-medium">Виробник</th>
+                  <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Код</th>
+                  <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">Категорія</th>
+                  <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">Виробник</th>
                   <th className="px-4 py-3 text-right font-medium">Ціна</th>
                   <th className="px-4 py-3 text-center font-medium">Залишок</th>
-                  <th className="px-4 py-3 text-center font-medium">Продажі</th>
+                  <th className="hidden px-4 py-3 text-center font-medium xl:table-cell">Продажі</th>
                   <th className="px-4 py-3 text-center font-medium">Статус</th>
-                  <th className="px-4 py-3 text-center font-medium">Порядок</th>
+                  <th className="hidden px-4 py-3 text-center font-medium xl:table-cell">Порядок</th>
                   <th className="px-4 py-3 text-right font-medium">Дії</th>
                 </tr>
               </thead>
@@ -592,7 +825,7 @@ export default function AdminProductsPage() {
                           {p.imagePath ? (
                             <Image
                               src={p.imagePath}
-                              alt=""
+                              alt={p.name}
                               width={40}
                               height={40}
                               className="h-full w-full object-contain"
@@ -611,28 +844,61 @@ export default function AdminProductsPage() {
                         </Link>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{p.code}</td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                    <td className="hidden px-4 py-3 text-[var(--color-text-secondary)] md:table-cell">
+                      <div>{p.code}</div>
+                      {p.barcode && (
+                        <div
+                          className="mt-0.5 font-mono text-[10px] leading-tight text-[var(--color-text-tertiary)]"
+                          title="Штрихкод (EAN/UPC)"
+                        >
+                          {p.barcode}
+                        </div>
+                      )}
+                    </td>
+                    <td className="hidden px-4 py-3 text-[var(--color-text-secondary)] lg:table-cell">
                       {p.category?.name || '—'}
                     </td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                    <td className="hidden px-4 py-3 text-[var(--color-text-secondary)] lg:table-cell">
                       {p.brand?.name || '—'}
                     </td>
-                    <td className="px-4 py-3 text-right">{Number(p.priceRetail).toFixed(2)} ₴</td>
+                    <td className="px-4 py-3 text-right">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={pendingPrice[p.id] ?? String(p.priceRetail)}
+                        onChange={(e) =>
+                          setPendingPrice((prev) => ({ ...prev, [p.id]: e.target.value }))
+                        }
+                        onBlur={(e) => commitInlinePrice(p, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                        }}
+                        className="no-spinner w-24 rounded-md border border-transparent bg-transparent px-2 py-1 text-right text-sm hover:border-[var(--color-border)] focus:border-[var(--color-primary)] focus:bg-[var(--color-bg)] focus:outline-none"
+                        aria-label={`Ціна ${p.name}`}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-center">
-                      <span
-                        className={
+                      <input
+                        type="number"
+                        value={pendingQty[p.id] ?? String(p.quantity)}
+                        onChange={(e) =>
+                          setPendingQty((prev) => ({ ...prev, [p.id]: e.target.value }))
+                        }
+                        onBlur={(e) => commitInlineQty(p, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                        }}
+                        className={`no-spinner w-16 rounded-md border border-transparent bg-transparent px-2 py-1 text-center text-sm hover:border-[var(--color-border)] focus:border-[var(--color-primary)] focus:bg-[var(--color-bg)] focus:outline-none ${
                           p.quantity === 0
                             ? 'font-medium text-[var(--color-danger)]'
                             : p.quantity <= 5
                               ? 'text-amber-600'
                               : ''
-                        }
-                      >
-                        {p.quantity}
-                      </span>
+                        }`}
+                        aria-label={`Залишок ${p.name}`}
+                      />
                     </td>
-                    <td className="px-4 py-3 text-center text-[var(--color-text-secondary)]">
+                    <td className="hidden px-4 py-3 text-center text-[var(--color-text-secondary)] xl:table-cell">
                       {p.ordersCount}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -647,7 +913,7 @@ export default function AdminProductsPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="hidden px-4 py-3 text-center xl:table-cell">
                       <input
                         type="number"
                         value={pendingSortOrder[p.id] ?? String(p.sortOrder ?? 0)}
@@ -658,11 +924,39 @@ export default function AdminProductsPage() {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
                         }}
-                        className="w-16 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-center text-xs focus:border-[var(--color-primary)] focus:outline-none"
+                        className="no-spinner w-16 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-center text-xs focus:border-[var(--color-primary)] focus:outline-none"
                         aria-label={`Порядок для ${p.name}`}
                       />
                     </td>
                     <td className="px-4 py-3 text-right">
+                      <a
+                        href={`/product/${p.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Переглянути ${p.name} на сайті`}
+                        title="Переглянути на сайті"
+                        className="mr-1 inline-block rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
+                      >
+                        ↗
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setQuickEditId(p.id)}
+                        aria-label={`Швидке редагування ${p.name}`}
+                        title="Швидке редагування"
+                        className="mr-1 rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicate(p)}
+                        aria-label={`Дублювати ${p.name}`}
+                        title="Дублювати товар"
+                        className="mr-1 rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
+                      >
+                        ⎘
+                      </button>
                       <button
                         type="button"
                         onClick={() => setRowDelete(p)}
@@ -694,11 +988,19 @@ export default function AdminProductsPage() {
                 ))}
                 {products.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={11}
-                      className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
-                    >
-                      Товарів не знайдено
+                    <td colSpan={11} className="px-4 py-12 text-center">
+                      <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
+                        <span className="text-3xl" aria-hidden="true">
+                          🛒
+                        </span>
+                        <p className="text-sm font-medium">Товарів не знайдено</p>
+                        <Link
+                          href="/admin/products/new"
+                          className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
+                        >
+                          + Створити перший товар
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -728,11 +1030,33 @@ export default function AdminProductsPage() {
         onClose={() => setConfirmBulk(false)}
         onConfirm={handleBulkAction}
         variant={bulkAction === 'delete' ? 'danger' : 'warning'}
-        title={bulkAction === 'delete' ? 'Видалення товарів' : 'Підтвердження масової дії'}
+        title={
+          bulkAction === 'delete'
+            ? 'Видалення товарів'
+            : bulkAction === 'change_price'
+              ? 'Зміна цін'
+              : 'Підтвердження масової дії'
+        }
         message={
           bulkAction === 'delete'
             ? `Видалити ${selected.size} товарів? Ті, що мають замовлення, залишаться як видалені для збереження історії; решта буде стерта повністю.`
-            : `Ви впевнені, що хочете виконати "${bulkActionLabel}" для ${selected.size} товарів?`
+            : bulkAction === 'change_price'
+              ? (() => {
+                  const targetLabel =
+                    PRICE_TARGET_OPTIONS.find((o) => o.value === bulkPriceTarget)?.label ||
+                    bulkPriceTarget;
+                  const modeLabel =
+                    PRICE_MODE_OPTIONS.find((o) => o.value === bulkPriceMode)?.label ||
+                    bulkPriceMode;
+                  const valueLabel =
+                    bulkPriceMode === 'round'
+                      ? `${bulkPriceRound} грн`
+                      : bulkPriceMode === 'percent'
+                        ? `${bulkPriceValue}%`
+                        : `${bulkPriceValue} грн`;
+                  return `Застосувати "${modeLabel}" (${valueLabel}) до ціни «${targetLabel}» для ${selected.size} товарів? Дію не можна скасувати.`;
+                })()
+              : `Ви впевнені, що хочете виконати "${bulkActionLabel}" для ${selected.size} товарів?`
         }
         confirmText={bulkAction === 'delete' ? 'Так, видалити' : 'Так, виконати'}
       />
@@ -747,6 +1071,93 @@ export default function AdminProductsPage() {
         message={`Видалити "${rowDelete?.name}"? Якщо товар має замовлення, він залишиться в системі як видалений (інакше буде стертий повністю).`}
         confirmText="Так, видалити"
       />
+
+      {/* Confirm dialog for reindex */}
+      <ConfirmDialog
+        isOpen={confirmReindex}
+        onClose={() => setConfirmReindex(false)}
+        onConfirm={handleReindex}
+        variant="warning"
+        title="Перебудувати пошуковий індекс"
+        message="Це перевідіндексує всі товари в Typesense. Може зайняти кілька хвилин — пошук тимчасово може бути неповним."
+        confirmText="Так, перебудувати"
+        isLoading={isReindexing}
+      />
+
+      <ProductQuickEditDrawer
+        productId={quickEditId}
+        onClose={() => setQuickEditId(null)}
+        onSaved={() => loadProducts()}
+      />
+    </div>
+  );
+}
+
+function ProductsMoreMenu({
+  onExport,
+  onExportFull,
+  onReindex,
+  isProcessing,
+  isReindexing,
+}: {
+  onExport: () => void;
+  onExportFull: () => void;
+  onReindex: () => void;
+  isProcessing: boolean;
+  isReindexing: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Більше дій"
+      >
+        Більше ▾
+      </Button>
+      {open && (
+        <div
+          className="absolute right-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-md"
+          onMouseLeave={() => setOpen(false)}
+        >
+          <button
+            type="button"
+            disabled={isProcessing}
+            onClick={() => {
+              onExport();
+              setOpen(false);
+            }}
+            className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
+          >
+            📥 Експорт XLSX (з фільтрами)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onExportFull();
+              setOpen(false);
+            }}
+            className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--color-bg-secondary)]"
+          >
+            📦 Експорт повний (усі поля)
+          </button>
+          <div className="border-t border-[var(--color-border)]" />
+          <button
+            type="button"
+            disabled={isReindexing}
+            onClick={() => {
+              onReindex();
+              setOpen(false);
+            }}
+            className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
+            title="Перебудувати пошуковий індекс Typesense"
+          >
+            🔄 Реіндекс пошуку
+          </button>
+        </div>
+      )}
     </div>
   );
 }

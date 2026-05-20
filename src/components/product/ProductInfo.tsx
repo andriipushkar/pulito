@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
 import PriceDisplay from './PriceDisplay';
@@ -11,33 +11,111 @@ import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import SubscribeButton from './SubscribeButton';
-import type { ProductDetail } from '@/types/product';
+import BackInStockButton from './BackInStockButton';
+import type { ProductDetail, ProductVariantSummary } from '@/types/product';
 
 interface ProductInfoProps {
   product: ProductDetail;
 }
 
+/**
+ * Group variants by option dimensions (e.g. size, color). Returns a stable
+ * list of dimensions and unique values per dimension so the UI can render one
+ * pill row per dimension. When variants have a single option key (only `size`)
+ * the picker collapses to one row; with two keys we get the familiar
+ * "size × color" matrix.
+ */
+function asOptionsRecord(opts: unknown): Record<string, string> | null {
+  if (!opts || typeof opts !== 'object') return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(opts as Record<string, unknown>)) {
+    if (typeof v === 'string') out[k] = v;
+    else if (typeof v === 'number') out[k] = String(v);
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+function buildOptionDimensions(variants: ProductVariantSummary[]) {
+  const dims = new Map<string, Set<string>>();
+  for (const v of variants) {
+    const opts = asOptionsRecord(v.options);
+    if (!opts) continue;
+    for (const [k, val] of Object.entries(opts)) {
+      if (!dims.has(k)) dims.set(k, new Set());
+      dims.get(k)!.add(val);
+    }
+  }
+  return Array.from(dims.entries()).map(([key, values]) => ({
+    key,
+    values: Array.from(values),
+  }));
+}
+
+const DIMENSION_LABEL: Record<string, string> = {
+  size: 'Розмір',
+  color: 'Колір',
+  flavour: 'Смак',
+};
+
 export default function ProductInfo({ product }: ProductInfoProps) {
   const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
   const { addItem } = useCart();
-  const inStock = product.quantity > 0;
-  const mainImage = product.images[0]?.pathMedium || product.imagePath;
+
+  const variants = product.variants ?? [];
+  const hasVariants = variants.length > 0;
+
+  // Track current selection per dimension. Pre-select the first variant's
+  // options so the buy button is enabled out of the box (operators expect
+  // "size: M" by default if M is in stock and listed first).
+  const dimensions = useMemo(() => buildOptionDimensions(variants), [variants]);
+  const [selection, setSelection] = useState<Record<string, string>>(() => {
+    const first = variants[0];
+    const opts = first ? asOptionsRecord(first.options) : null;
+    return opts ? { ...opts } : {};
+  });
+
+  const activeVariant: ProductVariantSummary | null = useMemo(() => {
+    if (!hasVariants) return null;
+    return (
+      variants.find((v) => {
+        const opts = asOptionsRecord(v.options);
+        if (!opts) return false;
+        return Object.entries(selection).every(([k, val]) => opts[k] === val);
+      }) ?? null
+    );
+  }, [hasVariants, variants, selection]);
+
+  // Resolve effective price + stock — variant overrides product when one is selected
+  // and explicitly has those fields, otherwise fall back to the parent product.
+  const effectivePriceRetail =
+    activeVariant?.priceRetail != null ? Number(activeVariant.priceRetail) : Number(product.priceRetail);
+  const effectiveQuantity = activeVariant ? activeVariant.quantity : product.quantity;
+  const inStock = effectiveQuantity > 0;
+  const mainImage = activeVariant?.imagePath || product.images[0]?.pathMedium || product.imagePath;
 
   const handleAddToCart = () => {
     if (!inStock) return;
     addItem({
       productId: product.id,
-      name: product.name,
+      // When a variant is picked, attach its SKU to the cart row name so the
+      // operator + invoice see "Product · Size M · Red" not just "Product".
+      name: activeVariant
+        ? `${product.name} · ${Object.entries(selection)
+            .map(([k, v]) => `${DIMENSION_LABEL[k] ?? k}: ${v}`)
+            .join(' · ')}`
+        : product.name,
       slug: product.slug,
-      code: product.code,
-      priceRetail: Number(product.priceRetail),
+      code: activeVariant?.sku ?? product.code,
+      priceRetail: effectivePriceRetail,
       priceWholesale:
-        resolveWholesalePrice(product, user?.wholesaleGroup) ??
-        (product.priceWholesale ? Number(product.priceWholesale) : null),
+        activeVariant?.priceWholesale != null
+          ? Number(activeVariant.priceWholesale)
+          : resolveWholesalePrice(product, user?.wholesaleGroup) ??
+            (product.priceWholesale ? Number(product.priceWholesale) : null),
       imagePath: mainImage,
       quantity,
-      maxQuantity: product.quantity,
+      maxQuantity: effectiveQuantity,
     });
   };
 
@@ -49,7 +127,17 @@ export default function ProductInfo({ product }: ProductInfoProps) {
           {product.name}
         </h1>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-[var(--color-text-secondary)]">Код: {product.code}</span>
+          <span className="text-sm text-[var(--color-text-secondary)]">
+            Код: {activeVariant?.sku ?? product.code}
+          </span>
+          {product.barcode && (
+            <span
+              className="font-mono text-xs text-[var(--color-text-tertiary)]"
+              title="Штрихкод (EAN/UPC)"
+            >
+              EAN: {product.barcode}
+            </span>
+          )}
           {product.brand && (
             <Link
               href={`/catalog?brand=${product.brand.slug}`}
@@ -66,11 +154,57 @@ export default function ProductInfo({ product }: ProductInfoProps) {
         </div>
       </div>
 
+      {/* Variant picker — one row per option dimension (size / color / flavour). */}
+      {hasVariants && dimensions.length > 0 && (
+        <div className="space-y-3">
+          {dimensions.map((dim) => (
+            <div key={dim.key}>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                {DIMENSION_LABEL[dim.key] ?? dim.key}: {selection[dim.key]}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {dim.values.map((val) => {
+                  const matchOptions = { ...selection, [dim.key]: val };
+                  const matched = variants.find((v) => {
+                    const opts = asOptionsRecord(v.options);
+                    if (!opts) return false;
+                    return Object.entries(matchOptions).every(([k, vv]) => opts[k] === vv);
+                  });
+                  const variantInStock = matched ? matched.quantity > 0 : false;
+                  const isSelected = selection[dim.key] === val;
+                  return (
+                    <button
+                      type="button"
+                      key={val}
+                      onClick={() => setSelection((curr) => ({ ...curr, [dim.key]: val }))}
+                      className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                        isSelected
+                          ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
+                          : variantInStock
+                            ? 'border-[var(--color-border)] hover:border-[var(--color-primary)]'
+                            : 'border-[var(--color-border)] text-[var(--color-text-tertiary)] line-through'
+                      }`}
+                      title={!variantInStock ? 'Немає в наявності' : undefined}
+                    >
+                      {val}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Price block — glass style */}
       <div className="rounded-2xl border border-white/60 bg-[var(--color-bg-secondary)]/60 p-4 backdrop-blur-sm">
         <PriceDisplay
-          priceRetail={product.priceRetail}
-          priceWholesale={product.priceWholesale}
+          priceRetail={effectivePriceRetail}
+          priceWholesale={
+            activeVariant?.priceWholesale != null
+              ? Number(activeVariant.priceWholesale)
+              : product.priceWholesale
+          }
           priceWholesale2={product.priceWholesale2}
           priceWholesale3={product.priceWholesale3}
           priceRetailOld={product.priceRetailOld}
@@ -90,14 +224,29 @@ export default function ProductInfo({ product }: ProductInfoProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
           )}
-          {inStock ? `В наявності (${product.quantity} шт.)` : 'Немає в наявності'}
+          {inStock ? `В наявності (${effectiveQuantity} шт.)` : 'Немає в наявності'}
         </div>
+        {(() => {
+          // Show physical params chip when the selected variant (or parent)
+          // declares weight. Helps customer estimate shipping cost upfront.
+          const grams =
+            (activeVariant?.weightGrams as number | null | undefined) ??
+            (product as { weightGrams?: number | null }).weightGrams ??
+            null;
+          if (!grams) return null;
+          const label = grams >= 1000 ? `${(grams / 1000).toFixed(2)} кг` : `${grams} г`;
+          return (
+            <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)]">
+              ⚖ {label}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Buy section */}
-      {inStock && (
+      {inStock ? (
         <div className="flex items-stretch gap-2">
-          <QuantitySelector value={quantity} onChange={setQuantity} max={product.quantity} />
+          <QuantitySelector value={quantity} onChange={setQuantity} max={effectiveQuantity} />
           <button
             data-add-to-cart
             onClick={handleAddToCart}
@@ -106,6 +255,8 @@ export default function ProductInfo({ product }: ProductInfoProps) {
             <Cart size={20} />В кошик
           </button>
         </div>
+      ) : (
+        <BackInStockButton productId={product.id} />
       )}
 
       {/* Subscribe & Save */}
@@ -113,7 +264,7 @@ export default function ProductInfo({ product }: ProductInfoProps) {
         <SubscribeButton
           productId={product.id}
           productName={product.name}
-          price={Number(product.priceRetail)}
+          price={effectivePriceRetail}
         />
       )}
 

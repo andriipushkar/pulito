@@ -90,9 +90,37 @@ export async function updateTenant(id: number, data: UpdateTenantData): Promise<
   return tenant;
 }
 
-export async function deleteTenant(id: number): Promise<void> {
+export class TenantError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+  ) {
+    super(message);
+    this.name = 'TenantError';
+  }
+}
+
+/**
+ * Safe delete: refuses to drop a tenant that still owns users. Forces the
+ * platform admin to migrate users first, preventing orphaned records.
+ *
+ * Pass `force: true` to override (e.g. when a backup already exists or this
+ * is a test tenant). Force mode still cascades via Prisma schema relations.
+ */
+export async function deleteTenant(
+  id: number,
+  options?: { force?: boolean },
+): Promise<{ deleted: boolean; userCount: number }> {
+  const userCount = await prisma.tenantUser.count({ where: { tenantId: id } });
+  if (userCount > 0 && !options?.force) {
+    throw new TenantError(
+      `У тенанта залишилось ${userCount} користувачів. Перенесіть їх до іншого тенанта або скористайтесь force=true (потребує бекапу).`,
+      409,
+    );
+  }
   await prisma.tenant.delete({ where: { id } });
   await cacheInvalidate(`tenant:*`);
+  return { deleted: true, userCount };
 }
 
 // ─────────────────────────────────────

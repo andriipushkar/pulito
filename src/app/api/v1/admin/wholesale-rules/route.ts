@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
 
 export const GET = withRole('admin', 'manager')(async () => {
   try {
@@ -21,12 +24,13 @@ export const GET = withRole('admin', 'manager')(async () => {
       isActive: r.isActive,
       createdAt: r.createdAt,
     })));
-  } catch {
+  } catch (err) {
+    logger.error('[admin/wholesale-rules] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
 
-export const POST = withRole('admin', 'manager')(async (request: NextRequest) => {
+export const POST = withRole('admin', 'manager')(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const { ruleType, productId, value, isActive } = body;
@@ -47,6 +51,15 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest) =>
       },
     });
 
+    await logAudit({
+      userId: user.id,
+      actionType: 'rule_change',
+      entityType: 'wholesale_rule',
+      entityId: rule.id,
+      details: { ruleType, productId: rule.productId, value: Number(rule.value), action: 'create' },
+      ipAddress: getClientIp(request),
+    });
+
     return successResponse({
       id: rule.id,
       ruleType: rule.ruleType,
@@ -56,7 +69,8 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest) =>
       isActive: rule.isActive,
       createdAt: rule.createdAt,
     });
-  } catch {
+  } catch (err) {
+    logger.error('[admin/wholesale-rules] POST failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

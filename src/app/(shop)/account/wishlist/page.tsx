@@ -203,7 +203,11 @@ export default function WishlistPage() {
           </svg>
         }
         title={`Обране (${totalItems})`}
-        subtitle={`${wishlists.length} ${wishlists.length === 1 ? 'список' : wishlists.length < 5 ? 'списки' : 'списків'}`}
+        subtitle={
+          wishlists.length > 1
+            ? `${wishlists.length} ${wishlists.length < 5 ? 'списки' : 'списків'}`
+            : undefined
+        }
         actions={
           !showNewForm ? (
             <button
@@ -337,8 +341,10 @@ export default function WishlistPage() {
         </div>
       )}
 
-      {/* ── Empty state ── */}
-      {wishlists.length === 0 && !showNewForm && (
+      {/* ── Empty state ── show when there are no items in any list AND
+           user hasn't created extra lists (skip the "Порожні списки (1)" abstraction
+           that's confusing when the default list is the only one). ── */}
+      {nonEmptyLists.length === 0 && wishlists.length <= 1 && !showNewForm && (
         <EmptyState
           icon={
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-rose-400">
@@ -519,8 +525,9 @@ export default function WishlistPage() {
           </div>
         ))}
 
-        {/* ── Empty lists (compact rows) ── */}
-        {emptyLists.length > 0 && (
+        {/* ── Empty lists (compact rows) — hidden when only the default list exists
+             empty (handled by the main EmptyState above). ── */}
+        {emptyLists.length > 0 && wishlists.length > 1 && (
           <div className="overflow-hidden rounded-2xl border border-[var(--color-border)]/60">
             <div className="border-b border-[var(--color-border)]/60 px-5 py-2.5">
               <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">

@@ -58,33 +58,6 @@ function highlightGold(text: string) {
 
 const AUTOPLAY_INTERVAL = 5000;
 
-const fallbackBanners: Banner[] = [
-  {
-    id: 1,
-    title: null,
-    subtitle: null,
-    imageDesktop: '/images/banners/banner-1.png',
-    buttonLink: '/catalog?promo=true',
-    buttonText: null,
-  },
-  {
-    id: 2,
-    title: null,
-    subtitle: null,
-    imageDesktop: '/images/banners/banner-2.png',
-    buttonLink: '/catalog?promo=true',
-    buttonText: null,
-  },
-  {
-    id: 3,
-    title: null,
-    subtitle: null,
-    imageDesktop: '/images/banners/banner-3.png',
-    buttonLink: '/pages/delivery',
-    buttonText: null,
-  },
-];
-
 const bannerFetcher = (url: string) => {
   const genericTitles = ['новий банер', 'new banner', 'тестовий банер', 'test banner'];
   return fetch(url, { cache: 'no-store' })
@@ -110,12 +83,10 @@ export default function BannerSlider() {
   const [progressKey, setProgressKey] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  const { data: fetchedBanners } = useSWR<Banner[] | null>('/api/v1/banners', bannerFetcher, {
-    fallbackData: null,
-    onError: () => { /* handled via fallback below */ },
-  });
-
-  const banners = fetchedBanners ?? fallbackBanners;
+  const { data: fetchedBanners, isLoading } = useSWR<Banner[] | null>(
+    '/api/v1/banners',
+    bannerFetcher,
+  );
 
   const scrollPrev = useCallback(() => {
     emblaApi?.scrollPrev();
@@ -151,6 +122,10 @@ export default function BannerSlider() {
     };
   }, [emblaApi, isPaused, selectedIndex]);
 
+  // While loading don't render anything: the outer Suspense provides a skeleton.
+  // After load: empty array (no banners configured) or null (API error) → render nothing.
+  if (isLoading) return null;
+  const banners = fetchedBanners;
   if (!banners || !banners.length) return null;
 
   return (

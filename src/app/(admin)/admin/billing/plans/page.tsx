@@ -25,26 +25,42 @@ export default function AdminPlansPage() {
   const [changingPlanId, setChangingPlanId] = useState<number | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     apiClient
       .get<Plan[]>('/api/v1/admin/plans')
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) {
           setPlans(res.data);
+        } else {
+          toast.error(res.error || 'Помилка завантаження планів');
         }
       })
-      .finally(() => setIsLoading(false));
+      .catch(() => {
+        if (!cancelled) toast.error('Помилка завантаження планів');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSelectPlan = async (planId: number) => {
     setChangingPlanId(planId);
-    const res = await apiClient.post('/api/v1/admin/billing/change-plan', { planId });
-    setChangingPlanId(null);
-
-    if (res.success) {
-      toast.success('План змінено');
-      router.push('/admin/billing');
-    } else {
-      toast.error(res.error || 'Помилка зміни плану');
+    try {
+      const res = await apiClient.post('/api/v1/admin/billing/change-plan', { planId });
+      if (res.success) {
+        toast.success('План змінено');
+        router.push('/admin/billing');
+      } else {
+        toast.error(res.error || 'Помилка зміни плану');
+      }
+    } catch {
+      toast.error('Помилка зміни плану');
+    } finally {
+      setChangingPlanId(null);
     }
   };
 

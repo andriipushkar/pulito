@@ -21,6 +21,7 @@
   --color-text: #212121;
   --color-text-secondary: #757575;
   --color-border: #e0e0e0;
+  --color-footer-bg: #0f172a;
 
   --color-discount: #c62828;
   --color-in-stock: #2e7d32;
@@ -371,6 +372,36 @@
     background: var(--color-bg-secondary);
     font-weight: 600;
   }
+
+  /* TipTap editor — placeholder text shown on the empty leading paragraph */
+  .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--color-text-secondary);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+
+  /* TipTap table niceties: selected cell, column-resize handle, drag handle */
+  .ProseMirror .tableWrapper {
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+  .ProseMirror table .selectedCell {
+    background: var(--color-primary-50);
+  }
+  .ProseMirror table .column-resize-handle {
+    position: absolute;
+    right: -2px;
+    top: 0;
+    bottom: -2px;
+    width: 4px;
+    background-color: var(--color-primary);
+    pointer-events: none;
+  }
+  .ProseMirror.resize-cursor {
+    cursor: col-resize;
+  }
 }
 
 /* Reduced motion: respect user's OS-level preference (WCAG 2.1 SC 2.3.3) */
@@ -411,6 +442,7 @@
   --color-text: #f1f5f9;
   --color-text-secondary: #94a3b8;
   --color-border: #334155;
+  --color-footer-bg: #050a18;
 
   --color-discount: #ef5350;
   --color-in-stock: #66bb6a;
@@ -446,6 +478,7 @@
     --color-text: #f1f5f9;
     --color-text-secondary: #94a3b8;
     --color-border: #334155;
+    --color-footer-bg: #050a18;
 
     --color-discount: #ef5350;
     --color-in-stock: #66bb6a;
@@ -471,9 +504,15 @@
   header,
   footer,
   nav,
+  aside,
   .no-print,
   [data-no-print],
   button:not(.print-visible) {
+    display: none !important;
+  }
+
+  /* Tailwind utility — anything tagged print:hidden gets hidden */
+  .print\:hidden {
     display: none !important;
   }
 
@@ -536,4 +575,28 @@
     margin: 15mm;
     size: A4;
   }
+}
+
+/* Hide native number-input spinner arrows on inline-edit cells.
+   Use class .no-spinner on inputs that should look like plain text fields. */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner {
+  -moz-appearance: textfield;
+}
+
+/* Override browser autofill yellow background — keep inputs visually clean */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-bg) inset !important;
+  -webkit-text-fill-color: var(--color-text) !important;
+  caret-color: var(--color-text);
+  transition: background-color 99999s ease-in-out 0s;
 }

@@ -24,6 +24,9 @@ model Review {
   images             Json? // Array of image paths: ["/uploads/reviews/1.jpg", ...]
   adminReply         String?      @map("admin_reply") @db.VarChar(1000)
   adminReplyAt       DateTime?    @map("admin_reply_at")
+  sentiment          String?      @db.VarChar(20)
+  aiSuggestedReply   String?      @map("ai_suggested_reply") @db.VarChar(1000)
+  aiClassifiedAt     DateTime?    @map("ai_classified_at")
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @updatedAt @map("updated_at")
 

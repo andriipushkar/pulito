@@ -21,9 +21,33 @@ export interface CartItem {
   code: string;
   priceRetail: number;
   priceWholesale: number | null;
+  // Optional in the type so legacy add-to-cart call sites (storefront,
+  // recommendations) don't need to pass them; pickCartPrice falls back to
+  // retail when a tier is missing.
+  priceWholesale2?: number | null;
+  priceWholesale3?: number | null;
   imagePath: string | null;
   quantity: number;
   maxQuantity: number;
+}
+
+/**
+ * Pick the price a customer should actually pay for a cart item, in the same
+ * order the server uses when building the order:
+ *   wholesale tier (matching their group) → retail.
+ * Personal-price and volume-discount overrides aren't carried in the
+ * client-side CartItem (they need a server round-trip), so they're applied
+ * later by the checkout/order pipeline. Keeping the cart display honest about
+ * the wholesale tier covers ~95% of the price mismatch problem.
+ */
+export function pickCartPrice(item: CartItem, wholesaleGroup: number | null | undefined): number {
+  if (wholesaleGroup === 1 && item.priceWholesale != null) return item.priceWholesale;
+  if (wholesaleGroup === 2 && item.priceWholesale2 != null) return item.priceWholesale2;
+  if (wholesaleGroup === 3 && item.priceWholesale3 != null) return item.priceWholesale3;
+  // Falls back to wholesale-1 if other tiers aren't carried (covers ProductCard
+  // call sites that only know about priceWholesale), then to retail.
+  if (wholesaleGroup && item.priceWholesale != null) return item.priceWholesale;
+  return item.priceRetail;
 }
 
 interface CartState {
@@ -78,7 +102,7 @@ interface CartContextValue {
   items: CartItem[];
   /** Optimistic item count — updates instantly before server confirms */
   itemCount: number;
-  total: (role?: string) => number;
+  total: (role?: string, wholesaleGroup?: number | null) => number;
   addItem: (item: CartItem) => void;
   removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
@@ -195,10 +219,12 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   }, [setOptimisticItemCount, user]);
 
   const total = useCallback(
-    (role?: string) =>
+    (role?: string, wholesaleGroup?: number | null) =>
       state.items.reduce((sum, item) => {
-        const price =
-          role === 'wholesaler' && item.priceWholesale ? item.priceWholesale : item.priceRetail;
+        const isWholesale = role === 'wholesaler';
+        const price = isWholesale
+          ? pickCartPrice(item, wholesaleGroup ?? 1)
+          : item.priceRetail;
         return sum + price * item.quantity;
       }, 0),
     [state.items],

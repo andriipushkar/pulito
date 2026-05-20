@@ -50,14 +50,18 @@ export default function AdminChatPage() {
   const router = useRouter();
   const [rooms, setRooms] = useState<ChatRoomItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  // Derive isLoading from request/completion tokens to avoid synchronous setState in effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  const [completedToken, setCompletedToken] = useState(-1);
+  const isLoading = completedToken !== reloadToken;
+  const loadRooms = useCallback(() => setReloadToken((n) => n + 1), []);
 
   const page = Number(searchParams.get('page')) || 1;
   const status = searchParams.get('status') || '';
   const limit = Number(searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
 
-  const loadRooms = useCallback(() => {
-    setIsLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     const params = new URLSearchParams({
       page: String(page),
       limit: String(limit),
@@ -67,6 +71,7 @@ export default function AdminChatPage() {
     apiClient
       .get<ChatRoomItem[]>(`/api/v1/admin/chat?${params}`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) {
           setRooms(res.data);
           setTotal(res.pagination?.total || 0);
@@ -74,13 +79,16 @@ export default function AdminChatPage() {
           toast.error('Не вдалося завантажити чати');
         }
       })
-      .catch(() => toast.error('Помилка мережі'))
-      .finally(() => setIsLoading(false));
-  }, [page, limit, status]);
-
-  useEffect(() => {
-    loadRooms();
-  }, [loadRooms]);
+      .catch(() => {
+        if (!cancelled) toast.error('Помилка мережі');
+      })
+      .finally(() => {
+        if (!cancelled) setCompletedToken(reloadToken);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, limit, status, reloadToken]);
 
   // Auto-refresh every 10 seconds
   useEffect(() => {

@@ -11,7 +11,13 @@ export const POST = withOptionalAuth(async (request: NextRequest, { user }) => {
     if (!parsed.success) return errorResponse('Введіть промокод', 422);
 
     const orderAmount = Number(body.orderAmount) || 0;
-    const coupon = await validateCoupon(parsed.data.code, user?.id, orderAmount);
+    // Cart product IDs allow the validator to enforce category/product
+    // restrictions. Accept undefined for backwards-compat (clients without
+    // cart context still get base validation).
+    const cartProductIds = Array.isArray(body.cartProductIds)
+      ? (body.cartProductIds as unknown[]).map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
+      : undefined;
+    const coupon = await validateCoupon(parsed.data.code, user?.id, orderAmount, cartProductIds);
     const discount = calculateDiscount(coupon, orderAmount);
 
     return successResponse({

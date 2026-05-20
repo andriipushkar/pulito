@@ -2,6 +2,7 @@ import CartProvider from '@/providers/CartProvider';
 import SettingsProvider from '@/providers/SettingsProvider';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import NewsletterCTA from '@/components/layout/NewsletterCTA';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import BackToTop from '@/components/ui/BackToTop';
 import AriaLiveRegion from '@/components/ui/AriaLiveRegion';
@@ -20,7 +21,8 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
           <main id="main-content" className="flex-1 animate-fade-in-up">
             {children}
           </main>
-          <Footer />
+          <NewsletterCTA />
+          <Footer settings={settings} />
         </div>
         <MobileBottomNav categories={categories} />
         <BackToTop />

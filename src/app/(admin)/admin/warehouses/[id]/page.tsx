@@ -33,19 +33,25 @@ export default function AdminWarehouseDetailPage() {
   const [updateForm, setUpdateForm] = useState({ productId: '', quantity: '' });
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const loadWarehouse = useCallback(() => {
-    setIsLoading(true);
+  // Reload via token bump; fetch lives in the effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  const loadWarehouse = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  useEffect(() => {
+    let cancelled = false;
     apiClient
       .get<WarehouseData>(`/api/v1/admin/warehouses/${id}`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) setWarehouse(res.data);
       })
-      .finally(() => setIsLoading(false));
-  }, [id]);
-
-  useEffect(() => {
-    loadWarehouse();
-  }, [loadWarehouse]);
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, reloadToken]);
 
   const handleUpdateStock = async () => {
     const pid = Number(updateForm.productId);
@@ -55,7 +61,7 @@ export default function AdminWarehouseDetailPage() {
       return;
     }
     setIsUpdating(true);
-    const res = await apiClient.patch(`/api/v1/admin/warehouses/${id}/stock`, {
+    const res = await apiClient.put(`/api/v1/admin/warehouses/${id}/stock`, {
       productId: pid,
       quantity: qty,
     });
@@ -124,6 +130,7 @@ export default function AdminWarehouseDetailPage() {
           />
           <Input
             type="number"
+            min={0}
             value={updateForm.quantity}
             onChange={(e) => setUpdateForm({ ...updateForm, quantity: e.target.value })}
             placeholder="Кількість"

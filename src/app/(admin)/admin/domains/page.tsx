@@ -23,17 +23,26 @@ export default function AdminDomainsPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
 
+  // Bump reloadToken to trigger a refetch; effect performs the async fetch
+  // so setState runs only in the async callback.
+  const [reloadToken, setReloadToken] = useState(0);
   const fetchDomainInfo = async () => {
-    const res = await apiClient.get<DomainInfo>('/api/v1/admin/domains');
-    if (res.success && res.data) {
-      setInfo(res.data);
-    }
-    setIsLoading(false);
+    setReloadToken((n) => n + 1);
   };
 
   useEffect(() => {
-    fetchDomainInfo();
-  }, []);
+    let cancelled = false;
+    apiClient.get<DomainInfo>('/api/v1/admin/domains').then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) {
+        setInfo(res.data);
+      }
+      setIsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   const handleInitiate = async () => {
     if (!newDomain.trim()) {

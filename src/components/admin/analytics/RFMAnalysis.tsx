@@ -47,14 +47,24 @@ const SEGMENT_LABELS: Record<string, string> = {
 
 export default function RFMAnalysis({ days }: { days: number }) {
   const [data, setData] = useState<RFMData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Derive isLoading from "completed days param matches requested one".
+  const [completedDays, setCompletedDays] = useState<number | null>(null);
+  const isLoading = completedDays !== days;
 
   useEffect(() => {
-    setIsLoading(true);
+    let cancelled = false;
     apiClient
       .get<RFMData>(`/api/v1/admin/analytics/rfm?days=${days}`)
-      .then((res) => { if (res.success && res.data) setData(res.data); })
-      .finally(() => setIsLoading(false));
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setData(res.data);
+      })
+      .finally(() => {
+        if (!cancelled) setCompletedDays(days);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [days]);
 
   if (isLoading) return <div className="flex justify-center py-8"><Spinner size="md" /></div>;

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { createInternetDocument, NovaPoshtaError } from '@/services/nova-poshta';
+import { pushTrackingSafe } from '@/services/marketplace-tracking';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 
@@ -57,11 +58,41 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
         totalAmount: true,
         paymentMethod: true,
         paymentStatus: true,
-        items: { select: { quantity: true } },
+        items: {
+          select: {
+            productCode: true,
+            quantity: true,
+            product: {
+              select: {
+                weightGrams: true,
+                // Variants override parent weight when OrderItem.productCode
+                // matches variant.sku — matches the same precedence used by
+                // calculatePalletWeight so the two stay consistent.
+                variants: {
+                  select: { sku: true, weightGrams: true },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     const result: BulkResult = { ok: [], failed: [] };
+
+    // Surface IDs that didn't come back from the DB (deleted, never existed,
+    // user typo'd a URL). Without this the operator sees "Created 7 TTNs,
+    // failed 1" while the other 2 silently vanish.
+    const foundIds = new Set(orders.map((o) => o.id));
+    for (const requestedId of parsed.data.orderIds) {
+      if (!foundIds.has(requestedId)) {
+        result.failed.push({
+          orderId: requestedId,
+          orderNumber: `#${requestedId}`,
+          error: 'Замовлення не знайдено',
+        });
+      }
+    }
 
     for (const o of orders) {
       if (o.trackingNumber) {
@@ -99,9 +130,16 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
           payerType: o.paymentStatus === 'paid' ? 'Sender' : 'Recipient',
           paymentMethod: o.paymentStatus === 'paid' ? 'NonCash' : 'Cash',
           cargoType: 'Parcel',
+          // Prefer Product.weightGrams when set; fall back to 300g/unit
+          // default for products without recorded weight. Min 0.5 kg satisfies
+          // Nova Poshta validation (smallest billed parcel).
           weight: Math.max(
             0.5,
-            o.items.reduce((sum, i) => sum + i.quantity * 0.3, 0),
+            o.items.reduce((sum, i) => {
+              const variant = i.product?.variants?.find((v) => v.sku === i.productCode);
+              const g = variant?.weightGrams ?? i.product?.weightGrams ?? 300;
+              return sum + (g * i.quantity) / 1000;
+            }, 0),
           ),
           seatsAmount: 1,
           description: `Замовлення #${o.orderNumber}`,
@@ -115,20 +153,28 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
           data: { trackingNumber: ttn.intDocNumber },
         });
 
+        void pushTrackingSafe(o.id, ttn.intDocNumber);
+
         result.ok.push({
           orderId: o.id,
           orderNumber: o.orderNumber,
           trackingNumber: ttn.intDocNumber,
         });
       } catch (err) {
-        const msg = err instanceof NovaPoshtaError ? err.message : String(err);
-        logger.error('Bulk TTN failed', { orderNumber: o.orderNumber, error: msg });
-        result.failed.push({ orderId: o.id, orderNumber: o.orderNumber, error: msg });
+        const isKnown = err instanceof NovaPoshtaError;
+        const safeMsg = isKnown ? err.message : 'Помилка зовнішнього сервісу';
+        // Log only known/safe errors; raw error goes to server logs only.
+        logger.error('Bulk TTN failed', { orderId: o.id, errorKind: isKnown ? 'NovaPoshtaError' : 'unknown' });
+        if (!isKnown) {
+          logger.error('Bulk TTN raw error', { error: err instanceof Error ? err.message : String(err) });
+        }
+        result.failed.push({ orderId: o.id, orderNumber: o.orderNumber, error: safeMsg });
       }
     }
 
     return successResponse(result);
-  } catch {
+  } catch (err) {
+    logger.error('[admin/orders/bulk-ttn] POST failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

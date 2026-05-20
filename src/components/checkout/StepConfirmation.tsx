@@ -5,6 +5,7 @@ import type { CartItem } from '@/providers/CartProvider';
 import type { CheckoutInput } from '@/validators/order';
 import { DELIVERY_METHOD_LABELS, PAYMENT_METHOD_LABELS } from '@/types/order';
 import type { CheckoutConfig } from '@/services/checkout-config';
+import FrequentlyBought from './FrequentlyBought';
 
 interface StepConfirmationProps {
   data: Partial<CheckoutInput> & { paymentNote?: string };
@@ -161,6 +162,8 @@ export default function StepConfirmation({
           </span>
         </div>
       </div>
+
+      <FrequentlyBought cartItems={items} limit={3} />
     </div>
   );
 }
