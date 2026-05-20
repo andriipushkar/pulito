@@ -13,9 +13,19 @@ export const POST = withRole('admin', 'manager')(
       if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
         return errorResponse('orderIds обов\'язковий (масив ID)', 400);
       }
+      // Cap batch size — without this a single POST could DoS the DB by
+      // asking for millions of rows + a full items-join.
+      if (orderIds.length > 5000) {
+        return errorResponse('Максимум 5000 замовлень за один експорт', 400);
+      }
+      // Reject non-numeric IDs early so Prisma doesn't choke on NaN.
+      const ids = orderIds.map(Number).filter((n) => Number.isInteger(n) && n > 0);
+      if (ids.length === 0) {
+        return errorResponse('Жоден ID не пройшов валідацію', 400);
+      }
 
       const orders = await prisma.order.findMany({
-        where: { id: { in: orderIds.map(Number) } },
+        where: { id: { in: ids } },
         include: {
           items: { include: { product: { select: { name: true, code: true } } } },
         },

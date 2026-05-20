@@ -1178,20 +1178,36 @@ export async function editOrderItems(
     }
 
     // Recalculate totals. Items subtotal + delivery − discount, matching the
-    // formula createOrder uses (otherwise editing items would silently strip
-    // the delivery cost off the order total).
+    // formula createOrder uses. Recompute deliveryCost against the new
+    // items-subtotal so the free-shipping threshold flips correctly when
+    // the customer drops items below it.
     const updatedItems = await tx.orderItem.findMany({
       where: { orderId },
       select: { quantity: true, subtotal: true },
     });
 
     if (updatedItems.length === 0) {
-      throw new OrderError('У замовленні має бути хоча б одна позиція. Скасуйте замовлення замість видалення всіх товарів.', 400);
+      throw new OrderError(
+        'У замовленні має бути хоча б одна позиція. Скасуйте замовлення замість видалення всіх товарів.',
+        400,
+      );
     }
 
     const itemsSubtotal = updatedItems.reduce((sum, i) => sum + Number(i.subtotal), 0);
+    let newDeliveryCost = Number(order.deliveryCost ?? 0);
+    if (order.deliveryMethod && order.deliveryMethod !== 'pallet') {
+      try {
+        newDeliveryCost = await calculateDeliveryCost(
+          order.deliveryMethod as DeliveryMethod,
+          itemsSubtotal,
+        );
+      } catch {
+        // Keep the original deliveryCost if recompute fails — don't block the
+        // edit on a Nova-Poshta API hiccup.
+      }
+    }
     const totalAmount =
-      itemsSubtotal + Number(order.deliveryCost ?? 0) - Number(order.discountAmount ?? 0);
+      itemsSubtotal + newDeliveryCost - Number(order.discountAmount ?? 0);
     const itemsCount = updatedItems.reduce((sum, i) => sum + i.quantity, 0);
 
     // Add status history entry
@@ -1208,7 +1224,7 @@ export async function editOrderItems(
 
     return tx.order.update({
       where: { id: orderId },
-      data: { totalAmount, itemsCount },
+      data: { totalAmount, itemsCount, deliveryCost: newDeliveryCost },
       select: orderDetailSelect,
     });
   });
