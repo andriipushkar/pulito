@@ -277,19 +277,29 @@ async function fetchOrdersForPlatform(
   if (hasClientBackedSync(platform)) {
     const client = getClient(platform, config);
     const raw = await client.getOrders(dateFrom);
+    // Marketplace APIs sometimes report quantity as a float ("2.0" or even
+    // "2.5"). The DB column is Int, so passing it through Number() and then
+    // storing would silently truncate, leaving Product.quantity drift behind
+    // the marketplace's view. Round to the nearest whole unit and clamp to
+    // a sensible minimum.
+    const safeQty = (raw: unknown) => {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 1) return 1;
+      return Math.round(n);
+    };
     return raw.map((order): NormalizedOrder => {
       const items =
         'items' in order
           ? order.items.map((it) => ({
               name: it.name,
-              quantity: Number(it.quantity),
+              quantity: safeQty(it.quantity),
               price: Number(it.price),
               code: 'id' in it ? String(it.id) : undefined,
             }))
           : 'products' in order
           ? order.products.map((it) => ({
               name: it.name,
-              quantity: Number(it.quantity),
+              quantity: safeQty(it.quantity),
               price: Number(it.price),
               code: 'id' in it ? String(it.id) : undefined,
             }))
@@ -362,10 +372,18 @@ export async function importOrdersFromMarketplace(
         });
         if (existing) return { kind: 'skipped' as const };
 
-        const totalAmount = order.items.reduce(
-          (sum, item) => sum + Number(item.price) * item.quantity,
-          0,
-        );
+        // Guard against malformed marketplace payloads — Number("") is NaN,
+        // and Prisma will happily persist NaN as a float. Treat any
+        // unparseable line as 0; the resulting underbilled order surfaces in
+        // analytics for manual review rather than crashing reconciliation.
+        const totalAmount = order.items.reduce((sum, item) => {
+          const price = Number(item.price);
+          const qty = Number(item.quantity);
+          if (!Number.isFinite(price) || !Number.isFinite(qty) || price < 0 || qty < 0) {
+            return sum;
+          }
+          return sum + price * qty;
+        }, 0);
 
         await tx.order.create({
           data: {

@@ -4,6 +4,7 @@ import { getOrderById } from '@/services/order';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
 
 export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { params }) => {
   try {
@@ -21,7 +22,7 @@ export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { 
   }
 });
 
-export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { params }) => {
+export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -53,6 +54,12 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { p
 
     if (Object.keys(data).length === 0) return errorResponse('Немає даних для оновлення', 400);
 
+    // Capture the previous assignedManagerId so we can audit the change.
+    const prev = await prisma.order.findUnique({
+      where: { id: numId },
+      select: { assignedManagerId: true },
+    });
+
     try {
       await prisma.order.update({ where: { id: numId }, data });
     } catch (err: unknown) {
@@ -61,6 +68,21 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { p
       }
       throw err;
     }
+
+    if ('assignedManagerId' in data && prev) {
+      await logAudit({
+        userId: user.id,
+        actionType: 'data_update',
+        entityType: 'order',
+        entityId: numId,
+        details: {
+          field: 'assignedManagerId',
+          before: prev.assignedManagerId,
+          after: data.assignedManagerId,
+        },
+      });
+    }
+
     const order = await getOrderById(numId);
     return successResponse(order);
   } catch (error) {

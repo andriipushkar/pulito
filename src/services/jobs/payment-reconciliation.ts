@@ -51,10 +51,14 @@ export async function reconcileStuckPayments(): Promise<{ checked: number; resol
       if (!providerStatus || providerStatus.status === 'processing') continue;
 
       // Reuse the same handler that webhooks use — keeps audit + notifications consistent.
+      // Use a deterministic synthetic id when the provider hasn't yet
+      // assigned one — `reconcile:o<id>` is per-order so re-running the
+      // reconciliation cron on the same order dedupes properly via the
+      // webhook replay guard.
       await handlePaymentCallback(p.paymentProvider as 'liqpay' | 'monobank' | 'wayforpay', {
         orderId: p.orderId,
         status: providerStatus.status,
-        transactionId: p.transactionId ?? '',
+        transactionId: p.transactionId ?? `reconcile:o${p.orderId}`,
         rawData: { source: 'reconciliation' },
         amount: providerStatus.amount,
       });

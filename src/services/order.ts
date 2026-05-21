@@ -1020,6 +1020,7 @@ export async function editOrderItems(
       paymentStatus: true,
       clientType: true,
       deliveryCost: true,
+      deliveryMethod: true,
       discountAmount: true,
       userId: true,
       user: { select: { wholesaleGroup: true } },
@@ -1206,8 +1207,14 @@ export async function editOrderItems(
         // edit on a Nova-Poshta API hiccup.
       }
     }
-    const totalAmount =
-      itemsSubtotal + newDeliveryCost - Number(order.discountAmount ?? 0);
+    // Clamp the discount so a manager removing items can't drive totalAmount
+    // negative. The most-favourable-to-customer behaviour is "keep the
+    // existing discount up to the new gross", not "carry forward 50 UAH of
+    // discount on a 30 UAH order".
+    const grossTotal = itemsSubtotal + newDeliveryCost;
+    const originalDiscount = Number(order.discountAmount ?? 0);
+    const cappedDiscount = Math.max(0, Math.min(originalDiscount, grossTotal));
+    const totalAmount = grossTotal - cappedDiscount;
     const itemsCount = updatedItems.reduce((sum, i) => sum + i.quantity, 0);
 
     // Add status history entry
@@ -1224,7 +1231,14 @@ export async function editOrderItems(
 
     return tx.order.update({
       where: { id: orderId },
-      data: { totalAmount, itemsCount, deliveryCost: newDeliveryCost },
+      data: {
+        totalAmount,
+        itemsCount,
+        deliveryCost: newDeliveryCost,
+        // Persist the clamped discount so the order detail page agrees with
+        // the value used in totalAmount.
+        ...(cappedDiscount !== originalDiscount && { discountAmount: cappedDiscount }),
+      },
       select: orderDetailSelect,
     });
   });

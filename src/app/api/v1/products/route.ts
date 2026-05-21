@@ -23,7 +23,7 @@ function readRoleFromAuth(request: NextRequest): string | null {
 // Strip B2B wholesale fields from a product row when the requester isn't
 // allowed to see them. Wholesalers, managers and admins keep them; everyone
 // else (anonymous + retail clients) gets retail only.
-function stripWholesaleIfNotAllowed<T extends Record<string, unknown>>(p: T, role: string | null) {
+function stripWholesaleIfNotAllowed(p: unknown, role: string | null): unknown {
   if (role === 'wholesaler' || role === 'admin' || role === 'manager') return p;
   const {
     priceWholesale: _w1,
@@ -35,7 +35,7 @@ function stripWholesaleIfNotAllowed<T extends Record<string, unknown>>(p: T, rol
     ...rest
   } = p as Record<string, unknown>;
   void _w1; void _w2; void _w3; void _wo; void _wo2; void _wo3;
-  return rest as T;
+  return rest;
 }
 
 export const GET = createApiHandler(RATE_LIMITS.api, async function GET(request: NextRequest) {

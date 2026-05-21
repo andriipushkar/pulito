@@ -137,8 +137,17 @@ export async function handlePaymentCallback(
     amount: paidAmount,
   } = callbackResult;
 
-  // Replay protection: atomic SET NX ensures only one thread processes each webhook
-  const webhookKey = `webhook:${provider}:${transactionId}`;
+  // Replay protection: atomic SET NX ensures only one thread processes each
+  // webhook. When the provider response is missing a transactionId we fall
+  // back to (orderId,status,timestamp) instead of an empty string — otherwise
+  // every malformed-callback would share the same key `webhook:liqpay:` and
+  // dedupe each other (or a deliberate empty-ID retry could race against a
+  // legitimate later transactionId-bearing callback).
+  const dedupeKeyPart =
+    transactionId && transactionId.length > 0
+      ? transactionId
+      : `o${orderId}:s${status}:t${Date.now()}`;
+  const webhookKey = `webhook:${provider}:${dedupeKeyPart}`;
   const wasSet = await redis.set(webhookKey, '1', 'EX', WEBHOOK_TTL_SECONDS, 'NX');
   if (!wasSet) {
     logger.info('Duplicate webhook ignored', { provider, transactionId, orderId });
@@ -316,58 +325,128 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
   const isPartial = refundAmount < paidAmount;
   const provider = payment.paymentProvider as PaymentProvider;
 
-  let result: RefundResult;
+  // Serialise concurrent refunds for the same order. Without this, two
+  // admins clicking "Refund" at the same time both pass the paid check and
+  // both call the provider, double-refunding the customer. We use a
+  // Postgres advisory lock keyed by orderId; auto-released when the
+  // transaction ends. (Outside an explicit tx, pg_try_advisory_lock holds
+  // until pg_advisory_unlock — we release in finally.)
+  const REFUND_LOCK_NS = 0x52454655; // "REFU"
+  const lockRows = await prisma.$queryRaw<{ ok: boolean }[]>`
+    SELECT pg_try_advisory_lock(${REFUND_LOCK_NS}::int, ${orderId}::int) AS ok
+  `;
+  if (!lockRows[0]?.ok) {
+    throw new PaymentError('Повернення для цього замовлення вже виконується', 409);
+  }
+  const releaseLock = async () => {
+    try {
+      await prisma.$queryRaw`SELECT pg_advisory_unlock(${REFUND_LOCK_NS}::int, ${orderId}::int)`;
+    } catch {
+      // ignored — connection may have already returned to pool
+    }
+  };
 
-  if (provider === 'liqpay') {
-    result = await liqpay.refundPayment(orderId, refundAmount);
-  } else if (provider === 'monobank') {
-    result = await monobank.refundPayment(payment.transactionId, refundAmount);
-  } else {
-    result = await wayforpay.refundPayment(
-      payment.transactionId,
-      refundAmount,
-      payment.transactionId,
-    );
+  // Re-check status after acquiring the lock — another refund may have
+  // completed between the initial read and the lock acquisition.
+  const fresh = await prisma.payment.findUnique({
+    where: { orderId },
+    select: { paymentStatus: true },
+  });
+  if (!fresh || fresh.paymentStatus !== 'paid') {
+    await releaseLock();
+    throw new PaymentError('Повернення вже виконано або статус змінився', 409);
   }
 
-  if (result.success) {
-    const newPaymentStatus = isPartial ? 'partial' : 'refunded';
-    // Lifecycle status doesn't change on a refund — we only flip paymentStatus.
-    // The status-history row must use real OrderStatus values on both sides,
-    // otherwise the "Історія" panel renders `undefined → undefined` because
-    // ORDER_STATUS_LABELS has no `'partial'`/`'refunded'` keys.
-    const currentLifecycleStatus = payment.order.status;
+  let result: RefundResult;
+  try {
+    if (provider === 'liqpay') {
+      result = await liqpay.refundPayment(orderId, refundAmount);
+    } else if (provider === 'monobank') {
+      result = await monobank.refundPayment(payment.transactionId, refundAmount);
+    } else {
+      result = await wayforpay.refundPayment(
+        payment.transactionId,
+        refundAmount,
+        payment.transactionId,
+      );
+    }
 
-    await prisma.$transaction([
-      prisma.payment.update({
-        where: { orderId },
-        data: { paymentStatus: newPaymentStatus },
-      }),
-      prisma.order.update({
-        where: { id: orderId },
-        data: {
-          paymentStatus: newPaymentStatus,
-          statusHistory: {
-            create: {
-              oldStatus: currentLifecycleStatus,
-              newStatus: currentLifecycleStatus,
-              changeSource: 'system',
-              comment: isPartial
-                ? `Часткове повернення ${refundAmount} грн через ${provider} (оплата: paid → partial)`
-                : `Повне повернення ${refundAmount} грн через ${provider} (оплата: paid → refunded)`,
+    if (result.success) {
+      const newPaymentStatus = isPartial ? 'partial' : 'refunded';
+      // Lifecycle status doesn't change on a refund — we only flip paymentStatus.
+      // The status-history row must use real OrderStatus values on both sides,
+      // otherwise the "Історія" panel renders `undefined → undefined` because
+      // ORDER_STATUS_LABELS has no `'partial'`/`'refunded'` keys.
+      const currentLifecycleStatus = payment.order.status;
+
+      await prisma.$transaction([
+        prisma.payment.update({
+          where: { orderId },
+          data: { paymentStatus: newPaymentStatus },
+        }),
+        prisma.order.update({
+          where: { id: orderId },
+          data: {
+            paymentStatus: newPaymentStatus,
+            statusHistory: {
+              create: {
+                oldStatus: currentLifecycleStatus,
+                newStatus: currentLifecycleStatus,
+                changeSource: 'system',
+                comment: isPartial
+                  ? `Часткове повернення ${refundAmount} грн через ${provider} (оплата: paid → partial)`
+                  : `Повне повернення ${refundAmount} грн через ${provider} (оплата: paid → refunded)`,
+              },
             },
           },
-        },
-      }),
-    ]);
+        }),
+      ]);
 
-    logger.info('Refund processed', {
-      orderId,
-      provider,
-      amount: refundAmount,
-      isPartial,
-      refundId: result.refundId,
-    });
+      // Reverse loyalty points pro-rata for the refunded amount. If the
+      // order earned 100 points on a 1000 UAH payment and we refund 250,
+      // claw back 25 points. Without this the customer keeps full points
+      // on a partial-refunded order.
+      try {
+        const earn = await prisma.loyaltyTransaction.findFirst({
+          where: { orderId, type: 'earn' },
+          select: { points: true, userId: true },
+        });
+        if (earn && earn.points > 0 && paidAmount > 0) {
+          const refundRatio = Math.min(1, refundAmount / paidAmount);
+          const pointsToClaw = Math.floor(earn.points * refundRatio);
+          if (pointsToClaw > 0) {
+            const { adjustPoints } = await import('@/services/loyalty');
+            await adjustPoints({
+              userId: earn.userId,
+              type: 'manual_deduct',
+              points: pointsToClaw,
+              description: `Сторнування балів за повернення замовлення #${orderId} (${refundAmount} грн)`,
+            }).catch((err) => {
+              logger.warn('[refund] loyalty clawback failed (non-fatal)', {
+                orderId,
+                pointsToClaw,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            });
+          }
+        }
+      } catch (err) {
+        logger.warn('[refund] loyalty clawback lookup failed', {
+          orderId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      logger.info('Refund processed', {
+        orderId,
+        provider,
+        amount: refundAmount,
+        isPartial,
+        refundId: result.refundId,
+      });
+    }
+  } finally {
+    await releaseLock();
   }
 
   return result;

@@ -53,6 +53,26 @@ export async function processSubscriptionOrders() {
 
   for (const subscription of dueSubscriptions) {
     try {
+      // Atomic claim: only proceed if nextDeliveryAt is still due. If a
+      // parallel cron run (or a retry from the same scheduler) already
+      // processed this subscription, count===0 and we skip — no duplicate
+      // order. We push nextDeliveryAt forward by 1 minute as a "claim
+      // sentinel" so a second worker reading dueSubscriptions never picks
+      // this row up. The real next-delivery date gets set further down
+      // after the order is created.
+      const claimed = await prisma.subscription.updateMany({
+        where: {
+          id: subscription.id,
+          status: 'active',
+          nextDeliveryAt: { lte: now },
+        },
+        data: { nextDeliveryAt: new Date(now.getTime() + 60_000) },
+      });
+      if (claimed.count === 0) {
+        skipped++;
+        continue;
+      }
+
       // Build cart items from subscription items
       const cartItems = subscription.items
         .filter((item) => item.product.isActive && item.product.quantity >= item.quantity)
@@ -67,6 +87,17 @@ export async function processSubscriptionOrders() {
 
       if (cartItems.length === 0) {
         logger.warn(`[subscription-cron] Підписка #${subscription.id}: немає доступних товарів, пропущено`);
+        // We bumped nextDeliveryAt by +1 minute as a claim sentinel above. If
+        // we leave it there, the next cron run will retry in a minute. For a
+        // permanently-empty subscription that means logspam forever — push
+        // the date to the regular next cycle so we retry once per frequency,
+        // not every minute.
+        const days = FREQUENCY_DAYS[subscription.frequency] ?? 30;
+        const skipUntil = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+        await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: { nextDeliveryAt: skipUntil, remindAt: skipUntil },
+        });
         skipped++;
         continue;
       }

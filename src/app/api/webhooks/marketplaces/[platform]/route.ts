@@ -180,14 +180,17 @@ async function handleReturnEvent(
     : null;
 
   const data = (event.raw.data || event.raw.payload || event.raw) as Record<string, unknown>;
-  const quantity = Number(data.quantity ?? 1);
+  // Sanitize numeric fields — Number("abc") returns NaN, and Prisma will
+  // happily persist NaN as a float, breaking reconciliation downstream.
+  const rawQty = Number(data.quantity ?? 1);
+  const quantity = Number.isFinite(rawQty) && rawQty >= 1 ? Math.round(rawQty) : 1;
   const reason = data.reason ? String(data.reason) : null;
-  const refundAmount =
-    data.refund_amount != null
-      ? Number(data.refund_amount)
-      : data.refundAmount != null
-      ? Number(data.refundAmount)
-      : null;
+  let refundAmount: number | null = null;
+  const refundRaw = data.refund_amount ?? data.refundAmount;
+  if (refundRaw != null) {
+    const n = Number(refundRaw);
+    if (Number.isFinite(n) && n >= 0) refundAmount = n;
+  }
   const mappedStatus = mapReturnStatus(event.status || 'pending');
 
   await prisma.marketplaceReturn.upsert({

@@ -1,10 +1,31 @@
 import { NextRequest } from 'next/server';
+import path from 'path';
+import { readFileSync, existsSync } from 'fs';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { env } from '@/config/env';
 import { timingSafeCompare } from '@/utils/timing-safe';
 import { sendEmail } from '@/services/email';
 import { logger } from '@/lib/logger';
+
+// Templates the report-generator can emit as a file. ReportTemplate.reportType
+// is freeform, but only these match the generator's known keys — anything
+// else falls back to the summary-only email.
+const GENERATABLE_TEMPLATES = new Set([
+  'sales_summary',
+  'products_stock',
+  'orders_by_status',
+  'clients_activity',
+  'wholesale_report',
+  'delivery_report',
+  'financial_report',
+  'returns_cancellations',
+  'wholesale_groups',
+  'product_leaders',
+  'manager_activity',
+  'acquisition_channels',
+  'summary_report',
+]);
 
 interface PeriodWindow {
   from: Date;
@@ -154,10 +175,53 @@ export async function POST(request: NextRequest) {
           window,
           summary,
         });
+
+        // Attach the full XLSX report when the subscription's reportType
+        // maps to one of the generator's templates. Failure to generate
+        // doesn't block the summary email — admin still gets the highlights.
+        const attachments: Array<{
+          filename: string;
+          content: Buffer;
+          contentType: string;
+        }> = [];
+        if (GENERATABLE_TEMPLATES.has(sub.reportType)) {
+          try {
+            const { generateReport } = await import('@/services/report-generator');
+            const generated = await generateReport(
+              sub.reportType as Parameters<typeof generateReport>[0],
+              'xlsx',
+              {
+                dateFrom: window.from.toISOString(),
+                dateTo: window.to.toISOString(),
+              },
+            );
+            // generateReport returns a /uploads/reports/<file> URL. Resolve
+            // to the filesystem path and read it; if missing (e.g. external
+            // CDN), skip the attachment.
+            const fileName = generated.url.split('/').pop() ?? '';
+            const filePath = path.join(env.UPLOAD_DIR, 'reports', fileName);
+            if (fileName && existsSync(filePath)) {
+              attachments.push({
+                filename: fileName,
+                content: readFileSync(filePath),
+                contentType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              });
+            }
+          } catch (attachErr) {
+            logger.warn('[dispatch-reports] attachment generation failed', {
+              id: sub.id,
+              reportType: sub.reportType,
+              error: attachErr instanceof Error ? attachErr.message : String(attachErr),
+            });
+          }
+        }
+
         await sendEmail({
           to: sub.scheduleEmail,
           subject: `Pulito Trade — звіт ${window.label}`,
           html,
+          ...(attachments.length > 0 && { attachments }),
         });
         dispatched.push(sub.id);
       } catch (err) {

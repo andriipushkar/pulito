@@ -3,7 +3,11 @@
 import { createOrder, OrderError } from '@/services/order';
 import { getCartWithPersonalPrices } from '@/services/cart';
 import { spendPoints, LoyaltyError } from '@/services/loyalty';
-import { getIdempotentResponse, setIdempotentResponse } from '@/services/idempotency';
+import {
+  getIdempotentResponse,
+  updateIdempotentResponse,
+  reserveIdempotencyKey,
+} from '@/services/idempotency';
 import { checkoutSchema } from '@/validators/order';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import { prisma } from '@/lib/prisma';
@@ -65,14 +69,29 @@ export async function checkoutAction(
     return { success: false, error: parsed.error.issues[0].message };
   }
 
-  // Idempotency key
+  // Idempotency key — atomically reserve so two concurrent submits with the
+  // same key can't both pass the "no cached response" check and create two
+  // orders. reserveIdempotencyKey does SET NX, so only one caller proceeds;
+  // the others either get the cached response or are told "in flight".
   const headerStore = await headers();
   const idempotencyKey = headerStore.get('x-idempotency-key');
   if (idempotencyKey) {
-    const cached = await getIdempotentResponse(idempotencyKey);
-    if (cached) {
-      const data = JSON.parse(cached);
-      return { success: true, ...data };
+    const reservation = await reserveIdempotencyKey(idempotencyKey);
+    if ('cached' in reservation && reservation.cached) {
+      try {
+        const data = JSON.parse(reservation.cached);
+        return { success: true, ...data };
+      } catch {
+        // Fall through to the legacy lookup if the cached payload is malformed.
+        const cached = await getIdempotentResponse(idempotencyKey);
+        if (cached) return { success: true, ...JSON.parse(cached) };
+      }
+    }
+    if ('inFlight' in reservation && reservation.inFlight) {
+      return {
+        success: false,
+        error: 'Замовлення вже обробляється, зачекайте кілька секунд',
+      };
     }
   }
 
@@ -140,20 +159,55 @@ export async function checkoutAction(
       }
     }
 
-    const order = await createOrder(user.id, parsed.data, orderItems, clientType);
+    // Pass loyaltyPointsToSpend so createOrder discounts totalAmount + writes
+    // the discount line. Previously the value was deducted from the customer's
+    // balance below but never reduced the order total — customer paid full
+    // price AND lost their points.
+    const order = await createOrder(
+      user.id,
+      parsed.data,
+      orderItems,
+      clientType,
+      loyaltyPointsToSpend || 0,
+    );
 
-    // Spend loyalty points
+    // Spend loyalty points. If the deduction fails after the order is in
+    // place we cannot easily roll back createOrder (stock has been
+    // decremented, audit rows written) — so we cancel the order to keep
+    // the customer's balance honest and surface a friendly error instead of
+    // silently giving them a discount without spending points.
     if (loyaltyPointsToSpend && loyaltyPointsToSpend > 0) {
       try {
         await spendPoints(user.id, loyaltyPointsToSpend, order.id);
       } catch (error) {
-        if (error instanceof LoyaltyError) {
-          logger.error('Loyalty points spend failed after validation', {
-            userId: user.id,
+        logger.error('Loyalty points spend failed after order creation — compensating', {
+          userId: user.id,
+          orderId: order.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        // Compensate: cancel the order so stock returns and customer isn't
+        // billed for points they never spent. We use updateOrderStatus to go
+        // through the proper state-history + stock-restore path.
+        try {
+          const { updateOrderStatus } = await import('@/services/order');
+          await updateOrderStatus(
+            order.id,
+            'cancelled',
+            null,
+            'system',
+            'Скасовано: не вдалось списати бали лояльності',
+          );
+        } catch (rollbackErr) {
+          logger.error('Failed to compensate order after loyalty spend failure', {
             orderId: order.id,
-            error: error.message,
+            error: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
           });
         }
+        const msg =
+          error instanceof LoyaltyError
+            ? error.message
+            : 'Не вдалося списати бали лояльності';
+        return { success: false, error: msg };
       }
     }
 
@@ -161,7 +215,11 @@ export async function checkoutAction(
     const result = { orderId: order.id, orderNumber: order.orderNumber, paymentRequired };
 
     if (idempotencyKey) {
-      await setIdempotentResponse(idempotencyKey, JSON.stringify(result));
+      // We already reserved the key with an in-flight marker above, so NX
+      // would no-op here. updateIdempotentResponse overwrites the marker
+      // with the real response so subsequent duplicate submits get the
+      // cached order back.
+      await updateIdempotentResponse(idempotencyKey, JSON.stringify(result));
     }
 
     // Server-side tracking (non-blocking)

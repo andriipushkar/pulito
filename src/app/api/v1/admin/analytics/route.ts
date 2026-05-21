@@ -245,10 +245,25 @@ export const GET = withRole(
           where: { createdAt: { gte: currentFrom } },
           select: { createdAt: true },
         });
+        // Bucket by Kyiv-local day/hour, not server-local. The admin reads
+        // "понеділок 14:00" expecting Kyiv time; without this, a server in
+        // UTC mis-buckets orders placed late evening Kyiv into the next day.
         const heatmap: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+        const kyivFmt = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Europe/Kyiv',
+          weekday: 'short',
+          hour: 'numeric',
+          hour12: false,
+        });
+        const dowIndex: Record<string, number> = {
+          Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+        };
         for (const o of ordersRaw) {
-          const d = new Date(o.createdAt);
-          heatmap[d.getDay()][d.getHours()]++;
+          const parts = kyivFmt.formatToParts(new Date(o.createdAt));
+          const wd = parts.find((p) => p.type === 'weekday')?.value ?? 'Sun';
+          const hr = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+          const dow = dowIndex[wd] ?? 0;
+          if (hr >= 0 && hr < 24) heatmap[dow][hr]++;
         }
 
         return cacheAndReturn({

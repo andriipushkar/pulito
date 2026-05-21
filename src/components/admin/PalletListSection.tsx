@@ -268,7 +268,12 @@ export default function PalletListSection() {
                       </Button>
                     )}
                     {p.status !== 'in_transit' && p.status !== 'delivered' && (
-                      <Button size="sm" variant="danger" onClick={() => deletePallet(p.id, p.name)}>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => deletePallet(p.id, p.name)}
+                        aria-label={`Видалити палет ${p.name}`}
+                      >
                         🗑
                       </Button>
                     )}

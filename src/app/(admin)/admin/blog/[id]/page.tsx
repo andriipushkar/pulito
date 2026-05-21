@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
+import WysiwygEditor from '@/components/admin/WysiwygEditor';
 
 interface BlogPost {
   id: number;
@@ -210,11 +211,9 @@ export default function AdminBlogEditPage() {
 
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <h3 className="mb-3 text-sm font-semibold">Вміст</h3>
-          <textarea
+          <WysiwygEditor
             value={form.content}
-            onChange={(e) => setForm({ ...form, content: e.target.value })}
-            rows={15}
-            className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+            onChange={(html) => setForm({ ...form, content: html })}
             placeholder="Вміст статті..."
           />
         </div>

@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { updateOrderStatus } from '@/services/order';
+import { logger } from '@/lib/logger';
 
 const AUTO_CANCEL_HOURS = 72;
 
@@ -19,23 +21,29 @@ export async function autoCancelStaleOrders(): Promise<number> {
 
   if (staleOrders.length === 0) return 0;
 
+  let cancelled = 0;
   for (const order of staleOrders) {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'cancelled',
-        cancelledReason: 'Автоматичне скасування: замовлення не оброблено протягом 72 годин',
-        cancelledBy: 'system',
-        statusHistory: {
-          create: {
-            oldStatus: 'new_order',
-            newStatus: 'cancelled',
-            changeSource: 'cron',
-            comment: 'Автоматичне скасування через 72 години',
-          },
-        },
-      },
-    });
+    try {
+      // Delegate to updateOrderStatus instead of writing the order row
+      // directly. That path restores Product.quantity, releases
+      // WarehouseStock.reserved, refunds any loyalty points spent, and
+      // writes a properly-typed statusHistory row — none of which the
+      // previous direct prisma.order.update did.
+      await updateOrderStatus(
+        order.id,
+        'cancelled',
+        null,
+        'cron',
+        'Автоматичне скасування: замовлення не оброблено протягом 72 годин',
+      );
+      cancelled++;
+    } catch (err) {
+      logger.warn('[auto-cancel] order update failed', {
+        orderId: order.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      continue;
+    }
 
     // Notify client if they have Telegram linked
     if (order.userId) {
@@ -52,5 +60,5 @@ export async function autoCancelStaleOrders(): Promise<number> {
     }
   }
 
-  return staleOrders.length;
+  return cancelled;
 }

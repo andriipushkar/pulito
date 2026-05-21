@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { refundPayment, PaymentError } from '@/services/payment';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
@@ -21,8 +21,10 @@ function refundRateLimited(adminId: number): boolean {
 }
 
 // Managers can also process refunds — they handle day-to-day customer
-// service. Keeping it admin-only stalls disputes on weekends.
-export const POST = withRole('admin', 'manager')(async (request: NextRequest, { params, user }) => {
+// service. Keeping it admin-only stalls disputes on weekends. 2FA is
+// required since this is a money-moving operation: a stolen session
+// cookie alone shouldn't be enough to drain the merchant account.
+export const POST = withRole2fa('admin', 'manager')(async (request: NextRequest, { params, user }) => {
   try {
     if (refundRateLimited(user.id)) {
       return errorResponse('Забагато запитів на повернення. Зачекайте хвилину.', 429);

@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Plus, Trash, Check, Close, ChevronDown } from '@/components/icons';
+import WysiwygEditor from '@/components/admin/WysiwygEditor';
 
 interface AdminFaqItem {
   id: number;
@@ -290,15 +291,13 @@ export default function AdminFaqPage() {
             required
             minLength={5}
           />
-          <textarea
-            placeholder="Відповідь"
-            value={createForm.answer}
-            onChange={(e) => setCreateForm({ ...createForm, answer: e.target.value })}
-            className="mt-3 w-full rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-2 text-sm"
-            rows={3}
-            required
-            minLength={5}
-          />
+          <div className="mt-3">
+            <WysiwygEditor
+              value={createForm.answer}
+              onChange={(html) => setCreateForm({ ...createForm, answer: html })}
+              placeholder="Відповідь"
+            />
+          </div>
           <div className="mt-3 flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -370,11 +369,9 @@ export default function AdminFaqPage() {
                       className="w-full rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                       placeholder="Питання"
                     />
-                    <textarea
+                    <WysiwygEditor
                       value={editForm.answer}
-                      onChange={(e) => setEditForm({ ...editForm, answer: e.target.value })}
-                      className="w-full rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
-                      rows={3}
+                      onChange={(html) => setEditForm({ ...editForm, answer: html })}
                       placeholder="Відповідь"
                     />
                     <div className="flex items-center justify-between">
