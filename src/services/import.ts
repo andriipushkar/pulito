@@ -88,11 +88,7 @@ function isAllowedUrl(url: string): boolean {
       hostname = hostname.slice(1, -1);
     }
 
-    if (
-      hostname === 'localhost' ||
-      hostname.endsWith('.local') ||
-      hostname.endsWith('.internal')
-    ) {
+    if (hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
       return false;
     }
 
@@ -350,7 +346,11 @@ function normalizeCellValue(v: unknown): unknown {
  */
 function isXmlBuffer(buffer: Buffer): boolean {
   const head = buffer.slice(0, 200).toString('utf8').trimStart();
-  return head.startsWith('<?xml') || head.startsWith('<yml_catalog') || head.startsWith('<КоммерческаяИнформация');
+  return (
+    head.startsWith('<?xml') ||
+    head.startsWith('<yml_catalog') ||
+    head.startsWith('<КоммерческаяИнформация')
+  );
 }
 
 /**
@@ -404,7 +404,9 @@ async function parseYmlBuffer(buffer: Buffer): Promise<{ rawRows: ExcelRow[] }> 
   if (!root) {
     throw new ImportError('Підтримується тільки формат Yandex Market (yml_catalog)', 400);
   }
-  const shop = root.shop as { categories?: { category?: YmlCategory[] }; offers?: { offer?: YmlOffer[] } } | undefined;
+  const shop = root.shop as
+    | { categories?: { category?: YmlCategory[] }; offers?: { offer?: YmlOffer[] } }
+    | undefined;
   if (!shop) throw new ImportError('YML без секції shop', 400);
 
   // categoryId → categoryName
@@ -427,33 +429,37 @@ async function parseYmlBuffer(buffer: Buffer): Promise<{ rawRows: ExcelRow[] }> 
     const params = new Map<string, string>();
     const paramUnits = new Map<string, string>();
     for (const p of offer.param ?? []) {
-      const name = String(p['@_name'] ?? '').trim().toLowerCase();
+      const name = String(p['@_name'] ?? '')
+        .trim()
+        .toLowerCase();
       const value = String(p['#text'] ?? '').trim();
-      const unit = String(p['@_unit'] ?? '').trim().toLowerCase();
+      const unit = String(p['@_unit'] ?? '')
+        .trim()
+        .toLowerCase();
       if (name && value) {
         params.set(name, value);
         if (unit) paramUnits.set(name, unit);
       }
     }
 
-    const categoryName = offer.categoryId ? categoryById.get(String(offer.categoryId)) ?? '' : '';
+    const categoryName = offer.categoryId ? (categoryById.get(String(offer.categoryId)) ?? '') : '';
     const pictures = offer.picture;
-    const firstImage = Array.isArray(pictures) ? pictures[0] : pictures ?? '';
+    const firstImage = Array.isArray(pictures) ? pictures[0] : (pictures ?? '');
 
     // Headers must match what COLUMN_MAP normalises — using canonical Ukrainian
     // names so YML feeds and Excel uploads share one mapping path.
     const row: ExcelRow = {
       'Код продукції': offer.vendorCode || id,
-      'Назва': String(offer.name ?? '').trim(),
-      'Категорія': categoryName,
+      Назва: String(offer.name ?? '').trim(),
+      Категорія: categoryName,
       'Ціна роздріб': offer.price ?? null,
-      'Кількість':
+      Кількість:
         offer.quantity_in_stock ??
         offer.stock_quantity ??
         (String(offer['@_available'] ?? '').toLowerCase() === 'true' ? 1 : 0),
-      'Штрихкод': offer.barcode ?? '',
-      'Фото': firstImage,
-      'Опис': offer.description ?? '',
+      Штрихкод: offer.barcode ?? '',
+      Фото: firstImage,
+      Опис: offer.description ?? '',
     };
 
     // Forward known params onto variant columns (size, color, flavour, weight).
@@ -1094,7 +1100,11 @@ export async function importProducts(
     const existingCategories = await prisma.category.findMany({
       select: { id: true, name: true },
     });
-    const categoryMap = new Map(existingCategories.map((c) => [c.name.toLowerCase(), c.id]));
+    // toLocaleLowerCase('uk') handles Ukrainian-specific casing (Ї→ї, І→і)
+    // that the default ASCII-biased toLowerCase miscasts.
+    const categoryMap = new Map(
+      existingCategories.map((c) => [c.name.toLocaleLowerCase('uk'), c.id]),
+    );
 
     for (let i = 0; i < rows.length; i++) {
       const rowNum = i + 2; // Excel row number (1-indexed + header)
@@ -1179,7 +1189,9 @@ export async function importProducts(
             continue;
           }
 
-          const variantBarcodeRaw = String(row.variantBarcode ?? '').trim().replace(/\D+/g, '');
+          const variantBarcodeRaw = String(row.variantBarcode ?? '')
+            .trim()
+            .replace(/\D+/g, '');
           const variantBarcode = /^\d{8,14}$/.test(variantBarcodeRaw) ? variantBarcodeRaw : null;
 
           const options: Record<string, string> = {};
@@ -1191,18 +1203,21 @@ export async function importProducts(
           if (flavour) options.flavour = flavour;
 
           // Build a sensible display name: "ProductName · Size M · Red".
-          const variantName = String(row.variantName ?? '').trim() || (() => {
-            const parts = [size, color, flavour].filter(Boolean);
-            return parts.length ? `${name} · ${parts.join(' · ')}` : name;
-          })();
+          const variantName =
+            String(row.variantName ?? '').trim() ||
+            (() => {
+              const parts = [size, color, flavour].filter(Boolean);
+              return parts.length ? `${name} · ${parts.join(' · ')}` : name;
+            })();
 
           // Per-variant physical params. Fall back to integer parsing — if the
           // column is missing or empty, leave null so the parent product's
           // params are used for TTN calculations.
           const variantWeightRaw = Number(row.variantWeightGrams);
-          const variantWeight = Number.isFinite(variantWeightRaw) && variantWeightRaw > 0
-            ? Math.round(variantWeightRaw)
-            : null;
+          const variantWeight =
+            Number.isFinite(variantWeightRaw) && variantWeightRaw > 0
+              ? Math.round(variantWeightRaw)
+              : null;
           const variantCost = parsePrice(row.variantCost);
 
           if (!dryRun) {
@@ -1262,7 +1277,7 @@ export async function importProducts(
         let categoryId: number | null = null;
         const categoryName = String(row.category ?? '').trim();
         if (categoryName) {
-          const existingCatId = categoryMap.get(categoryName.toLowerCase());
+          const existingCatId = categoryMap.get(categoryName.toLocaleLowerCase('uk'));
           if (existingCatId) {
             categoryId = existingCatId;
           } else if (!dryRun) {
@@ -1282,7 +1297,7 @@ export async function importProducts(
               data: { name: categoryName, slug: finalSlug },
             });
             categoryId = newCategory.id;
-            categoryMap.set(categoryName.toLowerCase(), newCategory.id);
+            categoryMap.set(categoryName.toLocaleLowerCase('uk'), newCategory.id);
           }
           // In dry-run: categoryId stays null when the category does not yet
           // exist — the report will say "would create category X" implicitly
@@ -1290,7 +1305,9 @@ export async function importProducts(
         }
 
         // Parse barcode (EAN-8/UPC-A/EAN-13). Optional column in import.
-        const barcodeRaw = String(row.barcode ?? '').trim().replace(/\D+/g, '');
+        const barcodeRaw = String(row.barcode ?? '')
+          .trim()
+          .replace(/\D+/g, '');
         const barcode = /^\d{8,14}$/.test(barcodeRaw) ? barcodeRaw : null;
 
         // Check if product exists. Priority of matching:
@@ -1659,4 +1676,3 @@ export async function rollbackImport(
 
   return { softDeletedCount, pricesRevertedCount };
 }
-

@@ -99,7 +99,7 @@ describe('auth service', () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: 'exists@test.com' });
 
       await expect(
-        registerUser({ email: 'exists@test.com', password: 'pass1234', fullName: 'Existing' })
+        registerUser({ email: 'exists@test.com', password: 'pass1234', fullName: 'Existing' }),
       ).rejects.toThrow('Користувач з таким email вже існує');
     });
 
@@ -145,9 +145,9 @@ describe('auth service', () => {
     it('should throw 401 for non-existent user', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(
-        loginUser({ email: 'no@test.com', password: 'pass' })
-      ).rejects.toThrow('Невірний email або пароль');
+      await expect(loginUser({ email: 'no@test.com', password: 'pass' })).rejects.toThrow(
+        'Невірний email або пароль',
+      );
     });
 
     it('should throw 401 for wrong password', async () => {
@@ -159,9 +159,9 @@ describe('auth service', () => {
         role: 'client',
       });
 
-      await expect(
-        loginUser({ email: 'user@test.com', password: 'wrong' })
-      ).rejects.toThrow('Невірний email або пароль');
+      await expect(loginUser({ email: 'user@test.com', password: 'wrong' })).rejects.toThrow(
+        'Невірний email або пароль',
+      );
     });
 
     it('should throw 401 for user without password (OAuth-only)', async () => {
@@ -172,9 +172,9 @@ describe('auth service', () => {
         role: 'client',
       });
 
-      await expect(
-        loginUser({ email: 'oauth@test.com', password: 'any' })
-      ).rejects.toThrow('Невірний email або пароль');
+      await expect(loginUser({ email: 'oauth@test.com', password: 'any' })).rejects.toThrow(
+        'Невірний email або пароль',
+      );
     });
   });
 
@@ -206,7 +206,7 @@ describe('auth service', () => {
         expect.objectContaining({
           where: { id: 10 },
           data: { revokedAt: expect.any(Date) },
-        })
+        }),
       );
     });
 
@@ -220,7 +220,9 @@ describe('auth service', () => {
         revokedAt: new Date(),
       });
 
-      await expect(refreshTokens(oldRefresh)).rejects.toThrow('Виявлено повторне використання токена');
+      await expect(refreshTokens(oldRefresh)).rejects.toThrow(
+        'Виявлено повторне використання токена',
+      );
     });
 
     it('should throw 401 for unknown refresh token', async () => {
@@ -248,7 +250,7 @@ describe('auth service', () => {
       expect(mockRedis.setex).toHaveBeenCalledWith(
         expect.stringContaining('bl:'),
         expect.any(Number),
-        '1'
+        '1',
       );
       expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledOnce();
     });
@@ -374,7 +376,7 @@ describe('auth service', () => {
             ipAddress: '192.168.1.1',
             deviceInfo: 'Chrome/120',
           }),
-        })
+        }),
       );
     });
   });
@@ -419,9 +421,17 @@ describe('auth service', () => {
       });
       mockPrisma.refreshToken.create.mockResolvedValue({ id: 1 });
 
-      const result = await loginWithGoogle('gid-123', 'google@test.com', 'Google User', 'https://avatar.url');
+      const result = await loginWithGoogle(
+        'gid-123',
+        'google@test.com',
+        'Google User',
+        'https://avatar.url',
+      );
 
-      expect(result.user.id).toBe(10);
+      expect(result.requiresTwoFactor).toBe(false);
+      if (!result.requiresTwoFactor) {
+        expect(result.user.id).toBe(10);
+      }
       expect(mockPrisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -429,14 +439,19 @@ describe('auth service', () => {
             googleId: 'gid-123',
             isVerified: true,
           }),
-        })
+        }),
       );
     });
 
     it('should link googleId to existing email user', async () => {
       mockPrisma.user.findUnique
         .mockResolvedValueOnce(null) // googleId lookup
-        .mockResolvedValueOnce({ id: 5, email: 'existing@test.com', role: 'client', avatarUrl: null }); // email lookup
+        .mockResolvedValueOnce({
+          id: 5,
+          email: 'existing@test.com',
+          role: 'client',
+          avatarUrl: null,
+        }); // email lookup
       mockPrisma.user.update.mockResolvedValue({
         id: 5,
         email: 'existing@test.com',
@@ -447,7 +462,9 @@ describe('auth service', () => {
 
       const result = await loginWithGoogle('gid-456', 'existing@test.com', 'Existing User');
 
-      expect(result.user.id).toBe(5);
+      if (!result.requiresTwoFactor) {
+        expect(result.user.id).toBe(5);
+      }
       expect(mockPrisma.user.update).toHaveBeenCalled();
     });
 
@@ -462,7 +479,9 @@ describe('auth service', () => {
 
       const result = await loginWithGoogle('gid-789', 'guser@test.com', 'Google User');
 
-      expect(result.user.id).toBe(7);
+      if (!result.requiresTwoFactor) {
+        expect(result.user.id).toBe(7);
+      }
       expect(mockPrisma.user.create).not.toHaveBeenCalled();
       expect(mockPrisma.user.update).not.toHaveBeenCalled();
     });
@@ -478,9 +497,17 @@ describe('auth service', () => {
       });
       mockPrisma.refreshToken.create.mockResolvedValue({ id: 1 });
 
-      const result = await loginWithGoogle('gid-new', 'newref@test.com', 'New User', undefined, 'REF456');
+      const result = await loginWithGoogle(
+        'gid-new',
+        'newref@test.com',
+        'New User',
+        undefined,
+        'REF456',
+      );
 
-      expect(result.user.id).toBe(11);
+      if (!result.requiresTwoFactor) {
+        expect(result.user.id).toBe(11);
+      }
     });
   });
 });

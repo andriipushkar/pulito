@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { updateBrandSchema } from '@/validators/brand';
 import { getBrandById, updateBrand, deleteBrand, BrandError } from '@/services/brand';
@@ -16,7 +17,7 @@ export const GET = withRole(
     const numId = Number(id);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
     const brand = await getBrandById(numId);
-    if (!brand) return errorResponse('Виробника не знайдено', 404);
+    if (!brand) return errorResponse('Торгової марки не знайдено', 404);
     return successResponse(brand);
   } catch (err) {
     logger.error('[admin/brands/[id]] GET failed', { error: err });
@@ -46,6 +47,13 @@ export const PUT = withRole(
       details: parsed.data,
       ipAddress: getClientIp(req),
     });
+    try {
+      revalidatePath(`/brand/${brand.slug}`);
+      revalidatePath('/catalog');
+      revalidatePath('/sitemap.xml');
+    } catch {
+      /* best-effort */
+    }
     return successResponse(brand);
   } catch (error) {
     if (error instanceof BrandError) return errorResponse(error.message, error.statusCode);
@@ -71,9 +79,15 @@ export const DELETE = withRole(
       details: { hard: result.hard },
       ipAddress: getClientIp(req),
     });
+    try {
+      revalidatePath('/catalog');
+      revalidatePath('/sitemap.xml');
+    } catch {
+      /* best-effort */
+    }
     return successResponse({
       hard: result.hard,
-      message: result.hard ? 'Виробника видалено' : 'Виробника позначено як видалений',
+      message: result.hard ? 'Торгової марки видалено' : 'Торгової марки позначено як видалений',
     });
   } catch (error) {
     if (error instanceof BrandError) return errorResponse(error.message, error.statusCode);

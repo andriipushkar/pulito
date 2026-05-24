@@ -27,11 +27,20 @@ export function getAccessToken() {
   return accessToken;
 }
 
-// Module-level in-flight dedup for same-tab. Cross-tab dedup is via
-// `withRefreshLock` (navigator.locks).
-let refreshInFlight: Promise<string | null> | null = null;
+export interface RefreshSessionResult {
+  accessToken: string | null;
+  user: unknown | null;
+}
 
-export async function refreshAccessToken(): Promise<string | null> {
+// Module-level in-flight dedup for same-tab. Shared by api-client (lazy 401
+// retries) and AuthProvider (mount-time hydration) — without sharing, both
+// could fire /refresh in parallel and the second call would race the rotated
+// cookie, tripping the server's refresh-token reuse detector and revoking
+// every session of the user. Cross-tab dedup is via `withRefreshLock`
+// (navigator.locks).
+let refreshInFlight: Promise<RefreshSessionResult> | null = null;
+
+export async function refreshSession(): Promise<RefreshSessionResult> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = withRefreshLock(async () => {
@@ -41,21 +50,27 @@ export async function refreshAccessToken(): Promise<string | null> {
         credentials: 'include',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       });
-      if (!res.ok) return null;
+      if (!res.ok) return { accessToken: null, user: null };
       const data = await res.json();
       if (data.success && data.data?.accessToken) {
         accessToken = data.data.accessToken;
-        return accessToken;
+        return { accessToken: data.data.accessToken, user: data.data.user ?? null };
       }
-      return null;
+      return { accessToken: null, user: null };
     } catch {
-      return null;
+      return { accessToken: null, user: null };
     }
   }).finally(() => {
     refreshInFlight = null;
   });
 
   return refreshInFlight;
+}
+
+// Back-compat thin wrapper for callers that only need the new access token.
+export async function refreshAccessToken(): Promise<string | null> {
+  const { accessToken: tok } = await refreshSession();
+  return tok;
 }
 
 async function request<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {

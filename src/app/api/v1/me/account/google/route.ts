@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import { successResponse, privateResponse, errorResponse } from '@/utils/api-response';
 
 export const DELETE = withAuth(async (_request: NextRequest, { user }) => {
   try {
@@ -27,7 +27,7 @@ export const DELETE = withAuth(async (_request: NextRequest, { user }) => {
       data: { googleId: null },
     });
 
-    return successResponse({ message: 'Google акаунт від\'єднано' });
+    return successResponse({ message: "Google акаунт від'єднано" });
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }
@@ -44,7 +44,7 @@ export const GET = withAuth(async (_request: NextRequest, { user }) => {
       return errorResponse('Користувача не знайдено', 404);
     }
 
-    return successResponse({
+    return privateResponse({
       hasGoogle: !!dbUser.googleId,
       hasPassword: !!dbUser.passwordHash,
     });

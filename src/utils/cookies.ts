@@ -1,12 +1,13 @@
 import { serialize } from 'cookie';
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
-const COOKIE_PATH = '/api/v1/auth';
+const COOKIE_PATH = '/';
 
 // Dev Tunnels and similar proxies use HTTPS even in development
 const appUrl = process.env.APP_URL || '';
 const isSecure = process.env.NODE_ENV === 'production' || appUrl.startsWith('https');
-const isDevTunnel = appUrl.includes('devtunnels.ms') || appUrl.includes('ngrok') || appUrl.includes('loca.lt');
+const isDevTunnel =
+  appUrl.includes('devtunnels.ms') || appUrl.includes('ngrok') || appUrl.includes('loca.lt');
 
 // For dev tunnels: use 'none' sameSite (requires secure) to allow cross-origin cookies
 const sameSite: 'lax' | 'none' = isDevTunnel ? 'none' : 'lax';
@@ -32,14 +33,24 @@ export function serializeClearRefreshTokenCookie(): string {
 }
 
 export function getRefreshTokenFromCookies(cookieHeader: string | null): string | null {
-  if (!cookieHeader) return null;
+  const all = getAllRefreshTokensFromCookies(cookieHeader);
+  return all[0] ?? null;
+}
 
-  const cookies = cookieHeader.split(';');
-  for (const cookie of cookies) {
+// Returns every refresh_token value present in the header, in order. Browsers
+// can send multiple cookies with the same name when paths differ — picking
+// only the first one (which is what older callers did) can return a stale
+// revoked token from a previous deploy while a fresh one sits later in the
+// list. `/auth/refresh` uses this to try each token and pick the one that's
+// still valid.
+export function getAllRefreshTokensFromCookies(cookieHeader: string | null): string[] {
+  if (!cookieHeader) return [];
+  const tokens: string[] = [];
+  for (const cookie of cookieHeader.split(';')) {
     const [name, ...rest] = cookie.trim().split('=');
     if (name === REFRESH_COOKIE_NAME) {
-      return decodeURIComponent(rest.join('='));
+      tokens.push(decodeURIComponent(rest.join('=')));
     }
   }
-  return null;
+  return tokens;
 }

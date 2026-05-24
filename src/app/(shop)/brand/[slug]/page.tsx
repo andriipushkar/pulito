@@ -27,13 +27,13 @@ interface BrandPageProps {
 export async function generateMetadata({ params }: BrandPageProps): Promise<Metadata> {
   const { slug } = await params;
   const brand = await getBrandBySlug(slug);
-  if (!brand) return { title: 'Виробник не знайдено' };
+  if (!brand) return { title: 'Торгова марка не знайдено' };
 
   const baseUrl = process.env.APP_URL || 'http://localhost:3000';
-  const title = `${brand.name} — продукція виробника`;
+  const title = `${brand.name} — продукція торгової марки`;
   const description =
     brand.description ||
-    `Каталог продукції виробника ${brand.name}. ${brand._count.products} товарів за вигідними цінами.`;
+    `Каталог продукції торгової марки ${brand.name}. ${brand._count.products} товарів за вигідними цінами.`;
   const url = `${baseUrl}/brand/${slug}`;
 
   return {
@@ -46,7 +46,19 @@ export async function generateMetadata({ params }: BrandPageProps): Promise<Meta
       url,
       type: 'website',
       siteName: 'Pulito Trade',
-      ...(brand.logoPath && { images: [{ url: `${baseUrl}${brand.logoPath}`, alt: brand.name }] }),
+      // Brand logo if available, otherwise fall back to the site-wide OG card
+      // so social previews always render with an image.
+      images: [
+        brand.logoPath
+          ? { url: `${baseUrl}${brand.logoPath}`, alt: brand.name }
+          : { url: `${baseUrl}/opengraph-image`, width: 1200, height: 630 },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [brand.logoPath ? `${baseUrl}${brand.logoPath}` : `${baseUrl}/opengraph-image`],
     },
   };
 }
@@ -92,7 +104,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
 
   const breadcrumbs = [
     { label: 'Головна', href: '/' },
-    { label: 'Виробники', href: '/catalog' },
+    { label: 'Торгові марки', href: '/catalog' },
     { label: brand.name },
   ];
 
@@ -163,7 +175,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             <EmptyState
               icon={<Search size={48} />}
               title="Товарів не знайдено"
-              description="У цього виробника поки немає товарів за обраними фільтрами"
+              description="У цього торгової марки поки немає товарів за обраними фільтрами"
               actionLabel="До каталогу"
               actionHref="/catalog"
             />

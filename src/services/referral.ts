@@ -7,7 +7,7 @@ import type { ReferralFilterInput, GrantBonusInput } from '@/validators/referral
 export class ReferralError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'ReferralError';
@@ -59,7 +59,7 @@ export async function getUserReferralStats(userId: number) {
 
   const totalReferred = referrals.length;
   const convertedCount = referrals.filter(
-    (r) => r.status === 'first_order' || r.status === 'bonus_granted'
+    (r) => r.status === 'first_order' || r.status === 'bonus_granted',
   ).length;
   const totalBonusValue = referrals
     .filter((r) => r.bonusValue)
@@ -74,25 +74,49 @@ export async function getUserReferralStats(userId: number) {
   };
 }
 
+// Normalize a phone for fuzzy comparison: strip everything but digits.
+// "+38 (093) 641-15-01" → "380936411501". Catches the common cases where
+// the same number is entered in different formats.
+function normalizePhone(phone: string | null | undefined): string {
+  return (phone || '').replace(/\D/g, '');
+}
+
+function normalizeName(name: string | null | undefined): string {
+  return (name || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 export async function processReferral(referredUserId: number, code: string) {
   const referrer = await prisma.user.findUnique({
     where: { referralCode: code },
-    select: { id: true },
+    select: { id: true, phone: true, fullName: true },
   });
 
-  if (!referrer) {
-    return; // Silently skip invalid codes
-  }
+  if (!referrer) return; // Silently skip invalid codes
+  if (referrer.id === referredUserId) return; // Can't refer yourself
 
-  if (referrer.id === referredUserId) {
-    return; // Can't refer yourself
-  }
-
-  // Check if already referred
+  // Check if already referred (one referrer per user, ever)
   const existing = await prisma.referral.findFirst({
     where: { referredUserId },
   });
   if (existing) return;
+
+  // Anti-fraud: compare referrer's identity to the new user. If the phone
+  // or full name match, this is almost certainly the same person creating
+  // a second account to farm the bonus. Skip silently — the referral row is
+  // not created, so /account/referral shows nothing on the referrer side.
+  const referee = await prisma.user.findUnique({
+    where: { id: referredUserId },
+    select: { phone: true, fullName: true },
+  });
+  if (referee) {
+    const refPhone = normalizePhone(referrer.phone);
+    const newPhone = normalizePhone(referee.phone);
+    if (refPhone && newPhone && refPhone === newPhone) return;
+
+    const refName = normalizeName(referrer.fullName);
+    const newName = normalizeName(referee.fullName);
+    if (refName && refName === newName) return;
+  }
 
   await prisma.referral.create({
     data: {

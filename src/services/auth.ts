@@ -15,6 +15,7 @@ import {
   getTokenRemainingSeconds,
 } from './token';
 import { env } from '@/config/env';
+import { logger } from '@/lib/logger';
 import type { TokenPair, AuthUser } from '@/types/auth';
 
 const SALT_ROUNDS = 10;
@@ -59,15 +60,40 @@ export async function registerUser(data: {
 
   const tokens = await createTokenPair(user.id, user.email, user.role);
 
-  // Process referral if code was provided
+  // Process referral if code was provided. Anti-fraud checks (same phone /
+  // name) live inside processReferral — silently skipped here.
   if (data.referralCode) {
     import('./referral')
       .then((mod) => mod.processReferral(user.id, data.referralCode!))
-      .catch(() => {});
+      .catch((err) =>
+        logger.warn('Referral processing failed', { userId: user.id, error: String(err) }),
+      );
   }
 
+  // Welcome bonus: every new user gets points configurable via SiteSettings.
+  // Set "0" to disable. Non-blocking — registration must succeed even if
+  // the loyalty system is misconfigured.
+  import('./settings')
+    .then(async (settingsMod) => {
+      const settings = await settingsMod.getSettings();
+      const welcome = Math.max(0, Math.floor(Number(settings.loyalty_welcome_bonus) || 0));
+      if (welcome === 0) return;
+      const loyaltyMod = await import('./loyalty');
+      await loyaltyMod.adjustPoints({
+        userId: user.id,
+        type: 'manual_add',
+        points: welcome,
+        description: 'Вітальний бонус за реєстрацію',
+      });
+    })
+    .catch((err) => logger.warn('Welcome bonus failed', { userId: user.id, error: String(err) }));
+
   // Send verification email asynchronously (don't block registration)
-  import('./verification').then((mod) => mod.sendEmailVerification(user.id)).catch(() => {});
+  import('./verification')
+    .then((mod) => mod.sendEmailVerification(user.id))
+    .catch((err) =>
+      logger.warn('Email verification dispatch failed', { userId: user.id, error: String(err) }),
+    );
 
   return {
     user: {
@@ -75,6 +101,8 @@ export async function registerUser(data: {
       email: user.email,
       role: user.role,
       wholesaleGroup: user.wholesaleGroup,
+      fullName: user.fullName,
+      phone: user.phone ?? undefined,
       twoFactorEnabled: user.twoFactorEnabled,
     },
     tokens,
@@ -155,6 +183,8 @@ export async function loginUser(data: {
       email: user.email,
       role: user.role,
       wholesaleGroup: user.wholesaleGroup,
+      fullName: user.fullName,
+      phone: user.phone ?? undefined,
       twoFactorEnabled: user.twoFactorEnabled,
     },
     tokens,
@@ -229,6 +259,8 @@ export async function verifyTwoFactorLogin(
       email: user.email,
       role: user.role,
       wholesaleGroup: user.wholesaleGroup,
+      fullName: user.fullName,
+      phone: user.phone ?? undefined,
       twoFactorEnabled: user.twoFactorEnabled,
     },
     tokens,
@@ -301,6 +333,8 @@ export async function refreshTokens(
       email: user.email,
       role: user.role,
       wholesaleGroup: user.wholesaleGroup,
+      fullName: user.fullName,
+      phone: user.phone ?? undefined,
       twoFactorEnabled: user.twoFactorEnabled,
     },
     tokens,
@@ -396,7 +430,7 @@ export async function loginWithGoogle(
   referralCode?: string,
   ipAddress?: string,
   deviceInfo?: string,
-): Promise<{ user: AuthUser; tokens: TokenPair }> {
+): Promise<LoginResult> {
   let user = await prisma.user.findUnique({ where: { googleId } });
   let isNewUser = false;
 
@@ -446,17 +480,31 @@ export async function loginWithGoogle(
     import('./referral').then((mod) => mod.processReferral(user!.id, referralCode)).catch(() => {});
   }
 
+  // If 2FA is enabled, return a temp token instead of issuing full credentials.
+  // Mirrors loginUser() so Google OAuth can't bypass 2FA.
+  if (user.twoFactorEnabled && user.twoFactorSecret) {
+    const ipHash = createHash('sha256')
+      .update(ipAddress || 'unknown')
+      .digest('hex')
+      .slice(0, 16);
+    const tempToken = sign2faToken({ sub: user.id, iph: ipHash });
+    return { requiresTwoFactor: true, tempToken };
+  }
+
   const tokens = await createTokenPair(user.id, user.email, user.role, ipAddress, deviceInfo);
 
   // Best-effort audit log — Google logins used to silently skip this entirely.
   logLogin(user.id, ipAddress, deviceInfo, true).catch(() => {});
 
   return {
+    requiresTwoFactor: false,
     user: {
       id: user.id,
       email: user.email,
       role: user.role,
       wholesaleGroup: user.wholesaleGroup,
+      fullName: user.fullName,
+      phone: user.phone ?? undefined,
       twoFactorEnabled: user.twoFactorEnabled,
     },
     tokens,

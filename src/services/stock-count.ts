@@ -199,15 +199,19 @@ export async function completeStockCount(countId: number, userId: number) {
 }
 
 export async function cancelStockCount(countId: number, userId?: number) {
-  const count = await prisma.stockCount.findUnique({ where: { id: countId } });
-  if (!count) throw new StockCountError('Інвентаризацію не знайдено', 404);
-  if (count.status !== 'in_progress') {
-    throw new StockCountError('Можна скасувати лише активну інвентаризацію');
-  }
-  const result = await prisma.stockCount.update({
-    where: { id: countId },
+  // Atomic guard: prevents double-cancel race when two operators click cancel
+  // at the same time. The `status: 'in_progress'` filter in updateMany rejects
+  // the second request without throwing on the conflict.
+  const updated = await prisma.stockCount.updateMany({
+    where: { id: countId, status: 'in_progress' },
     data: { status: 'cancelled', completedAt: new Date() },
   });
+  if (updated.count === 0) {
+    const count = await prisma.stockCount.findUnique({ where: { id: countId } });
+    if (!count) throw new StockCountError('Інвентаризацію не знайдено', 404);
+    throw new StockCountError('Можна скасувати лише активну інвентаризацію');
+  }
+  const result = await prisma.stockCount.findUniqueOrThrow({ where: { id: countId } });
   if (userId) {
     await logAudit({
       userId,
@@ -215,12 +219,18 @@ export async function cancelStockCount(countId: number, userId?: number) {
       entityType: 'stock_count',
       entityId: countId,
       details: { action: 'cancel' },
+    }).catch(() => {
+      /* audit failure must not undo cancel */
     });
   }
   return result;
 }
 
-export async function listStockCounts(filter?: { status?: string; offset?: number; limit?: number }) {
+export async function listStockCounts(filter?: {
+  status?: string;
+  offset?: number;
+  limit?: number;
+}) {
   const limit = Math.min(filter?.limit ?? 50, 200);
   const offset = Math.max(filter?.offset ?? 0, 0);
   const where = filter?.status ? { status: filter.status as never } : undefined;

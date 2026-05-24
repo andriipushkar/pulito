@@ -117,7 +117,10 @@ export async function importProductsFrom1C(products: OneCProduct[]): Promise<Syn
   const existingCategories = await prisma.category.findMany({
     select: { id: true, name: true },
   });
-  const categoryMap = new Map(existingCategories.map((c) => [c.name.toLowerCase(), c.id]));
+  // Ukrainian-aware case fold so "Білизна" and "білизна" match.
+  const categoryMap = new Map(
+    existingCategories.map((c) => [c.name.toLocaleLowerCase('uk'), c.id]),
+  );
 
   for (const product of products) {
     try {
@@ -126,7 +129,7 @@ export async function importProductsFrom1C(products: OneCProduct[]): Promise<Syn
       // Resolve category
       let categoryId: number | null = null;
       if (product.category) {
-        const existing = categoryMap.get(product.category.toLowerCase());
+        const existing = categoryMap.get(product.category.toLocaleLowerCase('uk'));
         if (existing) {
           categoryId = existing;
         } else {
@@ -135,7 +138,7 @@ export async function importProductsFrom1C(products: OneCProduct[]): Promise<Syn
             data: { name: product.category, slug },
           });
           categoryId = newCat.id;
-          categoryMap.set(product.category.toLowerCase(), newCat.id);
+          categoryMap.set(product.category.toLocaleLowerCase('uk'), newCat.id);
         }
       }
 

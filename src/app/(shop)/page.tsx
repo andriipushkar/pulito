@@ -10,10 +10,27 @@ import ProductCarouselSkeleton from '@/components/ui/ProductCarouselSkeleton';
 import Skeleton from '@/components/ui/Skeleton';
 import SearchActionJsonLd from '@/components/seo/SearchActionJsonLd';
 
+const _baseUrl = process.env.APP_URL || 'https://pulito.trade';
+const _heroDescription =
+  'Pulito Trade — інтернет-магазин побутової хімії. Широкий асортимент засобів для прибирання, прання та догляду за домом з доставкою по Україні.';
+
 export const metadata: Metadata = {
   title: 'Головна',
-  description:
-    'Pulito Trade — інтернет-магазин побутової хімії. Широкий асортимент засобів для прибирання, прання та догляду за домом з доставкою по Україні.',
+  description: _heroDescription,
+  openGraph: {
+    title: 'Pulito Trade — побутова хімія з доставкою',
+    description: _heroDescription,
+    url: _baseUrl,
+    siteName: 'Pulito Trade',
+    type: 'website',
+    images: [{ url: `${_baseUrl}/opengraph-image`, width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Pulito Trade — побутова хімія з доставкою',
+    description: _heroDescription,
+    images: [`${_baseUrl}/opengraph-image`],
+  },
 };
 
 const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'));
@@ -22,7 +39,7 @@ const RecentlyViewedSection = dynamic(() => import('@/components/product/Recentl
 export const revalidate = 60;
 import { getCategories } from '@/services/category';
 import { getPromoProducts, getNewProducts, getPopularProducts } from '@/services/product';
-import { getHomepageBlocks, getSeoText } from '@/services/homepage';
+import { getHomepageBlocks } from '@/services/homepage';
 
 const organizationJsonLd = {
   '@context': 'https://schema.org',
@@ -52,8 +69,6 @@ export default async function HomePage() {
     getPopularProducts(10),
     getHomepageBlocks(),
   ]);
-
-  const seoText = await getSeoText();
 
   const enabledBlocks = blocks.filter((b) => b.enabled);
 
@@ -102,14 +117,8 @@ export default async function HomePage() {
           />
         </Suspense>
       ) : null,
-    // seo_text is rendered separately at the bottom (above the footer)
     seo_text: null,
   };
-
-  const seoBlockEnabled = enabledBlocks.some((b) => b.key === 'seo_text');
-  const seoContent =
-    seoText ||
-    'Ласкаво просимо до Pulito Trade — вашого надійного постачальника побутової хімії в Україні. Ми пропонуємо широкий асортимент засобів для прибирання, прання, миття посуду та догляду за домом від провідних світових та вітчизняних виробників. Гуртовим покупцям — спеціальні ціни та умови співпраці. Швидка доставка по всій Україні.';
 
   return (
     <Container className="py-4 sm:py-6 lg:py-8">
@@ -130,26 +139,6 @@ export default async function HomePage() {
 
       {/* Recently viewed — rendered separately, self-hiding when empty */}
       <RecentlyViewedSection />
-
-      {seoBlockEnabled && (
-        <section className="mt-10 sm:mt-14 lg:mt-16">
-          <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border)]/40 bg-gradient-to-br from-[var(--color-primary-50)]/70 via-white to-[var(--color-primary-50)]/40 p-6 sm:p-8 lg:p-10">
-            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[var(--color-primary)]/5 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-[var(--color-gold)]/10 blur-3xl" />
-            <div className="relative">
-              <h2 className="mb-3 text-2xl font-extrabold tracking-tight text-[var(--color-text)] sm:text-3xl lg:text-4xl">
-                Інтернет-магазин побутової хімії Pulito Trade
-              </h2>
-              <span className="mb-5 inline-block h-1 w-16 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-gold)]" />
-              <div className="max-w-4xl space-y-3 text-base leading-relaxed text-[var(--color-text-secondary)] sm:text-lg">
-                {seoContent.split(/\n\n+/).map((paragraph, i) => (
-                  <p key={i}>{paragraph}</p>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
     </Container>
   );
 }

@@ -7,6 +7,7 @@ import { runSegment, FIELD_OPS } from '@/services/customer-segments';
 import type { SegmentField } from '@/services/customer-segments';
 import { logger } from '@/lib/logger';
 import { logAudit } from '@/services/audit';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 // CSV/XLSX export of a segment with the FULL contact list. Unlike the preview
 // endpoint (which masks email/phone for the segment-builder UI), export
@@ -31,8 +32,15 @@ const bodySchema = z.object({
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const CSV_MIME = 'text/csv';
 
-export const POST = withRole2fa('admin', 'manager')(async (request: NextRequest, { user }) => {
+export const POST = withRole2fa(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`u${user.id}`, RATE_LIMITS.adminExport);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато експортів. Спробуйте через ${rl.retryAfter}с`, 429);
+    }
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {

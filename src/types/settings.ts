@@ -25,6 +25,20 @@ export interface SiteSettings {
   facebook_pixel_id: string;
   google_maps_api_key: string;
   google_business_place_id: string;
+  // '1' → hide quantity on the storefront for every product; '0' → show
+  // exact count (per-product hideQuantity flag is still respected).
+  hide_all_quantity: string;
+  // AI / LLM provider keys for product description & SEO generation.
+  // Empty values fall back to process.env (ANTHROPIC_API_KEY / GEMINI_API_KEY / GEMINI_MODEL).
+  anthropic_api_key: string;
+  gemini_api_key: string;
+  gemini_model: string;
+  // Loyalty / referral bonus amounts (in loyalty points; 1 point ≈ 1 ₴).
+  // "0" disables the corresponding bonus. Values are stored as strings to
+  // match the rest of SiteSettings — services parse with Number().
+  loyalty_welcome_bonus: string; // points credited to any new user on registration
+  referral_referrer_bonus: string; // points credited to referrer when referee makes 1st order
+  referral_referee_bonus: string; // points credited to referee on registration if they used a ref code
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -55,6 +69,13 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   facebook_pixel_id: '',
   google_maps_api_key: '',
   google_business_place_id: '',
+  hide_all_quantity: '0',
+  anthropic_api_key: '',
+  gemini_api_key: '',
+  gemini_model: 'gemini-2.5-flash',
+  loyalty_welcome_bonus: '50',
+  referral_referrer_bonus: '100',
+  referral_referee_bonus: '50',
 };
 
 export type SettingsKey = keyof SiteSettings;

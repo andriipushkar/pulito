@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { formatPrice } from '@/utils/format';
 
 type Status = 'forming' | 'in_transit' | 'delivered' | 'cancelled';
@@ -62,6 +63,7 @@ export default function PalletListSection() {
   const [newRegion, setNewRegion] = useState('');
   const [newCarrier, setNewCarrier] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
   const [orderIdsInput, setOrderIdsInput] = useState<Record<number, string>>({});
 
   const load = async () => {
@@ -121,7 +123,9 @@ export default function PalletListSection() {
 
   const removeOrder = async (palletId: number, orderId: number) => {
     if (!window.confirm(`Видалити замовлення #${orderId} з палети?`)) return;
-    const res = await apiClient.delete(`/api/v1/admin/pallets/${palletId}/orders?orderId=${orderId}`);
+    const res = await apiClient.delete(
+      `/api/v1/admin/pallets/${palletId}/orders?orderId=${orderId}`,
+    );
     if (res.success) {
       toast.success('Видалено');
       load();
@@ -151,9 +155,14 @@ export default function PalletListSection() {
     }
   };
 
-  const deletePallet = async (palletId: number, name: string) => {
-    if (!window.confirm(`Видалити палету "${name}"? Цю дію не можна скасувати.`)) return;
-    const res = await apiClient.delete(`/api/v1/admin/pallets/${palletId}`);
+  const deletePallet = (palletId: number, name: string) => {
+    setConfirmDelete({ id: palletId, name });
+  };
+
+  const handleConfirmedDelete = async () => {
+    if (!confirmDelete) return;
+    const res = await apiClient.delete(`/api/v1/admin/pallets/${confirmDelete.id}`);
+    setConfirmDelete(null);
     if (res.success) {
       toast.success('Видалено');
       load();
@@ -168,7 +177,8 @@ export default function PalletListSection() {
         <div>
           <h2 className="text-lg font-semibold">Палети</h2>
           <p className="text-xs text-[var(--color-text-secondary)]">
-            Об&apos;єднай B2B-замовлення на одну машину. Вага і вартість розраховуються автоматично з товарів.
+            Об&apos;єднай B2B-замовлення на одну машину. Вага і вартість розраховуються автоматично
+            з товарів.
           </p>
         </div>
         <Button onClick={() => setShowCreate((v) => !v)}>
@@ -214,10 +224,7 @@ export default function PalletListSection() {
           {pallets.map((p) => {
             const expanded = expandedId === p.id;
             const totalOrders = p.orders.length;
-            const totalAmount = p.orders.reduce(
-              (s, po) => s + Number(po.order.totalAmount),
-              0,
-            );
+            const totalAmount = p.orders.reduce((s, po) => s + Number(po.order.totalAmount), 0);
             return (
               <div key={p.id} className="rounded-md border border-[var(--color-border)] p-3">
                 <div className="flex flex-wrap items-center gap-3">
@@ -228,14 +235,20 @@ export default function PalletListSection() {
                   >
                     {expanded ? '▾' : '▸'} {p.name}
                   </button>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[p.status]}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[p.status]}`}
+                  >
                     {STATUS_LABEL[p.status]}
                   </span>
                   {p.region && (
-                    <span className="text-xs text-[var(--color-text-secondary)]">📍 {p.region}</span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      📍 {p.region}
+                    </span>
                   )}
                   {p.carrier && (
-                    <span className="text-xs text-[var(--color-text-secondary)]">🚚 {p.carrier}</span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      🚚 {p.carrier}
+                    </span>
                   )}
                   <span className="text-xs text-[var(--color-text-secondary)]">
                     {totalOrders} замовлень
@@ -253,7 +266,11 @@ export default function PalletListSection() {
                   )}
                   <div className="ml-auto flex gap-1">
                     {p.status === 'forming' && (
-                      <Button size="sm" variant="outline" onClick={() => setStatus(p.id, 'in_transit')}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setStatus(p.id, 'in_transit')}
+                      >
                         Відправити →
                       </Button>
                     )}
@@ -263,7 +280,11 @@ export default function PalletListSection() {
                       </Button>
                     )}
                     {(p.status === 'forming' || p.status === 'in_transit') && (
-                      <Button size="sm" variant="danger" onClick={() => setStatus(p.id, 'cancelled')}>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => setStatus(p.id, 'cancelled')}
+                      >
                         Скасувати
                       </Button>
                     )}
@@ -359,6 +380,15 @@ export default function PalletListSection() {
           })}
         </div>
       )}
+      <ConfirmDialog
+        isOpen={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={handleConfirmedDelete}
+        variant="danger"
+        title="Видалення палети"
+        message={`Видалити палету "${confirmDelete?.name ?? ''}"? Цю дію не можна скасувати.`}
+        confirmText="Так, видалити"
+      />
     </div>
   );
 }

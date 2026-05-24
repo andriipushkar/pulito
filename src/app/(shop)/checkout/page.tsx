@@ -25,10 +25,7 @@ import CheckoutSection from '@/components/checkout/CheckoutSection';
 import SubscriptionToggle, {
   type SubscriptionFrequency,
 } from '@/components/checkout/SubscriptionToggle';
-import {
-  DELIVERY_METHOD_LABELS,
-  PAYMENT_METHOD_LABELS,
-} from '@/types/order';
+import { DELIVERY_METHOD_LABELS, PAYMENT_METHOD_LABELS } from '@/types/order';
 
 const SUBSCRIPTION_DISCOUNT_PERCENT = 5;
 import PageViewTracker from '@/components/analytics/PageViewTracker';
@@ -176,6 +173,20 @@ export default function CheckoutPage() {
         console.warn('Failed to load checkout config', err);
       });
   }, []);
+
+  // Заповнюємо контактні поля з профілю, коли user довантажиться. При першому
+  // mount AuthProvider ще може refresh-ити сесію (user=null) і useState
+  // initial-snapshot зберігає пусті рядки — без цього ефекту користувач
+  // змушений вводити те, що вже є в кабінеті.
+  useEffect(() => {
+    if (!user) return;
+    setFormData((prev) => ({
+      ...prev,
+      contactName: prev.contactName || user.fullName || '',
+      contactEmail: prev.contactEmail || user.email || '',
+      contactPhone: prev.contactPhone || user.phone || '',
+    }));
+  }, [user]);
 
   // Load saved addresses for authenticated users (autofill from past orders).
   useEffect(() => {
@@ -413,13 +424,19 @@ export default function CheckoutPage() {
         trackEvent({
           eventType: 'order_completed',
           orderId: res.data.id,
-          metadata: { orderNumber: res.data.orderNumber, total: total(user?.role, user?.wholesaleGroup) },
+          metadata: {
+            orderNumber: res.data.orderNumber,
+            total: total(user?.role, user?.wholesaleGroup),
+          },
         });
 
         // Create subscriptions for any items the user opted into.
         // Group by frequency so users with multiple cadences get one subscription per cadence.
         if (user && Object.keys(subscriptions).length > 0) {
-          const byFrequency = new Map<SubscriptionFrequency, { productId: number; quantity: number }[]>();
+          const byFrequency = new Map<
+            SubscriptionFrequency,
+            { productId: number; quantity: number }[]
+          >();
           for (const [productIdStr, frequency] of Object.entries(subscriptions)) {
             const productId = Number(productIdStr);
             const cartItem = items.find((i) => i.productId === productId);
@@ -559,7 +576,11 @@ export default function CheckoutPage() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <PageViewTracker
         eventType="checkout_started"
-        metadata={{ step: expandedStep, itemCount: items.length, total: total(user?.role, user?.wholesaleGroup) }}
+        metadata={{
+          step: expandedStep,
+          itemCount: items.length,
+          total: total(user?.role, user?.wholesaleGroup),
+        }}
       />
       <Breadcrumbs
         items={[
@@ -687,9 +708,7 @@ export default function CheckoutPage() {
             />
           </CheckoutSection>
 
-          {errors.submit && (
-            <p className="text-sm text-[var(--color-danger)]">{errors.submit}</p>
-          )}
+          {errors.submit && <p className="text-sm text-[var(--color-danger)]">{errors.submit}</p>}
 
           {/* Sticky submit on mobile, inline on desktop */}
           <div className="sticky bottom-0 -mx-4 border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
@@ -726,20 +745,50 @@ export default function CheckoutPage() {
             {/* Trust signals row */}
             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-[var(--color-border)] pt-3 text-[11px] text-[var(--color-text-secondary)]">
               <span className="inline-flex items-center gap-1.5">
-                <svg className="h-3.5 w-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="h-3.5 w-3.5 text-emerald-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 Безпечна оплата
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <svg className="h-3.5 w-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9-1.5h11.25c.621 0 1.125-.504 1.125-1.125v-9.75M2.25 5.625v9.75c0 .621.504 1.125 1.125 1.125h11.25M17.625 7.5l1.875 1.875M16.875 11.25l3.75-3.75-3.75-3.75" />
+                <svg
+                  className="h-3.5 w-3.5 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9-1.5h11.25c.621 0 1.125-.504 1.125-1.125v-9.75M2.25 5.625v9.75c0 .621.504 1.125 1.125 1.125h11.25M17.625 7.5l1.875 1.875M16.875 11.25l3.75-3.75-3.75-3.75"
+                  />
                 </svg>
                 Швидка доставка по Україні
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <svg className="h-3.5 w-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                <svg
+                  className="h-3.5 w-3.5 text-amber-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
+                  />
                 </svg>
                 Повернення 14 днів
               </span>
@@ -802,9 +851,7 @@ export default function CheckoutPage() {
                         </span>
                         <button
                           type="button"
-                          onClick={() =>
-                            updateQuantity(item.productId, item.quantity + 1)
-                          }
+                          onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                           disabled={item.quantity >= item.maxQuantity}
                           className="flex h-6 w-6 items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text)] disabled:opacity-30"
                           aria-label="Збільшити"
@@ -833,9 +880,7 @@ export default function CheckoutPage() {
                   onClick={() => setShowAllItems((v) => !v)}
                   className="w-full rounded-md py-1.5 text-center text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5"
                 >
-                  {showAllItems
-                    ? 'Згорнути'
-                    : `Показати всі ${items.length} товарів`}
+                  {showAllItems ? 'Згорнути' : `Показати всі ${items.length} товарів`}
                 </button>
               )}
             </div>

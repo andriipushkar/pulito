@@ -169,7 +169,9 @@ export default function AdminChatPage() {
                     </td>
                     <td className="px-3 py-3">
                       <p className="font-medium text-sm">{room.user.fullName}</p>
-                      <p className="text-xs text-[var(--color-text-secondary)]">{room.user.email}</p>
+                      <p className="text-xs text-[var(--color-text-secondary)]">
+                        {room.user.email}
+                      </p>
                     </td>
                     <td className="px-3 py-3 max-w-[200px]">
                       <p className="truncate text-sm">{room.subject || '-'}</p>
@@ -207,8 +209,12 @@ export default function AdminChatPage() {
                 ))}
                 {rooms.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
-                      Чатів не знайдено
+                    <td colSpan={7} className="px-4 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2 text-[var(--color-text-secondary)]">
+                        <span className="text-3xl">💬</span>
+                        <p className="text-sm font-medium">Чатів ще немає</p>
+                        <p className="text-xs">Клієнти розпочнуть діалог через чат на сайті</p>
+                      </div>
                     </td>
                   </tr>
                 )}

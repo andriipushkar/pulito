@@ -81,7 +81,7 @@ const BULK_ACTIONS = [
   { value: 'deactivate', label: 'Деактивувати' },
   { value: 'delete', label: 'Видалити' },
   { value: 'change_category', label: 'Змінити категорію' },
-  { value: 'change_brand', label: 'Змінити виробника' },
+  { value: 'change_brand', label: 'Змінити торгової марки' },
   { value: 'change_price', label: 'Змінити ціни…' },
   { value: 'export', label: 'Експорт обраних (XLSX)' },
   { value: 'labels', label: '🏷 Друк етикеток (PDF)' },
@@ -282,7 +282,7 @@ export default function AdminProductsPage() {
 
       if (bulkAction === 'change_brand') {
         if (bulkBrandId === '') {
-          toast.error('Оберіть виробника (або «Без виробника»)');
+          toast.error('Оберіть торгової марки (або «Без торгової марки»)');
           setIsProcessing(false);
           return;
         }
@@ -293,7 +293,7 @@ export default function AdminProductsPage() {
           brandId: brandIdPayload,
         });
         if (res.success) {
-          toast.success(`Виробника змінено для ${ids.length} товарів`);
+          toast.success(`Торгової марки змінено для ${ids.length} товарів`);
           setBulkBrandId('');
           loadProducts();
         } else {
@@ -483,9 +483,7 @@ export default function AdminProductsPage() {
     }
     const res = await apiClient.put(`/api/v1/admin/products/${product.id}`, { quantity: next });
     if (res.success) {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === product.id ? { ...p, quantity: next } : p)),
-      );
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, quantity: next } : p)));
       toast.success('Залишок оновлено');
     } else {
       toast.error(res.error || 'Помилка');
@@ -559,7 +557,14 @@ export default function AdminProductsPage() {
     }
   };
 
-  const activeFilters = ['categoryId', 'brandId', 'isActive', 'stock', 'sort', 'missingBarcode'].filter(
+  const activeFilters = [
+    'categoryId',
+    'brandId',
+    'isActive',
+    'stock',
+    'sort',
+    'missingBarcode',
+  ].filter(
     (k) => searchParams.get(k) && (k !== 'sort' || searchParams.get(k) !== 'id_desc'),
   ).length;
 
@@ -618,11 +623,11 @@ export default function AdminProductsPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium">Виробник</label>
+            <label className="mb-1 block text-xs font-medium">Торгова марка</label>
             <Select
               options={[
-                { value: '', label: 'Усі виробники' },
-                { value: 'null', label: '— Без виробника —' },
+                { value: '', label: 'Усі торгові марки' },
+                { value: 'null', label: '— Без торгової марки —' },
                 ...brands.map((b) => ({ value: String(b.id), label: b.name })),
               ]}
               value={searchParams.get('brandId') || ''}
@@ -699,8 +704,8 @@ export default function AdminProductsPage() {
               onChange={(e) => setBulkBrandId(e.target.value)}
               className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
             >
-              <option value="">Оберіть виробника...</option>
-              <option value="0">— Без виробника —</option>
+              <option value="">Оберіть торгової марки...</option>
+              <option value="0">— Без торгової марки —</option>
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -795,13 +800,21 @@ export default function AdminProductsPage() {
                   </th>
                   <th className="px-4 py-3 text-left font-medium">Товар</th>
                   <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Код</th>
-                  <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">Категорія</th>
-                  <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">Виробник</th>
+                  <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
+                    Категорія
+                  </th>
+                  <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
+                    Торгова марка
+                  </th>
                   <th className="px-4 py-3 text-right font-medium">Ціна</th>
                   <th className="px-4 py-3 text-center font-medium">Залишок</th>
-                  <th className="hidden px-4 py-3 text-center font-medium xl:table-cell">Продажі</th>
+                  <th className="hidden px-4 py-3 text-center font-medium xl:table-cell">
+                    Продажі
+                  </th>
                   <th className="px-4 py-3 text-center font-medium">Статус</th>
-                  <th className="hidden px-4 py-3 text-center font-medium xl:table-cell">Порядок</th>
+                  <th className="hidden px-4 py-3 text-center font-medium xl:table-cell">
+                    Порядок
+                  </th>
                   <th className="px-4 py-3 text-right font-medium">Дії</th>
                 </tr>
               </thead>

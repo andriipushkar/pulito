@@ -2,8 +2,16 @@ import { sendEmail } from './email';
 import { env } from '@/config/env';
 import { prisma } from '@/lib/prisma';
 
-function baseLayout(content: string): string {
+function baseLayout(content: string, recipientEmail?: string): string {
   const primaryColor = '#2563eb';
+  // If we know the recipient, build a working one-click unsubscribe URL.
+  // Otherwise omit the row entirely — a broken {{email}} link looks worse
+  // than no link.
+  const unsubscribeRow = recipientEmail
+    ? `<p style="margin:8px 0 0;font-size:11px;color:#94a3b8">
+            <a href="${env.APP_URL}/api/v1/subscribe?action=unsubscribe&email=${encodeURIComponent(recipientEmail)}" style="color:#94a3b8;text-decoration:underline">Відписатися від розсилки</a>
+          </p>`
+    : '';
   return `
 <!DOCTYPE html>
 <html lang="uk">
@@ -24,9 +32,7 @@ function baseLayout(content: string): string {
             © ${new Date().getFullYear()} Pulito Trade. Усі права захищені.<br>
             <a href="${env.APP_URL}" style="color:${primaryColor};text-decoration:none">${env.APP_URL}</a>
           </p>
-          <p style="margin:8px 0 0;font-size:11px;color:#94a3b8">
-            <a href="${env.APP_URL}/api/v1/subscribe?action=unsubscribe&email={{email}}" style="color:#94a3b8;text-decoration:underline">Відписатися від розсилки</a>
-          </p>
+          ${unsubscribeRow}
         </td></tr>
       </table>
     </td></tr>
@@ -62,6 +68,7 @@ function htmlEscape(s: string): string {
 async function renderDbTemplate(
   templateKey: string,
   variables: Record<string, string>,
+  recipientEmail?: string,
 ): Promise<{ subject: string; html: string } | null> {
   try {
     const template = await prisma.emailTemplate.findUnique({
@@ -82,7 +89,7 @@ async function renderDbTemplate(
       body = body.replace(placeholder, safeForBody);
     }
 
-    return { subject, html: baseLayout(body) };
+    return { subject, html: baseLayout(body, recipientEmail) };
   } catch {
     return null;
   }
@@ -106,14 +113,18 @@ export async function sendOrderConfirmation(data: {
     )
     .join('');
 
-  const dbTemplate = await renderDbTemplate('order_confirmation', {
-    name: data.name,
-    order_number: data.orderNumber,
-    items_table_html: itemRows,
-    total: data.total.toFixed(2),
-    delivery_method: data.deliveryMethod,
-    orders_url: `${env.APP_URL}/account/orders`,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'order_confirmation',
+    {
+      name: data.name,
+      order_number: data.orderNumber,
+      items_table_html: itemRows,
+      total: data.total.toFixed(2),
+      delivery_method: data.deliveryMethod,
+      orders_url: `${env.APP_URL}/account/orders`,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -145,7 +156,7 @@ export async function sendOrderConfirmation(data: {
   await sendEmail({
     to: data.to,
     subject: `Замовлення #${data.orderNumber} підтверджено — Pulito Trade`,
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }
 
@@ -158,14 +169,18 @@ export async function sendOrderStatusChanged(data: {
   trackingNumber?: string;
   orderId: number;
 }) {
-  const dbTemplate = await renderDbTemplate('order_status_changed', {
-    name: data.name,
-    order_number: data.orderNumber,
-    new_status: data.newStatus,
-    tracking_number: data.trackingNumber || '',
-    comment: data.comment || '',
-    order_url: `${env.APP_URL}/account/orders/${data.orderId}`,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'order_status_changed',
+    {
+      name: data.name,
+      order_number: data.orderNumber,
+      new_status: data.newStatus,
+      tracking_number: data.trackingNumber || '',
+      comment: data.comment || '',
+      order_url: `${env.APP_URL}/account/orders/${data.orderId}`,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -191,15 +206,19 @@ export async function sendOrderStatusChanged(data: {
   await sendEmail({
     to: data.to,
     subject: `Замовлення #${data.orderNumber} — ${data.newStatus} — Pulito Trade`,
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }
 
 export async function sendWelcomeEmail(data: { to: string; name: string }) {
-  const dbTemplate = await renderDbTemplate('welcome', {
-    name: data.name,
-    catalog_url: `${env.APP_URL}/catalog`,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'welcome',
+    {
+      name: data.name,
+      catalog_url: `${env.APP_URL}/catalog`,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -221,7 +240,7 @@ export async function sendWelcomeEmail(data: { to: string; name: string }) {
   await sendEmail({
     to: data.to,
     subject: 'Ласкаво просимо до Pulito Trade!',
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }
 
@@ -255,13 +274,17 @@ export async function sendDigestEmail(data: {
     )
     .join('');
 
-  const dbTemplate = await renderDbTemplate('digest', {
-    name: data.name,
-    period: data.period,
-    new_products_table: newProductRows,
-    promo_products_table: promoRows,
-    catalog_url: `${env.APP_URL}/catalog`,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'digest',
+    {
+      name: data.name,
+      period: data.period,
+      new_products_table: newProductRows,
+      promo_products_table: promoRows,
+      catalog_url: `${env.APP_URL}/catalog`,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -293,13 +316,12 @@ export async function sendDigestEmail(data: {
         : ''
     }
     ${button('Переглянути каталог', `${env.APP_URL}/catalog`)}
-    <img src="${env.APP_URL}/api/v1/metrics?type=email_open&id={{notificationId}}" width="1" height="1" alt="" style="display:block" />
   `;
 
   await sendEmail({
     to: data.to,
     subject: `Дайджест Pulito Trade — ${data.period}`,
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }
 
@@ -320,12 +342,16 @@ export async function sendCartAbandonmentEmail(data: {
 
   const total = data.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-  const dbTemplate = await renderDbTemplate('cart_abandonment', {
-    name: data.name,
-    items_table_html: itemRows,
-    total: total.toFixed(2),
-    cart_url: data.cartUrl,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'cart_abandonment',
+    {
+      name: data.name,
+      items_table_html: itemRows,
+      total: total.toFixed(2),
+      cart_url: data.cartUrl,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -350,13 +376,12 @@ export async function sendCartAbandonmentEmail(data: {
     </table>
     ${button('Повернутися до кошика', data.cartUrl)}
     <p style="color:#94a3b8;font-size:12px;margin-top:16px">Наявність та ціни можуть змінитися.</p>
-    <img src="${env.APP_URL}/api/v1/metrics?type=email_open&id={{notificationId}}" width="1" height="1" alt="" style="display:block" />
   `;
 
   await sendEmail({
     to: data.to,
     subject: 'Ви забули товари в кошику — Pulito Trade',
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }
 
@@ -366,12 +391,16 @@ export async function sendWholesaleApproved(data: {
   managerName?: string;
   managerPhone?: string;
 }) {
-  const dbTemplate = await renderDbTemplate('wholesale_approved', {
-    company_name: data.companyName,
-    manager_name: data.managerName || '',
-    manager_phone: data.managerPhone || '',
-    account_url: `${env.APP_URL}/account`,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'wholesale_approved',
+    {
+      company_name: data.companyName,
+      manager_name: data.managerName || '',
+      manager_phone: data.managerPhone || '',
+      account_url: `${env.APP_URL}/account`,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -397,7 +426,7 @@ export async function sendWholesaleApproved(data: {
   await sendEmail({
     to: data.to,
     subject: 'Гуртовий статус підтверджено — Pulito Trade',
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }
 
@@ -406,11 +435,15 @@ export async function sendWholesaleRejected(data: {
   companyName: string;
   reason: string;
 }) {
-  const dbTemplate = await renderDbTemplate('wholesale_rejected', {
-    company_name: data.companyName,
-    reason: data.reason,
-    contact_url: `${env.APP_URL}/contact`,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'wholesale_rejected',
+    {
+      company_name: data.companyName,
+      reason: data.reason,
+      contact_url: `${env.APP_URL}/contact`,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -429,7 +462,7 @@ export async function sendWholesaleRejected(data: {
   await sendEmail({
     to: data.to,
     subject: 'Запит на гуртовий статус відхилено — Pulito Trade',
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }
 
@@ -443,15 +476,19 @@ export async function sendNewOrderToManager(data: {
   itemCount: number;
   orderId: number;
 }) {
-  const dbTemplate = await renderDbTemplate('order_new_manager', {
-    order_number: data.orderNumber,
-    customer_name: data.customerName,
-    customer_phone: data.customerPhone,
-    customer_type: data.customerType === 'wholesaler' ? 'Гуртівник' : 'Клієнт',
-    total: data.total.toFixed(2),
-    item_count: String(data.itemCount),
-    order_url: `${env.APP_URL}/admin/orders/${data.orderId}`,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'order_new_manager',
+    {
+      order_number: data.orderNumber,
+      customer_name: data.customerName,
+      customer_phone: data.customerPhone,
+      customer_type: data.customerType === 'wholesaler' ? 'Гуртівник' : 'Клієнт',
+      total: data.total.toFixed(2),
+      item_count: String(data.itemCount),
+      order_url: `${env.APP_URL}/admin/orders/${data.orderId}`,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -472,7 +509,7 @@ export async function sendNewOrderToManager(data: {
   await sendEmail({
     to: data.to,
     subject: `Нове замовлення #${data.orderNumber} (${customerLabel})`,
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }
 
@@ -485,14 +522,18 @@ export async function sendWholesaleRequestToManager(data: {
   edrpou?: string;
   userId: number;
 }) {
-  const dbTemplate = await renderDbTemplate('wholesale_request', {
-    company_name: data.companyName,
-    contact_name: data.contactName,
-    contact_email: data.contactEmail,
-    contact_phone: data.contactPhone,
-    edrpou: data.edrpou ?? '—',
-    user_url: `${env.APP_URL}/admin/users/${data.userId}`,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'wholesale_request',
+    {
+      company_name: data.companyName,
+      contact_name: data.contactName,
+      contact_email: data.contactEmail,
+      contact_phone: data.contactPhone,
+      edrpou: data.edrpou ?? '—',
+      user_url: `${env.APP_URL}/admin/users/${data.userId}`,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -512,7 +553,7 @@ export async function sendWholesaleRequestToManager(data: {
   await sendEmail({
     to: data.to,
     subject: `Новий запит на гуртовий статус — ${data.companyName}`,
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }
 
@@ -525,14 +566,18 @@ export async function sendInvoiceCreatedEmail(data: {
   invoiceUrl: string;
   orderId: number;
 }) {
-  const dbTemplate = await renderDbTemplate('invoice_created', {
-    name: data.name,
-    order_number: data.orderNumber,
-    invoice_number: data.invoiceNumber,
-    total: data.total.toFixed(2),
-    invoice_url: data.invoiceUrl,
-    order_url: `${env.APP_URL}/account/orders/${data.orderId}`,
-  });
+  const dbTemplate = await renderDbTemplate(
+    'invoice_created',
+    {
+      name: data.name,
+      order_number: data.orderNumber,
+      invoice_number: data.invoiceNumber,
+      total: data.total.toFixed(2),
+      invoice_url: data.invoiceUrl,
+      order_url: `${env.APP_URL}/account/orders/${data.orderId}`,
+    },
+    data.to,
+  );
 
   if (dbTemplate) {
     await sendEmail({ to: data.to, subject: dbTemplate.subject, html: dbTemplate.html });
@@ -551,6 +596,6 @@ export async function sendInvoiceCreatedEmail(data: {
   await sendEmail({
     to: data.to,
     subject: `Рахунок-фактура ${data.invoiceNumber} — Pulito Trade`,
-    html: baseLayout(content),
+    html: baseLayout(content, data.to),
   });
 }

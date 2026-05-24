@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 export class WarehouseError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'WarehouseError';
@@ -63,7 +63,7 @@ export async function updateWarehouse(
     latitude?: number;
     longitude?: number;
     isDefault?: boolean;
-  }
+  },
 ) {
   try {
     return await prisma.$transaction(async (tx) => {
@@ -157,34 +157,51 @@ export async function getWarehouseById(id: number) {
 
 export async function updateStock(
   warehouseId: number,
-  items: { productId: number; quantity: number }[]
+  items: { productId: number; quantity: number }[],
 ) {
   const warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
   if (!warehouse) {
     throw new WarehouseError('Склад не знайдено', 404);
   }
 
-  const results = [];
-
   for (const item of items) {
-    const result = await prisma.warehouseStock.upsert({
-      where: {
-        warehouseId_productId: {
-          warehouseId,
-          productId: item.productId,
-        },
-      },
-      update: { quantity: item.quantity },
-      create: {
-        warehouseId,
-        productId: item.productId,
-        quantity: item.quantity,
-      },
-    });
-    results.push(result);
+    if (!Number.isInteger(item.quantity) || item.quantity < 0) {
+      throw new WarehouseError(
+        `Кількість має бути цілим невід'ємним числом (productId=${item.productId})`,
+        400,
+      );
+    }
   }
 
-  return results;
+  const productIds = [...new Set(items.map((i) => i.productId))];
+  const existing = await prisma.product.findMany({
+    where: { id: { in: productIds }, deletedAt: null },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((p) => p.id));
+  const missing = productIds.filter((id) => !existingIds.has(id));
+  if (missing.length > 0) {
+    throw new WarehouseError(`Товар не знайдено: ${missing.join(', ')}`, 404);
+  }
+
+  return prisma.$transaction(
+    items.map((item) =>
+      prisma.warehouseStock.upsert({
+        where: {
+          warehouseId_productId: {
+            warehouseId,
+            productId: item.productId,
+          },
+        },
+        update: { quantity: item.quantity },
+        create: {
+          warehouseId,
+          productId: item.productId,
+          quantity: item.quantity,
+        },
+      }),
+    ),
+  );
 }
 
 export async function getProductStock(productId: number) {
@@ -230,7 +247,7 @@ export async function getTotalStock(productId: number): Promise<number> {
  */
 export async function routeOrderToWarehouse(
   deliveryCity: string | null,
-  items: { productId: number; quantity: number }[]
+  items: { productId: number; quantity: number }[],
 ): Promise<{ warehouseId: number; warehouseName: string } | null> {
   const warehouses = await prisma.warehouse.findMany({
     where: { isActive: true },

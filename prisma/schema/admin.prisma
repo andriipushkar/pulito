@@ -115,6 +115,8 @@ model ReportTemplate {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
+  @@index([createdBy])
+  @@index([schedule, isActive])
   @@map("report_templates")
 }
 
@@ -129,6 +131,8 @@ model AnalyticsAlert {
   lastTriggeredAt      DateTime? @map("last_triggered_at")
   createdAt            DateTime  @default(now()) @map("created_at")
 
+  @@index([createdBy])
+  @@index([isActive])
   @@map("analytics_alerts")
 }
 

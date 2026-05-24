@@ -2,19 +2,19 @@ import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
 import { z } from 'zod';
 import { getUserWishlists, createWishlist, deleteEmptyWishlists } from '@/services/wishlist';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import { successResponse, privateResponse, errorResponse } from '@/utils/api-response';
 
 export const GET = withAuth(async (_request: NextRequest, { user }) => {
   try {
     const wishlists = await getUserWishlists(user.id);
-    return successResponse(wishlists);
+    return privateResponse(wishlists);
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });
 
 const createSchema = z.object({
-  name: z.string().min(1, 'Назва обов\'язкова').max(100),
+  name: z.string().min(1, "Назва обов'язкова").max(100),
 });
 
 export const POST = withAuth(async (request: NextRequest, { user }) => {

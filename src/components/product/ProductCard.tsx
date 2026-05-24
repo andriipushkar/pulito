@@ -14,9 +14,9 @@ import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { useComparison } from '@/hooks/useComparison';
 import { apiClient } from '@/lib/api-client';
-import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import { gtagEvent } from '@/lib/gtag';
 import { useWishlistBulk } from '@/providers/WishlistBulkProvider';
+import { useSettings } from '@/hooks/useSettings';
 import type { ProductListItem } from '@/types/product';
 
 const WISHLIST_STORAGE_KEY = 'pulito-wishlist';
@@ -76,6 +76,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { has: hasCompare, toggle: toggleCompare } = useComparison();
   const isCompared = hasCompare(product.id);
   const wishlistBulk = useWishlistBulk();
+  const settings = useSettings();
   const [showQuickView, setShowQuickView] = useState(false);
   const [isWished, setIsWished] = useState(false);
   const [isTogglingWish, setIsTogglingWish] = useState(false);
@@ -83,6 +84,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [hovered, setHovered] = useState(false);
   const inStock = product.quantity > 0;
   const mainImage = product.images[0]?.pathMedium || product.imagePath;
+  // Якщо ховаємо кількість — не показуємо "Закінчується" badge, бо він
+  // непрямо розкриває залишок ≤3.
+  const hideQty = product.hideQuantity || settings.hide_all_quantity === '1';
   const hoverImage = product.images[1]?.pathMedium;
   const blurImage = product.images[0]?.pathBlur;
   const attributes = extractAttributes(product.name, product.content?.shortDescription);
@@ -90,7 +94,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   const oldPrice = product.priceRetailOld ? Number(product.priceRetailOld) : null;
   const currentPrice = Number(product.priceRetail);
   const discountPercent =
-    oldPrice && oldPrice > currentPrice ? Math.round(((oldPrice - currentPrice) / oldPrice) * 100) : 0;
+    oldPrice && oldPrice > currentPrice
+      ? Math.round(((oldPrice - currentPrice) / oldPrice) * 100)
+      : 0;
 
   const isNew = (() => {
     const created = new Date(product.createdAt as string | Date).getTime();
@@ -172,9 +178,13 @@ export default function ProductCard({ product }: ProductCardProps) {
       slug: product.slug,
       code: product.code,
       priceRetail: Number(product.priceRetail),
-      priceWholesale:
-        resolveWholesalePrice(product, user?.wholesaleGroup) ??
-        (product.priceWholesale ? Number(product.priceWholesale) : null),
+      // Передаємо всі три tier — cart сам обере правильний за wholesaleGroup
+      // користувача. Раніше cart обходився одним полем + fallback, але
+      // тепер уникаємо плутанини коли в корзину додає group-2 чи group-3
+      // юзер з різних точок UI.
+      priceWholesale: product.priceWholesale != null ? Number(product.priceWholesale) : null,
+      priceWholesale2: product.priceWholesale2 != null ? Number(product.priceWholesale2) : null,
+      priceWholesale3: product.priceWholesale3 != null ? Number(product.priceWholesale3) : null,
       imagePath: mainImage,
       quantity: 1,
       maxQuantity: product.quantity,
@@ -191,7 +201,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div
-      className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-transparent bg-[var(--color-bg)] shadow-[var(--shadow)] transition-all duration-300 hover:shadow-[var(--shadow-xl)] hover:border-[var(--color-primary-light)]/30 hover:-translate-y-1 sm:rounded-2xl"
+      className="group relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-transparent bg-[var(--color-bg)] shadow-[var(--shadow)] transition-all duration-300 hover:shadow-[var(--shadow-xl)] hover:border-[var(--color-primary-light)]/30 hover:-translate-y-1 sm:rounded-2xl"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -257,12 +267,12 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
 
-        {(product.badges.length > 0 || isNew || (inStock && product.quantity <= 3)) && (
+        {(product.badges.length > 0 || isNew || (inStock && product.quantity <= 3 && !hideQty)) && (
           <div className="absolute left-1 top-1 flex flex-col gap-0.5 sm:left-2 sm:top-2 sm:gap-1">
             {isNew && !product.badges.some((b) => /new|новин/i.test(b.badgeType)) && (
               <Badge color="#1976D2">Новинка</Badge>
             )}
-            {inStock && product.quantity <= 3 && (
+            {inStock && product.quantity <= 3 && !hideQty && (
               <Badge color="#F4511E">Закінчується</Badge>
             )}
             {product.badges.slice(0, 2).map((badge) => (
@@ -336,7 +346,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         <Link
           href={`/product/${product.slug}`}
-          className="mb-1 line-clamp-2 text-xs font-medium leading-snug text-[var(--color-text)] hover:text-[var(--color-primary)] sm:text-sm"
+          className="mb-1 line-clamp-2 min-h-[2lh] text-xs font-medium leading-snug text-[var(--color-text)] hover:text-[var(--color-primary)] sm:text-sm"
         >
           {product.name}
         </Link>
@@ -402,20 +412,20 @@ export default function ProductCard({ product }: ProductCardProps) {
             size="sm"
           />
 
-          <div className="mt-2.5 flex items-center justify-between gap-1 sm:mt-3 sm:gap-2">
+          <div className="@container mt-2.5 flex items-center justify-between gap-1 sm:mt-3 sm:gap-2">
             <span
-              className={`shrink-0 text-[10px] font-medium sm:text-xs ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}
+              className={`min-w-0 truncate text-[10px] font-medium sm:text-xs ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}
             >
               {inStock ? 'В наявності' : 'Немає'}
             </span>
             <button
               onClick={handleAddToCart}
               disabled={!inStock}
-              className="flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-primary)] px-2.5 py-1.5 text-xs font-medium text-white shadow-[var(--shadow-brand)] transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-[var(--shadow-brand-lg)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none sm:gap-1.5 sm:px-3.5"
+              className="flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-primary)] px-2 py-1.5 text-xs font-medium text-white shadow-[var(--shadow-brand)] transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-[var(--shadow-brand-lg)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none @[170px]:px-3"
               aria-label="В кошик"
             >
               <Cart size={14} />
-              <span className="hidden sm:inline">В кошик</span>
+              <span className="hidden @[170px]:inline">В кошик</span>
             </button>
           </div>
         </div>

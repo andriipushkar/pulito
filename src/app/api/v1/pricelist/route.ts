@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withOptionalAuth } from '@/middleware/auth';
 import { generatePricelist, PricelistError } from '@/services/pricelist';
 import { errorResponse } from '@/utils/api-response';
+import { prisma } from '@/lib/prisma';
 
 export const GET = withOptionalAuth(async (request: NextRequest, { user }) => {
   try {
@@ -12,7 +13,8 @@ export const GET = withOptionalAuth(async (request: NextRequest, { user }) => {
       return errorResponse('Параметр type має бути retail або wholesale', 400);
     }
 
-    // Wholesale pricelist requires wholesaler or manager role
+    // Wholesale pricelist requires wholesaler/manager/admin role
+    let group: 1 | 2 | 3 | undefined;
     if (type === 'wholesale') {
       if (!user) {
         return errorResponse('Для гуртового прайс-листа потрібна авторизація', 401);
@@ -20,11 +22,36 @@ export const GET = withOptionalAuth(async (request: NextRequest, { user }) => {
       if (user.role !== 'wholesaler' && user.role !== 'manager' && user.role !== 'admin') {
         return errorResponse('Недостатньо прав для гуртового прайс-листа', 403);
       }
+      // Resolve which tier to render: wholesaler is locked to their own tier;
+      // manager/admin may pass ?group=1..3 (for previewing client-specific
+      // sheets), defaulting to tier 1 when omitted.
+      if (user.role === 'wholesaler') {
+        // JWT-токен містить лише role/email/id — wholesaleGroup треба тягти
+        // з БД, інакше навіть валідний гуртівник отримує 403.
+        const row = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { wholesaleGroup: true },
+        });
+        const g = row?.wholesaleGroup as 1 | 2 | 3 | null | undefined;
+        if (!g) {
+          return errorResponse(
+            'У вашого акаунта не призначено гуртову групу. Зверніться до менеджера.',
+            403,
+          );
+        }
+        group = g;
+      } else {
+        const requested = Number(searchParams.get('group'));
+        group = [1, 2, 3].includes(requested) ? (requested as 1 | 2 | 3) : 1;
+      }
     }
 
-    const buffer = await generatePricelist(type);
+    const buffer = await generatePricelist(type, group);
 
-    const filename = type === 'wholesale' ? 'pricelist_wholesale.pdf' : 'pricelist_retail.pdf';
+    const filename =
+      type === 'wholesale'
+        ? `pricelist_wholesale${group ? '_g' + group : ''}.pdf`
+        : 'pricelist_retail.pdf';
 
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,

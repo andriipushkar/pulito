@@ -1,7 +1,7 @@
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { generateSecret, generateOtpauthUrl } from '@/services/totp';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import { privateResponse, errorResponse } from '@/utils/api-response';
 import QRCode from 'qrcode';
 
 /**
@@ -12,7 +12,12 @@ import QRCode from 'qrcode';
 // 2FA is available to all authenticated users — both staff and customers.
 // Previously this was gated to admin/manager which broke the storefront
 // security tab in the customer cabinet.
-export const POST = withRole('admin', 'manager', 'client', 'wholesaler')(async (_request, { user }) => {
+export const POST = withRole(
+  'admin',
+  'manager',
+  'client',
+  'wholesaler',
+)(async (_request, { user }) => {
   try {
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -50,7 +55,7 @@ export const POST = withRole('admin', 'manager', 'client', 'wholesaler')(async (
     const ttlKey = `2fa_setup_ttl:${user.id}`;
     await redis.set(ttlKey, secret, 'EX', 1800); // 30 minutes
 
-    return successResponse({ secret, otpauthUrl, qrDataUrl });
+    return privateResponse({ secret, otpauthUrl, qrDataUrl });
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }

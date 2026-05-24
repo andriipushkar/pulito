@@ -24,6 +24,20 @@ export const metadata: Metadata = {
       'x-default': `${baseUrl}/news`,
     },
   },
+  openGraph: {
+    title: 'Новини та акції — Pulito Trade',
+    description: 'Останні новини, акції та спеціальні пропозиції від Pulito Trade',
+    url: `${baseUrl}/news`,
+    siteName: 'Pulito Trade',
+    type: 'website',
+    images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Новини та акції — Pulito Trade',
+    description: 'Останні новини, акції та спеціальні пропозиції від Pulito Trade',
+    images: [`${baseUrl}/opengraph-image`],
+  },
 };
 
 async function getPublications(page: number = 1) {

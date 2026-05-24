@@ -1,19 +1,52 @@
 /**
- * Product SEO content generator. Two modes:
+ * Product SEO content generator. Three modes:
  *
- * 1. **LLM mode** (preferred when `ANTHROPIC_API_KEY` is set) — calls Claude
- *    Opus 4.7 with adaptive thinking and structured JSON output. Produces
- *    natural, brand-specific copy. ~1-3 sec, ~$0.02 per generation.
+ * 1. **Claude** (when `ANTHROPIC_API_KEY` is set) — Claude Opus 4.7 with
+ *    adaptive thinking and structured JSON output. ~1-3 sec, ~$0.02/gen.
  *
- * 2. **Rule-based fallback** — deterministic template based on brand/category/
+ * 2. **Gemini** (when `GEMINI_API_KEY` is set) — Gemini 1.5 Flash by default
+ *    (override via `GEMINI_MODEL`). REST API with structured JSON. ~$0.0005/gen.
+ *
+ * 3. **Rule-based fallback** — deterministic template based on brand/category/
  *    fabric/aroma heuristics. Runs in <1ms with no external dependencies.
  *
- * Both paths return the same `GeneratedContent` shape, so the API route and
- * the admin UI need no changes when toggling between them.
+ * The caller picks via the optional `provider` arg. Default behaviour falls
+ * back gracefully (claude → gemini → rules) if a chosen provider is unavailable.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
 import { logger } from '@/lib/logger';
+import { getSettings } from '@/services/settings';
+
+export type AIProvider = 'claude' | 'gemini' | 'rules';
+
+// Read provider config from DB settings first (admin-editable), then env var.
+// `getSettings` is cached, so this stays fast on the hot path.
+async function getAnthropicKey(): Promise<string | null> {
+  try {
+    const s = await getSettings();
+    if (s.anthropic_api_key) return s.anthropic_api_key;
+  } catch {
+    /* DB unavailable — fall through to env */
+  }
+  return process.env.ANTHROPIC_API_KEY || null;
+}
+
+async function getGeminiConfig(): Promise<{ apiKey: string; model: string } | null> {
+  let apiKey = '';
+  let model = '';
+  try {
+    const s = await getSettings();
+    apiKey = s.gemini_api_key;
+    model = s.gemini_model;
+  } catch {
+    /* DB unavailable */
+  }
+  if (!apiKey) apiKey = process.env.GEMINI_API_KEY || '';
+  if (!model) model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  if (!apiKey) return null;
+  return { apiKey, model };
+}
 
 interface GenerateInput {
   name: string;
@@ -34,12 +67,17 @@ export interface GeneratedContent {
 // LLM mode (Claude Opus 4.7)
 // ──────────────────────────────────────────────────────────────────────────
 
-/** Singleton client — created on first use only if API key is present */
-let anthropic: Anthropic | null = null;
-function getClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!anthropic) anthropic = new Anthropic();
-  return anthropic;
+// Re-create the singleton client whenever the API key changes (e.g. admin
+// updated it via the settings UI). We cache by key string so steady-state
+// calls reuse the same client instance.
+let anthropic: { client: Anthropic; key: string } | null = null;
+async function getClient(): Promise<Anthropic | null> {
+  const key = await getAnthropicKey();
+  if (!key) return null;
+  if (!anthropic || anthropic.key !== key) {
+    anthropic = { client: new Anthropic({ apiKey: key }), key };
+  }
+  return anthropic.client;
 }
 
 const SCHEMA = {
@@ -48,84 +86,142 @@ const SCHEMA = {
     seoTitle: {
       type: 'string',
       description:
-        'Магнітний SEO Title українською, 55-70 символів. Структура: [Бренд] [Назва] [об\'єм] — [ключова перевага]. Приклади: "ChanteClair Гель для прання Марсельське мило 1.5л — ніжний догляд". Без слів "купити в Pulito Trade" (вони додаються автоматично).',
+        'Магнітний SEO Title українською, 55-70 символів. Структура: [Бренд] [Назва] [об\'єм] — [ключова перевага]. Приклад: "Sanit Lux GT Засіб для чищення сантехніки 1л — pH 2, антинакип". Без слів "купити в Pulito Trade" (додаються автоматично).',
     },
     seoDescription: {
       type: 'string',
       description:
-        'Кликабельний meta-опис українською, 140-160 символів. Має містити: 2 переваги, об\'єм/кількість прань, заклик до дії. Приклад: "Натуральний гель ChanteClair з оливковою олією. До 25 прань ✓ Бережний до тканин ✓ Без фосфатів. Доставка по Україні за 1-2 дні."',
+        'Кликабельний meta-опис українською, 140-160 символів. Структура: [Бренд + назва] [2 конкретні переваги з цифрами] [об\'єм/кількість використань] [CTA]. Приклад: "Sanit Lux GT — концентрат для сантехніки. Розчиняє вапняний наліт за 5 хв ✓ На 50 прибирань ✓ Біорозкладний. Доставка від 1 дня."',
     },
     shortDescription: {
       type: 'string',
       description:
-        'Маркетинговий короткий опис українською (200-400 символів) для карток і пошуку. 2-3 речення з конкретними перевагами товару — не загальні фрази.',
+        'Маркетинговий короткий опис українською (200-400 символів) для карток і пошуку. 2-3 речення з КОНКРЕТНИМИ цифрами — об\'єм, кількість використань, активна речовина, % або pH. ЗАБОРОНЕНО: "якісний", "інноваційний", "ефективний" без цифр поруч.',
     },
     fullDescription: {
       type: 'string',
       description:
-        'Повний HTML-опис українською (600-1200 слів). ОБОВ\'ЯЗКОВІ секції в такому порядку:\n' +
-        '1. <h2> з назвою товару + <p> з 2-3 реченнями ВВЕДЕННЯ — що це і для кого\n' +
-        '2. <h3>Особливості та склад</h3> + <p> або <ul> — конкретні інгредієнти, технології, що відрізняє цей бренд (можна використовувати загальні знання про бренд)\n' +
-        '3. <h3>Переваги</h3> + <ul><li> з 5-7 пунктами — НЕ загальні («якість, доставка»), а конкретні («ефективний при низьких температурах 30°C», «економний — 30мл на цикл», «біорозкладний», «гіпоалергенний» тощо)\n' +
-        '4. <h3>Спосіб застосування</h3> + <p> — як правильно використовувати (дозування, температура, особливості)\n' +
-        '5. <h3>Для яких тканин підходить</h3> або <h3>Для якого типу прибирання</h3> + <p>\n' +
-        '6. <h3>Чому обрати у Pulito Trade</h3> + <ul><li> — наша доставка, оригінал, опт-роздріб тощо\n' +
-        'ТЕГИ дозволені: h2, h3, p, ul, li, strong, em. БЕЗ inline-стилів.',
+        "Багатий HTML-опис у стилі топ-карток Rozetka, українською, 800-1400 слів. ВСІ секції ОБОВ'ЯЗКОВІ і в такому порядку (h2/h3 рівно як вказано):\n" +
+        '1. <h2>[назва товару]</h2> + <p> з 2-3 реченнями ВВЕДЕННЯ — що це, для кого, головна перевага. Без води і кліше.\n' +
+        '2. <h3>Характеристики</h3> + <table> з <tr><td>Параметр</td><td>Значення</td></tr>. Параметри (включай ті, що можеш визначити з назви/бренду/категорії, інші пиши "уточнюйте на упаковці"): Тип; Призначення; Форма випуску (рідина/гель/порошок/спрей/капсули/таб); Об\'єм або вага; Виробник; Країна виробництва; pH (для побутової хімії — кислотний/нейтральний/лужний); Активні компоненти; Аромат; Тип упаковки; Кількість використань (розрахуй з об\'єму). Не вигадуй точні бренд-факти яких не знаєш.\n' +
+        '3. <h3>Призначення</h3> + <ul><li> — 4-6 конкретних сценаріїв використання з предметами/поверхнями. Приклади гарних пунктів: "Видалення вапняного нальоту з фаянсу унітазів", "Очищення хромованих змішувачів від мильних розводів".\n' +
+        '4. <h3>Особливості та склад</h3> + <p> або <ul> — фактаж: % активних речовин (якщо відомо), технології, формула, що відрізняє від базових засобів. Якщо точних цифр не знаєш — пиши діапазон ("кислотність pH 1-3"), а не вигадуй.\n' +
+        '5. <h3>Переваги</h3> + <ul><li> з 6-8 пунктами. КОЖЕН пункт має містити цифру, % або порівняння. ЗАБОРОНЕНО загальні "висока якість", "сяючий блиск", "ефективність". Гарні приклади: "Концентрат — 1 пляшка замінює 3 звичайних", "Розчиняє вапняний наліт до 5 мм за 10 хв", "pH 2.0 — професійна сила, безпечно для септика", "Біорозкладна формула на 95% за 28 днів".\n' +
+        '6. <h3>Спосіб застосування</h3> + <ol><li> — покрокова інструкція з ЦИФРАМИ: дозування (мл), час витримки (хв), температура. 4-6 кроків.\n' +
+        "7. <h3>Запобіжні заходи та сумісність</h3> + <ul><li> — це ОБОВ'ЯЗКОВА секція для побутової хімії: На ЯКИХ поверхнях НЕ можна (натуральний камінь, мармур, анодований алюміній — якщо кислотний; шерсть/шовк — якщо лужний). Не змішувати з відбілювачем/хлором. Рукавички. Вентиляція. Зберігати від дітей. Не для септика — або: підходить для септика.\n" +
+        '8. <h3>Питання та відповіді</h3> + <p><strong>Питання?</strong> Відповідь. — 3-5 типових питань-відповідей (FAQ — для Google "People Also Ask"). Приклади: "Чи безпечно для септика?", "Чи можна використовувати на мармурі?", "На скільки прибирань вистачить пляшки?", "Чи потрібні рукавички?".\n' +
+        '9. <h3>Чому обрати у Pulito Trade</h3> + <ul><li> — 4-5 пунктів: 100% оригінал, доставка по Україні (Нова Пошта/Укрпошта), безпечна упаковка, оптові ціни для бізнесу, способи оплати.\n' +
+        'ТЕГИ дозволені: h2, h3, p, ul, ol, li, strong, em, table, tr, td. БЕЗ inline-стилів, БЕЗ classes, БЕЗ <th>.',
     },
   },
   required: ['seoTitle', 'seoDescription', 'shortDescription', 'fullDescription'],
   additionalProperties: false,
 } as const;
 
-const SYSTEM_PROMPT = `Ти — досвідчений копірайтер українського інтернет-магазину побутової хімії та засобів для дому "Pulito Trade" (pulito.trade). Пишеш ПРОДАЮЧІ описи товарів — детальні, корисні, з конкретикою.
+const SYSTEM_PROMPT = `Ти — старший копірайтер українського інтернет-магазину побутової хімії та засобів для дому "Pulito Trade" (pulito.trade). Твій еталон — топ-картки товарів на Rozetka.ua в категорії побутової хімії: щільні, з характеристиками-таблицею, конкретними цифрами, FAQ, без води.
 
-ТВОЇ ПРИНЦИПИ:
+╔══════════════════════════════════════════════════════════════════════════
+║ 1. ТАБЛИЦЯ ХАРАКТЕРИСТИК — ЦЕ ОБОВ'ЯЗКОВО
+╠══════════════════════════════════════════════════════════════════════════
 
-✓ ПИШИ ДЕТАЛЬНО ТА ПЕРЕКОНЛИВО
-   Покупець має зрозуміти: чим це краще за конкурентів, кому підходить, як працює. Уникай 1-2 реченнєвих відписок.
+У повному описі (fullDescription) ОБОВ'ЯЗКОВО йде <table> з характеристиками — як на Rozetka. Параметри, які треба заповнити (якщо точно не знаєш, пиши "уточнюйте на упаковці"; НЕ ВИГАДУЙ):
+   Тип, Призначення, Форма випуску, Об'єм/Вага, Виробник, Країна виробництва, pH, Активні компоненти, Аромат, Тип упаковки, Кількість використань (з об'єму).
 
-✓ ВИКОРИСТОВУЙ ЗНАННЯ ПРО БРЕНД
-   Ariel, Persil, Perwoll, ChanteClair, Sole, Frosch, Vanish, Calgon, Lenor, Domestos, Cif, Mr.Proper, Tide, Ecover, Sano, Almawin, Sorti, Gala, Bingo — про ці бренди можна використовувати загальні знання (країна походження, тип формули, технології, чим відомі).
-   ChanteClair — італійський бренд, традиційне марсельське мило, натуральні інгредієнти.
-   Persil — німецький, традиція з 1907, фермент-технології, плями.
-   Ariel — Procter&Gamble, відомий капсулами PODs, активна піна.
-   Perwoll — для делікатних тканин, відновлення кольору, ароматизатори.
-   Frosch — eco-бренд з Німеччини, біорозкладні формули.
-   Lenor — кондиціонери з тривалою свіжістю.
+Приклад правильного рядка:
+   <tr><td>pH</td><td>1.5-2.0 (кислотний концентрат)</td></tr>
+   <tr><td>Об'єм</td><td>1000 мл</td></tr>
+   <tr><td>Кількість прибирань</td><td>~50 (при дозі 20 мл/застосування)</td></tr>
 
-✓ ВЕБ-СТАНДАРТИ SEO
-   - SEO Title має мати магнітний "крючок" — не лише назву, а й вигоду
-   - SEO Description має закликати клікнути: переваги + цифри + CTA
-   - В описі — синонімічно повторюй ключове слово (категорія + бренд + об'єм)
-   - Списки <ul><li> — Google любить структурований контент
+╔══════════════════════════════════════════════════════════════════════════
+║ 2. ЦИФРИ І КОНКРЕТИКА В КОЖНОМУ ПУНКТІ
+╠══════════════════════════════════════════════════════════════════════════
 
-✓ ЦИФРИ І КОНКРЕТИКА
-   - "до 25 прань", "30°C — 60°C", "30мл на цикл", "при концентрації 50%", "об'єм 1.5л"
-   - Якщо в назві є об'єм (1.5л, 5кг) — обов'язково згадуй кількість циклів/доз: для гелю 1.5л це приблизно 30 прань (15-50мл на цикл).
+КОЖЕН bullet у "Переваги" має містити ЩОНАЙМЕНШЕ ОДНУ з:
+   • число або діапазон ("до 5 мм нальоту", "за 5-10 хв", "до 50 прибирань")
+   • % або pH ("концентрат 95%", "pH 1.5")
+   • порівняння ("1 пляшка замінює 3 звичайних")
+   • сертифікат/стандарт ("EU Ecolabel", "ISO 14001", "DermaTest")
+   • температурний діапазон ("працює від +5°C")
 
-✓ УНІКАЛЬНА ЦІННІСНА ПРОПОЗИЦІЯ
-   В секції "Переваги" — НЕ "якість, доставка", а конкретні фішки: гіпоалергенний, без сульфатів, кольори не вицвітають, працює в холодній воді, біорозкладний, концентрат (1 пляшка = 3 звичайних), сертифіковано (Ecolabel, DermaTest), без міклоплосок.
+ЗАБОРОНЕНО без цифр поруч: "висока якість", "сяючий блиск", "ефективність", "інновація", "професійний результат", "комплексне рішення", "ідеальний", "найкращий", "інноваційний".
 
-⚠ ЧЕСНІСТЬ
-   Якщо назва товару тестова ("Тестовий товар", "qwerty", беззмістовна) — пиши коротко і чесно "Технічна позиція. Опис буде оновлено".
-   Не вигадуй СПЕЦИФІКУ якої точно нема (точні склад-молекули, точні сертифікати, точні дати).
+╔══════════════════════════════════════════════════════════════════════════
+║ 3. ОБОВ'ЯЗКОВА СЕКЦІЯ БЕЗПЕКИ ДЛЯ ПОБУТОВОЇ ХІМІЇ
+╠══════════════════════════════════════════════════════════════════════════
 
-✓ ТОНАЛЬНІСТЬ
-   - Українська мова, природна, як говорить досвідчений продавець
-   - НЕ канцеляризми: "даний", "якісний", "вищезгаданий"
-   - Використовуй порівняння: "як", "у відмінність від", "на відміну від звичайних"
-   - Емоції: "ваш одяг", "сім'я", "чисте і свіже", "довіра"
+Для будь-якого засобу для прибирання чи прання обов'язково описуй:
+   • На ЯКИХ поверхнях НЕ МОЖНА використовувати (натуральний камінь, мармур, анодований алюміній — для кислотних; шерсть/шовк/делікатна тканина — для лужних).
+   • НЕ змішувати з хлором/відбілювачем (виділяє токсичні пари).
+   • Рукавички для рук, вентиляція приміщення.
+   • Зберігати від дітей.
+   • Чи безпечно для септиків (якщо неможливо точно сказати з назви — пиши "уточнюйте у виробника").
 
-ФОРМАТ: Поверни ТІЛЬКИ валідний JSON у заданій схемі. Без обгорток, пояснень, тегів коду.`;
+╔══════════════════════════════════════════════════════════════════════════
+║ 4. FAQ-БЛОК — 3-5 ТИПОВИХ ПИТАНЬ
+╠══════════════════════════════════════════════════════════════════════════
+
+Окремий блок <h3>Питання та відповіді</h3>. Формат:
+   <p><strong>Чи безпечно для септика?</strong> Так — при дозі до 20 мл на 5 л води формула не порушує мікрофлору септика. / Ні — кислотна формула може пошкодити мікрофлору, для септиків оберіть нейтральні засоби.</p>
+
+Питання, які варто включати залежно від типу товару:
+   • "Чи безпечно для септика?"
+   • "Чи можна використовувати на мармурі / натуральному камені?"
+   • "На скільки прибирань вистачить однієї пляшки?"
+   • "Чи потрібні рукавички?"
+   • "Чи підходить для дитячих речей?" (для пральних)
+   • "Чи можна використовувати в посудомийній машині?" (для посуду)
+   • "Чи містить фосфати / хлор / SLES?"
+
+╔══════════════════════════════════════════════════════════════════════════
+║ 5. SEO І ЩІЛЬНІСТЬ КЛЮЧОВИХ СЛІВ
+╠══════════════════════════════════════════════════════════════════════════
+
+   • Категорія + бренд + об'єм мають згадуватися у тексті 6-10 разів (синонімічно).
+   • Синоніми для категорій: "засіб для чищення сантехніки" = "очисник для ванної" = "засіб для унітазу" = "antical" = "засіб від вапняного нальоту".
+   • SEO Title — крючок з цифрою/перевагою (не лише назва).
+   • SEO Description — 2 переваги з цифрами + об'єм + CTA "Доставка від 1 дня по Україні".
+
+╔══════════════════════════════════════════════════════════════════════════
+║ 6. ВИКОРИСТАННЯ ЗНАНЬ ПРО БРЕНДИ
+╠══════════════════════════════════════════════════════════════════════════
+
+Якщо точно впізнаєш бренд — додай 1-2 факти про країну, рік заснування, чим відомий:
+   ChanteClair (Італія, 1947) — марсельське мило, натуральні інгредієнти.
+   Persil (Німеччина, 1907, Henkel) — фермент-технології, плями.
+   Ariel (Procter&Gamble) — капсули PODs.
+   Perwoll (Henkel) — делікатні тканини, відновлення кольору.
+   Frosch (Німеччина, 1986) — біорозкладний еко-бренд.
+   Lenor — кондиціонер з тривалою свіжістю до 12 тижнів.
+   Calgon — захист пральних машин від накипу.
+   Domestos (1929) — дезінфектант, 99,9% бактерій.
+   Cif, Fairy, Vanish — звичайні Unilever/Reckitt марки.
+   ЯКЩО БРЕНДУ НЕ ЗНАЄШ — НЕ ВИГАДУЙ. Просто опиши товар за категорією. У табл. характеристик "Виробник" і "Країна" — "уточнюйте на упаковці".
+
+╔══════════════════════════════════════════════════════════════════════════
+║ 7. ТОНАЛЬНІСТЬ І МОВА
+╠══════════════════════════════════════════════════════════════════════════
+
+   • Природна українська як у досвідченого продавця, без канцеляризмів ("даний", "вищезгаданий", "якісний").
+   • Звертання на "ви", без зайвої емоційності.
+   • Без рекламних кліше типу "відкрийте для себе", "перетворить ваше прибирання на задоволення".
+
+╔══════════════════════════════════════════════════════════════════════════
+║ 8. ЧЕСНІСТЬ
+╠══════════════════════════════════════════════════════════════════════════
+
+Якщо назва тестова ("test", "qwerty") або коротка/беззмістовна — пиши коротко "Технічна позиція. Опис буде оновлено", і ВСЕ. Не вигадуй вміст.
+Не пиши вигаданих сертифікатів, точних % компонентів якщо їх не знаєш, неіснуючих стандартів.
+
+ФОРМАТ ВІДПОВІДІ: ТІЛЬКИ валідний JSON у заданій схемі. Без обгорток, пояснень, markdown-блоків.`;
 
 async function generateWithClaude(input: GenerateInput): Promise<GeneratedContent | null> {
-  const client = getClient();
+  const client = await getClient();
   if (!client) return null;
 
   const userPrompt = [
     `Згенеруй опис товару:`,
     `- Назва: "${input.name}"`,
-    input.brand ? `- Виробник: ${input.brand}` : null,
+    input.brand ? `- Торгова марка: ${input.brand}` : null,
     input.category ? `- Категорія: ${input.category}` : null,
     `- Ціна: ${input.priceRetail || 0} грн`,
     input.shortDescription ? `- Існуючий короткий опис: "${input.shortDescription}"` : null,
@@ -291,7 +387,7 @@ const BRAND_DB: Record<string, BrandInfo> = {
     highlights: [
       'Тривала свіжість — аромат тримається до 12 тижнів у шафі',
       'Зменшує статичну електрику на одязі',
-      'Полегшує прасування — тканина стає м\'якою',
+      "Полегшує прасування — тканина стає м'якою",
     ],
   },
   calgon: {
@@ -354,7 +450,14 @@ function extractBrand(name: string): string {
 }
 
 // ── Category detection ────────────────────────────────────────────────────
-type ProductCategory = 'laundry' | 'cleaning' | 'dishes' | 'hygiene' | 'softener' | 'descaler' | 'other';
+type ProductCategory =
+  | 'laundry'
+  | 'cleaning'
+  | 'dishes'
+  | 'hygiene'
+  | 'softener'
+  | 'descaler'
+  | 'other';
 function detectCategory(name: string, category: string | null): ProductCategory {
   const haystack = `${name} ${category || ''}`.toLowerCase();
   if (/прання|laundry|пральн/.test(haystack)) return 'laundry';
@@ -362,7 +465,8 @@ function detectCategory(name: string, category: string | null): ProductCategory 
   if (/кондиціон|softener|lenor/.test(haystack)) return 'softener';
   if (/накип|calgon|descal/.test(haystack)) return 'descaler';
   if (/гіген|hygien|шампунь|мил[оа]\b|gel.*shower/.test(haystack)) return 'hygiene';
-  if (/чищ|cleaning|cif|domestos|comet|туалет|toilet|cleaner|sanit/.test(haystack)) return 'cleaning';
+  if (/чищ|cleaning|cif|domestos|comet|туалет|toilet|cleaner|sanit/.test(haystack))
+    return 'cleaning';
   return 'other';
 }
 
@@ -376,17 +480,21 @@ function estimateCycles(name: string, category: ProductCategory): number | null 
   const liters = parseVolumeLiters(name);
   if (!liters) return null;
   // Average dose: laundry gel ~50ml/cycle, softener ~40ml, dish ~5ml
-  const dose = category === 'laundry' ? 50 : category === 'softener' ? 40 : category === 'dishes' ? 5 : 30;
+  const dose =
+    category === 'laundry' ? 50 : category === 'softener' ? 40 : category === 'dishes' ? 5 : 30;
   return Math.round((liters * 1000) / dose);
 }
 
 // ── Category-specific copy ────────────────────────────────────────────────
-const CATEGORY_COPY: Record<ProductCategory, {
-  intro: (name: string, brand: string) => string;
-  applyTitle: string;
-  apply: (cycles: number | null, fabric: string) => string;
-  forWho: string;
-}> = {
+const CATEGORY_COPY: Record<
+  ProductCategory,
+  {
+    intro: (name: string, brand: string) => string;
+    applyTitle: string;
+    apply: (cycles: number | null, fabric: string) => string;
+    forWho: string;
+  }
+> = {
   laundry: {
     intro: (n, b) =>
       `${b ? `<strong>${b}</strong> — ` : ''}концентрований засіб для машинного та ручного прання. Розроблений для щоденного догляду за тканинами: ефективно видаляє забруднення, зберігає колір та структуру волокон.`,
@@ -395,7 +503,8 @@ const CATEGORY_COPY: Record<ProductCategory, {
       `Залийте 30-50 мл засобу в дозатор пральної машини або безпосередньо в барабан. Для сильно забруднених речей збільшіть дозу до 70 мл. Підходить для прання при температурі ${
         fabric === 'для делікатних тканин' ? '20-40°C' : '30-60°C'
       }.${cycles ? ` Вистачає приблизно на <strong>${cycles} циклів прання</strong>.` : ''}`,
-    forWho: 'Універсальний засіб для щоденного прання — підходить для повсякденного одягу, постільної білизни, рушників.',
+    forWho:
+      'Універсальний засіб для щоденного прання — підходить для повсякденного одягу, постільної білизни, рушників.',
   },
   cleaning: {
     intro: (n, b) =>
@@ -421,7 +530,8 @@ const CATEGORY_COPY: Record<ProductCategory, {
       `Залийте 30-40 мл кондиціонера у відсік для кондиціонера в пральній машині (зазвичай позначений символом квітки). Не змішуйте з порошком чи гелем — додається на циклі полоскання.${
         cycles ? ` Вистачає приблизно на <strong>${cycles} циклів</strong>.` : ''
       }`,
-    forWho: 'Особливо рекомендується для дитячої білизни, постільної білизни та одягу з натуральних тканин.',
+    forWho:
+      'Особливо рекомендується для дитячої білизни, постільної білизни та одягу з натуральних тканин.',
   },
   descaler: {
     intro: (n, b) =>
@@ -429,7 +539,7 @@ const CATEGORY_COPY: Record<ProductCategory, {
     applyTitle: 'Як використовувати',
     apply: () =>
       `Додавайте 1-2 ложки засобу в кожен цикл прання разом з порошком чи гелем. Для жорсткої води — подвійна доза. Регулярне використання запобігає утворенню накипу на нагрівальному елементі.`,
-    forWho: 'Обов\'язково для регіонів з жорсткою водою. Підходить для усіх типів пральних машин.',
+    forWho: "Обов'язково для регіонів з жорсткою водою. Підходить для усіх типів пральних машин.",
   },
   hygiene: {
     intro: (n, b) =>
@@ -443,7 +553,8 @@ const CATEGORY_COPY: Record<ProductCategory, {
     intro: (n, b) =>
       `${b ? `<strong>${b}</strong> — ` : ''}якісний засіб для домашнього використання. Перевірена формула, ефективний результат, економна витрата.`,
     applyTitle: 'Спосіб застосування',
-    apply: () => `Використовуйте згідно з інструкцією на упаковці. Дотримуйтесь рекомендованих дозувань.`,
+    apply: () =>
+      `Використовуйте згідно з інструкцією на упаковці. Дотримуйтесь рекомендованих дозувань.`,
     forWho: 'Універсальне рішення для побутових потреб.',
   },
 };
@@ -474,7 +585,9 @@ function generateWithRules(input: GenerateInput): GeneratedContent {
     if (brandInfo) return brandInfo.signature.split(' ').slice(0, 4).join(' ');
     return null;
   })();
-  let seoTitle = brandLabel ? `${brandLabel} ${name.replace(new RegExp(brandLabel, 'i'), '').trim()}` : name;
+  let seoTitle = brandLabel
+    ? `${brandLabel} ${name.replace(new RegExp(brandLabel, 'i'), '').trim()}`
+    : name;
   if (benefit) seoTitle += ` — ${benefit}`;
   seoTitle = seoTitle.slice(0, 70);
 
@@ -496,16 +609,28 @@ function generateWithRules(input: GenerateInput): GeneratedContent {
       aroma ? ` з ароматом ${aroma}` : ''
     }.`,
   );
-  if (volume && cycles) shortParts.push(`Об'єм ${volume} — приблизно ${cycles} ${plural(cycles, ['прання', 'прань', 'прань'])}.`);
-  if (brandInfo) shortParts.push(brandInfo.signature.charAt(0).toUpperCase() + brandInfo.signature.slice(1) + '.');
+  if (volume && cycles)
+    shortParts.push(
+      `Об'єм ${volume} — приблизно ${cycles} ${plural(cycles, ['прання', 'прань', 'прань'])}.`,
+    );
+  if (brandInfo)
+    shortParts.push(
+      brandInfo.signature.charAt(0).toUpperCase() + brandInfo.signature.slice(1) + '.',
+    );
   const shortDescription = shortParts.join(' ');
 
   // Full description — 6 sections with real content
   const benefitsList: string[] = [];
   if (brandInfo) benefitsList.push(...brandInfo.highlights);
   if (aroma) benefitsList.push(`Приємний аромат ${aroma}, що тримається на тканині після прання`);
-  if (cycles) benefitsList.push(`Економна витрата — вистачає на <strong>${cycles} ${plural(cycles, ['цикл', 'цикли', 'циклів'])} прання</strong>`);
-  if (fabricType !== 'універсальний') benefitsList.push(`Спеціальна формула <strong>${fabricType}</strong> — захищає структуру волокон`);
+  if (cycles)
+    benefitsList.push(
+      `Економна витрата — вистачає на <strong>${cycles} ${plural(cycles, ['цикл', 'цикли', 'циклів'])} прання</strong>`,
+    );
+  if (fabricType !== 'універсальний')
+    benefitsList.push(
+      `Спеціальна формула <strong>${fabricType}</strong> — захищає структуру волокон`,
+    );
   // Pad to at least 5 if too few
   while (benefitsList.length < 5) {
     const extras = [
@@ -534,7 +659,10 @@ function generateWithRules(input: GenerateInput): GeneratedContent {
 
   sections.push(
     `<h3>Переваги</h3>`,
-    `<ul>${benefitsList.slice(0, 7).map((b) => `<li>${b}</li>`).join('')}</ul>`,
+    `<ul>${benefitsList
+      .slice(0, 7)
+      .map((b) => `<li>${b}</li>`)
+      .join('')}</ul>`,
     `<h3>${copy.applyTitle}</h3>`,
     `<p>${copy.apply(cycles, fabricType)}</p>`,
     `<h3>Кому підходить</h3>`,
@@ -553,7 +681,10 @@ function generateWithRules(input: GenerateInput): GeneratedContent {
   if (/^(тест|test|qwert|asdf|мав|тестов)/i.test(name) || name.length < 4) {
     return {
       seoTitle: `${name} — Pulito Trade`.slice(0, 70),
-      seoDescription: `Технічна позиція в каталозі. Опис буде оновлено найближчим часом.`.slice(0, 160),
+      seoDescription: `Технічна позиція в каталозі. Опис буде оновлено найближчим часом.`.slice(
+        0,
+        160,
+      ),
       shortDescription: `Технічна позиція. Опис буде оновлено.`,
       fullDescription: `<h2>${escapeHtml(name)}</h2><p>Технічна позиція в каталозі. Повний опис цього товару буде оновлено найближчим часом.</p>`,
     };
@@ -581,12 +712,398 @@ function plural(n: number, forms: [string, string, string]): string {
 // Public API
 // ──────────────────────────────────────────────────────────────────────────
 
+// ──────────────────────────────────────────────────────────────────────────
+// Gemini mode (gemini-2.5-flash by default — ~40× cheaper than Claude Opus)
+// ──────────────────────────────────────────────────────────────────────────
+
+// Gemini's responseSchema requires OpenAPI 3.0 style (uppercase types,
+// no `additionalProperties`). It is a strict subset of JSON Schema.
+const GEMINI_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    seoTitle: { type: 'STRING', description: SCHEMA.properties.seoTitle.description },
+    seoDescription: { type: 'STRING', description: SCHEMA.properties.seoDescription.description },
+    shortDescription: {
+      type: 'STRING',
+      description: SCHEMA.properties.shortDescription.description,
+    },
+    fullDescription: { type: 'STRING', description: SCHEMA.properties.fullDescription.description },
+  },
+  required: ['seoTitle', 'seoDescription', 'shortDescription', 'fullDescription'],
+} as const;
+
+async function generateWithGemini(input: GenerateInput): Promise<GeneratedContent | null> {
+  const cfg = await getGeminiConfig();
+  if (!cfg) return null;
+  const { apiKey, model } = cfg;
+
+  const userPrompt = [
+    `Згенеруй опис товару:`,
+    `- Назва: "${input.name}"`,
+    input.brand ? `- Торгова марка: ${input.brand}` : null,
+    input.category ? `- Категорія: ${input.category}` : null,
+    `- Ціна: ${input.priceRetail || 0} грн`,
+    input.shortDescription ? `- Існуючий короткий опис: "${input.shortDescription}"` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: GEMINI_SCHEMA,
+          temperature: 0.7,
+          maxOutputTokens: 8192,
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      logger.error('[ai-content] Gemini call failed', {
+        status: res.status,
+        body: errText.slice(0, 500),
+      });
+      return null;
+    }
+
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      logger.warn('[ai-content] Gemini returned no text candidate');
+      return null;
+    }
+    const parsed = JSON.parse(text) as GeneratedContent;
+    if (
+      !parsed.seoTitle ||
+      !parsed.seoDescription ||
+      !parsed.shortDescription ||
+      !parsed.fullDescription
+    ) {
+      logger.warn('[ai-content] Gemini JSON missing required fields');
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    logger.error('[ai-content] Gemini call threw', { error: String(err) });
+    return null;
+  }
+}
+
 /**
- * Generate SEO content for a product. Uses Claude when ANTHROPIC_API_KEY is
- * set, falls back to deterministic rules otherwise.
+ * Generate SEO content for a product.
+ *
+ * - `provider: 'claude'` — Claude only (rules fallback if Claude unavailable/fails)
+ * - `provider: 'gemini'` — Gemini only (rules fallback if Gemini unavailable/fails)
+ * - `provider: 'rules'` — Skip all LLMs, use deterministic template only
+ * - omitted (legacy) — Try Claude, then Gemini, then rules
  */
-export async function generateForProduct(input: GenerateInput): Promise<GeneratedContent> {
+export async function generateForProduct(
+  input: GenerateInput,
+  opts?: { provider?: AIProvider },
+): Promise<GeneratedContent> {
+  const provider = opts?.provider;
+
+  if (provider === 'rules') {
+    return generateWithRules(input);
+  }
+
+  if (provider === 'gemini') {
+    const fromGemini = await generateWithGemini(input);
+    if (fromGemini) return fromGemini;
+    return generateWithRules(input);
+  }
+
+  if (provider === 'claude') {
+    const fromClaude = await generateWithClaude(input);
+    if (fromClaude) return fromClaude;
+    return generateWithRules(input);
+  }
+
+  // Auto: prefer Claude, then Gemini, then rules
   const fromClaude = await generateWithClaude(input);
   if (fromClaude) return fromClaude;
+  const fromGemini = await generateWithGemini(input);
+  if (fromGemini) return fromGemini;
   return generateWithRules(input);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// CATEGORY GENERATOR
+// Same provider plumbing (Claude / Gemini / Rules) but produces a different
+// shape: description (HTML body for the category landing page) + SEO meta.
+// ══════════════════════════════════════════════════════════════════════════
+
+interface GenerateCategoryInput {
+  name: string;
+  parentName: string | null;
+  productCount: number;
+  topBrands?: string[];
+}
+
+export interface GeneratedCategoryContent {
+  description: string;
+  seoTitle: string;
+  seoDescription: string;
+}
+
+const CATEGORY_SCHEMA = {
+  type: 'object',
+  properties: {
+    seoTitle: {
+      type: 'string',
+      description:
+        'SEO Title українською, 55-70 символів. Структура: [Категорія] купити в Україні — [перевага/CTA]. Приклад: "Засоби для прання купити в Україні — оригінал, ціни від виробника".',
+    },
+    seoDescription: {
+      type: 'string',
+      description:
+        'Meta-опис українською, 140-160 символів. Має містити: тип товарів категорії, 2-3 ключові переваги магазину (асортимент/ціни/доставка), заклик. Приклад: "Великий вибір засобів для прання від ChanteClair, Persil, Ariel. ✓ Оригінал ✓ Доставка по Україні 1-2 дні ✓ Опт і роздріб."',
+    },
+    description: {
+      type: 'string',
+      description:
+        "SEO-оптимізований опис категорії в HTML, 250-450 слів. ОБОВ'ЯЗКОВІ секції в такому порядку:\n" +
+        '1. <h2>[Назва категорії]</h2> + <p> з 2-3 реченнями введення — що це за категорія, для яких задач, скільки товарів.\n' +
+        '2. <h3>Що ви знайдете у цій категорії</h3> + <ul><li> — 4-6 конкретних підтипів товарів або сценаріїв (наприклад для "Засоби для прання": гелі, порошки, капсули, плямовивідники, кондиціонери, для делікатних тканин).\n' +
+        "3. <h3>Як вибрати</h3> + <p> або <ul> — практичні поради вибору (за типом тканини, об'ємом, складом, типом машини).\n" +
+        '4. <h3>Топ-бренди категорії</h3> + <p> — 3-5 відомих брендів цієї категорії з 1 фразою про кожен (Persil — фермент-плями; ChanteClair — натуральні; Lenor — свіжість тощо). Якщо передано topBrands у вхідних даних — використовуй їх.\n' +
+        '5. <h3>Чому обрати у Pulito Trade</h3> + <ul><li> — 4 пункти: оригінал, доставка по Україні (1-2 дні), опт-роздріб, безпечна упаковка.\n' +
+        'ТЕГИ дозволені: h2, h3, p, ul, li, strong, em. БЕЗ inline-стилів, БЕЗ <table>.\n' +
+        'ЗАБОРОНЕНО кліше: "відкрийте для себе", "ідеальний", "інноваційний", "найкращий", "комплексне рішення" без цифр.',
+    },
+  },
+  required: ['seoTitle', 'seoDescription', 'description'],
+  additionalProperties: false,
+} as const;
+
+const CATEGORY_GEMINI_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    seoTitle: { type: 'STRING', description: CATEGORY_SCHEMA.properties.seoTitle.description },
+    seoDescription: {
+      type: 'STRING',
+      description: CATEGORY_SCHEMA.properties.seoDescription.description,
+    },
+    description: {
+      type: 'STRING',
+      description: CATEGORY_SCHEMA.properties.description.description,
+    },
+  },
+  required: ['seoTitle', 'seoDescription', 'description'],
+} as const;
+
+const CATEGORY_SYSTEM_PROMPT = `Ти — старший SEO-копірайтер українського інтернет-магазину побутової хімії "Pulito Trade" (pulito.trade). Твоє завдання — написати SEO-оптимізований опис КАТЕГОРІЇ товарів так, щоб сторінка добре ранжувалася в Google і конверсії.
+
+ПРИНЦИПИ:
+
+✓ КОНКРЕТИКА, НЕ ВОДА
+   Замість "великий вибір якісних товарів" — "понад 50 позицій від 5 топових брендів". Замість "інноваційні засоби" — "концентрати, які заощаджують 30% бюджету".
+
+✓ ПРАКТИЧНІ ПОРАДИ ВИБОРУ
+   Покупець має зрозуміти, як обрати правильний товар у цій категорії. Поради залежать від категорії:
+   - Прання: за типом тканини (білі/кольорові/делікатні), за формою (гель/порошок/капсули), за об\'ємом, за типом машини
+   - Посуд: концентровані vs звичайні, для рук vs для машини, без алергенів
+   - Чищення сантехніки: за pH (кислотні/нейтральні/лужні), за поверхнею (фаянс/мармур/хром), безпека для септика
+   - Догляд за тілом: за типом шкіри, склад без сульфатів/парабенів
+
+✓ БРЕНДИ — використовуй знання
+   Якщо знаєш бренди категорії — згадай 3-5 із короткою фразою про кожен. Загальні факти:
+   Persil (Німеччина) — №1 у Європі, фермент-плями.
+   Ariel — P&G, капсули PODs, активна піна.
+   ChanteClair (Італія) — натуральне марсельське мило.
+   Frosch (Німеччина) — еко-бренд, біорозкладні формули.
+   Lenor — кондиціонер з тривалою свіжістю до 12 тижнів.
+   Calgon — захист пральних машин від накипу.
+   Domestos — дезінфектант, 99,9% бактерій.
+   Vanish — плямовивідник №1.
+   Fairy — концентрований засіб для посуду.
+   Якщо переданий список topBrands — пріоритетно використовуй ці бренди.
+
+✓ SEO І КЛЮЧОВІ СЛОВА
+   - Назва категорії має згадуватися у тексті 4-6 разів (можна синонімами).
+   - SEO Title — крючок з вигодою (не лише назва).
+   - SEO Description — конкретні переваги + CTA.
+
+✓ ТОНАЛЬНІСТЬ
+   - Природна українська, без канцеляризмів ("даний", "вищезгаданий").
+   - На "ви".
+   - Без рекламного спаму ("відкрийте для себе", "перетворить ваш дім").
+
+⚠ ЧЕСНІСТЬ
+   Не пиши неіснуючих фактів, точних відсотків яких не знаєш, вигаданих сертифікатів.
+   Якщо у БД нуль товарів — пиши "категорія заповнюється новинками", не вигадуй.
+
+ФОРМАТ: ТІЛЬКИ валідний JSON у заданій схемі. Без обгорток, markdown-блоків.`;
+
+async function generateCategoryWithClaude(
+  input: GenerateCategoryInput,
+): Promise<GeneratedCategoryContent | null> {
+  const client = await getClient();
+  if (!client) return null;
+  const userPrompt = buildCategoryUserPrompt(input);
+  try {
+    const response = await client.messages.parse({
+      model: 'claude-opus-4-7',
+      max_tokens: 4096,
+      thinking: { type: 'adaptive' },
+      output_config: {
+        effort: 'high',
+        format: { type: 'json_schema', schema: CATEGORY_SCHEMA },
+      },
+      system: CATEGORY_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
+    });
+    if (!response.parsed_output) return null;
+    return response.parsed_output as GeneratedCategoryContent;
+  } catch (err) {
+    logger.error('[ai-content/category] Claude call failed', { error: String(err) });
+    return null;
+  }
+}
+
+async function generateCategoryWithGemini(
+  input: GenerateCategoryInput,
+): Promise<GeneratedCategoryContent | null> {
+  const cfg = await getGeminiConfig();
+  if (!cfg) return null;
+  const { apiKey, model } = cfg;
+  const userPrompt = buildCategoryUserPrompt(input);
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: CATEGORY_SYSTEM_PROMPT }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: CATEGORY_GEMINI_SCHEMA,
+          temperature: 0.7,
+          maxOutputTokens: 4096,
+        },
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      logger.error('[ai-content/category] Gemini failed', {
+        status: res.status,
+        body: errText.slice(0, 500),
+      });
+      return null;
+    }
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) return null;
+    const parsed = JSON.parse(text) as GeneratedCategoryContent;
+    if (!parsed.seoTitle || !parsed.seoDescription || !parsed.description) return null;
+    return parsed;
+  } catch (err) {
+    logger.error('[ai-content/category] Gemini call threw', { error: String(err) });
+    return null;
+  }
+}
+
+function buildCategoryUserPrompt(input: GenerateCategoryInput): string {
+  return [
+    `Згенеруй опис категорії:`,
+    `- Назва: "${input.name}"`,
+    input.parentName ? `- Батьківська категорія: ${input.parentName}` : null,
+    `- Товарів у категорії: ${input.productCount}`,
+    input.topBrands?.length ? `- Бренди в категорії: ${input.topBrands.join(', ')}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function escapeForCategoryHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function generateCategoryWithRules(input: GenerateCategoryInput): GeneratedCategoryContent {
+  const { name, productCount, topBrands } = input;
+  const safeName = escapeForCategoryHtml(name);
+
+  const seoTitle = `${name} купити в Україні — оригінал, доставка від 1 дня`.slice(0, 70);
+  const seoDescription = `${name}${
+    productCount > 0 ? ` — ${productCount} позицій від топових брендів` : ''
+  }. ✓ Оригінал ✓ Доставка по Україні 1-2 дні ✓ Опт і роздріб. Pulito Trade.`.slice(0, 160);
+
+  const brandsLine =
+    topBrands && topBrands.length > 0
+      ? `<h3>Топ-бренди категорії</h3><p>В асортименті: <strong>${topBrands
+          .slice(0, 6)
+          .map(escapeForCategoryHtml)
+          .join(', ')}</strong>.</p>`
+      : '';
+
+  const description = [
+    `<h2>${safeName}</h2>`,
+    `<p>У категорії <strong>${safeName}</strong>${
+      productCount > 0 ? ` представлено ${productCount} позицій` : ' представлені новинки'
+    } для щоденного використання. Підбираємо товари за якістю, ціною та оригінальністю.</p>`,
+    `<h3>Як вибрати</h3>`,
+    `<ul>`,
+    `<li>Звертайте увагу на склад — концентровані формули економніші у витраті</li>`,
+    `<li>Перевіряйте об\'єм і кількість використань — для масового вжитку обирайте більші пакування</li>`,
+    `<li>Для делікатних поверхонь і чутливої шкіри — еко-засоби без агресивних компонентів</li>`,
+    `<li>Перевіряйте сумісність з вашою технікою (пральні машини, посудомийні)</li>`,
+    `</ul>`,
+    brandsLine,
+    `<h3>Чому обрати у Pulito Trade</h3>`,
+    `<ul>`,
+    `<li>100% оригінальна продукція від офіційних постачальників</li>`,
+    `<li>Доставка по Україні Новою Поштою та Укрпоштою за 1-2 дні</li>`,
+    `<li>Гуртові ціни для оптових клієнтів — звертайтеся для розрахунку</li>`,
+    `<li>Безпечна упаковка — товари приходять цілими</li>`,
+    `</ul>`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return { seoTitle, seoDescription, description };
+}
+
+/**
+ * Generate SEO content for a category landing page.
+ * Same provider routing as generateForProduct.
+ */
+export async function generateForCategory(
+  input: GenerateCategoryInput,
+  opts?: { provider?: AIProvider },
+): Promise<GeneratedCategoryContent> {
+  const provider = opts?.provider;
+
+  if (provider === 'rules') return generateCategoryWithRules(input);
+
+  if (provider === 'gemini') {
+    const fromGemini = await generateCategoryWithGemini(input);
+    if (fromGemini) return fromGemini;
+    return generateCategoryWithRules(input);
+  }
+
+  if (provider === 'claude') {
+    const fromClaude = await generateCategoryWithClaude(input);
+    if (fromClaude) return fromClaude;
+    return generateCategoryWithRules(input);
+  }
+
+  // Auto fallback chain
+  const fromClaude = await generateCategoryWithClaude(input);
+  if (fromClaude) return fromClaude;
+  const fromGemini = await generateCategoryWithGemini(input);
+  if (fromGemini) return fromGemini;
+  return generateCategoryWithRules(input);
 }

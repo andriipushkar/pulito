@@ -48,8 +48,21 @@ export default function AdminProductCreatePage() {
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiProvider, setAiProvider] = useState<'claude' | 'gemini' | 'rules'>('claude');
   const [stagedImages, setStagedImages] = useState<File[]>([]);
   const [removeBg, setRemoveBg] = useState(true);
+
+  // Restore last-used AI provider from localStorage.
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('pulito.aiProvider') : null;
+    if (stored === 'claude' || stored === 'gemini' || stored === 'rules') {
+      setAiProvider(stored);
+    }
+  }, []);
+  const updateAiProvider = (v: 'claude' | 'gemini' | 'rules') => {
+    setAiProvider(v);
+    if (typeof window !== 'undefined') localStorage.setItem('pulito.aiProvider', v);
+  };
   const { errors, validateAll, clearError } = useFormValidation({
     name: { required: "Назва обов'язкова", minLength: { value: 2, message: 'Мінімум 2 символи' } },
     code: { required: "Код обов'язковий" },
@@ -170,14 +183,26 @@ export default function AdminProductCreatePage() {
                 className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"
                 aria-label="Видалити фото"
               >
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <svg
+                  className="h-3 w-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={3}
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
           ))}
           <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
             <span className="text-[10px] font-medium">Додати фото</span>
@@ -246,7 +271,12 @@ export default function AdminProductCreatePage() {
                 const res = await apiClient.post<{
                   source: 'local' | 'open_food_facts' | 'none';
                   existing?: { id: number; name: string };
-                  data?: { name: string | null; brand: string | null; imageUrl: string | null; quantity: string | null };
+                  data?: {
+                    name: string | null;
+                    brand: string | null;
+                    imageUrl: string | null;
+                    quantity: string | null;
+                  };
                 }>('/api/v1/admin/products/lookup-barcode', { barcode });
                 if (!res.success || !res.data) return;
                 if (res.data.source === 'local' && res.data.existing) {
@@ -398,80 +428,98 @@ export default function AdminProductCreatePage() {
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">Опис</h3>
-          <button
-            type="button"
-            disabled={isGenerating || !form.name.trim()}
-            onClick={async () => {
-              if (!form.name.trim()) {
-                toast.error('Спочатку введіть назву товару');
-                return;
-              }
-              setIsGenerating(true);
-              try {
-                const res = await apiClient.post<{
-                  seoTitle: string;
-                  seoDescription: string;
-                  shortDescription: string;
-                  fullDescription: string;
-                }>('/api/v1/admin/products/ai-generate-preview', {
-                  name: form.name,
-                  categoryId: form.categoryId ? Number(form.categoryId) : null,
-                  brandId: form.brandId ? Number(form.brandId) : null,
-                  priceRetail: Number(form.priceRetail) || 0,
-                  shortDescription: form.description || null,
-                });
-                if (!res.success || !res.data) {
-                  toast.error(res.error || 'Не вдалося згенерувати');
+          <div className="flex items-center gap-2">
+            <select
+              value={aiProvider}
+              onChange={(e) => updateAiProvider(e.target.value as 'claude' | 'gemini' | 'rules')}
+              disabled={isGenerating}
+              className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
+              title="Виберіть джерело генерації"
+            >
+              <option value="claude">Claude (дорого, найкраща якість)</option>
+              <option value="gemini">Gemini (дешево)</option>
+              <option value="rules">Без AI (шаблон)</option>
+            </select>
+            <button
+              type="button"
+              disabled={isGenerating || !form.name.trim()}
+              onClick={async () => {
+                if (!form.name.trim()) {
+                  toast.error('Спочатку введіть назву товару');
                   return;
                 }
-                const conflicts: string[] = [];
-                if (form.seoTitle.trim()) conflicts.push('SEO Title');
-                if (form.seoDescription.trim()) conflicts.push('SEO Description');
-                if (form.description.trim()) conflicts.push('Короткий опис');
-                if (form.descriptionHtml.trim()) conflicts.push('Повний опис');
-                if (
-                  conflicts.length > 0 &&
-                  !window.confirm(
-                    `Замінити заповнені поля?\n\n${conflicts.join(', ')}\n\nOK — замінити, Cancel — лишити як є.`,
-                  )
-                ) {
+                setIsGenerating(true);
+                try {
+                  const res = await apiClient.post<{
+                    seoTitle: string;
+                    seoDescription: string;
+                    shortDescription: string;
+                    fullDescription: string;
+                  }>('/api/v1/admin/products/ai-generate-preview', {
+                    name: form.name,
+                    categoryId: form.categoryId ? Number(form.categoryId) : null,
+                    brandId: form.brandId ? Number(form.brandId) : null,
+                    priceRetail: Number(form.priceRetail) || 0,
+                    shortDescription: form.description || null,
+                    provider: aiProvider,
+                  });
+                  if (!res.success || !res.data) {
+                    toast.error(res.error || 'Не вдалося згенерувати');
+                    return;
+                  }
+                  const conflicts: string[] = [];
+                  if (form.seoTitle.trim()) conflicts.push('SEO Title');
+                  if (form.seoDescription.trim()) conflicts.push('SEO Description');
+                  if (form.description.trim()) conflicts.push('Короткий опис');
+                  if (form.descriptionHtml.trim()) conflicts.push('Повний опис');
+                  if (
+                    conflicts.length > 0 &&
+                    !window.confirm(
+                      `Замінити заповнені поля?\n\n${conflicts.join(', ')}\n\nOK — замінити, Cancel — лишити як є.`,
+                    )
+                  ) {
+                    setForm((prev) => ({
+                      ...prev,
+                      seoTitle: prev.seoTitle || res.data!.seoTitle,
+                      seoDescription: prev.seoDescription || res.data!.seoDescription,
+                      description: prev.description || res.data!.shortDescription,
+                      descriptionHtml: prev.descriptionHtml || res.data!.fullDescription,
+                    }));
+                    toast.success('Заповнено лише порожні поля');
+                    return;
+                  }
                   setForm((prev) => ({
                     ...prev,
-                    seoTitle: prev.seoTitle || res.data!.seoTitle,
-                    seoDescription: prev.seoDescription || res.data!.seoDescription,
-                    description: prev.description || res.data!.shortDescription,
-                    descriptionHtml: prev.descriptionHtml || res.data!.fullDescription,
+                    seoTitle: res.data!.seoTitle,
+                    seoDescription: res.data!.seoDescription,
+                    description: res.data!.shortDescription,
+                    descriptionHtml: res.data!.fullDescription,
                   }));
-                  toast.success('Заповнено лише порожні поля');
-                  return;
+                  toast.success('Згенеровано — перевірте поля');
+                } catch (err) {
+                  console.error('[AI generate-preview]', err);
+                  toast.error('Помилка мережі');
+                } finally {
+                  setIsGenerating(false);
                 }
-                setForm((prev) => ({
-                  ...prev,
-                  seoTitle: res.data!.seoTitle,
-                  seoDescription: res.data!.seoDescription,
-                  description: res.data!.shortDescription,
-                  descriptionHtml: res.data!.fullDescription,
-                }));
-                toast.success('Згенеровано — перевірте поля');
-              } catch (err) {
-                console.error('[AI generate-preview]', err);
-                toast.error('Помилка мережі');
-              } finally {
-                setIsGenerating(false);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
+              title={
+                !form.name.trim()
+                  ? 'Спочатку введіть назву товару'
+                  : 'Згенерувати SEO-опис на основі назви, бренду, категорії'
               }
-            }}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
-            title={!form.name.trim() ? 'Спочатку введіть назву товару' : 'Згенерувати SEO-опис на основі назви, бренду, категорії'}
-          >
-            {isGenerating ? (
-              <>
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Генеруємо…
-              </>
-            ) : (
-              <>✨ Згенерувати</>
-            )}
-          </button>
+            >
+              {isGenerating ? (
+                <>
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Генеруємо…
+                </>
+              ) : (
+                <>✨ Згенерувати</>
+              )}
+            </button>
+          </div>
         </div>
         <div className="mb-3">
           <label className="mb-1 block text-sm font-medium">Короткий опис</label>
@@ -496,7 +544,7 @@ export default function AdminProductCreatePage() {
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Характеристики</h3>
           <span className="text-[11px] text-[var(--color-text-secondary)]">
-            Об'єм, склад, виробник, інструкція тощо
+            Об&apos;єм, склад, торгова марка, інструкція тощо
           </span>
         </div>
         <SpecsEditor

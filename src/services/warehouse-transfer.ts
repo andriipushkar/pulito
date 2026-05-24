@@ -136,7 +136,9 @@ export async function shipTransfer(id: number, userId: number) {
     });
     if (!transfer) throw new WarehouseTransferError('Документ не знайдено', 404);
     if (transfer.status !== 'draft') {
-      throw new WarehouseTransferError(`Не можна відвантажити документ зі статусу ${transfer.status}`);
+      throw new WarehouseTransferError(
+        `Не можна відвантажити документ зі статусу ${transfer.status}`,
+      );
     }
 
     for (const item of transfer.items) {
@@ -283,21 +285,25 @@ export async function receiveTransfer(id: number, userId: number) {
 }
 
 export async function cancelTransfer(id: number, reason: string, userId?: number) {
-  const transfer = await prisma.warehouseTransfer.findUnique({ where: { id } });
-  if (!transfer) throw new WarehouseTransferError('Документ не знайдено', 404);
-  if (transfer.status !== 'draft') {
-    throw new WarehouseTransferError(
-      `Скасувати можна тільки чернетку (поточний статус: ${transfer.status})`,
-    );
-  }
-  const result = await prisma.warehouseTransfer.update({
-    where: { id },
+  // Atomic: updateMany with status='draft' guard. Without it, two concurrent cancels
+  // could both pass the findUnique check before either commits, double-running side
+  // effects (audit logs, downstream events).
+  const updated = await prisma.warehouseTransfer.updateMany({
+    where: { id, status: 'draft' },
     data: {
       status: 'cancelled',
       cancelledAt: new Date(),
       cancelledReason: reason || null,
     },
   });
+  if (updated.count === 0) {
+    const transfer = await prisma.warehouseTransfer.findUnique({ where: { id } });
+    if (!transfer) throw new WarehouseTransferError('Документ не знайдено', 404);
+    throw new WarehouseTransferError(
+      `Скасувати можна тільки чернетку (поточний статус: ${transfer.status})`,
+    );
+  }
+  const result = await prisma.warehouseTransfer.findUniqueOrThrow({ where: { id } });
   if (userId) {
     await logAudit({
       userId,

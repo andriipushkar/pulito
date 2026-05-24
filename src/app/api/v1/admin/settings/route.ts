@@ -7,6 +7,7 @@ import { invalidateSettingsCache } from '@/services/settings';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
+import { DEFAULT_SETTINGS } from '@/types/settings';
 
 // Keys that grant access to third-party services. We mask the tail of the
 // value before returning so an admin reading the page (or its HTML cache)
@@ -21,6 +22,8 @@ const SENSITIVE_SETTING_KEYS = new Set([
   'sendpulse_api_key',
   'sendpulse_api_secret',
   'recaptcha_secret_key',
+  'anthropic_api_key',
+  'gemini_api_key',
 ]);
 
 // Whitelist of keys this endpoint will accept on PUT. Other key namespaces
@@ -28,42 +31,12 @@ const SENSITIVE_SETTING_KEYS = new Set([
 // their own dedicated routes with encryption/2FA. Accepting arbitrary keys
 // here would let a compromised admin write to those without going through
 // the right validation path.
-const ALLOWED_SETTING_KEYS = new Set([
-  'site_name',
-  'site_tagline',
-  'site_description',
-  'site_phone',
-  'site_phone_display',
-  'site_email',
-  'site_address',
-  'site_logo',
-  'site_favicon',
-  'site_og_image',
-  'site_meta_keywords',
-  'work_hours',
-  'free_delivery_threshold',
-  'min_order_amount',
-  'max_root_categories',
-  'currency',
-  'currency_symbol',
-  'google_maps_api_key',
-  'google_analytics_id',
-  'facebook_pixel_id',
-  'tiktok_pixel_id',
-  'hotjar_id',
-  'sendpulse_api_key',
-  'sendpulse_api_secret',
-  'recaptcha_site_key',
-  'recaptcha_secret_key',
-  'facebook_url',
-  'instagram_url',
-  'youtube_url',
-  'telegram_url',
-  'viber_url',
-  'tiktok_url',
-  'maintenance_mode',
-  'maintenance_message',
-]);
+// Дозволені ключі автоматично беремо з DEFAULT_SETTINGS — це єдиний
+// source of truth для загальних налаштувань. Раніше тут був ручний список
+// з розходженнями (work_hours vs working_hours, facebook_url vs
+// social_facebook тощо), через які PUT мовчки падав з 400 на першому ж
+// "неправильному" ключі і нічого не зберігалося.
+const ALLOWED_SETTING_KEYS = new Set<string>(Object.keys(DEFAULT_SETTINGS));
 
 function maskSecret(value: string): string {
   if (!value) return '';

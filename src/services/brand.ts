@@ -122,7 +122,7 @@ export async function createBrand(data: BrandWritable & { name: string }) {
     return revived;
   }
   if (existing) {
-    throw new BrandError(`Виробник з slug "${slug}" вже існує`, 409);
+    throw new BrandError(`Торгова марка з slug "${slug}" вже існує`, 409);
   }
 
   // Also guard against a name collision (separate unique index on name).
@@ -136,7 +136,7 @@ export async function createBrand(data: BrandWritable & { name: string }) {
     return revived;
   }
   if (nameClash) {
-    throw new BrandError(`Виробник з назвою "${data.name}" вже існує`, 409);
+    throw new BrandError(`Торгова марка з назвою "${data.name}" вже існує`, 409);
   }
 
   const created = await prisma.brand.create({
@@ -148,7 +148,7 @@ export async function createBrand(data: BrandWritable & { name: string }) {
 
 export async function updateBrand(id: number, data: BrandWritable) {
   const brand = await prisma.brand.findFirst({ where: { id, deletedAt: null } });
-  if (!brand) throw new BrandError('Виробника не знайдено', 404);
+  if (!brand) throw new BrandError('Торгової марки не знайдено', 404);
 
   const clientSentExplicitSlug =
     data.slug !== undefined && data.slug !== null && data.slug !== '' && data.slug !== brand.slug;
@@ -164,7 +164,7 @@ export async function updateBrand(id: number, data: BrandWritable) {
     const slugClash = await prisma.brand.findFirst({
       where: { slug: resolvedSlug, id: { not: id } },
     });
-    if (slugClash) throw new BrandError(`Виробник з slug "${resolvedSlug}" вже існує`, 409);
+    if (slugClash) throw new BrandError(`Торгова марка з slug "${resolvedSlug}" вже існує`, 409);
   }
 
   // Optimistic concurrency: client must send the version it read. updateMany
@@ -182,7 +182,7 @@ export async function updateBrand(id: number, data: BrandWritable) {
     });
     if (result.count === 0) {
       throw new BrandError(
-        'Виробник був змінений іншим адміністратором. Оновіть сторінку і повторіть.',
+        'Торгова марка був змінений іншим адміністратором. Оновіть сторінку і повторіть.',
         409,
       );
     }
@@ -206,7 +206,7 @@ export async function updateBrand(id: number, data: BrandWritable) {
 
 export async function deleteBrand(id: number): Promise<{ hard: boolean }> {
   const brand = await prisma.brand.findFirst({ where: { id, deletedAt: null } });
-  if (!brand) throw new BrandError('Виробника не знайдено', 404);
+  if (!brand) throw new BrandError('Торгової марки не знайдено', 404);
 
   // Try hard delete; FK on products is ON DELETE SET NULL, so this only
   // fails if some other table without SET NULL references the brand.

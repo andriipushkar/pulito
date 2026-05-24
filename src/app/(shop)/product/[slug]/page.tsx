@@ -8,6 +8,8 @@ import ImageGallery from '@/components/product/ImageGallery';
 import ProductInfo from '@/components/product/ProductInfo';
 import ProductTabs from '@/components/product/ProductTabs';
 import ProductJsonLd from '@/components/product/ProductJsonLd';
+import ProductFaqJsonLd from '@/components/product/ProductFaqJsonLd';
+import ProductOgProperty from '@/components/product/ProductOgProperty';
 import ProductCarousel from '@/components/product/ProductCarousel';
 import RecentlyViewedTracker from '@/components/product/RecentlyViewedTracker';
 import ViewItemTracker from '@/components/product/ViewItemTracker';
@@ -73,7 +75,10 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
           alt: product.name,
         },
       ],
-      type: 'website',
+      // og:type set via `other` below — Next.js's Metadata type whitelists
+      // only website/article/book/profile/music.*/video.*, but the OG Product
+      // Markup spec (og:type=product + product:*) needs the "product" value
+      // for FB/IG/Telegram to render a price-aware product card on share.
       siteName: 'Pulito Trade',
     },
     twitter: {
@@ -82,13 +87,10 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       description,
       ...(image && { images: [image] }),
     },
-    other: {
-      'product:price:amount': price.toFixed(2),
-      'product:price:currency': 'UAH',
-      'product:availability': product.quantity > 0 ? 'in stock' : 'out of stock',
-      'product:condition': 'new',
-      ...(product.code && { 'product:retailer_item_id': product.code }),
-    },
+    // og:type=product and product:* meta tags MUST use `property=` per the
+    // OG Product Markup spec — Facebook/Telegram/IG only parse `property=`.
+    // Next.js's `other` field renders as `name=`, so we inject these via a
+    // <meta property="..."> server component in the page body instead.
   };
 }
 
@@ -142,6 +144,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
     <Container className="py-6">
       <ProductJsonLd product={product} ratingStats={ratingStats} />
       <BreadcrumbJsonLd items={breadcrumbJsonLdItems} />
+      <ProductFaqJsonLd fullDescription={product.content?.fullDescription} />
+      <ProductOgProperty
+        price={Number(product.priceRetail)}
+        availability={product.quantity > 0 ? 'in stock' : 'out of stock'}
+        retailerItemId={product.code}
+      />
       {ratingStats && ratingStats.totalReviews > 0 && (
         <ReviewAggregateJsonLd
           productName={product.name}

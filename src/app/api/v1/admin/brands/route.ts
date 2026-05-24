@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { createBrandSchema } from '@/validators/brand';
 import { getBrands, createBrand, BrandError } from '@/services/brand';
@@ -35,6 +36,12 @@ export const POST = withRole(
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
     const brand = await createBrand(parsed.data);
+    try {
+      revalidatePath('/catalog');
+      revalidatePath('/sitemap.xml');
+    } catch {
+      /* best-effort */
+    }
     return successResponse(brand, 201);
   } catch (error) {
     if (error instanceof BrandError) {

@@ -47,9 +47,20 @@ export default function AdminBadgesPage() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ productId: '', badgeType: 'promo', customText: '', customColor: '#2563eb', priority: 0 });
+  const [form, setForm] = useState({
+    productId: '',
+    badgeType: 'promo',
+    customText: '',
+    customColor: '#2563eb',
+    priority: 0,
+  });
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ badgeType: 'promo', customText: '', customColor: '#2563eb', priority: 0 });
+  const [editForm, setEditForm] = useState<EditForm>({
+    badgeType: 'promo',
+    customText: '',
+    customColor: '#2563eb',
+    priority: 0,
+  });
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [listSearch, setListSearch] = useState('');
   const [productQuery, setProductQuery] = useState('');
@@ -70,7 +81,9 @@ export default function AdminBadgesPage() {
         b.product.name.toLowerCase().includes(q) ||
         b.product.code.toLowerCase().includes(q) ||
         (b.customText || '').toLowerCase().includes(q) ||
-        BADGE_TYPES.find((t) => t.value === b.badgeType)?.label.toLowerCase().includes(q),
+        BADGE_TYPES.find((t) => t.value === b.badgeType)
+          ?.label.toLowerCase()
+          .includes(q),
     );
   })();
 
@@ -85,7 +98,9 @@ export default function AdminBadgesPage() {
       .finally(() => setIsLoading(false));
   };
 
-  useEffect(() => { loadBadges(); }, []);
+  useEffect(() => {
+    loadBadges();
+  }, []);
 
   // Render-time guard below (`productQuery.length >= 2`) means stale results
   // are never shown for short queries, so we can skip the unconditional clear.
@@ -124,7 +139,13 @@ export default function AdminBadgesPage() {
     if (res.success) {
       toast.success('Бейдж створено');
       setShowForm(false);
-      setForm({ productId: '', badgeType: 'promo', customText: '', customColor: '#2563eb', priority: 0 });
+      setForm({
+        productId: '',
+        badgeType: 'promo',
+        customText: '',
+        customColor: '#2563eb',
+        priority: 0,
+      });
       setPickedProduct(null);
       setProductQuery('');
       loadBadges();
@@ -279,18 +300,34 @@ export default function AdminBadgesPage() {
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
               >
                 {BADGE_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
                 ))}
               </select>
             </div>
-            <Input label="Пріоритет" type="number" value={String(form.priority)} onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })} />
+            <Input
+              label="Пріоритет"
+              type="number"
+              value={String(form.priority)}
+              onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
+            />
           </div>
           {form.badgeType === 'custom' && (
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <Input label="Текст бейджа" value={form.customText} onChange={(e) => setForm({ ...form, customText: e.target.value })} />
+              <Input
+                label="Текст бейджа"
+                value={form.customText}
+                onChange={(e) => setForm({ ...form, customText: e.target.value })}
+              />
               <div>
                 <label className="mb-1 block text-sm font-medium">Колір</label>
-                <input type="color" value={form.customColor} onChange={(e) => setForm({ ...form, customColor: e.target.value })} className="h-10 w-full rounded" />
+                <input
+                  type="color"
+                  value={form.customColor}
+                  onChange={(e) => setForm({ ...form, customColor: e.target.value })}
+                  className="h-10 w-full rounded"
+                />
               </div>
             </div>
           )}
@@ -302,7 +339,10 @@ export default function AdminBadgesPage() {
 
       <div className="space-y-2">
         {filteredBadges.map((b) => (
-          <div key={b.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+          <div
+            key={b.id}
+            className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3"
+          >
             {editingId === b.id ? (
               <div className="space-y-3">
                 <div
@@ -316,7 +356,9 @@ export default function AdminBadgesPage() {
                       className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
                     >
                       {BADGE_TYPES.map((t) => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -325,14 +367,21 @@ export default function AdminBadgesPage() {
                     <input
                       type="number"
                       value={editForm.priority}
-                      onChange={(e) => setEditForm({ ...editForm, priority: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, priority: Number(e.target.value) })
+                      }
                       className="w-full rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                     />
                   </div>
                   {editForm.badgeType === 'custom' && (
                     <div>
                       <label className="mb-1 block text-xs font-medium">Колір</label>
-                      <input type="color" value={editForm.customColor} onChange={(e) => setEditForm({ ...editForm, customColor: e.target.value })} className="h-8 w-full rounded" />
+                      <input
+                        type="color"
+                        value={editForm.customColor}
+                        onChange={(e) => setEditForm({ ...editForm, customColor: e.target.value })}
+                        className="h-8 w-full rounded"
+                      />
                     </div>
                   )}
                 </div>
@@ -345,8 +394,20 @@ export default function AdminBadgesPage() {
                   />
                 )}
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => setEditingId(null)} className="rounded-[var(--radius)] border border-[var(--color-border)] p-1.5"><Close size={16} /></button>
-                  <button onClick={() => saveEdit(b.id)} className="rounded-[var(--radius)] bg-[var(--color-primary)] p-1.5 text-white"><Check size={16} /></button>
+                  <button
+                    aria-label="Скасувати редагування"
+                    onClick={() => setEditingId(null)}
+                    className="rounded-[var(--radius)] border border-[var(--color-border)] p-1.5"
+                  >
+                    <Close size={16} />
+                  </button>
+                  <button
+                    aria-label="Зберегти зміни"
+                    onClick={() => saveEdit(b.id)}
+                    className="rounded-[var(--radius)] bg-[var(--color-primary)] p-1.5 text-white"
+                  >
+                    <Check size={16} />
+                  </button>
                 </div>
               </div>
             ) : (
@@ -359,12 +420,27 @@ export default function AdminBadgesPage() {
                 </span>
                 <span className="flex-1 text-sm">{b.product.name}</span>
                 <span className="text-xs text-[var(--color-text-secondary)]">{b.product.code}</span>
-                <span className="text-xs text-[var(--color-text-secondary)]">Пріоритет: {b.priority}</span>
-                <button onClick={() => startEdit(b)} className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]">Редагувати</button>
-                <button onClick={() => toggleActive(b.id, b.isActive)} className={`rounded-full px-3 py-1 text-xs ${b.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                <span className="text-xs text-[var(--color-text-secondary)]">
+                  Пріоритет: {b.priority}
+                </span>
+                <button
+                  onClick={() => startEdit(b)}
+                  className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
+                >
+                  Редагувати
+                </button>
+                <button
+                  onClick={() => toggleActive(b.id, b.isActive)}
+                  className={`rounded-full px-3 py-1 text-xs ${b.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                >
                   {b.isActive ? 'Активний' : 'Вимкнено'}
                 </button>
-                <button onClick={() => handleDelete(b.id)} className="text-xs text-red-500 hover:text-red-700">Видалити</button>
+                <button
+                  onClick={() => handleDelete(b.id)}
+                  className="text-xs text-red-500 hover:text-red-700"
+                >
+                  Видалити
+                </button>
               </div>
             )}
           </div>

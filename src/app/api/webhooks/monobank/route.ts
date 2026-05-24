@@ -18,19 +18,46 @@ export async function POST(request: NextRequest) {
     const xSign = request.headers.get('X-Sign') || '';
 
     if (!body || !xSign) {
-      logWebhook({ source: 'monobank', event: 'missing_params', statusCode: 400, error: 'Missing body or X-Sign' }).catch(() => {});
+      logWebhook({
+        source: 'monobank',
+        event: 'missing_params',
+        statusCode: 400,
+        error: 'Missing body or X-Sign',
+      }).catch(() => {});
       return new Response('Missing body or X-Sign', { status: 400 });
     }
 
     const callbackResult = await verifyCallback(body, xSign);
     await handlePaymentCallback('monobank', callbackResult);
 
-    logWebhook({ source: 'monobank', event: 'payment_callback', payload: { orderId: callbackResult.orderId, status: callbackResult.status }, statusCode: 200, durationMs: Date.now() - startTime }).catch(() => {});
+    logWebhook({
+      source: 'monobank',
+      event: 'payment_callback',
+      payload: { orderId: callbackResult.orderId, status: callbackResult.status },
+      statusCode: 200,
+      durationMs: Date.now() - startTime,
+    }).catch(() => {});
     return new Response('OK', { status: 200 });
   } catch (error) {
-    const isSignatureError = String(error).includes('підпис') || String(error).includes('signature') || String(error).includes('Signature');
-    logger.error('Monobank webhook error', { error: String(error) });
-    logWebhook({ source: 'monobank', event: isSignatureError ? 'signature_failed' : 'error', statusCode: isSignatureError ? 403 : 500, error: String(error), durationMs: Date.now() - startTime }).catch(() => {});
+    const isSignatureError =
+      String(error).includes('підпис') ||
+      String(error).includes('signature') ||
+      String(error).includes('Signature');
+    if (isSignatureError) {
+      logger.error('PAYMENT_WEBHOOK_SIGNATURE_MISMATCH', {
+        provider: 'monobank',
+        error: String(error),
+      });
+    } else {
+      logger.error('Monobank webhook error', { error: String(error) });
+    }
+    logWebhook({
+      source: 'monobank',
+      event: isSignatureError ? 'signature_failed' : 'error',
+      statusCode: isSignatureError ? 403 : 500,
+      error: String(error),
+      durationMs: Date.now() - startTime,
+    }).catch(() => {});
     return new Response('Error', { status: 200 });
   }
 }

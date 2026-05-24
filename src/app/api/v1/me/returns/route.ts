@@ -11,7 +11,9 @@ export const GET = withAuth(async (request: NextRequest, { user }) => {
     const limit = Math.min(Number(url.searchParams.get('limit')) || 10, 50);
 
     const { returns, total } = await getUserReturns(user.id, page, limit);
-    return successResponse({ returns, total, page, limit });
+    const res = successResponse({ returns, total, page, limit });
+    res.headers.set('Cache-Control', 'no-store');
+    return res;
   } catch {
     return errorResponse('Помилка сервера', 500);
   }

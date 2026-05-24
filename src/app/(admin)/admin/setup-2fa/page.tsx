@@ -29,6 +29,28 @@ export default function SecurityPage() {
     }[]
   >([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [disableMode, setDisableMode] = useState(false);
+  const [disableCode, setDisableCode] = useState('');
+
+  const handleDisable = async () => {
+    if (disableCode.length !== 6) {
+      toast.error('Код має містити 6 цифр');
+      return;
+    }
+    setIsProcessing(true);
+    const res = await apiClient.post<{ twoFactorEnabled: boolean }>('/api/v1/auth/2fa/disable', {
+      code: disableCode,
+    });
+    if (res.success) {
+      toast.success('2FA вимкнено');
+      setDisableMode(false);
+      setDisableCode('');
+      await refreshAuth();
+    } else {
+      toast.error(res.error || 'Невірний код');
+    }
+    setIsProcessing(false);
+  };
 
   const handleSetup = async () => {
     setIsProcessing(true);
@@ -244,11 +266,49 @@ export default function SecurityPage() {
           </div>
         )}
 
-        {is2faEnabled && step === 'idle' && (
-          <p className="text-sm text-green-700">
-            Ваш акаунт захищено двофакторною автентифікацією. При вході вам потрібно вводити код з
-            Google Authenticator.
-          </p>
+        {is2faEnabled && step === 'idle' && !disableMode && (
+          <div className="space-y-4">
+            <p className="text-sm text-green-700">
+              Ваш акаунт захищено двофакторною автентифікацією. При вході вам потрібно вводити код з
+              Google Authenticator.
+            </p>
+            <Button variant="outline" onClick={() => setDisableMode(true)}>
+              Вимкнути 2FA
+            </Button>
+          </div>
+        )}
+
+        {is2faEnabled && disableMode && (
+          <div>
+            <p className="mb-3 text-sm text-[var(--color-text-secondary)]">
+              Введіть 6-значний код з додатку, щоб підтвердити вимкнення 2FA.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={disableCode}
+                onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                className="w-40 text-center text-lg font-mono tracking-widest"
+                autoFocus
+              />
+              <Button
+                onClick={handleDisable}
+                isLoading={isProcessing}
+                disabled={disableCode.length !== 6}
+              >
+                Вимкнути
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDisableMode(false);
+                  setDisableCode('');
+                }}
+              >
+                Скасувати
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -287,7 +347,13 @@ export default function SecurityPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-[var(--color-text-secondary)]">Немає записів</p>
+            <div className="flex flex-col items-center gap-2 py-6 text-center text-[var(--color-text-secondary)]">
+              <span className="text-2xl" aria-hidden="true">
+                🔒
+              </span>
+              <p className="text-sm font-medium">Підозрілої активності не виявлено</p>
+              <p className="text-xs">Поки що немає інших входів у ваш акаунт</p>
+            </div>
           )
         ) : (
           <p className="text-sm text-[var(--color-text-secondary)]">

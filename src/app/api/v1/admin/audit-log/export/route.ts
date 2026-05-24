@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withRole2fa } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { maskEmail, maskPhone, maskDigits, maskIp } from '@/utils/pii';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+import { errorResponse } from '@/utils/api-response';
 
 const EXPORT_LIMIT = 10_000;
 
@@ -25,8 +27,10 @@ function sanitizeDetails(input: unknown): unknown {
     if (typeof v === 'string') {
       if (lower.includes('email')) out[k] = maskEmail(v);
       else if (lower.includes('phone')) out[k] = maskPhone(v);
-      else if (lower === 'password' || lower === 'passwordhash' || lower === 'pass') out[k] = '••••';
-      else if (lower.includes('edrpou') || lower.includes('ipn') || lower.includes('iban')) out[k] = maskDigits(v);
+      else if (lower === 'password' || lower === 'passwordhash' || lower === 'pass')
+        out[k] = '••••';
+      else if (lower.includes('edrpou') || lower.includes('ipn') || lower.includes('iban'))
+        out[k] = maskDigits(v);
       else if (lower.includes('ip') && !lower.includes('zip')) out[k] = maskIp(v);
       else out[k] = v;
     } else {
@@ -36,7 +40,14 @@ function sanitizeDetails(input: unknown): unknown {
   return out;
 }
 
-export const GET = withRole2fa('admin', 'manager')(async (request: NextRequest) => {
+export const GET = withRole2fa(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { user }) => {
+  const rl = await checkRateLimit(`u${user.id}`, RATE_LIMITS.adminExport);
+  if (!rl.allowed) {
+    return errorResponse(`Забагато експортів. Спробуйте через ${rl.retryAfter}с`, 429);
+  }
   const { searchParams } = new URL(request.url);
   const actionType = searchParams.get('actionType') || undefined;
   const entityType = searchParams.get('entityType') || undefined;
@@ -83,7 +94,17 @@ export const GET = withRole2fa('admin', 'manager')(async (request: NextRequest) 
     take: EXPORT_LIMIT,
   });
 
-  const header = ['ID', 'Дата', 'Користувач', 'Email', 'Тип дії', "Об'єкт", "ID об'єкта", 'IP', 'Деталі'];
+  const header = [
+    'ID',
+    'Дата',
+    'Користувач',
+    'Email',
+    'Тип дії',
+    "Об'єкт",
+    "ID об'єкта",
+    'IP',
+    'Деталі',
+  ];
   const lines = [header.map(csvEscape).join(',')];
   for (const r of rows) {
     lines.push(

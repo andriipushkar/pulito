@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { verifyTOTP, generateBackupCodes, hashBackupCode } from '@/services/totp';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import { privateResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 
@@ -15,7 +15,10 @@ const verifySchema = z.object({
  * Verifies a TOTP code against the stored (not yet enabled) secret.
  * If valid, enables 2FA for the user and returns backup codes.
  */
-export const POST = withRole('admin', 'manager')(async (request, { user }) => {
+export const POST = withRole(
+  'admin',
+  'manager',
+)(async (request, { user }) => {
   try {
     const body = await request.json();
     const parsed = verifySchema.safeParse(body);
@@ -96,7 +99,7 @@ export const POST = withRole('admin', 'manager')(async (request, { user }) => {
       ipAddress: getClientIp(request),
     });
 
-    return successResponse({
+    return privateResponse({
       twoFactorEnabled: true,
       backupCodes: plainBackupCodes,
     });

@@ -111,19 +111,31 @@ export default function AdminBlogPage() {
           </thead>
           <tbody>
             {posts.map((post) => (
-              <tr key={post.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
+              <tr
+                key={post.id}
+                className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]"
+              >
                 <td className="px-4 py-3">
-                  <Link href={`/admin/blog/${post.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
+                  <Link
+                    href={`/admin/blog/${post.id}`}
+                    className="font-medium text-[var(--color-primary)] hover:underline"
+                  >
                     {post.title}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-[var(--color-text-secondary)]">{post.category || '—'}</td>
+                <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                  {post.category || '—'}
+                </td>
                 <td className="px-4 py-3 text-center">
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${post.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${post.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                  >
                     {post.status === 'published' ? 'Опубліковано' : 'Чернетка'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">{post.views}</td>
+                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">
+                  {post.views}
+                </td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                   {new Date(post.createdAt).toLocaleDateString('uk-UA')}
                 </td>
@@ -143,10 +155,16 @@ export default function AdminBlogPage() {
                       </>
                     ) : (
                       <>
-                        <Link href={`/admin/blog/${post.id}`} className="text-xs text-[var(--color-primary)] hover:underline">
+                        <Link
+                          href={`/admin/blog/${post.id}`}
+                          className="text-xs text-[var(--color-primary)] hover:underline"
+                        >
                           Редагувати
                         </Link>
-                        <button onClick={() => setDeleteId(post.id)} className="text-xs text-[var(--color-danger)] hover:underline">
+                        <button
+                          onClick={() => setDeleteId(post.id)}
+                          className="text-xs text-[var(--color-danger)] hover:underline"
+                        >
                           Видалити
                         </button>
                       </>
@@ -157,8 +175,17 @@ export default function AdminBlogPage() {
             ))}
             {posts.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
-                  Статей немає
+                <td colSpan={6} className="px-4 py-12 text-center">
+                  <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
+                    <span className="text-3xl">📝</span>
+                    <p className="text-sm font-medium">Статей ще немає</p>
+                    <Link
+                      href="/admin/blog/new"
+                      className="text-xs text-[var(--color-primary)] hover:underline"
+                    >
+                      + Створити першу статтю
+                    </Link>
+                  </div>
                 </td>
               </tr>
             )}

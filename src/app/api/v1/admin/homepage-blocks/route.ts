@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
@@ -89,7 +90,9 @@ export const GET = withRole(
         if (migrated) return successResponse(migrated);
         logger.warn('[admin/homepage-blocks] stored value malformed, falling back to defaults');
       } catch (parseErr) {
-        logger.warn('[admin/homepage-blocks] JSON.parse failed, falling back to defaults', { error: parseErr });
+        logger.warn('[admin/homepage-blocks] JSON.parse failed, falling back to defaults', {
+          error: parseErr,
+        });
       }
     }
 
@@ -131,6 +134,9 @@ export const PUT = withRole(
       entityType: 'homepage_blocks',
       details: { blockCount: blocks.length },
     });
+    // Homepage layout changed — bust the ISR cache so the storefront
+    // reflects the new block order/visibility immediately.
+    revalidatePath('/');
 
     return successResponse({ updated: true });
   } catch (err) {

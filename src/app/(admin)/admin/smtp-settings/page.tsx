@@ -33,16 +33,14 @@ export default function SmtpSettingsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    apiClient
-      .get<Record<string, string>>('/api/v1/admin/smtp-settings')
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) {
-          setSettings(res.data);
-          setDirty(new Set());
-        }
-        setIsLoading(false);
-      });
+    apiClient.get<Record<string, string>>('/api/v1/admin/smtp-settings').then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) {
+        setSettings(res.data);
+        setDirty(new Set());
+      }
+      setIsLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -67,7 +65,7 @@ export default function SmtpSettingsPage() {
   };
 
   const handleTest = async () => {
-    if (testEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+    if (testEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(testEmail)) {
       toast.error('Невірний формат email для тесту');
       return;
     }

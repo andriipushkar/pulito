@@ -97,9 +97,21 @@ export default function SegmentsPage() {
   const PAGE_LIMIT = 100;
 
   const runPreview = async (offset = 0) => {
+    for (const r of rules) {
+      if (r.value === '' || r.value === null || r.value === undefined) {
+        toast.error('Заповніть значення для всіх правил');
+        return;
+      }
+      if (r.field !== 'city') {
+        const n = Number(r.value);
+        if (!Number.isFinite(n)) {
+          toast.error(`Невірне числове значення для "${r.field}"`);
+          return;
+        }
+      }
+    }
     setIsRunning(true);
-    const roles =
-      roleScope === 'both' ? ['client', 'wholesaler'] : [roleScope];
+    const roles = roleScope === 'both' ? ['client', 'wholesaler'] : [roleScope];
     const res = await apiClient.post<SegmentResult>('/api/v1/admin/segments/preview', {
       rules: rules.map((r) => ({
         field: r.field,
@@ -126,7 +138,10 @@ export default function SegmentsPage() {
 
   const exportPhones = () => {
     if (!result) return;
-    const text = result.users.map((u) => u.phone).filter(Boolean).join('\n');
+    const text = result.users
+      .map((u) => u.phone)
+      .filter(Boolean)
+      .join('\n');
     navigator.clipboard.writeText(text);
     toast.success(`Скопійовано ${text.split('\n').length} номерів`);
   };
@@ -136,8 +151,8 @@ export default function SegmentsPage() {
       <div>
         <h1 className="text-xl font-bold">Сегменти клієнтів</h1>
         <p className="text-xs text-[var(--color-text-secondary)]">
-          Сформуйте групу клієнтів за критеріями, перегляньте і експортуйте список номерів
-          для SMS-розсилки.
+          Сформуйте групу клієнтів за критеріями, перегляньте і експортуйте список номерів для
+          SMS-розсилки.
         </p>
       </div>
 
@@ -170,9 +185,7 @@ export default function SegmentsPage() {
                   const field = e.target.value as SegmentField;
                   setRules((rs) =>
                     rs.map((r) =>
-                      r.id === rule.id
-                        ? { ...r, field, op: FIELDS_FOR_OP[field][0] }
-                        : r,
+                      r.id === rule.id ? { ...r, field, op: FIELDS_FOR_OP[field][0] } : r,
                     ),
                   );
                 }}
@@ -239,10 +252,12 @@ export default function SegmentsPage() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-semibold">
-                Знайдено: <span className="text-[var(--color-primary)]">{result.total}</span> клієнтів
+                Знайдено: <span className="text-[var(--color-primary)]">{result.total}</span>{' '}
+                клієнтів
                 {result.total > PAGE_LIMIT && (
                   <span className="ml-2 text-xs font-normal text-[var(--color-text-secondary)]">
-                    (показано {pageOffset + 1}–{Math.min(pageOffset + result.users.length, result.total)})
+                    (показано {pageOffset + 1}–
+                    {Math.min(pageOffset + result.users.length, result.total)})
                   </span>
                 )}
               </h3>

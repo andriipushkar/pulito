@@ -7,7 +7,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
 
-const ALLOWED_FOLDERS = ['publications', 'general', 'brands'] as const;
+const ALLOWED_FOLDERS = ['publications', 'general', 'brands', 'categories'] as const;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 

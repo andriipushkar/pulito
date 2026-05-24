@@ -4,6 +4,7 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 /**
  * Exports marketplace publication history as XLSX.
@@ -14,8 +15,15 @@ import { logger } from '@/lib/logger';
  * - history:  every publication channel result (any status), ordered by date.
  * - listings: only currently-published listings (one row per active sync).
  */
-export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`u${user.id}`, RATE_LIMITS.adminExport);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато експортів. Спробуйте через ${rl.retryAfter}с`, 429);
+    }
     const { searchParams } = new URL(request.url);
     const type = (searchParams.get('type') || 'history') as 'history' | 'listings';
     const platform = searchParams.get('platform') || undefined;
@@ -50,16 +58,14 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
       Маркетплейс: r.channel,
       Артикул: r.publication.product?.code ?? '',
       Назва: r.publication.product?.name ?? r.publication.title,
-      Ціна: r.publication.product?.priceRetail
-        ? Number(r.publication.product.priceRetail)
-        : '',
+      Ціна: r.publication.product?.priceRetail ? Number(r.publication.product.priceRetail) : '',
       Залишок: r.publication.product?.quantity ?? '',
       Статус: r.status,
       'External ID': r.externalId ?? '',
       Посилання: r.permalink ?? '',
       Помилка: r.errorMessage ?? '',
-      'Опубліковано': r.publishedAt ? r.publishedAt.toISOString() : '',
-      'Створено': r.createdAt.toISOString(),
+      Опубліковано: r.publishedAt ? r.publishedAt.toISOString() : '',
+      Створено: r.createdAt.toISOString(),
     }));
 
     const wb = new ExcelJS.Workbook();

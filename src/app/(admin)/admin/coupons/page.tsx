@@ -38,7 +38,11 @@ const TYPE_COLORS: Record<Coupon['type'], string> = {
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 }
 
 function formatValue(c: Coupon): string {
@@ -72,7 +76,8 @@ export default function CouponsAdminPage() {
         <div>
           <h2 className="text-xl font-bold">Промокоди</h2>
           <p className="text-xs text-[var(--color-text-secondary)]">
-            Створюйте знижки за кодом для клієнтів. Введений у кошику код застосовується на ту ж сесію.
+            Створюйте знижки за кодом для клієнтів. Введений у кошику код застосовується на ту ж
+            сесію.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -108,7 +113,9 @@ export default function CouponsAdminPage() {
       ) : coupons.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] py-12 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
-            <span className="text-2xl" aria-hidden="true">🎟️</span>
+            <span className="text-2xl" aria-hidden="true">
+              🎟️
+            </span>
           </div>
           <p className="mb-1 text-sm font-semibold text-[var(--color-text)]">Промокодів немає</p>
           <p className="mx-auto mb-4 max-w-xs text-xs text-[var(--color-text-secondary)]">
@@ -133,9 +140,13 @@ export default function CouponsAdminPage() {
               {coupons.map((c) => (
                 <tr key={c.id} className="hover:bg-[var(--color-bg-secondary)]/50">
                   <td className="px-4 py-3">
-                    <span className="font-mono font-semibold text-[var(--color-text)]">{c.code}</span>
+                    <span className="font-mono font-semibold text-[var(--color-text)]">
+                      {c.code}
+                    </span>
                     {c.description && (
-                      <p className="text-[11px] text-[var(--color-text-secondary)]">{c.description}</p>
+                      <p className="text-[11px] text-[var(--color-text-secondary)]">
+                        {c.description}
+                      </p>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -145,7 +156,9 @@ export default function CouponsAdminPage() {
                       {TYPE_LABELS[c.type]}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatValue(c)}</td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                    {formatValue(c)}
+                  </td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     {c.usedCount}
                     {c.usageLimit && (
@@ -155,9 +168,15 @@ export default function CouponsAdminPage() {
                   <td className="px-4 py-3 text-xs">{formatDate(c.validUntil)}</td>
                   <td className="px-4 py-3 text-center">
                     {c.isActive ? (
-                      <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-label="Активний" />
+                      <span
+                        className="inline-flex h-2 w-2 rounded-full bg-emerald-500"
+                        aria-label="Активний"
+                      />
                     ) : (
-                      <span className="inline-flex h-2 w-2 rounded-full bg-gray-300" aria-label="Неактивний" />
+                      <span
+                        className="inline-flex h-2 w-2 rounded-full bg-gray-300"
+                        aria-label="Неактивний"
+                      />
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -199,7 +218,13 @@ function CouponToggle({ coupon, onToggled }: { coupon: Coupon; onToggled: () => 
   );
 }
 
-function CouponCreateForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: () => void }) {
+function CouponCreateForm({
+  onCancel,
+  onCreated,
+}: {
+  onCancel: () => void;
+  onCreated: () => void;
+}) {
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<Coupon['type']>('percent');
@@ -226,9 +251,37 @@ function CouponCreateForm({ onCancel, onCreated }: { onCancel: () => void; onCre
       .filter((n) => Number.isFinite(n) && n > 0);
 
   const handleSubmit = async () => {
-    if (!code.trim() || !value.trim()) {
-      toast.error('Заповніть код і значення');
+    if (!code.trim()) {
+      toast.error('Введіть код промокоду');
       return;
+    }
+    if (type !== 'free_delivery' && !value.trim()) {
+      toast.error('Введіть значення знижки');
+      return;
+    }
+    const numValue = type === 'free_delivery' ? 0 : Number(value);
+    if (type !== 'free_delivery') {
+      if (!Number.isFinite(numValue) || numValue <= 0) {
+        toast.error('Значення має бути більше 0');
+        return;
+      }
+      if (type === 'percent' && numValue > 100) {
+        toast.error('Відсоток не може перевищувати 100');
+        return;
+      }
+    }
+    let validUntilIso: string | undefined;
+    if (validUntil) {
+      const d = new Date(validUntil);
+      if (Number.isNaN(d.getTime())) {
+        toast.error('Невірний формат дати');
+        return;
+      }
+      if (d <= new Date()) {
+        toast.error('Дата завершення має бути в майбутньому');
+        return;
+      }
+      validUntilIso = d.toISOString();
     }
     setBusy(true);
     const stackableWith: string[] = [];
@@ -240,11 +293,11 @@ function CouponCreateForm({ onCancel, onCreated }: { onCancel: () => void; onCre
       code: code.trim().toUpperCase(),
       description: description.trim() || undefined,
       type,
-      value: Number(value),
+      value: numValue,
       ...(minOrderAmount && { minOrderAmount: Number(minOrderAmount) }),
       ...(maxDiscount && type === 'percent' && { maxDiscount: Number(maxDiscount) }),
       ...(usageLimit && { usageLimit: Number(usageLimit) }),
-      ...(validUntil && { validUntil: new Date(validUntil).toISOString() }),
+      ...(validUntilIso && { validUntil: validUntilIso }),
       applicableCategoryIds: parseIds(applicableCategoryIds),
       excludedProductIds: parseIds(excludedProductIds),
       stackableWith,
@@ -327,11 +380,7 @@ function CouponCreateForm({ onCancel, onCreated }: { onCancel: () => void; onCre
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">Дійсний до</label>
-          <Input
-            type="date"
-            value={validUntil}
-            onChange={(e) => setValidUntil(e.target.value)}
-          />
+          <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
         </div>
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-medium">Опис (видно клієнту)</label>

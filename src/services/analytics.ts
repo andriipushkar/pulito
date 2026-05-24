@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 export class AnalyticsError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'AnalyticsError';
@@ -55,12 +55,9 @@ export async function getConversionFunnel(days: number) {
   // Calculate conversion rates
   const stepsWithRates = steps.map((step, i) => ({
     ...step,
-    conversionFromPrev: i === 0 ? 100 : steps[i - 1].value > 0
-      ? ((step.value / steps[i - 1].value) * 100)
-      : 0,
-    conversionFromFirst: steps[0].value > 0
-      ? ((step.value / steps[0].value) * 100)
-      : 0,
+    conversionFromPrev:
+      i === 0 ? 100 : steps[i - 1].value > 0 ? (step.value / steps[i - 1].value) * 100 : 0,
+    conversionFromFirst: steps[0].value > 0 ? (step.value / steps[0].value) * 100 : 0,
   }));
 
   return { steps: stepsWithRates, totals };
@@ -91,10 +88,15 @@ export async function getCohortAnalysis(months: number = 6) {
   });
 
   // Group users by registration month (YYYY-MM)
-  const cohorts: Record<string, { users: Set<number>; ordersByMonth: Record<string, Set<number>> }> = {};
+  const cohorts: Record<
+    string,
+    { users: Set<number>; ordersByMonth: Record<string, Set<number>> }
+  > = {};
+  const userRegMonth = new Map<number, string>();
 
   for (const user of users) {
     const regMonth = user.createdAt.toISOString().slice(0, 7);
+    userRegMonth.set(user.id, regMonth);
     if (!cohorts[regMonth]) {
       cohorts[regMonth] = { users: new Set(), ordersByMonth: {} };
     }
@@ -103,10 +105,9 @@ export async function getCohortAnalysis(months: number = 6) {
 
   for (const order of orders) {
     if (!order.userId) continue;
-    const user = users.find((u) => u.id === order.userId);
-    if (!user) continue;
+    const regMonth = userRegMonth.get(order.userId);
+    if (!regMonth) continue;
 
-    const regMonth = user.createdAt.toISOString().slice(0, 7);
     const orderMonth = order.createdAt.toISOString().slice(0, 7);
 
     if (cohorts[regMonth]) {
@@ -125,9 +126,7 @@ export async function getCohortAnalysis(months: number = 6) {
       const retentionMonths: Record<string, number> = {};
 
       for (const [orderMonth, userSet] of Object.entries(data.ordersByMonth)) {
-        retentionMonths[orderMonth] = totalUsers > 0
-          ? (userSet.size / totalUsers) * 100
-          : 0;
+        retentionMonths[orderMonth] = totalUsers > 0 ? (userSet.size / totalUsers) * 100 : 0;
       }
 
       return {
@@ -158,10 +157,7 @@ export async function getABCAnalysis(days: number) {
     orderBy: { _sum: { subtotal: 'desc' } },
   });
 
-  const totalRevenue = productRevenues.reduce(
-    (sum, p) => sum + Number(p._sum.subtotal || 0),
-    0
-  );
+  const totalRevenue = productRevenues.reduce((sum, p) => sum + Number(p._sum.subtotal || 0), 0);
 
   let cumulativeRevenue = 0;
   const classified = productRevenues.map((p) => {

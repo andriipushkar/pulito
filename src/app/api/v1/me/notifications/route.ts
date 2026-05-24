@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
 import { getUserNotifications, markAllAsRead } from '@/services/notification';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import { successResponse, privateResponse, errorResponse } from '@/utils/api-response';
 
 export const GET = withAuth(async (request: NextRequest, { user }) => {
   try {
@@ -9,7 +9,7 @@ export const GET = withAuth(async (request: NextRequest, { user }) => {
     const limit = Number(request.nextUrl.searchParams.get('limit')) || 20;
 
     const result = await getUserNotifications(user.id, { page, limit });
-    return successResponse(result);
+    return privateResponse(result);
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }

@@ -100,15 +100,26 @@ export const ADMIN_PAGES: AdminPage[] = [
   { href: '/admin/reports', label: 'Звіти', icon: BarChart3, section: 'Огляд' },
 
   // ─── Замовлення ────────────────────────────────────────────
-  { href: '/admin/orders', label: 'Замовлення', icon: Package, badgeKey: 'newOrders', section: 'Замовлення' },
+  {
+    href: '/admin/orders',
+    label: 'Замовлення',
+    icon: Package,
+    badgeKey: 'newOrders',
+    section: 'Замовлення',
+  },
   { href: '/admin/pack', label: 'Pick & Pack', icon: ClipboardList, section: 'Замовлення' },
-  { href: '/admin/pallet-delivery', label: 'Палетна доставка', icon: Container, section: 'Замовлення' },
+  {
+    href: '/admin/pallet-delivery',
+    label: 'Палетна доставка',
+    icon: Container,
+    section: 'Замовлення',
+  },
   { href: '/admin/subscriptions', label: 'Підписки', icon: Repeat, section: 'Замовлення' },
 
   // ─── Каталог ───────────────────────────────────────────────
   { href: '/admin/products', label: 'Товари', icon: ShoppingBag, section: 'Каталог' },
   { href: '/admin/categories', label: 'Категорії', icon: FolderTree, section: 'Каталог' },
-  { href: '/admin/brands', label: 'Виробники', icon: Factory, section: 'Каталог' },
+  { href: '/admin/brands', label: 'Торгові марки', icon: Factory, section: 'Каталог' },
   { href: '/admin/bundles', label: 'Комплекти', icon: Boxes, section: 'Каталог' },
   { href: '/admin/badges', label: 'Бейджі', icon: Tag, section: 'Каталог' },
   { href: '/admin/import', label: 'Імпорт', icon: Download, section: 'Каталог' },
@@ -119,14 +130,35 @@ export const ADMIN_PAGES: AdminPage[] = [
   { href: '/admin/warehouse-transfers', label: 'Переміщення', icon: Truck, section: 'Склад' },
 
   // ─── Клієнти ───────────────────────────────────────────────
-  { href: '/admin/users', label: 'Користувачі', icon: Users, badgeKey: 'pendingWholesale', section: 'Клієнти' },
+  {
+    href: '/admin/users',
+    label: 'Користувачі',
+    icon: Users,
+    badgeKey: 'pendingWholesale',
+    section: 'Клієнти',
+  },
   { href: '/admin/segments', label: 'Сегменти', icon: Target, section: 'Клієнти' },
 
   // ─── Маркетинг ─────────────────────────────────────────────
   { href: '/admin/campaigns', label: 'Кампанії', icon: Megaphone, section: 'Маркетинг' },
-  { href: '/admin/volume-discounts', label: 'Знижки за обсягом', icon: Percent, section: 'Маркетинг' },
-  { href: '/admin/personal-prices', label: 'Персональні ціни', icon: DollarSign, section: 'Маркетинг' },
-  { href: '/admin/wholesale-rules', label: 'Гуртові правила', icon: Briefcase, section: 'Маркетинг' },
+  {
+    href: '/admin/volume-discounts',
+    label: 'Знижки за обсягом',
+    icon: Percent,
+    section: 'Маркетинг',
+  },
+  {
+    href: '/admin/personal-prices',
+    label: 'Персональні ціни',
+    icon: DollarSign,
+    section: 'Маркетинг',
+  },
+  {
+    href: '/admin/wholesale-rules',
+    label: 'Гуртові правила',
+    icon: Briefcase,
+    section: 'Маркетинг',
+  },
   { href: '/admin/loyalty', label: 'Лояльність', icon: Award, section: 'Маркетинг' },
   { href: '/admin/referrals', label: 'Реферали', icon: Share2, section: 'Маркетинг' },
   { href: '/admin/coupons', label: 'Промокоди', icon: Tag, section: 'Маркетинг' },
@@ -134,20 +166,41 @@ export const ADMIN_PAGES: AdminPage[] = [
 
   // ─── Контент ───────────────────────────────────────────────
   { href: '/admin/blog', label: 'Блог', icon: Newspaper, section: 'Контент' },
-  { href: '/admin/blog/comments', label: 'Коментарі блогу', icon: MessageCircle, section: 'Контент' },
+  {
+    href: '/admin/blog/comments',
+    label: 'Коментарі блогу',
+    icon: MessageCircle,
+    section: 'Контент',
+  },
   { href: '/admin/publications', label: 'Публікації', icon: Send, section: 'Контент' },
-  { href: '/admin/publication-templates', label: 'Шаблони публікацій', icon: FileText, section: 'Контент' },
+  {
+    href: '/admin/publication-templates',
+    label: 'Шаблони публікацій',
+    icon: FileText,
+    section: 'Контент',
+  },
   { href: '/admin/pages', label: 'Сторінки', icon: FileText, section: 'Контент' },
   { href: '/admin/faq', label: 'FAQ', icon: HelpCircle, section: 'Контент' },
   { href: '/admin/email-templates', label: 'Email-шаблони', icon: Mail, section: 'Контент' },
-  { href: '/admin/feedback', label: "Зворотний зв'язок", icon: MessageSquare, section: 'Контент', badgeKey: 'newFeedback' },
+  {
+    href: '/admin/feedback',
+    label: "Зворотний зв'язок",
+    icon: MessageSquare,
+    section: 'Контент',
+    badgeKey: 'newFeedback',
+  },
 
   // ─── Канали ─────────────────────────────────────────────────
   { href: '/admin/marketplaces', label: 'Маркетплейси', icon: Store, section: 'Канали' },
   { href: '/admin/integrations', label: 'Інтеграції', icon: Plug, section: 'Канали' },
   { href: '/admin/google-business', label: 'Google Business', icon: Star, section: 'Канали' },
   { href: '/admin/channels', label: 'Статистика каналів', icon: Radio, section: 'Канали' },
-  { href: '/admin/channel-settings', label: 'Налаштування каналів', icon: Settings2, section: 'Канали' },
+  {
+    href: '/admin/channel-settings',
+    label: 'Налаштування каналів',
+    icon: Settings2,
+    section: 'Канали',
+  },
   { href: '/admin/bot-settings', label: 'Боти', icon: Bot, section: 'Канали' },
   { href: '/admin/moderation', label: 'Модерація', icon: Shield, section: 'Канали' },
   { href: '/admin/chat', label: 'Чат', icon: MessageCircle, section: 'Канали' },
@@ -155,8 +208,18 @@ export const ADMIN_PAGES: AdminPage[] = [
 
   // ─── Налаштування ───────────────────────────────────────────
   { href: '/admin/settings', label: 'Загальні', icon: Settings, section: 'Налаштування' },
-  { href: '/admin/payment-settings', label: 'Платіжні системи', icon: CreditCard, section: 'Налаштування' },
-  { href: '/admin/delivery-settings', label: 'Служби доставки', icon: Truck, section: 'Налаштування' },
+  {
+    href: '/admin/payment-settings',
+    label: 'Платіжні системи',
+    icon: CreditCard,
+    section: 'Налаштування',
+  },
+  {
+    href: '/admin/delivery-settings',
+    label: 'Служби доставки',
+    icon: Truck,
+    section: 'Налаштування',
+  },
   { href: '/admin/smtp-settings', label: 'Email / SMTP', icon: AtSign, section: 'Налаштування' },
   { href: '/admin/homepage', label: 'Головна сторінка', icon: Home, section: 'Налаштування' },
   { href: '/admin/themes', label: 'Теми', icon: Palette, section: 'Налаштування' },
@@ -165,12 +228,48 @@ export const ADMIN_PAGES: AdminPage[] = [
   { href: '/admin/domains', label: 'Домени', icon: Globe, section: 'Налаштування' },
 
   // ─── Платформа (root admin only) ───────────────────────────
-  { href: '/admin/billing', label: 'Біллінг', icon: Wallet, section: 'Платформа', platformOnly: true },
-  { href: '/admin/tenants', label: 'Тенанти', icon: Building2, section: 'Платформа', platformOnly: true },
-  { href: '/admin/health', label: 'Системний стан', icon: Activity, section: 'Платформа', platformOnly: true },
-  { href: '/admin/audit-log', label: 'Журнал дій', icon: FileSearch, section: 'Платформа', platformOnly: true },
-  { href: '/admin/feature-flags', label: 'Feature flags', icon: Flag, section: 'Платформа', platformOnly: true },
-  { href: '/admin/forecasting', label: 'Прогнозування', icon: BarChart, section: 'Платформа', platformOnly: true },
+  {
+    href: '/admin/billing',
+    label: 'Біллінг',
+    icon: Wallet,
+    section: 'Платформа',
+    platformOnly: true,
+  },
+  {
+    href: '/admin/tenants',
+    label: 'Тенанти',
+    icon: Building2,
+    section: 'Платформа',
+    platformOnly: true,
+  },
+  {
+    href: '/admin/health',
+    label: 'Системний стан',
+    icon: Activity,
+    section: 'Платформа',
+    platformOnly: true,
+  },
+  {
+    href: '/admin/audit-log',
+    label: 'Журнал дій',
+    icon: FileSearch,
+    section: 'Платформа',
+    platformOnly: true,
+  },
+  {
+    href: '/admin/feature-flags',
+    label: 'Feature flags',
+    icon: Flag,
+    section: 'Платформа',
+    platformOnly: true,
+  },
+  {
+    href: '/admin/forecasting',
+    label: 'Прогнозування',
+    icon: BarChart,
+    section: 'Платформа',
+    platformOnly: true,
+  },
 
   // ─── Hidden — reachable but not listed in sidebar ──────────
   // 'Ask AI' moved to topbar (next to command palette) — not part of sidebar nav.

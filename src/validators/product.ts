@@ -9,7 +9,10 @@ export const productFilterSchema = z.object({
   // tick multiple brands at once; we accept them all in a single param.
   brand: z.string().optional(),
   search: z.string().min(2).max(200).optional(),
-  barcode: z.string().regex(/^\d{8,14}$/).optional(),
+  barcode: z
+    .string()
+    .regex(/^\d{8,14}$/)
+    .optional(),
   priceMin: z.coerce.number().min(0).optional(),
   priceMax: z.coerce.number().min(0).optional(),
   promo: z.coerce.boolean().optional(),
@@ -52,6 +55,7 @@ export const createProductSchema = z.object({
   priceWholesale2: z.number().min(0).optional().nullable(),
   priceWholesale3: z.number().min(0).optional().nullable(),
   quantity: z.number().int().min(0).default(0),
+  hideQuantity: z.boolean().default(false),
   isPromo: z.boolean().default(false),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).default(0),

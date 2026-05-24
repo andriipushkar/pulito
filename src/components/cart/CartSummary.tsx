@@ -132,15 +132,25 @@ export default function CartSummary({
             <p className="text-xs text-[var(--color-text-secondary)]">
               {reached
                 ? 'Безкоштовна доставка вам нараховується'
-                : `Додайте ще ${remaining.toFixed(0)} ₴ для безкоштовної доставки`}
+                : `Додайте ще ${Math.ceil(remaining)} ₴ для безкоштовної доставки`}
             </p>
           </div>
         )}
         {coupon && (
           <div className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2 text-sm">
             <span className="flex items-center gap-2 text-green-800">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"
+                />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
               </svg>
               <span>
@@ -159,8 +169,8 @@ export default function CartSummary({
             </button>
           </div>
         )}
-        {!coupon && (
-          showCouponField ? (
+        {!coupon &&
+          (showCouponField ? (
             <div>
               <div className="flex gap-2">
                 <input
@@ -191,13 +201,18 @@ export default function CartSummary({
               onClick={() => setShowCouponField(true)}
               className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary)] hover:underline"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               Маю промокод
             </button>
-          )
-        )}
+          ))}
         {coupon && coupon.discount > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-[var(--color-text-secondary)]">Знижка</span>

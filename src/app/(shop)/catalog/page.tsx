@@ -21,6 +21,7 @@ import { getCategories, getCategoryBySlug } from '@/services/category';
 import { getBrandsForCatalog } from '@/services/brand';
 import { prisma } from '@/lib/prisma';
 import { Search } from '@/components/icons';
+import { sanitizeHtml } from '@/utils/sanitize';
 
 interface CatalogPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -67,6 +68,15 @@ export async function generateMetadata({ searchParams }: CatalogPageProps): Prom
       url: canonical,
       type: 'website',
       siteName: 'Pulito Trade',
+      images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description:
+        category?.seoDescription ||
+        'Каталог побутової хімії. Широкий вибір товарів за вигідними цінами.',
+      images: [`${baseUrl}/opengraph-image`],
     },
   };
 }
@@ -110,8 +120,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const categoryData = category ? await getCategoryBySlug(category) : null;
 
   // If user searched and got 0 results, load popular products to show as suggestions
-  const popularFallback =
-    products.length === 0 && search ? await getPopularProducts(8) : [];
+  const popularFallback = products.length === 0 && search ? await getPopularProducts(8) : [];
 
   // Check for slug redirect if category not found
   if (category && !categoryData) {
@@ -208,6 +217,17 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           return 'Каталог товарів';
         })()}
       </h1>
+
+      {/* Category SEO body — render the AI-generated category description
+          (or manual override) right under the H1 so it indexes and the user
+          can pick up tips for choosing a product. Only shown when a single
+          category is filtered, never on general /catalog or search pages. */}
+      {categoryData?.description && !search && (
+        <div
+          className="prose prose-sm max-w-none mb-8 text-[var(--color-text-secondary)]"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(categoryData.description) }}
+        />
+      )}
 
       <Suspense
         fallback={

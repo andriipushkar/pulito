@@ -1,13 +1,22 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { createBundleSchema } from '@/validators/bundle';
 import { createBundle, BundleError } from '@/services/bundle';
 import { prisma } from '@/lib/prisma';
-import { successResponse, errorResponse, paginatedResponse, parseSearchParams } from '@/utils/api-response';
+import {
+  successResponse,
+  errorResponse,
+  paginatedResponse,
+  parseSearchParams,
+} from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 import { logAudit } from '@/services/audit';
 
-export const GET = withRole('manager', 'admin')(async (request: NextRequest) => {
+export const GET = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest) => {
   try {
     const { page, limit, search } = parseSearchParams(request.nextUrl.searchParams);
 
@@ -46,7 +55,10 @@ export const GET = withRole('manager', 'admin')(async (request: NextRequest) => 
   }
 });
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest, { user }) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = createBundleSchema.safeParse(body);
@@ -62,6 +74,11 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
       entityId: bundle.id,
       details: { name: bundle.name },
     });
+    try {
+      revalidatePath('/bundles');
+    } catch {
+      /* best-effort */
+    }
     return successResponse(bundle, 201);
   } catch (error) {
     if (error instanceof BundleError) return errorResponse(error.message, error.statusCode);

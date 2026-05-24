@@ -34,6 +34,7 @@ export interface ProductListItem {
   priceRetailOld: Price | null;
   priceWholesaleOld: Price | null;
   quantity: number;
+  hideQuantity?: boolean;
   isPromo: boolean;
   isActive: boolean;
   imagePath: string | null;

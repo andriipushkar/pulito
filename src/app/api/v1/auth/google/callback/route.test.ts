@@ -3,7 +3,10 @@ import { NextRequest } from 'next/server';
 
 vi.mock('@/config/env', () => ({
   env: {
-    JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '',
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
     APP_URL: 'https://test.com',
     JWT_REFRESH_TTL: '7d',
   },
@@ -75,11 +78,18 @@ describe('GET /api/v1/auth/google/callback', () => {
   it('redirects to callback on success', async () => {
     mockExchange.mockResolvedValue({ access_token: 'gtoken' });
     mockGetProfile.mockResolvedValue({ id: 'g1', email: 'u@g.com', name: 'User', picture: 'pic' });
-    mockLoginWithGoogle.mockResolvedValue({ user: { id: 42, email: 'u@g.com' }, tokens: { accessToken: 'at', refreshToken: 'rt' } });
-
-    const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=authcode&state=validstate', {
-      headers: { cookie: 'oauth_state=validstate' },
+    mockLoginWithGoogle.mockResolvedValue({
+      requiresTwoFactor: false,
+      user: { id: 42, email: 'u@g.com' },
+      tokens: { accessToken: 'at', refreshToken: 'rt' },
     });
+
+    const req = new NextRequest(
+      'http://localhost/api/v1/auth/google/callback?code=authcode&state=validstate',
+      {
+        headers: { cookie: 'oauth_state=validstate' },
+      },
+    );
     const res = await GET(req);
     expect(res.status).toBe(307);
     expect(res.headers.get('location')).toContain('/auth/callback');
@@ -89,7 +99,11 @@ describe('GET /api/v1/auth/google/callback', () => {
   it('forwards returnUrl from verified state to /auth/callback', async () => {
     mockExchange.mockResolvedValue({ access_token: 'gtoken' });
     mockGetProfile.mockResolvedValue({ id: 'g1', email: 'u@g.com', name: 'User', picture: 'pic' });
-    mockLoginWithGoogle.mockResolvedValue({ user: { id: 42, email: 'u@g.com' }, tokens: { accessToken: 'at', refreshToken: 'rt' } });
+    mockLoginWithGoogle.mockResolvedValue({
+      requiresTwoFactor: false,
+      user: { id: 42, email: 'u@g.com' },
+      tokens: { accessToken: 'at', refreshToken: 'rt' },
+    });
     mockVerifyState.mockReturnValue({ valid: true, returnUrl: '/admin' });
 
     const req = new NextRequest(
@@ -127,18 +141,24 @@ describe('GET /api/v1/auth/google/callback', () => {
 
   it('redirects on GoogleOAuthError', async () => {
     mockExchange.mockRejectedValue(new GoogleOAuthError('fail', 400));
-    const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=bad&state=validstate', {
-      headers: { cookie: 'oauth_state=validstate' },
-    });
+    const req = new NextRequest(
+      'http://localhost/api/v1/auth/google/callback?code=bad&state=validstate',
+      {
+        headers: { cookie: 'oauth_state=validstate' },
+      },
+    );
     const res = await GET(req);
     expect(res.headers.get('location')).toContain('error=oauth_failed');
   });
 
   it('redirects on generic error', async () => {
     mockExchange.mockRejectedValue(new Error('fail'));
-    const req = new NextRequest('http://localhost/api/v1/auth/google/callback?code=bad&state=validstate', {
-      headers: { cookie: 'oauth_state=validstate' },
-    });
+    const req = new NextRequest(
+      'http://localhost/api/v1/auth/google/callback?code=bad&state=validstate',
+      {
+        headers: { cookie: 'oauth_state=validstate' },
+      },
+    );
     const res = await GET(req);
     expect(res.headers.get('location')).toContain('error=server_error');
   });

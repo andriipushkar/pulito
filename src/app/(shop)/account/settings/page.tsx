@@ -16,7 +16,6 @@ export default function SettingsPage() {
     phone: '',
   });
   const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
@@ -192,12 +191,18 @@ export default function SettingsPage() {
     setPasswordMessage(null);
     try {
       const res = await apiClient.put('/api/v1/auth/me', {
-        currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
       if (res.success) {
-        setPasswordMessage({ type: 'success', text: 'Пароль змінено' });
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        const wasFirstSet = googleStatus?.hasPassword === false;
+        setPasswordMessage({
+          type: 'success',
+          text: wasFirstSet ? 'Пароль встановлено' : 'Пароль змінено',
+        });
+        setPasswordData({ newPassword: '', confirmPassword: '' });
+        if (wasFirstSet) {
+          setGoogleStatus((prev) => (prev ? { ...prev, hasPassword: true } : prev));
+        }
       } else {
         setPasswordMessage({ type: 'error', text: res.error || 'Помилка зміни пароля' });
       }
@@ -317,15 +322,15 @@ export default function SettingsPage() {
             />
           </svg>
         }
-        title="Зміна пароля"
+        title={googleStatus?.hasPassword === false ? 'Встановлення пароля' : 'Зміна пароля'}
       >
         <div className="max-w-md space-y-4">
-          <Input
-            label="Поточний пароль"
-            type="password"
-            value={passwordData.currentPassword}
-            onChange={(e) => setPasswordData((p) => ({ ...p, currentPassword: e.target.value }))}
-          />
+          {googleStatus?.hasPassword === false && (
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Ваш акаунт зараз працює лише через Google. Встановіть пароль, щоб мати можливість
+              входити також за email та паролем.
+            </p>
+          )}
           <Input
             label="Новий пароль"
             type="password"
@@ -367,7 +372,7 @@ export default function SettingsPage() {
             </div>
           )}
           <Button onClick={handlePasswordChange} isLoading={isSavingPassword}>
-            Змінити пароль
+            {googleStatus?.hasPassword === false ? 'Встановити пароль' : 'Змінити пароль'}
           </Button>
         </div>
       </SectionCard>

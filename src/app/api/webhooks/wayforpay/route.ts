@@ -47,7 +47,14 @@ export async function POST(request: NextRequest) {
       String(error).includes('підпис') ||
       String(error).includes('signature') ||
       String(error).includes('Signature');
-    logger.error('WayForPay webhook error', { error: String(error) });
+    if (isSignatureError) {
+      logger.error('PAYMENT_WEBHOOK_SIGNATURE_MISMATCH', {
+        provider: 'wayforpay',
+        error: String(error),
+      });
+    } else {
+      logger.error('WayForPay webhook error', { error: String(error) });
+    }
     logWebhook({
       source: 'wayforpay',
       event: isSignatureError ? 'signature_failed' : 'error',

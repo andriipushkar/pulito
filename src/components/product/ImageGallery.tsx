@@ -90,6 +90,7 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
                   alt={img.altText || `${productName} ${i + 1}`}
                   width={64}
                   height={64}
+                  loading="lazy"
                   className="h-16 w-16 object-contain"
                 />
               </button>
@@ -123,6 +124,10 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
                   alt={currentImage?.altText || productName}
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
+                  // Above-the-fold hero image — mark priority so Next.js
+                  // pre-loads it for LCP. Only set for the first slide to
+                  // keep the priority count low.
+                  priority={selectedIndex === 0}
                   className={`object-contain transition-all duration-200 ${mainImageLoaded ? 'opacity-100' : 'opacity-0'}`}
                   style={zoomStyle}
                   onLoad={() => setLoadedIndex(selectedIndex)}
@@ -162,6 +167,9 @@ export default function ImageGallery({ images, productName }: ImageGalleryProps)
                       alt={img.altText || `${productName} ${i + 1}`}
                       fill
                       sizes="100vw"
+                      // First mobile slide is LCP candidate; others lazy.
+                      priority={i === 0}
+                      loading={i === 0 ? undefined : 'lazy'}
                       className="object-contain"
                     />
                   )}

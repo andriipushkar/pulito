@@ -1,8 +1,13 @@
 import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { generateForProduct } from '@/services/ai-content';
+
+const bodySchema = z.object({
+  provider: z.enum(['claude', 'gemini', 'rules']).optional(),
+});
 
 /**
  * Generates SEO content (title, description, short, full) from the product's
@@ -12,11 +17,15 @@ import { generateForProduct } from '@/services/ai-content';
 export const POST = withRole(
   'admin',
   'manager',
-)(async (_request: NextRequest, { params }) => {
+)(async (request: NextRequest, { params }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
+
+    const body = await request.json().catch(() => ({}));
+    const parsed = bodySchema.safeParse(body);
+    const provider = parsed.success ? parsed.data.provider : undefined;
 
     const product = await prisma.product.findUnique({
       where: { id: numId },
@@ -30,13 +39,16 @@ export const POST = withRole(
     });
     if (!product) return errorResponse('Товар не знайдено', 404);
 
-    const generated = await generateForProduct({
-      name: product.name,
-      category: product.category?.name ?? null,
-      brand: product.brand?.name ?? null,
-      priceRetail: Number(product.priceRetail),
-      shortDescription: product.content?.shortDescription ?? null,
-    });
+    const generated = await generateForProduct(
+      {
+        name: product.name,
+        category: product.category?.name ?? null,
+        brand: product.brand?.name ?? null,
+        priceRetail: Number(product.priceRetail),
+        shortDescription: product.content?.shortDescription ?? null,
+      },
+      { provider },
+    );
 
     return successResponse(generated);
   } catch (error) {

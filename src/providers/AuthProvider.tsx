@@ -1,14 +1,14 @@
 'use client';
 
 import { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { setAccessToken } from '@/lib/api-client';
-import { withRefreshLock } from '@/lib/auth-refresh-lock';
+import { setAccessToken, refreshSession } from '@/lib/api-client';
 
 interface AuthUser {
   id: number;
   email: string;
   role: string;
   fullName: string | null;
+  phone?: string | null;
   companyName?: string | null;
   wholesaleStatus?: string | null;
   wholesaleGroup?: number | null;
@@ -18,7 +18,19 @@ interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    requiresTwoFactor?: boolean;
+    tempToken?: string;
+  }>;
+  verifyTwoFactor: (
+    tempToken: string,
+    code: string,
+  ) => Promise<{ success: boolean; error?: string }>;
   register: (data: {
     email: string;
     password: string;
@@ -35,6 +47,7 @@ export const AuthContext = createContext<AuthContextValue>({
   user: null,
   isLoading: true,
   login: async () => ({ success: false }),
+  verifyTwoFactor: async () => ({ success: false }),
   register: async () => ({ success: false }),
   logout: async () => {},
   refreshAuth: async () => {},
@@ -48,30 +61,20 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAuth = useCallback(async () => {
     // Same-tab dedup so React Strict Mode double-mount + callback page
-    // racing the mount-refresh don't fire two fetches.
+    // racing the mount-refresh don't fire two fetches. refreshSession()
+    // additionally shares an in-flight Promise with api-client's lazy 401
+    // retries, so a single /refresh round-trip covers both layers — without
+    // this the second concurrent call would race the rotated cookie and trip
+    // the server's reuse detector.
     if (refreshInFlight.current) {
       return refreshInFlight.current;
     }
 
     const doRefresh = async () => {
       try {
-        // Cross-tab dedup: only one refresh runs at a time across all
-        // tabs of this origin. Without this, multiple tabs hitting
-        // /auth/refresh concurrently trip the server's reuse-detector
-        // and nuke every session.
-        const data = await withRefreshLock(async () => {
-          const res = await fetch('/api/v1/auth/refresh', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          });
-          if (!res.ok) return null;
-          return res.json();
-        });
-
-        if (data?.success && data.data) {
-          setAccessToken(data.data.accessToken);
-          setUser(data.data.user);
+        const { accessToken: tok, user: u } = await refreshSession();
+        if (tok && u) {
+          setUser(u as AuthUser);
           lastRefreshAt.current = Date.now();
         } else {
           setUser(null);
@@ -120,11 +123,34 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (data.success && data.data) {
+        if (data.data.requiresTwoFactor) {
+          return { success: true, requiresTwoFactor: true, tempToken: data.data.tempToken };
+        }
         setAccessToken(data.data.accessToken);
         setUser(data.data.user);
         return { success: true };
       }
       return { success: false, error: data.error || 'Помилка входу' };
+    } catch {
+      return { success: false, error: 'Помилка мережі' };
+    }
+  }, []);
+
+  const verifyTwoFactor = useCallback(async (tempToken: string, code: string) => {
+    try {
+      const res = await fetch('/api/v1/auth/2fa/verify-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ tempToken, code }),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success && data.data?.user && data.data?.accessToken) {
+        setAccessToken(data.data.accessToken);
+        setUser(data.data.user);
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Невірний код' };
     } catch {
       return { success: false, error: 'Помилка мережі' };
     }
@@ -177,7 +203,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, refreshAuth }}>
+    <AuthContext.Provider
+      value={{ user, isLoading, login, verifyTwoFactor, register, logout, refreshAuth }}
+    >
       {children}
     </AuthContext.Provider>
   );

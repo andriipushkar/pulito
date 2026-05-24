@@ -3,7 +3,10 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 
-export const GET = withRole('admin', 'manager')(async (request: NextRequest) => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const days = Math.min(365, Math.max(7, Number(searchParams.get('days')) || 90));
@@ -30,13 +33,14 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
     for (const c of allCustomers) {
       const count = c._count?.id ?? 0;
       if (count > 1 && c._min?.createdAt && c._max?.createdAt) {
-        const span = (new Date(c._max.createdAt).getTime() - new Date(c._min.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        const span =
+          (new Date(c._max.createdAt).getTime() - new Date(c._min.createdAt).getTime()) /
+          (1000 * 60 * 60 * 24);
         intervals.push(span / (count - 1));
       }
     }
-    const avgDaysBetweenOrders = intervals.length > 0
-      ? intervals.reduce((a, b) => a + b, 0) / intervals.length
-      : 30;
+    const avgDaysBetweenOrders =
+      intervals.length > 0 ? intervals.reduce((a, b) => a + b, 0) / intervals.length : 30;
 
     // Churn threshold: 2x average interval or minimum 60 days
     const churnThresholdDays = Math.max(avgDaysBetweenOrders * 2, 60);
@@ -58,7 +62,9 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
 
     for (const c of allCustomers) {
       if (!c.userId || !c._max?.createdAt) continue;
-      const daysSince = Math.floor((now.getTime() - new Date(c._max.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+      const daysSince = Math.floor(
+        (now.getTime() - new Date(c._max.createdAt).getTime()) / (1000 * 60 * 60 * 24),
+      );
 
       if (daysSince > churnThresholdDays) {
         churnedCount++;
@@ -82,15 +88,19 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
       }
     }
 
-    // Enrich at-risk customers with user info
-    if (atRiskCustomers.length > 0) {
-      const userIds = atRiskCustomers.map((c) => c.id);
+    // Sort first so we only fetch user details for the 50 we'll return —
+    // otherwise a 5k at-risk window pulls 5k user rows we throw away.
+    atRiskCustomers.sort((a, b) => b.churnProbability - a.churnProbability);
+    const topAtRisk = atRiskCustomers.slice(0, 50);
+
+    if (topAtRisk.length > 0) {
+      const userIds = topAtRisk.map((c) => c.id);
       const users = await prisma.user.findMany({
         where: { id: { in: userIds } },
         select: { id: true, email: true, fullName: true },
       });
       const userMap = new Map(users.map((u) => [u.id, u]));
-      for (const c of atRiskCustomers) {
+      for (const c of topAtRisk) {
         const user = userMap.get(c.id);
         if (user) {
           c.email = user.email;
@@ -98,8 +108,6 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
         }
       }
     }
-
-    atRiskCustomers.sort((a, b) => b.churnProbability - a.churnProbability);
 
     // Monthly churn data
     const churnByMonth: { month: string; churned: number; retained: number; rate: number }[] = [];
@@ -119,7 +127,9 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
         if (!c._max?.createdAt) continue;
         const lastOrder = new Date(c._max.createdAt);
         if (lastOrder < monthStart) {
-          const daysSinceMonth = Math.floor((monthEnd.getTime() - lastOrder.getTime()) / (1000 * 60 * 60 * 24));
+          const daysSinceMonth = Math.floor(
+            (monthEnd.getTime() - lastOrder.getTime()) / (1000 * 60 * 60 * 24),
+          );
           if (daysSinceMonth > churnThresholdDays) monthChurned++;
         } else if (lastOrder <= monthEnd) {
           monthRetained++;
@@ -140,7 +150,7 @@ export const GET = withRole('admin', 'manager')(async (request: NextRequest) => 
     const retentionRate = 100 - churnRate;
 
     return successResponse({
-      atRiskCustomers: atRiskCustomers.slice(0, 50),
+      atRiskCustomers: topAtRisk,
       churnRate,
       avgDaysBetweenOrders,
       retentionRate,

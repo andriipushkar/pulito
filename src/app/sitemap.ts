@@ -22,8 +22,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: baseUrl, changeFrequency: 'daily', priority: 1 },
     { url: `${baseUrl}/catalog`, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/blog`, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${baseUrl}/news`, changeFrequency: 'daily', priority: 0.7 },
     { url: `${baseUrl}/bundles`, changeFrequency: 'weekly', priority: 0.6 },
     { url: `${baseUrl}/faq`, changeFrequency: 'weekly', priority: 0.5 },
+    { url: `${baseUrl}/contacts`, changeFrequency: 'monthly', priority: 0.4 },
   ];
 
   // Categories (usually small, always in main sitemap)

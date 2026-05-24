@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { withAuth } from '@/middleware/auth';
 import { getUserAddresses, createAddress } from '@/services/delivery-address';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import { successResponse, privateResponse, errorResponse } from '@/utils/api-response';
 
 const createAddressSchema = z.object({
   label: z.string().max(50).optional(),
@@ -17,7 +17,7 @@ const createAddressSchema = z.object({
 export const GET = withAuth(async (_request: NextRequest, { user }) => {
   try {
     const addresses = await getUserAddresses(user.id);
-    return successResponse(addresses);
+    return privateResponse(addresses);
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }

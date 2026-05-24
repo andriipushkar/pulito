@@ -32,7 +32,7 @@ export const GET = withRole(
 export const PUT = withRole(
   'manager',
   'admin',
-)(async (request: NextRequest, { params }) => {
+)(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -46,6 +46,17 @@ export const PUT = withRole(
     }
 
     const product = await updateProduct(numId, parsed.data);
+
+    // Audit before revalidation so the trail captures the actor even when
+    // ISR refresh fails downstream.
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'product',
+      entityId: numId,
+      details: { fields: Object.keys(parsed.data) },
+      ipAddress: getClientIp(request),
+    });
 
     // On-demand revalidation: refresh cached product and catalog pages
     try {
@@ -91,6 +102,7 @@ export const DELETE = withRole(
     try {
       revalidatePath('/catalog');
       revalidatePath('/');
+      revalidatePath('/sitemap.xml');
     } catch {
       /* best-effort */
     }

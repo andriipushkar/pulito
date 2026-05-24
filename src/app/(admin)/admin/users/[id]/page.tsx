@@ -32,9 +32,32 @@ import Spinner from '@/components/ui/Spinner';
 import Modal from '@/components/ui/Modal';
 import Image from 'next/image';
 
-const ROLE_OPTIONS = Object.entries(USER_ROLE_LABELS).map(([v, l]) => ({ value: v, label: l }));
+// Role + wholesale group are exposed as one dropdown so admins can promote a
+// user straight into a specific pricing tier. Values are `role` or
+// `wholesaler:<group>` for the three opt tiers.
+const ROLE_OPTIONS = [
+  { value: 'client', label: USER_ROLE_LABELS.client },
+  { value: 'wholesaler:1', label: `${USER_ROLE_LABELS.wholesaler} — ${WHOLESALE_GROUP_LABELS[1]}` },
+  { value: 'wholesaler:2', label: `${USER_ROLE_LABELS.wholesaler} — ${WHOLESALE_GROUP_LABELS[2]}` },
+  { value: 'wholesaler:3', label: `${USER_ROLE_LABELS.wholesaler} — ${WHOLESALE_GROUP_LABELS[3]}` },
+  { value: 'manager', label: USER_ROLE_LABELS.manager },
+  { value: 'admin', label: USER_ROLE_LABELS.admin },
+];
 
-type Tab = 'info' | 'timeline' | 'orders' | 'audit' | 'wishlist' | 'recent' | 'addresses' | 'security';
+function roleSelectValue(role: string, group: number | null | undefined): string {
+  if (role === 'wholesaler' && group) return `wholesaler:${group}`;
+  return role;
+}
+
+type Tab =
+  | 'info'
+  | 'timeline'
+  | 'orders'
+  | 'audit'
+  | 'wishlist'
+  | 'recent'
+  | 'addresses'
+  | 'security';
 
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -135,7 +158,7 @@ export default function AdminUserDetailPage() {
       .then((res) => {
         if (res.success && res.data) {
           setUser(res.data);
-          setSelectedRole(res.data.role);
+          setSelectedRole(roleSelectValue(res.data.role, res.data.wholesaleGroup));
           setSelectedGroup(res.data.wholesaleGroup ? String(res.data.wholesaleGroup) : '');
           setAdminNote(res.data.adminNote || '');
         }
@@ -152,13 +175,11 @@ export default function AdminUserDetailPage() {
   useEffect(() => {
     if (activeTab !== 'orders' || loadedTabs.has('orders')) return;
     let cancelled = false;
-    apiClient
-      .get<UserOrder[]>(`/api/v1/admin/users/${id}?section=orders`)
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) setOrders(res.data);
-        markTabLoaded('orders');
-      });
+    apiClient.get<UserOrder[]>(`/api/v1/admin/users/${id}?section=orders`).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) setOrders(res.data);
+      markTabLoaded('orders');
+    });
     return () => {
       cancelled = true;
     };
@@ -168,13 +189,11 @@ export default function AdminUserDetailPage() {
   useEffect(() => {
     if (activeTab !== 'audit' || loadedTabs.has('audit')) return;
     let cancelled = false;
-    apiClient
-      .get<UserAuditEntry[]>(`/api/v1/admin/users/${id}?section=audit`)
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) setAuditLog(res.data);
-        markTabLoaded('audit');
-      });
+    apiClient.get<UserAuditEntry[]>(`/api/v1/admin/users/${id}?section=audit`).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) setAuditLog(res.data);
+      markTabLoaded('audit');
+    });
     return () => {
       cancelled = true;
     };
@@ -184,13 +203,11 @@ export default function AdminUserDetailPage() {
   useEffect(() => {
     if (activeTab !== 'wishlist' || loadedTabs.has('wishlist')) return;
     let cancelled = false;
-    apiClient
-      .get<WishlistItem[]>(`/api/v1/admin/users/${id}?section=wishlist`)
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) setWishlist(res.data);
-        markTabLoaded('wishlist');
-      });
+    apiClient.get<WishlistItem[]>(`/api/v1/admin/users/${id}?section=wishlist`).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) setWishlist(res.data);
+      markTabLoaded('wishlist');
+    });
     return () => {
       cancelled = true;
     };
@@ -200,13 +217,11 @@ export default function AdminUserDetailPage() {
   useEffect(() => {
     if (activeTab !== 'recent' || loadedTabs.has('recent')) return;
     let cancelled = false;
-    apiClient
-      .get<RecentlyViewedItem[]>(`/api/v1/admin/users/${id}?section=recent`)
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) setRecentlyViewed(res.data);
-        markTabLoaded('recent');
-      });
+    apiClient.get<RecentlyViewedItem[]>(`/api/v1/admin/users/${id}?section=recent`).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) setRecentlyViewed(res.data);
+      markTabLoaded('recent');
+    });
     return () => {
       cancelled = true;
     };
@@ -216,13 +231,11 @@ export default function AdminUserDetailPage() {
   useEffect(() => {
     if (activeTab !== 'timeline' || loadedTabs.has('timeline')) return;
     let cancelled = false;
-    apiClient
-      .get<UserTimelineEntry[]>(`/api/v1/admin/users/${id}?section=timeline`)
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) setTimeline(res.data);
-        markTabLoaded('timeline');
-      });
+    apiClient.get<UserTimelineEntry[]>(`/api/v1/admin/users/${id}?section=timeline`).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) setTimeline(res.data);
+      markTabLoaded('timeline');
+    });
     return () => {
       cancelled = true;
     };
@@ -232,13 +245,11 @@ export default function AdminUserDetailPage() {
   useEffect(() => {
     if (activeTab !== 'addresses' || loadedTabs.has('addresses')) return;
     let cancelled = false;
-    apiClient
-      .get<UserAddress[]>(`/api/v1/admin/users/${id}?section=addresses`)
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) setAddresses(res.data);
-        markTabLoaded('addresses');
-      });
+    apiClient.get<UserAddress[]>(`/api/v1/admin/users/${id}?section=addresses`).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) setAddresses(res.data);
+      markTabLoaded('addresses');
+    });
     return () => {
       cancelled = true;
     };
@@ -248,16 +259,32 @@ export default function AdminUserDetailPage() {
     const res = await apiClient.get<UserDetail>(`/api/v1/admin/users/${id}`);
     if (res.success && res.data) {
       setUser(res.data);
-      setSelectedRole(res.data.role);
+      setSelectedRole(roleSelectValue(res.data.role, res.data.wholesaleGroup));
+      setSelectedGroup(res.data.wholesaleGroup ? String(res.data.wholesaleGroup) : '');
       setAdminNote(res.data.adminNote || '');
     }
   };
 
-  // Role update
+  // Role update — value may be `wholesaler:<group>` to set role + tier atomically.
   const handleRoleUpdate = async () => {
-    if (!selectedRole || selectedRole === user?.role) return;
+    if (!user || !selectedRole) return;
+    const currentValue = roleSelectValue(user.role, user.wholesaleGroup);
+    if (selectedRole === currentValue) return;
+
+    let body: { role: string; wholesaleGroup?: number | null };
+    if (selectedRole.startsWith('wholesaler:')) {
+      const group = Number(selectedRole.split(':')[1]);
+      body = { role: 'wholesaler', wholesaleGroup: group };
+    } else {
+      // Leaving wholesaler — clear the group so prices fall back to retail.
+      body =
+        user.role === 'wholesaler'
+          ? { role: selectedRole, wholesaleGroup: null }
+          : { role: selectedRole };
+    }
+
     setIsUpdating(true);
-    const res = await apiClient.put(`/api/v1/admin/users/${id}`, { role: selectedRole });
+    const res = await apiClient.put(`/api/v1/admin/users/${id}`, body);
     if (res.success) {
       await reloadUser();
       showResult('success', 'Роль змінено');
@@ -525,7 +552,7 @@ export default function AdminUserDetailPage() {
             size="sm"
             onClick={handleRoleUpdate}
             isLoading={isUpdating}
-            disabled={selectedRole === user.role}
+            disabled={selectedRole === roleSelectValue(user.role, user.wholesaleGroup)}
           >
             Зберегти
           </Button>
@@ -582,75 +609,75 @@ export default function AdminUserDetailPage() {
       {/* Stats cards */}
       {stats && (
         <>
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <StatCard
-            label="Всього замовлень"
-            value={stats.totalOrders}
-            color="text-blue-600"
-            bg="bg-blue-50"
-          />
-          <StatCard
-            label="Виконаних"
-            value={stats.completedOrders}
-            color="text-emerald-600"
-            bg="bg-emerald-50"
-          />
-          <StatCard
-            label="Сума покупок"
-            value={`${stats.totalPurchases.toFixed(0)} \u20B4`}
-            color="text-violet-600"
-            bg="bg-violet-50"
-          />
-          <StatCard
-            label="Середній чек"
-            value={`${stats.avgCheck.toFixed(0)} \u20B4`}
-            color="text-amber-600"
-            bg="bg-amber-50"
-          />
-          <StatCard
-            label="LTV прогноз 12 міс"
-            value={
-              stats.predictedLtv12mo !== undefined
-                ? `${stats.predictedLtv12mo.toFixed(0)} ₴`
-                : '—'
-            }
-            color="text-pink-600"
-            bg="bg-pink-50"
-          />
-          <StatCard
-            label="Останнє замовлення"
-            value={
-              stats.lastOrderDate
-                ? stats.daysSinceLastOrder !== null && stats.daysSinceLastOrder !== undefined
-                  ? `${stats.daysSinceLastOrder} д тому`
-                  : formatDate(stats.lastOrderDate)
-                : 'Немає'
-            }
-            color="text-gray-600"
-            bg="bg-gray-50"
-          />
-        </div>
-        {stats.segments && stats.segments.length > 0 && (
-          <div className="mb-5 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-              Сегмент:
-            </span>
-            {stats.segments.map((seg) => {
-              const meta = SEGMENT_LABELS[seg] ?? {
-                label: seg,
-                color: 'bg-gray-100 text-gray-700 border-gray-200',
-              };
-              return (
-                <span
-                  key={seg}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${meta.color}`}
-                >
-                  {meta.label}
-                </span>
-              );
-            })}
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <StatCard
+              label="Всього замовлень"
+              value={stats.totalOrders}
+              color="text-blue-600"
+              bg="bg-blue-50"
+            />
+            <StatCard
+              label="Виконаних"
+              value={stats.completedOrders}
+              color="text-emerald-600"
+              bg="bg-emerald-50"
+            />
+            <StatCard
+              label="Сума покупок"
+              value={`${stats.totalPurchases.toFixed(0)} \u20B4`}
+              color="text-violet-600"
+              bg="bg-violet-50"
+            />
+            <StatCard
+              label="Середній чек"
+              value={`${stats.avgCheck.toFixed(0)} \u20B4`}
+              color="text-amber-600"
+              bg="bg-amber-50"
+            />
+            <StatCard
+              label="LTV прогноз 12 міс"
+              value={
+                stats.predictedLtv12mo !== undefined
+                  ? `${stats.predictedLtv12mo.toFixed(0)} ₴`
+                  : '—'
+              }
+              color="text-pink-600"
+              bg="bg-pink-50"
+            />
+            <StatCard
+              label="Останнє замовлення"
+              value={
+                stats.lastOrderDate
+                  ? stats.daysSinceLastOrder !== null && stats.daysSinceLastOrder !== undefined
+                    ? `${stats.daysSinceLastOrder} д тому`
+                    : formatDate(stats.lastOrderDate)
+                  : 'Немає'
+              }
+              color="text-gray-600"
+              bg="bg-gray-50"
+            />
           </div>
-        )}
+          {stats.segments && stats.segments.length > 0 && (
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                Сегмент:
+              </span>
+              {stats.segments.map((seg) => {
+                const meta = SEGMENT_LABELS[seg] ?? {
+                  label: seg,
+                  color: 'bg-gray-100 text-gray-700 border-gray-200',
+                };
+                return (
+                  <span
+                    key={seg}
+                    className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${meta.color}`}
+                  >
+                    {meta.label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
 

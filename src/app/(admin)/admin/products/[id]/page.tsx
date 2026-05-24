@@ -44,6 +44,7 @@ interface ProductDetail {
   priceWholesale2: string | number | null;
   priceWholesale3: string | number | null;
   quantity: number;
+  hideQuantity?: boolean;
   sortOrder: number;
   isActive: boolean;
   isPromo: boolean;
@@ -81,6 +82,7 @@ interface ProductFormState {
   priceWholesale2: string;
   priceWholesale3: string;
   quantity: string;
+  hideQuantity: boolean;
   sortOrder: string;
   isActive: boolean;
   isPromo: boolean;
@@ -112,6 +114,7 @@ const EMPTY_PRODUCT_FORM: ProductFormState = {
   priceWholesale2: '',
   priceWholesale3: '',
   quantity: '0',
+  hideQuantity: false,
   sortOrder: '0',
   isActive: true,
   isPromo: false,
@@ -134,7 +137,9 @@ export default function AdminProductDetailPage() {
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [savedFormSnapshot, setSavedFormSnapshot] = useState<string>('');
-  const [categories, setCategories] = useState<{ id: number; name: string; parentId: number | null }[]>([]);
+  const [categories, setCategories] = useState<
+    { id: number; name: string; parentId: number | null }[]
+  >([]);
 
   // Load categories once so the form can render a name-based dropdown
   useEffect(() => {
@@ -147,6 +152,17 @@ export default function AdminProductDetailPage() {
   }, []);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiProvider, setAiProvider] = useState<'claude' | 'gemini' | 'rules'>('claude');
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('pulito.aiProvider') : null;
+    if (stored === 'claude' || stored === 'gemini' || stored === 'rules') {
+      setAiProvider(stored);
+    }
+  }, []);
+  const updateAiProvider = (v: 'claude' | 'gemini' | 'rules') => {
+    setAiProvider(v);
+    if (typeof window !== 'undefined') localStorage.setItem('pulito.aiProvider', v);
+  };
   const [form, setForm] = useState<ProductFormState>(EMPTY_PRODUCT_FORM);
   const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -200,6 +216,7 @@ export default function AdminProductDetailPage() {
             priceWholesale2: res.data.priceWholesale2 ? String(res.data.priceWholesale2) : '',
             priceWholesale3: res.data.priceWholesale3 ? String(res.data.priceWholesale3) : '',
             quantity: String(res.data.quantity),
+            hideQuantity: !!res.data.hideQuantity,
             sortOrder: String(res.data.sortOrder ?? 0),
             isActive: res.data.isActive,
             isPromo: res.data.isPromo,
@@ -271,6 +288,7 @@ export default function AdminProductDetailPage() {
         priceWholesale2: form.priceWholesale2 ? Number(form.priceWholesale2) : null,
         priceWholesale3: form.priceWholesale3 ? Number(form.priceWholesale3) : null,
         quantity: Number(form.quantity),
+        hideQuantity: form.hideQuantity,
         sortOrder: Number(form.sortOrder) || 0,
         isActive: form.isActive,
         isPromo: form.isPromo,
@@ -300,22 +318,19 @@ export default function AdminProductDetailPage() {
         // Optimistic-lock conflict. Offer to refresh from server so the admin
         // doesn't lose unsaved input — they can copy fields from the toast
         // before clicking "Оновити", or override after refresh.
-        toast.error(
-          res.error || 'Товар був змінений іншим адміністратором',
-          {
-            duration: 12000,
-            action: {
-              label: 'Оновити з сервера',
-              onClick: async () => {
-                const updated = await apiClient.get<ProductDetail>(`/api/v1/admin/products/${id}`);
-                if (updated.success && updated.data) {
-                  setProduct(updated.data);
-                  toast.success('Оновлено. Поверніть свої правки і збережіть знову.');
-                }
-              },
+        toast.error(res.error || 'Товар був змінений іншим адміністратором', {
+          duration: 12000,
+          action: {
+            label: 'Оновити з сервера',
+            onClick: async () => {
+              const updated = await apiClient.get<ProductDetail>(`/api/v1/admin/products/${id}`);
+              if (updated.success && updated.data) {
+                setProduct(updated.data);
+                toast.success('Оновлено. Поверніть свої правки і збережіть знову.');
+              }
             },
           },
-        );
+        });
       } else {
         toast.error(res.error || 'Помилка збереження');
       }
@@ -494,10 +509,7 @@ export default function AdminProductDetailPage() {
             onBlur={onBlurField('code', form)}
             error={errors.code}
           />
-          <BarcodeInput
-            value={form.barcode}
-            onChange={(v) => updateField('barcode', v)}
-          />
+          <BarcodeInput value={form.barcode} onChange={(v) => updateField('barcode', v)} />
           <div>
             <Input
               label="Slug (URL)"
@@ -515,7 +527,9 @@ export default function AdminProductDetailPage() {
             </p>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-[var(--color-text)]">Категорія</label>
+            <label className="mb-1 block text-sm font-medium text-[var(--color-text)]">
+              Категорія
+            </label>
             <Select
               value={form.categoryId}
               onChange={(e) => updateField('categoryId', e.target.value)}
@@ -529,7 +543,7 @@ export default function AdminProductDetailPage() {
             />
             {!form.categoryId && (
               <p className="mt-1 text-[11px] text-amber-600">
-                ⚠️ Товар без категорії не з'явиться в каталозі на сайті
+                ⚠️ Товар без категорії не з&apos;явиться в каталозі на сайті
               </p>
             )}
           </div>
@@ -607,6 +621,14 @@ export default function AdminProductDetailPage() {
               productId={Number(id)}
               onApply={(qty) => updateField('quantity', String(qty))}
             />
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+              <input
+                type="checkbox"
+                checked={form.hideQuantity}
+                onChange={(e) => updateField('hideQuantity', e.target.checked)}
+              />
+              Приховувати кількість на сайті (показувати тільки «В наявності»)
+            </label>
           </div>
           <div>
             <Input
@@ -641,7 +663,7 @@ export default function AdminProductDetailPage() {
             Акційний
           </label>
         </div>
-        {(form.isPromo) && (
+        {form.isPromo && (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Акція з</label>
@@ -667,82 +689,92 @@ export default function AdminProductDetailPage() {
 
       {/* Brand */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <BrandSelector
-          value={(form.brandId) || ''}
-          onChange={(v) => updateField('brandId', v)}
-        />
+        <BrandSelector value={form.brandId || ''} onChange={(v) => updateField('brandId', v)} />
       </div>
 
       {/* Description */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Опис</h3>
-          <button
-            type="button"
-            disabled={isGenerating}
-            onClick={async () => {
-              setIsGenerating(true);
-              try {
-                const res = await apiClient.post<{
-                  seoTitle: string;
-                  seoDescription: string;
-                  shortDescription: string;
-                  fullDescription: string;
-                }>(`/api/v1/admin/products/${id}/ai-generate`, {});
-                if (!res.success || !res.data) {
-                  toast.error(res.error || 'Не вдалося згенерувати');
-                  return;
-                }
-                // Detect which fields already have content — ask before overwriting
-                const conflicts: string[] = [];
-                if (form.seoTitle.trim()) conflicts.push('SEO Title');
-                if (form.seoDescription.trim()) conflicts.push('SEO Description');
-                if (form.description.trim()) conflicts.push('Короткий опис');
-                if (form.descriptionHtml.trim()) conflicts.push('Повний опис');
-                if (
-                  conflicts.length > 0 &&
-                  !window.confirm(
-                    `Замінити вже заповнені поля?\n\n${conflicts.join(', ')}\n\nOK — замінити, Cancel — лишити як є.`,
-                  )
-                ) {
-                  // User refused — only fill empty fields
+          <div className="flex items-center gap-2">
+            <select
+              value={aiProvider}
+              onChange={(e) => updateAiProvider(e.target.value as 'claude' | 'gemini' | 'rules')}
+              disabled={isGenerating}
+              className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
+              title="Виберіть джерело генерації"
+            >
+              <option value="claude">Claude (дорого, найкраща якість)</option>
+              <option value="gemini">Gemini (дешево)</option>
+              <option value="rules">Без AI (шаблон)</option>
+            </select>
+            <button
+              type="button"
+              disabled={isGenerating}
+              onClick={async () => {
+                setIsGenerating(true);
+                try {
+                  const res = await apiClient.post<{
+                    seoTitle: string;
+                    seoDescription: string;
+                    shortDescription: string;
+                    fullDescription: string;
+                  }>(`/api/v1/admin/products/${id}/ai-generate`, { provider: aiProvider });
+                  if (!res.success || !res.data) {
+                    toast.error(res.error || 'Не вдалося згенерувати');
+                    return;
+                  }
+                  // Detect which fields already have content — ask before overwriting
+                  const conflicts: string[] = [];
+                  if (form.seoTitle.trim()) conflicts.push('SEO Title');
+                  if (form.seoDescription.trim()) conflicts.push('SEO Description');
+                  if (form.description.trim()) conflicts.push('Короткий опис');
+                  if (form.descriptionHtml.trim()) conflicts.push('Повний опис');
+                  if (
+                    conflicts.length > 0 &&
+                    !window.confirm(
+                      `Замінити вже заповнені поля?\n\n${conflicts.join(', ')}\n\nOK — замінити, Cancel — лишити як є.`,
+                    )
+                  ) {
+                    // User refused — only fill empty fields
+                    setForm((prev) => ({
+                      ...prev,
+                      seoTitle: prev.seoTitle || res.data!.seoTitle,
+                      seoDescription: prev.seoDescription || res.data!.seoDescription,
+                      description: prev.description || res.data!.shortDescription,
+                      descriptionHtml: prev.descriptionHtml || res.data!.fullDescription,
+                    }));
+                    toast.success('Заповнено лише порожні поля');
+                    return;
+                  }
                   setForm((prev) => ({
                     ...prev,
-                    seoTitle: prev.seoTitle || res.data!.seoTitle,
-                    seoDescription: prev.seoDescription || res.data!.seoDescription,
-                    description: prev.description || res.data!.shortDescription,
-                    descriptionHtml: prev.descriptionHtml || res.data!.fullDescription,
+                    seoTitle: res.data!.seoTitle,
+                    seoDescription: res.data!.seoDescription,
+                    description: res.data!.shortDescription,
+                    descriptionHtml: res.data!.fullDescription,
                   }));
-                  toast.success('Заповнено лише порожні поля');
-                  return;
+                  toast.success('Згенеровано — перевірте поля Опис і SEO');
+                } catch (err) {
+                  console.error('[AI generate]', err);
+                  toast.error('Помилка мережі');
+                } finally {
+                  setIsGenerating(false);
                 }
-                setForm((prev) => ({
-                  ...prev,
-                  seoTitle: res.data!.seoTitle,
-                  seoDescription: res.data!.seoDescription,
-                  description: res.data!.shortDescription,
-                  descriptionHtml: res.data!.fullDescription,
-                }));
-                toast.success('Згенеровано — перевірте поля Опис і SEO');
-              } catch (err) {
-                console.error('[AI generate]', err);
-                toast.error('Помилка мережі');
-              } finally {
-                setIsGenerating(false);
-              }
-            }}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
-            title="Згенерувати SEO-опис на основі назви, бренду, категорії"
-          >
-            {isGenerating ? (
-              <>
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Генеруємо…
-              </>
-            ) : (
-              <>✨ Згенерувати</>
-            )}
-          </button>
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
+              title="Згенерувати SEO-опис на основі назви, бренду, категорії"
+            >
+              {isGenerating ? (
+                <>
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Генеруємо…
+                </>
+              ) : (
+                <>✨ Згенерувати</>
+              )}
+            </button>
+          </div>
         </div>
         <WysiwygEditor
           value={form.descriptionHtml}
@@ -756,7 +788,7 @@ export default function AdminProductDetailPage() {
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Характеристики</h3>
           <span className="text-[11px] text-[var(--color-text-secondary)]">
-            Об'єм, склад, виробник, інструкція тощо
+            Об&apos;єм, склад, торгова марка, інструкція тощо
           </span>
         </div>
         <SpecsEditor
@@ -831,9 +863,12 @@ export default function AdminProductDetailPage() {
             Маржа:{' '}
             <strong
               className={
-                ((Number(form.priceRetail) - Number(form.cost)) / Number(form.priceRetail)) * 100 < 10
+                ((Number(form.priceRetail) - Number(form.cost)) / Number(form.priceRetail)) * 100 <
+                10
                   ? 'text-red-600'
-                  : ((Number(form.priceRetail) - Number(form.cost)) / Number(form.priceRetail)) * 100 < 25
+                  : ((Number(form.priceRetail) - Number(form.cost)) / Number(form.priceRetail)) *
+                        100 <
+                      25
                     ? 'text-amber-600'
                     : 'text-emerald-600'
               }
@@ -863,7 +898,7 @@ export default function AdminProductDetailPage() {
               error={errors.seoTitle}
             />
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-              {(form.seoTitle)?.length || 0}/70
+              {form.seoTitle?.length || 0}/70
             </p>
           </div>
           <div>
@@ -881,7 +916,7 @@ export default function AdminProductDetailPage() {
               <p className="mt-0.5 text-xs text-[var(--color-danger)]">{errors.seoDescription}</p>
             )}
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-              {(form.seoDescription)?.length || 0}/160
+              {form.seoDescription?.length || 0}/160
             </p>
           </div>
         </div>
@@ -909,10 +944,7 @@ export default function AdminProductDetailPage() {
         >
           Опублікувати в соцмережі
         </Button>
-        <Button
-          variant="outline"
-          onClick={() => guardDirty(() => router.push('/admin/products'))}
-        >
+        <Button variant="outline" onClick={() => guardDirty(() => router.push('/admin/products'))}>
           Скасувати
         </Button>
         <div className="ml-auto">
@@ -1125,7 +1157,11 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
                       onClick={() => toggleExclusion(row.channel, !row.excluded)}
                       disabled={busy[row.channel]}
                       className="text-xs text-[var(--color-text-secondary)] hover:underline disabled:opacity-50"
-                      title={row.excluded ? 'Дозволити публікацію на цьому маркетплейсі' : 'Виключити з цього маркетплейсу (не публікувати в bulk/sync)'}
+                      title={
+                        row.excluded
+                          ? 'Дозволити публікацію на цьому маркетплейсі'
+                          : 'Виключити з цього маркетплейсу (не публікувати в bulk/sync)'
+                      }
                     >
                       {row.excluded ? 'Дозволити' : 'Виключити'}
                     </button>

@@ -68,7 +68,9 @@ export default function AdminVolumeDiscountsPage() {
       .finally(() => setIsLoading(false));
   };
 
-  useEffect(() => { loadDiscounts(); }, []);
+  useEffect(() => {
+    loadDiscounts();
+  }, []);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -98,6 +100,39 @@ export default function AdminVolumeDiscountsPage() {
   };
 
   const handleSave = async () => {
+    const minQty = Number(form.minQuantity);
+    const maxQty = form.maxQuantity ? Number(form.maxQuantity) : null;
+    const discount = Number(form.discountPercent);
+
+    if (!Number.isFinite(minQty) || minQty <= 0) {
+      toast.error('Мінімальна кількість має бути більше 0');
+      return;
+    }
+    if (maxQty !== null && (!Number.isFinite(maxQty) || maxQty < minQty)) {
+      toast.error('Максимальна кількість має бути ≥ мінімальної');
+      return;
+    }
+    if (!Number.isFinite(discount) || discount <= 0) {
+      toast.error('Розмір знижки має бути більше 0');
+      return;
+    }
+    if (form.discountType === 'percent' && discount > 100) {
+      toast.error('Відсоткова знижка не може перевищувати 100%');
+      return;
+    }
+    if (form.startsAt && form.endsAt) {
+      const start = new Date(form.startsAt);
+      const end = new Date(form.endsAt);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        toast.error('Невірний формат дат');
+        return;
+      }
+      if (start >= end) {
+        toast.error('Дата початку має бути раніше дати завершення');
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       const stackableWith: string[] = [];
@@ -108,9 +143,9 @@ export default function AdminVolumeDiscountsPage() {
       const payload = {
         productId: form.productId ? Number(form.productId) : null,
         categoryId: form.categoryId ? Number(form.categoryId) : null,
-        minQuantity: Number(form.minQuantity),
-        maxQuantity: form.maxQuantity ? Number(form.maxQuantity) : null,
-        discountPercent: Number(form.discountPercent),
+        minQuantity: minQty,
+        maxQuantity: maxQty,
+        discountPercent: discount,
         discountType: form.discountType,
         isActive: form.isActive,
         priority: Number(form.priority),
@@ -155,7 +190,9 @@ export default function AdminVolumeDiscountsPage() {
   };
 
   const handleToggle = async (d: VolumeDiscount) => {
-    const res = await apiClient.patch(`/api/v1/admin/volume-discounts/${d.id}`, { isActive: !d.isActive });
+    const res = await apiClient.patch(`/api/v1/admin/volume-discounts/${d.id}`, {
+      isActive: !d.isActive,
+    });
     if (res.success) toast.success(d.isActive ? 'Знижку вимкнено' : 'Знижку увімкнено');
     else toast.error(res.error || 'Помилка оновлення');
     loadDiscounts();
@@ -180,7 +217,14 @@ export default function AdminVolumeDiscountsPage() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold">Знижки за обсяг</h2>
-        <Button onClick={() => { resetForm(); setShowForm(true); }}>Додати знижку</Button>
+        <Button
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+        >
+          Додати знижку
+        </Button>
       </div>
 
       {showForm && (
@@ -223,7 +267,9 @@ export default function AdminVolumeDiscountsPage() {
               placeholder="5"
             />
             <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">Тип знижки</label>
+              <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
+                Тип знижки
+              </label>
               <Select
                 options={DISCOUNT_TYPE_OPTIONS}
                 value={form.discountType}
@@ -239,7 +285,12 @@ export default function AdminVolumeDiscountsPage() {
             />
             <div className="flex items-end gap-2">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="accent-[var(--color-primary)]" />
+                <input
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                  className="accent-[var(--color-primary)]"
+                />
                 Активна
               </label>
             </div>
@@ -294,10 +345,16 @@ export default function AdminVolumeDiscountsPage() {
           </div>
 
           <div className="mt-4 flex gap-2">
-            <Button onClick={handleSave} isLoading={isSaving} disabled={!form.minQuantity || !form.discountPercent}>
+            <Button
+              onClick={handleSave}
+              isLoading={isSaving}
+              disabled={!form.minQuantity || !form.discountPercent}
+            >
               {editingId ? 'Зберегти' : 'Створити'}
             </Button>
-            <Button variant="outline" onClick={resetForm}>Скасувати</Button>
+            <Button variant="outline" onClick={resetForm}>
+              Скасувати
+            </Button>
           </div>
         </div>
       )}
@@ -320,7 +377,10 @@ export default function AdminVolumeDiscountsPage() {
             </thead>
             <tbody>
               {discounts.map((d) => (
-                <tr key={d.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
+                <tr
+                  key={d.id}
+                  className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]"
+                >
                   <td className="px-4 py-3">
                     {d.product
                       ? `${d.product.name} (${d.product.code})`
@@ -335,18 +395,38 @@ export default function AdminVolumeDiscountsPage() {
                     {formatDate(d.startsAt)} — {formatDate(d.endsAt)}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => handleToggle(d)} className={`rounded-full px-2 py-0.5 text-xs font-medium ${d.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    <button
+                      onClick={() => handleToggle(d)}
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${d.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                    >
                       {d.isActive ? 'Активна' : 'Вимкнена'}
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleEdit(d)} className="mr-2 text-xs text-[var(--color-primary)] hover:underline">Редагувати</button>
-                    <button onClick={() => handleDelete(d.id)} className="text-xs text-[var(--color-danger)] hover:underline">Видалити</button>
+                    <button
+                      onClick={() => handleEdit(d)}
+                      className="mr-2 text-xs text-[var(--color-primary)] hover:underline"
+                    >
+                      Редагувати
+                    </button>
+                    <button
+                      onClick={() => handleDelete(d.id)}
+                      className="text-xs text-[var(--color-danger)] hover:underline"
+                    >
+                      Видалити
+                    </button>
                   </td>
                 </tr>
               ))}
               {discounts.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">Знижок за обсяг немає</td></tr>
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                  >
+                    Знижок за обсяг немає
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

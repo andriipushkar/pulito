@@ -90,7 +90,7 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
     }
     for (const slug of selectedBrands) {
       const brand = brands.find((b) => b.slug === slug);
-      chips.push({ key: `brand_${slug}`, label: 'Виробник', value: brand?.name || slug });
+      chips.push({ key: `brand_${slug}`, label: 'Торгова марка', value: brand?.name || slug });
     }
     if (promo) chips.push({ key: 'promo', label: 'Фільтр', value: 'Акційні' });
     if (inStock) chips.push({ key: 'in_stock', label: 'Фільтр', value: 'В наявності' });
@@ -305,15 +305,15 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
       {brands.length > 0 && (
         <div>
           <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
-            Виробник
+            Торгова марка
           </h3>
           {brands.length > MAX_VISIBLE_BRANDS && (
             <input
               type="search"
               value={brandSearch}
               onChange={(e) => setBrandSearch(e.target.value)}
-              placeholder="Знайти виробника..."
-              aria-label="Пошук серед виробників"
+              placeholder="Знайти торгової марки..."
+              aria-label="Пошук серед торгових марок"
               className="mb-2 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
             />
           )}
@@ -338,7 +338,7 @@ export default function FilterSidebar({ categories, brands = [] }: FilterSidebar
             ))}
             {displayBrands.length === 0 && brandSearch.trim() && (
               <p className="px-2 py-1.5 text-xs text-[var(--color-text-secondary)]">
-                Не знайдено виробників за «{brandSearch}»
+                Не знайдено торгових марок за «{brandSearch}»
               </p>
             )}
             {!brandSearch.trim() && filteredBrands.length > MAX_VISIBLE_BRANDS && (

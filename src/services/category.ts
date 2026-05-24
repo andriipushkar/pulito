@@ -162,47 +162,61 @@ export async function createCategory(data: {
   // via SiteSetting `max_root_categories` (defaults to 8).
   // Advisory lock serialises the count+insert against parallel POSTs so
   // two admins clicking "create" at the same time can't both bypass the cap.
+  // pg_try_advisory_lock (returns bool) is used instead of pg_advisory_lock
+  // (returns void) because the pg driver adapter rejects void-typed columns.
   const CATEGORY_CREATE_LOCK_NS = 0x43415400;
   if (isTopLevel) {
-    await prisma.$queryRaw`SELECT pg_advisory_lock(${CATEGORY_CREATE_LOCK_NS}::int)`;
-    try {
-      const parentCount = await prisma.category.count({
-        where: { parentId: null, deletedAt: null },
-      });
-      const maxRoots = await getMaxRootCategories();
-      if (parentCount >= maxRoots) {
-        throw new CategoryError(
-          `Максимум ${maxRoots} батьківських категорій. Створіть підкатегорію замість нової батьківської.`,
-          400,
-        );
-      }
-    } finally {
-      // Release on the next statement — but only after the insert below
-      // commits. We close the lock at the end of createCategory.
+    const lockRows = await prisma.$queryRaw<{ ok: boolean }[]>`
+      SELECT pg_try_advisory_lock(${CATEGORY_CREATE_LOCK_NS}::int) AS ok
+    `;
+    if (!lockRows[0]?.ok) {
+      throw new CategoryError(
+        'Інший адміністратор саме створює категорію. Спробуйте за кілька секунд.',
+        409,
+      );
+    }
+    const parentCount = await prisma.category.count({
+      where: { parentId: null, deletedAt: null },
+    });
+    const maxRoots = await getMaxRootCategories();
+    if (parentCount >= maxRoots) {
+      await prisma.$queryRaw`SELECT pg_advisory_unlock(${CATEGORY_CREATE_LOCK_NS}::int)`.catch(
+        () => null,
+      );
+      throw new CategoryError(
+        `Максимум ${maxRoots} батьківських категорій. Створіть підкатегорію замість нової батьківської.`,
+        400,
+      );
     }
   }
 
-  const created = await prisma.category.create({
-    data: {
-      name: data.name,
-      slug,
-      description: data.description,
-      iconPath: data.iconPath,
-      coverImage: data.coverImage,
-      seoTitle: data.seoTitle,
-      seoDescription: data.seoDescription,
-      sortOrder: data.sortOrder ?? 0,
-      isVisible: data.isVisible ?? true,
-      parentId: data.parentId ?? null,
-    },
-    include: {
-      _count: {
-        select: { products: { where: { isActive: true } } },
+  let created;
+  try {
+    created = await prisma.category.create({
+      data: {
+        name: data.name,
+        slug,
+        description: data.description,
+        iconPath: data.iconPath,
+        coverImage: data.coverImage,
+        seoTitle: data.seoTitle,
+        seoDescription: data.seoDescription,
+        sortOrder: data.sortOrder ?? 0,
+        isVisible: data.isVisible ?? true,
+        parentId: data.parentId ?? null,
       },
-    },
-  });
-  if (isTopLevel) {
-    await prisma.$queryRaw`SELECT pg_advisory_unlock(0x43415400::int)`.catch(() => null);
+      include: {
+        _count: {
+          select: { products: { where: { isActive: true } } },
+        },
+      },
+    });
+  } finally {
+    if (isTopLevel) {
+      await prisma.$queryRaw`SELECT pg_advisory_unlock(${CATEGORY_CREATE_LOCK_NS}::int)`.catch(
+        () => null,
+      );
+    }
   }
   await cacheInvalidate('categories:*');
   return created;

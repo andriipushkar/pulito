@@ -189,8 +189,11 @@ function serializeProducts<T extends Record<string, unknown>>(products: T[]): T[
  * Enrich a list of products with aggregated review data (avgRating + reviewCount).
  * Uses a single groupBy query on approved reviews for the given product IDs.
  */
-async function attachRatings<T extends { id: number }>(products: T[]): Promise<(T & { avgRating: number | null; reviewCount: number })[]> {
-  if (products.length === 0) return products.map((p) => ({ ...p, avgRating: null, reviewCount: 0 }));
+async function attachRatings<T extends { id: number }>(
+  products: T[],
+): Promise<(T & { avgRating: number | null; reviewCount: number })[]> {
+  if (products.length === 0)
+    return products.map((p) => ({ ...p, avgRating: null, reviewCount: 0 }));
   const ids = products.map((p) => p.id);
   try {
     const grouped = await prisma.review.groupBy({
@@ -225,6 +228,7 @@ const productListSelect = {
   priceRetailOld: true,
   priceWholesaleOld: true,
   quantity: true,
+  hideQuantity: true,
   isPromo: true,
   isActive: true,
   imagePath: true,
@@ -648,6 +652,7 @@ export async function createProduct(data: {
   priceWholesale2?: number | null;
   priceWholesale3?: number | null;
   quantity?: number;
+  hideQuantity?: boolean;
   isPromo?: boolean;
   isActive?: boolean;
   sortOrder?: number;
@@ -703,6 +708,7 @@ export async function createProduct(data: {
       priceWholesale2: data.priceWholesale2 ?? null,
       priceWholesale3: data.priceWholesale3 ?? null,
       quantity: data.quantity ?? 0,
+      hideQuantity: data.hideQuantity ?? false,
       isPromo: data.isPromo ?? false,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
@@ -758,6 +764,7 @@ export async function updateProduct(
     priceWholesale2?: number | null;
     priceWholesale3?: number | null;
     quantity?: number;
+    hideQuantity?: boolean;
     isPromo?: boolean;
     isActive?: boolean;
     sortOrder?: number;
@@ -794,10 +801,7 @@ export async function updateProduct(
   if (data.barcode !== undefined && data.barcode && data.barcode !== product.barcode) {
     const barcodeExists = await prisma.product.findUnique({ where: { barcode: data.barcode } });
     if (barcodeExists && barcodeExists.id !== id) {
-      throw new ProductError(
-        `Інший товар уже має цей штрихкод (id ${barcodeExists.id})`,
-        409,
-      );
+      throw new ProductError(`Інший товар уже має цей штрихкод (id ${barcodeExists.id})`, 409);
     }
   }
 
@@ -904,6 +908,7 @@ export async function updateProduct(
       : { disconnect: true };
   }
   if (data.quantity !== undefined) updateData.quantity = data.quantity;
+  if (data.hideQuantity !== undefined) updateData.hideQuantity = data.hideQuantity;
   if (data.isPromo !== undefined) updateData.isPromo = data.isPromo;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
@@ -938,13 +943,14 @@ export async function updateProduct(
     }
   }
 
-  const updated = data.version !== undefined
-    ? await prisma.product.findUniqueOrThrow({ where: { id }, select: productDetailSelect })
-    : await prisma.product.update({
-        where: { id },
-        data: { ...updateData, version: { increment: 1 } },
-        select: productDetailSelect,
-      });
+  const updated =
+    data.version !== undefined
+      ? await prisma.product.findUniqueOrThrow({ where: { id }, select: productDetailSelect })
+      : await prisma.product.update({
+          where: { id },
+          data: { ...updateData, version: { increment: 1 } },
+          select: productDetailSelect,
+        });
 
   // Push price changes to marketplaces in the background. Fires only when the
   // retail price actually changed (not on every product update).
@@ -1034,9 +1040,12 @@ export async function duplicateProduct(id: number) {
   // Find a free code: try {code}-copy, then {code}-copy-2, etc.
   let attempt = 1;
   let newCode = `${original.code}-copy`;
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
-    const exists = await prisma.product.findUnique({ where: { code: newCode }, select: { id: true } });
+    const exists = await prisma.product.findUnique({
+      where: { code: newCode },
+      select: { id: true },
+    });
     if (!exists) break;
     attempt += 1;
     newCode = `${original.code}-copy-${attempt}`;
@@ -1046,9 +1055,12 @@ export async function duplicateProduct(id: number) {
   // Find a free slug analogously
   let slugAttempt = 1;
   let newSlug = `${original.slug}-copy`;
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
-    const exists = await prisma.product.findUnique({ where: { slug: newSlug }, select: { id: true } });
+    const exists = await prisma.product.findUnique({
+      where: { slug: newSlug },
+      select: { id: true },
+    });
     if (!exists) break;
     slugAttempt += 1;
     newSlug = `${original.slug}-copy-${slugAttempt}`;

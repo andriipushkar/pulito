@@ -44,7 +44,18 @@ export async function POST(request: NextRequest) {
       String(error).includes('підпис') ||
       String(error).includes('signature') ||
       String(error).includes('Signature');
-    logger.error('LiqPay webhook error', { error: String(error) });
+    if (isSignatureError) {
+      // Signature mismatch = either rotated key (operator must update env)
+      // or an attack. Either way log loudly so monitoring catches it; the
+      // HTTP response stays 200 because LiqPay treats non-2xx as a retry
+      // signal and we don't want a forged payload retried.
+      logger.error('PAYMENT_WEBHOOK_SIGNATURE_MISMATCH', {
+        provider: 'liqpay',
+        error: String(error),
+      });
+    } else {
+      logger.error('LiqPay webhook error', { error: String(error) });
+    }
     logWebhook({
       source: 'liqpay',
       event: isSignatureError ? 'signature_failed' : 'error',

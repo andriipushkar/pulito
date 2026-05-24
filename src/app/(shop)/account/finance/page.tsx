@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
+import StatCard from '@/components/account/StatCard';
 import dynamic from 'next/dynamic';
 
 const FinanceChart = dynamic(() => import('./FinanceChart'), { ssr: false });
@@ -308,15 +309,6 @@ export default function AccountFinancePage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-      <p className="text-xs text-[var(--color-text-secondary)]">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
     </div>
   );
 }

@@ -11,14 +11,28 @@ const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
 export const metadata: Metadata = {
   title: 'Контакти',
-  description: 'Зв\'яжіться з нами. Адреса, телефон, email та форма зворотного зв\'язку.',
+  description: "Зв'яжіться з нами. Адреса, телефон, email та форма зворотного зв'язку.",
   alternates: {
     canonical: `${baseUrl}/contacts`,
     languages: {
-      'uk': `${baseUrl}/contacts`,
-      'en': `${baseUrl}/en/contacts`,
+      uk: `${baseUrl}/contacts`,
+      en: `${baseUrl}/en/contacts`,
       'x-default': `${baseUrl}/contacts`,
     },
+  },
+  openGraph: {
+    title: 'Контакти — Pulito Trade',
+    description: "Зв'яжіться з нами. Адреса, телефон, email та форма зворотного зв'язку.",
+    url: `${baseUrl}/contacts`,
+    siteName: 'Pulito Trade',
+    type: 'website',
+    images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Контакти — Pulito Trade',
+    description: "Зв'яжіться з нами. Адреса, телефон, email та форма зворотного зв'язку.",
+    images: [`${baseUrl}/opengraph-image`],
   },
 };
 
@@ -60,10 +74,7 @@ export default async function ContactsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
       <Breadcrumbs
-        items={[
-          { label: 'Головна', href: '/' },
-          { label: 'Контакти' },
-        ]}
+        items={[{ label: 'Головна', href: '/' }, { label: 'Контакти' }]}
         className="mb-6"
       />
 
@@ -76,7 +87,10 @@ export default async function ContactsPage() {
               <Phone size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-semibold">Телефон</h3>
-                <a href={`tel:${settings.site_phone}`} className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
+                <a
+                  href={`tel:${settings.site_phone}`}
+                  className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
+                >
                   {settings.site_phone_display}
                 </a>
               </div>
@@ -85,7 +99,10 @@ export default async function ContactsPage() {
               <Mail size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-semibold">Email</h3>
-                <a href={`mailto:${settings.site_email}`} className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
+                <a
+                  href={`mailto:${settings.site_email}`}
+                  className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
+                >
                   {settings.site_email}
                 </a>
               </div>
@@ -94,14 +111,18 @@ export default async function ContactsPage() {
               <MapPin size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-semibold">Адреса</h3>
-                <p className="text-sm text-[var(--color-text-secondary)]">{settings.site_address}</p>
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  {settings.site_address}
+                </p>
               </div>
             </div>
             <div className="flex gap-3 rounded-[var(--radius)] border border-[var(--color-border)] p-4">
               <Clock size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-semibold">Графік роботи</h3>
-                <p className="text-sm text-[var(--color-text-secondary)]">{settings.working_hours}</p>
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  {settings.working_hours}
+                </p>
               </div>
             </div>
           </div>

@@ -31,7 +31,28 @@ const nextConfig: NextConfig = {
       { protocol: 'http', hostname: 'localhost' }, // Dev
     ],
   },
-  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp'],
+  // `pg` + `@prisma/adapter-pg` must stay external from Turbopack's bundler.
+  // Without listing them, the build emits an `externalImport('pg-<hash>')`
+  // call that fails at runtime ("Cannot find package 'pg-587764f...'"), and
+  // every /api request crashes (Next 16.2.x + Turbopack + adapter regression).
+  serverExternalPackages: [
+    'pdfkit',
+    'fontkit',
+    'linebreak',
+    'png-js',
+    'sharp',
+    'pg',
+    'pg-cloudflare',
+    '@prisma/adapter-pg',
+  ],
+  // Turbopack tries to bundle `pg-cloudflare` and chokes on its
+  // `import('cloudflare:sockets')` (Workers-only specifier). Aliasing to a
+  // local stub lets the build complete; the stub is never executed in Node.
+  turbopack: {
+    resolveAlias: {
+      'pg-cloudflare': './src/lib/empty-pg-cloudflare.js',
+    },
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',

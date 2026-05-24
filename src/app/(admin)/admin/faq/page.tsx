@@ -87,8 +87,11 @@ export default function AdminFaqPage() {
     : sortedItems;
 
   const toggleSort = (field: typeof sortField) => {
-    if (sortField === field) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
-    else { setSortField(field); setSortDir('asc'); }
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSortField(field);
+      setSortDir('asc');
+    }
   };
 
   const grouped = filteredItems.reduce<Record<string, AdminFaqItem[]>>((acc, item) => {
@@ -120,9 +123,26 @@ export default function AdminFaqPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (!createForm.category.trim()) {
+      toast.error('Введіть категорію');
+      return;
+    }
+    if (!createForm.question.trim()) {
+      toast.error('Введіть питання');
+      return;
+    }
+    if (!createForm.answer.trim()) {
+      toast.error('Введіть відповідь');
+      return;
+    }
     setSaving(true);
-    await ensureCategoryExists(createForm.category);
-    const res = await apiClient.post<AdminFaqItem>('/api/v1/admin/faq', createForm);
+    await ensureCategoryExists(createForm.category.trim());
+    const res = await apiClient.post<AdminFaqItem>('/api/v1/admin/faq', {
+      ...createForm,
+      category: createForm.category.trim(),
+      question: createForm.question.trim(),
+      answer: createForm.answer.trim(),
+    });
     if (res.success && res.data) {
       toast.success('Питання створено');
       setItems((prev) => [...prev, res.data!]);
@@ -233,13 +253,22 @@ export default function AdminFaqPage() {
                   </option>
                 ))}
               </select>
-              <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
+              />
             </div>
           </div>
         )}
         <div className="flex items-center gap-1 text-xs">
           <span className="text-[var(--color-text-secondary)]">Сортувати:</span>
-          {([['sortOrder', 'Порядок'], ['question', 'Питання'], ['clickCount', 'Кліки']] as const).map(([field, label]) => (
+          {(
+            [
+              ['sortOrder', 'Порядок'],
+              ['question', 'Питання'],
+              ['clickCount', 'Кліки'],
+            ] as const
+          ).map(([field, label]) => (
             <button
               key={field}
               onClick={() => toggleSort(field)}
@@ -357,7 +386,9 @@ export default function AdminFaqPage() {
                       <input
                         type="number"
                         value={editForm.sortOrder}
-                        onChange={(e) => setEditForm({ ...editForm, sortOrder: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, sortOrder: Number(e.target.value) })
+                        }
                         className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                         min={0}
                       />
@@ -379,7 +410,9 @@ export default function AdminFaqPage() {
                         <input
                           type="checkbox"
                           checked={editForm.isPublished}
-                          onChange={(e) => setEditForm({ ...editForm, isPublished: e.target.checked })}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, isPublished: e.target.checked })
+                          }
                         />
                         Опубліковано
                       </label>

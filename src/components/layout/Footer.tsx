@@ -1,9 +1,16 @@
 import Link from 'next/link';
 import Container from '@/components/ui/Container';
 import OpenStatus from './OpenStatus';
-import PaymentBadges from './PaymentBadges';
-import DeliveryBadges from './DeliveryBadges';
-import { Telegram, Viber, Instagram, Facebook, TikTok, MapPin, Phone, Mail } from '@/components/icons';
+import {
+  Telegram,
+  Viber,
+  Instagram,
+  Facebook,
+  TikTok,
+  MapPin,
+  Phone,
+  Mail,
+} from '@/components/icons';
 import type { SiteSettings } from '@/types/settings';
 
 const iconMap: Record<string, React.FC<{ size: number }>> = {
@@ -50,7 +57,8 @@ const DEFAULT_DESCRIPTION =
   'Інтернет-магазин побутової хімії та засобів для дому. Широкий асортимент, вигідні ціни, швидка доставка по Україні.';
 
 function mapsLinkFor(address: string, placeId: string): string {
-  if (placeId) return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
+  if (placeId)
+    return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
@@ -71,10 +79,7 @@ export default function Footer({ settings }: { settings: SiteSettings }) {
   const description = settings.company_description || DEFAULT_DESCRIPTION;
 
   return (
-    <footer
-      aria-labelledby="footer-heading"
-      className="bg-[var(--color-footer-bg)] text-white/65"
-    >
+    <footer aria-labelledby="footer-heading" className="bg-[var(--color-footer-bg)] text-white/65">
       <h2 id="footer-heading" className="sr-only">
         Інформація сайту
       </h2>
@@ -92,9 +97,7 @@ export default function Footer({ settings }: { settings: SiteSettings }) {
               </span>
               <span className="text-[var(--color-primary-light)]">{settings.site_name}</span>
             </Link>
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/55">
-              {description}
-            </p>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/55">{description}</p>
 
             {socialLinks.length > 0 && (
               <>
@@ -161,7 +164,10 @@ export default function Footer({ settings }: { settings: SiteSettings }) {
                 href={`tel:${settings.site_phone}`}
                 className="group inline-flex items-start gap-2 text-base font-semibold text-white transition-colors hover:text-[var(--color-primary-light)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-light)] focus-visible:rounded"
               >
-                <Phone size={16} className="mt-1 text-white/55 transition-colors group-hover:text-[var(--color-primary-light)]" />
+                <Phone
+                  size={16}
+                  className="mt-1 text-white/55 transition-colors group-hover:text-[var(--color-primary-light)]"
+                />
                 <span>{settings.site_phone_display}</span>
               </a>
 
@@ -175,7 +181,10 @@ export default function Footer({ settings }: { settings: SiteSettings }) {
                   href={`mailto:${settings.site_email}`}
                   className="group inline-flex items-start gap-2 text-sm text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-light)] focus-visible:rounded"
                 >
-                  <Mail size={16} className="mt-0.5 text-white/55 transition-colors group-hover:text-white" />
+                  <Mail
+                    size={16}
+                    className="mt-0.5 text-white/55 transition-colors group-hover:text-white"
+                  />
                   <span>{settings.site_email}</span>
                 </a>
               )}
@@ -203,12 +212,7 @@ export default function Footer({ settings }: { settings: SiteSettings }) {
 
       {/* Bottom bar */}
       <div className="border-t border-white/[0.08]">
-        <Container className="flex flex-col items-center gap-4 py-4 lg:flex-row lg:justify-between">
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-            <PaymentBadges />
-            <span aria-hidden="true" className="h-5 w-px bg-white/15" />
-            <DeliveryBadges />
-          </div>
+        <Container className="flex flex-col items-center gap-4 py-4 lg:flex-row lg:justify-center">
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-white/55">
             <span>
               &copy; {new Date().getFullYear()} {settings.site_name}

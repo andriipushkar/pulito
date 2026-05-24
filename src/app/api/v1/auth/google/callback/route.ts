@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const ipAddress = getClientIp(request);
     const deviceInfo = getDeviceInfo(request);
 
-    const { user, tokens } = await loginWithGoogle(
+    const result = await loginWithGoogle(
       profile.id,
       profile.email,
       profile.name,
@@ -49,6 +49,21 @@ export async function GET(request: NextRequest) {
       ipAddress,
       deviceInfo,
     );
+
+    // If 2FA is required, redirect to the login page in 2FA step with the
+    // temp token. No refresh cookie is set — full credentials are only issued
+    // after the TOTP code is verified.
+    if (result.requiresTwoFactor) {
+      const redirectUrl = new URL('/auth/login', env.APP_URL);
+      redirectUrl.searchParams.set('step', '2fa');
+      redirectUrl.searchParams.set('tempToken', result.tempToken);
+      if (verification.returnUrl) {
+        redirectUrl.searchParams.set('returnUrl', verification.returnUrl);
+      }
+      return NextResponse.redirect(redirectUrl.toString());
+    }
+
+    const { user, tokens } = result;
     await logAudit({
       userId: user.id,
       actionType: 'login',

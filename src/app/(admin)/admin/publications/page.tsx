@@ -404,6 +404,29 @@ export default function AdminPublicationsPage() {
   };
 
   const handleCreate = async () => {
+    if (!form.title.trim()) {
+      toast.error('Введіть заголовок публікації');
+      return;
+    }
+    if (!form.content.trim()) {
+      toast.error('Додайте вміст публікації');
+      return;
+    }
+    if (!form.channels || form.channels.length === 0) {
+      toast.error('Виберіть принаймні один канал');
+      return;
+    }
+    if (form.scheduledAt) {
+      const d = new Date(form.scheduledAt);
+      if (Number.isNaN(d.getTime())) {
+        toast.error('Невірний формат запланованої дати');
+        return;
+      }
+      if (d <= new Date()) {
+        toast.error('Запланована дата має бути у майбутньому');
+        return;
+      }
+    }
     setIsSubmitting(true);
     try {
       const data: Record<string, unknown> = { ...form };
@@ -1600,83 +1623,84 @@ export default function AdminPublicationsPage() {
       {/* Test render modal — fires the /test endpoint when state is set, then
           shows the rendered output so the operator can verify {{product.*}}
           placeholders without actually publishing. */}
-      {testPub && (() => {
-        if (!testResult && !isTesting) {
-          setIsTesting(true);
-          apiClient
-            .post<typeof testResult>(`/api/v1/admin/publications/${testPub.id}/test`, {
-              channel: testPub.channel,
-            })
-            .then((res) => {
-              if (res.success && res.data) setTestResult(res.data);
-              else toast.error(res.error || 'Помилка тесту');
-            })
-            .finally(() => setIsTesting(false));
-        }
-        return (
-          <Modal
-            isOpen
-            onClose={() => {
-              setTestPub(null);
-              setTestResult(null);
-            }}
-            size="md"
-          >
-            <h3 className="mb-3 text-lg font-semibold">🧪 Тест-рендер</h3>
-            {isTesting && !testResult && (
-              <p className="text-sm text-[var(--color-text-secondary)]">Рендеримо…</p>
-            )}
-            {testResult && (
-              <div className="space-y-3 text-sm">
-                <p className="text-xs text-[var(--color-text-secondary)]">
-                  Канал: <strong>{testResult.channel}</strong>
-                </p>
-                <div>
-                  <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                    Заголовок
+      {testPub &&
+        (() => {
+          if (!testResult && !isTesting) {
+            setIsTesting(true);
+            apiClient
+              .post<typeof testResult>(`/api/v1/admin/publications/${testPub.id}/test`, {
+                channel: testPub.channel,
+              })
+              .then((res) => {
+                if (res.success && res.data) setTestResult(res.data);
+                else toast.error(res.error || 'Помилка тесту');
+              })
+              .finally(() => setIsTesting(false));
+          }
+          return (
+            <Modal
+              isOpen
+              onClose={() => {
+                setTestPub(null);
+                setTestResult(null);
+              }}
+              size="md"
+            >
+              <h3 className="mb-3 text-lg font-semibold">🧪 Тест-рендер</h3>
+              {isTesting && !testResult && (
+                <p className="text-sm text-[var(--color-text-secondary)]">Рендеримо…</p>
+              )}
+              {testResult && (
+                <div className="space-y-3 text-sm">
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    Канал: <strong>{testResult.channel}</strong>
                   </p>
-                  <p className="rounded bg-[var(--color-bg-secondary)] p-2">{testResult.title}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                    Контент
-                  </p>
-                  <p className="whitespace-pre-wrap rounded bg-[var(--color-bg-secondary)] p-2">
-                    {testResult.content}
-                  </p>
-                </div>
-                {testResult.hashtags && (
                   <div>
                     <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                      Хештеги
+                      Заголовок
                     </p>
-                    <p className="rounded bg-[var(--color-bg-secondary)] p-2 text-[var(--color-primary)]">
-                      {testResult.hashtags}
+                    <p className="rounded bg-[var(--color-bg-secondary)] p-2">{testResult.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                      Контент
+                    </p>
+                    <p className="whitespace-pre-wrap rounded bg-[var(--color-bg-secondary)] p-2">
+                      {testResult.content}
                     </p>
                   </div>
-                )}
-                {testResult.note && (
-                  <p className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                    {testResult.note}
-                  </p>
-                )}
+                  {testResult.hashtags && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                        Хештеги
+                      </p>
+                      <p className="rounded bg-[var(--color-bg-secondary)] p-2 text-[var(--color-primary)]">
+                        {testResult.hashtags}
+                      </p>
+                    </div>
+                  )}
+                  {testResult.note && (
+                    <p className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                      {testResult.note}
+                    </p>
+                  )}
+                </div>
+              )}
+              <div className="mt-4 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setTestPub(null);
+                    setTestResult(null);
+                  }}
+                >
+                  Закрити
+                </Button>
               </div>
-            )}
-            <div className="mt-4 flex justify-end">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setTestPub(null);
-                  setTestResult(null);
-                }}
-              >
-                Закрити
-              </Button>
-            </div>
-          </Modal>
-        );
-      })()}
+            </Modal>
+          );
+        })()}
     </div>
   );
 }

@@ -34,6 +34,8 @@ export async function POST(request: NextRequest) {
 
     // Get product names for top products
     const productIds = topProducts.map((p) => p.productId).filter(Boolean) as number[];
+    // Include soft-deleted products: a product can be sold this week and then
+    // archived — we still want its name in the report rather than "undefined".
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       select: { id: true, name: true },

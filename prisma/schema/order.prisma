@@ -243,6 +243,8 @@ model CartItem {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([userId, productId])
+  // Used by the abandoned-cart cron for range scans on staleness.
+  @@index([updatedAt])
   @@map("cart_items")
 }
 

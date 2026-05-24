@@ -19,6 +19,10 @@ model Product {
   priceWholesaleOld2 Decimal?                 @map("price_wholesale_old_2") @db.Decimal(10, 2)
   priceWholesaleOld3 Decimal?                 @map("price_wholesale_old_3") @db.Decimal(10, 2)
   quantity           Int                      @default(0)
+  // Hide the exact quantity from the storefront: customer sees only
+  // "В наявності"/"Немає" without the number. A global toggle in
+  // SiteSetting (hide_all_quantity) acts as an override for the whole shop.
+  hideQuantity       Boolean                  @default(false) @map("hide_quantity")
   isPromo            Boolean                  @default(false) @map("is_promo")
   promoStartDate     DateTime?                @map("promo_start_date")
   promoEndDate       DateTime?                @map("promo_end_date")

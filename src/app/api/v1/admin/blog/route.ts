@@ -1,14 +1,23 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { createBlogPostSchema } from '@/validators/blog';
 import { createPost, BlogError } from '@/services/blog';
 import { prisma } from '@/lib/prisma';
-import { successResponse, errorResponse, paginatedResponse, parseSearchParams } from '@/utils/api-response';
+import {
+  successResponse,
+  errorResponse,
+  paginatedResponse,
+  parseSearchParams,
+} from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
 
-export const GET = withRole('manager', 'admin')(async (request: NextRequest) => {
+export const GET = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest) => {
   try {
     const { page, limit, search } = parseSearchParams(request.nextUrl.searchParams);
     // ?includeDeleted=true opt-in shows soft-deleted posts (for the future
@@ -47,7 +56,10 @@ export const GET = withRole('manager', 'admin')(async (request: NextRequest) => 
   }
 });
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest, { user }) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = createBlogPostSchema.safeParse(body);
@@ -64,6 +76,13 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
       details: { title: post.title, slug: post.slug },
       ipAddress: getClientIp(request),
     });
+    // Bust the storefront ISR cache so the new post appears immediately on
+    // /blog and /blog/[slug] instead of waiting for the next revalidate tick.
+    if (post.isPublished) {
+      revalidatePath('/blog');
+      revalidatePath(`/blog/${post.slug}`);
+      revalidatePath('/sitemap.xml');
+    }
     return successResponse(post, 201);
   } catch (error) {
     if (error instanceof BlogError) return errorResponse(error.message, error.statusCode);

@@ -1,13 +1,17 @@
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
 import { createSubscriptionSchema } from '@/validators/subscription';
-import { createSubscription, getUserSubscriptions, SubscriptionError } from '@/services/subscription';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import {
+  createSubscription,
+  getUserSubscriptions,
+  SubscriptionError,
+} from '@/services/subscription';
+import { successResponse, privateResponse, errorResponse } from '@/utils/api-response';
 
 export const GET = withAuth(async (_request: NextRequest, { user }) => {
   try {
     const subscriptions = await getUserSubscriptions(user.id);
-    return successResponse(subscriptions);
+    return privateResponse(subscriptions);
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }

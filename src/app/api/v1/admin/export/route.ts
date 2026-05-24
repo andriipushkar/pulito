@@ -11,12 +11,17 @@ import {
 } from '@/services/export';
 import { errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 export const GET = withRole(
   'admin',
   'manager',
-)(async (request: NextRequest) => {
+)(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`u${user.id}`, RATE_LIMITS.adminExport);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато експортів. Спробуйте через ${rl.retryAfter}с`, 429);
+    }
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'orders';
     const format = (searchParams.get('format') || 'xlsx') as 'xlsx' | 'csv';
@@ -46,8 +51,7 @@ export const GET = withRole(
           role: searchParams.get('role') || undefined,
           wholesaleStatus: searchParams.get('wholesaleStatus') || undefined,
           wholesaleGroup: searchParams.get('wholesaleGroup') || undefined,
-          isBlocked:
-            blockedParam === 'true' ? true : blockedParam === 'false' ? false : undefined,
+          isBlocked: blockedParam === 'true' ? true : blockedParam === 'false' ? false : undefined,
           dateFrom: searchParams.get('dateFrom') || undefined,
           dateTo: searchParams.get('dateTo') || undefined,
           search: searchParams.get('search') || undefined,

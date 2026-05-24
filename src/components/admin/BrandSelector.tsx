@@ -26,7 +26,11 @@ interface BrandSelectorProps {
  * "i need to add a new manufacturer first", and forcing them through a
  * separate /admin/brands page breaks the flow.
  */
-export default function BrandSelector({ value, onChange, label = 'Виробник' }: BrandSelectorProps) {
+export default function BrandSelector({
+  value,
+  onChange,
+  label = 'Торгова марка',
+}: BrandSelectorProps) {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -50,14 +54,14 @@ export default function BrandSelector({ value, onChange, label = 'Виробни
   const handleCreate = async () => {
     const name = newName.trim();
     if (!name) {
-      toast.error('Введіть назву виробника');
+      toast.error('Введіть назву торгової марки');
       return;
     }
     setIsSaving(true);
     try {
       const res = await apiClient.post<Brand>('/api/v1/admin/brands', { name });
       if (res.success && res.data) {
-        toast.success(`Виробника "${res.data.name}" створено`);
+        toast.success(`Торгової марки "${res.data.name}" створено`);
         const newId = res.data.id;
         // Optimistic: append + select before reload so the UI doesn't flash.
         setBrands((prev) =>
@@ -68,7 +72,7 @@ export default function BrandSelector({ value, onChange, label = 'Виробни
         setShowCreate(false);
         loadBrands();
       } else {
-        toast.error(res.error || 'Не вдалося створити виробника');
+        toast.error(res.error || 'Не вдалося створити торгової марки');
       }
     } catch {
       toast.error('Помилка мережі');
@@ -78,7 +82,7 @@ export default function BrandSelector({ value, onChange, label = 'Виробни
   };
 
   const options = [
-    { value: '', label: 'Без виробника' },
+    { value: '', label: 'Без торгової марки' },
     ...brands.map((b) => ({ value: String(b.id), label: b.name })),
   ];
 
@@ -102,7 +106,7 @@ export default function BrandSelector({ value, onChange, label = 'Виробни
       {showCreate && (
         <div className="mt-2 flex items-end gap-2 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] p-3">
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium">Назва нового виробника</label>
+            <label className="mb-1 block text-xs font-medium">Назва нового торгової марки</label>
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}

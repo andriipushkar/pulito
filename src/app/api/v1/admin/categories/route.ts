@@ -1,11 +1,15 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withRole } from '@/middleware/auth';
 import { createCategorySchema } from '@/validators/category';
 import { createCategory, getCategories, CategoryError } from '@/services/category';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 
-export const GET = withRole('manager', 'admin')(async () => {
+export const GET = withRole(
+  'manager',
+  'admin',
+)(async () => {
   try {
     const categories = await getCategories({ includeHidden: true });
     return successResponse(categories);
@@ -15,7 +19,10 @@ export const GET = withRole('manager', 'admin')(async () => {
   }
 });
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest) => {
   try {
     const body = await request.json();
     const parsed = createCategorySchema.safeParse(body);
@@ -26,6 +33,13 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
     }
 
     const category = await createCategory(parsed.data);
+    try {
+      revalidatePath('/catalog');
+      revalidatePath('/');
+      revalidatePath('/sitemap.xml');
+    } catch {
+      /* best-effort */
+    }
     return successResponse(category, 201);
   } catch (error) {
     if (error instanceof CategoryError) {

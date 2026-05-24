@@ -48,7 +48,7 @@ const ENTITY_OPTIONS = [
   { value: 'blog_post', label: 'Стаття блогу' },
   { value: 'blog_category', label: 'Категорія блогу' },
   { value: 'banner', label: 'Банер' },
-  { value: 'brand', label: 'Виробник' },
+  { value: 'brand', label: 'Торгова марка' },
   { value: 'theme', label: 'Тема' },
   { value: 'wholesale_rule', label: 'Гуртове правило' },
   { value: 'settings', label: 'Налаштування' },
@@ -251,7 +251,17 @@ export default function AdminAuditLogPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, limit, actionFilter, entityFilter, dateFrom, dateTo, ipSearch, userIdFilter, requestKey]);
+  }, [
+    page,
+    limit,
+    actionFilter,
+    entityFilter,
+    dateFrom,
+    dateTo,
+    ipSearch,
+    userIdFilter,
+    requestKey,
+  ]);
 
   const resetFilters = () => {
     setActionFilter('');
@@ -297,7 +307,9 @@ export default function AdminAuditLogPage() {
       {showFilters && (
         <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-[var(--color-text-secondary)]">Швидкий вибір:</span>
+            <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+              Швидкий вибір:
+            </span>
             {[
               { label: 'Сьогодні', from: todayIso(), to: todayIso() },
               { label: '7 днів', from: isoDaysAgo(6), to: todayIso() },
@@ -416,9 +428,7 @@ export default function AdminAuditLogPage() {
             key: 'user',
             header: 'Користувач',
             render: (log) => (
-              <span className="text-xs">
-                {log.user?.fullName || log.user?.email || 'Система'}
-              </span>
+              <span className="text-xs">{log.user?.fullName || log.user?.email || 'Система'}</span>
             ),
           },
           {
@@ -487,11 +497,11 @@ export default function AdminAuditLogPage() {
               isLoading={isLoading}
               emptyState={
                 <div className="flex flex-col items-center gap-3 py-6">
-                  <span className="text-3xl" aria-hidden="true">📋</span>
+                  <span className="text-3xl" aria-hidden="true">
+                    📋
+                  </span>
                   <p className="text-sm font-medium">
-                    {hasActiveFilters
-                      ? 'За цими фільтрами записів не знайдено'
-                      : 'Журнал порожній'}
+                    {hasActiveFilters ? 'За цими фільтрами записів не знайдено' : 'Журнал порожній'}
                   </p>
                   {hasActiveFilters && (
                     <button

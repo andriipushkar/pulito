@@ -16,12 +16,18 @@ const loginSchema = z.object({
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, verifyTwoFactor } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const initialStep = searchParams.get('step') === '2fa';
+  const initialTempToken = initialStep ? searchParams.get('tempToken') || '' : '';
+  const [twoFactorStep, setTwoFactorStep] = useState(initialStep && !!initialTempToken);
+  const [tempToken, setTempToken] = useState(initialTempToken);
+  const [code, setCode] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,12 +50,80 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (res.success) {
+      if (res.requiresTwoFactor && res.tempToken) {
+        setTempToken(res.tempToken);
+        setTwoFactorStep(true);
+        return;
+      }
       const returnUrl = searchParams.get('returnUrl') || '/';
       router.push(returnUrl);
     } else {
       setGeneralError(res.error || 'Помилка входу');
     }
   };
+
+  const handleTwoFactorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGeneralError('');
+    const trimmed = code.trim();
+    if (trimmed.length < 6) {
+      setGeneralError('Введіть 6-значний код');
+      return;
+    }
+    setIsLoading(true);
+    const res = await verifyTwoFactor(tempToken, trimmed);
+    setIsLoading(false);
+    if (res.success) {
+      const returnUrl = searchParams.get('returnUrl') || '/';
+      router.push(returnUrl);
+    } else {
+      setGeneralError(res.error || 'Невірний код');
+    }
+  };
+
+  if (twoFactorStep) {
+    return (
+      <div>
+        <h1 className="mb-2 text-center text-2xl font-bold">Двофакторна автентифікація</h1>
+        <p className="mb-6 text-center text-sm text-[var(--color-text-secondary)]">
+          Введіть 6-значний код з додатку автентифікації
+        </p>
+
+        {generalError && (
+          <div className="mb-4 rounded-[var(--radius)] bg-red-50 p-3 text-sm text-[var(--color-danger)]">
+            {generalError}
+          </div>
+        )}
+
+        <form onSubmit={handleTwoFactorSubmit} className="flex flex-col gap-4">
+          <Input
+            label="Код"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="123456"
+          />
+          <Button type="submit" isLoading={isLoading} className="w-full">
+            Підтвердити
+          </Button>
+          <button
+            type="button"
+            onClick={() => {
+              setTwoFactorStep(false);
+              setTempToken('');
+              setCode('');
+              setGeneralError('');
+            }}
+            className="text-sm text-[var(--color-text-secondary)] underline"
+          >
+            Назад
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div>

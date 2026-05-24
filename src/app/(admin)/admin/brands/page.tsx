@@ -52,7 +52,11 @@ export default function AdminBrandsPage() {
     [editForm, editSnapshot],
   );
   const guardEdit = useUnsavedChangesGuard(isEditDirty);
-  const closeEdit = () => guardEdit(() => { setEditingId(null); setEditSnapshot(null); });
+  const closeEdit = () =>
+    guardEdit(() => {
+      setEditingId(null);
+      setEditSnapshot(null);
+    });
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
@@ -71,7 +75,7 @@ export default function AdminBrandsPage() {
       .get<AdminBrand[]>('/api/v1/admin/brands?includeHidden=true')
       .then((res) => {
         if (res.success && res.data) setBrands(res.data);
-        else toast.error(res.error || 'Не вдалося завантажити виробників');
+        else toast.error(res.error || 'Не вдалося завантажити торгових марок');
       })
       .catch(() => toast.error('Помилка мережі'))
       .finally(() => setIsLoading(false));
@@ -118,12 +122,12 @@ export default function AdminBrandsPage() {
         version: current?.version,
       });
       if (res.success) {
-        toast.success('Виробника оновлено');
+        toast.success('Торгової марки оновлено');
         setEditingId(null);
         setEditSnapshot(null);
         loadBrands();
       } else if (res.statusCode === 409) {
-        toast.error(res.error || 'Виробника змінено іншим адміністратором', {
+        toast.error(res.error || 'Торгової марки змінено іншим адміністратором', {
           duration: 12000,
           action: {
             label: 'Оновити з сервера',
@@ -148,7 +152,7 @@ export default function AdminBrandsPage() {
   const handleCreate = async () => {
     const name = createForm.name.trim();
     if (!name) {
-      toast.error('Введіть назву виробника');
+      toast.error('Введіть назву торгової марки');
       return;
     }
     setIsCreating(true);
@@ -158,7 +162,7 @@ export default function AdminBrandsPage() {
         slug: createForm.slug.trim() || undefined,
       });
       if (res.success) {
-        toast.success('Виробника створено');
+        toast.success('Торгової марки створено');
         setShowCreate(false);
         setCreateForm({ name: '', slug: '' });
         loadBrands();
@@ -180,7 +184,7 @@ export default function AdminBrandsPage() {
     try {
       const res = await apiClient.delete<{ message?: string }>(`/api/v1/admin/brands/${id}`);
       if (res.success) {
-        toast.success(res.data?.message || 'Виробника видалено');
+        toast.success(res.data?.message || 'Торгової марки видалено');
         loadBrands();
       } else {
         toast.error(res.error || 'Не вдалося видалити');
@@ -237,7 +241,7 @@ export default function AdminBrandsPage() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold">
-          Виробники{' '}
+          Торгові марки{' '}
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({brands.length})
           </span>
@@ -257,7 +261,7 @@ export default function AdminBrandsPage() {
 
       {showCreate && (
         <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="mb-3 text-sm font-semibold">Новий виробник</p>
+          <p className="mb-3 text-sm font-semibold">Новий торгова марка</p>
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium">Назва *</label>
@@ -380,7 +384,7 @@ export default function AdminBrandsPage() {
                       🏭
                     </span>
                     <p className="text-sm font-medium">
-                      {search ? 'Виробників не знайдено' : 'Виробників ще немає'}
+                      {search ? 'Торгових марок не знайдено' : 'Торгових марок ще немає'}
                     </p>
                     {search ? (
                       <button
@@ -394,7 +398,7 @@ export default function AdminBrandsPage() {
                         onClick={() => setShowCreate(true)}
                         className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
                       >
-                        + Створити виробника
+                        + Створити торгової марки
                       </button>
                     )}
                   </div>
@@ -414,7 +418,7 @@ export default function AdminBrandsPage() {
           }}
         >
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[var(--radius)] bg-[var(--color-bg)] p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Редагувати виробника</h3>
+            <h3 className="mb-4 text-lg font-semibold">Редагувати торгової марки</h3>
             <div className="space-y-4">
               <Input
                 label="Назва *"
@@ -434,7 +438,7 @@ export default function AdminBrandsPage() {
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   rows={3}
                   className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-                  placeholder="Коротка інформація про виробника (показується на /brand/[slug])"
+                  placeholder="Коротка інформація про торгової марки (показується на /brand/[slug])"
                 />
               </div>
 
@@ -492,7 +496,7 @@ export default function AdminBrandsPage() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input
-                  label="Веб-сайт виробника"
+                  label="Веб-сайт торгової марки"
                   type="url"
                   value={editForm.website}
                   onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
@@ -507,7 +511,9 @@ export default function AdminBrandsPage() {
               </div>
 
               <div className="rounded-md border border-[var(--color-border)] p-3">
-                <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">SEO</p>
+                <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                  SEO
+                </p>
                 <div className="space-y-3">
                   <div>
                     <Input
@@ -573,7 +579,7 @@ export default function AdminBrandsPage() {
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between text-sm">
           <span className="text-[var(--color-text-secondary)]">
-            Сторінка {currentPage} з {totalPages} · {filtered.length} виробників
+            Сторінка {currentPage} з {totalPages} · {filtered.length} торгових марок
           </span>
           <div className="flex gap-1">
             <Button
@@ -601,8 +607,8 @@ export default function AdminBrandsPage() {
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDelete}
         variant="danger"
-        title="Видалення виробника"
-        message={`Видалити "${confirmDelete?.name}"? Якщо у виробника є товари — бренд просто відв'яжеться від них; інакше буде стертий.`}
+        title="Видалення торгової марки"
+        message={`Видалити "${confirmDelete?.name}"? Якщо у торгової марки є товари — бренд просто відв'яжеться від них; інакше буде стертий.`}
         confirmText="Так, видалити"
       />
     </div>

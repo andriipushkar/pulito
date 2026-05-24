@@ -9,6 +9,7 @@ import ShareButtons from './ShareButtons';
 import { Heart, Cart } from '@/components/icons';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
+import { useSettings } from '@/hooks/useSettings';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import SubscribeButton from './SubscribeButton';
 import BackInStockButton from './BackInStockButton';
@@ -89,10 +90,15 @@ export default function ProductInfo({ product }: ProductInfoProps) {
   // Resolve effective price + stock — variant overrides product when one is selected
   // and explicitly has those fields, otherwise fall back to the parent product.
   const effectivePriceRetail =
-    activeVariant?.priceRetail != null ? Number(activeVariant.priceRetail) : Number(product.priceRetail);
+    activeVariant?.priceRetail != null
+      ? Number(activeVariant.priceRetail)
+      : Number(product.priceRetail);
   const effectiveQuantity = activeVariant ? activeVariant.quantity : product.quantity;
   const inStock = effectiveQuantity > 0;
   const mainImage = activeVariant?.imagePath || product.images[0]?.pathMedium || product.imagePath;
+  const settings = useSettings();
+  const hideQty =
+    (product as { hideQuantity?: boolean }).hideQuantity || settings.hide_all_quantity === '1';
 
   const handleAddToCart = () => {
     if (!inStock) return;
@@ -111,8 +117,8 @@ export default function ProductInfo({ product }: ProductInfoProps) {
       priceWholesale:
         activeVariant?.priceWholesale != null
           ? Number(activeVariant.priceWholesale)
-          : resolveWholesalePrice(product, user?.wholesaleGroup) ??
-            (product.priceWholesale ? Number(product.priceWholesale) : null),
+          : (resolveWholesalePrice(product, user?.wholesaleGroup) ??
+            (product.priceWholesale ? Number(product.priceWholesale) : null)),
       imagePath: mainImage,
       quantity,
       maxQuantity: effectiveQuantity,
@@ -224,7 +230,11 @@ export default function ProductInfo({ product }: ProductInfoProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
           )}
-          {inStock ? `В наявності (${effectiveQuantity} шт.)` : 'Немає в наявності'}
+          {inStock
+            ? hideQty
+              ? 'В наявності'
+              : `В наявності (${effectiveQuantity} шт.)`
+            : 'Немає в наявності'}
         </div>
         {(() => {
           // Show physical params chip when the selected variant (or parent)

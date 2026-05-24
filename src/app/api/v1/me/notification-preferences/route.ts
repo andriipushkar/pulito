@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import { successResponse, privateResponse, errorResponse } from '@/utils/api-response';
 
 const prefsSchema = z.object({
   email_orders: z.boolean().optional(),
@@ -12,6 +12,8 @@ const prefsSchema = z.object({
   telegram_promo: z.boolean().optional(),
   push_orders: z.boolean().optional(),
   push_promo: z.boolean().optional(),
+  viber_orders: z.boolean().optional(),
+  viber_promo: z.boolean().optional(),
 });
 
 export const GET = withAuth(async (_request: NextRequest, { user }) => {
@@ -29,11 +31,13 @@ export const GET = withAuth(async (_request: NextRequest, { user }) => {
       telegram_promo: false,
       push_orders: true,
       push_promo: false,
+      viber_orders: true,
+      viber_promo: false,
     };
 
-    return successResponse({
+    return privateResponse({
       ...defaults,
-      ...(u?.notificationPrefs as object || {}),
+      ...((u?.notificationPrefs as object) || {}),
     });
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
@@ -54,7 +58,7 @@ export const PUT = withAuth(async (request: NextRequest, { user }) => {
     });
 
     const merged = {
-      ...(current?.notificationPrefs as object || {}),
+      ...((current?.notificationPrefs as object) || {}),
       ...parsed.data,
     };
 

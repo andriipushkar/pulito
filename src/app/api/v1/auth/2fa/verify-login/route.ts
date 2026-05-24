@@ -10,8 +10,8 @@ import { env } from '@/config/env';
 import { logAudit } from '@/services/audit';
 
 const verifyLoginSchema = z.object({
-  tempToken: z.string().min(1, 'Токен обов\'язковий'),
-  code: z.string().min(1, 'Код обов\'язковий'),
+  tempToken: z.string().min(1, "Токен обов'язковий"),
+  code: z.string().min(1, "Код обов'язковий"),
 });
 
 /**
@@ -50,6 +50,12 @@ export async function POST(request: NextRequest) {
         deviceInfo,
       );
     } catch (error) {
+      console.warn('[2fa/verify-login] failed', {
+        codeLen: parsed.data.code.length,
+        ip: ipAddress,
+        tempTokenTail: parsed.data.tempToken.slice(-12),
+        err: error instanceof Error ? error.message : String(error),
+      });
       if (error instanceof AuthError && error.statusCode === 401) {
         await logAudit({
           userId: null,
@@ -74,7 +80,10 @@ export async function POST(request: NextRequest) {
 
     const refreshTtl = parseTtlToSeconds(env.JWT_REFRESH_TTL);
     const response = successResponse({ user, accessToken: tokens.accessToken });
-    response.headers.set('Set-Cookie', serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl));
+    response.headers.set(
+      'Set-Cookie',
+      serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl),
+    );
 
     return response;
   } catch (error) {

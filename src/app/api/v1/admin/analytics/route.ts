@@ -240,10 +240,15 @@ export const GET = withRole(
         const cancelRate = totalPeriod > 0 ? Math.round((cancelledCount / totalPeriod) * 100) : 0;
         const returnRate = totalPeriod > 0 ? Math.round((returnedCount / totalPeriod) * 100) : 0;
 
-        // Heatmap: orders by day of week & hour
+        // Heatmap: orders by day of week & hour.
+        // Cap to 50k orders — heatmap is purely visual, beyond this we'd OOM the
+        // node process pulling every historical row into memory. The bucketed
+        // distribution remains representative even with the cap.
         const ordersRaw = await prisma.order.findMany({
           where: { createdAt: { gte: currentFrom } },
           select: { createdAt: true },
+          take: 50000,
+          orderBy: { createdAt: 'desc' },
         });
         // Bucket by Kyiv-local day/hour, not server-local. The admin reads
         // "понеділок 14:00" expecting Kyiv time; without this, a server in
@@ -256,7 +261,13 @@ export const GET = withRole(
           hour12: false,
         });
         const dowIndex: Record<string, number> = {
-          Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+          Sun: 0,
+          Mon: 1,
+          Tue: 2,
+          Wed: 3,
+          Thu: 4,
+          Fri: 5,
+          Sat: 6,
         };
         for (const o of ordersRaw) {
           const parts = kyivFmt.formatToParts(new Date(o.createdAt));

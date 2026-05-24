@@ -1,6 +1,11 @@
 import { NextRequest } from 'next/server';
 import { subscribeSchema } from '@/validators/feedback';
-import { subscribe, confirmSubscription, unsubscribeByEmail, SubscriberError } from '@/services/subscriber';
+import {
+  subscribe,
+  confirmSubscription,
+  unsubscribeByEmail,
+  SubscriberError,
+} from '@/services/subscriber';
 import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
 
@@ -9,7 +14,10 @@ const SUBSCRIBE_LIMIT = { ...RATE_LIMITS.sensitive, prefix: 'rl:subscribe:' };
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
     const rl = await checkRateLimit(ip, SUBSCRIBE_LIMIT);
     if (!rl.allowed) {
       return errorResponse('Забагато запитів. Спробуйте пізніше.', 429);
@@ -33,19 +41,25 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token');
+  const email = request.nextUrl.searchParams.get('email');
   const action = request.nextUrl.searchParams.get('action');
 
-  if (!token) {
+  // Unsubscribe links in transactional emails carry `?email=` (built by
+  // baseLayout in email-template.ts). Confirmation links from /subscribe
+  // signup use `?token=`. Accept both forms — the rest of the codebase
+  // already passes the email straight through as the lookup key.
+  const lookupValue = action === 'unsubscribe' ? email || token : token;
+  if (!lookupValue) {
     return errorResponse('Токен не надано', 400);
   }
 
   try {
     if (action === 'unsubscribe') {
-      const result = await unsubscribeByEmail(token);
+      const result = await unsubscribeByEmail(lookupValue);
       return successResponse(result);
     }
 
-    const result = await confirmSubscription(token);
+    const result = await confirmSubscription(lookupValue);
     return successResponse(result);
   } catch (error) {
     if (error instanceof SubscriberError) {

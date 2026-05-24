@@ -41,6 +41,16 @@ export async function generateMetadata({ searchParams }: BlogPageProps): Promise
       url: canonical,
       type: 'website',
       siteName: 'Pulito Trade',
+      // Default share image so social previews on Facebook/Telegram/Viber
+      // never show a blank thumbnail. The /opengraph-image route returns
+      // the shop's branded card image.
+      images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Блог — Pulito Trade',
+      description: 'Корисні статті про побутову хімію, поради з прибирання та догляду за домом.',
+      images: [`${baseUrl}/opengraph-image`],
     },
   };
 }

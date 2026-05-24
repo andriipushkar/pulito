@@ -3,6 +3,7 @@ import { Prisma } from '@/../generated/prisma';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logger } from '@/lib/logger';
 
 /**
  * Returns aggregate stats for this order's customer: how many orders they made,
@@ -67,7 +68,7 @@ export const GET = withRole(
       lastOrderId: last?.id ?? null,
     });
   } catch (error) {
-    console.error('[Admin Order Customer History]', error);
+    logger.error('[Admin Order Customer History]', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

@@ -57,7 +57,6 @@ export default function SpecsEditor({ value, onChange }: Props) {
   // Re-parse only when the upstream value changes from outside (e.g. data load)
   useEffect(() => {
     setSpecs(parse(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   const emit = (next: Spec[]) => {
@@ -75,12 +74,16 @@ export default function SpecsEditor({ value, onChange }: Props) {
     <div>
       {specs.length === 0 ? (
         <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-          Немає характеристик. Додайте, щоб клієнти бачили структурований опис: «Об'єм: 5 л», «Виробник: Ariel» тощо.
+          Немає характеристик. Додайте, щоб клієнти бачили структурований опис: «Об&apos;єм: 5 л»,
+          «Торгова марка: Ariel» тощо.
         </p>
       ) : (
         <ul className="mb-3 space-y-1.5">
           {specs.map((s, i) => (
-            <li key={i} className="flex flex-wrap items-center gap-2 rounded-md bg-[var(--color-bg-secondary)]/40 p-2">
+            <li
+              key={i}
+              className="flex flex-wrap items-center gap-2 rounded-md bg-[var(--color-bg-secondary)]/40 p-2"
+            >
               <input
                 type="text"
                 value={s.key}
@@ -103,8 +106,18 @@ export default function SpecsEditor({ value, onChange }: Props) {
                 aria-label="Видалити характеристику"
                 title="Видалити"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165"
+                  />
                 </svg>
               </button>
             </li>
@@ -116,7 +129,13 @@ export default function SpecsEditor({ value, onChange }: Props) {
         onClick={add}
         className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
       >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg
+          className="h-3.5 w-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
         Додати характеристику

@@ -103,7 +103,7 @@ describe('getHomepageBlocks', () => {
   it('should preserve custom block order from saved settings', async () => {
     const customOrder = [
       { key: 'seo_text', label: 'SEO-текстовий блок', enabled: true },
-      { key: 'brands', label: 'Бренди / Виробники', enabled: true },
+      { key: 'brands', label: 'Бренди / Торгові марки', enabled: true },
       { key: 'banner_slider', label: 'Банер-слайдер', enabled: true },
     ];
 

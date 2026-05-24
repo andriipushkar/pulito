@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
@@ -67,6 +68,14 @@ export const POST = withRole(
 
     await cacheInvalidate('categories:*');
     await cacheInvalidate('products:*');
+
+    try {
+      revalidatePath('/catalog');
+      revalidatePath('/');
+      if (action === 'delete') revalidatePath('/sitemap.xml');
+    } catch {
+      /* best-effort */
+    }
 
     return successResponse({ affected: ids.length });
   } catch (err) {

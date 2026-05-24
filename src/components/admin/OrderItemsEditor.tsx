@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import type { OrderItemData, OrderDetail } from '@/types/order';
 import Button from '@/components/ui/Button';
@@ -37,7 +38,12 @@ interface OrderItemsEditorProps {
   onClose: () => void;
 }
 
-export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: OrderItemsEditorProps) {
+export default function OrderItemsEditor({
+  orderId,
+  items,
+  onSaved,
+  onClose,
+}: OrderItemsEditorProps) {
   const [editItems, setEditItems] = useState<EditableItem[]>(() =>
     items.map((item) => ({
       itemId: item.id,
@@ -49,7 +55,7 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
       imagePath: item.imagePath,
       isRemoved: false,
       isNew: false,
-    }))
+    })),
   );
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,14 +93,16 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
       setIsSearching(true);
       try {
         const res = await apiClient.get<{ products: SearchResult[] }>(
-          `/api/v1/products/search?q=${encodeURIComponent(value)}`
+          `/api/v1/products/search?q=${encodeURIComponent(value)}`,
         );
         if (res.success && res.data?.products) {
           setSearchResults(res.data.products);
           setShowDropdown(true);
+        } else if (!res.success) {
+          toast.error(res.error || 'Помилка пошуку товарів');
         }
       } catch {
-        // ignore
+        toast.error('Помилка мережі під час пошуку');
       } finally {
         setIsSearching(false);
       }
@@ -103,9 +111,7 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
 
   const handleAddProduct = (product: SearchResult) => {
     // Check duplicates
-    const exists = editItems.find(
-      (item) => item.productId === product.id && !item.isRemoved
-    );
+    const exists = editItems.find((item) => item.productId === product.id && !item.isRemoved);
     if (exists) {
       setError(`Товар "${product.name}" вже додано`);
       setShowDropdown(false);
@@ -114,14 +120,10 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
     }
 
     // If was removed, restore it
-    const removed = editItems.find(
-      (item) => item.productId === product.id && item.isRemoved
-    );
+    const removed = editItems.find((item) => item.productId === product.id && item.isRemoved);
     if (removed) {
       setEditItems((prev) =>
-        prev.map((item) =>
-          item.productId === product.id ? { ...item, isRemoved: false } : item
-        )
+        prev.map((item) => (item.productId === product.id ? { ...item, isRemoved: false } : item)),
       );
     } else {
       setEditItems((prev) => [
@@ -150,7 +152,7 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
         if (i !== index) return item;
         const newQty = Math.max(1, item.quantity + delta);
         return { ...item, quantity: newQty };
-      })
+      }),
     );
   };
 
@@ -158,7 +160,7 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
     const num = parseInt(value, 10);
     if (isNaN(num) || num < 1) return;
     setEditItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, quantity: num } : item))
+      prev.map((item, i) => (i === index ? { ...item, quantity: num } : item)),
     );
   };
 
@@ -168,7 +170,7 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
         if (i !== index) return item;
         if (item.isNew) return item; // will be filtered
         return { ...item, isRemoved: true };
-      })
+      }),
     );
     // Remove new items entirely
     setEditItems((prev) => prev.filter((item, i) => !(i === index && item.isNew)));
@@ -176,7 +178,7 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
 
   const handleRestore = (index: number) => {
     setEditItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, isRemoved: false } : item))
+      prev.map((item, i) => (i === index ? { ...item, isRemoved: false } : item)),
     );
   };
 
@@ -195,10 +197,9 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
     });
 
     try {
-      const res = await apiClient.put<OrderDetail>(
-        `/api/v1/admin/orders/${orderId}/items`,
-        { items: apiItems }
-      );
+      const res = await apiClient.put<OrderDetail>(`/api/v1/admin/orders/${orderId}/items`, {
+        items: apiItems,
+      });
       if (res.success && res.data) {
         onSaved(res.data);
       } else {
@@ -212,10 +213,7 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
   };
 
   const activeItems = editItems.filter((item) => !item.isRemoved);
-  const total = activeItems.reduce(
-    (sum, item) => sum + item.priceAtOrder * item.quantity,
-    0
-  );
+  const total = activeItems.reduce((sum, item) => sum + item.priceAtOrder * item.quantity, 0);
 
   return (
     <div className="p-6">
@@ -227,9 +225,7 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
           value={searchQuery}
           onChange={(e) => handleSearchChange(e.target.value)}
         />
-        {isSearching && (
-          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Пошук...</p>
-        )}
+        {isSearching && <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Пошук...</p>}
         {showDropdown && searchResults.length > 0 && (
           <div className="absolute z-10 mt-1 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
             {searchResults.map((product) => (
@@ -241,7 +237,13 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
               >
                 <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
                   {product.imagePath ? (
-                    <Image src={product.imagePath} alt="" fill className="object-cover" sizes="32px" />
+                    <Image
+                      src={product.imagePath}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="32px"
+                    />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">
                       Фото
@@ -251,7 +253,8 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
                 <div className="flex-1 min-w-0">
                   <p className="truncate font-medium">{product.name}</p>
                   <p className="text-xs text-[var(--color-text-secondary)]">
-                    {product.code} | {Number(product.priceRetail).toFixed(2)} ₴ | Залишок: {product.quantity}
+                    {product.code} | {Number(product.priceRetail).toFixed(2)} ₴ | Залишок:{' '}
+                    {product.quantity}
                   </p>
                 </div>
               </button>
@@ -354,9 +357,7 @@ export default function OrderItemsEditor({ orderId, items, onSaved, onClose }: O
         <span className="text-sm font-medium">
           Товарів: {activeItems.reduce((sum, i) => sum + i.quantity, 0)}
         </span>
-        <span className="text-lg font-bold">
-          Разом: {total.toFixed(2)} ₴
-        </span>
+        <span className="text-lg font-bold">Разом: {total.toFixed(2)} ₴</span>
       </div>
 
       {error && <p className="mt-3 text-sm text-[var(--color-danger)]">{error}</p>}

@@ -11,6 +11,7 @@ const schema = z.object({
   brandId: z.number().int().positive().optional().nullable(),
   priceRetail: z.number().min(0).optional(),
   shortDescription: z.string().max(500).optional().nullable(),
+  provider: z.enum(['claude', 'gemini', 'rules']).optional(),
 });
 
 /**
@@ -44,13 +45,16 @@ export const POST = withRole(
         : null,
     ]);
 
-    const generated = await generateForProduct({
-      name: parsed.data.name,
-      category: category?.name ?? null,
-      brand: brand?.name ?? null,
-      priceRetail: parsed.data.priceRetail ?? 0,
-      shortDescription: parsed.data.shortDescription ?? null,
-    });
+    const generated = await generateForProduct(
+      {
+        name: parsed.data.name,
+        category: category?.name ?? null,
+        brand: brand?.name ?? null,
+        priceRetail: parsed.data.priceRetail ?? 0,
+        shortDescription: parsed.data.shortDescription ?? null,
+      },
+      { provider: parsed.data.provider },
+    );
 
     return successResponse(generated);
   } catch (error) {

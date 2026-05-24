@@ -40,7 +40,9 @@ export const DELETE = withAuth(async (request: NextRequest, { user }) => {
 
   try {
     await deleteAccount(user.id);
-    return successResponse({ message: 'Акаунт видалено' });
+    const res = successResponse({ message: 'Акаунт видалено' });
+    res.headers.set('Cache-Control', 'no-store');
+    return res;
   } catch (error) {
     if (error instanceof AccountError) return errorResponse(error.message, error.statusCode);
     return errorResponse('Внутрішня помилка сервера', 500);

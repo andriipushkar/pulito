@@ -13,7 +13,7 @@ describe('cookie utilities', () => {
       expect(cookie).toContain('refresh_token=my-token');
       expect(cookie).toContain('HttpOnly');
       expect(cookie).toContain('SameSite=Lax');
-      expect(cookie).toContain('Path=/api/v1/auth');
+      expect(cookie).toContain('Path=/');
       expect(cookie).toContain('Max-Age=2592000');
     });
 
@@ -43,7 +43,7 @@ describe('cookie utilities', () => {
       expect(cookie).toContain('refresh_token=');
       expect(cookie).toContain('Max-Age=0');
       expect(cookie).toContain('HttpOnly');
-      expect(cookie).toContain('Path=/api/v1/auth');
+      expect(cookie).toContain('Path=/');
     });
   });
 

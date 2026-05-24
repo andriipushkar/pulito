@@ -263,7 +263,11 @@ export async function getUserOrders(userId: number, limit = 10) {
 }
 
 // 4. Reset password
-export async function resetUserPassword(id: number, adminId: number, meta?: { ipAddress?: string }) {
+export async function resetUserPassword(
+  id: number,
+  adminId: number,
+  meta?: { ipAddress?: string },
+) {
   const user = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
   if (!user) throw new UserError('Користувача не знайдено', 404);
 
@@ -365,11 +369,7 @@ export async function getUserStats(userId: number) {
     segments.push('vip');
   } else if (completedOrders >= 3) {
     segments.push('loyal');
-  } else if (
-    daysSinceFirstOrder !== null &&
-    daysSinceFirstOrder < 60 &&
-    completedOrders >= 1
-  ) {
+  } else if (daysSinceFirstOrder !== null && daysSinceFirstOrder < 60 && completedOrders >= 1) {
     segments.push('new');
   } else if (completedOrders === 1) {
     segments.push('one-time');
@@ -589,7 +589,10 @@ export async function sendMessageToUser(
         await tg.sendClientNotification(Number(user.telegramChatId), 'Сповіщення', message);
         sent.push('telegram');
       } catch (err) {
-        failed.push({ channel: 'telegram', reason: err instanceof Error ? err.message : 'unknown' });
+        failed.push({
+          channel: 'telegram',
+          reason: err instanceof Error ? err.message : 'unknown',
+        });
       }
     }
   }
@@ -766,7 +769,11 @@ export async function exportUserData(userId: number) {
 }
 
 // 10. Delete user account (GDPR) — anonymize orders, delete personal data
-export async function deleteUserAccount(userId: number, adminId: number, meta?: { ipAddress?: string }) {
+export async function deleteUserAccount(
+  userId: number,
+  adminId: number,
+  meta?: { ipAddress?: string },
+) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { id: true, email: true, role: true },
@@ -831,18 +838,43 @@ export async function deleteUserAccount(userId: number, adminId: number, meta?: 
 }
 
 // Existing functions
-export async function updateUserRole(id: number, role: string, adminId?: number) {
+export async function updateUserRole(
+  id: number,
+  role: string,
+  adminId?: number,
+  wholesaleGroup?: number | null,
+) {
   const validRoles = ['client', 'wholesaler', 'manager', 'admin'];
   if (!validRoles.includes(role)) {
     throw new UserError('Невалідна роль', 400);
   }
+  if (
+    wholesaleGroup !== undefined &&
+    wholesaleGroup !== null &&
+    ![1, 2, 3].includes(wholesaleGroup)
+  ) {
+    throw new UserError('Гуртова група має бути 1, 2 або 3', 400);
+  }
 
-  const oldUser = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+  const oldUser = await prisma.user.findUnique({
+    where: { id },
+    select: { role: true, wholesaleGroup: true },
+  });
   if (!oldUser) throw new UserError('Користувача не знайдено', 404);
+
+  // Set role + wholesale group atomically so the dropdown can promote a user
+  // straight into a pricing tier without two round-trips.
+  const data: {
+    role: 'client' | 'wholesaler' | 'manager' | 'admin';
+    wholesaleGroup?: number | null;
+  } = {
+    role: role as 'client' | 'wholesaler' | 'manager' | 'admin',
+  };
+  if (wholesaleGroup !== undefined) data.wholesaleGroup = wholesaleGroup;
 
   const updated = await prisma.user.update({
     where: { id },
-    data: { role: role as 'client' | 'wholesaler' | 'manager' | 'admin' },
+    data,
     select: userSelect,
   });
 
@@ -852,7 +884,12 @@ export async function updateUserRole(id: number, role: string, adminId?: number)
       actionType: 'role_change',
       entityType: 'user',
       entityId: id,
-      details: { oldRole: oldUser.role, newRole: role },
+      details: {
+        oldRole: oldUser.role,
+        newRole: role,
+        oldGroup: oldUser.wholesaleGroup,
+        newGroup: wholesaleGroup ?? oldUser.wholesaleGroup ?? null,
+      },
     });
   }
 

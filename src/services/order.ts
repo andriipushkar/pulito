@@ -391,9 +391,7 @@ export async function createOrder(
   // Push updated stock to marketplaces so OLX/Rozetka/Prom/Epicentr listings
   // can't oversell what we just decremented. Fire-and-forget.
   import('@/services/marketplace-sync')
-    .then((mod) =>
-      mod.syncProductsStockToMarketplaces(cartItems.map((i) => i.productId)),
-    )
+    .then((mod) => mod.syncProductsStockToMarketplaces(cartItems.map((i) => i.productId)))
     .catch((err) => {
       logger.error('Marketplace stock sync after order failed', {
         orderNumber: order.orderNumber,
@@ -604,11 +602,7 @@ export async function updateOrderStatus(
     // building (`shipped`) or are no longer promised to a customer
     // (`cancelled`/`returned`). Without this, reserved counters drift up over
     // time and overstate commitment.
-    if (
-      newStatus === 'shipped' ||
-      newStatus === 'cancelled' ||
-      newStatus === 'returned'
-    ) {
+    if (newStatus === 'shipped' || newStatus === 'cancelled' || newStatus === 'returned') {
       await adjustReserved(
         tx,
         order.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
@@ -688,6 +682,18 @@ export async function updateOrderStatus(
       select: orderDetailSelect,
     });
   });
+
+  // Сповіщення клієнту про новий статус. Best-effort: жодних throw — якщо
+  // запис у user_notifications падає, оновлення статусу не повинно ламатися.
+  if (updated.userId) {
+    import('@/services/notification')
+      .then((mod) =>
+        mod.notifyOrderStatusChange(updated.userId!, updated.orderNumber, newStatus, updated.id),
+      )
+      .catch(() => {
+        /* silent */
+      });
+  }
 
   // Auto-create TTN when status changes to "confirmed" or "shipped" (Nova Poshta only).
   // We fire on confirmed so TTN exists ASAP — менеджеру більше не треба клацати "Створити ТТН".
@@ -873,10 +879,7 @@ export async function updateOrderStatus(
   //   We don't reward customers for paying us to ship — and we definitely don't
   //   want to keep earning points on a discount they spent the points for.
   if (newStatus === 'completed' && order.userId) {
-    const pointsBase = Math.max(
-      0,
-      Number(updated.totalAmount) - Number(updated.deliveryCost ?? 0),
-    );
+    const pointsBase = Math.max(0, Number(updated.totalAmount) - Number(updated.deliveryCost ?? 0));
     import('@/services/loyalty')
       .then((mod) => mod.earnPoints(order.userId!, orderId, pointsBase))
       .catch((err) => {
@@ -890,15 +893,16 @@ export async function updateOrderStatus(
         });
       });
 
-    // Update referral status and award referrer bonus.
-    // Use a conditional updateMany (status='registered') to atomically claim
-    // the bonus — a parallel completion of another first order or a manual
-    // /admin/referrals/[id]/bonus call can't both pass. The loser sees
-    // count === 0 and exits without double-paying.
+    // Update referral status and award bonuses (referrer + referee).
+    // Bonus amounts come from SiteSettings (admin-configurable) — both can
+    // be set to "0" to disable. Use a conditional updateMany (status=
+    // 'registered') to atomically claim the bonus — a parallel completion of
+    // another first order or a manual /admin/referrals/[id]/bonus call can't
+    // both pass. The loser sees count === 0 and exits without double-paying.
     prisma.referral
       .findFirst({
         where: { referredUserId: order.userId, status: 'registered' },
-        select: { id: true, referrerUserId: true },
+        select: { id: true, referrerUserId: true, referredUserId: true },
       })
       .then(async (referral) => {
         if (!referral) return;
@@ -909,20 +913,40 @@ export async function updateOrderStatus(
         });
         if (claimed.count === 0) return; // lost the race — another flow already took it
 
+        const settingsMod = await import('@/services/settings');
+        const settings = await settingsMod.getSettings();
+        const referrerBonus = Math.max(
+          0,
+          Math.floor(Number(settings.referral_referrer_bonus) || 0),
+        );
+        const refereeBonus = Math.max(0, Math.floor(Number(settings.referral_referee_bonus) || 0));
+
         const loyaltyMod = await import('@/services/loyalty');
-        await loyaltyMod.adjustPoints({
-          userId: referral.referrerUserId,
-          type: 'manual_add',
-          points: 100,
-          description: `Реферальний бонус: запрошений користувач зробив перше замовлення #${orderId}`,
-        });
+        if (referrerBonus > 0) {
+          await loyaltyMod.adjustPoints({
+            userId: referral.referrerUserId,
+            type: 'manual_add',
+            points: referrerBonus,
+            description: `Реферальний бонус: запрошений користувач зробив перше замовлення #${orderId}`,
+          });
+        }
+        // Referee gets a one-time bonus on their first order (not on signup —
+        // would otherwise be farmed by people registering and never buying).
+        if (refereeBonus > 0) {
+          await loyaltyMod.adjustPoints({
+            userId: referral.referredUserId,
+            type: 'manual_add',
+            points: refereeBonus,
+            description: `Бонус за перше замовлення з реферальним кодом #${orderId}`,
+          });
+        }
 
         await prisma.referral.updateMany({
           where: { id: referral.id, status: 'first_order' },
           data: {
             status: 'bonus_granted',
             bonusType: 'points',
-            bonusValue: 100,
+            bonusValue: referrerBonus,
           },
         });
       })
@@ -949,12 +973,8 @@ export async function updateOrderStatus(
           select: { type: true, points: true },
         });
 
-        const earned = txs
-          .filter((t) => t.type === 'earn')
-          .reduce((sum, t) => sum + t.points, 0);
-        const spent = txs
-          .filter((t) => t.type === 'spend')
-          .reduce((sum, t) => sum + t.points, 0);
+        const earned = txs.filter((t) => t.type === 'earn').reduce((sum, t) => sum + t.points, 0);
+        const spent = txs.filter((t) => t.type === 'spend').reduce((sum, t) => sum + t.points, 0);
 
         if (earned > 0) {
           await mod.adjustPoints({
@@ -1088,20 +1108,24 @@ export async function editOrderItems(
 
         const qtyDiff = change.quantity - existing.quantity;
         if (qtyDiff !== 0 && existing.productId) {
-          // Check stock if increasing
           if (qtyDiff > 0) {
-            const product = await tx.product.findUnique({
-              where: { id: existing.productId },
-              select: { quantity: true },
+            // Atomic conditional decrement — prevents the classic check-then-decrement
+            // race where two concurrent orders both pass the stock check before either
+            // commits the decrement. updateMany with `quantity: { gte: qtyDiff }` will
+            // affect 0 rows if stock has already dropped below the threshold.
+            const updated = await tx.product.updateMany({
+              where: { id: existing.productId, quantity: { gte: qtyDiff } },
+              data: { quantity: { decrement: qtyDiff } },
             });
-            if (!product || product.quantity < qtyDiff) {
+            if (updated.count === 0) {
               throw new OrderError(`Недостатньо товару "${existing.productName}" на складі`, 400);
             }
+          } else {
+            await tx.product.update({
+              where: { id: existing.productId },
+              data: { quantity: { decrement: qtyDiff } },
+            });
           }
-          await tx.product.update({
-            where: { id: existing.productId },
-            data: { quantity: { decrement: qtyDiff } },
-          });
           // Reservation tracks "how much is promised to open orders" — move it
           // by the same delta so reserved stays consistent with product.quantity.
           await adjustReserved(
@@ -1156,11 +1180,7 @@ export async function editOrderItems(
           where: { id: product.id },
           data: { quantity: { decrement: change.quantity } },
         });
-        await adjustReserved(
-          tx,
-          [{ productId: product.id, quantity: change.quantity }],
-          1,
-        );
+        await adjustReserved(tx, [{ productId: product.id, quantity: change.quantity }], 1);
 
         await tx.orderItem.create({
           data: {
@@ -1436,9 +1456,7 @@ export async function getOrderStats(): Promise<OrderStats> {
   // recomputes — never block the response on Redis.
   redis
     .setex(STATS_CACHE_KEY, STATS_CACHE_TTL, JSON.stringify(stats))
-    .catch((err) =>
-      logger.error('Order stats cache write failed', { error: String(err) }),
-    );
+    .catch((err) => logger.error('Order stats cache write failed', { error: String(err) }));
 
   return stats;
 }

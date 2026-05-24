@@ -87,7 +87,10 @@ export const GET = withRole2fa(
   }
 });
 
-export const PUT = withRole2fa('admin')(async (request: NextRequest, { params, user: adminUser }) => {
+export const PUT = withRole2fa('admin')(async (
+  request: NextRequest,
+  { params, user: adminUser },
+) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -100,7 +103,9 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { params, u
     const ipAddress = getClientIp(request);
 
     if (action === 'block' || action === 'unblock') {
-      const user = await toggleBlockUser(numId, action === 'block', body.reason, adminId, { ipAddress });
+      const user = await toggleBlockUser(numId, action === 'block', body.reason, adminId, {
+        ipAddress,
+      });
       return successResponse(user);
     }
 
@@ -153,7 +158,11 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { params, u
         actionType: 'data_create',
         entityType: 'user_message',
         entityId: numId,
-        details: { channels: body.channels, subject: body.subject ?? null, length: body.message.length },
+        details: {
+          channels: body.channels,
+          subject: body.subject ?? null,
+          length: body.message.length,
+        },
         ipAddress,
       });
       return successResponse(result);
@@ -165,7 +174,13 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { params, u
     }
 
     if (body.role) {
-      const user = await updateUserRole(numId, body.role, adminId);
+      const group =
+        body.wholesaleGroup === undefined
+          ? undefined
+          : body.wholesaleGroup === null
+            ? null
+            : Number(body.wholesaleGroup);
+      const user = await updateUserRole(numId, body.role, adminId, group);
       return successResponse(user);
     }
 

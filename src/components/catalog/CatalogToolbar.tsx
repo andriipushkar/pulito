@@ -15,8 +15,8 @@ const sortOptions = [
   { value: 'price_asc', label: 'Від дешевих' },
   { value: 'price_desc', label: 'Від дорогих' },
   { value: 'name_asc', label: 'За назвою' },
-  { value: 'brand_asc', label: 'Виробник А-Я' },
-  { value: 'brand_desc', label: 'Виробник Я-А' },
+  { value: 'brand_asc', label: 'Торгова марка А-Я' },
+  { value: 'brand_desc', label: 'Торгова марка Я-А' },
 ];
 
 export default function CatalogToolbar({ total, onOpenFilters }: CatalogToolbarProps) {

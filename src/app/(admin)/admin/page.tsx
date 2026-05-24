@@ -8,6 +8,7 @@ import { formatPrice, todayKyiv, plural } from '@/utils/format';
 import type { DashboardStats } from '@/types/user';
 import Spinner from '@/components/ui/Spinner';
 import ActivityFeed from '@/components/admin/ActivityFeed';
+import AIDashboardSummary from '@/components/admin/AIDashboardSummary';
 import {
   DndContext,
   closestCenter,
@@ -27,6 +28,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const DEFAULT_WIDGET_ORDER = [
+  'aiSummary',
   'stats',
   'recommendations',
   'weeklyRevenue',
@@ -277,6 +279,7 @@ export default function AdminDashboard() {
   };
 
   const WIDGET_LABELS: Record<string, string> = {
+    aiSummary: 'AI брифінг дня',
     stats: 'Статистика',
     recommendations: 'Рекомендації',
     weeklyRevenue: 'Тижнева виручка',
@@ -312,9 +315,7 @@ export default function AdminDashboard() {
           />
         </svg>
         <p className="text-sm font-medium">Не вдалося завантажити статистику</p>
-        {loadError && (
-          <p className="text-xs text-[var(--color-text-secondary)]">{loadError}</p>
-        )}
+        {loadError && <p className="text-xs text-[var(--color-text-secondary)]">{loadError}</p>}
         <button
           onClick={loadStats}
           className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-dark)]"
@@ -339,6 +340,14 @@ export default function AdminDashboard() {
                 <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--color-primary)]" />
               )}
               Оновлено: {lastUpdated.toLocaleTimeString('uk-UA')}
+              {Date.now() - lastUpdated.getTime() > 5 * 60_000 && (
+                <span
+                  className="font-semibold text-amber-600"
+                  title="Дані старші за 5 хвилин — натисніть «Оновити»"
+                >
+                  ⚠️ застаріли
+                </span>
+              )}
             </span>
           )}
           <RefreshControl
@@ -433,15 +442,17 @@ export default function AdminDashboard() {
           while (actions.length < 4 && staticActions.length > 0) {
             actions.push(staticActions.shift()!);
           }
-          return actions.slice(0, 4).map((a) => (
-            <QuickAction
-              key={a.href + a.label}
-              href={a.href}
-              icon={a.icon}
-              label={a.label}
-              color={a.urgent ? 'primary' : undefined}
-            />
-          ));
+          return actions
+            .slice(0, 4)
+            .map((a) => (
+              <QuickAction
+                key={a.href + a.label}
+                href={a.href}
+                icon={a.icon}
+                label={a.label}
+                color={a.urgent ? 'primary' : undefined}
+              />
+            ));
         })()}
       </div>
 
@@ -492,14 +503,17 @@ export default function AdminDashboard() {
       {/* Onboarding checklist — appears only on a fresh shop with no orders yet,
           replaces the empty space when most widgets self-hide. weeklyRevenue
           always has 7 buckets (one per day) so we check total revenue instead. */}
-      {stats.recentOrders.length === 0 &&
-        stats.weeklyRevenue.every((d) => d.count === 0) && (
-          <OnboardingChecklist hasProducts={stats.products.total > 0} />
-        )}
+      {stats.recentOrders.length === 0 && stats.weeklyRevenue.every((d) => d.count === 0) && (
+        <OnboardingChecklist hasProducts={stats.products.total > 0} />
+      )}
 
       {/* Widgets rendered in user-configured order */}
       {widgetOrder.map((widgetKey) => {
         if (hiddenWidgets.has(widgetKey)) return null;
+
+        if (widgetKey === 'aiSummary') {
+          return <AIDashboardSummary key="aiSummary" />;
+        }
 
         if (widgetKey === 'stats') {
           // Aggregate window depending on selected date range.
@@ -544,33 +558,33 @@ export default function AdminDashboard() {
                 ))}
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard
-                label={`Замовлення ${periodLabel}`}
-                value={String(periodCount)}
-                diff={periodDiff}
-                href={ordersHref}
-                trend={stats.weeklyRevenue.map((d) => d.count)}
-              />
-              <StatCard
-                label={`Виручка ${periodLabel}`}
-                value={formatPrice(periodRevenue)}
-                diff={periodRevenueDiff}
-                diffFormatter={(v) => formatPrice(v)}
-                href={ordersHref}
-                trend={stats.weeklyRevenue.map((d) => d.revenue)}
-              />
-              <StatCard
-                label="Нові замовлення"
-                value={String(stats.orders.newCount)}
-                highlight={stats.orders.newCount > 0}
-                href="/admin/orders?status=new_order"
-              />
-              <StatCard
-                label="Гуртові запити"
-                value={String(stats.users.pendingWholesale)}
-                highlight={stats.users.pendingWholesale > 0}
-                href="/admin/users?wholesaleStatus=pending"
-              />
+                <StatCard
+                  label={`Замовлення ${periodLabel}`}
+                  value={String(periodCount)}
+                  diff={periodDiff}
+                  href={ordersHref}
+                  trend={stats.weeklyRevenue.map((d) => d.count)}
+                />
+                <StatCard
+                  label={`Виручка ${periodLabel}`}
+                  value={formatPrice(periodRevenue)}
+                  diff={periodRevenueDiff}
+                  diffFormatter={(v) => formatPrice(v)}
+                  href={ordersHref}
+                  trend={stats.weeklyRevenue.map((d) => d.revenue)}
+                />
+                <StatCard
+                  label="Нові замовлення"
+                  value={String(stats.orders.newCount)}
+                  highlight={stats.orders.newCount > 0}
+                  href="/admin/orders?status=new_order"
+                />
+                <StatCard
+                  label="Гуртові запити"
+                  value={String(stats.users.pendingWholesale)}
+                  highlight={stats.users.pendingWholesale > 0}
+                  href="/admin/users?wholesaleStatus=pending"
+                />
               </div>
             </div>
           );
@@ -583,9 +597,29 @@ export default function AdminDashboard() {
                 Користувачі
               </h3>
               <div className="grid gap-3 sm:grid-cols-3">
-                <MiniMetric label="Всього" value={stats.users.total} href="/admin/users" iconBg="bg-blue-50" iconColor="text-blue-600" iconPath="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-                <MiniMetric label="Гуртівників" value={stats.users.wholesalers} href="/admin/users?role=wholesaler" iconBg="bg-emerald-50" iconColor="text-emerald-600" iconPath="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
-                <MiniMetric label="Нових за тиждень" value={stats.users.newThisWeek} iconBg="bg-amber-50" iconColor="text-amber-600" iconPath="M12 4.5v15m7.5-7.5h-15" />
+                <MiniMetric
+                  label="Всього"
+                  value={stats.users.total}
+                  href="/admin/users"
+                  iconBg="bg-blue-50"
+                  iconColor="text-blue-600"
+                  iconPath="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+                />
+                <MiniMetric
+                  label="Гуртівників"
+                  value={stats.users.wholesalers}
+                  href="/admin/users?role=wholesaler"
+                  iconBg="bg-emerald-50"
+                  iconColor="text-emerald-600"
+                  iconPath="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z"
+                />
+                <MiniMetric
+                  label="Нових за тиждень"
+                  value={stats.users.newThisWeek}
+                  iconBg="bg-amber-50"
+                  iconColor="text-amber-600"
+                  iconPath="M12 4.5v15m7.5-7.5h-15"
+                />
               </div>
             </div>
           );
@@ -598,10 +632,41 @@ export default function AdminDashboard() {
                 Товари
               </h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <MiniMetric label="Активних" value={stats.products.total} href="/admin/products" iconBg="bg-indigo-50" iconColor="text-indigo-600" iconPath="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                <MiniMetric label="Закінчуються (≤5)" value={stats.products.lowStock} href="/admin/products?stock=low" tone={stats.products.lowStock > 0 ? 'warning' : undefined} iconBg="bg-amber-50" iconColor="text-amber-600" iconPath="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                <MiniMetric label="Немає на складі" value={stats.products.outOfStock} href="/admin/products?stock=out" tone={stats.products.outOfStock > 0 ? 'danger' : undefined} iconBg="bg-red-50" iconColor="text-red-600" iconPath="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <MiniMetric label="Без штрихкоду" value={stats.products.withoutBarcode ?? 0} href="/admin/products?missingBarcode=1" tone={(stats.products.withoutBarcode ?? 0) > 0 ? 'warning' : undefined} iconBg="bg-sky-50" iconColor="text-sky-600" iconPath="M3.75 4.875v14.25M6.75 4.875v14.25M10.5 4.875v14.25M14.25 4.875v14.25M17.25 4.875v14.25M20.25 4.875v14.25" />
+                <MiniMetric
+                  label="Активних"
+                  value={stats.products.total}
+                  href="/admin/products"
+                  iconBg="bg-indigo-50"
+                  iconColor="text-indigo-600"
+                  iconPath="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"
+                />
+                <MiniMetric
+                  label="Закінчуються (≤5)"
+                  value={stats.products.lowStock}
+                  href="/admin/products?stock=low"
+                  tone={stats.products.lowStock > 0 ? 'warning' : undefined}
+                  iconBg="bg-amber-50"
+                  iconColor="text-amber-600"
+                  iconPath="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                />
+                <MiniMetric
+                  label="Немає на складі"
+                  value={stats.products.outOfStock}
+                  href="/admin/products?stock=out"
+                  tone={stats.products.outOfStock > 0 ? 'danger' : undefined}
+                  iconBg="bg-red-50"
+                  iconColor="text-red-600"
+                  iconPath="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+                <MiniMetric
+                  label="Без штрихкоду"
+                  value={stats.products.withoutBarcode ?? 0}
+                  href="/admin/products?missingBarcode=1"
+                  tone={(stats.products.withoutBarcode ?? 0) > 0 ? 'warning' : undefined}
+                  iconBg="bg-sky-50"
+                  iconColor="text-sky-600"
+                  iconPath="M3.75 4.875v14.25M6.75 4.875v14.25M10.5 4.875v14.25M14.25 4.875v14.25M17.25 4.875v14.25M20.25 4.875v14.25"
+                />
               </div>
             </div>
           );
@@ -876,7 +941,13 @@ function Sparkline({ values, color = 'currentColor' }: { values: number[]; color
     .map((v, i) => `${(i * step).toFixed(1)},${(h - ((v - min) / range) * h).toFixed(1)}`)
     .join(' ');
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="text-[var(--color-primary)]" aria-hidden>
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      className="text-[var(--color-primary)]"
+      aria-hidden
+    >
       <polyline
         fill="none"
         stroke={color}
@@ -916,9 +987,7 @@ function StatCard({
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm text-[var(--color-text-secondary)]">{label}</p>
-        {trend && trend.length > 1 && trend.some((v) => v > 0) && (
-          <Sparkline values={trend} />
-        )}
+        {trend && trend.length > 1 && trend.some((v) => v > 0) && <Sparkline values={trend} />}
       </div>
       <p className="mt-1 text-2xl font-bold">{value}</p>
       {diff !== undefined && (
@@ -992,7 +1061,7 @@ function OnboardingChecklist({ hasProducts }: { hasProducts: boolean }) {
     {
       done: false,
       title: 'Налаштуйте доставку',
-      description: 'Нова Пошта, Укрпошта, кур\'єр — встановіть зони і тарифи',
+      description: "Нова Пошта, Укрпошта, кур'єр — встановіть зони і тарифи",
       href: '/admin/delivery-settings',
       cta: 'Налаштувати',
     },
@@ -1046,13 +1115,21 @@ function OnboardingChecklist({ hasProducts }: { hasProducts: boolean }) {
               }`}
             >
               {s.done ? (
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={3}
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               ) : null}
             </div>
             <div className="min-w-0 flex-1">
-              <p className={`text-sm font-semibold ${s.done ? 'line-through' : 'text-[var(--color-text)]'}`}>
+              <p
+                className={`text-sm font-semibold ${s.done ? 'line-through' : 'text-[var(--color-text)]'}`}
+              >
                 {s.title}
               </p>
               <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{s.description}</p>
@@ -1105,7 +1182,11 @@ function RefreshControl({
           stroke="currentColor"
           strokeWidth={2}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+          />
         </svg>
         {isRefreshing ? 'Оновлюємо…' : autoRefresh ? `Авто ${intervalSeconds}с` : 'Оновити'}
       </button>
@@ -1116,7 +1197,13 @@ function RefreshControl({
         aria-label="Налаштування авто-оновлення"
         aria-expanded={open}
       >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg
+          className="h-3.5 w-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
         </svg>
       </button>
@@ -1194,8 +1281,16 @@ function MiniMetric({
         href ? 'hover:border-[var(--color-primary)] hover:shadow-sm' : ''
       }`}
     >
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconBg} ${iconColor}`}>
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <div
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconBg} ${iconColor}`}
+      >
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.75}
+        >
           <path strokeLinecap="round" strokeLinejoin="round" d={iconPath} />
         </svg>
       </div>

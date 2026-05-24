@@ -1,7 +1,19 @@
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
-import { saveSearch, getSearchHistory, clearSearchHistory, deleteSearchEntry, getRecentUniqueQueries } from '@/services/search-history';
-import { successResponse, errorResponse, paginatedResponse, parseSearchParams } from '@/utils/api-response';
+import {
+  saveSearch,
+  getSearchHistory,
+  clearSearchHistory,
+  deleteSearchEntry,
+  getRecentUniqueQueries,
+} from '@/services/search-history';
+import {
+  successResponse,
+  privateResponse,
+  privatePaginatedResponse,
+  errorResponse,
+  parseSearchParams,
+} from '@/utils/api-response';
 
 export const GET = withAuth(async (request: NextRequest, { user }) => {
   try {
@@ -9,15 +21,18 @@ export const GET = withAuth(async (request: NextRequest, { user }) => {
 
     // Для випадаючого списку: повертаємо останні 5 унікальних запитів
     if (unique === 'true') {
-      const limit = Math.min(10, Math.max(1, Number(request.nextUrl.searchParams.get('limit')) || 5));
+      const limit = Math.min(
+        10,
+        Math.max(1, Number(request.nextUrl.searchParams.get('limit')) || 5),
+      );
       const items = await getRecentUniqueQueries(user.id, limit);
-      return successResponse(items);
+      return privateResponse(items);
     }
 
     // Стандартна пагінація для повної історії
     const { page, limit } = parseSearchParams(request.nextUrl.searchParams);
     const { items, total } = await getSearchHistory(user.id, page, limit);
-    return paginatedResponse(items, total, page, limit);
+    return privatePaginatedResponse(items, total, page, limit);
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);
   }
@@ -27,7 +42,7 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
   try {
     const { query, resultsCount } = await request.json();
     if (!query || typeof query !== 'string') {
-      return errorResponse('query обов\'язковий', 400);
+      return errorResponse("query обов'язковий", 400);
     }
     const trimmed = query.trim();
     if (trimmed.length === 0) {

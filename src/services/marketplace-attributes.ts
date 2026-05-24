@@ -32,6 +32,8 @@ export function parseSpecifications(text: string | null | undefined): Record<str
 const CANONICAL_KEYS: Record<string, string> = {
   // Ukrainian → canonical
   бренд: 'brand',
+  'торгова марка': 'brand',
+  // Legacy alias — older imports/feeds may still use "виробник".
   виробник: 'brand',
   модель: 'model',
   колір: 'color',

@@ -176,22 +176,24 @@ export async function POST(request: NextRequest) {
     // spots).
     const appUrl = env.APP_URL;
     const products = await prisma.product.findMany({
-      where: { isActive: true },
+      // Skip soft-deleted products — their /product/{slug} routes 404, which
+      // would otherwise dominate the broken-link alert.
+      where: { isActive: true, deletedAt: null },
       select: { slug: true, name: true },
       orderBy: { createdAt: 'desc' },
       take: HEAD_SAMPLE_PRODUCTS,
     });
     const categories = await prisma.category.findMany({
-      where: { isVisible: true },
+      where: { isVisible: true, deletedAt: null },
       select: { slug: true, name: true },
     });
 
-    const productIssues = await runBatched<typeof products[number], HttpIssue>(
+    const productIssues = await runBatched<(typeof products)[number], HttpIssue>(
       products,
       HEAD_CONCURRENCY,
       (p) => headCheck(`${appUrl}/product/${p.slug}`, p.name),
     );
-    const categoryIssues = await runBatched<typeof categories[number], HttpIssue>(
+    const categoryIssues = await runBatched<(typeof categories)[number], HttpIssue>(
       categories,
       HEAD_CONCURRENCY,
       (c) => headCheck(`${appUrl}/catalog?category=${c.slug}`, c.name),
@@ -199,7 +201,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Canonical sample — random-ish slice of fresh products
     const canonicalSample = products.slice(0, CANONICAL_SAMPLE_PRODUCTS);
-    const canonicalIssues = await runBatched<typeof canonicalSample[number], CanonicalIssue>(
+    const canonicalIssues = await runBatched<(typeof canonicalSample)[number], CanonicalIssue>(
       canonicalSample,
       HEAD_CONCURRENCY,
       (p) => {

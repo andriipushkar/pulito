@@ -13,7 +13,7 @@ const DEFAULT_BLOCKS: HomepageBlock[] = [
   { key: 'new_products', label: 'Новинки', enabled: true },
   { key: 'popular_products', label: 'Хіти продажів', enabled: true },
   { key: 'recently_viewed', label: 'Нещодавно переглянуті', enabled: true },
-  { key: 'brands', label: 'Бренди / Виробники', enabled: true },
+  { key: 'brands', label: 'Бренди / Торгові марки', enabled: true },
   { key: 'seo_text', label: 'SEO-текстовий блок', enabled: true },
 ];
 

@@ -295,6 +295,7 @@ const RETAIL_REFERENCE: NavItem[] = [
 
 const RETAIL_SETTINGS_GROUP: NavItem[] = [
   { href: '/account/settings', label: 'Налаштування', icon: <IconSettings /> },
+  { href: '/account/security', label: 'Безпека', icon: <IconShield /> },
 ];
 
 const WHOLESALE_WORK: NavItem[] = [
@@ -317,6 +318,7 @@ const WHOLESALE_LOYALTY: NavItem[] = [
 
 const WHOLESALE_SETTINGS_GROUP: NavItem[] = [
   { href: '/account/settings', label: 'Налаштування', icon: <IconSettings /> },
+  { href: '/account/security', label: 'Безпека', icon: <IconShield /> },
 ];
 
 const WHOLESALE_CTA: NavItem = {
@@ -448,14 +450,15 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
   })();
 
   const name = displayName(user);
-  const initials = name === 'Користувач'
-    ? '?'
-    : name
-        .split(/\s+/)
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+  const initials =
+    name === 'Користувач'
+      ? '?'
+      : name
+          .split(/\s+/)
+          .map((n) => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2);
 
   const sidebarContent = (
     <>
@@ -512,12 +515,19 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-[1680px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       {/* ── Breadcrumbs ── */}
-      <nav aria-label="Хлібні крихти" className="mb-4 flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
-        <Link href="/" className="transition-colors hover:text-[var(--color-text)]">Головна</Link>
+      <nav
+        aria-label="Хлібні крихти"
+        className="mb-4 flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]"
+      >
+        <Link href="/" className="transition-colors hover:text-[var(--color-text)]">
+          Головна
+        </Link>
         <span aria-hidden="true">/</span>
         {currentPageLabel ? (
           <>
-            <Link href="/account" className="transition-colors hover:text-[var(--color-text)]">Кабінет</Link>
+            <Link href="/account" className="transition-colors hover:text-[var(--color-text)]">
+              Кабінет
+            </Link>
             <span aria-hidden="true">/</span>
             <span className="font-medium text-[var(--color-text)]">{currentPageLabel}</span>
           </>
@@ -551,7 +561,7 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
               onClick={() => setMobileNavOpen(false)}
               aria-hidden="true"
             />
-            <div className="absolute inset-y-0 left-0 w-72 animate-slide-in-left overflow-y-auto bg-[var(--color-bg)] p-3 shadow-xl">
+            <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] animate-slide-in-left overflow-y-auto bg-[var(--color-bg)] p-3 shadow-xl">
               <div className="mb-2 flex items-center justify-between px-2">
                 <span className="text-sm font-semibold text-[var(--color-text)]">Акаунт</span>
                 <button

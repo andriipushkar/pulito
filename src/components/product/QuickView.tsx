@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { useCart } from '@/hooks/useCart';
+import { useSettings } from '@/hooks/useSettings';
 import PriceDisplay from './PriceDisplay';
 import Button from '@/components/ui/Button';
 import { Close, Cart } from '@/components/icons';
@@ -20,6 +21,8 @@ export default function QuickView({ productId, onClose }: QuickViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const { addItem } = useCart();
+  const settings = useSettings();
+  const hideQty = !!product?.hideQuantity || settings.hide_all_quantity === '1';
 
   useEffect(() => {
     apiClient
@@ -55,7 +58,12 @@ export default function QuickView({ productId, onClose }: QuickViewProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Швидкий перегляд товару">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Швидкий перегляд товару"
+    >
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
       <div className="relative z-10 w-full max-w-2xl rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-lg">
         <button
@@ -71,15 +79,15 @@ export default function QuickView({ productId, onClose }: QuickViewProps) {
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
           </div>
         ) : product ? (
-          <div className="flex gap-6">
-            <div className="w-1/2 shrink-0">
+          <div className="flex flex-col gap-4 md:flex-row md:gap-6">
+            <div className="w-full md:w-1/2 md:shrink-0">
               <div className="relative aspect-square overflow-hidden rounded-[var(--radius)] bg-[var(--color-bg-secondary)]">
                 {product.images[0]?.pathMedium || product.imagePath ? (
                   <Image
                     src={product.images[0]?.pathMedium || product.imagePath || '/placeholder.png'}
                     alt={product.name}
                     fill
-                    sizes="(max-width: 768px) 50vw, 300px"
+                    sizes="(max-width: 768px) 90vw, 300px"
                     className="object-contain p-2"
                   />
                 ) : (
@@ -103,8 +111,14 @@ export default function QuickView({ productId, onClose }: QuickViewProps) {
                 size="lg"
               />
 
-              <p className={`mt-2 text-sm ${product.quantity > 0 ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}>
-                {product.quantity > 0 ? `В наявності (${product.quantity} шт.)` : 'Немає в наявності'}
+              <p
+                className={`mt-2 text-sm ${product.quantity > 0 ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}
+              >
+                {product.quantity > 0
+                  ? hideQty
+                    ? 'В наявності'
+                    : `В наявності (${product.quantity} шт.)`
+                  : 'Немає в наявності'}
               </p>
 
               {product.quantity > 0 && (
@@ -117,7 +131,9 @@ export default function QuickView({ productId, onClose }: QuickViewProps) {
                     >
                       -
                     </button>
-                    <span className="min-w-[2rem] text-center text-sm" aria-live="polite">{quantity}</span>
+                    <span className="min-w-[2rem] text-center text-sm" aria-live="polite">
+                      {quantity}
+                    </span>
                     <button
                       onClick={() => setQuantity(Math.min(product.quantity, quantity + 1))}
                       className="px-3 py-1 text-lg hover:bg-[var(--color-bg-secondary)]"

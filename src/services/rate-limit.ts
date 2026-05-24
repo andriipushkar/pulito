@@ -103,6 +103,8 @@ export const RATE_LIMITS = {
   subscriptions: { prefix: 'rl:subs:', max: 10, windowSec: 60 } satisfies RateLimitConfig,
   /** Blog/content: 60 per minute */
   content: { prefix: 'rl:content:', max: 60, windowSec: 60 } satisfies RateLimitConfig,
+  /** Admin exports (heavy joins, large payloads): 10 per minute per admin */
+  adminExport: { prefix: 'rl:adminexport:', max: 10, windowSec: 60 } satisfies RateLimitConfig,
 };
 
 export interface RateLimitResult {

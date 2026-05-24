@@ -32,9 +32,20 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
     const events = Array.isArray(body.events)
       ? body.events.filter((e): e is string => typeof e === 'string')
       : [];
-    if (!name || !url) return errorResponse('Назва і URL обов\'язкові', 400);
-    if (!url.startsWith('https://') && !url.startsWith('http://localhost')) {
-      return errorResponse('URL має починатися з https://', 400);
+    if (!name || !url) return errorResponse("Назва і URL обов'язкові", 400);
+    try {
+      const parsed = new URL(url);
+      const isHttps = parsed.protocol === 'https:';
+      const isLocalDev =
+        parsed.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
+      if (!isHttps && !isLocalDev) {
+        return errorResponse(
+          'URL має використовувати https:// (http:// дозволено лише для localhost)',
+          400,
+        );
+      }
+    } catch {
+      return errorResponse('Невалідний URL', 400);
     }
     // Generate a fresh secret per subscription and encrypt at rest. The
     // dispatcher decrypts before HMAC-signing each delivery. We return the

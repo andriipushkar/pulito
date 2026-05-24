@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
@@ -23,7 +24,10 @@ const bannerSchema = z.object({
   variantWeight: z.number().int().min(1).max(100).optional(),
 });
 
-export const GET = withRole('admin', 'manager')(async () => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async () => {
   try {
     const banners = await prisma.banner.findMany({
       orderBy: { sortOrder: 'asc' },
@@ -35,7 +39,10 @@ export const GET = withRole('admin', 'manager')(async () => {
   }
 });
 
-export const POST = withRole('admin', 'manager')(async (request: NextRequest, { user }) => {
+export const POST = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = bannerSchema.safeParse(body);
@@ -66,6 +73,11 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest, { 
       entityId: banner.id,
       details: { title: banner.title, variantGroup: banner.variantGroup },
     });
+    try {
+      revalidatePath('/');
+    } catch {
+      /* best-effort */
+    }
     return successResponse(banner, 201);
   } catch (err) {
     logger.error('[admin/banners] POST failed', { error: err });

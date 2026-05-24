@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from './email';
+import { createNotification } from './notification';
 import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
 
@@ -78,6 +79,28 @@ export async function processBackInStockNotifications(): Promise<ProcessResult> 
           where: { id: sub.id },
           data: { notifiedAt: new Date() },
         });
+        // Mirror to the user's in-cabinet inbox so a missed email is still
+        // visible at /account/notifications. Only when the subscription was
+        // made by a logged-in user (anonymous email subs have no userId).
+        if (sub.userId) {
+          try {
+            await createNotification({
+              userId: sub.userId,
+              type: 'back_in_stock',
+              title: `«${sub.product.name}» знову в наявності`,
+              message: `Товар, на який ви підписалися, тепер можна замовити. Ціна: ${Number(
+                sub.product.priceRetail,
+              ).toFixed(0)} ₴.`,
+              link: `/product/${sub.product.slug}`,
+            });
+          } catch (notifErr) {
+            logger.warn('[back-in-stock] failed to create UserNotification', {
+              subscriptionId: sub.id,
+              userId: sub.userId,
+              error: String(notifErr),
+            });
+          }
+        }
         result.notified++;
       } else {
         result.failed++;

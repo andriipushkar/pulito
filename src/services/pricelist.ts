@@ -5,6 +5,8 @@ import sharp from 'sharp';
 import { prisma } from '@/lib/prisma';
 import { getSettings } from '@/services/settings';
 import { BRAND, FONT_REGULAR, FONT_BOLD, getCompanyInfo } from '@/lib/pdf-theme';
+import { resolveWholesalePrice } from '@/lib/wholesale-price';
+import { WHOLESALE_GROUP_LABELS, type WholesaleGroup } from '@/types/user';
 
 const PUBLIC_DIR = path.join(process.cwd(), 'public');
 
@@ -109,7 +111,10 @@ function roundedRect(
 
 // ── Main generator ──
 
-export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<Buffer> {
+export async function generatePricelist(
+  type: 'retail' | 'wholesale',
+  wholesaleGroup?: WholesaleGroup,
+): Promise<Buffer> {
   const info = await getCompanyInfo();
   const s = await getSettings();
   const COMPANY = {
@@ -186,7 +191,12 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
     doc.text(COMPANY.tagline, M, 46, { lineBreak: false });
 
     // Right: type badge
-    const typeLabel = type === 'wholesale' ? 'ГУРТОВИЙ ПРАЙС' : 'РОЗДРІБНИЙ ПРАЙС';
+    const typeLabel =
+      type === 'wholesale'
+        ? `ГУРТОВИЙ ПРАЙС${
+            wholesaleGroup ? ' — ' + WHOLESALE_GROUP_LABELS[wholesaleGroup].toUpperCase() : ''
+          }`
+        : 'РОЗДРІБНИЙ ПРАЙС';
     const badgeW = 130;
     const badgeX = PW - M - badgeW;
     roundedRect(doc, badgeX, 20, badgeW, 22, 4);
@@ -323,13 +333,15 @@ export async function generatePricelist(type: 'retail' | 'wholesale'): Promise<B
     doc.font('R').fontSize(6).fillColor(C.sub);
     doc.text(p.code, col.name, nameY + 16, { width: nameW, lineBreak: false });
 
-    // Price
-    const price =
-      type === 'wholesale'
-        ? p.priceWholesale !== null
-          ? Number(p.priceWholesale)
-          : Number(p.priceRetail)
-        : Number(p.priceRetail);
+    // Price — for wholesale, pick the price tied to the buyer's tier; fall
+    // back to base wholesale, then to retail when a tier has no value set.
+    let price = Number(p.priceRetail);
+    if (type === 'wholesale') {
+      const tierPrice =
+        (wholesaleGroup && resolveWholesalePrice(p, wholesaleGroup)) ||
+        (p.priceWholesale !== null ? Number(p.priceWholesale) : null);
+      if (tierPrice !== null) price = tierPrice;
+    }
 
     if (hasBold) doc.font('B');
     doc.fontSize(9).fillColor(C.dark);
