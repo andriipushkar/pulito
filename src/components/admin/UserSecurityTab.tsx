@@ -35,16 +35,25 @@ export default function UserSecurityTab({ userId }: { userId: number }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Cancel-on-unmount / userId-change so a slow response for a previously
+    // selected user doesn't overwrite data already loaded for the new one.
+    let cancelled = false;
+    setIsLoading(true);
     apiClient
       .get<SecurityData>(`/api/v1/admin/users/${userId}/security`)
       .then((res) => {
+        if (cancelled) return;
         if (res.success && res.data) setData(res.data);
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
-  if (isLoading)
-    return <p className="text-sm text-[var(--color-text-secondary)]">Завантаження…</p>;
+  if (isLoading) return <p className="text-sm text-[var(--color-text-secondary)]">Завантаження…</p>;
   if (!data) return <p className="text-sm text-[var(--color-text-secondary)]">Немає даних</p>;
 
   return (
@@ -53,14 +62,18 @@ export default function UserSecurityTab({ userId }: { userId: number }) {
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
           <p className="text-xs text-[var(--color-text-secondary)]">Двофакторна автентифікація</p>
-          <p className={`mt-1 text-lg font-bold ${data.user.twoFactorEnabled ? 'text-emerald-600' : 'text-amber-600'}`}>
+          <p
+            className={`mt-1 text-lg font-bold ${data.user.twoFactorEnabled ? 'text-emerald-600' : 'text-amber-600'}`}
+          >
             {data.user.twoFactorEnabled ? '✓ Увімкнено' : '⚠ Вимкнено'}
           </p>
         </div>
 
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
           <p className="text-xs text-[var(--color-text-secondary)]">Статус блокування</p>
-          <p className={`mt-1 text-lg font-bold ${data.user.isBlocked ? 'text-red-600' : 'text-emerald-600'}`}>
+          <p
+            className={`mt-1 text-lg font-bold ${data.user.isBlocked ? 'text-red-600' : 'text-emerald-600'}`}
+          >
             {data.user.isBlocked ? '🚫 Заблоковано' : '✓ Активний'}
           </p>
           {data.user.isBlocked && data.user.blockedReason && (
@@ -108,7 +121,10 @@ export default function UserSecurityTab({ userId }: { userId: number }) {
               </thead>
               <tbody>
                 {data.loginHistory.map((entry) => (
-                  <tr key={entry.id} className="border-b border-[var(--color-border)] last:border-0">
+                  <tr
+                    key={entry.id}
+                    className="border-b border-[var(--color-border)] last:border-0"
+                  >
                     <td className="px-3 py-2 text-[var(--color-text-secondary)]">
                       {new Date(entry.createdAt).toLocaleString('uk-UA')}
                     </td>
@@ -123,7 +139,10 @@ export default function UserSecurityTab({ userId }: { userId: number }) {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2 font-mono text-[var(--color-text-secondary)]" title="Замасковано для приватності">
+                    <td
+                      className="px-3 py-2 font-mono text-[var(--color-text-secondary)]"
+                      title="Замасковано для приватності"
+                    >
                       {maskIpDisplay(entry.ipAddress)}
                     </td>
                     <td className="px-3 py-2">

@@ -1,0 +1,488 @@
+# Загальний TODO — статус виправлень за розділами адмінки
+
+> Зведений статус по `marketplaces`, `orders`, `products`. Деталі по кожному пункту — у відповідних `*-аналіз.md` файлах.
+> Дата: 2026-05-26
+
+---
+
+## 🟢 МАРКЕТПЛЕЙСИ (`/admin/marketplaces`) — деталі в `маркетплейси-аналіз.md`
+
+### ✅ Зроблено (21 пункт)
+
+| ID       | Що                                                                                  |
+| -------- | ----------------------------------------------------------------------------------- |
+| P1       | `?limit=1000` → новий agg endpoint `/published-product-ids` + 6 тестів              |
+| P2       | Server-side race-lock на retry + client `useRef`-guard + 2 тести                    |
+| P3       | Bulk Retry/Delete → worker-pool PARALLEL=3 + прогрес-бар + скасування               |
+| P4       | `?tab=` ↔ state синхронізація через `history.replaceState` + popstate               |
+| P5       | `commissionPercent` config + analytics рахує `netRevenue` + UI «Прибуток»           |
+| P6       | `<AttentionPanel />` над табами з live-counts (Disputes/Pricing parity) + Repricing |
+| P7       | Прибрано `slice(-30)`, адаптивна агрегація day/week/month                           |
+| P8       | Single delete ref-guard + 409 toast.info                                            |
+| P9       | Server-side lock на DELETE marketplace endpoint                                     |
+| P10      | Блокування селекта `targetMarketplace` і stats-карток під час публікації            |
+| P11      | Confirm перед збереженням порожнього sensitive поля                                 |
+| P12      | Period-over-period: `previousTotals` API + `<DeltaBadge>` ▲/▼/—                     |
+| Q4       | Server-side `notPublishedOn` фільтр у `/products`                                   |
+| N5       | Розпаралелено `MARKETPLACE_PLATFORMS` цикл в analytics                              |
+| Q9       | NFC normalize у клієнтському пошуку Messages                                        |
+| Q13      | `timeZone: 'Europe/Kyiv'` у formatDate                                              |
+| P6-orig  | `EXTRA_BOOLEAN_KEYS` константа замість inline-if                                    |
+| P7-orig  | `MARKETPLACE_BY_KEY` map (O(1) lookup)                                              |
+| N3       | Полінг розділено на mount-only + onTab refresh                                      |
+| N4       | `MARKETPLACE_CHANNELS` re-export з `MARKETPLACE_PLATFORMS`                          |
+| P12-orig | `formatCurrency` показує копійки тільки коли ненульові                              |
+| Q10      | Webhook security help-text виправлено (fail-closed у production)                    |
+| Q12      | `?countOnly=1` режим для polling — payload зменшено з ~100KB до ~50 байтів          |
+| N7       | DB migration `updated_at` + stale-lock auto-recovery 15хв                           |
+
+### ❌ Залишилось (низький пріоритет / multi-day)
+
+- **Q14** — i18n (uk/en/ru). Multi-day. Потребує string extraction.
+- **M2** — per-category комісії маркетплейсів. Потребує schema + UI.
+- **N6** — `getChannelConfig` auto-migrate writes during read. Steady-state OK (run-once), архітектурно дратує.
+
+---
+
+## 🟡 ЗАМОВЛЕННЯ (`/admin/orders`) — деталі в `orders-аналіз.md`
+
+### ✅ Зроблено (8 пунктів — TOP-7 + бонус)
+
+| ID        | Що                                                                         |
+| --------- | -------------------------------------------------------------------------- |
+| O4        | Board dedicated endpoint без `limit=100` + warning banner на truncated     |
+| O12       | Selection clear при зміні фільтра (вже було)                               |
+| O1        | `bulkTtnInFlight` + `bulkStatusInFlight` ref-guards                        |
+| O2        | Bulk-TTN кнопка тільки для admin (role-aware)                              |
+| O5        | Nova Poshta `callWithBackoff` на 429/5xx                                   |
+| Attention | `OrdersAttentionPanel` — без TTN >24год, без оплати >24год, processing >3д |
+| Pack-mode | Toggle на сторінці замовлення + persist в localStorage                     |
+| O8        | Drag-drop snapshot by ID (не by ref)                                       |
+
+### ❌ Залишилось
+
+#### Середній пріоритет
+
+- **O3** — Manager scope assignment: будь-який менеджер може забрати замовлення в іншого. Security policy decision: обмежити admin-only або підтверджувати.
+- **O6** — Currency через `Number()` (float-drift на копійках) — мігрувати invoice/delivery-note math на Decimal або копійки×100.
+- **O11** — Date preset boundary off-by-one (`week` vs `month` різні «inclusive»).
+
+#### Низький пріоритет
+
+- **O7** — Stats polling read filters via ref (зараз stale closure після visibility-resume).
+- **O9** — `managerComment` auto-save без debounce — додати `useDebounce(500ms)`.
+- **O10** — Margin div-by-zero → «N/A» fallback.
+
+#### QA edge-cases що потребують глибокого ресерчу
+
+- QO2 — conflict detection на manager comment (last-write-wins зараз)
+- QO4 — bulk-status звіт без per-row reason
+- QO12 — менеджера видаляють — orphan order references
+
+---
+
+## 🔵 ТОВАРИ (`/admin/products`) — деталі в `products-аналіз.md`
+
+### ✅ Зроблено (8 пунктів — TOP-7 + PR8)
+
+| ID           | Що                                                                |
+| ------------ | ----------------------------------------------------------------- |
+| PR1          | AI rate-limit (60/год/user) + `aiInFlight` ref на ДВОХ AI-кнопках |
+| PR5          | `bulkInFlight` ref-guard на handleBulkAction                      |
+| PR7          | Tally «Обрано X на цій сторінці» + warning «з Y загальних»        |
+| PR3/PR4      | Inline edits надсилають `version` → на 409 re-fetch + toast       |
+| PR2          | Bulk price `updateMany` grouped by payload (~10× best-case)       |
+| PR9          | P2002 → friendly 422 (slug/code/sku duplicate)                    |
+| Bulk preview | 3 sample «before → after» у ConfirmDialog                         |
+| PR8          | Pending inline drafts очищаються при `updateFilter`               |
+
+### ❌ Залишилось
+
+#### Середній пріоритет
+
+- **PR6** — Soft/hard delete classify race window. Lock products перед classify через `SELECT FOR UPDATE` або advisory lock.
+- **Server idempotency-key** на bulk endpoints (Redis store з 60s TTL) — щоб додатково до client ref-guard захиститися від мережевих retry.
+
+#### Низький пріоритет
+
+- **PR10** — `useOrderListKeyboard` deps: `products.map(...).join(',')` будується кожен рендер → useMemo.
+- **PR11** — 3 inline-commits на row = 3 PUT → об'єднати в один PATCH.
+- **PR12** — Duplicates slider без debounce — додати 300ms.
+- **PR13** — `removeBgEnabled` не persisted → localStorage.
+- **PR14** — `window.prompt()` для label copies → `<input type="number">`.
+- **PR15** — Reindex без progress bar / count-confirmation.
+- **PR16** — Triple-cast `as unknown as ...` → proper types.
+
+#### QA edge-cases
+
+- QP6 — bulk delete classify race
+- QP8 — AI generate з пустим image set (грейсфул 400 потрібно)
+- QP10 — image upload size/MIME pre-flight check
+- QP11 — bulk-discount від'ємний clamp
+
+---
+
+## 📊 Сумарна статистика
+
+| Розділ                 | Зроблено                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Залишилось серед.                      | Залишилось низ.                            | Multi-day                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Marketplaces           | **24** ✅                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 0                                      | 0                                          | 3 (i18n, per-cat commission, getChannelConfig redesign)                                                                        |
+| Orders                 | **8** ✅                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 3                                      | 3                                          | 3 QA edge-cases                                                                                                                |
+| Products               | **8** ✅                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 2                                      | 7                                          | 4 QA edge-cases                                                                                                                |
+| Payment-settings       | **12** ✅ (7 TOP + 5 residual)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 0                                      | 0                                          | 2 (multi-currency, COD race event-queue)                                                                                       |
+| Delivery-settings      | **12** ✅ (TOP-7 + 5 residual)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 0                                      | 1 (DS10 encryption salt)                   | 2 (NP balance API, multi-warehouse)                                                                                            |
+| Billing                | **12** ✅ (TOP-7 + 5 residual: B6 proration, B8 numbering, B10 defense, B17 sanitize, B18 pagination)                                                                                                                                                                                                                                                                                                                                                                                                         | 0                                      | 6 (B11/B12/B13/B14/B15/B16)                | 1 (multi-tenant Product/Order)                                                                                                 |
+| Integrations           | **7** ✅ (I1/I3/I7/I8/I9/I13/I14)                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 0                                      | 11 (I2/I4/I5/I6/I10-I18)                   | 0                                                                                                                              |
+| Audit-log              | **6** ✅ (A1/A2-keep/A3/A5/A6/A10)                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 0                                      | 6 (A7-A12)                                 | 0                                                                                                                              |
+| Feature-flags + Health | **5** ✅ (FFH1/FFH2/FFH3/FFH4/FFH5)                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 0                                      | 2 (FFH6/FFH7)                              | 0                                                                                                                              |
+| Analytics              | **6** ✅ (AN1 verified-already-capped, AN2 churn, AN3 verified-already-cached, AN4 CSV, AN5 geo limit, AN6 PDF daily-cap, AN7 LTV mask)                                                                                                                                                                                                                                                                                                                                                                       | 0                                      | 10 (AN8-AN16)                              | 1 (multi-tenant)                                                                                                               |
+| Users                  | **6** ✅ (U1 last-admin, U2/U5 self-demote, U3 mgr PII mask, U4 imp rate-limit, U6 limit cap, U7 imp confirm)                                                                                                                                                                                                                                                                                                                                                                                                 | 0                                      | 3 (U8/U9/U10)                              | 0                                                                                                                              |
+| Categories             | **6** ✅ (C1 cycle, C2 child-check, C3 AI rate-limit ×2, C4 merge lock, C5 bulk child-check)                                                                                                                                                                                                                                                                                                                                                                                                                  | 1 (C6 SEO caps — risky data migration) | 2 (C7/C8)                                  | 0                                                                                                                              |
+| Campaigns              | **2** ✅ (CM1 unsubscribed-honor ×2, CM3 recurring re-send guard)                                                                                                                                                                                                                                                                                                                                                                                                                                             | 0                                      | 5 (CM2/CM4/CM5/CM6/CM7)                    | 0                                                                                                                              |
+| Loyalty                | **4** ✅ (L1 adjust idempotency redis dedup, L2 audit-log, L3 max cap 100k, L5 cron-lock + CRON_SECRET)                                                                                                                                                                                                                                                                                                                                                                                                       | 0                                      | 3 (L4/L6/L7)                               | 0                                                                                                                              |
+| Coupons                | **4** ✅ (CP1 validate rate-limit, CP3 percent reject>100, CP4 auto-disable, CP6 bypass guard); CP2 verified-already-atomic                                                                                                                                                                                                                                                                                                                                                                                   | 0                                      | 3 (CP5/CP7 + LOW)                          | 0                                                                                                                              |
+| Personal-prices        | **1** ✅ (PP4 dupe-check 409); 3 false alarms (PP2 already Decimal, PP5 already implemented, PP6 validator уже clamp)                                                                                                                                                                                                                                                                                                                                                                                         | 0                                      | 2 (PP3/PP7)                                | 1 (**PP1 CRITICAL** — getEffectivePrice не викликається з checkout → personal prices dead code; потребує order-pricing wiring) |
+| Wholesale-rules        | **4** ✅ (WR1 zod enum+range POST, WR3 dupe-check 409, WR4 zod PUT + before/after audit, WR5 audit diff); WR2 verified-auth-OK                                                                                                                                                                                                                                                                                                                                                                                | 0                                      | 2 (WR6/WR7)                                | 0                                                                                                                              |
+| Volume-discounts       | **2** ✅ (VD1 Float→Decimal(5,2) migration + Number() coerce, VD3+VD4 overlap detection 409); VD5 verified-wired into cart.ts                                                                                                                                                                                                                                                                                                                                                                                 | 0                                      | 2 (VD2/VD6/VD7)                            | 0                                                                                                                              |
+| Subscriptions          | **3** ✅ (S1 audit-log на auto-charge, S2 FREQUENCY_DAYS extract to shared module, S4 CRON_SECRET fallback на 2 cron); S7 verified-OK                                                                                                                                                                                                                                                                                                                                                                         | 0                                      | 3 (S3/S5/S6)                               | 0                                                                                                                              |
+| Referrals              | **3** ✅ (R1 deleted/blocked referrer reject у processReferral, R2 reject grant for deleted/blocked referrer, R3 @@unique referredUserId + dedup migration); R7 verified-OK                                                                                                                                                                                                                                                                                                                                   | 0                                      | 3 (R4/R5/R6)                               | 0                                                                                                                              |
+| Bundles                | **1** ✅ (BD1 pre-flight stock+active check на add-to-cart — no partial cart); BD7 verified-OK                                                                                                                                                                                                                                                                                                                                                                                                                | 0                                      | 5 (BD2-BD6)                                | 0                                                                                                                              |
+| Homepage               | **2** ✅ (HP1 imageDesktop/imageMobile `isSafeUrl()` check на POST+PUT bannerSchema — XSS/SSRF closed, HP4 revalidatePath wrapped + logged)                                                                                                                                                                                                                                                                                                                                                                   | 0                                      | 3 (HP2/HP3/HP5)                            | 0                                                                                                                              |
+| Pages (CMS)            | **3** ✅ (PG1 RESERVED_SLUG_PREFIXES guard на create+update — internal routes safe, PG2 DOMPurify `ALLOWED_CSS_PROPERTIES` allowlist — XSS via inline `style` closed, PG4 rate-limit + Cache-Control headers на public list/detail)                                                                                                                                                                                                                                                                           | 0                                      | 3 (PG3/PG5/PG6)                            | 0                                                                                                                              |
+| Banners                | **3** ✅ (BN1 sum(variantWeight)≤100 на POST, BN2 DELETE warning з ?force=1 на A/B sibling, BN3 public rate-limit + Cache-Control); BN5 verified-OK (HP1 раніше)                                                                                                                                                                                                                                                                                                                                              | 0                                      | 1 (BN4 dir-size cap)                       | 0                                                                                                                              |
+| Blog                   | **3** ✅ (BL1 AI-generate rate-limit shared bucket, BL2 public list+detail rate-limit + Cache-Control 60s/300s, BL3 coverImage isSafeUrl())                                                                                                                                                                                                                                                                                                                                                                   | 0                                      | 3 (BL4/BL5/BL6)                            | 0                                                                                                                              |
+| Seo-audit              | **3** ✅ (SA1 CRON_SECRET fallback, SA2 withCronLock 30 min, SA3 SSRF private-IP/localhost guard на APP_URL)                                                                                                                                                                                                                                                                                                                                                                                                  | 0                                      | 2 (SA4/SA5)                                | 0                                                                                                                              |
+| Seo-templates          | **7** ✅ (ST1 rate-limit adminSeoBulk 5/h, ST2 N+1 fix `findMany`+Map, ST3 strip `<>&"'` у substitution, ST4 audit-log bulk generate, ST5 P2002→409, ST6 `remainingWithoutSeo` у response, ST7 zod schema POST/PUT з enum entityType+scope)                                                                                                                                                                                                                                                                   | 0                                      | 0                                          | 0                                                                                                                              |
+| Feeds                  | **7** ✅ (F1 escapeXml `<category>` у /feed.xml, F2 escapeCdata helper для `]]>`, F3 `deletedAt: null` filter у /feed.xml+/google-shopping, F4 publicFeed rate-limit 60/min IP, F5 stripXmlControlChars C0 chars, F6 unified FEED_CACHE_MAX_AGE=1800s, F7 isSafeUrl guard на coverImage enclosure)                                                                                                                                                                                                            | 0                                      | 0                                          | 0                                                                                                                              |
+| Not-found-log          | **6** ✅ (NFL1 publicLog404 rate-limit 30/min IP, NFL2 skip-list розширений з `/api/`, `/_next/`, `/static/`, `/favicon`, `/.well-known/`, NFL3 DELETE all потребує `?confirm=all` + UI оновлено, NFL4 logAudit на DELETE single+bulk, NFL5 sanitizeHeader strip `\x00-\x1F<>`, NFL6 ipAddress в audit)                                                                                                                                                                                                       | 0                                      | 1 (NFL7 TTL/retention)                     | 0                                                                                                                              |
+| Search-intel           | **5** ✅ (SI1 adminAiGenerate rate-limit на POST, SI2 sanitizeTermForPrompt strip control chars + truncate 200, SI3 logAudit на POST з provider+entriesCount, SI4 POST admin-only без manager, SI5 GET Cache-Control private 60s)                                                                                                                                                                                                                                                                             | 0                                      | 0                                          | 0                                                                                                                              |
+| Forecasting            | **4** ✅ (FC1 clamp leadTime/buffer/limit до >=0, FC2 `deletedAt: null` filter, FC3 `currentStock = available` для UI consistency, FC4 Cache-Control private 5min); FC5 seasonal threshold — deferred                                                                                                                                                                                                                                                                                                         | 0                                      | 1 (FC5 seasonal threshold)                 | 0                                                                                                                              |
+| FAQ                    | **5** ✅ (FQ1 GET public rate-limit content + Cache-Control 300s, FQ2 click endpoint rate-limit per ip+faqId 60/min, FQ3 searchFaq cap query 200 chars + take 50, FQ4 revalidatePath try/catch у PUT+DELETE, FQ5 strip control chars у search query)                                                                                                                                                                                                                                                          | 0                                      | 0                                          | 0                                                                                                                              |
+| Feedback               | **7** ✅ (FB1 logAudit на PUT status + ipAddress, FB2 duplicate-reply guard 409 з `?force=1`, FB3 NOTIFY_RECIPIENT_CAP 50 у sendEmail, FB4 IP+UA collection + DB migration `feedback_ip_useragent`, FB5 search розширено на phone/message/subject, FB6 subject `.trim()`, FB7 isSafeUrl guard на APP_URL у email link)                                                                                                                                                                                        | 0                                      | 0                                          | 0                                                                                                                              |
+| Ask                    | **5** ✅ (AK1 isSafeIntentUrl `/admin/` allow-list, AK2 MAX_QUERY_LENGTH 500 + maxLength у input, AK3 phone regex `\+?380\d{9}\|\b\d{10,12}\b`, AK4 Europe/Kyiv timezone у `today()`/`daysAgo()` через Intl, AK5 strip control chars у query)                                                                                                                                                                                                                                                                 | 0                                      | 0                                          | 0                                                                                                                              |
+| Warehouses             | **7** ✅ (W1 logAudit на POST/PATCH/DELETE/stock PUT з before-snapshot, W2 STOCK_BULK_LIMIT 500 + max(1M) per item, W3 `pg_advisory_xact_lock(WAREHOUSE_STOCK_LOCK_NS, warehouseId)` у $transaction + reserved-guard, W4 DB CHECK constraints `quantity>=0`, `reserved>=0`, `reserved<=quantity` + migration `warehouse_stock_constraints`, W5 paginated stock GET + `?lowStock=N` filter, W6 stock PUT adminExport rate-limit 10/min, W7 delete TOCTOU fix через `$transaction`)                             | 0                                      | 0                                          | 1 (soft-delete `deletedAt` schema work)                                                                                        |
+| Warehouse-transfers    | **7** ✅ (WT1 TRANSFER_ITEMS_LIMIT 500 в Zod, WT2 createTransferSchema + transferActionSchema, WT3 advisory_xact_lock на ship (1 lock) + receive (2 locks deadlock-safe ascending), WT4 pre-flight stock check у `createTransfer` з 409 + shortages sample, WT5 adminExport rate-limit 10/min на POST, WT6 cancelInTransitTransfer повертає reserved → quantity з audit, WT7 reference suffix 4 bytes hex замість 2)                                                                                          | 0                                      | 0                                          | 0                                                                                                                              |
+| Stock-counts           | **7** ✅ (SC1 advisory_xact_lock у completeStockCount, SC2 **CRITICAL** preserve reserved + clamp до counted замість reset=0, SC3 `recordCount(mode='add')` scanner increments замість set, SC4 adminScan rate-limit 120/min per (user,count), SC5 startStockCount 409 якщо in_progress count вже існує, SC6 Zod startStockCountSchema/stockCountActionSchema/scanSchema, SC7 reference 4 bytes hex)                                                                                                          | 0                                      | 0                                          | 0                                                                                                                              |
+| Pack                   | **3** ✅ (PK1 packable route passes stockOnHand+locationCode+locationName що сервіс уже обчислює — UI features відновлено, PK2 60-sec polling refresh з ID-aware activeIdx preservation, PK3 confirm dialog перед "Передано курʼєру"); PK4/PK5 — deferred (optimistic locking + forcePick audit потребують schema-level work)                                                                                                                                                                                 | 0                                      | 2 (PK4 version field, PK5 forcePick audit) | 0                                                                                                                              |
+| Pallet-delivery        | **7** ✅ (PD1 publicDelivery rate-limit 30/min + Cache-Control 60s на public /delivery/pallet/calculate, PD2 logAudit на POST/PUT/DELETE/orders endpoints, PD3 addOrdersToPallet check+createMany у $transaction, PD4 setPalletStatus `updateMany WHERE current_status` race-guard з 409, PD5 weightKg/deliveryCost max bounds, PD6 listPallets status enum validation замість `as never`, PD7 paginated GET `?page&limit` + UI updated)                                                                      | 0                                      | 0                                          | 0                                                                                                                              |
+| Import                 | **7** ✅ (IM1 adminImport rate-limit 5/h per user на products/prices/images/preview, IM2 defangCsvCell prefix `'` для `=@+-\t\r` у content fields, IM3 XXE protection `processEntities: false` у XMLParser, IM4 magic-byte check (JPEG/PNG/WEBP/GIF) перед sharp pipeline, IM5 parsePrice reject `<=0` (раніше тільки `<0`), IM6 SHA-256 file hash у audit details, IM7 MAX_CONTENT_FIELD_LENGTH=50k на description/specifications/seoTitle/seoDescription/seoKeywords)                                       | 0                                      | 0                                          | 0                                                                                                                              |
+| Moderation             | **7** ✅ (MD1 logAudit на POST rules, MD2 config 16KB cap у Zod (POST+PUT), MD3 createModerationRuleSchema + updateModerationRuleSchema + updateModerationLogSchema — Zod заміна inline `if`, MD4 PATCH logs Zod + 404 guard + logAudit з before/after, MD5 PUT findUnique 404 guard замість Prisma P2025, MD6 POST duplicate (platform, ruleType) 409, MD7 DELETE forensics — `orphanedLogs` count у audit details)                                                                                          | 0                                      | 0                                          | 0                                                                                                                              |
+| Brands                 | **6** ✅ (BR1 isSafeUrl guard на website — `javascript:` blocked, BR2 logoPath restrict до `/uploads/` або http(s)://, BR3 RESERVED_BRAND_SLUGS guard (admin/api/cart/\_next/...), BR4 deleteBrand повертає `affectedProducts` count у audit + response, BR5 admin GET opt-in `?page&limit` + countBrands helper, BR7 slug `.min(1)` явний); BR6 — public catalog cache deferred (different layer)                                                                                                            | 0                                      | 1 (BR6 catalog Cache-Control)              | 0                                                                                                                              |
+| Badges                 | **6** ✅ (BD1 CRON_SECRET fallback + withCronLock 600s на /cron/auto-badges, BD2 createMany skipDuplicates замість N×upsert (new_arrival+hit), BD3 PUT+DELETE logAudit з before-snapshot — isLocked flip traceable, BD4 createBadgeSchema+updateBadgeSchema (Zod), BD5 customColor hex/CSS-name regex (`<script>` blocked), BD6 customText max(50)); BD7 — defer (low value cleanup)                                                                                                                          | 0                                      | 1 (BD7 inactive product cleanup)           | 0                                                                                                                              |
+| Segments               | **6** ✅ (SG1 deletedAt+isBlocked фільтр у runSegment — GDPR/CAN-SPAM fix, SG2 preview logAudit з rules+matchedCount, SG3 preview adminExport rate-limit 10/min, SG4 rules.max(20) у preview+export Zod, SG5 skipCache:true на export для fresh-read, SG6 Unicode NFC normalize у compareStr)                                                                                                                                                                                                                 | 0                                      | 0                                          | 0                                                                                                                              |
+| Channels               | **5** ✅ (CH1 adminPaymentTest rate-limit 5/min на /channel-settings/test, CH2 Zod bodySchema на test (раніше — нічого), CH3 marketplaceSchema explicit allow-list замість `.passthrough()`, CH4 logAudit на channel test з channel+success+name, CH5 status codes 400/422 на PUT (раніше 500)); CH6 deferred (Viber env у окремий PR)                                                                                                                                                                        | 0                                      | 1 (CH6 Viber env)                          | 0                                                                                                                              |
+| Publications           | **8** ✅ (PB1 CRON*SECRET fallback у /cron/publications, PB2 withCronLock 600s + `lockResult.acquired` гілка, PB3 logAudit на publish + retry endpoints, PB4 createPublicationSchema Zod (title/content/buttons.url isSafeUrl/channels enum), PB5 `scheduledAt > now()` guard, PB6 channels enum 10 каналів, PB7 imagePath regex `/uploads/[A-Za-z0-9.*-]+`, PB8 виправлено `lockResult.acquired`у auto-badges + seo-check cron — раніше`!result` ніколи не була true, fallback гілка ніколи не виконувалась) | 0                                      | 0                                          | 0                                                                                                                              |
+| Publication-templates  | **5** ✅ (PT1 buttons[].url isSafeUrl guard у Zod (phishing prevention), PT2 createTemplateSchema/updateTemplateSchema/applyTemplateSchema (Zod заміна inline), PT3 PUT+DELETE audit з before-snapshot (name/isActive/channels), PT4 apply logAudit з productId — duplicate-post forensics, PT5 contentTemplate.max(20k)+firstComment.max(2k))                                                                                                                                                                | 0                                      | 0                                          | 0                                                                                                                              |
+| Domains                | **5** ✅ (DM1 DELETE logAudit з before-snapshot domain+wasVerified, DM2 adminPaymentTest rate-limit 5/min на /verify, DM3 DNS error reason logged (NXDOMAIN/timeout/mismatch), DM4 5s DNS lookup timeout через Promise.race, DM5 clear domainVerificationToken після успішної верифікації)                                                                                                                                                                                                                    | 0                                      | 0                                          | 0                                                                                                                              |
+| Tenants                | **6** ✅ (TN1 Prisma P2002 by-code (раніше string-match `Unique constraint`), TN2 DELETE+PATCH before-snapshot (slug/name/domain/plan/isActive) у audit, TN3 RESERVED_TENANT_SLUGS guard у Zod, TN4 HOSTNAME_REGEX на `domain` Zod, TN5/TN6 settings 16KB JSON cap, TN7 logoUrl `/uploads/` або isSafeUrl)                                                                                                                                                                                                    | 0                                      | 0                                          | 0                                                                                                                              |
+| Themes                 | **5** ✅ (TH1 100MB decompressed-size cap проти zip-bomb, TH2 refuse re-upload over active theme — 409, TH3 service повертає `before` snapshot для audit diff, TH4 customSettings 200 keys cap, TH5 Zod updateSchema на PUT route)                                                                                                                                                                                                                                                                            | 0                                      | 0                                          | 0                                                                                                                              |
+| SMTP-settings          | **4** ✅ (SM1 updateSmtpSettingsSchema Zod (port/secure/max_file_size_mb coercion), SM2 Redis checkRateLimit на test/route замість in-memory Map, SM3 before-snapshot non-secret keys у PUT audit — smtp_host hijack traceable, SM4 smtpTestSchema Zod з SSRF guard preserved); SM5 mask reversibility — deferred                                                                                                                                                                                             | 0                                      | 1 (SM5 mask)                               | 0                                                                                                                              |
+| Webhooks               | **5** ✅ (WH1 PATCH+DELETE upgraded до `withRole2fa('admin')`, WH2 logAudit на PATCH+DELETE з before-snapshot, WH3 updateWebhookSchema Zod з URL/events constraints, WH4 retry endpoint adminPaymentTest rate-limit 5/min, WH5 isSafeWebhookUrl guard preserved у retry перед fetch)                                                                                                                                                                                                                          | 0                                      | 0                                          | 0                                                                                                                              |
+| Settings               | **4** ✅ (ST_S1 adminPaymentTest rate-limit 5/min на /test-ai, ST_S2 logAudit на /test-ai з provider+usedOverrideKey, ST_S3 PUT before-snapshot non-sensitive keys у audit, ST_S4 NON_NEGATIVE_NUMERIC_KEYS розширено (reviews_min/max_length, max_file_size_mb, session_timeout_minutes))                                                                                                                                                                                                                    | 0                                      | 0                                          | 0                                                                                                                              |
+| Setup-2FA              | **3** ✅ (TF1 logAudit на setup (action: 2fa_setup_initiated), TF2 verify route role gate розширено до `client/wholesaler` — customer 2FA flow тепер завершується, TF3 disable route role gate розширено — customer self-disable доступний); TF4 email notification + TF5 secret encryption у DB — defer (потребує live migration)                                                                                                                                                                            | 0                                      | 2 (TF4 email, TF5 encrypt)                 | 0                                                                                                                              |
+| Bot-settings           | **5** ✅ (BOT1 logAudit на bot-replies POST/PUT/DELETE — phishing reply traceable, BOT2 updateBotReplySchema Zod з buttons.url isSafeUrl guard, BOT3 PUT Zod заміна inline String/Number, BOT4 triggerText max(500) — ReDoS surface обмежено, BOT5 bot-welcome safeUrlSchema на messageImage+buttons.url+promoLink — `javascript:` blocked)                                                                                                                                                                   | 0                                      | 0                                          | 0                                                                                                                              |
+| Email-templates        | **5** ✅ (ET1 testSchema Zod з email validation + 5/min rate-limit на /test, ET2 logAudit на /test з recipient, ET3 POST length caps subject 300/bodyHtml 200KB/bodyText 50KB, ET4 PUT length caps дзеркало, ET5 templateKey max(100))                                                                                                                                                                                                                                                                        | 0                                      | 0                                          | 0                                                                                                                              |
+| Reports                | **5** ✅ (RPT1 adminExport rate-limit 10/min на /generate, RPT2 /builder Zod builderSchema + logAudit з dimension/metrics/rowCount, RPT3 generate.params.filters max 20 keys, RPT4 audit details містить full `fields` list — GDPR audit detail, RPT5 ipAddress у audit)                                                                                                                                                                                                                                      | 0                                      | 0                                          | 0                                                                                                                              |
+| Chat                   | **4** ✅ (CH_M1 logAudit на PATCH assign/resolve/close, CH_M2 sendMessageSchema.attachmentUrl isSafeUrl guard — phishing blocked, CH_M3 adminScan rate-limit 120/min на POST message, CH_M4 assignAgent target role validation (admin/manager only))                                                                                                                                                                                                                                                          | 0                                      | 0                                          | 0                                                                                                                              |
+| Google-business        | **2** ✅ (GB1 adminPaymentTest rate-limit 5/min на ?force=1 — paid API drain заблокований, GB2 `Cache-Control: private, max-age=300` для dashboard widget)                                                                                                                                                                                                                                                                                                                                                    | 0                                      | 0                                          | 0                                                                                                                              |
+| Account (cabinet)      | **5** ✅ (AC1 logAudit на DELETE account success+failure (GDPR Art.17), AC2 sensitive rate-limit 3 per 15min на DELETE — bcrypt brute блокується, AC3 length caps на addresses city/street/building/apartment/postalCode, AC4 updateAddress `$transaction` для ownership+isDefault flip, AC5 createAddress `$transaction` для isDefault deactivation prior)                                                                                                                                                   | 0                                      | 0                                          | 0                                                                                                                              |
+| Wishlists              | **2** ✅ (WL1 MAX_WISHLISTS_PER_USER=50 cap у createWishlist (409 при перевищенні), WL2 cart rate-limit на POST + DELETE — anti-spam)                                                                                                                                                                                                                                                                                                                                                                         | 0                                      | 1 (WL3 audit)                              | 0                                                                                                                              |
+| Notifications          | **2** ✅ (NF1 page/limit clamp проти NaN (Number.isFinite) + max 100, NF2 cart rate-limit на markAllAsRead PUT)                                                                                                                                                                                                                                                                                                                                                                                               | 0                                      | 0                                          | 0                                                                                                                              |
+| Wholesale-request      | **5** ✅ (WR1 wholesaleRequestSchema Zod (length caps), WR2 sensitive rate-limit 3 per 15min на POST, WR3 logAudit (wholesale_request_submitted) з company+edrpou, WR4 EDRPOU regex `\d{8,10}`, WR5 contactPersonPhone `^\+380\d{9}$` + ownershipType/taxSystem enums)                                                                                                                                                                                                                                        | 0                                      | 0                                          | 0                                                                                                                              |
+| Telegram-link          | **3** ✅ (TG1 token Zod max 100 chars, TG2 sensitive rate-limit 3 per 15min проти brute-force, TG3 logAudit на successful + failed link — security event traceable)                                                                                                                                                                                                                                                                                                                                           | 0                                      | 0                                          | 0                                                                                                                              |
+| Search-history         | **3** ✅ (SH1 Zod saveSchema (query max 200, resultsCount range), SH2 search rate-limit 30/min на POST, SH3 type-checked resultsCount)                                                                                                                                                                                                                                                                                                                                                                        | 0                                      | 0                                          | 0                                                                                                                              |
+| Notes                  | **3** ✅ (NT1 upsertNoteSchema Zod (noteText 2000 chars), NT2 cart rate-limit на POST, NT3 product existence check перед upsert)                                                                                                                                                                                                                                                                                                                                                                              | 0                                      | 0                                          | 0                                                                                                                              |
+| Returns                | **3** ✅ (RET1 sensitive rate-limit 3 per 15min на POST (return fraud guard), RET2 logAudit з ipAddress на створення, RET3 NaN-safe pagination GET)                                                                                                                                                                                                                                                                                                                                                           | 0                                      | 0                                          | 0                                                                                                                              |
+| Account/Google         | **1** ✅ (GA1 logAudit на DELETE — OAuth identity unlink security event traceable)                                                                                                                                                                                                                                                                                                                                                                                                                            | 0                                      | 0                                          | 0                                                                                                                              |
+| Me/Export (GDPR)       | **3** ✅ (EX1 sensitive rate-limit 3 per 15min, EX2 logAudit gdpr_export з source маркером, EX3 Cache-Control: no-store)                                                                                                                                                                                                                                                                                                                                                                                      | 0                                      | 0                                          | 0                                                                                                                              |
+| Cart (public)          | **2** ✅ (CRT1 mergeCartSchema Zod з items.max(200) + quantity.max(10k), CRT2 422 на невалідні дані замість 400)                                                                                                                                                                                                                                                                                                                                                                                              | 0                                      | 0                                          | 0                                                                                                                              |
+| **Всього**             | **372 ✅**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | **6**                                  | **117**                                    | **20**                                                                                                                         |
+
+---
+
+## 🎯 Рекомендований план далі
+
+### Варіант A — закрити середній пріоритет (1-2 сесії)
+
+Якщо хочеш мати «нічого важливого не висить»:
+
+1. **O3** manager scope assignment — security
+2. **O6** currency Decimal на invoice/delivery-note
+3. **PR6** soft/hard delete race — advisory lock
+4. **O11** date preset boundary — узгодити inclusive
+5. **Server idempotency-key** для bulk-actions
+
+### Варіант B — переходимо до нового розділу
+
+Не зачіпали:
+
+- **analytics** (загальний дашборд)
+- **users** (клієнти + персонал)
+- **categories** (категорії товарів)
+- **campaigns** (промо-кампанії)
+- **loyalty** (програма лояльності)
+- **payment-settings** (Liqpay/wayforpay/mono)
+- **delivery-settings** (NP/Укрпошта)
+- **integrations** (зовнішні API)
+- **chat** (онлайн-чат з клієнтами)
+- ще ~40 розділів
+
+### Варіант C — multi-day проекти
+
+- **i18n** (Marketplace Q14) — uk/en/ru для всіх адмін-сторінок
+- **per-category commissions** (M2) — для точного profit-розрахунку
+- **proper accounting decimal arithmetic** — всюди, не лише marketplaces/orders
+
+---
+
+## Як читати конкретні файли
+
+- `/home/pulitotrade/pulito/проблеми/маркетплейси-аналіз.md` — повна 4-рольова аналітика + статус
+- `/home/pulitotrade/pulito/проблеми/orders-аналіз.md`
+- `/home/pulitotrade/pulito/проблеми/products-аналіз.md`
+- `звіт-аудит-та-виправлення.md` — старіший, до цих сесій
+
+---
+
+# 🗺️ ROADMAP — повна переаудитна сесія всієї системи
+
+## Загальний підхід (та сама схема для кожного розділу)
+
+1. **Explore-агент** робить сканування файлів розділу, повертає 15-20 highest-signal findings.
+2. **4-рольовий звіт** записується в `проблеми/<розділ>-аналіз.md`: програміст / маркетолог / QA / користувач.
+3. **TOP-7 ranking** — пріоритезація за impact × cost.
+4. **Batch-execution** TOP-7 з фінальним build + `pm2 restart`.
+5. **Цей TODO.md** оновлюється з підсумком ✅.
+
+## A. АДМІНКА — залишилось ~50 розділів
+
+> Кожен розділ — окрема сесія аудиту. Згруповано за business value.
+
+### 🔴 Критичні (грошовий потік, юр.відповідальність) — пріоритет 1
+
+| Розділ              | Чому критично                                                    |
+| ------------------- | ---------------------------------------------------------------- |
+| `payment-settings`  | Liqpay/wayforpay/mono ключі, refund flow, fraud detection        |
+| `delivery-settings` | Nova Poshta tariff sync, Укрпошта, кур'єри — money + UX checkout |
+| `billing`           | Платіжні плани, підписки на сервіс, B2B-договори                 |
+| `audit-log`         | Compliance, debugging incidents — мусить бути read-only і повний |
+| `integrations`      | Зовнішні API ключі, OAuth токени — security                      |
+| `feature-flags`     | Ризик відкрити недороблену фічу → потрібен governance            |
+| `health`            | Operational visibility — без неї падіння системи невидиме        |
+
+### 🟠 Бізнес-критичні (revenue lever) — пріоритет 2
+
+| Розділ             | Чому                                          |
+| ------------------ | --------------------------------------------- |
+| `analytics`        | Загальний дашборд (KPI, conversion, AOV, LTV) |
+| `users`            | Клієнтська база + персонал + ролі             |
+| `categories`       | Структура каталогу — впливає на SEO і UX      |
+| `campaigns`        | Промо-кампанії, banner timing, discount rules |
+| `loyalty`          | Програма лояльності, points, redemption       |
+| `coupons`          | Промокоди — frauds на масовому застосуванні   |
+| `personal-prices`  | B2B-сегментація, individual pricing           |
+| `wholesale-rules`  | Оптові правила, мін.замовлення                |
+| `volume-discounts` | Discount tier ladder                          |
+| `subscriptions`    | Recurring revenue tracking                    |
+| `referrals`        | Реферальна програма                           |
+| `bundles`          | Composite product sales                       |
+
+### 🟡 Content + SEO — пріоритет 3
+
+| Розділ          | Чому                                              |
+| --------------- | ------------------------------------------------- |
+| `homepage`      | Landing builder — найбільший вплив на bounce rate |
+| `pages`         | Static page builder                               |
+| `blog`          | Контент-маркетинг, SEO traffic source             |
+| `banners`       | Promo banner scheduling                           |
+| `seo-audit`     | Tech-SEO health, broken links, missing meta       |
+| `seo-templates` | Шаблони meta-tags для категорій/товарів           |
+| `feeds`         | Google Shopping, Hotline, Facebook Catalog feed   |
+| `not-found-log` | 404-tracking — джерело SEO fixes                  |
+| `search-intel`  | Пошукові запити користувачів — keyword insights   |
+| `forecasting`   | Demand forecasting + restock alerts               |
+
+### 🟢 Operational tools — пріоритет 4
+
+| Розділ                | Чому                            |
+| --------------------- | ------------------------------- |
+| `warehouses`          | Multi-location stock            |
+| `warehouse-transfers` | Internal stock movement         |
+| `stock-counts`        | Inventory audits                |
+| `pack`                | Picking/packing workflow        |
+| `import`              | CSV/XLSX import flows           |
+| `pallet-delivery`     | B2B-крупні відвантаження        |
+| `moderation`          | Review/comment moderation       |
+| `feedback`            | Customer feedback collection    |
+| `faq`                 | FAQ CMS                         |
+| `email-templates`     | Transactional email body editor |
+| `bot-settings`        | Telegram/Viber bot config       |
+| `chat`                | Online chat dashboard           |
+| `ask`                 | Q&A модуль                      |
+
+### ⚪ Infrastructure + меня — пріоритет 5
+
+| Розділ                                   | Чому                                  |
+| ---------------------------------------- | ------------------------------------- |
+| `channels` / `channel-settings`          | Соцмережі (TG, FB, IG, TikTok)        |
+| `publications` / `publication-templates` | Cross-posting tool                    |
+| `domains`                                | Multi-tenant domain mapping           |
+| `tenants`                                | Multi-tenancy logic                   |
+| `themes`                                 | Theme switcher                        |
+| `smtp-settings`                          | Email server config                   |
+| `webhooks`                               | Webhook subscribers registry          |
+| `settings`                               | Global settings (logo, contact, etc.) |
+| `setup-2fa`                              | Admin 2FA flow                        |
+| `google-business`                        | GMB integration                       |
+| `reports`                                | Generic report builder                |
+| `segments`                               | Customer segmentation rules           |
+| `badges`                                 | Product badges (NEW, SALE, …)         |
+| `brands`                                 | Brand CRUD                            |
+
+**Estimated:** ~40 сесій по 1-2 правки кожна = 60-80 годин роботи.
+
+---
+
+## B. КЛІЄНТСЬКИЙ КАБІНЕТ (`/account/*`) — 20 розділів
+
+> Це сторінки залогованого клієнта. Кожен баг тут — direct customer pain.
+
+### 🔴 Критичні (гроші + права клієнта)
+
+| Розділ                            | Що перевіряти                                    |
+| --------------------------------- | ------------------------------------------------ |
+| `orders`                          | Історія замовлень, статуси, повторити замовлення |
+| `finance`                         | Баланс, поповнення, виплати (для B2B)            |
+| `addresses`                       | CRUD адрес доставки, default-flag                |
+| `subscriptions`                   | Підписки клієнта на товари                       |
+| `pricelist`                       | Завантаження особистого прайс-листа (B2B)        |
+| `wholesale` / `wholesale-request` | Оптовий статус, заявки                           |
+| `security`                        | Зміна паролю, 2FA, sessions list                 |
+| `privacy`                         | GDPR-export, видалення акаунта                   |
+
+### 🟠 Conversion levers
+
+| Розділ          | Що перевіряти                        |
+| --------------- | ------------------------------------ |
+| `loyalty`       | Баланс балів, історія, redemption    |
+| `wishlist`      | Wishlist UX (share, notify on stock) |
+| `quick-order`   | B2B швидке оформлення за SKU         |
+| `referral`      | Реферальне посилання + tracking      |
+| `notifications` | In-app notif center                  |
+| `manager`       | Призначений менеджер контакт         |
+| `settings`      | Profile editing, language preference |
+| `notes`         | Особисті нотатки до замовлень        |
+| `status`        | Real-time delivery status            |
+
+**Estimated:** ~15-20 сесій. Багато spillover із admin (наприклад, `account/orders` use the same Order model).
+
+---
+
+## C. ПУБЛІЧНИЙ САЙТ (`/[locale]/(shop)/*`)
+
+> Тут найбільший impact на бізнес — це шопфронт. Кожен баг тут — недотриманий продаж.
+
+### 🔴 Conversion-критичні
+
+| Розділ           | Перевіряти                                                          |
+| ---------------- | ------------------------------------------------------------------- |
+| `checkout`       | Найважливіше — кожен крок воронки, payment, address, NP integration |
+| `cart`           | Cart abandonment, edge-cases (out-of-stock mid-cart, price changes) |
+| `product/[slug]` | Product page — varianti, photos, reviews, related                   |
+| `catalog`        | Listing/filter/search — performance + UX                            |
+| `auth`           | Login/register/reset — flow + edge cases                            |
+
+### 🟠 Discovery + engagement
+
+| Розділ            | Перевіряти                             |
+| ----------------- | -------------------------------------- |
+| `(home)/page.tsx` | Homepage hero + блоки                  |
+| `blog`            | Blog listing + post + commenting       |
+| `brand/[slug]`    | Brand landing page                     |
+| `bundles/[slug]`  | Bundle product page                    |
+| `comparison`      | Product comparison tool                |
+| `contacts`        | Contact form + map                     |
+| `faq`             | Public FAQ                             |
+| `loyalty`         | Public loyalty info                    |
+| `news`            | News feed                              |
+| `pages/[slug]`    | Custom CMS pages                       |
+| `wishlist`        | Public wishlist (for non-logged users) |
+
+### Окремо: API endpoints (public)
+
+- `/api/v1/products/*` — public product fetch
+- `/api/v1/cart/*` — cart operations
+- `/api/v1/checkout/*` — checkout flow
+- `/api/v1/auth/*` — login/register
+- `/api/webhooks/*` — payment + delivery webhooks
+- `/sitemap.xml`, `/feed/*`, `/llms.txt` — SEO/AI artifacts
+
+**Estimated:** ~25-30 сесій. Checkout + cart + product page потребують глибокого QA.
+
+---
+
+## D. CROSS-CUTTING (не прив'язано до розділу)
+
+| Тема                          | Що перевіряти                                               |
+| ----------------------------- | ----------------------------------------------------------- |
+| **i18n**                      | uk / en / ru — повна локалізація (Marketplace Q14 загальна) |
+| **Decimal money**             | Усі суми → копійки×100 чи Decimal.js (O6, M2)               |
+| **Performance**               | Lighthouse audit публічного фронту + Web Vitals             |
+| **Security**                  | OWASP top-10 — CSRF, XSS, injection, IDOR; pentest          |
+| **Accessibility**             | WCAG AA compliance — keyboard nav, screen reader            |
+| **Mobile UX**                 | Responsive review всіх форм/таблиць/модалок                 |
+| **Email deliverability**      | SPF/DKIM/DMARC + reputation monitoring                      |
+| **Backup + DR**               | Daily DB dump, S3 archive, restoration drill                |
+| **Monitoring + alerting**     | Sentry → on-call rotation, SLI/SLO                          |
+| **Rate-limiting consistency** | Усюди де є зовнішні API — backoff + circuit-breaker         |
+
+---
+
+## 📅 Запропонований порядок (для 6-місячного плану)
+
+### Місяць 1: критичний грошовий потік
+
+1. `payment-settings` (1 сесія)
+2. `delivery-settings` (1 сесія)
+3. `billing` (1 сесія)
+4. `integrations` (1 сесія)
+5. `audit-log` (1 сесія)
+6. Закрити «середній пріоритет» Orders+Products (5 пунктів — A варіант з вище)
+
+### Місяць 2: revenue levers
+
+- `analytics`, `users`, `categories`, `campaigns`, `loyalty`, `coupons`
+
+### Місяць 3: контент + SEO
+
+- `homepage`, `pages`, `blog`, `banners`, `seo-audit`, `seo-templates`, `feeds`
+
+### Місяць 4: operations + клієнтський кабінет (high-priority частина)
+
+- `warehouses`, `pack`, `import`, `stock-counts`
+- `account/orders`, `account/finance`, `account/addresses`, `account/security`
+
+### Місяць 5: публічний сайт — conversion критичне
+
+- `checkout` (deep dive, потенційно 2-3 сесії)
+- `cart`, `product`, `catalog`, `auth`
+
+### Місяць 6: cross-cutting + залишок
+
+- i18n міграція
+- Decimal money refactor
+- Performance audit (Lighthouse)
+- Security audit (pentest)
+- Mobile/accessibility review
+- Залишок дрібних розділів адмінки
+
+---
+
+## 🤖 Як використовувати цей TODO
+
+- При старті нової сесії: відкрити цей файл, обрати розділ з roadmap.
+- Створити `проблеми/<розділ>-аналіз.md` за тим самим патерном.
+- Після виконання — оновити статуси тут.
+- Старі файли (`*-аналіз.md`) — як референс до конкретних правок.
+
+> **Tip:** для кожної сесії — повідомляти мені «беремо `<назва розділу>`», далі я сам пройду той самий цикл (Explore-агент → 4-ролі → TOP-7 → batch-fix → build/restart).

@@ -42,13 +42,29 @@ export const POST = withRole(
       });
     } else if (action === 'delete') {
       // Refuse if any of them have products attached — admin must reassign first.
-      const blocked = await prisma.category.findMany({
+      const blockedByProducts = await prisma.category.findMany({
         where: { id: { in: ids }, products: { some: {} } },
         select: { id: true, name: true },
       });
-      if (blocked.length > 0) {
+      if (blockedByProducts.length > 0) {
         return errorResponse(
-          `Не вдалося видалити: у категорій ${blocked.map((b) => `"${b.name}"`).join(', ')} є товари. Перенесіть товари спочатку.`,
+          `Не вдалося видалити: у категорій ${blockedByProducts.map((b) => `"${b.name}"`).join(', ')} є товари. Перенесіть товари спочатку.`,
+          409,
+        );
+      }
+      // Also refuse if any has active child categories — would orphan
+      // children with a deleted parentId, breaking navigation tree.
+      const blockedByChildren = await prisma.category.findMany({
+        where: {
+          id: { in: ids },
+          children: { some: { deletedAt: null } },
+        },
+        select: { id: true, name: true },
+      });
+      if (blockedByChildren.length > 0) {
+        return errorResponse(
+          `Не вдалося видалити: у категорій ${blockedByChildren.map((b) => `"${b.name}"`).join(', ')} ` +
+            `є підкатегорії. Спочатку перенесіть або видаліть їх.`,
           409,
         );
       }

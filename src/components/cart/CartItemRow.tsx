@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { Trash } from '@/components/icons';
 import QuantitySelector from '@/components/product/QuantitySelector';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,9 +25,7 @@ export default function CartItemRow({ item, onUpdateQuantity, onRemove }: CartIt
   const subtotal = effectivePrice * item.quantity;
 
   const confirmAndRemove = () => {
-    if (
-      window.confirm(`Видалити "${item.name}" з кошика?`)
-    ) {
+    if (window.confirm(`Видалити "${item.name}" з кошика?`)) {
       onRemove(item.productId);
     }
   };
@@ -98,11 +96,27 @@ export default function CartItemRow({ item, onUpdateQuantity, onRemove }: CartIt
         {/* Image */}
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[var(--radius)] bg-[var(--color-bg-secondary)]">
           {item.imagePath ? (
-            <Image src={item.imagePath} alt={item.name} fill className="object-cover" sizes="80px" />
+            <Image
+              src={item.imagePath}
+              alt={item.name}
+              fill
+              className="object-cover"
+              sizes="80px"
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)]">
-              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+              <svg
+                className="h-8 w-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
+                />
               </svg>
             </div>
           )}

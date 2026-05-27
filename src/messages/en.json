@@ -29,6 +29,7 @@
     "all": "All",
     "noResults": "No results found",
     "showMore": "Show more",
+    "viewAll": "View all",
     "currency": "₴",
     "copy": "Copy",
     "copied": "Copied",
@@ -251,7 +252,9 @@
     "completed": "Completed!",
     "points": "+{count} points",
     "deadline": "By {date}",
-    "noChallenges": "No active challenges at the moment"
+    "noChallenges": "No active challenges at the moment",
+    "title": "Pulito Trade loyalty program",
+    "subtitle": "Earn points on every order and redeem them on your next purchases."
   },
   "wholesale": {
     "bulkOrder": "Bulk Order by Article Codes",
@@ -291,5 +294,69 @@
     "disconnected": "Disconnected",
     "lastSync": "Last Sync",
     "syncNow": "Sync Now"
+  },
+  "catalog": {
+    "title": "Product catalog",
+    "searchPlaceholder": "Search products...",
+    "empty": "No products found",
+    "filters": "Filters",
+    "sortBy": "Sort by"
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "searchPlaceholder": "Search answers..."
+  },
+  "contacts": {
+    "title": "Contacts",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address",
+    "workingHours": "Working hours",
+    "writeUs": "Write to us"
+  },
+  "breadcrumb": {
+    "home": "Home",
+    "catalog": "Catalog",
+    "blog": "Blog"
+  },
+  "news": {
+    "title": "News & promotions"
+  },
+  "home": {
+    "promoTitle": "On sale",
+    "newTitle": "New arrivals",
+    "popularTitle": "Best sellers",
+    "recentlyViewed": "Recently viewed"
+  },
+  "banner": {
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "accountNav": {
+    "sections": {
+      "main": "Main",
+      "work": "Work",
+      "loyalty": "Loyalty programs",
+      "reference": "Reference",
+      "settings": "Settings"
+    },
+    "items": {
+      "home": "Home",
+      "orders": "Orders",
+      "wishlist": "Wishlist",
+      "notifications": "Notifications",
+      "loyalty": "Loyalty program",
+      "referral": "Referral program",
+      "pricelist": "Price lists",
+      "addresses": "Addresses",
+      "settings": "Settings",
+      "security": "Security",
+      "quickOrder": "Quick order",
+      "finance": "Finance",
+      "notes": "Notes",
+      "manager": "Manager",
+      "status": "My terms",
+      "wholesaleCta": "Become a wholesaler"
+    }
   }
 }

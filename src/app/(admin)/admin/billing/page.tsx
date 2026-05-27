@@ -70,7 +70,9 @@ export default function AdminBillingPage() {
     let cancelled = false;
     Promise.all([
       apiClient.get<{ billing: Billing; usage: Usage }>('/api/v1/admin/billing'),
-      apiClient.get<Invoice[]>('/api/v1/admin/billing/invoices'),
+      apiClient.get<{ invoices: Invoice[]; total: number; page: number; pageSize: number }>(
+        '/api/v1/admin/billing/invoices',
+      ),
     ])
       .then(([billingRes, invoicesRes]) => {
         if (cancelled) return;
@@ -81,7 +83,12 @@ export default function AdminBillingPage() {
           toast.error(billingRes.error || 'Помилка завантаження даних біллінгу');
         }
         if (invoicesRes.success && invoicesRes.data) {
-          setInvoices(invoicesRes.data);
+          // New paginated shape — fall back gracefully for the brief moment
+          // an older client cache sits in a serviceworker.
+          const data = invoicesRes.data as
+            | { invoices: Invoice[]; total: number; page: number; pageSize: number }
+            | Invoice[];
+          setInvoices(Array.isArray(data) ? data : data.invoices);
         } else {
           toast.error(invoicesRes.error || 'Помилка завантаження інвойсів');
         }
@@ -155,11 +162,7 @@ export default function AdminBillingPage() {
       {/* Usage meters */}
       {usage && (
         <div className="mb-6 grid gap-4 sm:grid-cols-2">
-          <UsageMeter
-            label="Товари"
-            used={usage.products.used}
-            max={usage.products.max}
-          />
+          <UsageMeter label="Товари" used={usage.products.used} max={usage.products.max} />
           <UsageMeter
             label="Замовлення (за період)"
             used={usage.orders.used}
@@ -210,14 +213,24 @@ export default function AdminBillingPage() {
                     </td>
                     <td className="py-2">
                       {inv.pdfUrl ? (
-                        <a
-                          href={inv.pdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={async () => {
+                            // Go through the auth+tenant-checked endpoint
+                            // instead of opening pdfUrl directly. Prevents
+                            // cross-tenant PDF leak via guessed invoice IDs.
+                            const res = await apiClient.get<{ pdfUrl: string }>(
+                              `/api/v1/admin/billing/invoices/${inv.id}/pdf`,
+                            );
+                            if (res.success && res.data?.pdfUrl) {
+                              window.open(res.data.pdfUrl, '_blank', 'noopener,noreferrer');
+                            } else {
+                              toast.error(res.error || 'PDF недоступний');
+                            }
+                          }}
                           className="text-[var(--color-primary)] hover:underline"
                         >
                           Завантажити
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-[var(--color-text-secondary)]">—</span>
                       )}

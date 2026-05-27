@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import { formatPrice, todayKyiv, plural } from '@/utils/format';
+import { formatPrice, todayKyivIso, plural } from '@/utils/format';
 import type { DashboardStats } from '@/types/user';
 import Spinner from '@/components/ui/Spinner';
 import ActivityFeed from '@/components/admin/ActivityFeed';
 import AIDashboardSummary from '@/components/admin/AIDashboardSummary';
+import AnomaliesWidget from '@/components/admin/AnomaliesWidget';
+import ChurnRadarWidget from '@/components/admin/ChurnRadarWidget';
+import ProductQualityWidget from '@/components/admin/ProductQualityWidget';
 import {
   DndContext,
   closestCenter,
@@ -27,17 +30,29 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const DEFAULT_WIDGET_ORDER = [
-  'aiSummary',
-  'stats',
-  'recommendations',
-  'weeklyRevenue',
-  'hourlyToday',
-  'recentOrders',
-  'users',
-  'products',
-  'topProducts',
+// Single source of truth for dashboard widgets. Adding a new widget = add one
+// entry below; both default order and the toggle-menu label come from here.
+// Previously these lived in two parallel arrays — adding to one and forgetting
+// the other surfaced `undefined` labels in the React tree.
+const WIDGETS: { key: string; label: string }[] = [
+  { key: 'anomalies', label: 'Аномалії' },
+  { key: 'aiSummary', label: 'AI брифінг дня' },
+  { key: 'stats', label: 'Статистика' },
+  { key: 'churnRadar', label: 'Радар відтоку' },
+  { key: 'productQuality', label: 'Якість описів' },
+  { key: 'recommendations', label: 'Рекомендації' },
+  { key: 'weeklyRevenue', label: 'Тижнева виручка' },
+  { key: 'hourlyToday', label: 'Замовлення по годинах сьогодні' },
+  { key: 'recentOrders', label: 'Останні замовлення' },
+  { key: 'users', label: 'Користувачі' },
+  { key: 'products', label: 'Товари' },
+  { key: 'topProducts', label: 'Топ товарів' },
 ];
+
+const DEFAULT_WIDGET_ORDER = WIDGETS.map((w) => w.key);
+const WIDGET_LABELS: Record<string, string> = Object.fromEntries(
+  WIDGETS.map((w) => [w.key, w.label]),
+);
 
 interface Recommendation {
   key: string;
@@ -123,6 +138,7 @@ export default function AdminDashboard() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [showConfig, setShowConfig] = useState(false);
   const [widgetOrder, setWidgetOrder] = useState<string[]>(DEFAULT_WIDGET_ORDER);
   const [hiddenWidgets, setHiddenWidgets] = useState<Set<string>>(new Set());
@@ -212,7 +228,21 @@ export default function AdminDashboard() {
         if (res.success && res.data) {
           const data = res.data;
           if (data.layout) {
-            setWidgetOrder(data.layout.widgetOrder || DEFAULT_WIDGET_ORDER);
+            // Merge with DEFAULT_WIDGET_ORDER so widgets introduced after
+            // the user saved their layout (e.g. anomalies, churnRadar, etc.)
+            // appear in the configured position from defaults — keeping
+            // user's existing order intact for already-known keys.
+            const saved = data.layout.widgetOrder || [];
+            const merged = [...saved];
+            for (const key of DEFAULT_WIDGET_ORDER) {
+              if (!merged.includes(key)) {
+                // Insert new widget at the position it has in DEFAULT — so
+                // 'anomalies' (index 0) goes to front, 'aiSummary' near top, etc.
+                const defaultIdx = DEFAULT_WIDGET_ORDER.indexOf(key);
+                merged.splice(defaultIdx, 0, key);
+              }
+            }
+            setWidgetOrder(merged);
             setHiddenWidgets(new Set(data.layout.hiddenWidgets || []));
           }
           if (data.refreshIntervalSeconds) {
@@ -225,11 +255,29 @@ export default function AdminDashboard() {
 
   // Mount-time fetch is performed by the stats effect via initial token=0.
   // Only the auto-refresh interval needs to call loadStats() explicitly.
+  // When the user changes the refresh interval (or toggles autoRefresh on),
+  // fire one immediate refresh so they see fresh data without waiting the
+  // full new interval — otherwise "refresh every 30s" appears unresponsive
+  // for up to 30 seconds after the change.
+  const refreshIntervalFirstRun = useRef(true);
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh) {
+      refreshIntervalFirstRun.current = true;
+      return;
+    }
+    if (refreshIntervalFirstRun.current) {
+      refreshIntervalFirstRun.current = false;
+    } else {
+      loadStats();
+    }
     const interval = setInterval(loadStats, refreshIntervalSeconds * 1000);
     return () => clearInterval(interval);
   }, [autoRefresh, loadStats, refreshIntervalSeconds]);
+
+  useEffect(() => {
+    const tick = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(tick);
+  }, []);
 
   useEffect(() => {
     const onNewOrder = (e: Event) => {
@@ -255,12 +303,25 @@ export default function AdminDashboard() {
     if (!res.success) toast.error('Не вдалося зберегти налаштування');
   }, []);
 
+  // Latest-state refs let toggleWidget / handleDragEnd save without stale
+  // closures over widgetOrder/hiddenWidgets. Without this, rapid back-to-back
+  // toggles persist values from before the most recent setState.
+  const widgetOrderRef = useRef(widgetOrder);
+  const hiddenWidgetsRef = useRef(hiddenWidgets);
+  useEffect(() => {
+    widgetOrderRef.current = widgetOrder;
+  }, [widgetOrder]);
+  useEffect(() => {
+    hiddenWidgetsRef.current = hiddenWidgets;
+  }, [hiddenWidgets]);
+
   const toggleWidget = (key: string) => {
     setHiddenWidgets((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      saveSettings(widgetOrder, next);
+      hiddenWidgetsRef.current = next;
+      saveSettings(widgetOrderRef.current, next);
       return next;
     });
   };
@@ -273,21 +334,10 @@ export default function AdminDashboard() {
       const oldIndex = prev.indexOf(active.id as string);
       const newIndex = prev.indexOf(over.id as string);
       const next = arrayMove(prev, oldIndex, newIndex);
-      saveSettings(next, hiddenWidgets);
+      widgetOrderRef.current = next;
+      saveSettings(next, hiddenWidgetsRef.current);
       return next;
     });
-  };
-
-  const WIDGET_LABELS: Record<string, string> = {
-    aiSummary: 'AI брифінг дня',
-    stats: 'Статистика',
-    recommendations: 'Рекомендації',
-    weeklyRevenue: 'Тижнева виручка',
-    hourlyToday: 'Замовлення по годинах сьогодні',
-    recentOrders: 'Останні замовлення',
-    users: 'Користувачі',
-    products: 'Товари',
-    topProducts: 'Топ товарів',
   };
 
   if (isLoading || !settingsLoaded) {
@@ -328,7 +378,7 @@ export default function AdminDashboard() {
 
   const revenueDiff = stats.orders.todayRevenue - stats.orders.yesterdayRevenue;
   const countDiff = stats.orders.todayCount - stats.orders.yesterdayCount;
-  const todayKyivIso = todayKyiv().toISOString().slice(0, 10);
+  const todayIso = todayKyivIso();
 
   return (
     <div>
@@ -340,7 +390,7 @@ export default function AdminDashboard() {
                 <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--color-primary)]" />
               )}
               Оновлено: {lastUpdated.toLocaleTimeString('uk-UA')}
-              {Date.now() - lastUpdated.getTime() > 5 * 60_000 && (
+              {nowMs - lastUpdated.getTime() > 5 * 60_000 && (
                 <span
                   className="font-semibold text-amber-600"
                   title="Дані старші за 5 хвилин — натисніть «Оновити»"
@@ -467,7 +517,7 @@ export default function AdminDashboard() {
           });
         if (stats.products.outOfStock > 0)
           alerts.push({
-            text: `${stats.products.outOfStock} ${plural(stats.products.outOfStock, ['товар', 'товари', 'товарів'])} ${plural(stats.products.outOfStock, ['немає', 'немає', 'немає'])} в наявності`,
+            text: `${stats.products.outOfStock} ${plural(stats.products.outOfStock, ['товар', 'товари', 'товарів'])} немає в наявності`,
             href: '/admin/products?stock=out',
             type: 'danger',
           });
@@ -515,11 +565,24 @@ export default function AdminDashboard() {
           return <AIDashboardSummary key="aiSummary" />;
         }
 
+        if (widgetKey === 'anomalies') {
+          return <AnomaliesWidget key="anomalies" />;
+        }
+
+        if (widgetKey === 'churnRadar') {
+          return <ChurnRadarWidget key="churnRadar" />;
+        }
+
+        if (widgetKey === 'productQuality') {
+          return <ProductQualityWidget key="productQuality" />;
+        }
+
         if (widgetKey === 'stats') {
-          // Aggregate window depending on selected date range.
-          // Week/Month use the existing weeklyRevenue buckets (7 days),
-          // so "month" effectively reuses the last 7 days until backend grows.
-          const windowDays = dateRange === 'today' ? 1 : dateRange === 'week' ? 7 : 7;
+          // Aggregate window depending on selected date range. Backend only
+          // returns 7 daily buckets in weeklyRevenue, so until that's extended,
+          // both "week" and "month" use the same data — the label is honest
+          // about that ("за тиждень / 7 днів") instead of claiming "30 днів".
+          const windowDays = dateRange === 'today' ? 1 : 7;
           const buckets = stats.weeklyRevenue.slice(-windowDays);
           const periodCount =
             dateRange === 'today'
@@ -530,13 +593,13 @@ export default function AdminDashboard() {
               ? stats.orders.todayRevenue
               : buckets.reduce((s, b) => s + b.revenue, 0);
           const periodLabel =
-            dateRange === 'today' ? 'сьогодні' : dateRange === 'week' ? 'за тиждень' : 'за 30 днів';
+            dateRange === 'today' ? 'сьогодні' : dateRange === 'week' ? 'за тиждень' : 'за 7 днів';
           const periodDiff = dateRange === 'today' ? countDiff : undefined;
           const periodRevenueDiff = dateRange === 'today' ? revenueDiff : undefined;
           const ordersHref =
             dateRange === 'today'
-              ? `/admin/orders?dateFrom=${todayKyivIso}`
-              : `/admin/orders?dateFrom=${stats.weeklyRevenue[0]?.date || todayKyivIso}`;
+              ? `/admin/orders?dateFrom=${todayIso}`
+              : `/admin/orders?dateFrom=${stats.weeklyRevenue[0]?.date || todayIso}`;
 
           return (
             <div key="stats" className="mb-6">
@@ -857,7 +920,7 @@ export default function AdminDashboard() {
                   const label = day.toLocaleDateString('uk-UA', {
                     weekday: 'short',
                   });
-                  const isToday = d.date === todayKyivIso;
+                  const isToday = d.date === todayIso;
                   return (
                     <Link
                       key={d.date}

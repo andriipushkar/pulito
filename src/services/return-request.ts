@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { refundPayment } from '@/services/payment';
 import { logger } from '@/lib/logger';
-import type { ReturnReason, ReturnStatus } from '../../generated/prisma';
+import { Prisma, type ReturnReason, type ReturnStatus } from '../../generated/prisma';
 
 export class ReturnError extends Error {
   statusCode: number;
@@ -44,20 +44,21 @@ export async function createReturnRequest(data: {
   });
   if (existing) throw new ReturnError('Запит на повернення вже існує для цього замовлення');
 
-  // Calculate total
+  // Calculate total using Decimal arithmetic — Number * qty loses kopiyka precision.
   const itemsData = data.items.map((item) => {
     const orderItem = order.items.find((oi) => oi.id === item.orderItemId);
     if (!orderItem) throw new ReturnError(`Товар не знайдено в замовленні`);
     if (item.quantity > orderItem.quantity) throw new ReturnError(`Кількість перевищує замовлену`);
+    const amount = new Prisma.Decimal(orderItem.priceAtOrder.toString()).mul(item.quantity);
     return {
       orderItemId: orderItem.id,
       productName: orderItem.productName,
       quantity: item.quantity,
-      amount: Number(orderItem.priceAtOrder) * item.quantity,
+      amount: amount.toString(),
     };
   });
 
-  const totalAmount = itemsData.reduce((sum, i) => sum + i.amount, 0);
+  const totalAmount = itemsData.reduce((sum, i) => sum.add(i.amount), new Prisma.Decimal(0));
 
   return prisma.returnRequest.create({
     data: {
@@ -167,7 +168,21 @@ export async function markReturnRefunded(returnId: number) {
 
   const refundAmount = Number(returnReq.totalAmount);
 
-  // Process actual refund through payment provider
+  // Atomic claim: flip 'received' → 'refunded' before calling the payment provider.
+  // Without this, two parallel calls both pass the status check and both invoke
+  // refundPayment, double-charging the merchant. updateMany returns count=0 if
+  // another caller already won the race.
+  const claimedAt = new Date();
+  const claimed = await prisma.returnRequest.updateMany({
+    where: { id: returnId, status: 'received' },
+    data: { status: 'refunded', refundedAt: claimedAt },
+  });
+  if (claimed.count === 0) {
+    throw new ReturnError('Повернення вже опрацьовується або вже виконано');
+  }
+
+  // Now we exclusively own the refund. If the payment provider fails, revert
+  // so a human can retry — but only if our claim is still in place.
   const refundResult = await refundPayment(returnReq.orderId, refundAmount);
 
   if (!refundResult.success) {
@@ -176,11 +191,12 @@ export async function markReturnRefunded(returnId: number) {
       orderId: returnReq.orderId,
       message: refundResult.message,
     });
+    await prisma.returnRequest.updateMany({
+      where: { id: returnId, status: 'refunded', refundedAt: claimedAt },
+      data: { status: 'received', refundedAt: null },
+    });
     throw new ReturnError(refundResult.message || 'Не вдалося виконати повернення коштів');
   }
 
-  return prisma.returnRequest.update({
-    where: { id: returnId },
-    data: { status: 'refunded', refundedAt: new Date() },
-  });
+  return prisma.returnRequest.findUnique({ where: { id: returnId } });
 }

@@ -76,7 +76,7 @@ export const DELETE = withRole(
       actionType: 'data_delete',
       entityType: 'brand',
       entityId: numId,
-      details: { hard: result.hard },
+      details: { hard: result.hard, affectedProducts: result.affectedProducts },
       ipAddress: getClientIp(req),
     });
     try {
@@ -87,6 +87,7 @@ export const DELETE = withRole(
     }
     return successResponse({
       hard: result.hard,
+      affectedProducts: result.affectedProducts,
       message: result.hard ? 'Торгової марки видалено' : 'Торгової марки позначено як видалений',
     });
   } catch (error) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import Badge from '@/components/ui/Badge';
 import PriceDisplay from './PriceDisplay';
 import QuantitySelector from './QuantitySelector';
@@ -216,26 +216,44 @@ export default function ProductInfo({ product }: ProductInfoProps) {
           priceRetailOld={product.priceRetailOld}
           size="lg"
         />
-        <div
-          className={`mt-2 flex items-center gap-1.5 text-sm font-medium ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}
-        >
-          {inStock && (
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-          )}
-          {inStock
-            ? hideQty
-              ? 'В наявності'
-              : `В наявності (${effectiveQuantity} шт.)`
-            : 'Немає в наявності'}
-        </div>
+        {(() => {
+          // Stock badge with urgency tiers:
+          //   • out-of-stock     → standard red
+          //   • last 1 item      → red urgency "Останній!"
+          //   • ≤ 5 items        → orange urgency "Поспішайте, мало"
+          //   • ≥ 6              → calm green "В наявності"
+          // Skipped entirely when admin hides quantities globally.
+          const lowStock = inStock && !hideQty && effectiveQuantity <= 5;
+          const lastOne = inStock && !hideQty && effectiveQuantity === 1;
+          const tone = !inStock
+            ? 'text-[var(--color-out-of-stock)]'
+            : lastOne
+              ? 'text-red-600'
+              : lowStock
+                ? 'text-amber-600'
+                : 'text-[var(--color-in-stock)]';
+          return (
+            <div className={`mt-2 flex items-center gap-1.5 text-sm font-medium ${tone}`}>
+              {inStock && (
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              )}
+              {!inStock && 'Немає в наявності'}
+              {lastOne && '⚠️ Останній товар!'}
+              {!lastOne && lowStock && `🔥 Поспішайте — залишилось ${effectiveQuantity} шт.`}
+              {inStock &&
+                !lowStock &&
+                (hideQty ? 'В наявності' : `В наявності (${effectiveQuantity} шт.)`)}
+            </div>
+          );
+        })()}
         {(() => {
           // Show physical params chip when the selected variant (or parent)
           // declares weight. Helps customer estimate shipping cost upfront.

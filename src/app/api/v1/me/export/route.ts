@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
-export const GET = withAuth(async (_request: NextRequest, { user }) => {
+export const GET = withAuth(async (request: NextRequest, { user }) => {
   try {
+    // Same shape as /me/gdpr-export — full personal-data dump. Reuse the
+    // `sensitive` bucket so abuse can't double as a privacy-exfil cron.
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.sensitive);
+    if (!rl.allowed) {
+      return errorResponse(
+        `Забагато експортів. Спробуйте через ${Math.ceil(rl.retryAfter / 60)} хв.`,
+        429,
+      );
+    }
     const userData = await prisma.user.findUnique({
       where: { id: user.id },
       select: {
@@ -96,10 +108,21 @@ export const GET = withAuth(async (_request: NextRequest, { user }) => {
       })),
     };
 
+    // GDPR Article 20 — every export must be auditable.
+    await logAudit({
+      userId: user.id,
+      actionType: 'gdpr_export',
+      entityType: 'user',
+      entityId: user.id,
+      details: { source: 'me/export' },
+      ipAddress: getClientIp(request),
+    });
+
     return new NextResponse(JSON.stringify(exportData, null, 2), {
       headers: {
         'Content-Type': 'application/json',
         'Content-Disposition': `attachment; filename="my-data-${new Date().toISOString().slice(0, 10)}.json"`,
+        'Cache-Control': 'no-store',
       },
     });
   } catch {

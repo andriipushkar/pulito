@@ -10,6 +10,7 @@ vi.mock('@/components/icons', () => ({
   Viber: () => <span data-testid="viber-icon">vb</span>,
   Instagram: () => <span data-testid="instagram-icon">ig</span>,
   Check: () => <span data-testid="check-icon">check</span>,
+  Share: () => <span data-testid="share-icon">share</span>,
 }));
 
 import ShareButtons from './ShareButtons';
@@ -57,7 +58,9 @@ describe('ShareButtons', () => {
     const { getByLabelText } = render(<ShareButtons url="/product/test" title="Test Product" />);
     const tgLink = getByLabelText('Telegram');
     expect(tgLink.getAttribute('href')).toContain('https://t.me/share/url');
-    expect(tgLink.getAttribute('href')).toContain(encodeURIComponent('http://localhost:3000/product/test'));
+    expect(tgLink.getAttribute('href')).toContain(
+      encodeURIComponent('http://localhost:3000/product/test'),
+    );
     expect(tgLink.getAttribute('href')).toContain(encodeURIComponent('Test Product'));
   });
 
@@ -71,7 +74,9 @@ describe('ShareButtons', () => {
     const { getByLabelText } = render(<ShareButtons url="/product/test" title="Test Product" />);
     const fbLink = getByLabelText('Facebook');
     expect(fbLink.getAttribute('href')).toContain('facebook.com/sharer');
-    expect(fbLink.getAttribute('href')).toContain(encodeURIComponent('http://localhost:3000/product/test'));
+    expect(fbLink.getAttribute('href')).toContain(
+      encodeURIComponent('http://localhost:3000/product/test'),
+    );
   });
 
   it('copies URL to clipboard when copy button clicked', async () => {
@@ -80,11 +85,15 @@ describe('ShareButtons', () => {
     await act(async () => {
       fireEvent.click(copyBtn);
     });
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:3000/product/test');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      'http://localhost:3000/product/test',
+    );
   });
 
   it('shows check icon after copying', async () => {
-    const { getByLabelText, getByTestId } = render(<ShareButtons url="/product/test" title="Test Product" />);
+    const { getByLabelText, getByTestId } = render(
+      <ShareButtons url="/product/test" title="Test Product" />,
+    );
     const copyBtn = getByLabelText('Копіювати посилання');
     await act(async () => {
       fireEvent.click(copyBtn);
@@ -93,7 +102,9 @@ describe('ShareButtons', () => {
   });
 
   it('reverts copy icon after 2 seconds', async () => {
-    const { getByLabelText, queryByTestId } = render(<ShareButtons url="/product/test" title="Test Product" />);
+    const { getByLabelText, queryByTestId } = render(
+      <ShareButtons url="/product/test" title="Test Product" />,
+    );
     const copyBtn = getByLabelText('Копіювати посилання');
     await act(async () => {
       fireEvent.click(copyBtn);
@@ -117,19 +128,25 @@ describe('ShareButtons', () => {
   });
 
   it('copies URL for Instagram and shows check icon', async () => {
-    const { getByLabelText, queryAllByTestId } = render(<ShareButtons url="/product/test" title="Test Product" />);
+    const { getByLabelText, queryAllByTestId } = render(
+      <ShareButtons url="/product/test" title="Test Product" />,
+    );
     const igBtn = getByLabelText('Instagram');
     await act(async () => {
       fireEvent.click(igBtn);
     });
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:3000/product/test');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      'http://localhost:3000/product/test',
+    );
     // Should show check icon in Instagram button
     const checkIcons = queryAllByTestId('check-icon');
     expect(checkIcons.length).toBeGreaterThan(0);
   });
 
   it('reverts Instagram check icon after 3 seconds', async () => {
-    const { getByLabelText, queryAllByTestId } = render(<ShareButtons url="/product/test" title="Test Product" />);
+    const { getByLabelText, queryAllByTestId } = render(
+      <ShareButtons url="/product/test" title="Test Product" />,
+    );
     const igBtn = getByLabelText('Instagram');
     await act(async () => {
       fireEvent.click(igBtn);

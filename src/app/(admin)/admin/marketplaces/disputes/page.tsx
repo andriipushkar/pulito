@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -80,14 +80,21 @@ export default function MarketplaceDisputesPage() {
     });
 
   // Items with deadlines in the next 24h get highlighted — these are SLA risks.
-  const isUrgent = (d: Dispute): boolean => {
-    if (!d.deadlineAt) return false;
-    const ms = new Date(d.deadlineAt).getTime() - Date.now();
-    return ms > 0 && ms < 24 * 60 * 60 * 1000;
-  };
+  // Freeze `now` per disputes change to keep this computation pure during render.
+  const urgentSet = useMemo(() => {
+    const now = Date.now();
+    const set = new Set<string>();
+    for (const d of disputes) {
+      if (!d.deadlineAt) continue;
+      const ms = new Date(d.deadlineAt).getTime() - now;
+      if (ms > 0 && ms < 24 * 60 * 60 * 1000) set.add(`${d.platform}:${d.externalId}`);
+    }
+    return set;
+  }, [disputes]);
+  const isUrgent = (d: Dispute): boolean => urgentSet.has(`${d.platform}:${d.externalId}`);
 
   const openCount = disputes.filter((d) => d.status === 'open' || d.status === 'in_review').length;
-  const urgentCount = disputes.filter(isUrgent).length;
+  const urgentCount = urgentSet.size;
 
   return (
     <div className="space-y-6">
@@ -128,13 +135,27 @@ export default function MarketplaceDisputesPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Маркетплейс</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Замовлення</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Причина</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Статус</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Сума</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Дедлайн</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Маркетплейс
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  ID
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Замовлення
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Причина
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Статус
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
+                  Сума
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Дедлайн
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
@@ -147,12 +168,19 @@ export default function MarketplaceDisputesPage() {
                     {PLATFORM_LABELS[d.platform] || d.platform}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">{d.externalId}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm">{d.orderExternalId || '—'}</td>
-                  <td className="max-w-[280px] truncate px-4 py-3 text-sm" title={d.reason || d.buyerMessage || ''}>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm">
+                    {d.orderExternalId || '—'}
+                  </td>
+                  <td
+                    className="max-w-[280px] truncate px-4 py-3 text-sm"
+                    title={d.reason || d.buyerMessage || ''}
+                  >
                     {d.reason || d.buyerMessage || '—'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
-                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLORS[d.status]}`}>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLORS[d.status]}`}
+                    >
                       {STATUS_LABELS[d.status]}
                     </span>
                   </td>

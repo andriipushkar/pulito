@@ -17,6 +17,7 @@ const SENSITIVE_SETTING_KEYS = new Set([
   'google_maps_api_key',
   'google_analytics_id',
   'facebook_pixel_id',
+  'pinterest_tag_id',
   'tiktok_pixel_id',
   'hotjar_id',
   'sendpulse_api_key',
@@ -76,6 +77,30 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) =
     }
     const entries = Object.entries(body) as [string, string][];
 
+    // Snapshot prior values of non-sensitive keys for audit diffing.
+    // Sensitive values are never written into audit — only their key names.
+    const keys = entries.map(([k]) => k);
+    const beforeRows = await prisma.siteSetting.findMany({
+      where: { key: { in: keys } },
+    });
+    const before: Record<string, string> = {};
+    for (const r of beforeRows) {
+      if (SENSITIVE_SETTING_KEYS.has(r.key)) continue;
+      before[r.key] = r.value;
+    }
+
+    // Numeric keys that must stay non-negative — same reason as
+    // free_delivery_threshold/min_order_amount; reject `-X` typos before
+    // they corrupt the storefront calculator.
+    const NON_NEGATIVE_NUMERIC_KEYS = new Set([
+      'free_delivery_threshold',
+      'min_order_amount',
+      'reviews_min_length',
+      'reviews_max_length',
+      'max_file_size_mb',
+      'session_timeout_minutes',
+    ]);
+
     for (const [key, value] of entries) {
       if (!ALLOWED_SETTING_KEYS.has(key)) {
         return errorResponse(`Ключ "${key}" не дозволено в загальних налаштуваннях`, 400);
@@ -85,8 +110,7 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) =
       // admin can save the form without scrubbing the real secret away.
       if (SENSITIVE_SETTING_KEYS.has(key) && /^•+/.test(str)) continue;
 
-      // Reject negative numerics for fields whose semantics require non-neg.
-      if (key === 'free_delivery_threshold' || key === 'min_order_amount') {
+      if (NON_NEGATIVE_NUMERIC_KEYS.has(key)) {
         const n = Number(str);
         if (Number.isFinite(n) && n < 0) {
           return errorResponse(`${key}: значення не може бути від’ємним`, 400);
@@ -110,7 +134,13 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) =
         userId: user.id,
         actionType: 'rule_change',
         entityType: 'settings',
-        details: { scope: 'general', changedKeys: entries.map(([k]) => k) },
+        details: {
+          scope: 'general',
+          changedKeys: entries.map(([k]) => k),
+          // Pre-fix diff — non-sensitive values only. Sensitive secret
+          // changes are observable by presence of the key in `changedKeys`.
+          before,
+        },
         ipAddress: getClientIp(request),
       });
     }

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { importProducts, ImportResult } from '@/services/import';
 import { logger } from '@/lib/logger';
+import { decrypt, isEncrypted } from '@/lib/encryption';
+import { isSafeOutboundUrl } from '@/utils/safe-url';
 
 export class SupplierChannelError extends Error {
   constructor(
@@ -32,14 +34,24 @@ export async function syncSupplierChannel(
   if (!channel) throw new SupplierChannelError('Канал постачальника не знайдено', 404);
   if (!channel.isActive) throw new SupplierChannelError('Канал вимкнено', 400);
 
+  // SSRF guard: even though POST/PATCH validate feedUrl, a record might predate
+  // the validator. Refuse to fetch private/loopback addresses.
+  if (!isSafeOutboundUrl(channel.feedUrl, { protocols: ['http:', 'https:'] })) {
+    throw new SupplierChannelError('URL фіду вказує на приватну/локальну адресу — заборонено', 400);
+  }
+
   const headers: Record<string, string> = {
     'User-Agent': 'PulitoTrade-Importer/1.0',
   };
   if (channel.authType === 'basic' && channel.authUsername && channel.authPassword) {
-    const token = Buffer.from(`${channel.authUsername}:${channel.authPassword}`).toString('base64');
+    const pwd = isEncrypted(channel.authPassword)
+      ? decrypt(channel.authPassword)
+      : channel.authPassword;
+    const token = Buffer.from(`${channel.authUsername}:${pwd}`).toString('base64');
     headers['Authorization'] = `Basic ${token}`;
   } else if (channel.authType === 'bearer' && channel.authToken) {
-    headers['Authorization'] = `Bearer ${channel.authToken}`;
+    const tok = isEncrypted(channel.authToken) ? decrypt(channel.authToken) : channel.authToken;
+    headers['Authorization'] = `Bearer ${tok}`;
   }
 
   const controller = new AbortController();
@@ -50,7 +62,7 @@ export async function syncSupplierChannel(
     response = await fetch(channel.feedUrl, {
       headers,
       signal: controller.signal,
-      redirect: 'follow',
+      redirect: 'error', // refuse redirect-based SSRF to internal targets
     });
   } catch (err) {
     clearTimeout(timeout);

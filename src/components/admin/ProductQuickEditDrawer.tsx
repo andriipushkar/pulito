@@ -47,15 +47,20 @@ export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: 
   const setProduct = setLoadedProduct;
 
   useEffect(() => {
-    if (productId === null) return;
+    if (productId === null) {
+      // Reset on close so reopening the same product re-fetches fresh data —
+      // otherwise the drawer shows whatever was loaded last time, missing any
+      // updates the admin made in the meantime (e.g. inline price edits).
+      setLoadedFor(null);
+      setLoadedProduct(null);
+      return;
+    }
     let cancelled = false;
-    apiClient
-      .get<QuickProduct>(`/api/v1/admin/products/${productId}`)
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) setLoadedProduct(res.data);
-        setLoadedFor(productId);
-      });
+    apiClient.get<QuickProduct>(`/api/v1/admin/products/${productId}`).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) setLoadedProduct(res.data);
+      setLoadedFor(productId);
+    });
     return () => {
       cancelled = true;
     };
@@ -98,11 +103,7 @@ export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: 
 
   return (
     <div className="fixed inset-0 z-[60] flex" role="dialog" aria-modal="true">
-      <div
-        className="flex-1 bg-black/30"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="flex-1 bg-black/30" onClick={onClose} aria-hidden="true" />
       <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-bg)] p-4 shadow-2xl sm:max-w-lg">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold">Швидке редагування</h3>
@@ -142,9 +143,7 @@ export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: 
                 type="number"
                 step="0.01"
                 value={product.priceWholesale === null ? '' : String(product.priceWholesale)}
-                onChange={(e) =>
-                  setProduct({ ...product, priceWholesale: e.target.value || null })
-                }
+                onChange={(e) => setProduct({ ...product, priceWholesale: e.target.value || null })}
               />
             </div>
             <Input

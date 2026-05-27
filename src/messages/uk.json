@@ -29,6 +29,7 @@
     "all": "Усі",
     "noResults": "Нічого не знайдено",
     "showMore": "Показати більше",
+    "viewAll": "Дивитись все",
     "currency": "₴",
     "copy": "Копіювати",
     "copied": "Скопійовано",
@@ -251,7 +252,9 @@
     "completed": "Виконано!",
     "points": "+{count} балів",
     "deadline": "До {date}",
-    "noChallenges": "Наразі немає активних челенджів"
+    "noChallenges": "Наразі немає активних челенджів",
+    "title": "Бонусна програма Pulito Trade",
+    "subtitle": "Накопичуйте бали з кожного замовлення і витрачайте їх на наступні покупки."
   },
   "wholesale": {
     "bulkOrder": "Гуртове замовлення по артикулах",
@@ -291,5 +294,69 @@
     "disconnected": "Відключено",
     "lastSync": "Остання синхронізація",
     "syncNow": "Синхронізувати"
+  },
+  "catalog": {
+    "title": "Каталог товарів",
+    "searchPlaceholder": "Пошук товарів...",
+    "empty": "Товарів не знайдено",
+    "filters": "Фільтри",
+    "sortBy": "Сортувати"
+  },
+  "faq": {
+    "title": "Часті питання",
+    "searchPlaceholder": "Пошук відповідей..."
+  },
+  "contacts": {
+    "title": "Контакти",
+    "phone": "Телефон",
+    "email": "Email",
+    "address": "Адреса",
+    "workingHours": "Графік роботи",
+    "writeUs": "Напишіть нам"
+  },
+  "breadcrumb": {
+    "home": "Головна",
+    "catalog": "Каталог",
+    "blog": "Блог"
+  },
+  "news": {
+    "title": "Новини та акції"
+  },
+  "home": {
+    "promoTitle": "Акційні товари",
+    "newTitle": "Новинки",
+    "popularTitle": "Хіти продажів",
+    "recentlyViewed": "Нещодавно переглянуті"
+  },
+  "banner": {
+    "prev": "Попередній",
+    "next": "Наступний"
+  },
+  "accountNav": {
+    "sections": {
+      "main": "Основне",
+      "work": "Робота",
+      "loyalty": "Програми лояльності",
+      "reference": "Довідка",
+      "settings": "Налаштування"
+    },
+    "items": {
+      "home": "Головна",
+      "orders": "Замовлення",
+      "wishlist": "Обране",
+      "notifications": "Сповіщення",
+      "loyalty": "Бонусна програма",
+      "referral": "Реферальна програма",
+      "pricelist": "Прайс-листи",
+      "addresses": "Адреси",
+      "settings": "Налаштування",
+      "security": "Безпека",
+      "quickOrder": "Швидке замовлення",
+      "finance": "Фінанси",
+      "notes": "Нотатки",
+      "manager": "Менеджер",
+      "status": "Мої умови",
+      "wholesaleCta": "Стати гуртівником"
+    }
   }
 }

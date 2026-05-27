@@ -1,9 +1,12 @@
 import { NextRequest } from 'next/server';
 import { randomBytes } from 'crypto';
-import { withRole } from '@/middleware/auth';
+import { withRole, withRole2fa } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { encrypt } from '@/lib/encryption';
+import { isSafeWebhookUrl } from '@/utils/safe-url';
+import { getClientIp } from '@/utils/request';
+import { logAudit } from '@/services/audit';
 
 export const GET = withRole('admin')(async () => {
   try {
@@ -24,7 +27,7 @@ export const GET = withRole('admin')(async () => {
   }
 });
 
-export const POST = withRole('admin')(async (request: NextRequest) => {
+export const POST = withRole2fa('admin')(async (request: NextRequest, { user }) => {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -33,19 +36,11 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
       ? body.events.filter((e): e is string => typeof e === 'string')
       : [];
     if (!name || !url) return errorResponse("Назва і URL обов'язкові", 400);
-    try {
-      const parsed = new URL(url);
-      const isHttps = parsed.protocol === 'https:';
-      const isLocalDev =
-        parsed.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
-      if (!isHttps && !isLocalDev) {
-        return errorResponse(
-          'URL має використовувати https:// (http:// дозволено лише для localhost)',
-          400,
-        );
-      }
-    } catch {
-      return errorResponse('Невалідний URL', 400);
+    if (!isSafeWebhookUrl(url)) {
+      return errorResponse(
+        'URL має використовувати https:// і не вказувати на приватну/локальну адресу',
+        400,
+      );
     }
     // Generate a fresh secret per subscription and encrypt at rest. The
     // dispatcher decrypts before HMAC-signing each delivery. We return the
@@ -59,6 +54,14 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
         secret: encrypt(plainSecret),
         isActive: body.isActive !== false,
       },
+    });
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'webhook_subscription',
+      entityId: created.id,
+      details: { name, url, events },
+      ipAddress: getClientIp(request),
     });
     return successResponse({ ...created, secret: plainSecret }, 201);
   } catch (error) {

@@ -51,3 +51,22 @@ export async function getWayForPayCreds() {
     secretKey: pick(s.payment_wayforpay_secret_key, env.WAYFORPAY_SECRET_KEY),
   };
 }
+
+/**
+ * 1C/BAS ERP credentials. Currently the 1C integration uses ApiKey-based
+ * auth (1C sends `Authorization: Bearer <our key>` to our endpoints), so
+ * there's no outbound credential to store. This stub exists so when a
+ * future 1C OData/web-service flow needs OUTBOUND credentials, the keys
+ * land here — encrypted at rest via the same `siteSetting` layer — instead
+ * of being added as one-off plaintext envs.
+ */
+export async function get1CCreds() {
+  const s = await load();
+  return {
+    // Reserved keys for future outbound 1C calls (e.g. fetching the 1C
+    // "Управление торговлей" OData feed). Empty by default.
+    apiUrl: s.integration_1c_api_url || '',
+    apiUser: s.integration_1c_api_user || '',
+    apiPassword: s.integration_1c_api_password || '',
+  };
+}

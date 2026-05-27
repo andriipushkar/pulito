@@ -862,6 +862,29 @@ export async function updateUserRole(
   });
   if (!oldUser) throw new UserError('Користувача не знайдено', 404);
 
+  // Self-demotion guard: an admin trying to lower their own role would lock
+  // them out of the panel mid-session. Force them to nominate another admin
+  // first (or use a different account to demote). Self-actions on other
+  // fields (name, email) are fine — only role flip is blocked.
+  if (adminId && adminId === id && oldUser.role === 'admin' && role !== 'admin') {
+    throw new UserError(
+      'Ви не можете знизити свою роль самостійно — інший адмін має це зробити',
+      400,
+    );
+  }
+
+  // Last-admin protection: never let the system slip below 1 admin. Lose
+  // the last one and nobody can sign back in to recreate them.
+  if (oldUser.role === 'admin' && role !== 'admin') {
+    const adminCount = await prisma.user.count({ where: { role: 'admin' } });
+    if (adminCount <= 1) {
+      throw new UserError(
+        'Це останній адмін у системі. Створіть другого адміна перед зниженням ролі.',
+        400,
+      );
+    }
+  }
+
   // Set role + wholesale group atomically so the dropdown can promote a user
   // straight into a pricing tier without two round-trips.
   const data: {

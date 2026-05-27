@@ -364,6 +364,12 @@ export async function getGeographyAnalytics(days: number = 30) {
   const dateFrom = new Date();
   dateFrom.setDate(dateFrom.getDate() - days);
 
+  // Cap groupBy result at 500 cities — even shops shipping nationwide
+  // have <300 distinct delivery destinations in any 30-day window. Without
+  // a hard cap a typo-noisy city column could return thousands of rows
+  // (e.g. "Kyiv" / "Київ" / "kyiv" / "Київ " each counted separately).
+  // We sort by revenue at the DB level so the top entries we actually
+  // care about always make it into the slice.
   const byCity = await prisma.order.groupBy({
     by: ['deliveryCity'],
     where: {
@@ -373,6 +379,8 @@ export async function getGeographyAnalytics(days: number = 30) {
     },
     _count: { _all: true },
     _sum: { totalAmount: true },
+    orderBy: { _sum: { totalAmount: 'desc' } },
+    take: 500,
   });
 
   const cities = byCity

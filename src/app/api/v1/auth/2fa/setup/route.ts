@@ -2,6 +2,8 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { generateSecret, generateOtpauthUrl } from '@/services/totp';
 import { privateResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 import QRCode from 'qrcode';
 
 /**
@@ -17,7 +19,7 @@ export const POST = withRole(
   'manager',
   'client',
   'wholesaler',
-)(async (_request, { user }) => {
+)(async (request, { user }) => {
   try {
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -54,6 +56,18 @@ export const POST = withRole(
     const { redis } = await import('@/lib/redis');
     const ttlKey = `2fa_setup_ttl:${user.id}`;
     await redis.set(ttlKey, secret, 'EX', 1800); // 30 minutes
+
+    // Audit secret generation so the security timeline starts here, not at
+    // verify. If the secret is later leaked, the audit row tells us when
+    // setup was initiated and from where.
+    await logAudit({
+      userId: user.id,
+      actionType: 'user_edit',
+      entityType: 'user',
+      entityId: user.id,
+      details: { action: '2fa_setup_initiated' },
+      ipAddress: getClientIp(request),
+    });
 
     return privateResponse({ secret, otpauthUrl, qrDataUrl });
   } catch {

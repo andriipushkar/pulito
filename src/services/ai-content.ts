@@ -838,6 +838,286 @@ export async function generateForProduct(
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// IMAGE ALT-TEXT GENERATOR (SEO + a11y)
+// ══════════════════════════════════════════════════════════════════════════
+
+interface AltTextInput {
+  productName: string;
+  brand: string | null;
+  category: string | null;
+  imageIndex: number;
+  totalImages: number;
+}
+
+const ALT_SYSTEM = `Ти пишеш alt-тексти для зображень товарів українською. Вимоги:
+- 50-120 символів
+- Українська, без рекламних кліше
+- Опиши що видно: товар, бренд, категорія, ракурс
+- Для головного фото — повна назва товару. Для додаткових — "Вигляд збоку", "Деталь упаковки", "Етикетка з інгредієнтами".
+- Без HTML, без лапок, без емодзі, одне речення.
+Поверни ТІЛЬКИ текст alt без префіксів.`;
+
+function buildAltPrompt(input: AltTextInput): string {
+  const ctx: string[] = [`Товар: ${input.productName}`];
+  if (input.brand) ctx.push(`Бренд: ${input.brand}`);
+  if (input.category) ctx.push(`Категорія: ${input.category}`);
+  ctx.push(
+    `Фото ${input.imageIndex + 1} з ${input.totalImages}${input.imageIndex === 0 ? ' (головне)' : ''}.`,
+  );
+  return ctx.join('\n');
+}
+
+async function altWithClaude(input: AltTextInput): Promise<string | null> {
+  const client = await getClient();
+  if (!client) return null;
+  try {
+    const r = await client.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 100,
+      system: ALT_SYSTEM,
+      messages: [{ role: 'user', content: buildAltPrompt(input) }],
+    });
+    const t = r.content
+      .map((c) => (c.type === 'text' ? c.text : ''))
+      .join('')
+      .trim();
+    return t || null;
+  } catch (err) {
+    logger.error('[ai-content/alt] Claude failed', { error: String(err) });
+    return null;
+  }
+}
+
+async function altWithGemini(input: AltTextInput): Promise<string | null> {
+  const cfg = await getGeminiConfig();
+  if (!cfg) return null;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:generateContent?key=${encodeURIComponent(cfg.apiKey)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: ALT_SYSTEM }] },
+        contents: [{ role: 'user', parts: [{ text: buildAltPrompt(input) }] }],
+        generationConfig: { temperature: 0.5, maxOutputTokens: 100 },
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+  } catch (err) {
+    logger.error('[ai-content/alt] Gemini failed', { error: String(err) });
+    return null;
+  }
+}
+
+function altWithRules(input: AltTextInput): string {
+  const parts = [input.productName];
+  if (input.brand) parts.unshift(input.brand);
+  const suffix = input.imageIndex === 0 ? '' : ` — фото ${input.imageIndex + 1}`;
+  return `${parts.join(' ')}${suffix}`.slice(0, 120);
+}
+
+export async function generateImageAltText(
+  input: AltTextInput,
+  opts?: { provider?: AIProvider },
+): Promise<string> {
+  const provider = opts?.provider;
+  if (provider === 'rules') return altWithRules(input);
+  if (provider === 'gemini') return (await altWithGemini(input)) || altWithRules(input);
+  if (provider === 'claude') return (await altWithClaude(input)) || altWithRules(input);
+  const g = await altWithGemini(input);
+  if (g) return g;
+  const c = await altWithClaude(input);
+  if (c) return c;
+  return altWithRules(input);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// BLOG POST GENERATOR
+// Generates: title (60-70 chars SEO), excerpt (140-200), content (HTML
+// 800-1500 words), seoTitle, seoDescription, tags array. Same provider chain.
+// ══════════════════════════════════════════════════════════════════════════
+
+interface GenerateBlogInput {
+  topic: string;
+  categoryName: string | null;
+  tone?: string; // optional ("дружній", "експертний"), default "досвідчений експерт"
+  existingTags?: string[];
+}
+
+export interface GeneratedBlogContent {
+  title: string;
+  excerpt: string;
+  content: string;
+  seoTitle: string;
+  seoDescription: string;
+  tags: string[];
+}
+
+const BLOG_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: {
+      type: 'string',
+      description: 'Заголовок статті українською, 50-80 символів, з ключовим словом.',
+    },
+    excerpt: {
+      type: 'string',
+      description: "Анонс-превʼю 140-200 символів. Перший рядок, що з'являється у списку статей.",
+    },
+    content: {
+      type: 'string',
+      description:
+        "HTML-стаття українською 800-1500 слів. ОБОВ'ЯЗКОВІ секції:\n" +
+        '1. <h2> головний підзаголовок + <p> з 2-3 реченнями введення\n' +
+        '2. 3-5 <h3>-секцій з 2-4 параграфами кожна\n' +
+        '3. <ul> або <ol> хоча б один список з конкретикою\n' +
+        '4. <h3>Висновок</h3> + <p> з закликом (наприклад, переглянути каталог відповідної категорії)\n' +
+        'ТЕГИ дозволені: h2, h3, p, ul, ol, li, strong, em, blockquote. БЕЗ inline-стилів, БЕЗ classes.',
+    },
+    seoTitle: { type: 'string', description: 'SEO Title, 55-70 символів, з ключем + крючком.' },
+    seoDescription: {
+      type: 'string',
+      description: 'Мета-опис, 140-160 символів, з 1-2 фактами + CTA.',
+    },
+    tags: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '3-6 тегів-ключів українською (короткі фрази, без #).',
+    },
+  },
+  required: ['title', 'excerpt', 'content', 'seoTitle', 'seoDescription', 'tags'],
+  additionalProperties: false,
+} as const;
+
+const BLOG_GEMINI_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    title: { type: 'STRING', description: BLOG_SCHEMA.properties.title.description },
+    excerpt: { type: 'STRING', description: BLOG_SCHEMA.properties.excerpt.description },
+    content: { type: 'STRING', description: BLOG_SCHEMA.properties.content.description },
+    seoTitle: { type: 'STRING', description: BLOG_SCHEMA.properties.seoTitle.description },
+    seoDescription: {
+      type: 'STRING',
+      description: BLOG_SCHEMA.properties.seoDescription.description,
+    },
+    tags: {
+      type: 'ARRAY',
+      items: { type: 'STRING' },
+      description: BLOG_SCHEMA.properties.tags.description,
+    },
+  },
+  required: ['title', 'excerpt', 'content', 'seoTitle', 'seoDescription', 'tags'],
+} as const;
+
+const BLOG_SYSTEM_PROMPT = `Ти — досвідчений редактор блогу Pulito Trade — українського інтернет-магазину побутової хімії. Пишеш корисні статті для покупців, які хочуть навчитися чомусь або обрати товар.
+
+ПРИНЦИПИ:
+- Експертний, природний український. Без канцеляризмів і кліше типу "відкрийте для себе".
+- КОЖНА секція з конкретикою — цифри, відсотки, конкретні бренди (якщо доречно), реальні поради.
+- Стаття має давати РІШЕННЯ або ВІДПОВІДЬ, а не пусту води.
+- В кінці — заклик переглянути товари у магазині (м'яко, без агресивної реклами).
+- Не вигадуй неіснуючі факти, бренди, дослідження.
+
+ФОРМАТ: ТІЛЬКИ JSON у заданій схемі. Без markdown-обгорток.`;
+
+function buildBlogPrompt(input: GenerateBlogInput): string {
+  return [
+    `Тема статті: "${input.topic}"`,
+    input.categoryName ? `Категорія блогу: ${input.categoryName}` : null,
+    input.tone ? `Тонус: ${input.tone}` : null,
+    input.existingTags?.length ? `Контекстні теги: ${input.existingTags.join(', ')}` : null,
+    ``,
+    `Напиши повноцінну SEO-стаття 800-1500 слів за схемою.`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+async function blogWithClaude(input: GenerateBlogInput): Promise<GeneratedBlogContent | null> {
+  const client = await getClient();
+  if (!client) return null;
+  try {
+    const response = await client.messages.parse({
+      model: 'claude-opus-4-7',
+      max_tokens: 8192,
+      output_config: { effort: 'high', format: { type: 'json_schema', schema: BLOG_SCHEMA } },
+      system: BLOG_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: buildBlogPrompt(input) }],
+    });
+    return response.parsed_output ? (response.parsed_output as GeneratedBlogContent) : null;
+  } catch (err) {
+    logger.error('[ai-content/blog] Claude failed', { error: String(err) });
+    return null;
+  }
+}
+
+async function blogWithGemini(input: GenerateBlogInput): Promise<GeneratedBlogContent | null> {
+  const cfg = await getGeminiConfig();
+  if (!cfg) return null;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:generateContent?key=${encodeURIComponent(cfg.apiKey)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: BLOG_SYSTEM_PROMPT }] },
+        contents: [{ role: 'user', parts: [{ text: buildBlogPrompt(input) }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: BLOG_GEMINI_SCHEMA,
+          temperature: 0.7,
+          maxOutputTokens: 8192,
+        },
+      }),
+    });
+    if (!res.ok) {
+      logger.error('[ai-content/blog] Gemini failed', { status: res.status });
+      return null;
+    }
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) return null;
+    return JSON.parse(text) as GeneratedBlogContent;
+  } catch (err) {
+    logger.error('[ai-content/blog] Gemini threw', { error: String(err) });
+    return null;
+  }
+}
+
+function blogWithRules(input: GenerateBlogInput): GeneratedBlogContent {
+  const title = input.topic.slice(0, 70);
+  return {
+    title,
+    excerpt: `Стаття про ${input.topic}. Деталі будуть оновлені.`,
+    content: `<h2>${title}</h2><p>Чернетка статті — деталі буде заповнено пізніше.</p>`,
+    seoTitle: title,
+    seoDescription: `Стаття на тему "${input.topic}" у блозі Pulito Trade.`,
+    tags: [],
+  };
+}
+
+export async function generateForBlog(
+  input: GenerateBlogInput,
+  opts?: { provider?: AIProvider },
+): Promise<GeneratedBlogContent> {
+  const provider = opts?.provider;
+  if (provider === 'rules') return blogWithRules(input);
+  if (provider === 'gemini') return (await blogWithGemini(input)) || blogWithRules(input);
+  if (provider === 'claude') return (await blogWithClaude(input)) || blogWithRules(input);
+  const c = await blogWithClaude(input);
+  if (c) return c;
+  const g = await blogWithGemini(input);
+  if (g) return g;
+  return blogWithRules(input);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // CATEGORY GENERATOR
 // Same provider plumbing (Claude / Gemini / Rules) but produces a different
 // shape: description (HTML body for the category landing page) + SEO meta.

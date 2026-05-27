@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { useComparison } from '@/hooks/useComparison';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,10 +30,9 @@ export default function ComparisonTable() {
     const controller = new AbortController();
     setLoading(true);
     apiClient
-      .get<ProductListItem[]>(
-        `/api/v1/products/by-ids?ids=${limitedIds.join(',')}`,
-        { signal: controller.signal },
-      )
+      .get<ProductListItem[]>(`/api/v1/products/by-ids?ids=${limitedIds.join(',')}`, {
+        signal: controller.signal,
+      })
       .then((res) => {
         if (controller.signal.aborted) return;
         if (res.success && res.data) {
@@ -56,7 +55,9 @@ export default function ComparisonTable() {
       slug: product.slug,
       code: product.code,
       priceRetail: Number(product.priceRetail),
-      priceWholesale: resolveWholesalePrice(product, user?.wholesaleGroup) ?? (product.priceWholesale ? Number(product.priceWholesale) : null),
+      priceWholesale:
+        resolveWholesalePrice(product, user?.wholesaleGroup) ??
+        (product.priceWholesale ? Number(product.priceWholesale) : null),
       imagePath: mainImage,
       quantity: 1,
       maxQuantity: product.quantity,
@@ -81,8 +82,8 @@ export default function ComparisonTable() {
           Список порівняння порожній
         </h2>
         <p className="mb-6 max-w-md text-sm text-[var(--color-text-secondary)]">
-          Додайте товари для порівняння, натиснувши іконку порівняння на картці товару.
-          Можна порівняти до 4 товарів одночасно.
+          Додайте товари для порівняння, натиснувши іконку порівняння на картці товару. Можна
+          порівняти до 4 товарів одночасно.
         </p>
         <Link
           href="/catalog"
@@ -96,17 +97,55 @@ export default function ComparisonTable() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-[var(--color-text-secondary)]">
           {count} {count === 1 ? 'товар' : count < 5 ? 'товари' : 'товарів'} для порівняння
         </p>
-        <button
-          onClick={clear}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--color-danger)] transition-colors hover:bg-[var(--color-danger)]/10"
-        >
-          <Trash size={14} />
-          Очистити все
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              const inStock = products.filter((p) => p.quantity > 0);
+              inStock.forEach((p) => handleAddToCart(p));
+              if (inStock.length > 0) {
+                alert(
+                  `Додано до кошика: ${inStock.length} ${inStock.length === 1 ? 'товар' : 'товарів'}`,
+                );
+              } else {
+                alert('Немає товарів у наявності');
+              }
+            }}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)]/10"
+            disabled={products.every((p) => p.quantity <= 0)}
+          >
+            <Cart size={14} />
+            Додати все в кошик
+          </button>
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/comparison?ids=${ids.join(',')}`;
+              if (navigator.share) {
+                navigator.share({ title: 'Порівняння товарів — Pulito', url }).catch(() => {});
+              } else {
+                navigator.clipboard.writeText(url).then(
+                  () => alert('Посилання скопійовано в буфер обміну'),
+                  () => prompt('Скопіюйте посилання:', url),
+                );
+              }
+            }}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--color-text)] transition-colors hover:bg-[var(--color-bg-secondary)]"
+          >
+            📤 Поділитись
+          </button>
+          <button
+            onClick={() => {
+              if (confirm('Очистити список порівняння?')) clear();
+            }}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--color-danger)] transition-colors hover:bg-[var(--color-danger)]/10"
+          >
+            <Trash size={14} />
+            Очистити все
+          </button>
+        </div>
       </div>
 
       {/* Desktop table view */}
@@ -118,7 +157,10 @@ export default function ComparisonTable() {
                 Характеристика
               </th>
               {products.map((product) => (
-                <th key={product.id} className="min-w-[200px] border-b border-[var(--color-border)] p-3 text-center">
+                <th
+                  key={product.id}
+                  className="min-w-[200px] border-b border-[var(--color-border)] p-3 text-center"
+                >
                   <button
                     onClick={() => remove(product.id)}
                     className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-danger)]"
@@ -140,7 +182,10 @@ export default function ComparisonTable() {
               {products.map((product) => {
                 const img = product.images[0]?.pathMedium || product.imagePath;
                 return (
-                  <td key={product.id} className="border-b border-[var(--color-border)] p-3 text-center">
+                  <td
+                    key={product.id}
+                    className="border-b border-[var(--color-border)] p-3 text-center"
+                  >
                     <Link href={`/product/${product.slug}`} className="inline-block">
                       {img ? (
                         <Image
@@ -152,7 +197,9 @@ export default function ComparisonTable() {
                         />
                       ) : (
                         <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-lg bg-[var(--color-bg-secondary)]">
-                          <span className="text-xs text-[var(--color-text-secondary)]">Немає фото</span>
+                          <span className="text-xs text-[var(--color-text-secondary)]">
+                            Немає фото
+                          </span>
                         </div>
                       )}
                     </Link>
@@ -167,7 +214,10 @@ export default function ComparisonTable() {
                 Назва
               </td>
               {products.map((product) => (
-                <td key={product.id} className="border-b border-[var(--color-border)] p-3 text-center">
+                <td
+                  key={product.id}
+                  className="border-b border-[var(--color-border)] p-3 text-center"
+                >
                   <Link
                     href={`/product/${product.slug}`}
                     className="text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
@@ -184,7 +234,10 @@ export default function ComparisonTable() {
                 Ціна
               </td>
               {products.map((product) => (
-                <td key={product.id} className="border-b border-[var(--color-border)] p-3 text-center">
+                <td
+                  key={product.id}
+                  className="border-b border-[var(--color-border)] p-3 text-center"
+                >
                   <PriceDisplay
                     priceRetail={product.priceRetail}
                     priceRetailOld={product.priceRetailOld}
@@ -203,7 +256,10 @@ export default function ComparisonTable() {
                 Категорія
               </td>
               {products.map((product) => (
-                <td key={product.id} className="border-b border-[var(--color-border)] p-3 text-center text-sm text-[var(--color-text)]">
+                <td
+                  key={product.id}
+                  className="border-b border-[var(--color-border)] p-3 text-center text-sm text-[var(--color-text)]"
+                >
                   {product.category ? (
                     <Link
                       href={`/catalog?category=${product.category.slug}`}
@@ -226,8 +282,13 @@ export default function ComparisonTable() {
               {products.map((product) => {
                 const inStock = product.quantity > 0;
                 return (
-                  <td key={product.id} className="border-b border-[var(--color-border)] p-3 text-center">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${inStock ? 'bg-green-50 text-[var(--color-in-stock)]' : 'bg-red-50 text-[var(--color-out-of-stock)]'}`}>
+                  <td
+                    key={product.id}
+                    className="border-b border-[var(--color-border)] p-3 text-center"
+                  >
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${inStock ? 'bg-green-50 text-[var(--color-in-stock)]' : 'bg-red-50 text-[var(--color-out-of-stock)]'}`}
+                    >
                       {inStock ? 'В наявності' : 'Немає в наявності'}
                     </span>
                   </td>
@@ -241,7 +302,10 @@ export default function ComparisonTable() {
                 Опис
               </td>
               {products.map((product) => (
-                <td key={product.id} className="border-b border-[var(--color-border)] p-3 text-center text-sm text-[var(--color-text)]">
+                <td
+                  key={product.id}
+                  className="border-b border-[var(--color-border)] p-3 text-center text-sm text-[var(--color-text)]"
+                >
                   {product.content?.shortDescription || (
                     <span className="text-[var(--color-text-secondary)]">—</span>
                   )}
@@ -255,7 +319,10 @@ export default function ComparisonTable() {
                 Код товару
               </td>
               {products.map((product) => (
-                <td key={product.id} className="border-b border-[var(--color-border)] p-3 text-center text-sm text-[var(--color-text-secondary)]">
+                <td
+                  key={product.id}
+                  className="border-b border-[var(--color-border)] p-3 text-center text-sm text-[var(--color-text-secondary)]"
+                >
                   {product.code}
                 </td>
               ))}
@@ -275,8 +342,7 @@ export default function ComparisonTable() {
                       disabled={!inStock}
                       className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-brand)] transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-[var(--shadow-brand-lg)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                     >
-                      <Cart size={16} />
-                      В кошик
+                      <Cart size={16} />В кошик
                     </button>
                   </td>
                 );
@@ -308,7 +374,9 @@ export default function ComparisonTable() {
                     />
                   ) : (
                     <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-[var(--color-bg-secondary)]">
-                      <span className="text-[10px] text-[var(--color-text-secondary)]">Немає фото</span>
+                      <span className="text-[10px] text-[var(--color-text-secondary)]">
+                        Немає фото
+                      </span>
                     </div>
                   )}
                 </Link>
@@ -331,7 +399,9 @@ export default function ComparisonTable() {
                       size="sm"
                     />
                   </div>
-                  <span className={`mt-1 inline-block text-xs font-medium ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}>
+                  <span
+                    className={`mt-1 inline-block text-xs font-medium ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}
+                  >
                     {inStock ? 'В наявності' : 'Немає в наявності'}
                   </span>
                 </div>
@@ -358,8 +428,7 @@ export default function ComparisonTable() {
                   disabled={!inStock}
                   className="flex w-full items-center justify-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-brand)] transition-all hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                 >
-                  <Cart size={16} />
-                  В кошик
+                  <Cart size={16} />В кошик
                 </button>
               </div>
             </div>

@@ -80,13 +80,26 @@ async function renderDbTemplate(
     let subject = template.subject;
     let body = template.bodyHtml;
 
+    // Build the set of accepted placeholder forms for each variable:
+    //   {key}      legacy server-side format
+    //   {{key}}    format documented in the admin UI hint
+    //   {{camelCase equivalent of snake_case key}}  also documented in UI
+    // Without supporting all three, templates authored against the UI hint
+    // (e.g. {{orderNumber}}) silently never substitute against snake_case keys.
+    const toCamel = (s: string) => s.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+    const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     for (const [key, value] of Object.entries(variables)) {
-      const placeholder = new RegExp(`\\{${key}\\}`, 'g');
+      const camel = toCamel(key);
       const safeForBody = key.endsWith('_html') ? value : htmlEscape(value);
       // Subject never accepts HTML — strip angle brackets defensively.
       const safeForSubject = value.replace(/[<>]/g, '');
-      subject = subject.replace(placeholder, safeForSubject);
-      body = body.replace(placeholder, safeForBody);
+      const forms = new Set([key, camel]);
+      for (const form of forms) {
+        const single = new RegExp(`\\{\\s*${escapeRe(form)}\\s*\\}`, 'g');
+        const double = new RegExp(`\\{\\{\\s*${escapeRe(form)}\\s*\\}\\}`, 'g');
+        subject = subject.replace(double, safeForSubject).replace(single, safeForSubject);
+        body = body.replace(double, safeForBody).replace(single, safeForBody);
+      }
     }
 
     return { subject, html: baseLayout(body, recipientEmail) };

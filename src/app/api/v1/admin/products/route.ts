@@ -6,6 +6,8 @@ import { createProduct, ProductError } from '@/services/product';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse, paginatedResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 export const GET = withRole(
   'manager',
@@ -23,6 +25,7 @@ export const GET = withRole(
     const isActive = searchParams.get('isActive');
     const stock = searchParams.get('stock');
     const missingBarcode = searchParams.get('missingBarcode');
+    const notPublishedOn = searchParams.get('notPublishedOn'); // e.g. "olx"
     const sort = searchParams.get('sort') || 'id_desc';
 
     // Hide soft-deleted products from the admin list — when a product can't be
@@ -45,6 +48,20 @@ export const GET = withRole(
     else if (stock === 'low') where.quantity = { gt: 0, lte: 5 };
     else if (stock === 'in') where.quantity = { gt: 5 };
     if (missingBarcode === '1') where.barcode = null;
+
+    // Server-side exclusion of products already published on a given
+    // marketplace channel. Without this, the "Тільки не опубліковані"
+    // checkbox in the marketplace ProductsTab filters AFTER pagination —
+    // an admin can land on a page showing 0 rows even when later pages
+    // still hold unpublished products.
+    if (notPublishedOn) {
+      where.publications = {
+        none: {
+          status: 'published',
+          channels: { array_contains: [notPublishedOn] },
+        },
+      };
+    }
 
     const orderByMap: Record<string, object> = {
       id_desc: { id: 'desc' },
@@ -81,6 +98,10 @@ export const GET = withRole(
           barcode: true,
           ordersCount: true,
           sortOrder: true,
+          // Optimistic-concurrency token so inline-edits in the admin list
+          // can pass it back and detect concurrent writes (a second manager
+          // editing the same row in another tab).
+          version: true,
           category: { select: { id: true, name: true } },
           brand: { select: { id: true, name: true } },
         },
@@ -101,7 +122,7 @@ export const GET = withRole(
 export const POST = withRole(
   'manager',
   'admin',
-)(async (request: NextRequest) => {
+)(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = createProductSchema.safeParse(body);
@@ -112,6 +133,15 @@ export const POST = withRole(
     }
 
     const product = await createProduct(parsed.data);
+
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'product',
+      entityId: product.id,
+      details: { code: product.code, name: product.name },
+      ipAddress: getClientIp(request),
+    });
 
     // Revalidate catalog pages so new product appears
     try {

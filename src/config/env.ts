@@ -26,8 +26,17 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().default('./uploads'),
   MAX_FILE_SIZE: z.coerce.number().default(10485760),
 
-  // Used for cron endpoint authentication — must be cryptographically strong
+  // Used for cron endpoint authentication — must be cryptographically strong.
+  // Legacy single-secret for the whole app. New cron routes should prefer
+  // CRON_SECRET below; APP_SECRET stays for backwards compat until existing
+  // cron registrations are migrated.
   APP_SECRET: z.string().min(32),
+  // Dedicated secret for cron-job bearer-token auth. Allows rotating cron
+  // credentials without touching the all-purpose APP_SECRET (which is also
+  // used for at-rest encryption keys — rotating it would invalidate stored
+  // ciphertext). Falls back to APP_SECRET if not set, keeping current
+  // deployments working unchanged.
+  CRON_SECRET: z.string().min(16).optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   INSTAGRAM_ACCESS_TOKEN: z.string().default(''),

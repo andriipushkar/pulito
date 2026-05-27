@@ -1,14 +1,14 @@
 import { NextRequest } from 'next/server';
-import { withRole } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { rollbackImport, ImportError } from '@/services/import';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
 
-export const POST = withRole(
-  'admin', // rollback is destructive — admin only, not manager
-)(async (request: NextRequest, { params, user }) => {
+// Destructive: rolling back an import deletes/restores products in bulk. Gate
+// behind 2FA so a stolen admin session can't be used to wipe a recent import.
+export const POST = withRole2fa('admin')(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);

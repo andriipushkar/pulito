@@ -9,6 +9,7 @@ import Input from '@/components/ui/Input';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useDebounce } from '@/hooks/useDebounce';
 import { SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
+import LoyaltyStatsPanel from '@/components/admin/LoyaltyStatsPanel';
 
 interface LoyaltyLevel {
   id?: number;
@@ -41,8 +42,7 @@ export default function AdminLoyaltyPage() {
   const debouncedUserQuery = useDebounce(userQuery, SEARCH_DEBOUNCE_MS);
   // Derive searchingUsers from "completed query !== current".
   const [completedQuery, setCompletedQuery] = useState<string | null>(null);
-  const searchingUsers =
-    debouncedUserQuery.length >= 2 && completedQuery !== debouncedUserQuery;
+  const searchingUsers = debouncedUserQuery.length >= 2 && completedQuery !== debouncedUserQuery;
 
   // Delete level confirmation
   const [deleteLevelIndex, setDeleteLevelIndex] = useState<number | null>(null);
@@ -81,11 +81,35 @@ export default function AdminLoyaltyPage() {
                   discountPercent: Number(l.discountPercent),
                 }))
               : [
-                  { name: 'bronze', minSpent: 0, pointsMultiplier: 1, discountPercent: 0, sortOrder: 0 },
-                  { name: 'silver', minSpent: 5000, pointsMultiplier: 1.5, discountPercent: 3, sortOrder: 1 },
-                  { name: 'gold', minSpent: 20000, pointsMultiplier: 2, discountPercent: 5, sortOrder: 2 },
-                  { name: 'platinum', minSpent: 50000, pointsMultiplier: 3, discountPercent: 10, sortOrder: 3 },
-                ]
+                  {
+                    name: 'bronze',
+                    minSpent: 0,
+                    pointsMultiplier: 1,
+                    discountPercent: 0,
+                    sortOrder: 0,
+                  },
+                  {
+                    name: 'silver',
+                    minSpent: 5000,
+                    pointsMultiplier: 1.5,
+                    discountPercent: 3,
+                    sortOrder: 1,
+                  },
+                  {
+                    name: 'gold',
+                    minSpent: 20000,
+                    pointsMultiplier: 2,
+                    discountPercent: 5,
+                    sortOrder: 2,
+                  },
+                  {
+                    name: 'platinum',
+                    minSpent: 50000,
+                    pointsMultiplier: 3,
+                    discountPercent: 10,
+                    sortOrder: 3,
+                  },
+                ],
           );
         }
       })
@@ -145,18 +169,30 @@ export default function AdminLoyaltyPage() {
   const updateLevel = (index: number, field: keyof LoyaltyLevel, value: string | number) => {
     setLevels((prev) =>
       prev.map((l, i) =>
-        i === index ? { ...l, [field]: typeof value === 'string' && field !== 'name' ? parseFloat(value) || 0 : value } : l
-      )
+        i === index
+          ? {
+              ...l,
+              [field]:
+                typeof value === 'string' && field !== 'name' ? parseFloat(value) || 0 : value,
+            }
+          : l,
+      ),
     );
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
     <div>
       <h2 className="mb-6 text-xl font-bold">Програма лояльності</h2>
+
+      <LoyaltyStatsPanel />
 
       {/* Levels configuration */}
       <div className="mb-8">
@@ -224,12 +260,20 @@ export default function AdminLoyaltyPage() {
           </table>
         </div>
         <div className="mt-3 flex gap-2">
-          <Button onClick={() => setConfirmSaveLevels(true)} isLoading={isSaving}>Зберегти рівні</Button>
+          <Button onClick={() => setConfirmSaveLevels(true)} isLoading={isSaving}>
+            Зберегти рівні
+          </Button>
           <Button
             onClick={() =>
               setLevels((prev) => [
                 ...prev,
-                { name: '', minSpent: 0, pointsMultiplier: 1, discountPercent: 0, sortOrder: prev.length },
+                {
+                  name: '',
+                  minSpent: 0,
+                  pointsMultiplier: 1,
+                  discountPercent: 0,
+                  sortOrder: prev.length,
+                },
               ])
             }
           >

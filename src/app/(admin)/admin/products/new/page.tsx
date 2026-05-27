@@ -52,6 +52,19 @@ export default function AdminProductCreatePage() {
   const [stagedImages, setStagedImages] = useState<File[]>([]);
   const [removeBg, setRemoveBg] = useState(true);
 
+  // Build one blob URL per staged file and revoke it when the file changes
+  // or the component unmounts. Inlining URL.createObjectURL into JSX, plus
+  // revoking inside onLoad, created a new blob per render and freed it the
+  // moment it was created — a quiet memory leak and flicker on slow renders.
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  useEffect(() => {
+    const urls = stagedImages.map((f) => URL.createObjectURL(f));
+    setPreviewUrls(urls);
+    return () => {
+      for (const u of urls) URL.revokeObjectURL(u);
+    };
+  }, [stagedImages]);
+
   // Restore last-used AI provider from localStorage.
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('pulito.aiProvider') : null;
@@ -171,12 +184,7 @@ export default function AdminProductCreatePage() {
               className="relative h-24 w-24 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)]"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={URL.createObjectURL(file)}
-                alt=""
-                className="h-full w-full object-cover"
-                onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
-              />
+              <img src={previewUrls[i] ?? ''} alt="" className="h-full w-full object-cover" />
               <button
                 type="button"
                 onClick={() => setStagedImages((prev) => prev.filter((_, idx) => idx !== i))}

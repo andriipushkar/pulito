@@ -161,14 +161,26 @@ export async function activateTheme(themeId: number) {
 // in a CSS custom property.
 const CSS_INJECTION_RE = /(<\s*script|javascript:|expression\s*\(|<\s*iframe|\bdata:text\/html)/i;
 
+// Cap the customSettings JSON. A realistic theme exposes a few dozen vars;
+// past 200 keys it's mis-use as a DB store and JSON parse cost rises.
+const MAX_CUSTOM_SETTINGS_KEYS = 200;
+
 export async function updateThemeSettings(themeId: number, customSettings: Record<string, string>) {
   const theme = await prisma.theme.findUnique({ where: { id: themeId } });
   if (!theme) {
     throw new ThemeError('Тему не знайдено', 404);
   }
 
+  const entries = Object.entries(customSettings);
+  if (entries.length > MAX_CUSTOM_SETTINGS_KEYS) {
+    throw new ThemeError(
+      `Забагато налаштувань (макс ${MAX_CUSTOM_SETTINGS_KEYS}, отримано ${entries.length})`,
+      400,
+    );
+  }
+
   const cleaned: Record<string, string> = {};
-  for (const [key, raw] of Object.entries(customSettings)) {
+  for (const [key, raw] of entries) {
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(key)) {
       throw new ThemeError(`Невалідне ім’я налаштування: ${key}`, 400);
     }
@@ -182,10 +194,13 @@ export async function updateThemeSettings(themeId: number, customSettings: Recor
     cleaned[key] = value;
   }
 
-  return prisma.theme.update({
+  // Return before-snapshot so the route can audit-log the diff.
+  const before = (theme.customSettings as Record<string, string>) || {};
+  const updated = await prisma.theme.update({
     where: { id: themeId },
     data: { customSettings: cleaned },
   });
+  return { before, theme: updated };
 }
 
 /**
@@ -195,10 +210,26 @@ export async function updateThemeSettings(themeId: number, customSettings: Recor
  * @param filename - Оригінальне ім'я файлу
  * @returns Створений об'єкт теми
  */
+// Decompressed-size cap on theme uploads. Anything larger than 100 MB is
+// either a zip-bomb or accidentally includes the node_modules. Without this,
+// a 10 MB compressed ZIP could expand to gigabytes and fill the disk.
+const MAX_THEME_DECOMPRESSED_BYTES = 100 * 1024 * 1024;
+
 export async function uploadTheme(buffer: Buffer, _filename: string) {
   const AdmZip = (await import('adm-zip')).default;
   const zip = new AdmZip(buffer);
   const entries = zip.getEntries();
+
+  // Sum declared uncompressed sizes BEFORE extracting anything. AdmZip
+  // exposes `header.size` without decompressing the entry.
+  let declaredTotal = 0;
+  for (const e of entries) {
+    if (e.isDirectory) continue;
+    declaredTotal += e.header.size;
+    if (declaredTotal > MAX_THEME_DECOMPRESSED_BYTES) {
+      throw new ThemeError('ZIP-архів задекларовано надто великим (zip-bomb захист)', 400);
+    }
+  }
 
   // Validate theme.json exists
   const themeJsonEntry = entries.find(
@@ -243,8 +274,13 @@ export async function uploadTheme(buffer: Buffer, _filename: string) {
   }
   zip.extractAllTo(themesDir, true);
 
-  // Create theme in database
+  // Refuse to re-upload over a currently-active theme — files would swap
+  // in-place while users browse the storefront. Operator must deactivate
+  // first (a different theme becomes active) before re-installing.
   const existing = await prisma.theme.findFirst({ where: { folderName } });
+  if (existing?.isActive) {
+    throw new ThemeError('Не можна оновити активну тему — спочатку активуйте іншу.', 409);
+  }
   if (existing) {
     return prisma.theme.update({
       where: { id: existing.id },

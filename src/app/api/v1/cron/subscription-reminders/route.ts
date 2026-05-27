@@ -16,7 +16,8 @@ import { timingSafeCompare } from '@/utils/timing-safe';
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    const expectedToken = `Bearer ${env.APP_SECRET}`;
+    const cronSecret = env.CRON_SECRET || env.APP_SECRET;
+    const expectedToken = `Bearer ${cronSecret}`;
     if (!authHeader || !timingSafeCompare(authHeader, expectedToken)) {
       return errorResponse('Unauthorized', 401);
     }
@@ -30,9 +31,6 @@ export async function POST(request: NextRequest) {
       message: `Reminders sent: ${reminders.sent}/${reminders.total}. Retries: ${failures.retried}, paused: ${failures.paused}`,
     });
   } catch (err) {
-    return errorResponse(
-      err instanceof Error ? err.message : 'Внутрішня помилка сервера',
-      500,
-    );
+    return errorResponse(err instanceof Error ? err.message : 'Внутрішня помилка сервера', 500);
   }
 }

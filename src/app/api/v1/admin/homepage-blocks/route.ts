@@ -135,8 +135,16 @@ export const PUT = withRole(
       details: { blockCount: blocks.length },
     });
     // Homepage layout changed — bust the ISR cache so the storefront
-    // reflects the new block order/visibility immediately.
-    revalidatePath('/');
+    // reflects the new block order/visibility immediately. Wrap in
+    // try/catch so a revalidation failure shows up in logs instead of
+    // silently leaving the storefront stale for up to 60s.
+    try {
+      revalidatePath('/');
+    } catch (err) {
+      logger.warn('[admin/homepage-blocks] revalidatePath failed (storefront may stay stale)', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     return successResponse({ updated: true });
   } catch (err) {

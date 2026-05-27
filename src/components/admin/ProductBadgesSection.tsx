@@ -55,9 +55,13 @@ export default function ProductBadgesSection({ productId }: { productId: number 
   const load = async () => {
     try {
       setIsLoading(true);
-      const res = await apiClient.get<ProductBadge[]>('/api/v1/admin/badges');
-      const all = (res.data ?? []) as Array<ProductBadge & { product?: { id: number } }>;
-      setBadges(all.filter((b) => b.productId === productId));
+      // Fetch only badges for this product — the API supports a `productId`
+      // filter. Previously this component pulled every badge in the system
+      // and filtered client-side, getting linearly worse as the catalogue grew.
+      const res = await apiClient.get<ProductBadge[]>(
+        `/api/v1/admin/badges?productId=${productId}`,
+      );
+      setBadges(res.data ?? []);
     } catch {
       toast.error('Не вдалося завантажити бейджі');
     } finally {
@@ -141,7 +145,8 @@ export default function ProductBadgesSection({ productId }: { productId: number 
 
       {!isLoading && badges.length === 0 && !showAdd && (
         <p className="text-sm text-[var(--color-text-secondary)]">
-          У товара немає бейджів. «Новинка» та «Хіт» додаються автоматично за правилами; інші — вручну.
+          У товара немає бейджів. «Новинка» та «Хіт» додаються автоматично за правилами; інші —
+          вручну.
         </p>
       )}
 
@@ -160,7 +165,11 @@ export default function ProductBadgesSection({ productId }: { productId: number 
               <span className="text-[var(--color-text-secondary)]">#{b.priority}</span>
               <button
                 type="button"
-                title={b.isActive ? 'Активний — клікніть, щоб приховати' : 'Прихований — клікніть, щоб показати'}
+                title={
+                  b.isActive
+                    ? 'Активний — клікніть, щоб приховати'
+                    : 'Прихований — клікніть, щоб показати'
+                }
                 onClick={() => handleToggle(b, 'isActive')}
                 className="text-[var(--color-text-secondary)] hover:opacity-70"
               >
@@ -174,7 +183,11 @@ export default function ProductBadgesSection({ productId }: { productId: number 
                     : 'Не закріплений — cron може видалити. Клікніть, щоб закріпити'
                 }
                 onClick={() => handleToggle(b, 'isLocked')}
-                className={b.isLocked ? 'text-amber-500' : 'text-[var(--color-text-secondary)] hover:opacity-70'}
+                className={
+                  b.isLocked
+                    ? 'text-amber-500'
+                    : 'text-[var(--color-text-secondary)] hover:opacity-70'
+                }
               >
                 {b.isLocked ? '🔒' : '🔓'}
               </button>
@@ -193,7 +206,9 @@ export default function ProductBadgesSection({ productId }: { productId: number 
 
       {showAdd && (
         <div className="rounded-md border border-[var(--color-border)] p-3">
-          <div className={`grid gap-3 ${form.badgeType === 'custom' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+          <div
+            className={`grid gap-3 ${form.badgeType === 'custom' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}
+          >
             <div>
               <label className="mb-1 block text-xs font-medium">Тип</label>
               <select
@@ -202,7 +217,9 @@ export default function ProductBadgesSection({ productId }: { productId: number 
                 className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-sm"
               >
                 {availableTypes.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -232,7 +249,13 @@ export default function ProductBadgesSection({ productId }: { productId: number 
             )}
           </div>
           <div className="mt-3 flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => { setShowAdd(false); setForm(EMPTY_FORM); }}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowAdd(false);
+                setForm(EMPTY_FORM);
+              }}
+            >
               Скасувати
             </Button>
             <Button onClick={handleAdd}>Додати</Button>

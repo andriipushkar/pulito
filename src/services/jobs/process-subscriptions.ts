@@ -2,13 +2,10 @@ import { prisma } from '@/lib/prisma';
 import { createOrder } from '@/services/order';
 import { sendEmail } from '@/services/email';
 import { logger } from '@/lib/logger';
-
-const FREQUENCY_DAYS: Record<string, number> = {
-  weekly: 7,
-  biweekly: 14,
-  monthly: 30,
-  bimonthly: 60,
-};
+// Single source of truth for frequency → days. Previously duplicated in
+// subscription.ts; if one diverged, next-delivery dates shown to customer
+// drifted from the cron's actual fire dates.
+import { FREQUENCY_DAYS } from '@/services/subscription-frequency';
 
 const APP_URL = process.env.APP_URL || 'https://pulito.trade';
 
@@ -86,7 +83,9 @@ export async function processSubscriptionOrders() {
         }));
 
       if (cartItems.length === 0) {
-        logger.warn(`[subscription-cron] Підписка #${subscription.id}: немає доступних товарів, пропущено`);
+        logger.warn(
+          `[subscription-cron] Підписка #${subscription.id}: немає доступних товарів, пропущено`,
+        );
         // We bumped nextDeliveryAt by +1 minute as a claim sentinel above. If
         // we leave it there, the next cron run will retry in a minute. For a
         // permanently-empty subscription that means logspam forever — push
@@ -112,13 +111,46 @@ export async function processSubscriptionOrders() {
         contactName: subscription.user.fullName,
         contactPhone: subscription.user.phone || '+380000000000',
         contactEmail: subscription.user.email,
-        deliveryMethod: (subscription.deliveryMethod || 'nova_poshta') as 'nova_poshta' | 'ukrposhta' | 'pickup' | 'pallet',
+        deliveryMethod: (subscription.deliveryMethod || 'nova_poshta') as
+          | 'nova_poshta'
+          | 'ukrposhta'
+          | 'pickup'
+          | 'pallet',
         deliveryCity: subscription.deliveryCity || undefined,
         deliveryAddress: subscription.deliveryAddress || undefined,
-        paymentMethod: (subscription.paymentMethod || 'bank_transfer') as 'cod' | 'bank_transfer' | 'online' | 'card_prepay',
+        paymentMethod: (subscription.paymentMethod || 'bank_transfer') as
+          | 'cod'
+          | 'bank_transfer'
+          | 'online'
+          | 'card_prepay',
       };
 
       const order = await createOrder(subscription.userId, checkout, cartItems, 'retail');
+
+      // Audit-trail every auto-generated subscription order so support can
+      // reconcile customer disputes ("why was I charged?" → "auto-renewal
+      // of subscription #N at T, see audit row"). userId 0 = system actor.
+      try {
+        const { logAudit } = await import('@/services/audit');
+        await logAudit({
+          userId: 0,
+          actionType: 'data_create',
+          entityType: 'subscription_auto_order',
+          entityId: order.id,
+          details: {
+            subscriptionId: subscription.id,
+            customerUserId: subscription.userId,
+            frequency: subscription.frequency,
+            itemsTotal,
+            discount: roundedDiscount,
+            source: 'cron:process-subscriptions',
+          },
+        });
+      } catch (err) {
+        logger.warn('[process-subscriptions] audit log failed (non-fatal)', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
 
       // Apply subscription discount
       if (roundedDiscount > 0) {
@@ -182,10 +214,14 @@ export async function processSubscriptionOrders() {
       }
 
       processed++;
-      logger.info(`[subscription-cron] Підписка #${subscription.id}: створено замовлення #${order.orderNumber}`);
+      logger.info(
+        `[subscription-cron] Підписка #${subscription.id}: створено замовлення #${order.orderNumber}`,
+      );
     } catch (error) {
       failed++;
-      logger.error(`[subscription-cron] Підписка #${subscription.id}: помилка — ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[subscription-cron] Підписка #${subscription.id}: помилка — ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -312,7 +348,9 @@ export async function processSubscriptionReminders() {
       });
       sent++;
     } catch (err) {
-      logger.warn(`[subscription-reminder] #${sub.id} email failed: ${err instanceof Error ? err.message : String(err)}`);
+      logger.warn(
+        `[subscription-reminder] #${sub.id} email failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       await prisma.subscription.update({
         where: { id: sub.id },

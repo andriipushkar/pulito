@@ -145,16 +145,14 @@ export default function PaymentSettingsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    apiClient
-      .get<Record<string, string>>('/api/v1/admin/payment-settings')
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) {
-          setSettings(res.data);
-          setDirty(new Set());
-        }
-        setIsLoading(false);
-      });
+    apiClient.get<Record<string, string>>('/api/v1/admin/payment-settings').then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) {
+        setSettings(res.data);
+        setDirty(new Set());
+      }
+      setIsLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -170,13 +168,29 @@ export default function PaymentSettingsPage() {
     updateField(key, current ? 'false' : 'true');
   };
 
-  const handleSave = async () => {
+  const handleSave = async (confirmClearSensitive = false) => {
     setConfirmSave(false);
     setIsSaving(true);
-    const res = await apiClient.put('/api/v1/admin/payment-settings', settings);
+    const payload = confirmClearSensitive
+      ? { ...settings, __confirmClearSensitive: true }
+      : settings;
+    const res = await apiClient.put('/api/v1/admin/payment-settings', payload);
     if (res.success) {
       toast.success('Налаштування платежів збережено');
       await loadSettings();
+    } else if (res.statusCode === 422 && res.error?.includes('__confirmClearSensitive')) {
+      // The server detected sensitive credentials being cleared. Ask the user
+      // explicitly — accidental "Save" with an empty key field has historically
+      // silently disabled providers.
+      const ok = window.confirm(
+        `${res.error}\n\n` +
+          `OK — стерти креденшли і вимкнути провайдера.\n` +
+          `Cancel — скасувати і повернутись до форми.`,
+      );
+      if (ok) {
+        setIsSaving(false);
+        return handleSave(true);
+      }
     } else {
       toast.error(res.error || 'Помилка збереження');
     }
@@ -382,7 +396,9 @@ export default function PaymentSettingsPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-black text-xs font-bold text-white">A</span>
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-black text-xs font-bold text-white">
+                A
+              </span>
               <span className="text-sm font-medium">Apple Pay</span>
             </div>
             <button
@@ -532,7 +548,7 @@ export default function PaymentSettingsPage() {
       <ConfirmDialog
         isOpen={confirmSave}
         onClose={() => setConfirmSave(false)}
-        onConfirm={handleSave}
+        onConfirm={() => handleSave()}
         title="Зберегти налаштування платежів"
         message="Зміни вплинуть на доступні способи оплати на сайті. Продовжити?"
         confirmText="Так, зберегти"

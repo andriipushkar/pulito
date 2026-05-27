@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withRole, withRole2fa } from '@/middleware/auth';
+import { withRole2fa } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { invalidateSettingsCache } from '@/services/settings';
@@ -31,7 +31,7 @@ const DELIVERY_SETTINGS_KEYS = [
 
 const SENSITIVE_KEYS = ['delivery_nova_poshta_api_key', 'delivery_ukrposhta_bearer_token'];
 
-function maskValue(key: string, rawValue: string): string {
+function maskValue(key: string, rawValue: string, leakyOk: boolean): string {
   if (!SENSITIVE_KEYS.includes(key) || !rawValue) return rawValue;
   let value = rawValue;
   if (isEncrypted(rawValue)) {
@@ -41,26 +41,29 @@ function maskValue(key: string, rawValue: string): string {
       value = rawValue;
     }
   }
+  // Admins get the full "first4••••last4" mask — useful for confirming which
+  // key is currently saved before rotating. Managers get a fully opaque
+  // mask: they shouldn't be able to fingerprint the key by its edges if
+  // their session is hijacked.
+  if (!leakyOk) return value ? '••••••••' : '';
   if (value.length < 8) return value;
   return value.slice(0, 4) + '••••••••' + value.slice(-4);
 }
 
-// GET also reads decrypted API keys (then masks). Promote to withRole2fa to
-// match PUT and prevent a session hijack via a manager account from
-// silently revealing the masked-but-still-leaky prefix/suffix.
 export const GET = withRole2fa(
   'admin',
   'manager',
-)(async () => {
+)(async (_request, { user }) => {
   try {
     const settings = await prisma.siteSetting.findMany({
       where: { key: { in: [...DELIVERY_SETTINGS_KEYS] } },
     });
 
+    const isAdmin = user.role === 'admin';
     const result: Record<string, string> = {};
     for (const key of DELIVERY_SETTINGS_KEYS) {
       const setting = settings.find((s) => s.key === key);
-      result[key] = setting ? maskValue(key, setting.value) : '';
+      result[key] = setting ? maskValue(key, setting.value, isAdmin) : '';
     }
 
     return successResponse(result);
@@ -73,10 +76,39 @@ export const GET = withRole2fa(
 export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
+    const confirmClearSensitive = body.__confirmClearSensitive === true;
     const changedKeys: string[] = [];
     const sensitiveChangedKeys: string[] = [];
 
+    // Same guard as payment-settings PUT: refuse to clear an existing
+    // credential unless the client explicitly opted in. Accidentally
+    // submitting an empty NP key would silently break checkout otherwise.
+    const wouldClearSensitive: string[] = [];
     for (const [key, value] of Object.entries(body)) {
+      if (!SENSITIVE_KEYS.includes(key)) continue;
+      const strValue = String(value ?? '');
+      if (strValue !== '' || strValue.includes('••••')) continue;
+      const existing = await prisma.siteSetting.findUnique({ where: { key } });
+      if (existing && existing.value && existing.value.length > 0) {
+        wouldClearSensitive.push(key);
+      }
+    }
+    if (wouldClearSensitive.length > 0 && !confirmClearSensitive) {
+      return errorResponse(
+        `Поля ${wouldClearSensitive.join(', ')} будуть очищені, що вимкне доставку через відповідного провайдера. ` +
+          `Якщо це навмисно — повторіть з прапором __confirmClearSensitive: true.`,
+        422,
+      );
+    }
+
+    // Drop stale cache BEFORE writes so any concurrent reader is forced to
+    // re-hit the DB during the save window (rather than serving cached
+    // pre-write data). The trailing invalidate below catches anything that
+    // managed to repopulate the cache mid-loop.
+    await invalidateSettingsCache();
+
+    for (const [key, value] of Object.entries(body)) {
+      if (key === '__confirmClearSensitive') continue;
       if (!DELIVERY_SETTINGS_KEYS.includes(key as (typeof DELIVERY_SETTINGS_KEYS)[number]))
         continue;
 
@@ -85,10 +117,7 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) =
 
       // Numeric fields must not be negative. We use string storage but
       // validate the value parses as a positive decimal before saving.
-      if (
-        key.endsWith('_fixed_cost') ||
-        key === 'delivery_free_shipping_threshold'
-      ) {
+      if (key.endsWith('_fixed_cost') || key === 'delivery_free_shipping_threshold') {
         const num = parseFloat(strValue);
         if (strValue && (!Number.isFinite(num) || num < 0)) {
           return errorResponse(
@@ -109,6 +138,13 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) =
       else changedKeys.push(key);
     }
 
+    // Bracket the cache-invalidate around the upsert window. Calling it
+    // BEFORE the writes means any in-flight reads racing the save get a
+    // fresh DB hit; calling it AFTER clears the freshly-populated cache
+    // entries written during the upsert. Without the leading call, a
+    // request landing 1ms before the trailing `invalidateSettingsCache()`
+    // could repopulate cache with stale post-write value and outlive the
+    // invalidation.
     await invalidateSettingsCache();
 
     if (changedKeys.length || sensitiveChangedKeys.length) {
@@ -116,7 +152,12 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) =
         userId: user.id,
         actionType: 'rule_change',
         entityType: 'settings',
-        details: { scope: 'delivery', changedKeys, sensitiveChangedKeys },
+        details: {
+          scope: 'delivery',
+          changedKeys,
+          sensitiveChangedKeys,
+          ...(wouldClearSensitive.length > 0 ? { clearedSensitive: wouldClearSensitive } : {}),
+        },
         ipAddress: getClientIp(request),
       });
     }

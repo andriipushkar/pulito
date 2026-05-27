@@ -161,6 +161,11 @@ export class ProductError extends Error {
   }
 }
 
+// Match ProductCard's window — 30 days. Computed here on the server so the
+// "Новинка" badge does not flicker after first render (server returned false,
+// client recomputed true on the next frame → one-frame paint with no badge).
+const NEW_PRODUCT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
 /** Convert Prisma Decimal fields to plain numbers for Server→Client serialization */
 function serializeProduct<T extends Record<string, unknown>>(product: T): T {
   const result = { ...product };
@@ -176,6 +181,12 @@ function serializeProduct<T extends Record<string, unknown>>(product: T): T {
   ] as const) {
     if (key in result && result[key] != null) {
       (result as Record<string, unknown>)[key] = Number(result[key]);
+    }
+  }
+  if ('createdAt' in result && result.createdAt != null) {
+    const created = new Date(result.createdAt as string | Date).getTime();
+    if (Number.isFinite(created)) {
+      (result as Record<string, unknown>).isNew = Date.now() - created < NEW_PRODUCT_WINDOW_MS;
     }
   }
   return result;
@@ -220,6 +231,7 @@ const productListSelect = {
   id: true,
   code: true,
   name: true,
+  nameEn: true,
   slug: true,
   priceRetail: true,
   priceWholesale: true,
@@ -285,6 +297,12 @@ const productDetailSelect = {
       videoUrl: true,
       seoTitle: true,
       seoDescription: true,
+      shortDescriptionEn: true,
+      fullDescriptionEn: true,
+      specificationsEn: true,
+      usageInstructionsEn: true,
+      seoTitleEn: true,
+      seoDescriptionEn: true,
       isFilled: true,
     },
   },
@@ -661,6 +679,12 @@ export async function createProduct(data: {
   specifications?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  nameEn?: string | null;
+  descriptionEn?: string | null;
+  descriptionHtmlEn?: string | null;
+  specificationsEn?: string | null;
+  seoTitleEn?: string | null;
+  seoDescriptionEn?: string | null;
   brandId?: number | null;
   promoStartDate?: string | null;
   promoEndDate?: string | null;
@@ -699,6 +723,7 @@ export async function createProduct(data: {
     data: {
       code: data.code,
       name: data.name,
+      nameEn: data.nameEn || null,
       slug: finalSlug,
       barcode: data.barcode || null,
       categoryId: data.categoryId ?? null,
@@ -725,9 +750,15 @@ export async function createProduct(data: {
     data.descriptionHtml != null ||
     data.specifications != null ||
     data.seoTitle != null ||
-    data.seoDescription != null
+    data.seoDescription != null ||
+    data.descriptionEn != null ||
+    data.descriptionHtmlEn != null ||
+    data.specificationsEn != null ||
+    data.seoTitleEn != null ||
+    data.seoDescriptionEn != null
   ) {
     const shortDesc = data.description ? data.description.slice(0, 200) : null;
+    const shortDescEn = data.descriptionEn ? data.descriptionEn.slice(0, 200) : null;
     await prisma.productContent.create({
       data: {
         productId: created.id,
@@ -736,6 +767,11 @@ export async function createProduct(data: {
         ...(data.specifications != null && { specifications: data.specifications }),
         ...(data.seoTitle != null && { seoTitle: data.seoTitle }),
         ...(data.seoDescription != null && { seoDescription: data.seoDescription }),
+        ...(data.descriptionHtmlEn != null && { fullDescriptionEn: data.descriptionHtmlEn }),
+        ...(data.descriptionEn != null && { shortDescriptionEn: shortDescEn }),
+        ...(data.specificationsEn != null && { specificationsEn: data.specificationsEn }),
+        ...(data.seoTitleEn != null && { seoTitleEn: data.seoTitleEn }),
+        ...(data.seoDescriptionEn != null && { seoDescriptionEn: data.seoDescriptionEn }),
       },
     });
   }
@@ -773,6 +809,12 @@ export async function updateProduct(
     specifications?: string | null;
     seoTitle?: string | null;
     seoDescription?: string | null;
+    nameEn?: string | null;
+    descriptionEn?: string | null;
+    descriptionHtmlEn?: string | null;
+    specificationsEn?: string | null;
+    seoTitleEn?: string | null;
+    seoDescriptionEn?: string | null;
     brandId?: number | null;
     promoStartDate?: string | null;
     promoEndDate?: string | null;
@@ -894,6 +936,7 @@ export async function updateProduct(
   }
 
   if (data.name !== undefined) updateData.name = data.name;
+  if (data.nameEn !== undefined) updateData.nameEn = data.nameEn || null;
   if (data.code !== undefined) updateData.code = data.code;
   if (data.barcode !== undefined) updateData.barcode = data.barcode || null;
   // Manual `priceRetailOld` override (e.g. marketing wants to show a custom
@@ -962,21 +1005,34 @@ export async function updateProduct(
       });
   }
 
-  // Mirror description/specs/SEO into ProductContent.
+  // Mirror description/specs/SEO into ProductContent (and EN translations).
   if (
     data.description !== undefined ||
     data.descriptionHtml !== undefined ||
     data.specifications !== undefined ||
     data.seoTitle !== undefined ||
-    data.seoDescription !== undefined
+    data.seoDescription !== undefined ||
+    data.descriptionEn !== undefined ||
+    data.descriptionHtmlEn !== undefined ||
+    data.specificationsEn !== undefined ||
+    data.seoTitleEn !== undefined ||
+    data.seoDescriptionEn !== undefined
   ) {
     const shortDesc = data.description ? data.description.slice(0, 200) : null;
+    const shortDescEn = data.descriptionEn ? data.descriptionEn.slice(0, 200) : null;
     const contentPayload = {
       ...(data.descriptionHtml !== undefined && { fullDescription: data.descriptionHtml }),
       ...(data.description !== undefined && { shortDescription: shortDesc }),
       ...(data.specifications !== undefined && { specifications: data.specifications }),
       ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
       ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
+      ...(data.descriptionHtmlEn !== undefined && { fullDescriptionEn: data.descriptionHtmlEn }),
+      ...(data.descriptionEn !== undefined && { shortDescriptionEn: shortDescEn }),
+      ...(data.specificationsEn !== undefined && { specificationsEn: data.specificationsEn }),
+      ...(data.seoTitleEn !== undefined && { seoTitleEn: data.seoTitleEn }),
+      ...(data.seoDescriptionEn !== undefined && {
+        seoDescriptionEn: data.seoDescriptionEn,
+      }),
     };
     await prisma.productContent.upsert({
       where: { productId: id },

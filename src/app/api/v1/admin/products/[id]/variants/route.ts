@@ -3,6 +3,8 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { gtinValidationError } from '@/utils/gtin';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 export const GET = withRole(
   'admin',
@@ -26,7 +28,7 @@ export const GET = withRole(
 export const POST = withRole(
   'admin',
   'manager',
-)(async (request: NextRequest, { params }) => {
+)(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const productId = Number(id);
@@ -34,8 +36,10 @@ export const POST = withRole(
     const body = (await request.json()) as Record<string, unknown>;
     const sku = String(body.sku ?? '').trim();
     const name = String(body.name ?? '').trim();
-    const barcodeRaw = String(body.barcode ?? '').trim().replace(/\D/g, '');
-    if (!sku || !name) return errorResponse('SKU та назва обов\'язкові', 400);
+    const barcodeRaw = String(body.barcode ?? '')
+      .trim()
+      .replace(/\D/g, '');
+    if (!sku || !name) return errorResponse("SKU та назва обов'язкові", 400);
     if (barcodeRaw) {
       const err = gtinValidationError(barcodeRaw);
       if (err) return errorResponse(err, 400);
@@ -52,7 +56,9 @@ export const POST = withRole(
             ? Number(body.priceRetail)
             : null,
         priceWholesale:
-          body.priceWholesale !== undefined && body.priceWholesale !== '' && body.priceWholesale !== null
+          body.priceWholesale !== undefined &&
+          body.priceWholesale !== '' &&
+          body.priceWholesale !== null
             ? Number(body.priceWholesale)
             : null,
         quantity: Number(body.quantity ?? 0),
@@ -71,6 +77,23 @@ export const POST = withRole(
         sortOrder: Number(body.sortOrder ?? 0),
       },
     });
+
+    // New SKU without an audit trail used to be invisible to compliance —
+    // log creator + identifying fields so an inventory drift can be traced.
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'product_variant',
+      entityId: variant.id,
+      details: {
+        productId,
+        sku: variant.sku,
+        name: variant.name,
+        barcode: variant.barcode,
+      },
+      ipAddress: getClientIp(request),
+    }).catch(() => {});
+
     return successResponse(variant, 201);
   } catch (error) {
     console.error('[Variants POST]', error);

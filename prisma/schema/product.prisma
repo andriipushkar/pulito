@@ -5,6 +5,8 @@ model Product {
   id                 Int                      @id @default(autoincrement())
   code               String                   @unique
   name               String                   @db.VarChar(255)
+  // EN translation of product name. Nullable — code falls back to uk `name`.
+  nameEn             String?                  @map("name_en") @db.VarChar(255)
   slug               String                   @unique @db.VarChar(255)
   categoryId         Int?                     @map("category_id")
   category           Category?                @relation(fields: [categoryId], references: [id])
@@ -76,6 +78,7 @@ model Product {
   warehouseTransfers  WarehouseTransferItem[]
   stockCountItems     StockCountItem[]
   marketplaceListings MarketplaceListing[]
+  marketplaceReviews  MarketplaceReview[]
   volumeDiscounts     VolumeDiscount[]
   purchasePredictions PurchasePrediction[]
   variants            ProductVariant[]
@@ -138,6 +141,13 @@ model ProductContent {
   videoUrl          String?  @map("video_url")
   seoTitle          String?  @map("seo_title")
   seoDescription    String?  @map("seo_description")
+  // EN translations — nullable, fall back to uk fields when empty.
+  shortDescriptionEn  String? @map("short_description_en") @db.VarChar(200)
+  fullDescriptionEn   String? @map("full_description_en")
+  specificationsEn    String? @map("specifications_en")
+  usageInstructionsEn String? @map("usage_instructions_en")
+  seoTitleEn          String? @map("seo_title_en")
+  seoDescriptionEn    String? @map("seo_description_en")
   isFilled          Boolean  @default(false) @map("is_filled")
   filledBy          Int?     @map("filled_by")
   createdAt         DateTime @default(now()) @map("created_at")
@@ -257,6 +267,8 @@ model Bundle {
   name            String
   slug            String     @unique
   description     String?
+  nameEn          String?    @map("name_en")
+  descriptionEn   String?    @map("description_en")
   bundleType      BundleType @default(curated) @map("bundle_type")
   discountPercent Decimal    @default(0) @map("discount_percent") @db.Decimal(5, 2)
   fixedPrice      Decimal?   @map("fixed_price") @db.Decimal(10, 2)
@@ -298,6 +310,12 @@ model Brand {
   country        String?
   seoTitle       String?   @map("seo_title")
   seoDescription String?   @map("seo_description")
+  // EN translations — brand name often stays the same across locales, but we
+  // store it explicitly so admins can override (e.g. "Чисто" → "Chysto").
+  nameEn         String?   @map("name_en") @db.VarChar(255)
+  descriptionEn  String?   @map("description_en")
+  seoTitleEn     String?   @map("seo_title_en")
+  seoDescriptionEn String? @map("seo_description_en")
   isVisible      Boolean   @default(true) @map("is_visible")
   sortOrder      Int       @default(0) @map("sort_order")
   version        Int       @default(0)

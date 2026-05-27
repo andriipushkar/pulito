@@ -2,13 +2,18 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { matchIntent } from '@/services/nl-router';
+import { matchIntent, MAX_QUERY_LENGTH } from '@/services/nl-router';
 
 const EXAMPLE_GROUPS: { title: string; icon: string; items: string[] }[] = [
   {
     title: 'Замовлення',
     icon: '📦',
-    items: ['Замовлення сьогодні', 'Замовлення за тиждень', 'Неоплачені замовлення', 'Нові замовлення'],
+    items: [
+      'Замовлення сьогодні',
+      'Замовлення за тиждень',
+      'Неоплачені замовлення',
+      'Нові замовлення',
+    ],
   },
   {
     title: 'Товари',
@@ -45,8 +50,8 @@ export default function AskPage() {
       <div>
         <h1 className="text-xl font-bold">🤖 Запитайте адмінку</h1>
         <p className="text-xs text-[var(--color-text-secondary)]">
-          Опишіть, що шукаєте, природньою мовою. Я перенесу вас на потрібну сторінку
-          з готовими фільтрами.
+          Опишіть, що шукаєте, природньою мовою. Я перенесу вас на потрібну сторінку з готовими
+          фільтрами.
         </p>
       </div>
 
@@ -54,8 +59,9 @@ export default function AskPage() {
         <input
           autoFocus
           value={q}
+          maxLength={MAX_QUERY_LENGTH}
           onChange={(e) => {
-            setQ(e.target.value);
+            setQ(e.target.value.slice(0, MAX_QUERY_LENGTH));
             setUnderstood(null);
           }}
           onKeyDown={(e) => {
@@ -117,8 +123,8 @@ export default function AskPage() {
       </div>
 
       <p className="text-center text-[10px] text-[var(--color-text-secondary)]">
-        💡 Поки що це NL-маршрутизатор за ключовими словами. Інтеграція з LLM (Claude/GPT)
-        — у бекалзі.
+        💡 Поки що це NL-маршрутизатор за ключовими словами. Інтеграція з LLM (Claude/GPT) — у
+        бекалзі.
       </p>
     </div>
   );

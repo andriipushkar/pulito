@@ -70,17 +70,34 @@ export const POST = withApiKey(['products'])(async (request: NextRequest) => {
     });
 
     const result = await importProductsFrom1C(parsed.data.products);
+    // Differentiate "completed" (anything got through) from "failed" (zero
+    // rows imported despite N being attempted). Previously every outcome
+    // was marked `completed`, including catastrophic failures — admins
+    // could see "✓ completed, items processed: 0 / 1000" and assume OK.
+    const totalAttempted = parsed.data.products.length;
+    const fullFail = totalAttempted > 0 && result.processed === 0;
+    const syncStatus = fullFail ? 'failed' : 'completed';
 
     await prisma.integrationSync.update({
       where: { id: sync.id },
       data: {
-        status: result.failed > 0 ? 'completed' : 'completed',
+        status: syncStatus,
         itemsProcessed: result.processed,
         itemsFailed: result.failed,
         errorLog: result.errors.length > 0 ? result.errors : undefined,
         completedAt: new Date(),
       },
     });
+
+    if (fullFail) {
+      // 5xx so the 1C client treats this as a retryable upstream error
+      // instead of "succeeded with empty result". Body still carries the
+      // detail counts so they're visible in the response logs.
+      return errorResponse(
+        `Жоден товар не імпортовано (${result.failed} помилок). Деталі в Адмін → Інтеграції.`,
+        500,
+      );
+    }
 
     return successResponse(result, 200);
   } catch (err) {

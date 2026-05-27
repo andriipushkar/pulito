@@ -88,11 +88,16 @@ function normalizeName(name: string | null | undefined): string {
 export async function processReferral(referredUserId: number, code: string) {
   const referrer = await prisma.user.findUnique({
     where: { referralCode: code },
-    select: { id: true, phone: true, fullName: true },
+    select: { id: true, phone: true, fullName: true, deletedAt: true, isBlocked: true },
   });
 
   if (!referrer) return; // Silently skip invalid codes
   if (referrer.id === referredUserId) return; // Can't refer yourself
+  // Refuse codes belonging to deleted or blocked accounts. Without this,
+  // a closed account's code remains an active attribution sink — new
+  // signups credit a referrer who can't receive the bonus (or worse, a
+  // restored account inherits months of accrued bonuses they didn't earn).
+  if (referrer.deletedAt || referrer.isBlocked) return;
 
   // Check if already referred (one referrer per user, ever)
   const existing = await prisma.referral.findFirst({
@@ -183,12 +188,26 @@ export async function getAllReferrals(filters: ReferralFilterInput) {
 }
 
 export async function grantReferralBonus(id: number, data: GrantBonusInput) {
-  const referral = await prisma.referral.findUnique({ where: { id } });
+  const referral = await prisma.referral.findUnique({
+    where: { id },
+    include: {
+      referrer: { select: { id: true, deletedAt: true, isBlocked: true } },
+    },
+  });
   if (!referral) {
     throw new ReferralError('Реферал не знайдено', 404);
   }
   if (referral.status === 'bonus_granted') {
     throw new ReferralError('Бонус уже видано', 409);
+  }
+  // Refuse to grant bonus to a deleted or blocked referrer — gives admin
+  // a clear signal instead of silently crediting a closed account's
+  // wallet. Operator can either reactivate the user or void the referral.
+  if (referral.referrer?.deletedAt || referral.referrer?.isBlocked) {
+    throw new ReferralError(
+      'Не можна нарахувати бонус — referrer-акаунт видалено або заблоковано. Відновіть користувача або позначте реферал як voided.',
+      400,
+    );
   }
 
   // Atomic claim: only grant if status is still a pre-bonus state. Prevents

@@ -23,6 +23,8 @@ export interface SiteSettings {
   default_seo_description: string;
   google_analytics_id: string;
   facebook_pixel_id: string;
+  pinterest_tag_id: string;
+  pinterest_domain_verify: string;
   google_maps_api_key: string;
   google_business_place_id: string;
   // '1' → hide quantity on the storefront for every product; '0' → show
@@ -39,6 +41,7 @@ export interface SiteSettings {
   loyalty_welcome_bonus: string; // points credited to any new user on registration
   referral_referrer_bonus: string; // points credited to referrer when referee makes 1st order
   referral_referee_bonus: string; // points credited to referee on registration if they used a ref code
+  loyalty_max_redemption_percent: string; // 0-100. Max % of order (items+delivery) payable with points.
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -67,6 +70,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     'Купуйте побутову хімію онлайн з доставкою по Україні. Великий вибір засобів для прання, миття посуду, прибирання та особистої гігієни.',
   google_analytics_id: '',
   facebook_pixel_id: '',
+  pinterest_tag_id: '',
+  pinterest_domain_verify: '',
   google_maps_api_key: '',
   google_business_place_id: '',
   hide_all_quantity: '0',
@@ -76,6 +81,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   loyalty_welcome_bonus: '50',
   referral_referrer_bonus: '100',
   referral_referee_bonus: '50',
+  loyalty_max_redemption_percent: '50',
 };
 
 export type SettingsKey = keyof SiteSettings;

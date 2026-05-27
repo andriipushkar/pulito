@@ -18,26 +18,43 @@ interface Plan {
   maxOrders: number;
 }
 
+interface CurrentBillingSummary {
+  planId: number;
+  plan: { name: string; maxProducts: number; maxOrders: number };
+}
+
+interface UsageSummary {
+  products: { used: number; max: number };
+  orders: { used: number; max: number };
+}
+
 export default function AdminPlansPage() {
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [current, setCurrent] = useState<CurrentBillingSummary | null>(null);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [changingPlanId, setChangingPlanId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    apiClient
-      .get<Plan[]>('/api/v1/admin/plans')
-      .then((res) => {
+    Promise.all([
+      apiClient.get<Plan[]>('/api/v1/admin/plans'),
+      apiClient.get<{ billing: CurrentBillingSummary; usage: UsageSummary }>(
+        '/api/v1/admin/billing',
+      ),
+    ])
+      .then(([plansRes, billingRes]) => {
         if (cancelled) return;
-        if (res.success && res.data) {
-          setPlans(res.data);
-        } else {
-          toast.error(res.error || 'Помилка завантаження планів');
+        if (plansRes.success && plansRes.data) setPlans(plansRes.data);
+        else toast.error(plansRes.error || 'Помилка завантаження планів');
+        if (billingRes.success && billingRes.data) {
+          setCurrent(billingRes.data.billing);
+          setUsage(billingRes.data.usage);
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка завантаження планів');
+        if (!cancelled) toast.error('Помилка завантаження');
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -48,6 +65,46 @@ export default function AdminPlansPage() {
   }, []);
 
   const handleSelectPlan = async (planId: number) => {
+    const target = plans.find((p) => p.id === planId);
+    if (!target) return;
+
+    // Downgrade-protection: if the target plan caps below current usage, the
+    // tenant will land in a "valid in name but invariant-violated" state
+    // (more products than the new limit allows). Surface the consequences
+    // explicitly and require an extra confirm.
+    if (usage) {
+      const productsOverflow = usage.products.used > target.maxProducts;
+      const ordersOverflow = usage.orders.used > target.maxOrders;
+      if (productsOverflow || ordersOverflow) {
+        const lines: string[] = [];
+        if (productsOverflow) {
+          lines.push(
+            `Товарів зараз: ${usage.products.used}, ліміт нового плану: ${target.maxProducts}. ` +
+              `Зайві товари залишаться, але нові додавати буде заборонено до приведення у відповідність.`,
+          );
+        }
+        if (ordersOverflow) {
+          lines.push(
+            `Замовлень за період: ${usage.orders.used}, ліміт нового плану: ${target.maxOrders}. ` +
+              `Заборониться приймати нові замовлення на цьому періоді.`,
+          );
+        }
+        const ok = window.confirm(
+          `Зміна плану на «${target.name}» — увага:\n\n${lines.join('\n\n')}\n\nПродовжити?`,
+        );
+        if (!ok) return;
+      } else if (current && current.planId !== planId) {
+        // Не-overflow downgrade теж варто підтвердити, бо biller часто
+        // спишеться full month за новий план — proration не імплементовано.
+        const ok = window.confirm(
+          `Підтвердити зміну плану з «${current.plan.name}» на «${target.name}»?\n\n` +
+            `Цикл оплати скинеться на сьогодні і ви будете виставлені за повний місяць ` +
+            `нового плану (proration наразі не імплементовано).`,
+        );
+        if (!ok) return;
+      }
+    }
+
     setChangingPlanId(planId);
     try {
       const res = await apiClient.post('/api/v1/admin/billing/change-plan', { planId });
@@ -112,14 +169,26 @@ export default function AdminPlansPage() {
                 </div>
                 {plan.features &&
                   typeof plan.features === 'object' &&
-                  Object.entries(plan.features).map(([key, value]) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <span className="text-green-500">&#10003;</span>
-                      <span>
-                        {key}: {String(value)}
-                      </span>
-                    </div>
-                  ))}
+                  Object.entries(plan.features as Record<string, unknown>).map(([key, value]) => {
+                    // Display value safely: scalars render directly, complex
+                    // values get JSON.stringify'd. Length-cap both sides so
+                    // a malicious / malformed JSON in `features` can't blow
+                    // up the layout or render unbounded HTML-looking text.
+                    const display =
+                      typeof value === 'string' ||
+                      typeof value === 'number' ||
+                      typeof value === 'boolean'
+                        ? String(value)
+                        : JSON.stringify(value);
+                    return (
+                      <div key={key} className="flex items-center gap-2">
+                        <span className="text-green-500">&#10003;</span>
+                        <span>
+                          {String(key).slice(0, 64)}: {display.slice(0, 200)}
+                        </span>
+                      </div>
+                    );
+                  })}
               </div>
 
               <Button

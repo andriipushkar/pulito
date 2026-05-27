@@ -10,6 +10,11 @@ model Category {
   description    String?
   seoTitle       String?    @map("seo_title")
   seoDescription String?    @map("seo_description")
+  // EN translations — slug stays uk for URL identity.
+  nameEn         String?    @map("name_en")
+  descriptionEn  String?    @map("description_en")
+  seoTitleEn     String?    @map("seo_title_en")
+  seoDescriptionEn String?  @map("seo_description_en")
   sortOrder      Int        @default(0) @map("sort_order")
   isVisible      Boolean    @default(true) @map("is_visible")
   deletedAt      DateTime?  @map("deleted_at")
@@ -67,6 +72,11 @@ model StaticPage {
   content        String
   seoTitle       String?      @map("seo_title")
   seoDescription String?      @map("seo_description")
+  // EN translations — fallback to uk when null.
+  titleEn        String?      @map("title_en")
+  contentEn      String?      @map("content_en")
+  seoTitleEn     String?      @map("seo_title_en")
+  seoDescriptionEn String?    @map("seo_description_en")
   isPublished    Boolean      @default(true) @map("is_published")
   sortOrder      Int          @default(0) @map("sort_order")
   // Hierarchy — pages can nest one level deep (e.g. "About" → "Team", "About"
@@ -90,6 +100,8 @@ model FaqCategory {
   name        String    @unique
   slug        String    @unique
   description String?
+  nameEn      String?   @map("name_en")
+  descriptionEn String? @map("description_en")
   iconPath    String?   @map("icon_path")
   sortOrder   Int       @default(0) @map("sort_order")
   isPublished Boolean   @default(true) @map("is_published")
@@ -110,6 +122,8 @@ model FaqItem {
   categoryRef   FaqCategory? @relation(fields: [categoryRefId], references: [id])
   question     String
   answer       String
+  questionEn   String?      @map("question_en")
+  answerEn     String?      @map("answer_en")
   sortOrder    Int          @default(0) @map("sort_order")
   isPublished  Boolean      @default(true) @map("is_published")
   clickCount   Int          @default(0) @map("click_count")
@@ -204,6 +218,25 @@ model SlugRedirect {
 }
 
 // ─────────────────────────────────────
+// 404 log — tracks internal links pointing to missing URLs so admins can
+// fix broken navigation or add slug redirects. One row per unique path;
+// count + lastSeenAt update on each subsequent hit.
+// ─────────────────────────────────────
+model NotFoundLog {
+  id         Int      @id @default(autoincrement())
+  path       String   @unique
+  referrer   String?
+  userAgent  String?  @map("user_agent")
+  count      Int      @default(1)
+  firstSeen  DateTime @default(now()) @map("first_seen")
+  lastSeenAt DateTime @default(now()) @updatedAt @map("last_seen_at")
+
+  @@index([lastSeenAt(sort: Desc)])
+  @@index([count(sort: Desc)])
+  @@map("not_found_logs")
+}
+
+// ─────────────────────────────────────
 // 23.14 Cookie_Consents
 // ─────────────────────────────────────
 model CookieConsent {
@@ -244,6 +277,8 @@ model Feedback {
   processedBy Int?           @map("processed_by")
   processor   User?          @relation("FeedbackProcessor", fields: [processedBy], references: [id])
   processedAt DateTime?      @map("processed_at")
+  ipAddress   String?        @map("ip_address") @db.VarChar(45)
+  userAgent   String?        @map("user_agent") @db.VarChar(500)
   createdAt   DateTime       @default(now()) @map("created_at")
 
   @@map("feedback")
@@ -274,3 +309,25 @@ model Subscriber {
 // ─────────────────────────────────────
 // Category Images (placeholder for CategoryImage)
 // ─────────────────────────────────────
+
+// ─────────────────────────────────────
+// Search Query Log — tracks what customers search for, especially
+// queries that return zero results. Used by /admin/search-intel to
+// surface lost-revenue queries the catalog should answer.
+// ─────────────────────────────────────
+model SearchQuery {
+  id            Int      @id @default(autoincrement())
+  term          String   @db.VarChar(255)
+  termNormalized String  @map("term_normalized") @db.VarChar(255) // lowercase, trimmed
+  resultsCount  Int      @default(0) @map("results_count")
+  count         Int      @default(1)
+  lastSearchedAt DateTime @default(now()) @map("last_searched_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([termNormalized])
+  @@index([resultsCount])
+  @@index([lastSearchedAt])
+  @@index([count])
+  @@map("search_queries")
+}
+

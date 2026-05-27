@@ -1,18 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    moderationLog: { findMany: vi.fn(), count: vi.fn(), update: vi.fn() },
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
   },
 }));
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    moderationLog: { findMany: vi.fn(), count: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
+  },
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/utils/request', () => ({ getClientIp: () => null }));
 
 import { GET, PATCH } from './route';
 import { prisma } from '@/lib/prisma';
 
+const ctx = { user: { id: 1 } } as any;
+
 describe('GET /api/v1/admin/moderation/logs', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns moderation logs on success', async () => {
     vi.mocked(prisma.moderationLog.findMany).mockResolvedValue([]);
@@ -25,7 +40,9 @@ describe('GET /api/v1/admin/moderation/logs', () => {
   it('filters by platform, ruleId, actionTaken, isFalsePositive', async () => {
     vi.mocked(prisma.moderationLog.findMany).mockResolvedValue([]);
     vi.mocked(prisma.moderationLog.count).mockResolvedValue(0);
-    const req = new Request('http://localhost/api/v1/admin/moderation/logs?platform=telegram&ruleId=1&actionTaken=delete&isFalsePositive=true');
+    const req = new Request(
+      'http://localhost/api/v1/admin/moderation/logs?platform=telegram&ruleId=1&actionTaken=delete&isFalsePositive=true',
+    );
     const res = await GET(req as any);
     expect(res.status).toBe(200);
     expect(vi.mocked(prisma.moderationLog.findMany)).toHaveBeenCalledWith(
@@ -36,7 +53,7 @@ describe('GET /api/v1/admin/moderation/logs', () => {
           actionTaken: 'delete',
           isFalsePositive: true,
         }),
-      })
+      }),
     );
   });
 
@@ -49,43 +66,68 @@ describe('GET /api/v1/admin/moderation/logs', () => {
 });
 
 describe('PATCH /api/v1/admin/moderation/logs', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.moderationLog.findUnique).mockResolvedValue({
+      id: 1,
+      isFalsePositive: false,
+      ruleId: 7,
+      platform: 'telegram',
+    } as any);
+  });
 
   it('updates log on success', async () => {
-    vi.mocked(prisma.moderationLog.update).mockResolvedValue({ id: 1 } as any);
+    vi.mocked(prisma.moderationLog.update).mockResolvedValue({
+      id: 1,
+      isFalsePositive: true,
+    } as any);
     const req = new Request('http://localhost', {
       method: 'PATCH',
       body: JSON.stringify({ id: 1, isFalsePositive: true }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await PATCH(req as any);
+    const res = await (PATCH as any)(req, ctx);
     expect(res.status).toBe(200);
   });
 
-  it('returns 400 when id missing', async () => {
+  it('returns 422 when id missing', async () => {
     const req = new Request('http://localhost', {
       method: 'PATCH',
       body: JSON.stringify({ isFalsePositive: true }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await PATCH(req as any);
-    expect(res.status).toBe(400);
+    const res = await (PATCH as any)(req, ctx);
+    expect(res.status).toBe(422);
   });
 
   it('defaults isFalsePositive to true when not provided', async () => {
-    vi.mocked(prisma.moderationLog.update).mockResolvedValue({ id: 1 } as any);
+    vi.mocked(prisma.moderationLog.update).mockResolvedValue({
+      id: 1,
+      isFalsePositive: true,
+    } as any);
     const req = new Request('http://localhost', {
       method: 'PATCH',
       body: JSON.stringify({ id: 1 }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await PATCH(req as any);
+    const res = await (PATCH as any)(req, ctx);
     expect(res.status).toBe(200);
     expect(vi.mocked(prisma.moderationLog.update)).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { isFalsePositive: true },
-      })
+      }),
     );
+  });
+
+  it('returns 404 when log does not exist', async () => {
+    vi.mocked(prisma.moderationLog.findUnique).mockResolvedValue(null);
+    const req = new Request('http://localhost', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: 999, isFalsePositive: true }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const res = await (PATCH as any)(req, ctx);
+    expect(res.status).toBe(404);
   });
 
   it('returns 500 on error', async () => {
@@ -95,7 +137,7 @@ describe('PATCH /api/v1/admin/moderation/logs', () => {
       body: JSON.stringify({ id: 1, isFalsePositive: true }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await PATCH(req as any);
+    const res = await (PATCH as any)(req, ctx);
     expect(res.status).toBe(500);
   });
 });

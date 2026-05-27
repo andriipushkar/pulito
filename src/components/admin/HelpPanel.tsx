@@ -468,13 +468,19 @@ export default function HelpPanel() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Find help for current page (exact match or parent match)
+  // Find help for current page (exact match or parent match). Compare on
+  // segment boundaries so `/admin/orders` doesn't accidentally also match
+  // `/admin/orders-archive` etc.
   const helpKey =
     pathname && HELP_DATA[pathname]
       ? pathname
       : pathname
         ? Object.keys(HELP_DATA)
-            .filter((k) => pathname.startsWith(k) && k !== '/admin')
+            .filter(
+              (k) =>
+                k !== '/admin' &&
+                (pathname === k || pathname.startsWith(k.endsWith('/') ? k : `${k}/`)),
+            )
             .sort((a, b) => b.length - a.length)[0] || '/admin'
         : '/admin';
 

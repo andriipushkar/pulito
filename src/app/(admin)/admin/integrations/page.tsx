@@ -25,6 +25,7 @@ interface SyncRow {
   itemsTotal: number;
   itemsProcessed: number;
   itemsFailed: number;
+  errorLog?: unknown;
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
@@ -44,6 +45,9 @@ export default function AdminIntegrationsPage() {
   const [newKeyName, setNewKeyName] = useState('');
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [isCreatingKey, setIsCreatingKey] = useState(false);
+  // Modal to show detailed errorLog of a failed sync. Without it the admin
+  // sees "(N failed)" but no way to see WHICH items / WHY — silent failure.
+  const [errorModal, setErrorModal] = useState<SyncRow | null>(null);
 
   async function fetchData() {
     try {
@@ -90,9 +94,19 @@ export default function AdminIntegrationsPage() {
     }
   }
 
-  async function handleDeactivateKey(id: number) {
+  async function handleDeactivateKey(id: number, name?: string) {
+    const ok = window.confirm(
+      `Деактивувати ключ${name ? ` «${name}»` : ''}?\n\n` +
+        `Інтеграція, яка цим ключем користується, перестане працювати ` +
+        `негайно і до повторного увімкнення. Скасування недоступне через UI ` +
+        `— потрібно буде створити новий ключ.\n\n` +
+        `Продовжити?`,
+    );
+    if (!ok) return;
     try {
-      const res = await apiClient.patch(`/api/v1/admin/integration/api-keys/${id}`, { isActive: false });
+      const res = await apiClient.patch(`/api/v1/admin/integration/api-keys/${id}`, {
+        isActive: false,
+      });
       if (res.success) fetchData();
       else toast.error(res.error || 'Не вдалося деактивувати ключ');
     } catch {
@@ -189,7 +203,7 @@ export default function AdminIntegrationsPage() {
                   <td className="px-3 py-2">
                     {key.isActive && (
                       <button
-                        onClick={() => handleDeactivateKey(key.id)}
+                        onClick={() => handleDeactivateKey(key.id, key.name)}
                         className="text-sm text-red-600 hover:underline"
                       >
                         Deactivate
@@ -247,7 +261,13 @@ export default function AdminIntegrationsPage() {
                   <td className="px-3 py-2">
                     {sync.itemsProcessed}/{sync.itemsTotal}
                     {sync.itemsFailed > 0 && (
-                      <span className="ml-1 text-red-600">({sync.itemsFailed} failed)</span>
+                      <button
+                        onClick={() => setErrorModal(sync)}
+                        className="ml-1 cursor-pointer text-red-600 underline hover:text-red-700"
+                        title="Подивитися деталі помилок"
+                      >
+                        ({sync.itemsFailed} failed)
+                      </button>
                     )}
                   </td>
                   <td className="px-3 py-2">
@@ -262,6 +282,41 @@ export default function AdminIntegrationsPage() {
           </table>
         </div>
       </section>
+
+      {errorModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setErrorModal(null)}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-semibold">
+                Деталі помилок (sync #{errorModal.id}, {errorModal.itemsFailed} failed)
+              </h3>
+              <button
+                onClick={() => setErrorModal(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            {errorModal.errorLog ? (
+              <pre className="max-h-[60vh] overflow-auto rounded border border-red-200 bg-red-50 p-3 text-xs">
+                {typeof errorModal.errorLog === 'string'
+                  ? errorModal.errorLog
+                  : JSON.stringify(errorModal.errorLog, null, 2)}
+              </pre>
+            ) : (
+              <p className="text-sm text-gray-500">
+                errorLog порожній — або помилка не записана, або очікується завершення.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

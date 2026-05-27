@@ -161,12 +161,33 @@ async function auditSitemap(sitemapUrl: string): Promise<SitemapAudit> {
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    const expectedToken = `Bearer ${env.APP_SECRET}`;
+    // CRON_SECRET preferred — APP_SECRET doubles as encryption-key salt so
+    // it can't be rotated. Falls back to APP_SECRET for older configs.
+    const cronSecret = env.CRON_SECRET || env.APP_SECRET;
+    const expectedToken = `Bearer ${cronSecret}`;
 
     if (!authHeader || !timingSafeCompare(authHeader, expectedToken)) {
       return errorResponse('Unauthorized', 401);
     }
 
+    // Cron lock prevents overlapping runs from racing on the same
+    // seo_check_results SiteSetting row (last-write-wins clobber loses
+    // alert data). 30 min covers the slowest expected catalog scan.
+    const { withCronLock } = await import('@/lib/cron-lock');
+    const lockResult = await withCronLock('seo-check', 1800, async () => {
+      return doSeoCheck();
+    });
+    if (!lockResult.acquired) {
+      return successResponse({ skipped: true, reason: 'seo-check cron is already running' });
+    }
+    return successResponse(lockResult.result);
+  } catch (err) {
+    return errorResponse(err instanceof Error ? err.message : 'Помилка', 500);
+  }
+}
+
+async function doSeoCheck() {
+  try {
     // 1. DB-level scan + Telegram alert (the heavy SEO audit lives here).
     const scan = await runBrokenLinkChecker();
 
@@ -174,7 +195,35 @@ export async function POST(request: NextRequest) {
     // Use newest-first so freshly published items get checked while old ones
     // are covered over multiple runs (still a sample, but no permanent blind
     // spots).
+    // SSRF guard: refuse to crawl `localhost:*`, internal IPs, or any
+    // non-http(s) scheme even if APP_URL is misconfigured/tampered. We're
+    // generating outbound requests to whatever string is in `APP_URL`, so
+    // a misconfig pointing at Redis/metadata services would have us hit
+    // them with our own host's network access.
     const appUrl = env.APP_URL;
+    if (!appUrl || !/^https?:\/\/[^/]+/i.test(appUrl)) {
+      throw new Error('APP_URL must be a http(s):// URL for seo-check');
+    }
+    try {
+      const u = new URL(appUrl);
+      const host = u.hostname.toLowerCase();
+      if (
+        host === 'localhost' ||
+        host.startsWith('127.') ||
+        host === '0.0.0.0' ||
+        host === '::1' ||
+        host.startsWith('10.') ||
+        host.startsWith('192.168.') ||
+        host === '169.254.169.254' ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+      ) {
+        throw new Error(
+          `APP_URL "${host}" is in a private/internal range — seo-check refuses to crawl it`,
+        );
+      }
+    } catch (err) {
+      throw err instanceof Error ? err : new Error(String(err));
+    }
     const products = await prisma.product.findMany({
       // Skip soft-deleted products — their /product/{slug} routes 404, which
       // would otherwise dominate the broken-link alert.
@@ -269,7 +318,7 @@ export async function POST(request: NextRequest) {
       create: { key: 'seo_check_history', value: JSON.stringify(history) },
     });
 
-    return successResponse({
+    return {
       orphanedRedirects: scan.orphanedRedirects.length,
       redirectChains: scan.redirectChains.length,
       seoGaps: scan.seoGapsTotal,
@@ -282,8 +331,8 @@ export async function POST(request: NextRequest) {
       sitemap,
       productsSampled: products.length,
       categoriesChecked: categories.length,
-    });
-  } catch {
-    return errorResponse('Помилка SEO перевірки', 500);
+    };
+  } catch (err) {
+    throw err;
   }
 }

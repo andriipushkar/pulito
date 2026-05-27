@@ -1,0 +1,143 @@
+import { ORDER_STATUS_LABELS, type OrderStatus, type OrderDetail } from '@/types/order';
+
+interface OrderTimelineProps {
+  order: OrderDetail;
+}
+
+interface TimelineEvent {
+  ts: Date;
+  icon: string;
+  iconBg: string;
+  title: string;
+  detail?: string;
+  source?: string;
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  manager: 'менеджер',
+  client_action: 'клієнт',
+  system: 'система',
+  cron: 'cron',
+};
+
+function formatTs(d: Date | string): string {
+  const date = new Date(d);
+  return date.toLocaleString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/**
+ * OrderTimeline — vertical chronological feed combining status changes,
+ * payment events, TTN assignment, manager comments, and order creation.
+ *
+ * Replaces the old "Історія змін" block that only listed status transitions.
+ * Each event has a colored icon so the eye can scan it; events render newest
+ * first to match the rest of the page (manager focuses on what changed last).
+ */
+export default function OrderTimeline({ order }: OrderTimelineProps) {
+  const events: TimelineEvent[] = [];
+
+  // Order creation — always the first (oldest) event.
+  events.push({
+    ts: new Date(order.createdAt),
+    icon: '🛒',
+    iconBg: 'bg-blue-500',
+    title: 'Замовлення створено',
+    detail: `${order.itemsCount ?? order.items.length} ${order.items.length === 1 ? 'товар' : 'товарів'} на сумі ${Number(order.totalAmount).toFixed(2)} ₴`,
+  });
+
+  // Status changes
+  for (const h of order.statusHistory) {
+    const title = h.oldStatus
+      ? `${ORDER_STATUS_LABELS[h.oldStatus as OrderStatus] || h.oldStatus} → ${ORDER_STATUS_LABELS[h.newStatus as OrderStatus] || h.newStatus}`
+      : `Статус: ${ORDER_STATUS_LABELS[h.newStatus as OrderStatus] || h.newStatus}`;
+    events.push({
+      ts: new Date(h.createdAt),
+      icon: '🔄',
+      iconBg: 'bg-violet-500',
+      title,
+      detail: h.comment || undefined,
+      source: SOURCE_LABEL[h.changeSource] || h.changeSource,
+    });
+  }
+
+  // Payment paid
+  if (order.payment?.paidAt) {
+    events.push({
+      ts: new Date(order.payment.paidAt),
+      icon: '💳',
+      iconBg: 'bg-emerald-500',
+      title: 'Оплата отримана',
+      detail: order.payment.paymentProvider
+        ? `провайдер: ${order.payment.paymentProvider}${order.payment.transactionId ? ` · txn: ${order.payment.transactionId}` : ''}`
+        : undefined,
+    });
+  }
+
+  // TTN assigned — we don't have a separate timestamp; tie to the shipped
+  // status entry when present, otherwise to order creation.
+  if (order.trackingNumber) {
+    const shippedEntry = order.statusHistory.find((h) => h.newStatus === 'shipped');
+    events.push({
+      ts: shippedEntry ? new Date(shippedEntry.createdAt) : new Date(order.createdAt),
+      icon: '📦',
+      iconBg: 'bg-amber-500',
+      title: `ТТН присвоєно: ${order.trackingNumber}`,
+    });
+  }
+
+  // Manager comment — bucketed at the latest status-change time (best proxy
+  // for "most recent admin action" since OrderDetail doesn't expose updatedAt).
+  if (order.managerComment) {
+    const latestStatus = order.statusHistory[0]; // sorted desc by API
+    events.push({
+      ts: latestStatus ? new Date(latestStatus.createdAt) : new Date(order.createdAt),
+      icon: '💬',
+      iconBg: 'bg-sky-500',
+      title: 'Коментар менеджера',
+      detail: order.managerComment,
+    });
+  }
+
+  // Sort newest first (matches the rest of the admin UI).
+  events.sort((a, b) => b.ts.getTime() - a.ts.getTime());
+
+  return (
+    <div className="mt-6">
+      <h3 className="mb-3 text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
+        Активність ({events.length})
+      </h3>
+      <ol className="relative space-y-3 border-l-2 border-[var(--color-border)] pl-5">
+        {events.map((e, i) => (
+          <li key={i} className="relative">
+            <span
+              className={`absolute -left-[28px] flex h-5 w-5 items-center justify-center rounded-full text-[10px] text-white ${e.iconBg}`}
+              aria-hidden
+            >
+              {e.icon}
+            </span>
+            <div className="text-sm">
+              <span className="font-medium">{e.title}</span>
+              <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
+                {formatTs(e.ts)}
+              </span>
+              {e.source && (
+                <span className="ml-1 text-[10px] text-[var(--color-text-secondary)]">
+                  ({e.source})
+                </span>
+              )}
+              {e.detail && (
+                <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{e.detail}</p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}

@@ -8,6 +8,12 @@ model BlogCategory {
   description    String?
   seoTitle       String?  @map("seo_title")
   seoDescription String?  @map("seo_description")
+  // EN translations — nullable, code falls back to the uk-language column
+  // when these are empty. Slug stays uk-only (URL identity).
+  nameEn         String?  @map("name_en")
+  descriptionEn  String?  @map("description_en")
+  seoTitleEn     String?  @map("seo_title_en")
+  seoDescriptionEn String? @map("seo_description_en")
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -29,6 +35,12 @@ model BlogPost {
   tags           String[]      @default([])
   seoTitle       String?       @map("seo_title")
   seoDescription String?       @map("seo_description")
+  // EN translations — nullable, fallback to uk fields when empty.
+  titleEn        String?       @map("title_en")
+  excerptEn      String?       @map("excerpt_en") @db.VarChar(500)
+  contentEn      String?       @map("content_en")
+  seoTitleEn     String?       @map("seo_title_en")
+  seoDescriptionEn String?     @map("seo_description_en")
   isPublished    Boolean       @default(false) @map("is_published")
   publishedAt    DateTime?     @map("published_at")
   viewsCount     Int           @default(0) @map("views_count")

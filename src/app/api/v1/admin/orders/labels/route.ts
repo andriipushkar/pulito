@@ -34,8 +34,15 @@ export const POST = withRole(
       return errorResponse("orderIds обов'язковий (масив ID)", 400);
     }
 
+    // Filter out non-integer IDs *before* hitting Prisma — `Number('abc')`
+    // returns NaN which Prisma silently accepts and produces undefined results.
+    // Also exclude soft-deleted orders so labels never print for a discarded record.
+    const numericIds = orderIds.map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0);
+    if (numericIds.length === 0) {
+      return errorResponse('Жоден ID не пройшов валідацію', 400);
+    }
     const orders = await prisma.order.findMany({
-      where: { id: { in: orderIds.map((v) => Number(v)) } },
+      where: { id: { in: numericIds }, deletedAt: null },
       include: {
         items: {
           include: { product: { select: { name: true, code: true } } },
@@ -59,7 +66,9 @@ export const POST = withRole(
 
       const chunks: Buffer[] = [];
       doc.on('data', (c) => chunks.push(c as Buffer));
-      const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
+      const done = new Promise<Buffer>((resolve) =>
+        doc.on('end', () => resolve(Buffer.concat(chunks))),
+      );
 
       orders.forEach((o, idx) => {
         if (idx > 0) doc.addPage();
@@ -74,9 +83,9 @@ export const POST = withRole(
         if (o.trackingNumber) doc.text(`ТТН: ${o.trackingNumber}`);
         doc.text(`Сума: ${Number(o.totalAmount).toFixed(2)} грн`);
         doc.moveDown(0.3);
-        doc.fontSize(9).text(
-          o.items.map((i) => `${i.product?.name || ''} x${i.quantity}`).join(', '),
-        );
+        doc
+          .fontSize(9)
+          .text(o.items.map((i) => `${i.product?.name || ''} x${i.quantity}`).join(', '));
       });
       doc.end();
       const pdfBuffer = await done;

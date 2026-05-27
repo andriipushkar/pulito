@@ -11,6 +11,10 @@ export const GET = withRole(
   try {
     const limit = Math.min(Number(request.nextUrl.searchParams.get('limit') ?? 50), 200);
     const raw = await getPackableOrders(limit);
+    // Service already flattens warehouse info onto each item — pass through
+    // stockOnHand / locationCode / locationName so the UI's stock guard and
+    // location-based pick order actually work. The previous mapping dropped
+    // these fields, silently disabling both features.
     const orders = raw.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
@@ -25,8 +29,11 @@ export const GET = withRole(
         id: i.id,
         productCode: i.productCode,
         productName: i.productName,
-        productBarcode: i.product?.barcode ?? null,
+        productBarcode: i.productBarcode,
         quantity: i.quantity,
+        stockOnHand: i.stockOnHand,
+        locationCode: i.locationCode,
+        locationName: i.locationName,
       })),
     }));
     return successResponse({ orders });

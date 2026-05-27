@@ -32,11 +32,20 @@ interface BoardOrder {
   createdAt: string | Date;
 }
 
-// paginatedResponse wraps the array under .data directly — there is no
-// nested .orders key (that was the source of an "empty board" bug).
+interface BoardResponse {
+  orders: BoardOrder[];
+  total: number;
+  truncated: boolean;
+  cap: number;
+}
 
 export default function AdminOrdersBoardPage() {
   const [orders, setOrders] = useState<BoardOrder[]>([]);
+  const [boardMeta, setBoardMeta] = useState<{
+    total: number;
+    truncated: boolean;
+    cap: number;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [hoverColumn, setHoverColumn] = useState<OrderStatus | null>(null);
@@ -46,19 +55,22 @@ export default function AdminOrdersBoardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    // Cap at 100 (API max) — anything above is laggy on a daily board.
-    // Status filter is single-value at the API layer, so drop terminal states
-    // (cancelled/returned) on the client to keep the operational view clean.
-    apiClient
-      .get<BoardOrder[]>('/api/v1/admin/orders?limit=100&sortBy=createdAt&sortOrder=desc')
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && Array.isArray(res.data)) {
-          const activeOnly = res.data.filter((o) => BOARD_COLUMNS.includes(o.status));
-          setOrders(activeOnly);
-        }
-        setIsLoading(false);
-      });
+    // Dedicated board endpoint — multi-status WHERE on the server, no
+    // generic 100-row limit. Previously the kanban silently hid the 101st
+    // order, so drag-drop appeared to work but couldn't reach cards that
+    // weren't rendered.
+    apiClient.get<BoardResponse>('/api/v1/admin/orders/board').then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) {
+        setOrders(res.data.orders);
+        setBoardMeta({
+          total: res.data.total,
+          truncated: res.data.truncated,
+          cap: res.data.cap,
+        });
+      }
+      setIsLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -92,8 +104,11 @@ export default function AdminOrdersBoardPage() {
       return;
     }
 
-    // Optimistic update — revert on failure so the user sees the card snap back.
-    const previous = orders;
+    // Optimistic update — revert on failure. Snapshot ONLY the affected
+    // order by ID, not the entire array, so a concurrent reload between
+    // drag-start and drop-end doesn't restore stale data for unrelated
+    // orders.
+    const originalStatus = order.status;
     setOrders((all) => all.map((o) => (o.id === order.id ? { ...o, status: target } : o)));
     const res = await apiClient.put(`/api/v1/admin/orders/${order.id}/status`, {
       status: target,
@@ -102,7 +117,9 @@ export default function AdminOrdersBoardPage() {
       toast.success(`#${order.orderNumber} → ${ORDER_STATUS_LABELS[target]}`);
     } else {
       toast.error(res.error || 'Не вдалося оновити статус');
-      setOrders(previous);
+      setOrders((all) =>
+        all.map((o) => (o.id === order.id ? { ...o, status: originalStatus } : o)),
+      );
     }
   };
 
@@ -120,8 +137,8 @@ export default function AdminOrdersBoardPage() {
         <div>
           <h1 className="text-xl font-bold">Дошка замовлень</h1>
           <p className="text-xs text-[var(--color-text-secondary)]">
-            Перетягуйте картки між колонками щоб змінити статус. Дозволені переходи
-            підсвічуються зеленим при перетягуванні.
+            Перетягуйте картки між колонками щоб змінити статус. Дозволені переходи підсвічуються
+            зеленим при перетягуванні.
           </p>
         </div>
         <div className="flex gap-2">
@@ -139,6 +156,17 @@ export default function AdminOrdersBoardPage() {
           </button>
         </div>
       </div>
+
+      {boardMeta?.truncated && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          ⚠ Активних замовлень {boardMeta.total}, показано лише перші {boardMeta.cap} (найновіші за
+          датою). Решта приховані щоб дошка лишалась читабельною — користуйтесь{' '}
+          <Link href="/admin/orders" className="font-semibold underline">
+            Таблицею
+          </Link>{' '}
+          для повного списку.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {BOARD_COLUMNS.map((col) => {
@@ -198,7 +226,9 @@ export default function AdminOrdersBoardPage() {
                       <span className="font-bold text-[var(--color-primary)]">
                         №{order.orderNumber}
                       </span>
-                      <span className="font-semibold">{formatPrice(Number(order.totalAmount))}</span>
+                      <span className="font-semibold">
+                        {formatPrice(Number(order.totalAmount))}
+                      </span>
                     </div>
                     <p className="truncate text-[var(--color-text)]">{order.contactName}</p>
                     <p className="truncate text-[var(--color-text-secondary)]">

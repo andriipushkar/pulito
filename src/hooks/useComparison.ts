@@ -26,6 +26,26 @@ export function useComparison() {
   const [ids, setIds] = useState<number[]>([]);
 
   useEffect(() => {
+    // Shared links: ?ids=12,34,56 — merge into storage so the recipient lands
+    // on a pre-populated comparison page without losing their existing list.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get('ids');
+      if (fromUrl) {
+        const incoming = fromUrl
+          .split(',')
+          .map((x) => parseInt(x, 10))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        if (incoming.length > 0) {
+          const merged = Array.from(new Set([...getStoredIds(), ...incoming])).slice(0, MAX_ITEMS);
+          setStoredIds(merged);
+          setIds(merged);
+          return;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
     setIds(getStoredIds());
   }, []);
 

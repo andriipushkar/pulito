@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import fs from 'fs/promises';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+import { getClientIp } from '@/utils/request';
 
 interface CheckResult {
   status: 'ok' | 'error';
@@ -15,7 +17,19 @@ async function measureLatency<T>(fn: () => Promise<T>): Promise<{ result: T; lat
   return { result, latencyMs: Math.round(performance.now() - start) };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Health is a public endpoint — uptime monitors and load balancers hit it
+  // legitimately. Cap to 30/min/IP so a misbehaving prober (or attacker
+  // tarpitting our backends with probes) doesn't push the database+redis+
+  // typesense triple-check at full rate.
+  const rl = await checkRateLimit(getClientIp(request), RATE_LIMITS.api);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { status: 'rate_limited', retryAfter: rl.retryAfter },
+      { status: 429 },
+    );
+  }
+
   const checks: Record<string, CheckResult> = {};
 
   // Database check with latency

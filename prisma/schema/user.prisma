@@ -246,7 +246,11 @@ model Referral {
   id             Int            @id @default(autoincrement())
   referrerUserId Int            @map("referrer_user_id")
   referrer       User           @relation("Referrer", fields: [referrerUserId], references: [id])
-  referredUserId Int            @map("referred_user_id")
+  // One referral per referred user (you can only be referred once, ever).
+  // Without this constraint, a race between two parallel registrations with
+  // different codes would create two referral rows for the same user and
+  // both would later credit bonuses.
+  referredUserId Int            @unique @map("referred_user_id")
   referred       User           @relation("Referred", fields: [referredUserId], references: [id])
   referralCode   String         @map("referral_code")
   status         ReferralStatus @default(registered)

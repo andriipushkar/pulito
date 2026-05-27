@@ -1,8 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
+import createIntlMiddleware from 'next-intl/middleware';
 import { checkApiRateLimit } from '@/middleware/api-rate-limit';
 import { getRouteLimit } from '@/middleware/rate-limit-config';
+import { routing } from '@/i18n/routing';
+
+// next-intl handles locale detection + URL rewrites for [locale] segment.
+// Paths under these prefixes never carry a locale and must skip i18n.
+// IMPORTANT: only list paths whose route files live OUTSIDE app/[locale].
+// /auth and /account live INSIDE app/[locale]/(shop) so they MUST be
+// localized — adding them here causes /auth/callback to 404 (the same
+// happened until 2026-05-25 when this list incorrectly included /auth).
+const I18N_EXEMPT_PREFIXES = [
+  '/api',
+  '/admin',
+  '/maintenance',
+  '/sitemap',
+  '/feed',
+  '/blog/feed.xml',
+  '/r/',
+  '/uploads',
+  '/order', // app/order is NOT inside [locale] — kept at root for tracking links
+  '/actions',
+  '/manifest',
+  '/robots',
+  '/api-docs',
+  '/offline',
+];
+
+const intlMiddleware = createIntlMiddleware(routing);
+
+function isI18nPath(pathname: string): boolean {
+  // Static-like assets that happen to live at the root must always skip i18n.
+  if (
+    pathname === '/sw.js' ||
+    pathname === '/sitemap.xml' ||
+    pathname === '/robots.txt' ||
+    pathname === '/llms.txt' ||
+    pathname === '/feed.xml' ||
+    pathname === '/manifest.json' ||
+    pathname === '/manifest.webmanifest' ||
+    pathname === '/opengraph-image' ||
+    pathname === '/twitter-image' ||
+    pathname === '/favicon.ico'
+  ) {
+    return false;
+  }
+  return !I18N_EXEMPT_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`) || pathname.startsWith(`${p}.`),
+  );
+}
 
 const MAINTENANCE_ALLOWED_PATHS = ['/maintenance', '/admin', '/api/v1/admin', '/api/v1/auth'];
+
+// Best-effort auth gate for the customer cabinet. Backend routes are scoped
+// by `withAuth` + `user.id`, so this only prevents anonymous visitors from
+// briefly rendering /account UI while the client-side gate redirects. A user
+// with an expired refresh cookie still hits the layout, which handles refresh.
+const REFRESH_COOKIE = 'refresh_token';
+const ACCOUNT_PATH_RE = /^(?:\/uk)?\/account(?:\/|$)/;
 
 // Paths exempt from CSRF checks (webhooks receive external POST, cron uses Bearer auth, metrics uses sendBeacon)
 const CSRF_EXEMPT_PREFIXES = ['/api/webhooks/', '/api/v1/cron/', '/api/v1/metrics'];
@@ -95,15 +150,17 @@ export default async function proxy(request: NextRequest) {
   // restrict both the admin UI and the admin API. Local IPs (127.0.0.1, ::1)
   // are always allowed so cron and on-box debugging keep working.
   const adminAllowedIps = process.env.ADMIN_ALLOWED_IPS;
-  const isAdminPath =
-    pathname.startsWith('/admin') || pathname.startsWith('/api/v1/admin');
+  const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/api/v1/admin');
   if (adminAllowedIps && isAdminPath) {
     const clientIp =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       request.headers.get('x-real-ip') ||
       '';
     const LOCAL_IPS = new Set(['127.0.0.1', '::1', 'localhost']);
-    const allowedList = adminAllowedIps.split(',').map((ip) => ip.trim()).filter(Boolean);
+    const allowedList = adminAllowedIps
+      .split(',')
+      .map((ip) => ip.trim())
+      .filter(Boolean);
     const allowed = LOCAL_IPS.has(clientIp) || allowedList.includes(clientIp);
     if (!allowed) {
       // For UI paths give a human-readable HTML block; for API give JSON so
@@ -128,6 +185,16 @@ export default async function proxy(request: NextRequest) {
     if (!isAllowed && pathname !== '/maintenance') {
       return NextResponse.redirect(new URL('/maintenance', request.url));
     }
+  }
+
+  // Customer cabinet gate: bounce visitors with no refresh cookie to login
+  // before the /account UI ever renders.
+  if (ACCOUNT_PATH_RE.test(pathname) && !request.cookies.get(REFRESH_COOKIE)?.value) {
+    const url = request.nextUrl.clone();
+    const original = pathname + (url.search || '');
+    url.pathname = '/auth/login';
+    url.search = `?redirect=${encodeURIComponent(original)}`;
+    return NextResponse.redirect(url);
   }
 
   // Per-route rate limiting for API routes (in-memory per instance).
@@ -166,7 +233,10 @@ export default async function proxy(request: NextRequest) {
   const csrfError = checkCsrf(request);
   if (csrfError) return csrfError;
 
-  const response = NextResponse.next();
+  // Localize the request via next-intl for non-exempt paths. Returns a
+  // redirect/rewrite when the locale prefix needs adjusting, otherwise a
+  // plain next() response we can decorate with security headers below.
+  const response = isI18nPath(pathname) ? intlMiddleware(request) : NextResponse.next();
 
   // Request correlation ID — allows tracing requests across logs
   const requestId = crypto.randomUUID();
@@ -199,11 +269,19 @@ export default async function proxy(request: NextRequest) {
   const cspDirectives = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net`,
+    // style-src is split into elem (for <style> blocks → nonce) and attr (for
+    // React's inline style={{...}} → must remain unsafe-inline because CSP3
+    // doesn't support nonces on attribute styles). Tailwind generates real CSS
+    // files in production, so the only inline <style> blocks we emit are the
+    // theme variables in layout.tsx (which carry the nonce) and Next.js font
+    // loader styles (which Next signs with the same nonce automatically).
+    `style-src-elem 'self' 'nonce-${nonce}' https://fonts.googleapis.com`,
+    "style-src-attr 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https:",
     "font-src 'self' https://fonts.gstatic.com",
     "connect-src 'self' https://www.google-analytics.com https://api.telegram.org https://api.novaposhta.ua",
-    "frame-src https://www.google.com https://maps.google.com https://www.openstreetmap.org",
+    'frame-src https://www.google.com https://maps.google.com https://www.openstreetmap.org',
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

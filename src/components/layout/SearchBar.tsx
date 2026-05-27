@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
@@ -49,12 +49,15 @@ function highlightMatch(text: string, query: string) {
   const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase() ? (
-      <mark key={i} className="rounded-sm bg-[var(--color-primary-50)] px-0.5 text-[var(--color-primary-dark)]">
+      <mark
+        key={i}
+        className="rounded-sm bg-[var(--color-primary-50)] px-0.5 text-[var(--color-primary-dark)]"
+      >
         {part}
       </mark>
     ) : (
       part
-    )
+    ),
   );
 }
 
@@ -80,7 +83,9 @@ export default function SearchBar() {
   const fetchHistory = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await apiClient.get<HistoryEntry[]>('/api/v1/me/search-history?unique=true&limit=5');
+      const res = await apiClient.get<HistoryEntry[]>(
+        '/api/v1/me/search-history?unique=true&limit=5',
+      );
       if (res.success && res.data) {
         setHistory(res.data);
       }
@@ -101,13 +106,15 @@ export default function SearchBar() {
       const res = await fetch('/api/v1/products/popular?limit=4');
       const json = await res.json();
       if (json.success && json.data) {
-        setTrendingProducts(json.data.slice(0, 4).map((p: Record<string, unknown>) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          priceRetail: p.priceRetail,
-          imagePath: p.imagePath,
-        })));
+        setTrendingProducts(
+          json.data.slice(0, 4).map((p: Record<string, unknown>) => ({
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            priceRetail: p.priceRetail,
+            imagePath: p.imagePath,
+          })),
+        );
       }
     } catch {
       // silently fail
@@ -126,13 +133,15 @@ export default function SearchBar() {
       const json = await res.json();
       if (json.success && json.data) {
         const products = Array.isArray(json.data) ? json.data : json.data.products || [];
-        setRecentProducts(products.slice(0, 4).map((p: Record<string, unknown>) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          priceRetail: p.priceRetail,
-          imagePath: p.imagePath,
-        })));
+        setRecentProducts(
+          products.slice(0, 4).map((p: Record<string, unknown>) => ({
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            priceRetail: p.priceRetail,
+            imagePath: p.imagePath,
+          })),
+        );
       }
     } catch {
       // silently fail
@@ -140,15 +149,18 @@ export default function SearchBar() {
   }, [recentlyViewedIds]);
 
   // Зберегти пошуковий запит в історію
-  const saveToHistory = useCallback(async (searchQuery: string) => {
-    if (!user || searchQuery.trim().length < 2) return;
-    try {
-      await apiClient.post('/api/v1/me/search-history', { query: searchQuery.trim() });
-      fetchHistory();
-    } catch {
-      // silently fail
-    }
-  }, [user, fetchHistory]);
+  const saveToHistory = useCallback(
+    async (searchQuery: string) => {
+      if (!user || searchQuery.trim().length < 2) return;
+      try {
+        await apiClient.post('/api/v1/me/search-history', { query: searchQuery.trim() });
+        fetchHistory();
+      } catch {
+        // silently fail
+      }
+    },
+    [user, fetchHistory],
+  );
 
   // Видалити один запис з історії
   const removeHistoryEntry = useCallback(async (id: number, e: React.MouseEvent) => {
@@ -259,14 +271,29 @@ export default function SearchBar() {
   }, []);
 
   // Збираємо всі suggestion items для keyboard navigation
-  const allSuggestions: { type: 'category' | 'product' | 'history' | 'trending' | 'recent'; slug?: string; href: string; query?: string }[] = [];
+  const allSuggestions: {
+    type: 'category' | 'product' | 'history' | 'trending' | 'recent';
+    slug?: string;
+    href: string;
+    query?: string;
+  }[] = [];
   if (isOpen && showSuggestions) {
-    history.forEach((item) => allSuggestions.push({ type: 'history', href: '', query: item.query }));
-    recentProducts.forEach((p) => allSuggestions.push({ type: 'recent', href: `/product/${p.slug}` }));
-    trendingProducts.forEach((p) => allSuggestions.push({ type: 'trending', href: `/product/${p.slug}` }));
+    history.forEach((item) =>
+      allSuggestions.push({ type: 'history', href: '', query: item.query }),
+    );
+    recentProducts.forEach((p) =>
+      allSuggestions.push({ type: 'recent', href: `/product/${p.slug}` }),
+    );
+    trendingProducts.forEach((p) =>
+      allSuggestions.push({ type: 'trending', href: `/product/${p.slug}` }),
+    );
   } else if (isOpen && !showSuggestions && results) {
-    results.categories.forEach((cat) => allSuggestions.push({ type: 'category', href: `/catalog?category=${cat.slug}` }));
-    results.products.forEach((p) => allSuggestions.push({ type: 'product', href: `/product/${p.slug}` }));
+    results.categories.forEach((cat) =>
+      allSuggestions.push({ type: 'category', href: `/catalog?category=${cat.slug}` }),
+    );
+    results.products.forEach((p) =>
+      allSuggestions.push({ type: 'product', href: `/product/${p.slug}` }),
+    );
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -303,13 +330,17 @@ export default function SearchBar() {
   const showSuggestionsDropdown = isOpen && showSuggestions;
   const showResultsDropdown = isOpen && !showSuggestions && results;
 
-  const hasSuggestionContent = history.length > 0 || recentProducts.length > 0 || trendingProducts.length > 0;
+  const hasSuggestionContent =
+    history.length > 0 || recentProducts.length > 0 || trendingProducts.length > 0;
 
   const dropdownCls = (isMobile: boolean) =>
     `${isMobile ? 'mt-2 flex-1 overflow-auto' : 'absolute top-full z-50 mt-1 w-full shadow-[var(--shadow-md)]'} rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]`;
 
   return (
-    <div ref={ref} className={`relative w-full max-w-xl ${mobileFullscreen ? 'fixed inset-0 z-50 flex max-w-none flex-col bg-white p-4 sm:relative sm:inset-auto sm:z-auto sm:flex-row sm:bg-transparent sm:p-0' : ''}`}>
+    <div
+      ref={ref}
+      className={`relative w-full max-w-xl ${mobileFullscreen ? 'fixed inset-0 z-50 flex max-w-none flex-col bg-white p-4 sm:relative sm:inset-auto sm:z-auto sm:flex-row sm:bg-transparent sm:p-0' : ''}`}
+    >
       <div className={`relative ${mobileFullscreen ? 'flex items-center gap-2' : ''}`}>
         <input
           ref={inputRef}
@@ -326,11 +357,23 @@ export default function SearchBar() {
           aria-controls="search-suggestions"
           onFocus={handleFocus}
         />
-        <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        <svg
+          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-secondary)]"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
         </svg>
         {isLoading && (
-          <div className={`absolute top-1/2 -translate-y-1/2 ${mobileFullscreen ? 'right-14' : 'right-3'}`}>
+          <div
+            className={`absolute top-1/2 -translate-y-1/2 ${mobileFullscreen ? 'right-14' : 'right-3'}`}
+          >
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
           </div>
         )}
@@ -341,7 +384,13 @@ export default function SearchBar() {
             className="shrink-0 p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
             aria-label="Закрити пошук"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -374,8 +423,18 @@ export default function SearchBar() {
                   className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-[var(--color-bg-secondary)] ${activeIndex === hi ? 'bg-[var(--color-bg-secondary)]' : ''}`}
                   onClick={() => handleHistoryClick(item.query)}
                 >
-                  <svg className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   <span className="min-w-0 flex-1 truncate">{item.query}</span>
                   <span
@@ -389,7 +448,13 @@ export default function SearchBar() {
                       }
                     }}
                   >
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </span>
@@ -400,7 +465,9 @@ export default function SearchBar() {
 
           {/* Нещодавно переглянуті */}
           {recentProducts.length > 0 && (
-            <div className={`p-2 ${history.length > 0 ? 'border-t border-[var(--color-border)]' : ''}`}>
+            <div
+              className={`p-2 ${history.length > 0 ? 'border-t border-[var(--color-border)]' : ''}`}
+            >
               <p className="mb-1.5 px-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
                 Нещодавно переглянуті
               </p>
@@ -416,12 +483,22 @@ export default function SearchBar() {
                       onClick={() => setIsOpen(false)}
                     >
                       {product.imagePath ? (
-                        <Image src={product.imagePath} alt={product.name} width={56} height={56} className="rounded-lg object-contain" />
+                        <Image
+                          src={product.imagePath}
+                          alt={product.name}
+                          width={56}
+                          height={56}
+                          className="rounded-lg object-contain"
+                        />
                       ) : (
                         <div className="h-14 w-14 rounded-lg bg-[var(--color-bg-secondary)]" />
                       )}
-                      <span className="line-clamp-2 w-full text-center text-[11px] leading-tight text-[var(--color-text)]">{product.name}</span>
-                      <span className="text-[11px] font-semibold text-[var(--color-primary)]">{Number(product.priceRetail).toFixed(0)} ₴</span>
+                      <span className="line-clamp-2 w-full text-center text-[11px] leading-tight text-[var(--color-text)]">
+                        {product.name}
+                      </span>
+                      <span className="text-[11px] font-semibold text-[var(--color-primary)]">
+                        {Number(product.priceRetail).toFixed(0)} ₴
+                      </span>
                     </Link>
                   );
                 })}
@@ -431,7 +508,9 @@ export default function SearchBar() {
 
           {/* Популярні товари */}
           {trendingProducts.length > 0 && (
-            <div className={`p-2 ${history.length > 0 || recentProducts.length > 0 ? 'border-t border-[var(--color-border)]' : ''}`}>
+            <div
+              className={`p-2 ${history.length > 0 || recentProducts.length > 0 ? 'border-t border-[var(--color-border)]' : ''}`}
+            >
               <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
                 Популярні товари
               </p>
@@ -446,7 +525,13 @@ export default function SearchBar() {
                     onClick={() => setIsOpen(false)}
                   >
                     {product.imagePath ? (
-                      <Image src={product.imagePath} alt={product.name} width={36} height={36} className="shrink-0 rounded-lg object-contain" />
+                      <Image
+                        src={product.imagePath}
+                        alt={product.name}
+                        width={36}
+                        height={36}
+                        className="shrink-0 rounded-lg object-contain"
+                      />
                     ) : (
                       <div className="h-9 w-9 shrink-0 rounded-lg bg-[var(--color-bg-secondary)]" />
                     )}
@@ -454,10 +539,16 @@ export default function SearchBar() {
                       <p className="line-clamp-2 text-sm leading-snug">{product.name}</p>
                     </div>
                     <div className="ml-auto flex shrink-0 items-center gap-1 pl-3">
-                      <svg className="h-3 w-3 text-[var(--color-warning)]" fill="currentColor" viewBox="0 0 20 20">
+                      <svg
+                        className="h-3 w-3 text-[var(--color-warning)]"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
                         <path d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" />
                       </svg>
-                      <span className="text-xs font-semibold tabular-nums text-[var(--color-text)]">{Number(product.priceRetail).toFixed(0)} ₴</span>
+                      <span className="text-xs font-semibold tabular-nums text-[var(--color-text)]">
+                        {Number(product.priceRetail).toFixed(0)} ₴
+                      </span>
                     </div>
                   </Link>
                 );
@@ -472,7 +563,9 @@ export default function SearchBar() {
         <div id="search-suggestions" role="listbox" className={dropdownCls(mobileFullscreen)}>
           {results.categories.length > 0 && (
             <div className="border-b border-[var(--color-border)] p-2">
-              <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">Категорії</p>
+              <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                Категорії
+              </p>
               {results.categories.map((cat, ci) => (
                 <Link
                   key={cat.id}
@@ -481,7 +574,10 @@ export default function SearchBar() {
                   className={`block rounded-lg px-2 py-1.5 text-sm hover:bg-[var(--color-bg-secondary)] ${activeIndex === ci ? 'bg-[var(--color-bg-secondary)]' : ''}`}
                   onClick={() => setIsOpen(false)}
                 >
-                  {highlightMatch(cat.name, query)} <span className="text-[var(--color-text-secondary)]">({cat._count.products})</span>
+                  {highlightMatch(cat.name, query)}{' '}
+                  <span className="text-[var(--color-text-secondary)]">
+                    ({cat._count.products})
+                  </span>
                 </Link>
               ))}
             </div>
@@ -489,7 +585,9 @@ export default function SearchBar() {
 
           {results.products.length > 0 && (
             <div className="p-2">
-              <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">Товари</p>
+              <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
+                Товари
+              </p>
               {results.products.map((product, pi) => {
                 const suggestionIndex = results.categories.length + pi;
                 return (
@@ -501,15 +599,25 @@ export default function SearchBar() {
                     onClick={() => setIsOpen(false)}
                   >
                     {product.imagePath ? (
-                      <Image src={product.imagePath} alt={product.name} width={40} height={40} className="shrink-0 rounded-lg object-contain" />
+                      <Image
+                        src={product.imagePath}
+                        alt={product.name}
+                        width={40}
+                        height={40}
+                        className="shrink-0 rounded-lg object-contain"
+                      />
                     ) : (
                       <div className="h-10 w-10 shrink-0 rounded-lg bg-[var(--color-bg-secondary)]" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{highlightMatch(product.name, query)}</p>
+                      <p className="truncate text-sm font-medium">
+                        {highlightMatch(product.name, query)}
+                      </p>
                       <p className="text-xs text-[var(--color-text-secondary)]">{product.code}</p>
                     </div>
-                    <span className="ml-auto shrink-0 pl-3 text-sm font-semibold tabular-nums">{Number(product.priceRetail).toFixed(2)} ₴</span>
+                    <span className="ml-auto shrink-0 pl-3 text-sm font-semibold tabular-nums">
+                      {Number(product.priceRetail).toFixed(2)} ₴
+                    </span>
                   </Link>
                 );
               })}

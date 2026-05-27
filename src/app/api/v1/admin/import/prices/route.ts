@@ -1,14 +1,27 @@
 import { NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { createHash } from 'crypto';
 import { withRole } from '@/middleware/auth';
 import { importPrices, ImportError } from '@/services/import';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest, { user }) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminImport);
+    if (!rl.allowed) {
+      return errorResponse(
+        `Забагато імпортів. Спробуйте через ${Math.ceil(rl.retryAfter / 60)} хв.`,
+        429,
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file');
 
@@ -26,6 +39,7 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    const fileSha256 = createHash('sha256').update(buffer).digest('hex');
     const result = await importPrices(buffer, file.name, user.id);
 
     await logAudit({
@@ -33,7 +47,7 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
       actionType: 'import_action',
       entityType: 'product',
       entityId: result.importLogId,
-      details: { filename: file.name, size: file.size, mode: 'prices_only' },
+      details: { filename: file.name, size: file.size, sha256: fileSha256, mode: 'prices_only' },
       ipAddress: getClientIp(request),
     });
 

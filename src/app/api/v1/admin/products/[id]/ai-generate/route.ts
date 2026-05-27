@@ -4,6 +4,7 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { generateForProduct } from '@/services/ai-content';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 const bodySchema = z.object({
   provider: z.enum(['claude', 'gemini', 'rules']).optional(),
@@ -17,8 +18,20 @@ const bodySchema = z.object({
 export const POST = withRole(
   'admin',
   'manager',
-)(async (request: NextRequest, { params }) => {
+)(async (request: NextRequest, { params, user }) => {
   try {
+    // Per-user (not per-IP) rate limit so a stuck button can't run up an
+    // unbilled Claude/Gemini bill in a tight retry loop. 60/hour is well
+    // above any human workflow (~1/minute) but trips well before billable
+    // damage.
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminAiGenerate);
+    if (!rl.allowed) {
+      return errorResponse(
+        `Ліміт AI-генерації вичерпано. Спробуйте через ${rl.retryAfter} с.`,
+        429,
+      );
+    }
+
     const { id } = await params!;
     const numId = Number(id);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);

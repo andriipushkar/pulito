@@ -7,7 +7,11 @@ import { timingSafeCompare } from '@/utils/timing-safe';
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    const expectedToken = `Bearer ${env.APP_SECRET}`;
+    // Prefer dedicated CRON_SECRET; fall back to APP_SECRET for backwards
+    // compat. APP_SECRET doubles as encryption-key salt — rotating it
+    // invalidates stored ciphertext, so cron creds need their own surface.
+    const cronSecret = env.CRON_SECRET || env.APP_SECRET;
+    const expectedToken = `Bearer ${cronSecret}`;
 
     if (!authHeader || !timingSafeCompare(authHeader, expectedToken)) {
       return errorResponse('Unauthorized', 401);

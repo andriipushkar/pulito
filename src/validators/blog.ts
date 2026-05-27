@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isSafeUrl } from '@/utils/safe-url';
 
 export const createBlogPostSchema = z.object({
   title: z
@@ -12,11 +13,24 @@ export const createBlogPostSchema = z.object({
     .optional(),
   content: z.string().min(1, 'Контент є обовʼязковим'),
   excerpt: z.string().max(500).optional(),
-  coverImage: z.string().max(255).optional(),
+  // Cover image URL — same allow-list as banner image helpers. Blocks
+  // `javascript:`, `data:image/svg+xml;...` (XSS via inline SVG `<script>`),
+  // and any non-http(s) scheme that could otherwise be rendered.
+  coverImage: z
+    .string()
+    .max(255)
+    .optional()
+    .refine((v) => isSafeUrl(v ?? null), 'coverImage має небезпечну схему'),
   categoryId: z.number().int().positive().optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   seoTitle: z.string().max(160).optional(),
   seoDescription: z.string().max(320).optional(),
+  // EN translations — optional; empty string clears the translation.
+  titleEn: z.string().max(200).optional(),
+  excerptEn: z.string().max(500).optional(),
+  contentEn: z.string().optional(),
+  seoTitleEn: z.string().max(160).optional(),
+  seoDescriptionEn: z.string().max(320).optional(),
   isPublished: z.boolean().optional(),
 });
 
@@ -35,6 +49,11 @@ export const createBlogCategorySchema = z.object({
   description: z.string().max(2000).optional(),
   seoTitle: z.string().max(160).optional(),
   seoDescription: z.string().max(320).optional(),
+  // EN translations.
+  nameEn: z.string().max(100).optional(),
+  descriptionEn: z.string().max(2000).optional(),
+  seoTitleEn: z.string().max(160).optional(),
+  seoDescriptionEn: z.string().max(320).optional(),
 });
 
 export const updateBlogCategorySchema = createBlogCategorySchema.partial();

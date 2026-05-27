@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createPublication, getPublications, publishNow, updatePublication, deletePublication, PublicationError } from './publication';
+import {
+  createPublication,
+  getPublications,
+  publishNow,
+  updatePublication,
+  deletePublication,
+  PublicationError,
+} from './publication';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -17,6 +24,9 @@ vi.mock('@/lib/prisma', () => ({
     publicationChannel: {
       upsert: vi.fn().mockResolvedValue({}),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({}),
       findMany: vi.fn().mockResolvedValue([]),
     },
   },
@@ -34,7 +44,10 @@ const mockEnv: Record<string, string> = {
 vi.mock('@/config/env', () => ({
   env: new Proxy({} as Record<string, string>, {
     get: (_target, prop: string) => mockEnv[prop] ?? '',
-    set: (_target, prop: string, value: string) => { mockEnv[prop] = value; return true; },
+    set: (_target, prop: string, value: string) => {
+      mockEnv[prop] = value;
+      return true;
+    },
   }),
 }));
 
@@ -148,7 +161,7 @@ describe('getPublications', () => {
     await getPublications({ status: 'draft' });
 
     expect(mockPrisma.publication.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: 'draft' } })
+      expect.objectContaining({ where: { status: 'draft' } }),
     );
   });
 
@@ -159,7 +172,7 @@ describe('getPublications', () => {
     await getPublications({ page: 2, limit: 5 });
 
     expect(mockPrisma.publication.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 5, take: 5 })
+      expect.objectContaining({ skip: 5, take: 5 }),
     );
   });
 });
@@ -188,13 +201,13 @@ describe('publishNow', () => {
 
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('api.telegram.org'),
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({ method: 'POST' }),
     );
     expect(mockPrisma.publication.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 1 },
         data: expect.objectContaining({ status: 'published' }),
-      })
+      }),
     );
   });
 
@@ -215,7 +228,7 @@ describe('publishNow', () => {
 
     expect(mockFetch).toHaveBeenCalledWith(
       'https://chatapi.viber.com/pa/broadcast_message',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({ method: 'POST' }),
     );
   });
 
@@ -292,10 +305,17 @@ describe('publishNow', () => {
   });
 
   it('should publish to Instagram with image', async () => {
-    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
+    mockChannelConfigs.instagram = {
+      enabled: true,
+      accessToken: 'ig-token',
+      businessAccountId: 'ig-account',
+    };
 
     const { publishImagePost } = await import('@/services/instagram');
-    vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_1', igPermalink: 'https://ig.com/p/1' });
+    vi.mocked(publishImagePost).mockResolvedValue({
+      igMediaId: 'media_1',
+      igPermalink: 'https://ig.com/p/1',
+    });
 
     mockPrisma.publication.findUnique.mockResolvedValue({
       id: 1,
@@ -307,7 +327,9 @@ describe('publishNow', () => {
       buttons: null,
       firstComment: null,
     } as never);
-    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]);
+    (
+      mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>
+    ).findMany.mockResolvedValue([]);
     mockPrisma.publication.update.mockResolvedValue({ id: 1, status: 'published' } as never);
 
     await publishNow(1);
@@ -321,10 +343,17 @@ describe('publishNow', () => {
   });
 
   it('should publish to Instagram as Reels with video', async () => {
-    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
+    mockChannelConfigs.instagram = {
+      enabled: true,
+      accessToken: 'ig-token',
+      businessAccountId: 'ig-account',
+    };
 
     const { publishReelsPost } = await import('@/services/instagram');
-    vi.mocked(publishReelsPost).mockResolvedValue({ igMediaId: 'media_2', igPermalink: 'https://ig.com/p/2' });
+    vi.mocked(publishReelsPost).mockResolvedValue({
+      igMediaId: 'media_2',
+      igPermalink: 'https://ig.com/p/2',
+    });
 
     mockPrisma.publication.findUnique.mockResolvedValue({
       id: 2,
@@ -336,7 +365,9 @@ describe('publishNow', () => {
       buttons: null,
       firstComment: null,
     } as never);
-    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([
+    (
+      mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>
+    ).findMany.mockResolvedValue([
       { imagePath: '/uploads/video.mp4', sortOrder: 0 },
       { imagePath: '/uploads/cover.jpg', sortOrder: 1 },
     ]);
@@ -347,17 +378,24 @@ describe('publishNow', () => {
     expect(publishReelsPost).toHaveBeenCalledWith(
       expect.stringContaining('/uploads/video.mp4'),
       expect.any(String),
-      expect.stringContaining('/uploads/cover.jpg')
+      expect.stringContaining('/uploads/cover.jpg'),
     );
 
     mockChannelConfigs.instagram = null;
   });
 
   it('should post first comment on Instagram if configured', async () => {
-    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
+    mockChannelConfigs.instagram = {
+      enabled: true,
+      accessToken: 'ig-token',
+      businessAccountId: 'ig-account',
+    };
 
     const { publishImagePost, postFirstComment } = await import('@/services/instagram');
-    vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_3', igPermalink: 'https://ig.com/p/3' });
+    vi.mocked(publishImagePost).mockResolvedValue({
+      igMediaId: 'media_3',
+      igPermalink: 'https://ig.com/p/3',
+    });
     vi.mocked(postFirstComment).mockResolvedValue(undefined as never);
 
     mockPrisma.publication.findUnique.mockResolvedValue({
@@ -370,7 +408,9 @@ describe('publishNow', () => {
       buttons: null,
       firstComment: 'First comment text!',
     } as never);
-    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]);
+    (
+      mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>
+    ).findMany.mockResolvedValue([]);
     mockPrisma.publication.update.mockResolvedValue({ id: 3, status: 'published' } as never);
 
     await publishNow(3);
@@ -381,10 +421,17 @@ describe('publishNow', () => {
   });
 
   it('should handle Instagram first comment error gracefully', async () => {
-    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
+    mockChannelConfigs.instagram = {
+      enabled: true,
+      accessToken: 'ig-token',
+      businessAccountId: 'ig-account',
+    };
 
     const { publishImagePost, postFirstComment } = await import('@/services/instagram');
-    vi.mocked(publishImagePost).mockResolvedValue({ igMediaId: 'media_4', igPermalink: 'https://ig.com/p/4' });
+    vi.mocked(publishImagePost).mockResolvedValue({
+      igMediaId: 'media_4',
+      igPermalink: 'https://ig.com/p/4',
+    });
     vi.mocked(postFirstComment).mockRejectedValue(new Error('Comment failed'));
 
     mockPrisma.publication.findUnique.mockResolvedValue({
@@ -397,7 +444,9 @@ describe('publishNow', () => {
       buttons: null,
       firstComment: 'Comment',
     } as never);
-    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]);
+    (
+      mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>
+    ).findMany.mockResolvedValue([]);
     mockPrisma.publication.update.mockResolvedValue({ id: 4, status: 'published' } as never);
 
     // Should not throw
@@ -407,7 +456,11 @@ describe('publishNow', () => {
   });
 
   it('should handle Instagram publish error gracefully', async () => {
-    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
+    mockChannelConfigs.instagram = {
+      enabled: true,
+      accessToken: 'ig-token',
+      businessAccountId: 'ig-account',
+    };
 
     const { publishImagePost } = await import('@/services/instagram');
     vi.mocked(publishImagePost).mockRejectedValue(new Error('IG API Error'));
@@ -422,7 +475,9 @@ describe('publishNow', () => {
       buttons: null,
       firstComment: null,
     } as never);
-    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]);
+    (
+      mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>
+    ).findMany.mockResolvedValue([]);
     mockPrisma.publication.update.mockResolvedValue({ id: 5, status: 'published' } as never);
 
     // Should not throw
@@ -432,7 +487,11 @@ describe('publishNow', () => {
   });
 
   it('should skip Instagram image post when no imageUrl and no video', async () => {
-    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
+    mockChannelConfigs.instagram = {
+      enabled: true,
+      accessToken: 'ig-token',
+      businessAccountId: 'ig-account',
+    };
 
     const { publishImagePost, publishReelsPost } = await import('@/services/instagram');
 
@@ -446,7 +505,9 @@ describe('publishNow', () => {
       buttons: null,
       firstComment: null,
     } as never);
-    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([]); // no video
+    (
+      mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>
+    ).findMany.mockResolvedValue([]); // no video
     mockPrisma.publication.update.mockResolvedValue({ id: 7, status: 'published' } as never);
 
     await publishNow(7);
@@ -500,10 +561,17 @@ describe('publishNow', () => {
   });
 
   it('should publish Reels without cover image', async () => {
-    mockChannelConfigs.instagram = { enabled: true, accessToken: 'ig-token', businessAccountId: 'ig-account' };
+    mockChannelConfigs.instagram = {
+      enabled: true,
+      accessToken: 'ig-token',
+      businessAccountId: 'ig-account',
+    };
 
     const { publishReelsPost } = await import('@/services/instagram');
-    vi.mocked(publishReelsPost).mockResolvedValue({ igMediaId: 'media_5', igPermalink: 'https://ig.com/p/5' });
+    vi.mocked(publishReelsPost).mockResolvedValue({
+      igMediaId: 'media_5',
+      igPermalink: 'https://ig.com/p/5',
+    });
 
     mockPrisma.publication.findUnique.mockResolvedValue({
       id: 6,
@@ -515,9 +583,9 @@ describe('publishNow', () => {
       buttons: null,
       firstComment: null,
     } as never);
-    (mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>).findMany.mockResolvedValue([
-      { imagePath: '/uploads/video.mov', sortOrder: 0 },
-    ]);
+    (
+      mockPrisma.publicationImage as Record<string, ReturnType<typeof vi.fn>>
+    ).findMany.mockResolvedValue([{ imagePath: '/uploads/video.mov', sortOrder: 0 }]);
     mockPrisma.publication.update.mockResolvedValue({ id: 6, status: 'published' } as never);
 
     await publishNow(6);
@@ -525,10 +593,60 @@ describe('publishNow', () => {
     expect(publishReelsPost).toHaveBeenCalledWith(
       expect.stringContaining('/uploads/video.mov'),
       expect.any(String),
-      undefined
+      undefined,
     );
 
     mockChannelConfigs.instagram = null;
+  });
+});
+
+describe('publishNow concurrency lock', () => {
+  it('throws 409 when channel is already in pending state', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 100,
+      title: 'T',
+      content: 'C',
+      channels: ['telegram'],
+      hashtags: null,
+      buttons: null,
+    } as never);
+    // updateMany affects 0 rows — meaning row was already in `pending` state.
+    (
+      mockPrisma.publicationChannel.updateMany as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce({ count: 0 });
+    (
+      mockPrisma.publicationChannel.findUnique as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce({
+      status: 'pending',
+    });
+
+    await expect(publishNow(100)).rejects.toMatchObject({
+      statusCode: 409,
+    });
+  });
+
+  it('creates the channel row when updateMany matches nothing and no row exists', async () => {
+    mockPrisma.publication.findUnique.mockResolvedValue({
+      id: 101,
+      title: 'T',
+      content: 'C',
+      channels: [],
+      hashtags: null,
+      buttons: null,
+    } as never);
+    mockPrisma.publication.update.mockResolvedValue({ id: 101, status: 'failed' } as never);
+    (
+      mockPrisma.publicationChannel.updateMany as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce({ count: 0 });
+    (
+      mockPrisma.publicationChannel.findUnique as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce(null);
+
+    await publishNow(101, ['telegram']);
+
+    expect(mockPrisma.publicationChannel.create).toHaveBeenCalledWith({
+      data: { publicationId: 101, channel: 'telegram', status: 'pending' },
+    });
   });
 });
 
@@ -635,10 +753,14 @@ describe('deletePublication', () => {
 
   it('should delete draft publication', async () => {
     mockPrisma.publication.findUnique.mockResolvedValue({ id: 1, status: 'draft' } as never);
-    (mockPrisma.publication as Record<string, ReturnType<typeof vi.fn>>).delete.mockResolvedValue({} as never);
+    (mockPrisma.publication as Record<string, ReturnType<typeof vi.fn>>).delete.mockResolvedValue(
+      {} as never,
+    );
 
     await deletePublication(1);
 
-    expect((mockPrisma.publication as Record<string, ReturnType<typeof vi.fn>>).delete).toHaveBeenCalledWith({ where: { id: 1 } });
+    expect(
+      (mockPrisma.publication as Record<string, ReturnType<typeof vi.fn>>).delete,
+    ).toHaveBeenCalledWith({ where: { id: 1 } });
   });
 });

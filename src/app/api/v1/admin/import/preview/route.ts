@@ -3,9 +3,21 @@ import { withRole } from '@/middleware/auth';
 import { parsePreview, ImportError } from '@/services/import';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminImport);
+    if (!rl.allowed) {
+      return errorResponse(
+        `Забагато перевірок імпорту. Спробуйте через ${Math.ceil(rl.retryAfter / 60)} хв.`,
+        429,
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file');
 

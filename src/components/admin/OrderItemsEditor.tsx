@@ -165,15 +165,16 @@ export default function OrderItemsEditor({
   };
 
   const handleRemove = (index: number) => {
+    // One pass: new items disappear entirely, existing items are marked for
+    // deletion. Two sequential setEditItems made the intent harder to read
+    // and depended on the index being stable between the two updates.
     setEditItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== index) return item;
-        if (item.isNew) return item; // will be filtered
-        return { ...item, isRemoved: true };
-      }),
+      prev.reduce<typeof prev>((acc, item, i) => {
+        if (i !== index) return [...acc, item];
+        if (item.isNew) return acc;
+        return [...acc, { ...item, isRemoved: true }];
+      }, []),
     );
-    // Remove new items entirely
-    setEditItems((prev) => prev.filter((item, i) => !(i === index && item.isNew)));
   };
 
   const handleRestore = (index: number) => {

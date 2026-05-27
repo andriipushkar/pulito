@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import Image from 'next/image';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
@@ -40,9 +40,7 @@ export default function MiniCart({ onClose }: MiniCartProps) {
       role="dialog"
       aria-label="Кошик"
       className={`absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-[var(--color-border)] bg-white shadow-[var(--shadow-xl)] transition-all duration-200 ${
-        visible
-          ? 'translate-y-0 opacity-100'
-          : '-translate-y-2 opacity-0'
+        visible ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
       }`}
     >
       <div className="border-b border-[var(--color-border)] px-3 py-2">
@@ -57,9 +55,18 @@ export default function MiniCart({ onClose }: MiniCartProps) {
         <>
           <div className="max-h-64 overflow-auto p-3">
             {items.map((item) => (
-              <div key={item.productId} className="flex items-center gap-3 border-b border-[var(--color-border)] py-2 last:border-0">
+              <div
+                key={item.productId}
+                className="flex items-center gap-3 border-b border-[var(--color-border)] py-2 last:border-0"
+              >
                 {item.imagePath ? (
-                  <Image src={item.imagePath} alt={item.name} width={48} height={48} className="shrink-0 rounded object-contain bg-[var(--color-bg-secondary)]" />
+                  <Image
+                    src={item.imagePath}
+                    alt={item.name}
+                    width={48}
+                    height={48}
+                    className="shrink-0 rounded object-contain bg-[var(--color-bg-secondary)]"
+                  />
                 ) : (
                   <div className="h-12 w-12 shrink-0 rounded bg-[var(--color-bg-secondary)]" />
                 )}
@@ -88,9 +95,11 @@ export default function MiniCart({ onClose }: MiniCartProps) {
                       <Plus size={14} />
                     </button>
                     <span className="text-xs text-[var(--color-text-secondary)]">
-                      x {isWholesaler && item.priceWholesale
+                      x{' '}
+                      {isWholesaler && item.priceWholesale
                         ? Number(item.priceWholesale).toFixed(2)
-                        : Number(item.priceRetail).toFixed(2)} ₴
+                        : Number(item.priceRetail).toFixed(2)}{' '}
+                      ₴
                     </span>
                   </div>
                 </div>

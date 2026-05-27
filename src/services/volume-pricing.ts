@@ -1,11 +1,14 @@
 import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
-import type { CreateVolumeDiscountInput, UpdateVolumeDiscountInput } from '@/validators/volume-discount';
+import type {
+  CreateVolumeDiscountInput,
+  UpdateVolumeDiscountInput,
+} from '@/validators/volume-discount';
 
 export class VolumePricingError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'VolumePricingError';
@@ -21,17 +24,14 @@ export class VolumePricingError extends Error {
 export async function getVolumeDiscount(
   productId: number,
   categoryId: number | null,
-  quantity: number
+  quantity: number,
 ): Promise<{ discountPercent: number; discountType: string; stackableWith: string[] } | null> {
   const now = new Date();
 
   const baseWhere = {
     isActive: true,
     minQuantity: { lte: quantity },
-    OR: [
-      { maxQuantity: null },
-      { maxQuantity: { gte: quantity } },
-    ],
+    OR: [{ maxQuantity: null }, { maxQuantity: { gte: quantity } }],
     AND: [
       { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
       { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
@@ -52,7 +52,10 @@ export async function getVolumeDiscount(
 
   if (productDiscount) {
     return {
-      discountPercent: productDiscount.discountPercent,
+      // Decimal column lands as a Prisma.Decimal object — coerce to number for
+      // the price-math callers downstream. Was a Float before; same return
+      // type is preserved so callers keep working unchanged.
+      discountPercent: Number(productDiscount.discountPercent),
       discountType: productDiscount.discountType,
       stackableWith: productDiscount.stackableWith ?? [],
     };
@@ -71,7 +74,7 @@ export async function getVolumeDiscount(
 
     if (categoryDiscount) {
       return {
-        discountPercent: categoryDiscount.discountPercent,
+        discountPercent: Number(categoryDiscount.discountPercent),
         discountType: categoryDiscount.discountType,
         stackableWith: categoryDiscount.stackableWith ?? [],
       };
@@ -85,8 +88,22 @@ export async function getVolumeDiscount(
  * Apply volume discounts to cart items, returns items with adjusted prices.
  */
 export async function applyVolumeDiscounts(
-  cartItems: Array<{ productId: number; categoryId: number | null; quantity: number; price: number }>
-): Promise<Array<{ productId: number; originalPrice: number; discountedPrice: number; discountPercent: number; quantity: number; stackableWith: string[] }>> {
+  cartItems: Array<{
+    productId: number;
+    categoryId: number | null;
+    quantity: number;
+    price: number;
+  }>,
+): Promise<
+  Array<{
+    productId: number;
+    originalPrice: number;
+    discountedPrice: number;
+    discountPercent: number;
+    quantity: number;
+    stackableWith: string[];
+  }>
+> {
   return Promise.all(
     cartItems.map(async (item) => {
       const discount = await getVolumeDiscount(item.productId, item.categoryId, item.quantity);
@@ -117,7 +134,7 @@ export async function applyVolumeDiscounts(
         quantity: item.quantity,
         stackableWith: discount.stackableWith,
       };
-    })
+    }),
   );
 }
 
@@ -134,10 +151,7 @@ export async function getVolumeDiscountsForProduct(productId: number, categoryId
         { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
         { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
       ],
-      OR: [
-        { productId },
-        ...(categoryId ? [{ categoryId, productId: null }] : []),
-      ],
+      OR: [{ productId }, ...(categoryId ? [{ categoryId, productId: null }] : [])],
     },
     orderBy: [{ minQuantity: 'asc' }],
   });
@@ -170,7 +184,36 @@ export async function getVolumeDiscounts(filters?: {
   });
 }
 
-export async function createVolumeDiscount(data: CreateVolumeDiscountInput & { stackableWith?: string[] }) {
+export async function createVolumeDiscount(
+  data: CreateVolumeDiscountInput & { stackableWith?: string[] },
+) {
+  // Overlap detection: refuse to create a discount whose [minQuantity, maxQuantity]
+  // range intersects any existing active range for the same product or
+  // category. Two overlapping rules tie on qty=N would have getVolumeDiscount
+  // arbitrarily pick by priority+discountPercent order — the customer
+  // sees the highest matching discount, but the admin never realised they
+  // wrote conflicting rules. Catch at create time so the conflict is loud.
+  const minQ = data.minQuantity;
+  const maxQ = data.maxQuantity ?? Number.MAX_SAFE_INTEGER;
+  const scopeFilter = data.productId
+    ? { productId: data.productId }
+    : { categoryId: data.categoryId ?? null, productId: null };
+  const candidates = await prisma.volumeDiscount.findMany({
+    where: { isActive: true, ...scopeFilter },
+    select: { id: true, minQuantity: true, maxQuantity: true },
+  });
+  const conflict = candidates.find((c) => {
+    const cMin = c.minQuantity;
+    const cMax = c.maxQuantity ?? Number.MAX_SAFE_INTEGER;
+    return minQ <= cMax && maxQ >= cMin;
+  });
+  if (conflict) {
+    throw new VolumePricingError(
+      `Діапазон [${minQ}-${data.maxQuantity ?? '∞'}] перетинається з існуючим правилом id=${conflict.id} ([${conflict.minQuantity}-${conflict.maxQuantity ?? '∞'}])`,
+      409,
+    );
+  }
+
   return prisma.volumeDiscount.create({
     data: {
       productId: data.productId ?? null,
@@ -191,7 +234,10 @@ export async function createVolumeDiscount(data: CreateVolumeDiscountInput & { s
   });
 }
 
-export async function updateVolumeDiscount(id: number, data: UpdateVolumeDiscountInput & { stackableWith?: string[] }) {
+export async function updateVolumeDiscount(
+  id: number,
+  data: UpdateVolumeDiscountInput & { stackableWith?: string[] },
+) {
   const existing = await prisma.volumeDiscount.findUnique({ where: { id } });
   if (!existing) {
     throw new VolumePricingError('Знижку за обсяг не знайдено', 404);
@@ -203,13 +249,20 @@ export async function updateVolumeDiscount(id: number, data: UpdateVolumeDiscoun
       productId: data.productId !== undefined ? (data.productId ?? null) : existing.productId,
       categoryId: data.categoryId !== undefined ? (data.categoryId ?? null) : existing.categoryId,
       minQuantity: data.minQuantity ?? existing.minQuantity,
-      maxQuantity: data.maxQuantity !== undefined ? (data.maxQuantity ?? null) : existing.maxQuantity,
+      maxQuantity:
+        data.maxQuantity !== undefined ? (data.maxQuantity ?? null) : existing.maxQuantity,
       discountPercent: data.discountPercent ?? existing.discountPercent,
       discountType: data.discountType ?? existing.discountType,
       isActive: data.isActive !== undefined ? data.isActive : existing.isActive,
       priority: data.priority ?? existing.priority,
-      startsAt: data.startsAt !== undefined ? (data.startsAt ? new Date(data.startsAt) : null) : existing.startsAt,
-      endsAt: data.endsAt !== undefined ? (data.endsAt ? new Date(data.endsAt) : null) : existing.endsAt,
+      startsAt:
+        data.startsAt !== undefined
+          ? data.startsAt
+            ? new Date(data.startsAt)
+            : null
+          : existing.startsAt,
+      endsAt:
+        data.endsAt !== undefined ? (data.endsAt ? new Date(data.endsAt) : null) : existing.endsAt,
       ...(data.stackableWith !== undefined && { stackableWith: data.stackableWith }),
     },
     include: volumeDiscountInclude,

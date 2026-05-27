@@ -22,7 +22,11 @@ export const GET = withRole(
       movingOnly,
     });
 
-    return successResponse(forecast);
+    // 3 heavy aggregates + sort on every GET. Forecast drift over a few
+    // minutes is fine — admin tweaks filters, page reloads stay snappy.
+    const res = successResponse(forecast);
+    res.headers.set('Cache-Control', 'private, max-age=300');
+    return res;
   } catch (err) {
     logger.error('[admin/forecasting] GET failed', { error: err });
     return errorResponse('Помилка обчислення прогнозу', 500);

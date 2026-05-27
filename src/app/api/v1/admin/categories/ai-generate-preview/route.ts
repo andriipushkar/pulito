@@ -4,6 +4,7 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { generateForCategory } from '@/services/ai-content';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 const schema = z.object({
   name: z.string().min(1).max(100),
@@ -18,8 +19,18 @@ const schema = z.object({
 export const POST = withRole(
   'admin',
   'manager',
-)(async (request: NextRequest) => {
+)(async (request: NextRequest, { user }) => {
   try {
+    // Shares the per-user AI quota with /products/ai-generate so a stuck
+    // button (or stolen session) can't run up an unbilled Claude/Gemini
+    // bill across the two surfaces.
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminAiGenerate);
+    if (!rl.allowed) {
+      return errorResponse(
+        `Ліміт AI-генерації вичерпано. Спробуйте через ${rl.retryAfter} с.`,
+        429,
+      );
+    }
     const body = await request.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {

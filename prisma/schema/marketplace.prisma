@@ -65,6 +65,7 @@ model PublicationChannel {
   engagement    Float? // Engagement rate (likes+comments+shares / views)
   publishedAt   DateTime?   @map("published_at")
   createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @default(now()) @map("updated_at")
 
   @@unique([publicationId, channel])
   @@index([publicationId])
@@ -160,6 +161,38 @@ model MarketplaceMessage {
   @@index([receivedAt(sort: Desc)])
   @@index([assignedTo])
   @@map("marketplace_messages")
+}
+
+// ─────────────────────────────────────
+// Marketplace Reviews
+// ─────────────────────────────────────
+// External reviews pulled from Rozetka / Prom APIs. Separate from local
+// `Review` because that one is FK-tied to a local User and `@@unique(productId,
+// userId)` — marketplace reviewers don't exist in our user table. Cron pulls
+// these and the storefront merges them with local reviews on the product page
+// for social proof.
+model MarketplaceReview {
+  id                Int      @id @default(autoincrement())
+  platform          String // rozetka, prom
+  externalId        String   @map("external_id")
+  productId         Int?     @map("product_id")
+  product           Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  externalListingId String?  @map("external_listing_id")
+  authorName        String   @map("author_name")
+  rating            Int // 1..5
+  title             String?  @db.VarChar(200)
+  comment           String?  @db.Text
+  pros              String?  @db.VarChar(500)
+  cons              String?  @db.VarChar(500)
+  reviewedAt        DateTime @map("reviewed_at")
+  permalink         String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([platform, externalId])
+  @@index([productId, platform])
+  @@index([reviewedAt(sort: Desc)])
+  @@map("marketplace_reviews")
 }
 
 // ─────────────────────────────────────

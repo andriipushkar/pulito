@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -62,7 +62,13 @@ interface ProductDetail {
     fullDescription: string | null;
     shortDescription: string | null;
     specifications: string | null;
+    seoTitleEn: string | null;
+    seoDescriptionEn: string | null;
+    fullDescriptionEn: string | null;
+    shortDescriptionEn: string | null;
+    specificationsEn: string | null;
   } | null;
+  nameEn?: string | null;
 }
 
 // All form inputs are strings (or booleans for checkboxes) because they come from
@@ -90,6 +96,13 @@ interface ProductFormState {
   promoEndDate: string;
   seoTitle: string;
   seoDescription: string;
+  // EN translations — empty string means "no translation, fall back to uk".
+  nameEn: string;
+  descriptionEn: string;
+  descriptionHtmlEn: string;
+  specificationsEn: string;
+  seoTitleEn: string;
+  seoDescriptionEn: string;
   categoryId: string;
   brandId: string;
   // Physical parameters — used by carrier TTN sizing and margin reports.
@@ -122,6 +135,12 @@ const EMPTY_PRODUCT_FORM: ProductFormState = {
   promoEndDate: '',
   seoTitle: '',
   seoDescription: '',
+  nameEn: '',
+  descriptionEn: '',
+  descriptionHtmlEn: '',
+  specificationsEn: '',
+  seoTitleEn: '',
+  seoDescriptionEn: '',
   categoryId: '',
   brandId: '',
   weightGrams: '',
@@ -152,6 +171,10 @@ export default function AdminProductDetailPage() {
   }, []);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  // Synchronous in-flight guard for the AI button. `isGenerating` flips
+  // through React's async setState, so a fast double-click would fire two
+  // billable Claude/Gemini calls before the disabled prop takes effect.
+  const aiInFlight = useRef(false);
   const [aiProvider, setAiProvider] = useState<'claude' | 'gemini' | 'rules'>('claude');
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('pulito.aiProvider') : null;
@@ -224,6 +247,12 @@ export default function AdminProductDetailPage() {
             promoEndDate: toLocalInput(res.data.promoEndDate),
             seoTitle: res.data.content?.seoTitle || '',
             seoDescription: res.data.content?.seoDescription || '',
+            nameEn: res.data.nameEn || '',
+            descriptionEn: res.data.content?.shortDescriptionEn || '',
+            descriptionHtmlEn: res.data.content?.fullDescriptionEn || '',
+            specificationsEn: res.data.content?.specificationsEn || '',
+            seoTitleEn: res.data.content?.seoTitleEn || '',
+            seoDescriptionEn: res.data.content?.seoDescriptionEn || '',
             categoryId: res.data.categoryId ? String(res.data.categoryId) : '',
             brandId: res.data.brandId ? String(res.data.brandId) : '',
             weightGrams:
@@ -296,6 +325,13 @@ export default function AdminProductDetailPage() {
         promoEndDate: form.promoEndDate || null,
         seoTitle: form.seoTitle || null,
         seoDescription: form.seoDescription || null,
+        // EN — send the raw string so service can null-out empties.
+        nameEn: form.nameEn || null,
+        descriptionEn: form.descriptionEn || null,
+        descriptionHtmlEn: form.descriptionHtmlEn || null,
+        specificationsEn: form.specificationsEn || null,
+        seoTitleEn: form.seoTitleEn || null,
+        seoDescriptionEn: form.seoDescriptionEn || null,
         categoryId: form.categoryId ? Number(form.categoryId) : null,
         brandId: form.brandId ? Number(form.brandId) : null,
         weightGrams: form.weightGrams ? Number(form.weightGrams) : null,
@@ -338,6 +374,57 @@ export default function AdminProductDetailPage() {
       toast.error('Помилка мережі');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  /** Generate description+SEO via AI based on current form data. Confirms
+   * before overwriting non-empty fields so the manager doesn't lose edits. */
+  const handleAiGenerate = async () => {
+    if (!form.name.trim()) {
+      toast.error('Спершу введіть назву товару');
+      return;
+    }
+    const hasExisting =
+      form.descriptionHtml.trim() ||
+      form.description.trim() ||
+      form.seoTitle.trim() ||
+      form.seoDescription.trim();
+    if (hasExisting && !window.confirm('Замінити існуючий опис/SEO?')) return;
+    if (aiInFlight.current) return;
+    aiInFlight.current = true;
+
+    setIsGenerating(true);
+    try {
+      const res = await apiClient.post<{
+        seoTitle: string;
+        seoDescription: string;
+        shortDescription: string;
+        fullDescription: string;
+      }>('/api/v1/admin/products/ai-generate-preview', {
+        name: form.name.trim(),
+        categoryId: form.categoryId ? Number(form.categoryId) : null,
+        brandId: form.brandId ? Number(form.brandId) : null,
+        priceRetail: Number(form.priceRetail) || 0,
+        shortDescription: form.description.trim() || null,
+        provider: aiProvider,
+      });
+      if (res.success && res.data) {
+        setForm((prev) => ({
+          ...prev,
+          description: res.data!.shortDescription,
+          descriptionHtml: res.data!.fullDescription,
+          seoTitle: res.data!.seoTitle,
+          seoDescription: res.data!.seoDescription,
+        }));
+        toast.success(`AI згенерував опис (${aiProvider})`);
+      } else {
+        toast.error(res.error || 'AI генерація не вдалась');
+      }
+    } catch {
+      toast.error('Помилка мережі');
+    } finally {
+      aiInFlight.current = false;
+      setIsGenerating(false);
     }
   };
 
@@ -712,6 +799,8 @@ export default function AdminProductDetailPage() {
               type="button"
               disabled={isGenerating}
               onClick={async () => {
+                if (aiInFlight.current) return;
+                aiInFlight.current = true;
                 setIsGenerating(true);
                 try {
                   const res = await apiClient.post<{
@@ -759,6 +848,7 @@ export default function AdminProductDetailPage() {
                   console.error('[AI generate]', err);
                   toast.error('Помилка мережі');
                 } finally {
+                  aiInFlight.current = false;
                   setIsGenerating(false);
                 }
               }}
@@ -885,7 +975,20 @@ export default function AdminProductDetailPage() {
 
       {/* SEO */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">SEO</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">SEO</h3>
+          <button
+            type="button"
+            onClick={handleAiGenerate}
+            disabled={isGenerating || !form.name.trim()}
+            className="inline-flex items-center gap-1 rounded border border-[var(--color-primary)] bg-[var(--color-primary)]/10 px-3 py-1 text-xs font-medium text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)]/20 disabled:opacity-50"
+            title={
+              !form.name.trim() ? 'Введіть назву товару спершу' : 'Згенерувати опис та SEO через AI'
+            }
+          >
+            {isGenerating ? '⏳ Генерую...' : '✨ Згенерувати AI'}
+          </button>
+        </div>
         <div className="space-y-4">
           <div>
             <Input
@@ -918,6 +1021,71 @@ export default function AdminProductDetailPage() {
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
               {form.seoDescription?.length || 0}/160
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* EN translations — optional. Empty fields fall back to uk on /en/. */}
+      <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <span className="rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+            EN
+          </span>
+          Англійський переклад (опційно)
+        </h3>
+        <p className="mb-4 text-xs text-[var(--color-text-secondary)]">
+          Залиште порожнім — на /en/ покаже українську версію як фолбек.
+        </p>
+        <div className="space-y-4">
+          <Input
+            label="Name (EN)"
+            value={form.nameEn}
+            onChange={(e) => updateField('nameEn', e.target.value)}
+          />
+          <div>
+            <label className="mb-1 block text-sm font-medium">Short description (EN)</label>
+            <textarea
+              value={form.descriptionEn}
+              onChange={(e) => updateField('descriptionEn', e.target.value)}
+              rows={2}
+              maxLength={200}
+              className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+            />
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {form.descriptionEn?.length || 0}/200
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Full description (EN, HTML)</label>
+            <textarea
+              value={form.descriptionHtmlEn}
+              onChange={(e) => updateField('descriptionHtmlEn', e.target.value)}
+              rows={6}
+              className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 font-mono text-xs outline-none focus:border-[var(--color-primary)]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Specifications (EN)</label>
+            <textarea
+              value={form.specificationsEn}
+              onChange={(e) => updateField('specificationsEn', e.target.value)}
+              rows={4}
+              className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+            />
+          </div>
+          <Input
+            label="SEO Title (EN)"
+            value={form.seoTitleEn}
+            onChange={(e) => updateField('seoTitleEn', e.target.value)}
+          />
+          <div>
+            <label className="mb-1 block text-sm font-medium">SEO Description (EN)</label>
+            <textarea
+              value={form.seoDescriptionEn}
+              onChange={(e) => updateField('seoDescriptionEn', e.target.value)}
+              rows={3}
+              className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+            />
           </div>
         </div>
       </div>

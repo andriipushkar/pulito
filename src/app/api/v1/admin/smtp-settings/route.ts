@@ -7,6 +7,7 @@ import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
 import { encrypt, decrypt, isEncrypted } from '@/lib/encryption';
+import { updateSmtpSettingsSchema } from '@/validators/smtp';
 
 const SMTP_KEYS = [
   'smtp_host',
@@ -37,7 +38,10 @@ function maskValue(key: string, rawValue: string): string {
   return value.slice(0, 3) + '••••••' + value.slice(-3);
 }
 
-export const GET = withRole2fa('admin', 'manager')(async () => {
+export const GET = withRole2fa(
+  'admin',
+  'manager',
+)(async () => {
   try {
     const settings = await prisma.siteSetting.findMany({
       where: { key: { in: [...SMTP_KEYS] } },
@@ -58,12 +62,31 @@ export const GET = withRole2fa('admin', 'manager')(async () => {
 
 export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) => {
   try {
-    const body = await request.json();
+    const rawBody = await request.json();
+    const parsed = updateSmtpSettingsSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
+    }
+    const body = parsed.data;
+
+    // Before-snapshot of non-secret keys so audit can show what changed
+    // (smtp_host hijack to attacker server must leave a trail with the
+    // old hostname). Sensitive `smtp_pass` is never logged — only "changed".
+    const beforeSettings = await prisma.siteSetting.findMany({
+      where: { key: { in: [...SMTP_KEYS] } },
+    });
+    const before: Record<string, string> = {};
+    for (const s of beforeSettings) {
+      if (SENSITIVE_KEYS.includes(s.key)) continue;
+      before[s.key] = s.value;
+    }
+
     const changedKeys: string[] = [];
     const sensitiveChangedKeys: string[] = [];
 
     for (const [key, value] of Object.entries(body)) {
-      if (!SMTP_KEYS.includes(key as typeof SMTP_KEYS[number])) continue;
+      if (!SMTP_KEYS.includes(key as (typeof SMTP_KEYS)[number])) continue;
+      if (value === undefined) continue;
       const strValue = String(value);
       if (SENSITIVE_KEYS.includes(key) && strValue.includes('••••')) continue;
 
@@ -86,7 +109,7 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) =
         userId: user.id,
         actionType: 'rule_change',
         entityType: 'settings',
-        details: { scope: 'smtp', changedKeys, sensitiveChangedKeys },
+        details: { scope: 'smtp', changedKeys, sensitiveChangedKeys, before },
         ipAddress: getClientIp(request),
       });
     }

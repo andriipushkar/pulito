@@ -1,27 +1,34 @@
 import { NextRequest } from 'next/server';
 import { withRole2fa } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
-
-// Mirrors the smtp test rate limit: 5 probes per admin per minute. Stops a
-// curious admin (or a stolen session) from hammering payment providers and
-// triggering their abuse detection.
-const RATE_BUCKET = new Map<number, number[]>();
-const RATE_WINDOW_MS = 60_000;
-const RATE_MAX = 5;
-function isRateLimited(adminId: number): boolean {
-  const now = Date.now();
-  const hits = (RATE_BUCKET.get(adminId) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  hits.push(now);
-  RATE_BUCKET.set(adminId, hits);
-  return hits.length > RATE_MAX;
-}
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { logger } from '@/lib/logger';
 
 export const POST = withRole2fa('admin')(async (request: NextRequest, { user }) => {
   try {
-    if (isRateLimited(user.id)) {
-      return errorResponse('Забагато тестових запитів. Зачекайте хвилину.', 429);
+    // Redis-backed rate limit so the cap holds across PM2 cluster workers /
+    // server restarts (the previous in-memory Map reset on every deploy,
+    // letting a stolen session probe 5×N keys instead of 5).
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminPaymentTest);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато тестових запитів. Спробуйте через ${rl.retryAfter} с.`, 429);
     }
     const { provider, config } = await request.json();
+
+    // Audit every test attempt so a compromised session leaves a trail even
+    // when the test "succeeds". Includes provider and admin id; we don't log
+    // credentials (those go in the encrypted store, not the audit log).
+    await logAudit({
+      userId: user.id,
+      actionType: 'rule_change',
+      entityType: 'payment_test',
+      details: { provider, hasCredentials: Boolean(config) },
+      ipAddress: getClientIp(request),
+    }).catch((err) => {
+      logger.warn('[payment-test] audit log failed (non-fatal)', { error: String(err) });
+    });
 
     if (provider === 'liqpay') {
       if (!config.publicKey || !config.privateKey) {

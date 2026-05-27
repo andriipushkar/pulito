@@ -103,12 +103,12 @@ export async function GET(request: NextRequest) {
                 color: hasDiscount ? '#dc2626' : '#2563eb',
               }}
             >
-              {Number(price).toFixed(0)} ₴
+              {`${Number(price).toFixed(0)} ₴`}
             </div>
             {hasDiscount && (
               <>
                 <div style={{ fontSize: '32px', color: '#9ca3af', textDecoration: 'line-through' }}>
-                  {Number(oldPrice).toFixed(0)} ₴
+                  {`${Number(oldPrice).toFixed(0)} ₴`}
                 </div>
                 <div
                   style={{
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
                     borderRadius: '20px',
                   }}
                 >
-                  -{discount}%
+                  {`-${discount}%`}
                 </div>
               </>
             )}

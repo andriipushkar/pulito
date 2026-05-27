@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
@@ -8,6 +8,7 @@ import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/types/order';
 import type { OrderListItem, OrderStatus } from '@/types/order';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import { formatDateTime } from '@/utils/format';
 import Spinner from '@/components/ui/Spinner';
 import Pagination from '@/components/ui/Pagination';
 
@@ -30,6 +31,16 @@ const BULK_ACTIONS = [
 ];
 
 export default function AdminOrdersBulkPage() {
+  return (
+    <Suspense
+      fallback={<div className="p-6 text-sm text-[var(--color-text-secondary)]">Завантаження…</div>}
+    >
+      <AdminOrdersBulkPageInner />
+    </Suspense>
+  );
+}
+
+function AdminOrdersBulkPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [orders, setOrders] = useState<OrderListItem[]>([]);
@@ -94,7 +105,10 @@ export default function AdminOrdersBulkPage() {
     try {
       if (bulkAction === 'export_csv') {
         const ids = Array.from(selected);
-        const res = await apiClient.post<{ url: string }>('/api/v1/admin/orders/export', { orderIds: ids, format: 'csv' });
+        const res = await apiClient.post<{ url: string }>('/api/v1/admin/orders/export', {
+          orderIds: ids,
+          format: 'csv',
+        });
         if (res.success && res.data?.url) {
           window.open(res.data.url, '_blank');
           setMessage({ type: 'success', text: `Експортовано ${ids.length} замовлень` });
@@ -110,21 +124,30 @@ export default function AdminOrdersBulkPage() {
           setMessage({ type: 'success', text: `Створено етикетки для ${ids.length} замовлень` });
         }
       } else {
-        // Status update
+        // Status update — use the bulk endpoint so all updates run server-side
+        // in a tight loop with shared audit/logging, instead of N HTTP round-
+        // trips that can hit nginx timeouts and don't survive a half-failure.
         const ids = Array.from(selected);
-        let successCount = 0;
-        for (const id of ids) {
-          const res = await apiClient.put(`/api/v1/admin/orders/${id}/status`, { status: bulkAction });
-          if (res.success) successCount++;
-        }
-        setMessage({ type: 'success', text: `Оновлено ${successCount} з ${ids.length} замовлень` });
+        type BulkResult = {
+          ok: { orderId: number }[];
+          failed: { orderId: number; error: string }[];
+        };
+        const res = await apiClient.post<BulkResult>('/api/v1/admin/orders/bulk-status', {
+          orderIds: ids,
+          status: bulkAction,
+        });
+        const successCount = res.success && res.data ? res.data.ok.length : 0;
+        setMessage({
+          type: successCount === ids.length ? 'success' : 'error',
+          text: `Оновлено ${successCount} з ${ids.length} замовлень`,
+        });
         // Reload
         const params = new URLSearchParams({ page: String(page), limit: String(limit) });
         if (status) params.set('status', status);
-        const res = await apiClient.get<OrderListItem[]>(`/api/v1/admin/orders?${params}`);
-        if (res.success && res.data) {
-          setOrders(res.data);
-          setTotal(res.pagination?.total || 0);
+        const reload = await apiClient.get<OrderListItem[]>(`/api/v1/admin/orders?${params}`);
+        if (reload.success && reload.data) {
+          setOrders(reload.data);
+          setTotal(reload.pagination?.total || 0);
         }
       }
     } catch {
@@ -136,21 +159,32 @@ export default function AdminOrdersBulkPage() {
     }
   };
 
-  const formatDate = (d: string | Date) =>
-    new Date(d).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const formatDate = formatDateTime;
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold">Масові дії</h2>
-          <Link href="/admin/orders" className="text-sm text-[var(--color-primary)] hover:underline">← Звичайний режим</Link>
+          <Link
+            href="/admin/orders"
+            className="text-sm text-[var(--color-primary)] hover:underline"
+          >
+            ← Звичайний режим
+          </Link>
         </div>
-        <Select options={STATUS_OPTIONS} value={status} onChange={(e) => updateFilter('status', e.target.value)} className="w-44" />
+        <Select
+          options={STATUS_OPTIONS}
+          value={status}
+          onChange={(e) => updateFilter('status', e.target.value)}
+          className="w-44"
+        />
       </div>
 
       {message && (
-        <div className={`mb-4 rounded-[var(--radius)] p-3 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-[var(--color-danger)]'}`}>
+        <div
+          className={`mb-4 rounded-[var(--radius)] p-3 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-[var(--color-danger)]'}`}
+        >
           {message.text}
         </div>
       )}
@@ -160,14 +194,26 @@ export default function AdminOrdersBulkPage() {
         <span className="text-sm text-[var(--color-text-secondary)]">
           Обрано: <strong>{selected.size}</strong>
         </span>
-        <Select options={BULK_ACTIONS} value={bulkAction} onChange={(e) => setBulkAction(e.target.value)} className="w-52" />
-        <Button size="sm" onClick={handleBulkAction} isLoading={isProcessing} disabled={!bulkAction || selected.size === 0}>
+        <Select
+          options={BULK_ACTIONS}
+          value={bulkAction}
+          onChange={(e) => setBulkAction(e.target.value)}
+          className="w-52"
+        />
+        <Button
+          size="sm"
+          onClick={handleBulkAction}
+          isLoading={isProcessing}
+          disabled={!bulkAction || selected.size === 0}
+        >
           Виконати
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Spinner size="md" /></div>
+        <div className="flex justify-center py-12">
+          <Spinner size="md" />
+        </div>
       ) : (
         <>
           <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
@@ -175,7 +221,12 @@ export default function AdminOrdersBulkPage() {
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
                   <th className="px-4 py-3 text-left">
-                    <input type="checkbox" checked={selected.size === orders.length && orders.length > 0} onChange={toggleAll} className="accent-[var(--color-primary)]" />
+                    <input
+                      type="checkbox"
+                      checked={selected.size === orders.length && orders.length > 0}
+                      onChange={toggleAll}
+                      className="accent-[var(--color-primary)]"
+                    />
                   </th>
                   <th className="px-4 py-3 text-left font-medium">Номер</th>
                   <th className="px-4 py-3 text-left font-medium">Дата</th>
@@ -190,31 +241,60 @@ export default function AdminOrdersBulkPage() {
                     className={`border-b border-[var(--color-border)] last:border-0 ${selected.has(order.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'}`}
                   >
                     <td className="px-4 py-3">
-                      <input type="checkbox" checked={selected.has(order.id)} onChange={() => toggleSelect(order.id)} className="accent-[var(--color-primary)]" />
+                      <input
+                        type="checkbox"
+                        checked={selected.has(order.id)}
+                        onChange={() => toggleSelect(order.id)}
+                        className="accent-[var(--color-primary)]"
+                      />
                     </td>
                     <td className="px-4 py-3">
-                      <Link href={`/admin/orders/${order.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
+                      <Link
+                        href={`/admin/orders/${order.id}`}
+                        className="font-medium text-[var(--color-primary)] hover:underline"
+                      >
                         #{order.orderNumber}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(order.createdAt)}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                      {formatDate(order.createdAt)}
+                    </td>
                     <td className="px-4 py-3">
-                      <span className="rounded-full px-2 py-0.5 text-xs font-medium text-white" style={{ backgroundColor: ORDER_STATUS_COLORS[order.status as OrderStatus] }}>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                        style={{
+                          backgroundColor: ORDER_STATUS_COLORS[order.status as OrderStatus],
+                        }}
+                      >
                         {ORDER_STATUS_LABELS[order.status as OrderStatus]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-bold">{Number(order.totalAmount).toFixed(2)} ₴</td>
+                    <td className="px-4 py-3 text-right font-bold">
+                      {Number(order.totalAmount).toFixed(2)} ₴
+                    </td>
                   </tr>
                 ))}
                 {orders.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">Замовлень не знайдено</td></tr>
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                    >
+                      Замовлень не знайдено
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
 
           {total > limit && (
-            <Pagination currentPage={page} totalPages={Math.ceil(total / limit)} baseUrl="/admin/orders/bulk" className="mt-6" />
+            <Pagination
+              currentPage={page}
+              totalPages={Math.ceil(total / limit)}
+              baseUrl="/admin/orders/bulk"
+              className="mt-6"
+            />
           )}
         </>
       )}

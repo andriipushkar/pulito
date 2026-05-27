@@ -71,20 +71,21 @@ vi.mock('./TrustBadges', () => ({ default: () => <div data-testid="trust-badges"
 vi.mock('./PaymentBadges', () => ({ default: () => <div data-testid="payment-badges" /> }));
 
 import Footer from './Footer';
+import { DEFAULT_SETTINGS } from '@/types/settings';
 
 describe('Footer', () => {
   it('renders without crashing', () => {
-    const { container } = render(<Footer />);
+    const { container } = render(<Footer settings={DEFAULT_SETTINGS} />);
     expect(container).toBeTruthy();
   });
 
   it('renders footer element', () => {
-    const { container } = render(<Footer />);
+    const { container } = render(<Footer settings={DEFAULT_SETTINGS} />);
     expect(container.querySelector('footer')).toBeInTheDocument();
   });
 
   it('renders buyer links', () => {
-    const { getAllByText } = render(<Footer />);
+    const { getAllByText } = render(<Footer settings={DEFAULT_SETTINGS} />);
     expect(getAllByText('Часті питання').length).toBeGreaterThan(0);
   });
 });

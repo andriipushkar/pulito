@@ -4,18 +4,32 @@ import { logger } from '@/lib/logger';
 /**
  * Default retention windows by action type. Critical security events stay
  * longer because we may need them for incident response months after the fact.
+ * Financial / commercial actions stay 3 years per UA «Закон про бухоблік»
+ * ст. 44 — tax inspections look back 1095 days, deleting earlier puts the
+ * merchant at risk during an audit.
  *
  * Anything not listed here uses DEFAULT_RETENTION_DAYS.
  */
+const THREE_YEARS = 365 * 3;
+
 const RETENTION_DAYS_BY_ACTION: Record<string, number> = {
-  // Security-critical: keep for a year
+  // Security: 1 year covers incident-response windows.
   login: 365,
   logout: 365,
   password_reset: 365,
   role_change: 365,
   user_block: 365,
   user_unblock: 365,
-  data_delete: 365,
+  // Financial / commercial: 3 years (UA accounting compliance).
+  data_create: THREE_YEARS,
+  data_update: THREE_YEARS,
+  data_delete: THREE_YEARS,
+  order_status_change: THREE_YEARS,
+  rule_change: THREE_YEARS,
+  import_action: THREE_YEARS,
+  gdpr_export: THREE_YEARS,
+  wholesale_approve: THREE_YEARS,
+  wholesale_reject: THREE_YEARS,
 };
 
 const DEFAULT_RETENTION_DAYS = 180;
@@ -83,5 +97,30 @@ export async function cleanupAuditLog(batchSize = 1000): Promise<CleanupResult> 
     deleted: result.deleted,
     byActionType: result.byActionType,
   } as Record<string, unknown>);
+
+  // Self-audit: leave a trail of WHO/WHEN/HOW-MUCH was cleaned. Without this,
+  // a malicious cron caller could shred evidence and leave no record they
+  // did so. userId 0 = system actor.
+  if (result.deleted > 0) {
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: 0,
+          actionType: 'data_delete',
+          entityType: 'audit_log_cleanup',
+          details: {
+            deleted: result.deleted,
+            byActionType: result.byActionType,
+            source: 'cron:cleanup-audit-log',
+          } as never,
+        },
+      });
+    } catch (err) {
+      logger.warn('[cleanup-audit-log] self-audit write failed (non-fatal)', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   return result;
 }

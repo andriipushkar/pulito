@@ -17,7 +17,7 @@ export class DomainError extends Error {
  */
 export async function initiateDomainVerification(
   tenantId: number,
-  domain: string
+  domain: string,
 ): Promise<{
   domain: string;
   verificationToken: string;
@@ -55,10 +55,7 @@ export async function initiateDomainVerification(
 /**
  * Check DNS TXT record for domain verification.
  */
-export async function verifyDomain(
-  tenantId: number,
-  domain: string
-): Promise<boolean> {
+export async function verifyDomain(tenantId: number, domain: string): Promise<boolean> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
   });
@@ -76,34 +73,57 @@ export async function verifyDomain(
   }
 
   const txtHost = `_clean-verify.${domain}`;
+  const expectedToken = tenant.domainVerificationToken;
 
-  try {
-    const records = await dns.resolveTxt(txtHost);
-    // records is array of arrays, flatten
-    const flatRecords = records.map((r) => r.join(''));
-    const verified = flatRecords.includes(tenant.domainVerificationToken);
-
-    if (verified) {
-      await prisma.tenant.update({
-        where: { id: tenantId },
-        data: { domainVerified: true },
-      });
+  // 5s DNS timeout — without it a hung resolver holds a request thread
+  // indefinitely. dns.resolveTxt has no built-in timeout option; race it
+  // against a manual timer.
+  const lookup = (async (): Promise<{ verified: boolean; reason?: string }> => {
+    try {
+      const records = await dns.resolveTxt(txtHost);
+      const flatRecords = records.map((r) => r.join(''));
+      const verified = flatRecords.includes(expectedToken);
+      if (!verified) {
+        return {
+          verified: false,
+          reason: `TXT records found but none matched expected token (records: ${flatRecords.length})`,
+        };
+      }
+      return { verified: true };
+    } catch (err) {
+      const code =
+        err && typeof err === 'object' && 'code' in err
+          ? (err as { code: string }).code
+          : 'unknown';
+      return { verified: false, reason: `DNS error: ${code}` };
     }
+  })();
 
-    return verified;
-  } catch {
-    // DNS resolution failed — domain not verified
-    return false;
+  const result = await Promise.race<{ verified: boolean; reason?: string }>([
+    lookup,
+    new Promise<{ verified: false; reason: string }>((resolve) =>
+      setTimeout(() => resolve({ verified: false, reason: 'DNS timeout 5s' }), 5000),
+    ),
+  ]);
+
+  if (result.verified) {
+    // Clear the verification token after success so an old token doesn't
+    // hang around in DB forever — re-verification regenerates one.
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { domainVerified: true, domainVerificationToken: null },
+    });
+  } else if (result.reason) {
+    console.warn(`[domain.verifyDomain] ${domain}: ${result.reason}`);
   }
+
+  return result.verified;
 }
 
 /**
  * Map verified domain to tenant.
  */
-export async function mapDomain(
-  tenantId: number,
-  domain: string
-): Promise<void> {
+export async function mapDomain(tenantId: number, domain: string): Promise<void> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
   });
@@ -139,9 +159,7 @@ export async function removeDomain(tenantId: number): Promise<void> {
 /**
  * Resolve tenant from custom domain (used by tenant middleware).
  */
-export async function resolveTenantByDomain(
-  domain: string
-): Promise<number | null> {
+export async function resolveTenantByDomain(domain: string): Promise<number | null> {
   const tenant = await prisma.tenant.findFirst({
     where: {
       domain,

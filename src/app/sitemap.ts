@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { prisma } from '@/lib/prisma';
+import { buildHreflang } from '@/lib/i18n';
 
 // Sitemap reads from the live DB; CI builds with a stub DATABASE_URL,
 // so prerendering at build time fails. Compute on request, cached at runtime.
@@ -17,15 +18,51 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const productCount = await prisma.product.count({ where: { isActive: true } });
   const chunks = Math.ceil(productCount / PRODUCTS_PER_SITEMAP) || 1;
 
-  // Static pages
+  // Static pages — every URL gets hreflang alternates so Google sees the
+  // /uk and /en variants point at the same conceptual page.
   const staticPages: MetadataRoute.Sitemap = [
-    { url: baseUrl, changeFrequency: 'daily', priority: 1 },
-    { url: `${baseUrl}/catalog`, changeFrequency: 'daily', priority: 0.9 },
-    { url: `${baseUrl}/blog`, changeFrequency: 'daily', priority: 0.7 },
-    { url: `${baseUrl}/news`, changeFrequency: 'daily', priority: 0.7 },
-    { url: `${baseUrl}/bundles`, changeFrequency: 'weekly', priority: 0.6 },
-    { url: `${baseUrl}/faq`, changeFrequency: 'weekly', priority: 0.5 },
-    { url: `${baseUrl}/contacts`, changeFrequency: 'monthly', priority: 0.4 },
+    {
+      url: baseUrl,
+      changeFrequency: 'daily',
+      priority: 1,
+      alternates: { languages: buildHreflang('/') },
+    },
+    {
+      url: `${baseUrl}/catalog`,
+      changeFrequency: 'daily',
+      priority: 0.9,
+      alternates: { languages: buildHreflang('/catalog') },
+    },
+    {
+      url: `${baseUrl}/blog`,
+      changeFrequency: 'daily',
+      priority: 0.7,
+      alternates: { languages: buildHreflang('/blog') },
+    },
+    {
+      url: `${baseUrl}/news`,
+      changeFrequency: 'daily',
+      priority: 0.7,
+      alternates: { languages: buildHreflang('/news') },
+    },
+    {
+      url: `${baseUrl}/bundles`,
+      changeFrequency: 'weekly',
+      priority: 0.6,
+      alternates: { languages: buildHreflang('/bundles') },
+    },
+    {
+      url: `${baseUrl}/faq`,
+      changeFrequency: 'weekly',
+      priority: 0.5,
+      alternates: { languages: buildHreflang('/faq') },
+    },
+    {
+      url: `${baseUrl}/contacts`,
+      changeFrequency: 'monthly',
+      priority: 0.4,
+      alternates: { languages: buildHreflang('/contacts') },
+    },
   ];
 
   // Categories (usually small, always in main sitemap)
@@ -39,6 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: c.updatedAt,
     changeFrequency: 'weekly',
     priority: 0.7,
+    alternates: { languages: buildHreflang(`/catalog?category=${c.slug}`) },
   }));
 
   // Brands — each has a dedicated /brand/[slug] SEO page.
@@ -52,6 +90,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: b.updatedAt,
     changeFrequency: 'weekly',
     priority: 0.7,
+    alternates: { languages: buildHreflang(`/brand/${b.slug}`) },
   }));
 
   // Static content pages
@@ -65,6 +104,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: p.updatedAt,
     changeFrequency: 'monthly',
     priority: 0.5,
+    alternates: { languages: buildHreflang(`/pages/${p.slug}`) },
   }));
 
   // Products — chunked to avoid timeout on large catalogs
@@ -84,6 +124,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: p.updatedAt,
         changeFrequency: 'weekly',
         priority: 0.8,
+        alternates: { languages: buildHreflang(`/product/${p.slug}`) },
       });
     }
   }
@@ -100,6 +141,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: p.updatedAt,
     changeFrequency: 'weekly' as const,
     priority: 0.6,
+    alternates: { languages: buildHreflang(`/blog/${p.slug}`) },
+  }));
+
+  // Blog categories — listing pages for each topic, indexed separately
+  // so users searching "блог про прибирання" land on the right hub.
+  const blogCategories = await prisma.blogCategory.findMany({
+    select: { slug: true, updatedAt: true },
+  });
+
+  const blogCategoryPages: MetadataRoute.Sitemap = blogCategories.map((c) => ({
+    url: `${baseUrl}/blog/category/${c.slug}`,
+    lastModified: c.updatedAt,
+    changeFrequency: 'weekly' as const,
+    priority: 0.5,
+    alternates: { languages: buildHreflang(`/blog/category/${c.slug}`) },
   }));
 
   // Bundles
@@ -113,6 +169,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: b.updatedAt,
     changeFrequency: 'weekly' as const,
     priority: 0.6,
+    alternates: { languages: buildHreflang(`/bundles/${b.slug}`) },
   }));
 
   return [
@@ -122,6 +179,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...brandPages,
     ...contentPages,
     ...blogPages,
+    ...blogCategoryPages,
     ...bundlePages,
   ];
 }

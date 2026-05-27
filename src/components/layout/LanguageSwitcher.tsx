@@ -14,6 +14,11 @@ export default function LanguageSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Hide the switcher entirely on single-locale builds — saves a useless
+  // "UK / UK" button in the TopBar. Re-appears automatically when a second
+  // locale is added to routing.locales.
+  if (routing.locales.length <= 1) return null;
+
   const otherLocale = routing.locales.find((l) => l !== locale) ?? routing.defaultLocale;
 
   const handleSwitch = () => {

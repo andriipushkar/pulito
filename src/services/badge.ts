@@ -13,7 +13,11 @@ const HIT_THRESHOLD = 10; // min orders to be considered a "hit"
 export async function autoAssignBadges(): Promise<{ newArrivals: number; hits: number }> {
   const cutoffDate = new Date(Date.now() - NEW_ARRIVAL_DAYS * 24 * 60 * 60 * 1000);
 
-  // 1. Auto "new_arrival" badges
+  // 1. Auto "new_arrival" badges. Pre-fix loop did N sequential upserts;
+  // with 500+ new products a day it added seconds of DB latency.
+  // `createMany skipDuplicates` collapses it to one round-trip — the
+  // `@@unique([productId, badgeType])` index still keeps it race-safe with
+  // concurrent admin inserts.
   const newProducts = await prisma.product.findMany({
     where: {
       isActive: true,
@@ -22,18 +26,15 @@ export async function autoAssignBadges(): Promise<{ newArrivals: number; hits: n
     },
     select: { id: true },
   });
-
-  // upsert lets us race-safely add (the unique index would otherwise throw)
-  for (const product of newProducts) {
-    await prisma.productBadge.upsert({
-      where: { productId_badgeType: { productId: product.id, badgeType: 'new_arrival' } },
-      update: {},
-      create: {
-        productId: product.id,
-        badgeType: 'new_arrival',
+  if (newProducts.length > 0) {
+    await prisma.productBadge.createMany({
+      data: newProducts.map((p) => ({
+        productId: p.id,
+        badgeType: 'new_arrival' as const,
         priority: 5,
         isActive: true,
-      },
+      })),
+      skipDuplicates: true,
     });
   }
 
@@ -56,16 +57,15 @@ export async function autoAssignBadges(): Promise<{ newArrivals: number; hits: n
     select: { id: true },
   });
 
-  for (const product of hitProducts) {
-    await prisma.productBadge.upsert({
-      where: { productId_badgeType: { productId: product.id, badgeType: 'hit' } },
-      update: {},
-      create: {
-        productId: product.id,
-        badgeType: 'hit',
+  if (hitProducts.length > 0) {
+    await prisma.productBadge.createMany({
+      data: hitProducts.map((p) => ({
+        productId: p.id,
+        badgeType: 'hit' as const,
         priority: 4,
         isActive: true,
-      },
+      })),
+      skipDuplicates: true,
     });
   }
 

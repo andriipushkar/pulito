@@ -128,6 +128,18 @@ export default function AdminAnalyticsPage() {
     }
   }, [tab, days]);
 
+  // CSV cell escaper. Excel/Sheets interpret cells starting with =/+/-/@/tab/CR
+  // as formulas — a productName like `=cmd|'/c calc'!A0` would silently
+  // execute on open. We neutralise with a leading single quote AND quote
+  // any cell containing commas/quotes/newlines.
+  const csvCell = useCallback((value: string | number | null | undefined): string => {
+    if (value === null || value === undefined) return '';
+    let s = String(value);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  }, []);
+
   const exportCsv = useCallback(() => {
     if (!data || typeof data !== 'object') {
       toast.error('Немає даних для експорту');
@@ -142,10 +154,14 @@ export default function AdminAnalyticsPage() {
       const daily = (d as { daily: { date: string; revenue: number; count: number }[] }).daily;
       csv =
         'Дата,Виручка,Замовлень\n' +
-        daily.map((r) => `${r.date},${r.revenue.toFixed(2)},${r.count}`).join('\n');
+        daily
+          .map((r) => [csvCell(r.date), csvCell(r.revenue.toFixed(2)), csvCell(r.count)].join(','))
+          .join('\n');
     } else if (tab === 'orders' && Array.isArray((d as { statusCounts?: unknown }).statusCounts)) {
       const sc = (d as { statusCounts: { status: string; _count: number }[] }).statusCounts;
-      csv = 'Статус,Кількість\n' + sc.map((s) => `${s.status},${s._count}`).join('\n');
+      csv =
+        'Статус,Кількість\n' +
+        sc.map((s) => [csvCell(s.status), csvCell(s._count)].join(',')).join('\n');
     } else if (tab === 'products' && Array.isArray((d as { topProducts?: unknown }).topProducts)) {
       const tp = (
         d as {
@@ -160,9 +176,14 @@ export default function AdminAnalyticsPage() {
       csv =
         'Код,Назва,Кількість,Сума,Замовлень\n' +
         tp
-          .map(
-            (p) =>
-              `${p.productCode},"${p.productName}",${p._sum.quantity},${Number(p._sum.subtotal).toFixed(2)},${p._count}`,
+          .map((p) =>
+            [
+              csvCell(p.productCode),
+              csvCell(p.productName),
+              csvCell(p._sum.quantity),
+              csvCell(Number(p._sum.subtotal).toFixed(2)),
+              csvCell(p._count),
+            ].join(','),
           )
           .join('\n');
     } else {
@@ -346,13 +367,13 @@ function DashboardView({ data }: { data: unknown }) {
     <div className="space-y-6">
       {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard
-          label="Виручка"
-          value={formatPrice(kpi.revenue)}
-          change={kpi.revenueChange}
-        />
+        <KpiCard label="Виручка" value={formatPrice(kpi.revenue)} change={kpi.revenueChange} />
         <KpiCard label="Замовлень" value={kpi.orders} change={kpi.ordersChange} />
-        <KpiCard label="Середній чек" value={formatPrice(kpi.avgCheck)} change={kpi.avgCheckChange} />
+        <KpiCard
+          label="Середній чек"
+          value={formatPrice(kpi.avgCheck)}
+          change={kpi.avgCheckChange}
+        />
         <KpiCard label="Нових користувачів" value={kpi.newUsers} change={kpi.newUsersChange} />
         <KpiCard label="Очікують обробки" value={kpi.pendingOrders} warn={kpi.pendingOrders > 5} />
         <KpiCard label="Мало на складі" value={kpi.lowStockCount} warn={kpi.lowStockCount > 0} />

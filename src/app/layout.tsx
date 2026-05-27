@@ -13,6 +13,7 @@ import WebVitalsReporter from '@/components/common/WebVitalsReporter';
 import Toaster from '@/components/common/Toaster';
 import { getSettings } from '@/services/settings';
 import { getActiveTheme } from '@/services/theme';
+import { headers } from 'next/headers';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'cyrillic-ext'],
@@ -57,19 +58,28 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       url: baseUrl,
+      images: [
+        {
+          url: `${baseUrl}/opengraph-image`,
+          // secure_url is the HTTPS variant FB scrapers prefer when crawling
+          // pages served over both http and https. Same URL works either way.
+          secureUrl: `${baseUrl}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          type: 'image/png',
+        },
+      ],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
+      // Twitter handle credits the account so the card shows "by @pulitotrade".
+      // Falls back gracefully when the handle isn't configured.
+      ...(process.env.TWITTER_HANDLE && { site: process.env.TWITTER_HANDLE }),
     },
     alternates: {
       canonical: baseUrl,
-      languages: {
-        uk: baseUrl,
-        en: `${baseUrl}/en`,
-        'x-default': baseUrl,
-      },
     },
     appleWebApp: {
       capable: true,
@@ -80,6 +90,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // CSP nonce flows from proxy.ts via X-Nonce header — every inline <style>/<script>
+  // tag we emit must carry it, otherwise CSP blocks rendering.
+  const reqHeaders = await headers();
+  const nonce = reqHeaders.get('x-nonce') ?? undefined;
+
   const [locale, messages, settings, activeTheme] = await Promise.all([
     getLocale(),
     getMessages(),
@@ -175,8 +190,24 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           title={`${settings.site_name} — Нові товари`}
           href="/feed.xml"
         />
+        {/* rel="me" verifies that this site owns the linked social profiles.
+            Used by Mastodon, indieweb, and helps search engines connect the
+            brand across platforms. */}
+        {[
+          settings.social_instagram,
+          settings.social_telegram,
+          settings.social_tiktok,
+          settings.social_facebook,
+        ]
+          .filter((u): u is string => !!u)
+          .map((url) => (
+            <link key={url} rel="me" href={url} />
+          ))}
+        {settings.pinterest_domain_verify?.trim() && (
+          <meta name="p:domain_verify" content={settings.pinterest_domain_verify.trim()} />
+        )}
         {themeCss ? (
-          <style id="active-theme" dangerouslySetInnerHTML={{ __html: themeCss }} />
+          <style id="active-theme" nonce={nonce} dangerouslySetInnerHTML={{ __html: themeCss }} />
         ) : null}
         <script
           type="application/ld+json"
@@ -207,7 +238,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             before settings are seeded. */}
         {(() => {
           const ga4Id = settings.google_analytics_id?.trim() || process.env.NEXT_PUBLIC_GA4_ID;
-          const fbPixelId = settings.facebook_pixel_id?.trim() || process.env.NEXT_PUBLIC_FB_PIXEL_ID;
+          const fbPixelId =
+            settings.facebook_pixel_id?.trim() || process.env.NEXT_PUBLIC_FB_PIXEL_ID;
+          const pinterestTagId =
+            settings.pinterest_tag_id?.trim() || process.env.NEXT_PUBLIC_PINTEREST_TAG_ID;
           return (
             <>
               {ga4Id && (
@@ -224,6 +258,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {fbPixelId && (
                 <Script id="fb-pixel" strategy="lazyOnload">
                   {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`}
+                </Script>
+              )}
+              {pinterestTagId && (
+                <Script id="pinterest-tag" strategy="lazyOnload">
+                  {`!function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");pintrk('load','${pinterestTagId}');pintrk('page');`}
                 </Script>
               )}
             </>

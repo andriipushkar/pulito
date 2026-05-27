@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       String(error).includes('signature') ||
       String(error).includes('Signature');
     if (isSignatureError) {
+      // See liqpay/route.ts for the rationale — 401 makes forging detectable.
       logger.error('PAYMENT_WEBHOOK_SIGNATURE_MISMATCH', {
         provider: 'monobank',
         error: String(error),
@@ -54,10 +55,12 @@ export async function POST(request: NextRequest) {
     logWebhook({
       source: 'monobank',
       event: isSignatureError ? 'signature_failed' : 'error',
-      statusCode: isSignatureError ? 403 : 500,
+      statusCode: isSignatureError ? 401 : 500,
       error: String(error),
       durationMs: Date.now() - startTime,
     }).catch(() => {});
-    return new Response('Error', { status: 200 });
+    return new Response(isSignatureError ? 'Invalid signature' : 'Error', {
+      status: isSignatureError ? 401 : 500,
+    });
   }
 }

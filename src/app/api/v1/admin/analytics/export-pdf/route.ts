@@ -11,9 +11,16 @@ export const POST = withRole(
   'manager',
 )(async (request: NextRequest, { user }) => {
   try {
-    const rl = await checkRateLimit(`u${user.id}`, RATE_LIMITS.adminExport);
-    if (!rl.allowed) {
-      return errorResponse(`Забагато експортів. Спробуйте через ${rl.retryAfter}с`, 429);
+    // Two-layer limit: per-minute (`adminExport`) catches click-spam, and
+    // the per-day cap below stops a stuck script (or hijacked session)
+    // from running through 14k PDF renders overnight.
+    const rlMinute = await checkRateLimit(`u${user.id}`, RATE_LIMITS.adminExport);
+    if (!rlMinute.allowed) {
+      return errorResponse(`Забагато експортів. Спробуйте через ${rlMinute.retryAfter}с`, 429);
+    }
+    const rlDay = await checkRateLimit(`u${user.id}`, RATE_LIMITS.adminPdfExport);
+    if (!rlDay.allowed) {
+      return errorResponse(`Денний ліміт PDF-експорту вичерпано. Спробуйте завтра.`, 429);
     }
     const body = await request.json();
     const { reportType, days: rawDays = 30 } = body;

@@ -1,8 +1,21 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { Close, Telegram, Viber, Instagram, Facebook, TikTok, Heart, User, ChevronRight, Phone, MessageCircle, HelpCircle } from '@/components/icons';
+import { Link } from '@/i18n/navigation';
+import {
+  Close,
+  Telegram,
+  Viber,
+  Instagram,
+  Facebook,
+  TikTok,
+  Heart,
+  User,
+  ChevronRight,
+  Phone,
+  MessageCircle,
+  HelpCircle,
+} from '@/components/icons';
 import { useSettings } from '@/hooks/useSettings';
 import type { CategoryListItem } from '@/types/category';
 
@@ -28,7 +41,13 @@ const socialLabels: Record<string, string> = {
   social_tiktok: 'TikTok',
 };
 
-const SOCIAL_KEYS = ['social_telegram', 'social_viber', 'social_instagram', 'social_facebook', 'social_tiktok'] as const;
+const SOCIAL_KEYS = [
+  'social_telegram',
+  'social_viber',
+  'social_instagram',
+  'social_facebook',
+  'social_tiktok',
+] as const;
 
 export default function MobileMenu({ isOpen, onClose, categories }: MobileMenuProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -63,7 +82,12 @@ export default function MobileMenu({ isOpen, onClose, categories }: MobileMenuPr
   const parents = categories.filter((c) => !c.parentId && c.isVisible);
 
   return (
-    <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Меню навігації">
+    <div
+      className="fixed inset-0 z-50 lg:hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Меню навігації"
+    >
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/50 animate-fade-overlay"
@@ -120,8 +144,18 @@ export default function MobileMenu({ isOpen, onClose, categories }: MobileMenuPr
             className="flex min-h-[48px] items-center gap-3 rounded-xl px-4 text-[15px] font-semibold text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)]/5"
             onClick={onClose}
           >
-            <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+            <svg
+              className="h-5 w-5 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
+              />
             </svg>
             Весь каталог
             <ChevronRight size={16} className="ml-auto text-[var(--color-primary)] opacity-50" />
@@ -140,7 +174,10 @@ export default function MobileMenu({ isOpen, onClose, categories }: MobileMenuPr
                 onClick={onClose}
               >
                 <span>{cat.name}</span>
-                <ChevronRight size={16} className="shrink-0 text-[var(--color-text-secondary)] opacity-40" />
+                <ChevronRight
+                  size={16}
+                  className="shrink-0 text-[var(--color-text-secondary)] opacity-40"
+                />
               </Link>
             ))}
           </div>
@@ -200,14 +237,20 @@ export default function MobileMenu({ isOpen, onClose, categories }: MobileMenuPr
 
           {/* Social — at the very bottom */}
           <div className="mt-4 flex items-center justify-center gap-3 border-t border-[var(--color-border)]/40 pb-4 pt-4">
-            {SOCIAL_KEYS
-              .filter((key) => settings[key])
+            {SOCIAL_KEYS.filter((key) => settings[key])
               .map((key) => ({ href: settings[key], label: socialLabels[key], Icon: iconMap[key] }))
               .map(({ href, label, Icon }) => (
-              <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]">
-                <Icon size={18} />
-              </a>
-            ))}
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]"
+                >
+                  <Icon size={18} />
+                </a>
+              ))}
           </div>
         </nav>
       </div>

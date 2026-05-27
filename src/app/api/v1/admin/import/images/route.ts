@@ -7,9 +7,14 @@ import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { cacheInvalidate } from '@/services/cache';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 const MAX_ZIP_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+// Cap on total decompressed bytes across all ZIP entries. Without this, a
+// "zip-bomb" archive that's small on disk can expand to gigabytes in memory
+// and OOM-kill the worker.
+const MAX_DECOMPRESSED_SIZE = 500 * 1024 * 1024; // 500MB
 const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
 function getMimeType(ext: string): string {
@@ -27,23 +32,24 @@ function getMimeType(ext: string): string {
 }
 
 async function findProductByCodeOrBarcode(identifier: string) {
-  const byCode = await prisma.product.findUnique({
-    where: { code: identifier },
+  // Skip soft-deleted products in every lookup — otherwise an import re-attaches
+  // new photos to a product that admin already discarded, and the photo storage
+  // bill grows without anything ever showing them.
+  const byCode = await prisma.product.findFirst({
+    where: { code: identifier, deletedAt: null },
     select: { id: true },
   });
   if (byCode) return byCode;
 
   const byCodeCI = await prisma.product.findFirst({
-    where: { code: { equals: identifier, mode: 'insensitive' } },
+    where: { code: { equals: identifier, mode: 'insensitive' }, deletedAt: null },
     select: { id: true },
   });
   if (byCodeCI) return byCodeCI;
 
-  // Fallback: pure-digit filename 8-14 chars likely is an EAN/UPC/GTIN.
-  // Suppliers often deliver archives named by barcode rather than SKU.
   if (/^\d{8,14}$/.test(identifier)) {
-    const byBarcode = await prisma.product.findUnique({
-      where: { barcode: identifier },
+    const byBarcode = await prisma.product.findFirst({
+      where: { barcode: identifier, deletedAt: null },
       select: { id: true },
     });
     if (byBarcode) return byBarcode;
@@ -98,8 +104,19 @@ async function processOneImage(
   return { ok: true };
 }
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminImport);
+    if (!rl.allowed) {
+      return errorResponse(
+        `Забагато імпортів. Спробуйте через ${Math.ceil(rl.retryAfter / 60)} хв.`,
+        429,
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file');
 
@@ -141,8 +158,20 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
     const zip = new AdmZip(buffer);
     const entries = zip.getEntries();
 
+    // Zip-bomb guard: sum declared uncompressed sizes BEFORE touching any
+    // entry data. AdmZip exposes header.size without decompressing.
+    let declaredTotal = 0;
+    for (const e of entries) {
+      if (e.isDirectory) continue;
+      declaredTotal += e.header.size;
+      if (declaredTotal > MAX_DECOMPRESSED_SIZE) {
+        return errorResponse('Архів задекларовано надто великим (zip-bomb захист)', 400);
+      }
+    }
+
     let processedCount = 0;
     let skippedCount = 0;
+    let decompressedTotal = 0;
     const errors: { filename: string; message: string }[] = [];
 
     for (const entry of entries) {
@@ -162,6 +191,17 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
 
       try {
         const imageBuffer = entry.getData();
+        // Hard per-image cap and accumulated cap — defends against bombs that
+        // misreport their uncompressed size in the central directory.
+        if (imageBuffer.length > MAX_IMAGE_SIZE) {
+          errors.push({ filename: basename, message: 'Файл перевищує 5 МБ' });
+          skippedCount++;
+          continue;
+        }
+        decompressedTotal += imageBuffer.length;
+        if (decompressedTotal > MAX_DECOMPRESSED_SIZE) {
+          return errorResponse('Розпакований розмір архіву перевищує ліміт', 400);
+        }
         const result = await processOneImage(imageBuffer, basename);
 
         if (result.ok) {
@@ -171,7 +211,10 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
           skippedCount++;
         }
       } catch (err) {
-        errors.push({ filename: basename, message: err instanceof Error ? err.message : 'Помилка обробки' });
+        errors.push({
+          filename: basename,
+          message: err instanceof Error ? err.message : 'Помилка обробки',
+        });
         skippedCount++;
       }
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { getAccessToken } from '@/lib/api-client';
+import { apiClient, getAccessToken } from '@/lib/api-client';
 
 interface AdminNotification {
   id: string;
@@ -9,6 +9,10 @@ interface AdminNotification {
   message: string;
   timestamp: string;
 }
+
+// Grant TTL is 5 min on the server. Refresh well before that so a slow tab
+// doesn't drop notifications between grant expiry and reconnect.
+const GRANT_REFRESH_INTERVAL_MS = 4 * 60 * 1000;
 
 export function useAdminNotifications() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
@@ -23,14 +27,30 @@ export function useAdminNotifications() {
   }, []);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) return;
+    // Bail if user isn't logged in — saves a useless grant request.
+    if (!getAccessToken()) return;
 
     let es: EventSource | null = null;
     let retryTimeout: ReturnType<typeof setTimeout>;
+    let grantInterval: ReturnType<typeof setInterval>;
+    let cancelled = false;
 
-    const connect = () => {
-      es = new EventSource(`/api/v1/admin/notifications/stream?token=${encodeURIComponent(token)}`);
+    // Hit /sse-grant first to set the HttpOnly cookie EventSource will send.
+    // No-store on the response, so the browser doesn't cache a stale grant.
+    const requestGrant = async (): Promise<boolean> => {
+      const res = await apiClient.post('/api/v1/admin/sse-grant', {});
+      return res.success;
+    };
+
+    const connect = async () => {
+      const granted = await requestGrant();
+      if (cancelled) return;
+      if (!granted) {
+        // Not an admin / 2FA disabled / server error — stay disconnected
+        // rather than retrying in a hot loop.
+        return;
+      }
+      es = new EventSource('/api/v1/admin/notifications/stream');
 
       es.addEventListener('open', () => setConnected(true));
 
@@ -66,15 +86,23 @@ export function useAdminNotifications() {
       es.addEventListener('error', () => {
         setConnected(false);
         es?.close();
-        retryTimeout = setTimeout(connect, 5000);
+        es = null;
+        if (!cancelled) retryTimeout = setTimeout(connect, 5000);
       });
     };
 
     connect();
+    // Refresh the cookie before TTL so a long-lived tab stays authorized.
+    // The fetch is cheap and re-issues the cookie via Set-Cookie.
+    grantInterval = setInterval(() => {
+      void requestGrant();
+    }, GRANT_REFRESH_INTERVAL_MS);
 
     return () => {
+      cancelled = true;
       es?.close();
       clearTimeout(retryTimeout);
+      clearInterval(grantInterval);
     };
   }, []);
 

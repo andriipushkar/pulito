@@ -1,14 +1,27 @@
 import { NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { createHash } from 'crypto';
 import { withRole } from '@/middleware/auth';
 import { importProducts, ImportError } from '@/services/import';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest, { user }) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminImport);
+    if (!rl.allowed) {
+      return errorResponse(
+        `Забагато імпортів. Спробуйте через ${Math.ceil(rl.retryAfter / 60)} хв.`,
+        429,
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file');
 
@@ -29,6 +42,12 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
     const dryRun = request.nextUrl.searchParams.get('dryRun') === '1';
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    // SHA-256 of the actual bytes — auditing by filename alone is ambiguous
+    // when the operator re-uploads "products.xlsx" with different content.
+    // The hash lets rollback forensics confirm "this rollback applies to the
+    // file with hash X" instead of guessing.
+    const fileSha256 = createHash('sha256').update(buffer).digest('hex');
+
     const result = await importProducts(buffer, file.name, user.id, { dryRun });
 
     if (!dryRun) {
@@ -37,7 +56,7 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
         actionType: 'import_action',
         entityType: 'product',
         entityId: result.importLogId,
-        details: { filename: file.name, size: file.size },
+        details: { filename: file.name, size: file.size, sha256: fileSha256 },
         ipAddress: getClientIp(request),
       });
 
@@ -45,7 +64,9 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest, { 
       try {
         revalidatePath('/catalog');
         revalidatePath('/');
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
 
       // Trigger full Typesense reindex after import. Fire-and-forget so the HTTP
       // response isn't blocked by indexing, but log failures so we notice when

@@ -152,17 +152,31 @@ export async function processWinBack(): Promise<{ sent: number }> {
 }
 
 /**
- * Post-purchase: send review request 7 days after delivered order.
+ * Post-purchase: send review request 7 days after the order transitioned
+ * to `completed`. Uses OrderStatusHistory to read the actual completion
+ * timestamp — Order.updatedAt drifts when admins edit the row afterwards.
  */
 export async function processPostPurchaseReviewRequest(): Promise<{ sent: number }> {
   const appUrl = process.env.APP_URL || '';
   const targetDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const windowEnd = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000);
 
+  const completions = await prisma.orderStatusHistory.findMany({
+    where: {
+      newStatus: 'completed',
+      createdAt: { gte: targetDate, lt: windowEnd },
+    },
+    select: { orderId: true },
+    take: 200,
+  });
+
+  const orderIds = [...new Set(completions.map((c) => c.orderId))];
+  if (orderIds.length === 0) return { sent: 0 };
+
   const orders = await prisma.order.findMany({
     where: {
+      id: { in: orderIds },
       status: 'completed',
-      updatedAt: { gte: targetDate, lt: windowEnd },
       userId: { not: null },
     },
     include: {

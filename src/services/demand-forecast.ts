@@ -38,11 +38,13 @@ interface ForecastOptions {
   movingOnly?: boolean;
 }
 
-export async function getDemandForecast(
-  options: ForecastOptions = {},
-): Promise<ForecastEntry[]> {
-  const leadTime = options.leadTimeDays ?? DEFAULT_LEAD_TIME_DAYS;
-  const buffer = options.bufferDays ?? DEFAULT_BUFFER_DAYS;
+export async function getDemandForecast(options: ForecastOptions = {}): Promise<ForecastEntry[]> {
+  // Clamp inputs to sane positives. Negative leadTime/buffer flip the
+  // `daysUntilOOS < leadTime` checks and mark healthy stock as "critical".
+  // Limit=-1 would reach Prisma's `take` as -1 and throw on the query.
+  const leadTime = Math.max(0, Math.floor(options.leadTimeDays ?? DEFAULT_LEAD_TIME_DAYS));
+  const buffer = Math.max(0, Math.floor(options.bufferDays ?? DEFAULT_BUFFER_DAYS));
+  const safeLimit = Math.max(1, Math.min(500, Math.floor(options.limit ?? 200)));
   const since = new Date(Date.now() - TRAILING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
   // Aggregate sold quantities per product over the window
@@ -68,9 +70,11 @@ export async function getDemandForecast(
 
   // Fetch product info (limit to active products; opt-in to movingOnly filter)
   const productIds = Array.from(soldByProduct.keys());
+  // Always exclude soft-deleted — reordering them silently puts archived
+  // SKUs back into supplier orders.
   const productWhere = options.movingOnly
-    ? { id: { in: productIds }, isActive: true }
-    : { isActive: true };
+    ? { id: { in: productIds }, isActive: true, deletedAt: null }
+    : { isActive: true, deletedAt: null };
 
   const products = await prisma.product.findMany({
     where: productWhere,
@@ -80,7 +84,7 @@ export async function getDemandForecast(
       code: true,
       quantity: true,
     },
-    take: options.limit ?? 200,
+    take: safeLimit,
   });
 
   // Aggregate per-warehouse stock + reserved separately. Forecast uses
@@ -131,13 +135,13 @@ export async function getDemandForecast(
       productId: p.id,
       name: p.name,
       code: p.code,
-      currentStock: p.quantity,
+      // Show the same `available` number that drives daysUntilOOS — earlier
+      // shipped `Product.quantity` here which disagreed with the urgency
+      // calc whenever WarehouseStock had drifted from the legacy field.
+      currentStock: available,
       totalSold90d: sold90,
       avgDailySales: Math.round(avgDaily * 100) / 100,
-      daysUntilOOS:
-        daysUntilOOS !== null
-          ? Math.round(daysUntilOOS * 10) / 10
-          : null,
+      daysUntilOOS: daysUntilOOS !== null ? Math.round(daysUntilOOS * 10) / 10 : null,
       reorderQty,
       urgency,
     };

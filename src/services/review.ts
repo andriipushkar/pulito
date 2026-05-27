@@ -38,15 +38,16 @@ export async function getProductReviews(
   productId: number,
   page = 1,
   limit = 10,
-  sort: 'newest' | 'helpful' | 'rating_high' | 'rating_low' = 'newest'
+  sort: 'newest' | 'helpful' | 'rating_high' | 'rating_low' = 'newest',
 ) {
-  const orderBy = sort === 'helpful'
-    ? { helpfulCount: 'desc' as const }
-    : sort === 'rating_high'
-      ? { rating: 'desc' as const }
-      : sort === 'rating_low'
-        ? { rating: 'asc' as const }
-        : { createdAt: 'desc' as const };
+  const orderBy =
+    sort === 'helpful'
+      ? { helpfulCount: 'desc' as const }
+      : sort === 'rating_high'
+        ? { rating: 'desc' as const }
+        : sort === 'rating_low'
+          ? { rating: 'asc' as const }
+          : { createdAt: 'desc' as const };
 
   const [reviews, total] = await Promise.all([
     prisma.review.findMany({
@@ -65,25 +66,32 @@ export async function getProductReviews(
 }
 
 export async function getProductRatingStats(productId: number) {
-  const reviews = await prisma.review.findMany({
+  // Single groupBy aggregates count per rating bucket — avoids loading every
+  // review row into memory just to count stars. Cheap even with thousands of
+  // reviews because Postgres aggregates server-side.
+  const groups = await prisma.review.groupBy({
+    by: ['rating'],
     where: { productId, status: 'approved' },
-    select: { rating: true },
+    _count: { rating: true },
   });
 
-  if (reviews.length === 0) {
-    return { averageRating: 0, totalReviews: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+  const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let totalReviews = 0;
+  let weightedSum = 0;
+  for (const g of groups) {
+    const n = g._count.rating;
+    distribution[g.rating] = n;
+    totalReviews += n;
+    weightedSum += g.rating * n;
   }
 
-  const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  let sum = 0;
-  for (const r of reviews) {
-    distribution[r.rating] = (distribution[r.rating] || 0) + 1;
-    sum += r.rating;
+  if (totalReviews === 0) {
+    return { averageRating: 0, totalReviews: 0, distribution };
   }
 
   return {
-    averageRating: Math.round((sum / reviews.length) * 10) / 10,
-    totalReviews: reviews.length,
+    averageRating: Math.round((weightedSum / totalReviews) * 10) / 10,
+    totalReviews,
     distribution,
   };
 }

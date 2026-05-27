@@ -51,6 +51,9 @@ export default function SavedViews({ storageKey, basePath }: Props) {
       window.addEventListener('storage', onStorage);
       return () => {
         set.delete(cb);
+        // Drop the per-key entry when the last subscriber leaves so
+        // viewsListeners doesn't grow unbounded across mount/unmount cycles.
+        if (set.size === 0) viewsListeners.delete(fullKey);
         window.removeEventListener('storage', onStorage);
       };
     },
@@ -90,10 +93,16 @@ export default function SavedViews({ storageKey, basePath }: Props) {
   const handleSave = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const next = [
-      ...views.filter((v) => v.name !== trimmed),
-      { id: `${Date.now()}`, name: trimmed, query: currentQuery },
-    ];
+    const existingIdx = views.findIndex((v) => v.name === trimmed);
+    let next: SavedView[];
+    if (existingIdx >= 0) {
+      // Preserve position when overwriting — replacing in-place avoids the
+      // jarring "the view I just updated jumped to the end of the list".
+      next = views.slice();
+      next[existingIdx] = { ...next[existingIdx], query: currentQuery };
+    } else {
+      next = [...views, { id: `${Date.now()}`, name: trimmed, query: currentQuery }];
+    }
     persist(next);
     setName('');
     setShowSave(false);
@@ -114,7 +123,10 @@ export default function SavedViews({ storageKey, basePath }: Props) {
         <span className="text-xs text-[var(--color-text-secondary)]">Збережені:</span>
       )}
       {views.map((v) => (
-        <span key={v.id} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs">
+        <span
+          key={v.id}
+          className="inline-flex items-center gap-1 rounded-full bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs"
+        >
           <button
             type="button"
             onClick={() => handleApply(v)}

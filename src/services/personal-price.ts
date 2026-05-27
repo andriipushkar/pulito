@@ -1,11 +1,15 @@
 import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
-import type { PersonalPriceFilterInput, CreatePersonalPriceInput, UpdatePersonalPriceInput } from '@/validators/personal-price';
+import type {
+  PersonalPriceFilterInput,
+  CreatePersonalPriceInput,
+  UpdatePersonalPriceInput,
+} from '@/validators/personal-price';
 
 export class PersonalPriceError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'PersonalPriceError';
@@ -55,6 +59,28 @@ export async function createPersonalPrice(
   data: CreatePersonalPriceInput & { stackableWith?: string[] },
   createdBy: number,
 ) {
+  // Idempotency-by-shape: a duplicate (userId, productId, categoryId) entry
+  // means two rules compete for the same lookup, with `getEffectivePrice`
+  // arbitrarily picking the first by createdAt. The DB has no unique
+  // constraint (since (a,null,null) vs (a,2,null) are different shapes), so
+  // we check explicitly here. Without this, double-submit creates a parallel
+  // rule that admins later wonder why removing only one of them didn't
+  // actually change the customer's price.
+  const dupe = await prisma.personalPrice.findFirst({
+    where: {
+      userId: data.userId,
+      productId: data.productId ?? null,
+      categoryId: data.categoryId ?? null,
+    },
+    select: { id: true },
+  });
+  if (dupe) {
+    throw new PersonalPriceError(
+      `Для цього клієнта вже існує правило з тими ж productId/categoryId (id=${dupe.id}). Оновіть існуюче замість дублювання.`,
+      409,
+    );
+  }
+
   return prisma.personalPrice.create({
     data: {
       userId: data.userId,
@@ -87,8 +113,18 @@ export async function updatePersonalPrice(
     data: {
       discountPercent: data.discountPercent ?? existing.discountPercent,
       fixedPrice: data.fixedPrice ?? existing.fixedPrice,
-      validFrom: data.validFrom !== undefined ? (data.validFrom ? new Date(data.validFrom) : null) : existing.validFrom,
-      validUntil: data.validUntil !== undefined ? (data.validUntil ? new Date(data.validUntil) : null) : existing.validUntil,
+      validFrom:
+        data.validFrom !== undefined
+          ? data.validFrom
+            ? new Date(data.validFrom)
+            : null
+          : existing.validFrom,
+      validUntil:
+        data.validUntil !== undefined
+          ? data.validUntil
+            ? new Date(data.validUntil)
+            : null
+          : existing.validUntil,
       ...(data.stackableWith !== undefined && { stackableWith: data.stackableWith }),
     },
     select: personalPriceSelect,
@@ -107,8 +143,12 @@ export async function deletePersonalPrice(id: number) {
 export async function getEffectivePrice(
   userId: number,
   productId: number,
-  categoryId: number | null
-): Promise<{ discountPercent: number | null; fixedPrice: number | null; stackableWith: string[] } | null> {
+  categoryId: number | null,
+): Promise<{
+  discountPercent: number | null;
+  fixedPrice: number | null;
+  stackableWith: string[];
+} | null> {
   const now = new Date();
 
   // Product-specific price takes priority
@@ -117,9 +157,7 @@ export async function getEffectivePrice(
       userId,
       productId,
       OR: [{ validFrom: null }, { validFrom: { lte: now } }],
-      AND: [
-        { OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
-      ],
+      AND: [{ OR: [{ validUntil: null }, { validUntil: { gte: now } }] }],
     },
     select: { discountPercent: true, fixedPrice: true, stackableWith: true },
   });
@@ -140,16 +178,16 @@ export async function getEffectivePrice(
         categoryId,
         productId: null,
         OR: [{ validFrom: null }, { validFrom: { lte: now } }],
-        AND: [
-          { OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
-        ],
+        AND: [{ OR: [{ validUntil: null }, { validUntil: { gte: now } }] }],
       },
       select: { discountPercent: true, fixedPrice: true, stackableWith: true },
     });
 
     if (categoryPrice) {
       return {
-        discountPercent: categoryPrice.discountPercent ? Number(categoryPrice.discountPercent) : null,
+        discountPercent: categoryPrice.discountPercent
+          ? Number(categoryPrice.discountPercent)
+          : null,
         fixedPrice: categoryPrice.fixedPrice ? Number(categoryPrice.fixedPrice) : null,
         stackableWith: categoryPrice.stackableWith ?? [],
       };

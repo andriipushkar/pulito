@@ -35,14 +35,26 @@ function parse(raw: string): Spec[] {
     .replace(/<\/p>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .trim();
+  // Decode HTML entities so legacy descriptions that wrote &amp;/&lt;/&gt;/
+  // &quot;/&#39; in raw text don't surface as escaped sequences in the editor.
+  const decodeEntities = (s: string) =>
+    s
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
   return text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
       const idx = line.indexOf(':');
-      if (idx === -1) return { key: line, value: '' };
-      return { key: line.slice(0, idx).trim(), value: line.slice(idx + 1).trim() };
+      if (idx === -1) return { key: decodeEntities(line), value: '' };
+      return {
+        key: decodeEntities(line.slice(0, idx).trim()),
+        value: decodeEntities(line.slice(idx + 1).trim()),
+      };
     });
 }
 
@@ -54,9 +66,17 @@ function serialize(specs: Spec[]): string {
 export default function SpecsEditor({ value, onChange }: Props) {
   const [specs, setSpecs] = useState<Spec[]>(() => parse(value));
 
-  // Re-parse only when the upstream value changes from outside (e.g. data load)
+  // Re-parse only when the upstream value differs from our own serialised
+  // state. Without this guard, every keystroke fires emit → onChange → parent
+  // re-renders with a new `value` prop → this effect re-creates the specs
+  // array → list items remount by `key=i` → the input the user is typing in
+  // loses focus on every character. Comparing serialised forms keeps the
+  // effect a no-op while the user is editing, while still picking up genuinely
+  // external resets (data load, AI fill, reset-to-saved-snapshot).
   useEffect(() => {
+    if (serialize(specs) === value) return;
     setSpecs(parse(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   const emit = (next: Spec[]) => {

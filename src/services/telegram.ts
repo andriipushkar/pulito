@@ -11,14 +11,18 @@ import { pickWelcomeMessage } from './bot-welcome';
 // notification. Mirror the standard React escaping rules.
 function escapeHtml(value: unknown): string {
   if (value === null || value === undefined) return '';
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
+
+// UTM query string for outbound links from the Telegram bot. Campaign names
+// match the bot handler that emitted the link, so /admin/analytics → UTM
+// Campaign view shows which bot flow drove each purchase.
+function botUtm(campaign: string): string {
+  return `utm_source=telegram&utm_medium=bot&utm_campaign=${campaign}`;
+}
 
 interface TelegramMessage {
   message_id: number;
@@ -282,7 +286,7 @@ async function handleCategoryProducts(chatId: number, categoryId: number, offset
           [
             {
               text: '🛒 На сайт',
-              url: `${appUrl}/product/${p.slug}?utm_source=telegram&utm_medium=bot`,
+              url: `${appUrl}/product/${p.slug}?${botUtm('category_browse')}`,
             },
           ],
         ],
@@ -356,7 +360,7 @@ async function handlePromo(chatId: number, offset: number = 0) {
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🛒 Купити', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }],
+          [{ text: '🛒 Купити', url: `${appUrl}/product/${p.slug}?${botUtm('promo')}` }],
         ],
       },
     });
@@ -479,9 +483,7 @@ async function handleBarcodeLookup(chatId: number, rawCode: string) {
       `Штрихкод: <code>${digits}</code>`,
       `Залишок: ${stockIcon} <b>${product.quantity}</b> шт`,
       `Ціна: <b>${Number(product.priceRetail).toFixed(2)} ₴</b>` +
-        (product.priceWholesale
-          ? ` (опт ${Number(product.priceWholesale).toFixed(2)} ₴)`
-          : ''),
+        (product.priceWholesale ? ` (опт ${Number(product.priceWholesale).toFixed(2)} ₴)` : ''),
       product.isActive ? '' : '⚠️ <i>Товар деактивовано</i>',
     ]
       .filter(Boolean)
@@ -574,7 +576,7 @@ async function handleSearch(chatId: number, query: string) {
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }],
+          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?${botUtm('search')}` }],
         ],
       },
     });
@@ -611,7 +613,7 @@ async function handleNew(chatId: number) {
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }],
+          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?${botUtm('new_arrivals')}` }],
         ],
       },
     });
@@ -647,7 +649,7 @@ async function handlePopular(chatId: number) {
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?utm_source=telegram` }],
+          [{ text: '🛒 На сайт', url: `${appUrl}/product/${p.slug}?${botUtm('popular')}` }],
         ],
       },
     });
@@ -873,6 +875,7 @@ export async function sendProductPhotoToUser(
  * Notify manager about a new order via Telegram.
  */
 export async function notifyManagerNewOrder(order: {
+  id?: number;
   orderNumber: string;
   contactName: string;
   contactPhone: string;
@@ -903,8 +906,21 @@ export async function notifyManagerNewOrder(order: {
     .filter(Boolean)
     .join('\n');
 
+  // Inline "Open in admin" + "Call client" buttons so the manager reacts in
+  // one tap instead of switching to the browser/dialer manually.
+  const appUrl = process.env.APP_URL;
+  const buttons: Array<Array<{ text: string; url: string }>> = [];
+  if (appUrl && order.id) {
+    buttons.push([{ text: '🔗 Відкрити замовлення', url: `${appUrl}/admin/orders/${order.id}` }]);
+  }
+  if (order.contactPhone) {
+    const phoneDigits = order.contactPhone.replace(/[^\d+]/g, '');
+    buttons.push([{ text: '📞 Подзвонити', url: `tel:${phoneDigits}` }]);
+  }
+  const replyMarkup = buttons.length > 0 ? { inline_keyboard: buttons } : undefined;
+
   try {
-    await sendMessage(Number(chatId), text);
+    await sendMessage(Number(chatId), text, { reply_markup: replyMarkup });
   } catch {
     // Don't fail order creation if notification fails
   }
@@ -923,7 +939,9 @@ export async function notifyManagerLowStock(
   const lines = [
     `📉 <b>Низький залишок (${products.length} ${products.length === 1 ? 'товар' : 'товарів'})</b>`,
     '',
-    ...products.slice(0, 20).map((p) => `• <b>${p.code}</b> ${p.name.slice(0, 50)} — <b>${p.quantity}</b> шт.`),
+    ...products
+      .slice(0, 20)
+      .map((p) => `• <b>${p.code}</b> ${p.name.slice(0, 50)} — <b>${p.quantity}</b> шт.`),
   ];
   if (products.length > 20) lines.push(`...та ще ${products.length - 20}`);
   lines.push('', `${process.env.APP_URL || ''}/admin/products?lowStock=1`);
@@ -932,6 +950,52 @@ export async function notifyManagerLowStock(
     await sendMessage(Number(chatId), lines.join('\n'));
   } catch {
     // Best-effort
+  }
+}
+
+/**
+ * Notify manager about new marketplace messages from buyers. Fires once per
+ * sync run with the aggregate total + per-platform breakdown so the manager
+ * gets one ping every ~15 minutes (sync cadence) instead of N pings.
+ */
+export async function notifyManagerMarketplaceMessages(args: {
+  total: number;
+  perPlatform: Record<string, number>;
+}) {
+  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
+  if (!chatId || !BOT_TOKEN || args.total === 0) return;
+
+  const platformLabels: Record<string, string> = {
+    olx: 'OLX',
+    rozetka: 'Rozetka',
+    prom: 'Prom.ua',
+    epicentrk: 'Epicentr',
+  };
+  const breakdown = Object.entries(args.perPlatform)
+    .filter(([, n]) => n > 0)
+    .map(([p, n]) => `${platformLabels[p] || p}: <b>${n}</b>`)
+    .join('\n');
+
+  const text = [
+    `💬 <b>${args.total} ${args.total === 1 ? 'нове повідомлення' : 'нових повідомлень'} з маркетплейсів</b>`,
+    '',
+    breakdown,
+  ].join('\n');
+
+  const appUrl = process.env.APP_URL;
+  const buttons: Array<Array<{ text: string; url: string }>> = [];
+  if (appUrl) {
+    buttons.push([
+      { text: '📨 Відкрити інбокс', url: `${appUrl}/admin/marketplaces?tab=messages` },
+    ]);
+  }
+
+  try {
+    await sendMessage(Number(chatId), text, {
+      reply_markup: buttons.length > 0 ? { inline_keyboard: buttons } : undefined,
+    });
+  } catch {
+    /* best-effort */
   }
 }
 
@@ -962,10 +1026,12 @@ export async function notifyManagerOversoldAlert(args: {
     `Замовлення <code>${args.externalOrderId}</code>`,
     '',
     'Залишку не вистачило:',
-    ...args.items.slice(0, 10).map(
-      (i) =>
-        `• <b>${i.code}</b>${i.name ? ` ${i.name.slice(0, 40)}` : ''} — потрібно ${i.requested}, є ${i.available}`,
-    ),
+    ...args.items
+      .slice(0, 10)
+      .map(
+        (i) =>
+          `• <b>${i.code}</b>${i.name ? ` ${i.name.slice(0, 40)}` : ''} — потрібно ${i.requested}, є ${i.available}`,
+      ),
   ];
   if (args.items.length > 10) lines.push(`...та ще ${args.items.length - 10} позицій`);
   lines.push('', `${process.env.APP_URL || ''}/admin/orders`);
@@ -1237,7 +1303,7 @@ async function handleInlineQuery(queryId: string, query: string) {
     description: `${p.code} — ${Number(p.priceRetail).toFixed(2)} ₴`,
     thumb_url: p.imagePath ? `${appUrl}${p.imagePath}` : undefined,
     input_message_content: {
-      message_text: `<b>${p.name}</b>\nКод: ${p.code}\nЦіна: ${Number(p.priceRetail).toFixed(2)} ₴\n\n${appUrl}/product/${p.slug}?utm_source=telegram`,
+      message_text: `<b>${p.name}</b>\nКод: ${p.code}\nЦіна: ${Number(p.priceRetail).toFixed(2)} ₴\n\n${appUrl}/product/${p.slug}?${botUtm('inline_query')}`,
       parse_mode: 'HTML',
     },
   }));
@@ -1411,7 +1477,7 @@ async function handleWholesalePrices(chatId: number) {
   await sendMessage(chatId, text, {
     reply_markup: {
       inline_keyboard: [
-        [{ text: '🛒 Повний каталог', url: `${appUrl}/catalog?utm_source=telegram` }],
+        [{ text: '🛒 Повний каталог', url: `${appUrl}/catalog?${botUtm('wholesale_prices')}` }],
       ],
     },
   });

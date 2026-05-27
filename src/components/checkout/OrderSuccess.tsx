@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { Check } from '@/components/icons';
 import Button from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
@@ -28,7 +28,8 @@ export default function OrderSuccess({ orderNumber, guestContact }: OrderSuccess
         Номер замовлення: <strong>{orderNumber}</strong>
       </p>
       <p className="mb-8 max-w-md text-sm text-[var(--color-text-secondary)]">
-        Ми надішлемо підтвердження на вашу електронну пошту. Менеджер зв&apos;яжеться з вами для уточнення деталей.
+        Ми надішлемо підтвердження на вашу електронну пошту. Менеджер зв&apos;яжеться з вами для
+        уточнення деталей.
       </p>
 
       {guestContact && <GuestAccountPrompt contact={guestContact} />}
@@ -98,8 +99,8 @@ function GuestAccountPrompt({ contact }: { contact: GuestContact }) {
     >
       <p className="mb-1 text-sm font-semibold">🎁 Створити акаунт одним кліком</p>
       <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-        Email <strong>{contact.email}</strong> вже введений. Задайте пароль — і наступне
-        замовлення оформите швидше + ви побачите статус доставки тут.
+        Email <strong>{contact.email}</strong> вже введений. Задайте пароль — і наступне замовлення
+        оформите швидше + ви побачите статус доставки тут.
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input

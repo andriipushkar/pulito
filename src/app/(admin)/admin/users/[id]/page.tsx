@@ -581,6 +581,21 @@ export default function AdminUserDetailPage() {
             size="sm"
             variant="outline"
             onClick={async () => {
+              // Impersonation is privileged: it logs the admin in as the
+              // target user, with full session privileges. Accidental
+              // clicks have happened — confirm explicitly with the user's
+              // identity so the admin sees WHO they're about to become.
+              const targetLabel =
+                (user as { fullName?: string; email?: string } | null)?.fullName ||
+                (user as { email?: string } | null)?.email ||
+                `#${id}`;
+              const ok = window.confirm(
+                `Увійти як «${targetLabel}»?\n\n` +
+                  `Ваша сесія тимчасово переключиться на цього користувача — ` +
+                  `усі дії на сайті виконуватимуться від його імені і будуть записані в audit-log.\n\n` +
+                  `Поверніться у Адмін → Користувачі → Stop impersonation, щоб вийти.`,
+              );
+              if (!ok) return;
               const res = await apiClient.post<{ accessToken: string }>(
                 `/api/v1/admin/users/${id}/impersonate`,
                 {},

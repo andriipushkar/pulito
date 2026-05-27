@@ -94,6 +94,12 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
       }
     }
 
+    // Pre-validate everything that doesn't need a network call. Items that
+    // pass validation are then processed in small parallel chunks against
+    // the Nova Poshta API — sequential calls for 100 orders blew through the
+    // nginx 60s default. Chunk size 5 keeps NP happy (their soft limit is
+    // ~10 concurrent) and brings worst-case latency from ~150s to ~30s.
+    const valid: typeof orders = [];
     for (const o of orders) {
       if (o.trackingNumber) {
         result.failed.push({ orderId: o.id, orderNumber: o.orderNumber, error: 'TTN вже існує' });
@@ -112,41 +118,77 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
         });
         continue;
       }
+      valid.push(o);
+    }
 
+    const CHUNK_SIZE = 5;
+
+    // Exponential backoff on 429 / 5xx — Nova Poshta enforces a soft per-key
+    // rate limit and the previous bulk loop counted those as permanent
+    // failures, leaving the user with "3 of 10 created" when really the
+    // last 5 just needed a 2-second wait.
+    const callWithBackoff = async <T>(fn: () => Promise<T>): Promise<T> => {
+      const delays = [800, 2000, 5000]; // ms — 3 retries, total ~8s
+      let lastErr: unknown;
+      for (let attempt = 0; attempt <= delays.length; attempt++) {
+        try {
+          return await fn();
+        } catch (err) {
+          lastErr = err;
+          const code = err instanceof NovaPoshtaError ? err.statusCode : 0;
+          const retryable = code === 429 || (code >= 500 && code < 600);
+          if (!retryable || attempt === delays.length) throw err;
+          await new Promise((r) => setTimeout(r, delays[attempt]));
+        }
+      }
+      throw lastErr;
+    };
+
+    const processOne = async (o: (typeof valid)[number]) => {
+      const isD2D = !!o.deliveryStreetRef && !!o.deliveryBuilding;
+      // Validated above (city + warehouse-or-address are required), but the
+      // chunked map loses that narrowing. Re-check here for the type checker.
+      if (!o.deliveryCity) return;
+      // Pin to a local const so the lambda closure preserves the narrowed
+      // non-null type — accessing `o.deliveryCity` inside the callback would
+      // re-widen back to `string | null`.
+      const deliveryCity = o.deliveryCity;
       try {
         const isCOD = o.paymentMethod === 'cod' && o.paymentStatus !== 'paid';
-        const ttn = await createInternetDocument({
-          senderRef: config.sender_ref || '',
-          senderAddressRef: config.sender_warehouse_ref || '',
-          senderContactRef: config.sender_ref || '',
-          senderPhone: config.sender_phone || '',
-          recipientName: o.contactName,
-          recipientPhone: o.contactPhone,
-          recipientCityRef: o.deliveryCity,
-          recipientWarehouseRef: !isD2D ? (o.deliveryWarehouseRef ?? undefined) : undefined,
-          recipientStreetRef: isD2D ? (o.deliveryStreetRef ?? undefined) : undefined,
-          recipientBuilding: isD2D ? (o.deliveryBuilding ?? undefined) : undefined,
-          recipientFlat: isD2D ? (o.deliveryFlat ?? undefined) : undefined,
-          payerType: o.paymentStatus === 'paid' ? 'Sender' : 'Recipient',
-          paymentMethod: o.paymentStatus === 'paid' ? 'NonCash' : 'Cash',
-          cargoType: 'Parcel',
-          // Prefer Product.weightGrams when set; fall back to 300g/unit
-          // default for products without recorded weight. Min 0.5 kg satisfies
-          // Nova Poshta validation (smallest billed parcel).
-          weight: Math.max(
-            0.5,
-            o.items.reduce((sum, i) => {
-              const variant = i.product?.variants?.find((v) => v.sku === i.productCode);
-              const g = variant?.weightGrams ?? i.product?.weightGrams ?? 300;
-              return sum + (g * i.quantity) / 1000;
-            }, 0),
-          ),
-          seatsAmount: 1,
-          description: `Замовлення #${o.orderNumber}`,
-          cost: Number(o.totalAmount),
-          serviceType: isD2D ? 'WarehouseDoors' : 'WarehouseWarehouse',
-          codAmount: isCOD ? Number(o.totalAmount) : undefined,
-        });
+        const ttn = await callWithBackoff(() =>
+          createInternetDocument({
+            senderRef: config.sender_ref || '',
+            senderAddressRef: config.sender_warehouse_ref || '',
+            senderContactRef: config.sender_ref || '',
+            senderPhone: config.sender_phone || '',
+            recipientName: o.contactName,
+            recipientPhone: o.contactPhone,
+            recipientCityRef: deliveryCity,
+            recipientWarehouseRef: !isD2D ? (o.deliveryWarehouseRef ?? undefined) : undefined,
+            recipientStreetRef: isD2D ? (o.deliveryStreetRef ?? undefined) : undefined,
+            recipientBuilding: isD2D ? (o.deliveryBuilding ?? undefined) : undefined,
+            recipientFlat: isD2D ? (o.deliveryFlat ?? undefined) : undefined,
+            payerType: o.paymentStatus === 'paid' ? 'Sender' : 'Recipient',
+            paymentMethod: o.paymentStatus === 'paid' ? 'NonCash' : 'Cash',
+            cargoType: 'Parcel',
+            // Prefer Product.weightGrams when set; fall back to 300g/unit
+            // default for products without recorded weight. Min 0.5 kg satisfies
+            // Nova Poshta validation (smallest billed parcel).
+            weight: Math.max(
+              0.5,
+              o.items.reduce((sum, i) => {
+                const variant = i.product?.variants?.find((v) => v.sku === i.productCode);
+                const g = variant?.weightGrams ?? i.product?.weightGrams ?? 300;
+                return sum + (g * i.quantity) / 1000;
+              }, 0),
+            ),
+            seatsAmount: 1,
+            description: `Замовлення #${o.orderNumber}`,
+            cost: Number(o.totalAmount),
+            serviceType: isD2D ? 'WarehouseDoors' : 'WarehouseWarehouse',
+            codAmount: isCOD ? Number(o.totalAmount) : undefined,
+          }),
+        );
 
         await prisma.order.update({
           where: { id: o.id },
@@ -164,12 +206,22 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
         const isKnown = err instanceof NovaPoshtaError;
         const safeMsg = isKnown ? err.message : 'Помилка зовнішнього сервісу';
         // Log only known/safe errors; raw error goes to server logs only.
-        logger.error('Bulk TTN failed', { orderId: o.id, errorKind: isKnown ? 'NovaPoshtaError' : 'unknown' });
+        logger.error('Bulk TTN failed', {
+          orderId: o.id,
+          errorKind: isKnown ? 'NovaPoshtaError' : 'unknown',
+        });
         if (!isKnown) {
-          logger.error('Bulk TTN raw error', { error: err instanceof Error ? err.message : String(err) });
+          logger.error('Bulk TTN raw error', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
         result.failed.push({ orderId: o.id, orderNumber: o.orderNumber, error: safeMsg });
       }
+    };
+
+    for (let i = 0; i < valid.length; i += CHUNK_SIZE) {
+      const chunk = valid.slice(i, i + CHUNK_SIZE);
+      await Promise.all(chunk.map(processOne));
     }
 
     return successResponse(result);

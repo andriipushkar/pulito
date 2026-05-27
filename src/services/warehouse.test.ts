@@ -6,6 +6,25 @@ const mockWarehouseDelete = vi.fn();
 const mockWarehouseUpdateMany = vi.fn();
 const mockWarehouseFindFirst = vi.fn();
 const mockStockUpsert = vi.fn();
+const mockStockFindMany = vi.fn();
+const mockProductFindMany = vi.fn();
+const mockExecuteRaw = vi.fn().mockResolvedValue(0);
+
+const txProxy = {
+  warehouse: {
+    findUnique: (...args: unknown[]) => mockWarehouseFindUnique(...args),
+    create: (...args: unknown[]) => mockWarehouseCreate(...args),
+    delete: (...args: unknown[]) => mockWarehouseDelete(...args),
+    updateMany: (...args: unknown[]) => mockWarehouseUpdateMany(...args),
+    findFirst: (...args: unknown[]) => mockWarehouseFindFirst(...args),
+    update: vi.fn().mockResolvedValue({}),
+  },
+  warehouseStock: {
+    upsert: (...args: unknown[]) => mockStockUpsert(...args),
+    findMany: (...args: unknown[]) => mockStockFindMany(...args),
+  },
+  $executeRawUnsafe: (...args: unknown[]) => mockExecuteRaw(...args),
+};
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -18,16 +37,24 @@ vi.mock('@/lib/prisma', () => ({
     },
     warehouseStock: {
       upsert: (...args: unknown[]) => mockStockUpsert(...args),
+      findMany: (...args: unknown[]) => mockStockFindMany(...args),
+    },
+    product: {
+      findMany: (...args: unknown[]) => mockProductFindMany(...args),
+    },
+    // Run the callback synchronously with the same mock proxy. Existing tests
+    // pre-fix relied on this implicit behaviour — adding it explicitly keeps
+    // the new advisory-lock + snapshot logic inside updateStock working.
+    $transaction: (arg: unknown) => {
+      if (typeof arg === 'function') {
+        return (arg as (tx: typeof txProxy) => unknown)(txProxy);
+      }
+      return Promise.resolve(arg);
     },
   },
 }));
 
-import {
-  createWarehouse,
-  deleteWarehouse,
-  updateStock,
-  findNearestWarehouse,
-} from './warehouse';
+import { createWarehouse, deleteWarehouse, updateStock, findNearestWarehouse } from './warehouse';
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -46,9 +73,7 @@ describe('createWarehouse', () => {
   it('throws on duplicate code', async () => {
     mockWarehouseFindUnique.mockResolvedValue({ id: 99 });
 
-    await expect(
-      createWarehouse({ name: 'Dup', code: 'WH-01', city: 'Kyiv' })
-    ).rejects.toThrow();
+    await expect(createWarehouse({ name: 'Dup', code: 'WH-01', city: 'Kyiv' })).rejects.toThrow();
   });
 
   it('unsets other defaults when creating as default', async () => {
@@ -92,16 +117,30 @@ describe('deleteWarehouse', () => {
 describe('updateStock', () => {
   it('upserts stock items for warehouse', async () => {
     mockWarehouseFindUnique.mockResolvedValue({ id: 1 });
+    mockProductFindMany.mockResolvedValue([{ id: 10 }]);
+    mockStockFindMany.mockResolvedValue([]);
     mockStockUpsert.mockResolvedValue({ warehouseId: 1, productId: 10, quantity: 50 });
 
     const result = await updateStock(1, [{ productId: 10, quantity: 50 }]);
 
-    expect(result).toHaveLength(1);
+    expect(result).toMatchObject({ updated: 1 });
+    expect(result.before).toEqual({ 10: null });
     expect(mockStockUpsert).toHaveBeenCalledWith({
       where: { warehouseId_productId: { warehouseId: 1, productId: 10 } },
       update: { quantity: 50 },
       create: { warehouseId: 1, productId: 10, quantity: 50 },
     });
+  });
+
+  it('refuses to drop quantity below reserved', async () => {
+    mockWarehouseFindUnique.mockResolvedValue({ id: 1 });
+    mockProductFindMany.mockResolvedValue([{ id: 10 }]);
+    // Prior stock had 50 quantity with 30 reserved — admin tries to set
+    // quantity to 20, which would put us in reserved > quantity territory.
+    mockStockFindMany.mockResolvedValue([{ productId: 10, quantity: 50, reserved: 30 }]);
+
+    await expect(updateStock(1, [{ productId: 10, quantity: 20 }])).rejects.toThrow(/резерв/);
+    expect(mockStockUpsert).not.toHaveBeenCalled();
   });
 
   it('throws when warehouse not found', async () => {
@@ -122,7 +161,7 @@ describe('findNearestWarehouse', () => {
     expect(mockWarehouseFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { city: { equals: 'Kyiv', mode: 'insensitive' } },
-      })
+      }),
     );
   });
 

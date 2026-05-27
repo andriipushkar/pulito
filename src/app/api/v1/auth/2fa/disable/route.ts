@@ -7,15 +7,23 @@ import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 
 const disableSchema = z.object({
-  code: z.string().min(1, 'Код обов\'язковий'),
+  code: z.string().min(1, "Код обов'язковий"),
 });
 
 /**
  * POST /api/v1/auth/2fa/disable
  * Disables 2FA for the authenticated user.
  * Requires a valid TOTP code to confirm the action.
+ *
+ * Roles mirror /2fa/setup + /2fa/verify so a customer who enabled 2FA
+ * can also turn it off through their account security tab.
  */
-export const POST = withRole('admin', 'manager')(async (request, { user }) => {
+export const POST = withRole(
+  'admin',
+  'manager',
+  'client',
+  'wholesaler',
+)(async (request, { user }) => {
   try {
     const body = await request.json();
     const parsed = disableSchema.safeParse(body);

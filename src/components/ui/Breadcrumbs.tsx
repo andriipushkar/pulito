@@ -1,5 +1,4 @@
-import Link from 'next/link';
-
+import { Link } from '@/i18n/navigation';
 interface BreadcrumbItem {
   label: string;
   href?: string;
@@ -23,14 +22,23 @@ export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps)
   };
 
   const separator = (
-    <svg className="h-4 w-4 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg
+      className="h-4 w-4 text-[var(--color-text-secondary)]"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
     </svg>
   );
 
   const renderItem = (item: BreadcrumbItem, i: number) =>
     item.href && i < items.length - 1 ? (
-      <Link href={item.href} className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
+      <Link
+        href={item.href}
+        className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
+      >
         {item.label}
       </Link>
     ) : (
@@ -40,9 +48,7 @@ export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps)
   const showMobileShortened = items.length > 3;
 
   // Mobile shortened: first item → ... → last two items
-  const mobileItems = showMobileShortened
-    ? [items[0], ...items.slice(-2)]
-    : items;
+  const mobileItems = showMobileShortened ? [items[0], ...items.slice(-2)] : items;
 
   return (
     <>
@@ -65,9 +71,7 @@ export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps)
         <ol className="flex sm:hidden flex-wrap items-center gap-1">
           {showMobileShortened ? (
             <>
-              <li className="flex items-center gap-1">
-                {renderItem(mobileItems[0], 0)}
-              </li>
+              <li className="flex items-center gap-1">{renderItem(mobileItems[0], 0)}</li>
               <li className="flex items-center gap-1">
                 {separator}
                 <span className="text-[var(--color-text-secondary)]">&hellip;</span>

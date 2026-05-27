@@ -111,7 +111,10 @@ export const GET = withRole(
         const margins = marginProducts.map((p) => {
           const retail = Number(p.priceRetail);
           const wholesale = Number(p.priceWholesale);
-          const marginPct = retail > 0 ? Math.round(((retail - wholesale) / retail) * 100) : 0;
+          // Round to 0.01% so margins like 12.5% or 7.33% don't collapse to
+          // 13/7 in the UI — admins use this to spot pricing drift.
+          const marginPct =
+            retail > 0 ? Math.round(((retail - wholesale) / retail) * 10000) / 100 : 0;
           return { id: p.id, name: p.name, code: p.code, retail, wholesale, marginPct };
         });
 

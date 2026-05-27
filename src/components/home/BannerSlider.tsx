@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import useSWR from 'swr';
 import useEmblaCarousel from 'embla-carousel-react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from '@/components/icons';
 
@@ -27,21 +28,36 @@ function BannerDecoration({ index }: { index: number }) {
   if (index === 0)
     return (
       <>
-        <svg className="absolute -right-20 -top-20 h-96 w-96 opacity-[0.06]" viewBox="0 0 200 200"><circle cx="100" cy="100" r="100" fill="white" /></svg>
-        <svg className="absolute -bottom-24 -left-10 h-80 w-80 opacity-[0.04]" viewBox="0 0 200 200"><circle cx="100" cy="100" r="100" fill="white" /></svg>
+        <svg className="absolute -right-20 -top-20 h-96 w-96 opacity-[0.06]" viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="100" fill="white" />
+        </svg>
+        <svg
+          className="absolute -bottom-24 -left-10 h-80 w-80 opacity-[0.04]"
+          viewBox="0 0 200 200"
+        >
+          <circle cx="100" cy="100" r="100" fill="white" />
+        </svg>
       </>
     );
   if (index === 1)
     return (
       <>
-        <svg className="absolute -right-10 bottom-0 h-72 w-72 opacity-[0.05]" viewBox="0 0 200 200"><rect x="10" y="10" width="180" height="180" rx="50" fill="white" /></svg>
-        <svg className="absolute -left-16 -top-16 h-64 w-64 opacity-[0.04]" viewBox="0 0 200 200"><circle cx="100" cy="100" r="100" fill="white" /></svg>
+        <svg className="absolute -right-10 bottom-0 h-72 w-72 opacity-[0.05]" viewBox="0 0 200 200">
+          <rect x="10" y="10" width="180" height="180" rx="50" fill="white" />
+        </svg>
+        <svg className="absolute -left-16 -top-16 h-64 w-64 opacity-[0.04]" viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="100" fill="white" />
+        </svg>
       </>
     );
   return (
     <>
-      <svg className="absolute -bottom-10 right-20 h-80 w-80 opacity-[0.05]" viewBox="0 0 200 200"><circle cx="100" cy="100" r="100" fill="white" /></svg>
-      <svg className="absolute -top-10 -left-10 h-56 w-56 opacity-[0.04]" viewBox="0 0 200 200"><rect x="20" y="20" width="160" height="160" rx="80" fill="white" /></svg>
+      <svg className="absolute -bottom-10 right-20 h-80 w-80 opacity-[0.05]" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="100" fill="white" />
+      </svg>
+      <svg className="absolute -top-10 -left-10 h-56 w-56 opacity-[0.04]" viewBox="0 0 200 200">
+        <rect x="20" y="20" width="160" height="160" rx="80" fill="white" />
+      </svg>
     </>
   );
 }
@@ -51,8 +67,16 @@ function highlightGold(text: string) {
   if (parts.length === 1) return text;
   return parts.map((part, i) =>
     /\d|₴/.test(part) ? (
-      <span key={i} className="inline-block bg-gradient-to-r from-[#FFD54F] via-[#FFECB3] to-[#FFD54F] bg-clip-text text-transparent drop-shadow-[0_2px_4px_rgba(255,193,7,0.5)]" style={{ fontSize: '1.15em', fontWeight: 900 }}>{part}</span>
-    ) : part
+      <span
+        key={i}
+        className="inline-block bg-gradient-to-r from-[#FFD54F] via-[#FFECB3] to-[#FFD54F] bg-clip-text text-transparent drop-shadow-[0_2px_4px_rgba(255,193,7,0.5)]"
+        style={{ fontSize: '1.15em', fontWeight: 900 }}
+      >
+        {part}
+      </span>
+    ) : (
+      part
+    ),
   );
 }
 
@@ -67,8 +91,7 @@ const bannerFetcher = (url: string) => {
         if (data.data.length === 0) return [];
         const meaningful = data.data.filter(
           (b: Banner) =>
-            b.imageDesktop ||
-            (b.title && !genericTitles.includes(b.title.trim().toLowerCase()))
+            b.imageDesktop || (b.title && !genericTitles.includes(b.title.trim().toLowerCase())),
         );
         return meaningful.length ? meaningful : [];
       }
@@ -77,6 +100,7 @@ const bannerFetcher = (url: string) => {
 };
 
 export default function BannerSlider() {
+  const t = useTranslations('banner');
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -147,10 +171,16 @@ export default function BannerSlider() {
                       fill
                       sizes="100vw"
                       priority={idx === 0}
+                      // First banner is the LCP element on the home page; mark
+                      // it high priority so Chrome fetches it before lower-
+                      // priority assets and the largest paint lands sooner.
+                      fetchPriority={idx === 0 ? 'high' : 'auto'}
                       className="object-cover"
                     />
                   ) : (
-                    <div className={`absolute inset-0 bg-gradient-to-br ${bannerStyles[idx % bannerStyles.length]} overflow-hidden`}>
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-br ${bannerStyles[idx % bannerStyles.length]} overflow-hidden`}
+                    >
                       <BannerDecoration index={idx % 3} />
                     </div>
                   )}
@@ -159,15 +189,34 @@ export default function BannerSlider() {
                     {(banner.title || banner.buttonText) && (
                       <div className="glass-dark rounded-2xl px-4 py-3 sm:rounded-3xl sm:px-6 sm:py-4">
                         {banner.title && (
-                          <h2 className="text-xl font-extrabold leading-tight tracking-tight sm:text-3xl lg:text-5xl" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.2)' }}>{highlightGold(banner.title)}</h2>
+                          <h2
+                            className="text-xl font-extrabold leading-tight tracking-tight sm:text-3xl lg:text-5xl"
+                            style={{ textShadow: '0 2px 12px rgba(0,0,0,0.2)' }}
+                          >
+                            {highlightGold(banner.title)}
+                          </h2>
                         )}
                         {banner.subtitle && (
-                          <p className="mt-1 hidden max-w-md text-sm font-light opacity-90 sm:block sm:text-lg">{banner.subtitle}</p>
+                          <p className="mt-1 hidden max-w-md text-sm font-light opacity-90 sm:block sm:text-lg">
+                            {banner.subtitle}
+                          </p>
                         )}
                         {banner.buttonText && (
                           <span className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/95 px-5 py-2 text-sm font-bold text-[var(--color-primary-dark)] shadow-lg transition-all duration-300 hover:scale-[1.05] hover:bg-white active:scale-[0.98] sm:mt-3 sm:px-8 sm:py-3 sm:text-base">
                             {banner.buttonText}
-                            <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                            <svg
+                              className="h-4 w-4 sm:h-5 sm:w-5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                              />
+                            </svg>
                           </span>
                         )}
                       </div>
@@ -183,23 +232,23 @@ export default function BannerSlider() {
       <button
         onClick={scrollPrev}
         className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow-lg backdrop-blur-md transition-all hover:bg-white hover:shadow-[var(--shadow-brand)] sm:left-4 sm:p-2.5"
-        aria-label="Попередній"
+        aria-label={t('prev')}
       >
         <ChevronLeft size={18} />
       </button>
       <button
         onClick={scrollNext}
         className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow-lg backdrop-blur-md transition-all hover:bg-white hover:shadow-[var(--shadow-brand)] sm:right-4 sm:p-2.5"
-        aria-label="Наступний"
+        aria-label={t('next')}
       >
         <ChevronRight size={18} />
       </button>
 
       {/* Progress bar indicators */}
       <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 sm:bottom-4 sm:gap-2">
-        {banners.map((_, i) => (
+        {banners.map((banner, i) => (
           <button
-            key={i}
+            key={banner.id}
             onClick={() => emblaApi?.scrollTo(i)}
             className="group relative h-1 w-8 overflow-hidden rounded-full bg-white/30 transition-all sm:h-1.5 sm:w-10"
             aria-label={`Слайд ${i + 1}`}
@@ -209,8 +258,8 @@ export default function BannerSlider() {
                 key={progressKey}
                 className="absolute inset-y-0 left-0 rounded-full bg-white"
                 style={{
-                  animation: isPaused ? 'none' : `progress-bar ${AUTOPLAY_INTERVAL}ms linear forwards`,
-                  width: isPaused ? '100%' : undefined,
+                  animation: `progress-bar ${AUTOPLAY_INTERVAL}ms linear forwards`,
+                  animationPlayState: isPaused ? 'paused' : 'running',
                 }}
               />
             )}

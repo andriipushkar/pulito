@@ -4,23 +4,21 @@ import type { CreateSubscriptionInput, UpdateSubscriptionInput } from '@/validat
 export class SubscriptionError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'SubscriptionError';
   }
 }
 
-const FREQUENCY_DAYS: Record<string, number> = {
-  weekly: 7,
-  biweekly: 14,
-  monthly: 30,
-  bimonthly: 60,
-};
+// Canonical FREQUENCY_DAYS lives in subscription-frequency.ts now —
+// importing keeps the cron job (process-subscriptions) and the customer
+// API in lock-step. Re-export for tests/admin code that imported from here.
+import { FREQUENCY_DAYS, nextDeliveryFrom } from './subscription-frequency';
+export { FREQUENCY_DAYS };
 
 function calculateNextDelivery(frequency: string): Date {
-  const days = FREQUENCY_DAYS[frequency] ?? 30;
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  return nextDeliveryFrom(frequency);
 }
 
 export async function createSubscription(userId: number, data: CreateSubscriptionInput) {
@@ -91,7 +89,11 @@ export async function getSubscriptionById(id: number, userId: number) {
   return subscription;
 }
 
-export async function updateSubscription(id: number, userId: number, data: UpdateSubscriptionInput) {
+export async function updateSubscription(
+  id: number,
+  userId: number,
+  data: UpdateSubscriptionInput,
+) {
   const subscription = await prisma.subscription.findFirst({
     where: { id, userId },
   });

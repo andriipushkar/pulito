@@ -24,23 +24,37 @@ export default function ActivityFeed() {
   const { notifications } = useAdminNotifications();
 
   useEffect(() => {
-    apiClient.get<ActivityEvent[]>('/api/v1/admin/dashboard/activity').then((res) => {
-      if (res.success && res.data) setEvents(res.data);
-      setIsLoading(false);
-    });
+    apiClient
+      .get<ActivityEvent[]>('/api/v1/admin/dashboard/activity')
+      .then((res) => {
+        if (res.success && res.data) setEvents(res.data);
+      })
+      // Always clear the loading flag — without `.finally`, a rejected promise
+      // (network blip, 5xx) would leave isLoading=true forever and the widget
+      // would silently never render.
+      .finally(() => setIsLoading(false));
   }, []);
 
   // Optimistically prepend live SSE notifications. The next API fetch will
   // bring the canonical row. Derive instead of storing — no setState in effect.
   const displayedEvents = useMemo(() => {
     if (notifications.length === 0) return events;
-    const live = notifications.slice(0, 3).map((n) => ({
-      type: 'order_created' as const,
-      id: `live-${n.id}`,
-      message: n.message,
-      href: '/admin/orders',
-      at: n.timestamp,
-    }));
+    // Dedupe within `notifications` themselves: SSE can deliver the same id
+    // twice on reconnect, which would create duplicate React keys.
+    const seenLiveIds = new Set<string>();
+    const live = [] as ActivityEvent[];
+    for (const n of notifications.slice(0, 3)) {
+      const id = `live-${n.id}`;
+      if (seenLiveIds.has(id)) continue;
+      seenLiveIds.add(id);
+      live.push({
+        type: 'order_created' as const,
+        id,
+        message: n.message,
+        href: '/admin/orders',
+        at: n.timestamp,
+      });
+    }
     const seen = new Set(events.map((p) => p.id));
     const fresh = live.filter((l) => !seen.has(l.id));
     return [...fresh, ...events].slice(0, 30);

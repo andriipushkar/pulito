@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import Container from '@/components/ui/Container';
 import {
   Telegram,
@@ -13,6 +13,7 @@ import {
   MessageCircle,
 } from '@/components/icons';
 import { useSettings } from '@/hooks/useSettings';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const iconMap: Record<string, React.FC<{ size: number }>> = {
   social_telegram: Telegram,
@@ -126,6 +127,8 @@ export default function TopBar() {
               <Icon size={15} />
             </a>
           ))}
+          <span className="ml-1 text-[var(--color-border)]">·</span>
+          <LanguageSwitcher />
         </div>
       </Container>
     </div>

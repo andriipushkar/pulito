@@ -80,10 +80,14 @@ export async function syncMarketplaceMessages(): Promise<{
   // Fire-and-forget single push when any new messages arrived in this run.
   const totalNew = Object.values(newByPlatform).reduce((s, n) => s + n, 0);
   if (totalNew > 0) {
+    const parts = Object.entries(newByPlatform)
+      .map(([p, n]) => `${p}: ${n}`)
+      .join(', ');
+
+    // Web Push to admin browsers (existing).
     void (async () => {
       try {
         const { sendPushToAdmins } = await import('@/services/push');
-        const parts = Object.entries(newByPlatform).map(([p, n]) => `${p}: ${n}`).join(', ');
         await sendPushToAdmins({
           title: `💬 ${totalNew} нових повідомлень з маркетплейсів`,
           body: parts,
@@ -91,6 +95,20 @@ export async function syncMarketplaceMessages(): Promise<{
         });
       } catch (err) {
         log.error('push admin notify failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    })();
+
+    // Telegram ping to manager channel — separate channel from web push so
+    // the message reaches the owner even when the browser is closed. Uses
+    // the same TELEGRAM_MANAGER_CHAT_ID env as new-order notifications.
+    void (async () => {
+      try {
+        const { notifyManagerMarketplaceMessages } = await import('@/services/telegram');
+        await notifyManagerMarketplaceMessages({ total: totalNew, perPlatform: newByPlatform });
+      } catch (err) {
+        log.error('telegram admin notify failed', {
           error: err instanceof Error ? err.message : String(err),
         });
       }

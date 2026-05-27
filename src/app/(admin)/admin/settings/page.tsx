@@ -175,6 +175,18 @@ const SECTIONS: { key: SectionKey; label: string; fields: FieldDef[] }[] = [
         hint: 'Числовий ID з кабінету Meta Ads',
         validate: (v) => (v && !/^\d+$/.test(v) ? 'Pixel ID має бути числом' : null),
       },
+      {
+        key: 'pinterest_tag_id',
+        label: 'Pinterest Tag ID',
+        hint: 'ID з Pinterest Business → Conversions → Pinterest Tag (13-значне число)',
+        validate: (v) => (v && !/^\d{10,20}$/.test(v) ? 'Tag ID має бути числом 10-20 цифр' : null),
+      },
+      {
+        key: 'pinterest_domain_verify',
+        label: 'Pinterest Domain Verify',
+        hint: 'Значення з meta-тега <meta name="p:domain_verify"> у Pinterest Business → Claim domain',
+        validate: (v) => (v && !/^[a-f0-9]{32}$/i.test(v) ? 'Має бути 32 hex-символи' : null),
+      },
     ],
   },
   {
@@ -198,6 +210,18 @@ const SECTIONS: { key: SectionKey; label: string; fields: FieldDef[] }[] = [
         label: 'Бонус новачку за реферал (балів)',
         hint: 'Додаткові бали для нового користувача, який зареєструвався за чужим реф-кодом — нараховуються при першому замовленні. 0 — вимкнено.',
         validate: (v) => (v && !/^\d+$/.test(v) ? 'Має бути цілим числом (0 — вимкнено)' : null),
+      },
+      {
+        key: 'loyalty_max_redemption_percent',
+        label: 'Макс. % замовлення, оплачуваний балами',
+        hint: 'Скільки % суми замовлення (товари + доставка) клієнт може оплатити балами. 50 — половина, 100 — все. 0 — без обмеження.',
+        validate: (v) => {
+          if (!v) return null;
+          if (!/^\d+$/.test(v)) return 'Має бути цілим числом 0-100';
+          const n = Number(v);
+          if (n < 0 || n > 100) return 'Діапазон 0-100';
+          return null;
+        },
       },
     ],
   },

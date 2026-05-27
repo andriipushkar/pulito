@@ -141,12 +141,54 @@ async function downloadAndProcessImage(url: string, productId: number): Promise<
     const buffer = Buffer.from(await res.arrayBuffer());
     if (buffer.length > IMAGE_MAX_SIZE || buffer.length === 0) return false;
 
+    // Verify magic bytes: header Content-Type is attacker-controlled. A
+    // payload served as image/jpeg might actually be a PHP/HTML blob. sharp
+    // would later throw on a non-image, but we'd rather reject here so the
+    // server never even hands the buffer to the image pipeline.
+    if (!hasImageMagicBytes(buffer)) return false;
+
     const filename = url.split('/').pop()?.split('?')[0] || 'imported.jpg';
     await processProductImage(buffer, contentType, filename, productId, true);
     return true;
   } catch {
     return false;
   }
+}
+
+/** Common raster-image signatures (first few bytes). Lighter than pulling
+ * in a full file-type library and covers JPEG/PNG/WEBP/GIF which are the
+ * only formats sharp downstream accepts anyway. */
+function hasImageMagicBytes(buf: Buffer): boolean {
+  if (buf.length < 12) return false;
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true;
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47 &&
+    buf[4] === 0x0d &&
+    buf[5] === 0x0a &&
+    buf[6] === 0x1a &&
+    buf[7] === 0x0a
+  )
+    return true;
+  // GIF87a / GIF89a
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return true;
+  // WEBP: "RIFF...." + "WEBP" at offset 8
+  if (
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  )
+    return true;
+  return false;
 }
 
 // Column name mapping (Ukrainian → internal key)
@@ -256,8 +298,40 @@ function parsePrice(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null;
   const str = String(value).replace(',', '.').replace(/\s/g, '');
   const num = parseFloat(str);
-  if (isNaN(num) || num < 0) return null;
+  // Reject zero too — a price column of 0 means the importer mis-mapped or
+  // the supplier sent garbage. Free products via import are never the
+  // intent and silently propagate to checkout.
+  if (isNaN(num) || num <= 0) return null;
   return Math.round(num * 100) / 100;
+}
+
+/** Excel/LibreOffice/Sheets evaluate any string that starts with =, @, +, - as
+ * a formula when the cell is opened. A row imported here may eventually be
+ * exported back to CSV — at that point an unsuspecting admin opens the export
+ * and the embedded `=cmd|'/c calc'!A1` executes. Prefix the cell with an
+ * apostrophe so the spreadsheet treats it as literal text. */
+function defangCsvCell(s: string): string {
+  if (s.length === 0) return s;
+  const first = s.charAt(0);
+  if (
+    first === '=' ||
+    first === '@' ||
+    first === '+' ||
+    first === '-' ||
+    first === '\t' ||
+    first === '\r'
+  ) {
+    return `'${s}`;
+  }
+  return s;
+}
+
+/** Hard cap on free-text columns to stop a 10MB XLSX cell from blowing up
+ * the products DB / search index. Mirror the storefront max-length used
+ * elsewhere for the same fields. */
+const MAX_CONTENT_FIELD_LENGTH = 50_000;
+function capFreeText(s: string): string {
+  return s.length > MAX_CONTENT_FIELD_LENGTH ? s.slice(0, MAX_CONTENT_FIELD_LENGTH) : s;
 }
 
 function parseQuantity(value: unknown): number {
@@ -274,13 +348,17 @@ function parsePromo(value: unknown): boolean {
 }
 
 function buildContentData(row: Record<string, unknown>): Record<string, string> | null {
+  // Defang each cell (CSV-injection-safe) then truncate to a sane max length
+  // before persisting. `defangCsvCell` is a no-op for normal product copy
+  // (real descriptions don't start with =/+/-), so this is purely defensive.
+  const safe = (v: unknown) => capFreeText(defangCsvCell(String(v ?? '').trim()));
   const fields: Record<string, string> = {};
-  const shortDesc = String(row.shortDescription ?? '').trim();
-  const desc = String(row.description ?? '').trim();
-  const specs = String(row.specifications ?? '').trim();
-  const seoTitle = String(row.seoTitle ?? '').trim();
-  const seoDesc = String(row.seoDescription ?? '').trim();
-  const seoKeys = String(row.seoKeywords ?? '').trim();
+  const shortDesc = safe(row.shortDescription);
+  const desc = safe(row.description);
+  const specs = safe(row.specifications);
+  const seoTitle = safe(row.seoTitle);
+  const seoDesc = safe(row.seoDescription);
+  const seoKeys = safe(row.seoKeywords);
 
   if (shortDesc) fields.shortDescription = shortDesc;
   if (desc) fields.description = desc;
@@ -366,6 +444,11 @@ async function parseYmlBuffer(buffer: Buffer): Promise<{ rawRows: ExcelRow[] }> 
     attributeNamePrefix: '@_',
     trimValues: true,
     parseAttributeValue: false,
+    // XXE guard: refuse to resolve `<!ENTITY xxe SYSTEM "file:///...">` even
+    // if a malicious supplier embeds one in their feed. Without this a YML
+    // import from an untrusted source can exfiltrate /etc/passwd or hit an
+    // internal metadata service.
+    processEntities: false,
     isArray: (name) => ['offer', 'category', 'param', 'picture'].includes(name),
   });
 

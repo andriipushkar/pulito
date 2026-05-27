@@ -13,6 +13,8 @@ const updateSchema = z.object({
   // Cap answer length so an admin can't paste a runaway essay; matches the
   // storefront FAQ block which truncates around this size.
   answer: z.string().min(5).max(20_000).optional(),
+  questionEn: z.string().max(500).optional(),
+  answerEn: z.string().max(20_000).optional(),
   sortOrder: z.number().int().min(0).optional(),
   isPublished: z.boolean().optional(),
 });
@@ -39,9 +41,14 @@ export const PUT = withRole(
       entityId: numId,
       details: { fields: Object.keys(parsed.data) },
     });
-    // FAQ snippets appear on the storefront home + /faq page.
-    revalidatePath('/faq');
-    revalidatePath('/');
+    // FAQ snippets appear on the storefront home + /faq page. ISR fail
+    // shouldn't 500 the admin PUT — log + continue.
+    try {
+      revalidatePath('/faq');
+      revalidatePath('/');
+    } catch (cacheErr) {
+      logger.warn('[admin/faq/[id]] revalidatePath failed', { error: cacheErr });
+    }
     return successResponse(item);
   } catch (error) {
     if (error instanceof FaqError) return errorResponse(error.message, error.statusCode);
@@ -65,8 +72,12 @@ export const DELETE = withRole(
       entityType: 'faq_item',
       entityId: numId,
     });
-    revalidatePath('/faq');
-    revalidatePath('/');
+    try {
+      revalidatePath('/faq');
+      revalidatePath('/');
+    } catch (cacheErr) {
+      logger.warn('[admin/faq/[id]] revalidatePath failed', { error: cacheErr });
+    }
     return successResponse({ message: 'Питання видалено' });
   } catch (error) {
     if (error instanceof FaqError) return errorResponse(error.message, error.statusCode);

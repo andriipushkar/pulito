@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { apiClient } from '@/lib/api-client';
 import { useCart } from '@/hooks/useCart';
 import type { CartItem } from '@/providers/CartProvider';
@@ -71,8 +71,7 @@ export default function FrequentlyBought({ cartItems, limit = 3 }: FrequentlyBou
       code: rec.code,
       priceRetail: Number(rec.priceRetail),
       priceWholesale: null,
-      imagePath:
-        rec.images?.[0]?.pathThumbnail ?? rec.imagePath ?? null,
+      imagePath: rec.images?.[0]?.pathThumbnail ?? rec.imagePath ?? null,
       quantity: 1,
       maxQuantity: 999,
     });
@@ -93,13 +92,7 @@ export default function FrequentlyBought({ cartItems, limit = 3 }: FrequentlyBou
             >
               <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md bg-[var(--color-bg-secondary)]">
                 {thumb ? (
-                  <Image
-                    src={thumb}
-                    alt={rec.name}
-                    fill
-                    sizes="56px"
-                    className="object-contain"
-                  />
+                  <Image src={thumb} alt={rec.name} fill sizes="56px" className="object-contain" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-[var(--color-text-secondary)]">
                     <CartIcon size={16} />

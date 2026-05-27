@@ -20,6 +20,10 @@ interface AdminBrand {
   country: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
+  nameEn: string | null;
+  descriptionEn: string | null;
+  seoTitleEn: string | null;
+  seoDescriptionEn: string | null;
   isVisible: boolean;
   sortOrder: number;
   version?: number;
@@ -43,6 +47,10 @@ export default function AdminBrandsPage() {
     country: '',
     seoTitle: '',
     seoDescription: '',
+    nameEn: '',
+    descriptionEn: '',
+    seoTitleEn: '',
+    seoDescriptionEn: '',
     isVisible: true,
     sortOrder: 0,
   });
@@ -96,6 +104,10 @@ export default function AdminBrandsPage() {
       country: b.country || '',
       seoTitle: b.seoTitle || '',
       seoDescription: b.seoDescription || '',
+      nameEn: b.nameEn || '',
+      descriptionEn: b.descriptionEn || '',
+      seoTitleEn: b.seoTitleEn || '',
+      seoDescriptionEn: b.seoDescriptionEn || '',
       isVisible: b.isVisible,
       sortOrder: b.sortOrder,
     };
@@ -117,6 +129,10 @@ export default function AdminBrandsPage() {
         country: editForm.country.trim() || null,
         seoTitle: editForm.seoTitle.trim() || null,
         seoDescription: editForm.seoDescription.trim() || null,
+        nameEn: editForm.nameEn.trim() || null,
+        descriptionEn: editForm.descriptionEn.trim() || null,
+        seoTitleEn: editForm.seoTitleEn.trim() || null,
+        seoDescriptionEn: editForm.seoDescriptionEn.trim() || null,
         isVisible: editForm.isVisible,
         sortOrder: Number(editForm.sortOrder) || 0,
         version: current?.version,
@@ -541,6 +557,47 @@ export default function AdminBrandsPage() {
                   </div>
                 </div>
               </div>
+
+              <details className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase">
+                  <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                    EN
+                  </span>
+                  Англійський переклад (опційно)
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <Input
+                    label="Name (EN)"
+                    value={editForm.nameEn}
+                    onChange={(e) => setEditForm({ ...editForm, nameEn: e.target.value })}
+                  />
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">Description (EN)</label>
+                    <textarea
+                      value={editForm.descriptionEn}
+                      onChange={(e) => setEditForm({ ...editForm, descriptionEn: e.target.value })}
+                      rows={3}
+                      className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                    />
+                  </div>
+                  <Input
+                    label="SEO Title (EN)"
+                    value={editForm.seoTitleEn}
+                    onChange={(e) => setEditForm({ ...editForm, seoTitleEn: e.target.value })}
+                  />
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">SEO Description (EN)</label>
+                    <textarea
+                      value={editForm.seoDescriptionEn}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, seoDescriptionEn: e.target.value })
+                      }
+                      rows={2}
+                      className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                    />
+                  </div>
+                </div>
+              </details>
 
               <div className="flex gap-4">
                 <Input

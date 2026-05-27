@@ -10,6 +10,7 @@ import path from 'path';
 import { env } from '@/config/env';
 import { cacheInvalidate } from '@/services/cache';
 import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
 
 const BULK_IDS_LIMIT = 5000;
@@ -49,10 +50,7 @@ export const POST = withRole(
     }
 
     const { action, productIds, filters } = parsed.data;
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      null;
+    const ipAddress = getClientIp(request);
 
     if (action === 'activate' || action === 'deactivate') {
       if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
@@ -234,9 +232,26 @@ export const POST = withRole(
       }
 
       // Atomic: all-or-nothing. Partial price changes are worse than no change.
-      await prisma.$transaction(
-        updates.map((u) => prisma.product.update({ where: { id: u.id }, data: u.data })),
-      );
+      //
+      // For `fixed` mode each id gets the same value, so we can batch with a
+      // single updateMany per target field. For `percent`/`add`/`round` modes
+      // each id gets a different value, so we group ids by their resulting
+      // price payload — products that happen to land on the same new price
+      // share an UPDATE round-trip. Worst case (all unique prices) degrades
+      // to one update per product as before; best case (most products share
+      // a SKU price tier) is ~10× faster.
+      await prisma.$transaction(async (tx) => {
+        const groups = new Map<string, { ids: number[]; data: Record<string, number> }>();
+        for (const u of updates) {
+          const key = JSON.stringify(u.data);
+          const existing = groups.get(key);
+          if (existing) existing.ids.push(u.id);
+          else groups.set(key, { ids: [u.id], data: u.data });
+        }
+        for (const { ids, data } of groups.values()) {
+          await tx.product.updateMany({ where: { id: { in: ids } }, data });
+        }
+      });
       const updatedCount = updates.length;
       const changes = updates.map((u) => ({ id: u.id, before: u.before, after: u.after }));
       await cacheInvalidate('products:*');
@@ -285,6 +300,10 @@ export const POST = withRole(
       if (action === 'export' && productIds?.length) {
         where.id = { in: productIds };
       } else if (action === 'export_filtered' && filters) {
+        // Mirror every filter the products-list page renders, so the XLSX the
+        // admin downloads matches what's on screen. Earlier this branch only
+        // applied search/category/isActive/stock and silently dropped brandId
+        // and missingBarcode, producing exports that didn't match the list.
         if (filters.search) {
           where.OR = [
             { name: { contains: filters.search, mode: 'insensitive' } },
@@ -292,11 +311,13 @@ export const POST = withRole(
           ];
         }
         if (filters.categoryId) where.categoryId = Number(filters.categoryId);
+        if (filters.brandId) where.brandId = Number(filters.brandId);
         if (filters.isActive === 'true') where.isActive = true;
         else if (filters.isActive === 'false') where.isActive = false;
         if (filters.stock === 'out') where.quantity = 0;
         else if (filters.stock === 'low') where.quantity = { gt: 0, lte: 5 };
         else if (filters.stock === 'in') where.quantity = { gt: 5 };
+        if (filters.missingBarcode === 'true') where.barcode = null;
       }
 
       const EXPORT_HARD_LIMIT = 50_000;

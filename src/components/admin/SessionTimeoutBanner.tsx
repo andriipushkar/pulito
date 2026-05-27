@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { getAccessToken, apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
 
@@ -14,9 +15,9 @@ function decodeExpClaim(token: string): number | null {
   try {
     const payload = token.split('.')[1];
     if (!payload) return null;
-    const json = JSON.parse(
-      atob(payload.replace(/-/g, '+').replace(/_/g, '/')),
-    ) as { exp?: number };
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as {
+      exp?: number;
+    };
     return typeof json.exp === 'number' ? json.exp : null;
   } catch {
     return null;
@@ -29,25 +30,26 @@ export default function SessionTimeoutBanner() {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [extending, setExtending] = useState(false);
 
+  const tick = useCallback(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setSecondsLeft(null);
+      return;
+    }
+    const exp = decodeExpClaim(token);
+    if (!exp) {
+      setSecondsLeft(null);
+      return;
+    }
+    const left = exp - Math.floor(Date.now() / 1000);
+    setSecondsLeft(left);
+  }, []);
+
   useEffect(() => {
-    const tick = () => {
-      const token = getAccessToken();
-      if (!token) {
-        setSecondsLeft(null);
-        return;
-      }
-      const exp = decodeExpClaim(token);
-      if (!exp) {
-        setSecondsLeft(null);
-        return;
-      }
-      const left = exp - Math.floor(Date.now() / 1000);
-      setSecondsLeft(left);
-    };
     tick();
     const interval = setInterval(tick, 15_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [tick]);
 
   const handleExtend = async () => {
     setExtending(true);
@@ -55,8 +57,10 @@ export default function SessionTimeoutBanner() {
     setExtending(false);
     if (res.success) {
       toast.success('Сесію продовжено');
-      // accessToken state inside api-client gets updated by the route handler
-      // via Set-Cookie; force re-decode on next tick.
+      // Force re-read of the new exp claim immediately. Without this the
+      // banner stays visible with the old `secondsLeft` until the next 15-s
+      // tick — admin clicks "Продовжити" and nothing seems to happen.
+      tick();
     } else {
       // Refresh failed — redirect to login so user does not think the session was extended.
       toast.error('Не вдалося продовжити сесію — увійдіть повторно');
@@ -73,12 +77,12 @@ export default function SessionTimeoutBanner() {
         <p className="flex-1 text-sm font-medium text-red-800">
           Сесія завершена. Збережіть незавершену роботу та увійдіть знову.
         </p>
-        <a
+        <Link
           href="/auth/login?returnUrl=/admin"
           className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
         >
           Увійти
-        </a>
+        </Link>
       </div>
     );
   }

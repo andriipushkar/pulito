@@ -9,6 +9,9 @@ const mockPrisma = vi.hoisted(() => ({
   order: {
     findMany: vi.fn(),
   },
+  orderStatusHistory: {
+    findMany: vi.fn(),
+  },
   userNotification: {
     findFirst: vi.fn(),
     create: vi.fn(),
@@ -52,9 +55,7 @@ describe('processWelcomeSeries', () => {
 
     expect(result.sent).toBe(2);
     expect(mockSendEmail).toHaveBeenCalledTimes(2);
-    expect(mockSendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'user1@test.com' })
-    );
+    expect(mockSendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: 'user1@test.com' }));
     expect(mockPrisma.userNotification.create).toHaveBeenCalledTimes(2);
   });
 
@@ -87,9 +88,7 @@ describe('processWelcomeSeries', () => {
     ]);
     mockPrisma.userNotification.findFirst.mockResolvedValue(null);
     mockPrisma.userNotification.create.mockResolvedValue({});
-    mockSendEmail
-      .mockRejectedValueOnce(new Error('SMTP error'))
-      .mockResolvedValueOnce(undefined);
+    mockSendEmail.mockRejectedValueOnce(new Error('SMTP error')).mockResolvedValueOnce(undefined);
 
     const result = await processWelcomeSeries();
 
@@ -140,6 +139,7 @@ describe('processWinBack', () => {
 
 describe('processPostPurchaseReviewRequest', () => {
   it('sends review request 7 days after completed order', async () => {
+    mockPrisma.orderStatusHistory.findMany.mockResolvedValue([{ orderId: 100 }]);
     mockPrisma.order.findMany.mockResolvedValue([
       {
         id: 100,
@@ -159,7 +159,7 @@ describe('processPostPurchaseReviewRequest', () => {
       expect.objectContaining({
         to: 'buyer@test.com',
         subject: expect.stringContaining('відгук'),
-      })
+      }),
     );
     expect(mockPrisma.userNotification.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -167,11 +167,12 @@ describe('processPostPurchaseReviewRequest', () => {
           userId: 5,
           notificationType: 'review_request',
         }),
-      })
+      }),
     );
   });
 
   it('skips orders where review request was already sent', async () => {
+    mockPrisma.orderStatusHistory.findMany.mockResolvedValue([{ orderId: 100 }]);
     mockPrisma.order.findMany.mockResolvedValue([
       {
         id: 100,
@@ -189,6 +190,7 @@ describe('processPostPurchaseReviewRequest', () => {
   });
 
   it('skips orders without user email', async () => {
+    mockPrisma.orderStatusHistory.findMany.mockResolvedValue([{ orderId: 100 }]);
     mockPrisma.order.findMany.mockResolvedValue([
       {
         id: 100,
@@ -205,6 +207,7 @@ describe('processPostPurchaseReviewRequest', () => {
   });
 
   it('handles empty orders list', async () => {
+    mockPrisma.orderStatusHistory.findMany.mockResolvedValue([]);
     mockPrisma.order.findMany.mockResolvedValue([]);
 
     const result = await processPostPurchaseReviewRequest();

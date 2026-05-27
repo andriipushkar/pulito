@@ -6,7 +6,11 @@ export const applyCouponSchema = z.object({
 
 export const createCouponSchema = z
   .object({
-    code: z.string().min(2).max(50).regex(/^[A-Za-z0-9_-]+$/, 'Код може містити лише латинські літери, цифри, _ та -'),
+    code: z
+      .string()
+      .min(2)
+      .max(50)
+      .regex(/^[A-Za-z0-9_-]+$/, 'Код може містити лише латинські літери, цифри, _ та -'),
     description: z.string().max(500).optional(),
     type: z.enum(['percent', 'fixed_amount', 'free_delivery']),
     value: z.number().positive(),
@@ -20,10 +24,14 @@ export const createCouponSchema = z
     excludedProductIds: z.array(z.number().int().positive()).max(2000).optional(),
     stackableWith: z.array(z.string().max(50)).max(10).optional(),
   })
-  .refine(
-    (d) => !d.validFrom || !d.validUntil || new Date(d.validFrom) < new Date(d.validUntil),
-    { message: 'validFrom має бути раніше за validUntil', path: ['validUntil'] },
-  );
+  .refine((d) => !d.validFrom || !d.validUntil || new Date(d.validFrom) < new Date(d.validUntil), {
+    message: 'validFrom має бути раніше за validUntil',
+    path: ['validUntil'],
+  })
+  .refine((d) => d.type !== 'percent' || d.value <= 100, {
+    message: 'Відсоткова знижка не може перевищувати 100',
+    path: ['value'],
+  });
 
 export const updateCouponSchema = z
   .object({
@@ -35,7 +43,7 @@ export const updateCouponSchema = z
     validFrom: z.string().optional(),
     validUntil: z.string().optional(),
   })
-  .refine(
-    (d) => !d.validFrom || !d.validUntil || new Date(d.validFrom) < new Date(d.validUntil),
-    { message: 'validFrom має бути раніше за validUntil', path: ['validUntil'] },
-  );
+  .refine((d) => !d.validFrom || !d.validUntil || new Date(d.validFrom) < new Date(d.validUntil), {
+    message: 'validFrom має бути раніше за validUntil',
+    path: ['validUntil'],
+  });

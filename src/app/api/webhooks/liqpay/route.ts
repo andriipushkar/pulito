@@ -46,9 +46,13 @@ export async function POST(request: NextRequest) {
       String(error).includes('Signature');
     if (isSignatureError) {
       // Signature mismatch = either rotated key (operator must update env)
-      // or an attack. Either way log loudly so monitoring catches it; the
-      // HTTP response stays 200 because LiqPay treats non-2xx as a retry
-      // signal and we don't want a forged payload retried.
+      // or an attack. Return 401 so:
+      //   1. An attacker can't distinguish a successful forgery from any
+      //      other response (was returning 200, making forging undetectable).
+      //   2. Monitoring/alerting catches the loud HTTP status.
+      // LiqPay will retry — but the same forged payload re-fails signature
+      // each time, exhausting their retry budget without ever succeeding.
+      // The IP-based rate limit at line 12 stops a high-volume retry storm.
       logger.error('PAYMENT_WEBHOOK_SIGNATURE_MISMATCH', {
         provider: 'liqpay',
         error: String(error),
@@ -59,10 +63,12 @@ export async function POST(request: NextRequest) {
     logWebhook({
       source: 'liqpay',
       event: isSignatureError ? 'signature_failed' : 'error',
-      statusCode: isSignatureError ? 403 : 500,
+      statusCode: isSignatureError ? 401 : 500,
       error: String(error),
       durationMs: Date.now() - startTime,
     }).catch(() => {});
-    return new Response('Error', { status: 200 });
+    return new Response(isSignatureError ? 'Invalid signature' : 'Error', {
+      status: isSignatureError ? 401 : 500,
+    });
   }
 }

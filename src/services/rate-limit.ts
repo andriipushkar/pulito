@@ -105,6 +105,86 @@ export const RATE_LIMITS = {
   content: { prefix: 'rl:content:', max: 60, windowSec: 60 } satisfies RateLimitConfig,
   /** Admin exports (heavy joins, large payloads): 10 per minute per admin */
   adminExport: { prefix: 'rl:adminexport:', max: 10, windowSec: 60 } satisfies RateLimitConfig,
+  /**
+   * AI content generation (Claude/Gemini calls — each costs cents).
+   * Per-user, not per-IP, because admins share office IPs. Hard cap of
+   * 60/hour stops a stuck UI button (or a malicious tab loop) from running
+   * up an unbilled OpenAI/Anthropic bill while the operator sleeps.
+   */
+  adminAiGenerate: { prefix: 'rl:adminai:', max: 60, windowSec: 3600 } satisfies RateLimitConfig,
+  /**
+   * Payment-provider credential test (LiqPay/Mono/WayForPay verification
+   * pings). 5/min per admin: enough for legit "I just pasted a new key"
+   * flow, low enough that a stolen session can't probe credentials at
+   * scale to confirm validity before exfiltration.
+   */
+  adminPaymentTest: { prefix: 'rl:paymtest:', max: 5, windowSec: 60 } satisfies RateLimitConfig,
+  /**
+   * Public delivery-lookup endpoints (cities, streets, warehouses, estimate,
+   * ukrposhta-cities). Used by the checkout autocomplete — typical user
+   * makes ≤10 queries in a flow, so 30/min covers a normal session and
+   * blocks autocomplete-spam DoS against Nova Poshta upstream.
+   */
+  publicDelivery: { prefix: 'rl:pubdeliv:', max: 30, windowSec: 60 } satisfies RateLimitConfig,
+  /**
+   * 1C integration endpoints (key-authenticated import/export). 1C nightly
+   * sync sends batches of products/prices/stock/orders — 100/min covers
+   * full-catalog runs while still capping an abusive (stolen) key.
+   */
+  integration1c: { prefix: 'rl:int1c:', max: 100, windowSec: 60 } satisfies RateLimitConfig,
+  /**
+   * Per-admin PDF generation daily cap. PDF rendering pulls a full
+   * analytics report into Chromium + writes to disk — orders of magnitude
+   * heavier than the average API call. The minute-bucket `adminExport`
+   * cap (10/min) still applies on top; this 50/day ceiling stops a stolen
+   * session from looping the endpoint overnight and exhausting disk.
+   */
+  adminPdfExport: { prefix: 'rl:pdf:', max: 50, windowSec: 86400 } satisfies RateLimitConfig,
+  /**
+   * Public coupon validation. A real customer tries ≤3 codes per checkout
+   * (paste, mistype, retry). 20 / 5min gives them generous headroom while
+   * blocking brute-force enumeration of valid codes (the keyspace for
+   * `PROMO[0-9]{3}`-shaped codes is small enough to crack at full throttle).
+   */
+  couponValidate: { prefix: 'rl:coupon:', max: 20, windowSec: 300 } satisfies RateLimitConfig,
+  /**
+   * Bulk SEO regeneration. A single call touches up to 100 ProductContent
+   * rows + ~200 template SELECTs (pre-fix it was N+1). 5/hour per admin is
+   * generous for the legit "I changed the global template, refresh
+   * everything" workflow while stopping a stuck UI button / stolen session
+   * from looping the endpoint as a DB-load DoS.
+   */
+  adminSeoBulk: { prefix: 'rl:seobulk:', max: 5, windowSec: 3600 } satisfies RateLimitConfig,
+  /**
+   * Public XML/RSS feeds (/feed.xml, /feed/google-shopping, /hotline.xml,
+   * /blog/feed.xml). Aggregators (Google Merchant, Hotline) poll every
+   * 30 min from rotating IPs, so 60/min per IP gives them headroom while
+   * stopping bot-scrapers from looping the heavy queries (5k product JOIN
+   * each call). Behind Cloudflare in production — this is L7 defense.
+   */
+  publicFeed: { prefix: 'rl:feed:', max: 60, windowSec: 60 } satisfies RateLimitConfig,
+  /**
+   * 404 beacon (`/api/v1/log-404`). Honest browser fires it once per real
+   * 404. A bot can flood unique paths to inflate `not_found_log` until the
+   * admin viewer becomes useless. 30/min per IP covers a user clicking
+   * through many broken legacy URLs while capping abuse — Redis cost is
+   * cheaper than a runaway Postgres upsert.
+   */
+  publicLog404: { prefix: 'rl:log404:', max: 30, windowSec: 60 } satisfies RateLimitConfig,
+  /**
+   * Stock-count barcode scanner. A physical scanner emits 1 event per scan,
+   * a fast operator does ≤3/sec. 120/min per (admin, count) absorbs that
+   * pace while blocking a stuck wedge scanner (or an attacker holding the
+   * trigger) from blasting thousands of phantom scans into one inventory.
+   */
+  adminScan: { prefix: 'rl:scan:', max: 120, windowSec: 60 } satisfies RateLimitConfig,
+  /**
+   * Bulk import (CSV/XLSX/YML for products/prices/images + preview). Each
+   * call parses up to 10MB + does N upserts; 5/hour per admin covers the
+   * legit "re-upload after fixing typos" workflow while stopping a stuck
+   * UI button or stolen session from looping the endpoint.
+   */
+  adminImport: { prefix: 'rl:import:', max: 5, windowSec: 3600 } satisfies RateLimitConfig,
 };
 
 export interface RateLimitResult {

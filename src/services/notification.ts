@@ -1,6 +1,11 @@
 import { prisma } from '@/lib/prisma';
 
-type NotificationType = 'order_status' | 'price_change' | 'back_in_stock' | 'promo' | 'system_notification';
+type NotificationType =
+  | 'order_status'
+  | 'price_change'
+  | 'back_in_stock'
+  | 'promo'
+  | 'system_notification';
 
 /**
  * @description Створює нове сповіщення для користувача.
@@ -31,17 +36,39 @@ export async function createNotification(data: {
  * @param params - Параметри пагінації (page, limit)
  * @returns Об'єкт зі списком сповіщень, загальною кількістю та кількістю непрочитаних
  */
-export async function getUserNotifications(userId: number, params: { page?: number; limit?: number } = {}) {
-  const { page = 1, limit = 20 } = params;
+export async function getUserNotifications(
+  userId: number,
+  params: { page?: number; limit?: number; filter?: string } = {},
+) {
+  const { page = 1, limit = 20, filter } = params;
+
+  // Filter buckets: 'orders' = order_status; 'promo' = promo + price_change +
+  // back_in_stock (anything commercial); 'other' = system, welcome, winback,
+  // review_request, etc. Default = all.
+  // Prisma enum filters are typed as the generated NotificationType[] — we
+  // pass plain strings and cast via a Prisma input type.
+  type WhereInput = Parameters<typeof prisma.userNotification.findMany>[0] extends
+    | { where?: infer W }
+    | undefined
+    ? W
+    : never;
+  const types: Record<string, string[]> = {
+    orders: ['order_status'],
+    promo: ['promo', 'price_change', 'back_in_stock'],
+    other: ['system_notification', 'welcome', 'winback', 'review_request'],
+  };
+  const where: WhereInput = (
+    filter && types[filter] ? { userId, notificationType: { in: types[filter] } } : { userId }
+  ) as WhereInput;
 
   const [notifications, total, unreadCount] = await Promise.all([
     prisma.userNotification.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.userNotification.count({ where: { userId } }),
+    prisma.userNotification.count({ where }),
     prisma.userNotification.count({ where: { userId, isRead: false } }),
   ]);
 
@@ -136,7 +163,7 @@ export async function notifyOrderStatusChange(
   userId: number,
   orderNumber: string,
   newStatus: string,
-  orderId: number
+  orderId: number,
 ) {
   const statusLabels: Record<string, string> = {
     processing: 'В обробці',

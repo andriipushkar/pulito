@@ -18,6 +18,10 @@ interface StaticPage {
   content: string;
   seoTitle: string | null;
   seoDescription: string | null;
+  titleEn: string | null;
+  contentEn: string | null;
+  seoTitleEn: string | null;
+  seoDescriptionEn: string | null;
   isPublished: boolean;
   sortOrder: number;
   parentId: number | null;
@@ -36,11 +40,17 @@ export default function AdminPageEditPage() {
     content: '',
     seoTitle: '',
     seoDescription: '',
+    titleEn: '',
+    contentEn: '',
+    seoTitleEn: '',
+    seoDescriptionEn: '',
     isPublished: false,
     sortOrder: 0,
     parentId: '' as string,
   });
-  const [allPages, setAllPages] = useState<Array<{ id: number; title: string; parentId: number | null }>>([]);
+  const [allPages, setAllPages] = useState<
+    Array<{ id: number; title: string; parentId: number | null }>
+  >([]);
 
   useEffect(() => {
     apiClient
@@ -54,6 +64,10 @@ export default function AdminPageEditPage() {
             content: res.data.content || '',
             seoTitle: res.data.seoTitle || '',
             seoDescription: res.data.seoDescription || '',
+            titleEn: res.data.titleEn || '',
+            contentEn: res.data.contentEn || '',
+            seoTitleEn: res.data.seoTitleEn || '',
+            seoDescriptionEn: res.data.seoDescriptionEn || '',
             isPublished: res.data.isPublished,
             sortOrder: res.data.sortOrder,
             parentId: res.data.parentId ? String(res.data.parentId) : '',
@@ -95,14 +109,20 @@ export default function AdminPageEditPage() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   if (!page) {
     return (
       <div className="text-center">
         <p className="text-[var(--color-text-secondary)]">Сторінку не знайдено</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push('/admin/pages')}>До списку</Button>
+        <Button variant="outline" className="mt-4" onClick={() => router.push('/admin/pages')}>
+          До списку
+        </Button>
       </div>
     );
   }
@@ -111,14 +131,20 @@ export default function AdminPageEditPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <Link href="/admin/pages" className="text-sm text-[var(--color-primary)] hover:underline">← Сторінки</Link>
+          <Link href="/admin/pages" className="text-sm text-[var(--color-primary)] hover:underline">
+            ← Сторінки
+          </Link>
           <h2 className="mt-1 text-xl font-bold">{page.title}</h2>
         </div>
-        <Button onClick={handleSave} isLoading={isSaving}>Зберегти</Button>
+        <Button onClick={handleSave} isLoading={isSaving}>
+          Зберегти
+        </Button>
       </div>
 
       {message && (
-        <div className={`mb-4 rounded-[var(--radius)] p-3 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-[var(--color-danger)]'}`}>
+        <div
+          className={`mb-4 rounded-[var(--radius)] p-3 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-[var(--color-danger)]'}`}
+        >
           {message.text}
         </div>
       )}
@@ -134,9 +160,7 @@ export default function AdminPageEditPage() {
             {form.content ? (
               <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(form.content) }} />
             ) : (
-              <p className="italic text-[var(--color-text-secondary)]">
-                (порожній вміст)
-              </p>
+              <p className="italic text-[var(--color-text-secondary)]">(порожній вміст)</p>
             )}
           </article>
         }
@@ -144,15 +168,34 @@ export default function AdminPageEditPage() {
         <div className="space-y-6">
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="Заголовок *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-              <Input label="Slug *" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+              <Input
+                label="Заголовок *"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
+              <Input
+                label="Slug *"
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              />
             </div>
             <div className="mt-4 flex flex-wrap gap-4">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} className="accent-[var(--color-primary)]" />
+                <input
+                  type="checkbox"
+                  checked={form.isPublished}
+                  onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
+                  className="accent-[var(--color-primary)]"
+                />
                 Опубліковано
               </label>
-              <Input label="Порядок" type="number" value={String(form.sortOrder)} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} className="w-24" />
+              <Input
+                label="Порядок"
+                type="number"
+                value={String(form.sortOrder)}
+                onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
+                className="w-24"
+              />
               <div>
                 <label className="mb-1 block text-sm font-medium">Батьківська сторінка</label>
                 <select
@@ -176,18 +219,64 @@ export default function AdminPageEditPage() {
 
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <h3 className="mb-3 text-sm font-semibold">Вміст</h3>
-            <WysiwygEditor value={form.content} onChange={(html) => setForm({ ...form, content: html })} placeholder="Введіть вміст сторінки..." />
+            <WysiwygEditor
+              value={form.content}
+              onChange={(html) => setForm({ ...form, content: html })}
+              placeholder="Введіть вміст сторінки..."
+            />
           </div>
 
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <h3 className="mb-3 text-sm font-semibold">SEO</h3>
             <div className="space-y-4">
-              <Input label="Meta Title" value={form.seoTitle} onChange={(e) => setForm({ ...form, seoTitle: e.target.value })} />
+              <Input
+                label="Meta Title"
+                value={form.seoTitle}
+                onChange={(e) => setForm({ ...form, seoTitle: e.target.value })}
+              />
               <div>
                 <label className="mb-1 block text-sm font-medium">Meta Description</label>
                 <textarea
                   value={form.seoDescription}
                   onChange={(e) => setForm({ ...form, seoDescription: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <span className="rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                EN
+              </span>
+              Англійський переклад (опційно)
+            </h3>
+            <div className="space-y-4">
+              <Input
+                label="Title (EN)"
+                value={form.titleEn}
+                onChange={(e) => setForm({ ...form, titleEn: e.target.value })}
+              />
+              <div>
+                <label className="mb-1 block text-sm font-medium">Content (EN)</label>
+                <WysiwygEditor
+                  value={form.contentEn}
+                  onChange={(html) => setForm({ ...form, contentEn: html })}
+                  placeholder="English version of the page..."
+                />
+              </div>
+              <Input
+                label="Meta Title (EN)"
+                value={form.seoTitleEn}
+                onChange={(e) => setForm({ ...form, seoTitleEn: e.target.value })}
+              />
+              <div>
+                <label className="mb-1 block text-sm font-medium">Meta Description (EN)</label>
+                <textarea
+                  value={form.seoDescriptionEn}
+                  onChange={(e) => setForm({ ...form, seoDescriptionEn: e.target.value })}
                   rows={3}
                   className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
                 />

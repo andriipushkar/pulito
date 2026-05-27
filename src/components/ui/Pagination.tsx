@@ -1,5 +1,4 @@
-import Link from 'next/link';
-
+import { Link } from '@/i18n/navigation';
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -38,46 +37,64 @@ export default function Pagination({
 
   return (
     <>
-      {currentPage > 1 && (
-        <link rel="prev" href={buildUrl(currentPage - 1)} />
-      )}
-      {currentPage < totalPages && (
-        <link rel="next" href={buildUrl(currentPage + 1)} />
-      )}
-    <nav aria-label="Пагінація" className={`flex items-center justify-center gap-1 ${className}`}>
-      {currentPage > 1 && (
-        <Link href={buildUrl(currentPage - 1)} className={`${linkClass} border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]`} aria-label="Попередня сторінка">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
-      )}
-      {pages.map((p, i) =>
-        p === '...' ? (
-          <span key={`dots-${i}`} className="px-2 text-[var(--color-text-secondary)]">...</span>
-        ) : (
+      {currentPage > 1 && <link rel="prev" href={buildUrl(currentPage - 1)} />}
+      {currentPage < totalPages && <link rel="next" href={buildUrl(currentPage + 1)} />}
+      <nav aria-label="Пагінація" className={`flex items-center justify-center gap-1 ${className}`}>
+        {currentPage > 1 && (
           <Link
-            key={p}
-            href={buildUrl(p)}
-            className={`${linkClass} ${
-              p === currentPage
-                ? 'bg-[var(--color-primary)] text-white'
-                : 'border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]'
-            }`}
-            aria-current={p === currentPage ? 'page' : undefined}
+            href={buildUrl(currentPage - 1)}
+            className={`${linkClass} border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]`}
+            aria-label="Попередня сторінка"
           >
-            {p}
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
           </Link>
-        )
-      )}
-      {currentPage < totalPages && (
-        <Link href={buildUrl(currentPage + 1)} className={`${linkClass} border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]`} aria-label="Наступна сторінка">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-      )}
-    </nav>
+        )}
+        {pages.map((p, i) =>
+          p === '...' ? (
+            <span key={`dots-${i}`} className="px-2 text-[var(--color-text-secondary)]">
+              ...
+            </span>
+          ) : (
+            <Link
+              key={p}
+              href={buildUrl(p)}
+              className={`${linkClass} ${
+                p === currentPage
+                  ? 'bg-[var(--color-primary)] text-white'
+                  : 'border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]'
+              }`}
+              aria-current={p === currentPage ? 'page' : undefined}
+            >
+              {p}
+            </Link>
+          ),
+        )}
+        {currentPage < totalPages && (
+          <Link
+            href={buildUrl(currentPage + 1)}
+            className={`${linkClass} border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]`}
+            aria-label="Наступна сторінка"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        )}
+      </nav>
     </>
   );
 }

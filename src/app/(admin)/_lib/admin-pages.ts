@@ -38,6 +38,7 @@ import {
   Plug,
   Radio,
   Repeat,
+  Rss,
   Search,
   Send,
   Settings,
@@ -68,7 +69,8 @@ export const ADMIN_SECTIONS = [
   'Клієнти',
   'Маркетинг',
   'Контент',
-  'Канали',
+  'Маркетплейси',
+  'Соцмережі',
   'Налаштування',
   'Платформа',
 ] as const;
@@ -98,6 +100,12 @@ export const ADMIN_PAGES: AdminPage[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true, section: 'Огляд' },
   { href: '/admin/analytics', label: 'Аналітика', icon: TrendingUp, section: 'Огляд' },
   { href: '/admin/reports', label: 'Звіти', icon: BarChart3, section: 'Огляд' },
+  {
+    href: '/admin/reports/builder',
+    label: 'Конструктор звітів',
+    icon: BarChart3,
+    section: 'Огляд',
+  },
 
   // ─── Замовлення ────────────────────────────────────────────
   {
@@ -160,6 +168,7 @@ export const ADMIN_PAGES: AdminPage[] = [
     section: 'Маркетинг',
   },
   { href: '/admin/loyalty', label: 'Лояльність', icon: Award, section: 'Маркетинг' },
+  { href: '/admin/loyalty/challenges', label: 'Челенджі', icon: Flag, section: 'Маркетинг' },
   { href: '/admin/referrals', label: 'Реферали', icon: Share2, section: 'Маркетинг' },
   { href: '/admin/coupons', label: 'Промокоди', icon: Tag, section: 'Маркетинг' },
   { href: '/admin/banners', label: 'Банери', icon: ImageIcon, section: 'Маркетинг' },
@@ -167,20 +176,20 @@ export const ADMIN_PAGES: AdminPage[] = [
   // ─── Контент ───────────────────────────────────────────────
   { href: '/admin/blog', label: 'Блог', icon: Newspaper, section: 'Контент' },
   {
+    href: '/admin/blog/categories',
+    label: 'Категорії блогу',
+    icon: FolderTree,
+    section: 'Контент',
+  },
+  {
     href: '/admin/blog/comments',
     label: 'Коментарі блогу',
     icon: MessageCircle,
     section: 'Контент',
   },
-  { href: '/admin/publications', label: 'Публікації', icon: Send, section: 'Контент' },
-  {
-    href: '/admin/publication-templates',
-    label: 'Шаблони публікацій',
-    icon: FileText,
-    section: 'Контент',
-  },
   { href: '/admin/pages', label: 'Сторінки', icon: FileText, section: 'Контент' },
   { href: '/admin/faq', label: 'FAQ', icon: HelpCircle, section: 'Контент' },
+  { href: '/admin/faq/categories', label: 'Категорії FAQ', icon: FolderTree, section: 'Контент' },
   { href: '/admin/email-templates', label: 'Email-шаблони', icon: Mail, section: 'Контент' },
   {
     href: '/admin/feedback',
@@ -190,21 +199,33 @@ export const ADMIN_PAGES: AdminPage[] = [
     badgeKey: 'newFeedback',
   },
 
-  // ─── Канали ─────────────────────────────────────────────────
-  { href: '/admin/marketplaces', label: 'Маркетплейси', icon: Store, section: 'Канали' },
-  { href: '/admin/integrations', label: 'Інтеграції', icon: Plug, section: 'Канали' },
-  { href: '/admin/google-business', label: 'Google Business', icon: Star, section: 'Канали' },
-  { href: '/admin/channels', label: 'Статистика каналів', icon: Radio, section: 'Канали' },
+  // ─── Маркетплейси ───────────────────────────────────────────
+  // Тільки те що про продажі на сторонніх торгових платформах.
+  { href: '/admin/marketplaces', label: 'Маркетплейси', icon: Store, section: 'Маркетплейси' },
+  { href: '/admin/feeds', label: 'Прайс-фіди (XML)', icon: Rss, section: 'Маркетплейси' },
+  { href: '/admin/integrations', label: 'API & Інтеграції', icon: Plug, section: 'Маркетплейси' },
+  { href: '/admin/webhooks', label: 'Webhooks', icon: Webhook, section: 'Маркетплейси' },
+
+  // ─── Соцмережі ──────────────────────────────────────────────
+  // Контент, комунікація з клієнтами, репутація в соцмережах.
+  { href: '/admin/channels', label: 'Аналітика соцмереж', icon: Radio, section: 'Соцмережі' },
   {
     href: '/admin/channel-settings',
-    label: 'Налаштування каналів',
+    label: 'Акаунти соцмереж',
     icon: Settings2,
-    section: 'Канали',
+    section: 'Соцмережі',
   },
-  { href: '/admin/bot-settings', label: 'Боти', icon: Bot, section: 'Канали' },
-  { href: '/admin/moderation', label: 'Модерація', icon: Shield, section: 'Канали' },
-  { href: '/admin/chat', label: 'Чат', icon: MessageCircle, section: 'Канали' },
-  { href: '/admin/webhooks', label: 'Webhooks', icon: Webhook, section: 'Канали' },
+  { href: '/admin/bot-settings', label: 'Чат-боти', icon: Bot, section: 'Соцмережі' },
+  { href: '/admin/publications', label: 'Публікації', icon: Send, section: 'Соцмережі' },
+  {
+    href: '/admin/publication-templates',
+    label: 'Шаблони публікацій',
+    icon: FileText,
+    section: 'Соцмережі',
+  },
+  { href: '/admin/chat', label: 'Чат із клієнтами', icon: MessageCircle, section: 'Соцмережі' },
+  { href: '/admin/google-business', label: 'Google Business', icon: Star, section: 'Соцмережі' },
+  { href: '/admin/moderation', label: 'Модерація', icon: Shield, section: 'Соцмережі' },
 
   // ─── Налаштування ───────────────────────────────────────────
   { href: '/admin/settings', label: 'Загальні', icon: Settings, section: 'Налаштування' },
@@ -225,6 +246,7 @@ export const ADMIN_PAGES: AdminPage[] = [
   { href: '/admin/themes', label: 'Теми', icon: Palette, section: 'Налаштування' },
   { href: '/admin/seo-templates', label: 'SEO-шаблони', icon: Search, section: 'Налаштування' },
   { href: '/admin/seo-audit', label: 'SEO-аудит', icon: LineChart, section: 'Налаштування' },
+  { href: '/admin/not-found-log', label: '404 лог', icon: Search, section: 'Налаштування' },
   { href: '/admin/domains', label: 'Домени', icon: Globe, section: 'Налаштування' },
 
   // ─── Платформа (root admin only) ───────────────────────────
@@ -266,6 +288,13 @@ export const ADMIN_PAGES: AdminPage[] = [
   {
     href: '/admin/forecasting',
     label: 'Прогнозування',
+    icon: BarChart,
+    section: 'Платформа',
+    platformOnly: true,
+  },
+  {
+    href: '/admin/search-intel',
+    label: 'Аналітика пошуку',
     icon: BarChart,
     section: 'Платформа',
     platformOnly: true,

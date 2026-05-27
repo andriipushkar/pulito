@@ -4,13 +4,14 @@ import { withAuth } from '@/middleware/auth';
 import { updateAddress, deleteAddress, AddressError } from '@/services/delivery-address';
 import { successResponse, errorResponse } from '@/utils/api-response';
 
+// Caps mirror the create schema. See ../../addresses/route.ts for rationale.
 const updateAddressSchema = z.object({
   label: z.string().max(50).optional(),
-  city: z.string().optional(),
-  street: z.string().optional(),
-  building: z.string().optional(),
-  apartment: z.string().optional(),
-  postalCode: z.string().optional(),
+  city: z.string().max(100).optional(),
+  street: z.string().max(200).optional(),
+  building: z.string().max(20).optional(),
+  apartment: z.string().max(20).optional(),
+  postalCode: z.string().max(20).optional(),
   isDefault: z.boolean().optional(),
 });
 

@@ -19,7 +19,7 @@ interface BlogCategory {
 export default function AdminBlogCategoriesPage() {
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', slug: '' });
+  const [form, setForm] = useState({ name: '', slug: '', nameEn: '' });
   const [deleteId, setDeleteId] = useState<number | null>(null);
   // Derive isLoading from request/completion tokens so we never need a
   // synchronous setIsLoading(true) inside the fetch effect.
@@ -47,13 +47,15 @@ export default function AdminBlogCategoriesPage() {
   const handleCreate = async () => {
     if (!form.name.trim()) return;
     const userSlug = form.slug.trim();
+    const nameEn = form.nameEn.trim();
     const payload: Record<string, unknown> = { name: form.name.trim() };
     if (userSlug) payload.slug = userSlug;
+    if (nameEn) payload.nameEn = nameEn;
     const res = await apiClient.post('/api/v1/admin/blog/categories', payload);
     if (res.success) {
       toast.success('Категорію створено');
       setShowForm(false);
-      setForm({ name: '', slug: '' });
+      setForm({ name: '', slug: '', nameEn: '' });
       loadCategories();
     } else {
       toast.error(res.error || 'Помилка створення');
@@ -102,6 +104,12 @@ export default function AdminBlogCategoriesPage() {
               onChange={(e) => setForm({ ...form, slug: e.target.value })}
               placeholder="Slug (автоматично)"
               className="w-44"
+            />
+            <Input
+              value={form.nameEn}
+              onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+              placeholder="Name (EN, опційно)"
+              className="w-56"
             />
             <Button onClick={handleCreate}>Створити</Button>
           </div>

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import Image from 'next/image';
 import AnimateOnScroll from '@/components/ui/AnimateOnScroll';
 
@@ -19,7 +19,10 @@ interface BlogCardProps {
 }
 
 function estimateReadTime(content: string): number {
-  const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length;
+  const wordCount = content
+    .replace(/<[^>]*>/g, '')
+    .split(/\s+/)
+    .filter(Boolean).length;
   return Math.max(1, Math.ceil(wordCount / 200));
 }
 
@@ -51,8 +54,18 @@ export default function BlogCard({ post, index = 0 }: BlogCardProps) {
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[var(--color-text-secondary)]">
-                <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v12a2 2 0 01-2 2z" />
+                <svg
+                  className="h-12 w-12"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v12a2 2 0 01-2 2z"
+                  />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
               </div>
@@ -86,7 +99,13 @@ export default function BlogCard({ post, index = 0 }: BlogCardProps) {
 
             <span className="mt-auto inline-flex items-center text-sm font-medium text-[var(--color-primary)]">
               Читати далі
-              <svg className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg
+                className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </span>

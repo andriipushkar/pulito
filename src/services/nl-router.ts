@@ -14,14 +14,38 @@ export interface Intent {
   label: string;
 }
 
+/** Max characters the NL router will process. Above this — bail out
+ * (regex eval cost + UI freeze risk). Real admin queries are ≤80 chars. */
+export const MAX_QUERY_LENGTH = 500;
+
+/** Return today's date in `YYYY-MM-DD` using Europe/Kyiv (store timezone).
+ * Plain `toISOString().slice(0,10)` would shift to yesterday after 22:00
+ * Kyiv during winter and 21:00 during summer (UTC offset). */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return kyivDateString(new Date());
 }
 
 function daysAgo(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+  return kyivDateString(d);
+}
+
+function kyivDateString(d: Date): string {
+  // `sv-SE` formatting gives `YYYY-MM-DD HH:mm:ss`; we take the date part.
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Kyiv',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
+/** Block intent URLs that aren't internal admin paths. Today every rule
+ * returns a `/admin/...` URL, but once a future Claude integration starts
+ * generating URLs the guard prevents open-redirect / phishing. */
+function isSafeIntentUrl(url: string): boolean {
+  return url.startsWith('/admin/') && !url.includes('//');
 }
 
 const RULES: { match: (q: string) => boolean; intent: (q: string) => Intent }[] = [
@@ -88,11 +112,13 @@ const RULES: { match: (q: string) => boolean; intent: (q: string) => Intent }[] 
       label: 'Очікують підтвердження опту',
     }),
   },
-  // Generic: phone-like → search.
+  // Generic: phone-like → search. Tightened to Ukrainian formats so a 7-digit
+  // order number or timestamp doesn't accidentally route into phone search.
+  // Matches `+380XXXXXXXXX`, `380XXXXXXXXX`, or 10-12 digit local numbers.
   {
-    match: (q) => /\d{7,}/.test(q),
+    match: (q) => /(\+?380\d{9}|\b\d{10,12}\b)/.test(q),
     intent: (q) => {
-      const match = /\d{7,}/.exec(q);
+      const match = /(\+?380\d{9}|\b\d{10,12}\b)/.exec(q);
       const phone = match ? match[0] : '';
       return {
         url: `/admin/orders?search=${encodeURIComponent(phone)}`,
@@ -103,10 +129,20 @@ const RULES: { match: (q: string) => boolean; intent: (q: string) => Intent }[] 
 ];
 
 export function matchIntent(query: string): Intent | null {
-  const q = query.trim();
+  // Strip control chars and cap length before any regex eval. A 10MB paste
+  // would otherwise freeze the UI thread for seconds.
+
+  const cleaned = query.replace(/[\x00-\x1F\x7F]/g, ' ').slice(0, MAX_QUERY_LENGTH);
+  const q = cleaned.trim();
   if (!q) return null;
   for (const rule of RULES) {
-    if (rule.match(q)) return rule.intent(q);
+    if (rule.match(q)) {
+      const intent = rule.intent(q);
+      // Defensive: today every rule returns `/admin/...`, but the guard
+      // future-proofs the entry point when LLM-generated intents land.
+      if (!isSafeIntentUrl(intent.url)) return null;
+      return intent;
+    }
   }
   return null;
 }

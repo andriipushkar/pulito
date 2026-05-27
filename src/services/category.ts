@@ -90,6 +90,10 @@ export async function createCategory(data: {
   coverImage?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  nameEn?: string | null;
+  descriptionEn?: string | null;
+  seoTitleEn?: string | null;
+  seoDescriptionEn?: string | null;
   sortOrder?: number;
   isVisible?: boolean;
   parentId?: number | null;
@@ -136,6 +140,10 @@ export async function createCategory(data: {
         coverImage: data.coverImage ?? null,
         seoTitle: data.seoTitle ?? null,
         seoDescription: data.seoDescription ?? null,
+        nameEn: data.nameEn ?? null,
+        descriptionEn: data.descriptionEn ?? null,
+        seoTitleEn: data.seoTitleEn ?? null,
+        seoDescriptionEn: data.seoDescriptionEn ?? null,
         sortOrder: data.sortOrder ?? 0,
         isVisible: data.isVisible ?? true,
         parentId: data.parentId ?? null,
@@ -201,6 +209,10 @@ export async function createCategory(data: {
         coverImage: data.coverImage,
         seoTitle: data.seoTitle,
         seoDescription: data.seoDescription,
+        nameEn: data.nameEn ?? null,
+        descriptionEn: data.descriptionEn ?? null,
+        seoTitleEn: data.seoTitleEn ?? null,
+        seoDescriptionEn: data.seoDescriptionEn ?? null,
         sortOrder: data.sortOrder ?? 0,
         isVisible: data.isVisible ?? true,
         parentId: data.parentId ?? null,
@@ -232,6 +244,10 @@ export async function updateCategory(
     coverImage?: string | null;
     seoTitle?: string | null;
     seoDescription?: string | null;
+    nameEn?: string | null;
+    descriptionEn?: string | null;
+    seoTitleEn?: string | null;
+    seoDescriptionEn?: string | null;
     sortOrder?: number;
     isVisible?: boolean;
     parentId?: number | null;
@@ -283,6 +299,26 @@ export async function updateCategory(
     if (!parent) {
       throw new CategoryError('Батьківська категорія не знайдена', 404);
     }
+    // Cycle protection: walk up from the proposed parent; if we hit our own
+    // id in the chain, we're about to create A→B→A. Previously only the
+    // direct self-reference was caught — A→B→C→A passed and silently broke
+    // tree navigation (infinite loop on render).
+    let walker: { id: number; parentId: number | null } | null = parent;
+    const seen = new Set<number>();
+    while (walker && walker.parentId !== null) {
+      if (walker.parentId === id) {
+        throw new CategoryError(
+          'Не можна зробити нащадка батьком — це створить циклічну залежність',
+          400,
+        );
+      }
+      if (seen.has(walker.parentId)) break; // existing cycle in DB — bail out
+      seen.add(walker.parentId);
+      walker = await prisma.category.findUnique({
+        where: { id: walker.parentId },
+        select: { id: true, parentId: true },
+      });
+    }
   }
 
   // Prevent making a child into a parent if limit reached. Filter out
@@ -308,6 +344,10 @@ export async function updateCategory(
     ...(data.coverImage !== undefined && { coverImage: data.coverImage }),
     ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
     ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
+    ...(data.nameEn !== undefined && { nameEn: data.nameEn }),
+    ...(data.descriptionEn !== undefined && { descriptionEn: data.descriptionEn }),
+    ...(data.seoTitleEn !== undefined && { seoTitleEn: data.seoTitleEn }),
+    ...(data.seoDescriptionEn !== undefined && { seoDescriptionEn: data.seoDescriptionEn }),
     ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
     ...(data.isVisible !== undefined && { isVisible: data.isVisible }),
     ...(data.parentId !== undefined && { parentId: data.parentId }),
@@ -350,7 +390,14 @@ export async function updateCategory(
 export async function deleteCategory(id: number) {
   const category = await prisma.category.findUnique({
     where: { id },
-    include: { _count: { select: { products: true } } },
+    include: {
+      _count: {
+        select: {
+          products: true,
+          children: { where: { deletedAt: null } },
+        },
+      },
+    },
   });
 
   if (!category) {
@@ -360,6 +407,17 @@ export async function deleteCategory(id: number) {
   if (category._count.products > 0) {
     throw new CategoryError(
       `Неможливо видалити категорію з ${category._count.products} товарами. Спочатку перенесіть товари.`,
+      400,
+    );
+  }
+
+  // Block delete if there are active child categories. Previously the
+  // delete went through and left children pointing at a deleted parent —
+  // navigation tree rendered them as orphans.
+  if (category._count.children > 0) {
+    throw new CategoryError(
+      `Неможливо видалити категорію з ${category._count.children} підкатегоріями. ` +
+        `Спочатку перенесіть або видаліть їх.`,
       400,
     );
   }

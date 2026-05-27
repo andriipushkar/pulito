@@ -4,7 +4,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import Spinner from '@/components/ui/Spinner';
-import { useState, useEffect, useMemo, useSyncExternalStore, useCallback, type ReactNode } from 'react';
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+  useCallback,
+  type ReactNode,
+} from 'react';
 import { Menu, Close } from '@/components/icons';
 import { useAdminHotkeys } from '@/hooks/useAdminHotkeys';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
@@ -15,6 +22,7 @@ import AdminSidebar from '@/components/admin/AdminSidebar';
 import CommandPalette from '@/components/admin/CommandPalette';
 import HelpPanel from '@/components/admin/HelpPanel';
 import SessionTimeoutBanner from '@/components/admin/SessionTimeoutBanner';
+import MarketplaceHealthAlert from '@/components/admin/MarketplaceHealthAlert';
 import ShortcutsModal from '@/components/admin/ShortcutsModal';
 import { useAdminShortcuts } from '@/hooks/useAdminShortcuts';
 import { PATH_LABELS } from './_lib/admin-pages';
@@ -56,6 +64,15 @@ const TWO_FA_REQUIRED_PREFIXES = [
   '/admin/tenants',
   '/admin/billing',
   '/admin/domains',
+  // Added 2026-05-25 — extended coverage to API/integration surfaces where
+  // a compromised admin account would do the most damage (issue refunds,
+  // exfiltrate API keys, change webhook URLs, push to marketplaces).
+  '/admin/integrations',
+  '/admin/webhooks',
+  '/admin/channel-settings',
+  '/admin/channels',
+  '/admin/marketplaces',
+  '/admin/bot-settings',
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -191,7 +208,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               'Увійдіть в свій обліковий запис адміністратора для доступу до панелі управління.'
             )}
           </p>
-          <a
+          <Link
             href="/auth/login?returnUrl=/admin"
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-6 py-3 font-semibold text-white shadow-sm transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-md active:scale-[0.98]"
           >
@@ -209,7 +226,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               />
             </svg>
             Увійти
-          </a>
+          </Link>
           <Link
             href="/"
             className="mt-4 inline-block text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]"
@@ -476,8 +493,18 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               className="hidden items-center gap-1.5 rounded-[var(--radius)] bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-light)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:shadow-md lg:flex"
               title="Запитати AI"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"
+                />
               </svg>
               <span>AI</span>
             </Link>
@@ -597,8 +624,18 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                                   aria-label="Прочитано"
                                   title="Прочитано"
                                 >
-                                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                  <svg
+                                    className="h-3.5 w-3.5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={2}
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M4.5 12.75l6 6 9-13.5"
+                                    />
                                   </svg>
                                 </button>
                               </div>
@@ -643,12 +680,12 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               <p className="flex-1 text-xs font-medium text-amber-900">
                 Увімкніть двофакторну автентифікацію для захисту акаунту
               </p>
-              <a
+              <Link
                 href="/admin/setup-2fa"
                 className="shrink-0 rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-700"
               >
                 Увімкнути
-              </a>
+              </Link>
               <button
                 type="button"
                 onClick={() => snooze2fa(24)}
@@ -664,7 +701,13 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 aria-label="Сховати на місяць"
                 title="Сховати на місяць"
               >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -691,23 +734,26 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 Цей розділ потребує двофакторної автентифікації
               </h2>
               <p className="mb-6 text-sm text-red-700">
-                Для доступу до критичних налаштувань (платежі, користувачі, журнал дій,
-                загальні налаштування) адміністратор повинен увімкнути 2FA. Це захищає
-                акаунт від несанкціонованого доступу навіть при компрометації пароля.
+                Для доступу до критичних налаштувань (платежі, користувачі, журнал дій, загальні
+                налаштування) адміністратор повинен увімкнути 2FA. Це захищає акаунт від
+                несанкціонованого доступу навіть при компрометації пароля.
               </p>
-              <a
+              <Link
                 href="/admin/setup-2fa"
                 className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700"
               >
                 Увімкнути 2FA зараз
-              </a>
+              </Link>
               <p className="mt-4 text-xs text-red-600">
-                Зайде хвилина — додайте додаток-аутентифікатор (Google Authenticator,
-                1Password) і ви знову матимете повний доступ.
+                Зайде хвилина — додайте додаток-аутентифікатор (Google Authenticator, 1Password) і
+                ви знову матимете повний доступ.
               </p>
             </div>
           ) : (
-            <AdminErrorBoundary>{children}</AdminErrorBoundary>
+            <>
+              <MarketplaceHealthAlert />
+              <AdminErrorBoundary>{children}</AdminErrorBoundary>
+            </>
           )}
         </main>
       </div>

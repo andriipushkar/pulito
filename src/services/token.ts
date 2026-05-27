@@ -115,3 +115,35 @@ export function getTokenRemainingSeconds(token: string): number {
   const remaining = decoded.exp - Math.floor(Date.now() / 1000);
   return Math.max(0, remaining);
 }
+
+// ── SSE-grant tokens ──
+// Short-lived, scope-restricted token used exclusively for SSE streams.
+// EventSource cannot set Authorization headers, but it sends same-origin
+// cookies. The grant is issued by a 2FA-gated POST endpoint and stored in
+// an HttpOnly cookie, so the token never appears in URLs (referer logs,
+// browser history, server access logs).
+export interface SseGrantPayload {
+  type: 'sse_grant';
+  userId: number;
+  role: string;
+  scope: 'admin_notifications';
+}
+
+export const SSE_GRANT_TTL_SECONDS = 5 * 60;
+
+export function signSseGrantToken(payload: Omit<SseGrantPayload, 'type'>): string {
+  return jwt.sign({ ...payload, type: 'sse_grant' }, signingKey, {
+    algorithm,
+    expiresIn: SSE_GRANT_TTL_SECONDS,
+  });
+}
+
+export function verifySseGrantToken(token: string): SseGrantPayload {
+  const decoded = jwt.verify(token, verifyKey, {
+    algorithms: [algorithm],
+  }) as unknown as SseGrantPayload;
+  if (decoded.type !== 'sse_grant') {
+    throw new jwt.JsonWebTokenError('Invalid token type');
+  }
+  return decoded;
+}

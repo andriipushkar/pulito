@@ -29,6 +29,7 @@
     "all": "Wszystkie",
     "noResults": "Brak wynikow",
     "showMore": "Pokaz wiecej",
+    "viewAll": "Zobacz wszystko",
     "currency": "zl",
     "copy": "Kopiuj",
     "copied": "Skopiowano",
@@ -291,5 +292,42 @@
     "disconnected": "Odlaczony",
     "lastSync": "Ostatnia synchronizacja",
     "syncNow": "Synchronizuj"
+  },
+  "home": {
+    "promoTitle": "Promocje",
+    "newTitle": "Nowosci",
+    "popularTitle": "Bestsellery",
+    "recentlyViewed": "Ostatnio ogladane"
+  },
+  "banner": {
+    "prev": "Poprzedni",
+    "next": "Nastepny"
+  },
+  "accountNav": {
+    "sections": {
+      "main": "Podstawowe",
+      "work": "Praca",
+      "loyalty": "Programy lojalnosciowe",
+      "reference": "Pomoc",
+      "settings": "Ustawienia"
+    },
+    "items": {
+      "home": "Strona glowna",
+      "orders": "Zamowienia",
+      "wishlist": "Ulubione",
+      "notifications": "Powiadomienia",
+      "loyalty": "Program lojalnosciowy",
+      "referral": "Program partnerski",
+      "pricelist": "Cenniki",
+      "addresses": "Adresy",
+      "settings": "Ustawienia",
+      "security": "Bezpieczenstwo",
+      "quickOrder": "Szybkie zamowienie",
+      "finance": "Finanse",
+      "notes": "Notatki",
+      "manager": "Menedzer",
+      "status": "Moje warunki",
+      "wholesaleCta": "Zostan hurtownikiem"
+    }
   }
 }

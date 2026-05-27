@@ -75,6 +75,22 @@ export const PUT = withRole(
     if (error instanceof ProductError) {
       return errorResponse(error.message, error.statusCode);
     }
+    // Translate Prisma's generic P2002 (unique constraint) into a friendly
+    // 422 with the colliding field. Without this, slug/code/SKU duplicates
+    // surfaced as a generic 500 — the operator had no idea which field to
+    // change.
+    const e = error as { code?: string; meta?: { target?: string[] | string } };
+    if (e?.code === 'P2002') {
+      const targets = Array.isArray(e.meta?.target)
+        ? e.meta!.target.join(', ')
+        : e.meta?.target || 'поле';
+      const friendly = targets.includes('slug')
+        ? 'Цей slug вже використовується іншим товаром'
+        : targets.includes('code') || targets.includes('sku')
+          ? 'Цей артикул/SKU вже використовується'
+          : `Дублікат: ${targets}`;
+      return errorResponse(friendly, 422);
+    }
     logger.error('[admin/products/[id]] PUT failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }

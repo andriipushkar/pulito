@@ -10,6 +10,13 @@ export class WarehouseError extends Error {
   }
 }
 
+// pg_advisory_xact_lock namespace for warehouse stock updates. Per-warehouse
+// lock serialises bulk PUT /stock vs. order-fulfillment writes so
+// "read-100 / decrement-10" and "read-100 / set-50" can't lose the decrement.
+// Namespace is arbitrary but stable; collisions across modules are avoided
+// by using distinct namespace ints.
+const WAREHOUSE_STOCK_LOCK_NS = 470001;
+
 export async function createWarehouse(data: {
   name: string;
   code: string;
@@ -102,30 +109,30 @@ export async function updateWarehouse(
 }
 
 export async function deleteWarehouse(id: number) {
-  const warehouse = await prisma.warehouse.findUnique({
-    where: { id },
-    include: { _count: { select: { stock: true } } },
+  // Check + delete inside one transaction so an order can't race in and
+  // create a WarehouseStock row between the `_count > 0` guard and the
+  // cascade-delete (which would silently lose stock). The transaction
+  // serialises stock-creating writes via Prisma's default isolation.
+  return prisma.$transaction(async (tx) => {
+    const warehouse = await tx.warehouse.findUnique({
+      where: { id },
+      include: { _count: { select: { stock: true } } },
+    });
+
+    if (!warehouse) {
+      throw new WarehouseError('Склад не знайдено', 404);
+    }
+    if (warehouse.isDefault) {
+      throw new WarehouseError(
+        'Не можна видалити основний склад. Спочатку признач інший склад як основний.',
+        400,
+      );
+    }
+    if (warehouse._count.stock > 0) {
+      throw new WarehouseError('Неможливо видалити склад з залишками товарів', 400);
+    }
+    return tx.warehouse.delete({ where: { id } });
   });
-
-  if (!warehouse) {
-    throw new WarehouseError('Склад не знайдено', 404);
-  }
-
-  // Default warehouse is the fallback for new orders / imports. Deleting it
-  // would orphan a lot of downstream logic; the operator has to flip another
-  // warehouse to default before deleting this one.
-  if (warehouse.isDefault) {
-    throw new WarehouseError(
-      'Не можна видалити основний склад. Спочатку признач інший склад як основний.',
-      400,
-    );
-  }
-
-  if (warehouse._count.stock > 0) {
-    throw new WarehouseError('Неможливо видалити склад з залишками товарів', 400);
-  }
-
-  return prisma.warehouse.delete({ where: { id } });
 }
 
 export async function getWarehouses() {
@@ -155,10 +162,17 @@ export async function getWarehouseById(id: number) {
   return warehouse;
 }
 
+export interface StockUpdateResult {
+  updated: number;
+  /** Pre-update quantities, keyed by productId — feed into audit details
+   * so a rogue mass-edit leaves a recoverable trail. */
+  before: Record<number, { quantity: number; reserved: number } | null>;
+}
+
 export async function updateStock(
   warehouseId: number,
   items: { productId: number; quantity: number }[],
-) {
+): Promise<StockUpdateResult> {
   const warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
   if (!warehouse) {
     throw new WarehouseError('Склад не знайдено', 404);
@@ -184,24 +198,52 @@ export async function updateStock(
     throw new WarehouseError(`Товар не знайдено: ${missing.join(', ')}`, 404);
   }
 
-  return prisma.$transaction(
-    items.map((item) =>
-      prisma.warehouseStock.upsert({
-        where: {
-          warehouseId_productId: {
-            warehouseId,
-            productId: item.productId,
-          },
-        },
+  return prisma.$transaction(async (tx) => {
+    // Per-warehouse advisory lock inside the transaction. Concurrent
+    // order-fulfillment + manual stock-correction would otherwise both
+    // read q=100, one decrement to 90, the other set to 50, and the
+    // decrement is lost. Lock is released when the transaction commits.
+    await tx.$executeRawUnsafe(
+      `SELECT pg_advisory_xact_lock(${WAREHOUSE_STOCK_LOCK_NS}, $1::int)`,
+      warehouseId,
+    );
+
+    // Snapshot prior values so we can audit-log the before-state per row.
+    // Concurrent stock writers are now blocked by the advisory lock, so
+    // the read here matches what the upsert is about to overwrite.
+    const prior = await tx.warehouseStock.findMany({
+      where: { warehouseId, productId: { in: productIds } },
+      select: { productId: true, quantity: true, reserved: true },
+    });
+    const before: Record<number, { quantity: number; reserved: number } | null> = {};
+    for (const pid of productIds) before[pid] = null;
+    for (const row of prior) {
+      before[row.productId] = { quantity: row.quantity, reserved: row.reserved };
+    }
+
+    let updated = 0;
+    for (const item of items) {
+      // Refuse the update if it would drop quantity below reserved — the
+      // CHECK constraint would reject it anyway, but a friendly error is
+      // better than a raw Postgres violation surfacing as 500.
+      const priorRow = before[item.productId];
+      if (priorRow && item.quantity < priorRow.reserved) {
+        throw new WarehouseError(
+          `Кількість не може бути меншою за резерв (productId=${item.productId}, reserved=${priorRow.reserved})`,
+          400,
+        );
+      }
+
+      await tx.warehouseStock.upsert({
+        where: { warehouseId_productId: { warehouseId, productId: item.productId } },
         update: { quantity: item.quantity },
-        create: {
-          warehouseId,
-          productId: item.productId,
-          quantity: item.quantity,
-        },
-      }),
-    ),
-  );
+        create: { warehouseId, productId: item.productId, quantity: item.quantity },
+      });
+      updated++;
+    }
+
+    return { updated, before };
+  });
 }
 
 export async function getProductStock(productId: number) {

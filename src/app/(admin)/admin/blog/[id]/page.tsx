@@ -22,6 +22,11 @@ interface BlogPost {
   coverImage: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
+  titleEn: string | null;
+  excerptEn: string | null;
+  contentEn: string | null;
+  seoTitleEn: string | null;
+  seoDescriptionEn: string | null;
   isPublished: boolean;
 }
 
@@ -49,6 +54,11 @@ export default function AdminBlogEditPage() {
     coverImage: '',
     seoTitle: '',
     seoDescription: '',
+    titleEn: '',
+    excerptEn: '',
+    contentEn: '',
+    seoTitleEn: '',
+    seoDescriptionEn: '',
     isPublished: false,
   });
 
@@ -88,6 +98,11 @@ export default function AdminBlogEditPage() {
             coverImage: d.coverImage || '',
             seoTitle: d.seoTitle || '',
             seoDescription: d.seoDescription || '',
+            titleEn: d.titleEn || '',
+            excerptEn: d.excerptEn || '',
+            contentEn: d.contentEn || '',
+            seoTitleEn: d.seoTitleEn || '',
+            seoDescriptionEn: d.seoDescriptionEn || '',
             isPublished: d.isPublished,
           });
         } else {
@@ -121,6 +136,13 @@ export default function AdminBlogEditPage() {
         coverImage: form.coverImage || undefined,
         seoTitle: form.seoTitle || undefined,
         seoDescription: form.seoDescription || undefined,
+        // Send EN fields as empty string to allow clearing them (service treats
+        // empty as null). undefined would skip the field entirely.
+        titleEn: form.titleEn,
+        excerptEn: form.excerptEn,
+        contentEn: form.contentEn,
+        seoTitleEn: form.seoTitleEn,
+        seoDescriptionEn: form.seoDescriptionEn,
         categoryId: form.categoryId ? Number(form.categoryId) : undefined,
         isPublished: form.isPublished,
       };
@@ -144,17 +166,25 @@ export default function AdminBlogEditPage() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <Link href="/admin/blog" className="text-sm text-[var(--color-primary)] hover:underline">← Блог</Link>
+          <Link href="/admin/blog" className="text-sm text-[var(--color-primary)] hover:underline">
+            ← Блог
+          </Link>
           <h2 className="mt-1 text-xl font-bold">{isNew ? 'Нова стаття' : form.title}</h2>
         </div>
-        <Button onClick={handleSave} isLoading={isSaving}>Зберегти</Button>
+        <Button onClick={handleSave} isLoading={isSaving}>
+          Зберегти
+        </Button>
       </div>
 
       {message && (
@@ -170,8 +200,16 @@ export default function AdminBlogEditPage() {
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <h3 className="mb-3 text-sm font-semibold">Основне</h3>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Заголовок *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            <Input label="Slug *" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+            <Input
+              label="Заголовок *"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+            <Input
+              label="Slug *"
+              value={form.slug}
+              onChange={(e) => setForm({ ...form, slug: e.target.value })}
+            />
             <div>
               <label className="mb-1 block text-sm font-medium">Категорія</label>
               <select
@@ -181,18 +219,35 @@ export default function AdminBlogEditPage() {
               >
                 <option value="">Без категорії</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </option>
                 ))}
               </select>
             </div>
-            <Input label="Теги (через кому)" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="тег1, тег2, тег3" />
+            <Input
+              label="Теги (через кому)"
+              value={form.tags}
+              onChange={(e) => setForm({ ...form, tags: e.target.value })}
+              placeholder="тег1, тег2, тег3"
+            />
           </div>
           <div className="mt-4">
-            <Input label="URL обкладинки" value={form.coverImage} onChange={(e) => setForm({ ...form, coverImage: e.target.value })} placeholder="https://..." />
+            <Input
+              label="URL обкладинки"
+              value={form.coverImage}
+              onChange={(e) => setForm({ ...form, coverImage: e.target.value })}
+              placeholder="https://..."
+            />
           </div>
           <div className="mt-4">
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} className="accent-[var(--color-primary)]" />
+              <input
+                type="checkbox"
+                checked={form.isPublished}
+                onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
+                className="accent-[var(--color-primary)]"
+              />
               Опубліковано
             </label>
           </div>
@@ -221,12 +276,66 @@ export default function AdminBlogEditPage() {
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <h3 className="mb-3 text-sm font-semibold">SEO</h3>
           <div className="space-y-4">
-            <Input label="Meta Title" value={form.seoTitle} onChange={(e) => setForm({ ...form, seoTitle: e.target.value })} />
+            <Input
+              label="Meta Title"
+              value={form.seoTitle}
+              onChange={(e) => setForm({ ...form, seoTitle: e.target.value })}
+            />
             <div>
               <label className="mb-1 block text-sm font-medium">Meta Description</label>
               <textarea
                 value={form.seoDescription}
                 onChange={(e) => setForm({ ...form, seoDescription: e.target.value })}
+                rows={3}
+                className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <span className="rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+              EN
+            </span>
+            Англійський переклад (опційно)
+          </h3>
+          <p className="mb-4 text-xs text-[var(--color-text-secondary)]">
+            Залиште порожнім — на /en/blog покаже українську версію як фолбек.
+          </p>
+          <div className="space-y-4">
+            <Input
+              label="Title (EN)"
+              value={form.titleEn}
+              onChange={(e) => setForm({ ...form, titleEn: e.target.value })}
+            />
+            <div>
+              <label className="mb-1 block text-sm font-medium">Excerpt (EN)</label>
+              <textarea
+                value={form.excerptEn}
+                onChange={(e) => setForm({ ...form, excerptEn: e.target.value })}
+                rows={3}
+                className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Content (EN)</label>
+              <WysiwygEditor
+                value={form.contentEn}
+                onChange={(html) => setForm({ ...form, contentEn: html })}
+                placeholder="English version of the article..."
+              />
+            </div>
+            <Input
+              label="Meta Title (EN)"
+              value={form.seoTitleEn}
+              onChange={(e) => setForm({ ...form, seoTitleEn: e.target.value })}
+            />
+            <div>
+              <label className="mb-1 block text-sm font-medium">Meta Description (EN)</label>
+              <textarea
+                value={form.seoDescriptionEn}
+                onChange={(e) => setForm({ ...form, seoDescriptionEn: e.target.value })}
                 rows={3}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
               />

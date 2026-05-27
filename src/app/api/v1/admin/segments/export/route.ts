@@ -24,7 +24,10 @@ const ruleSchema = z
   });
 
 const bodySchema = z.object({
-  rules: z.array(ruleSchema).min(1, 'Хоча б одне правило обовʼязкове'),
+  rules: z
+    .array(ruleSchema)
+    .min(1, 'Хоча б одне правило обовʼязкове')
+    .max(20, 'Забагато правил (макс 20)'),
   roles: z.array(z.enum(['client', 'wholesaler'])).optional(),
   format: z.enum(['xlsx', 'csv']).default('xlsx'),
 });
@@ -48,8 +51,12 @@ export const POST = withRole2fa(
     }
 
     // limit=10000 caps a single export to keep the round-trip bounded;
-    // typical campaign segments are <2k.
-    const result = await runSegment({ ...parsed.data, limit: 10_000, offset: 0 });
+    // typical campaign segments are <2k. `skipCache: true` ensures a fresh
+    // read so a just-deleted/blocked user is never written to the CSV.
+    const result = await runSegment(
+      { ...parsed.data, limit: 10_000, offset: 0 },
+      { skipCache: true },
+    );
 
     const rows = result.users.map((u) => ({
       ID: u.id,

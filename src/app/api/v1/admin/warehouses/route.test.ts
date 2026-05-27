@@ -36,9 +36,13 @@ vi.mock('@/validators/warehouse', () => ({
     }),
   },
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/utils/request', () => ({ getClientIp: () => null }));
 
 import { GET, POST } from './route';
 import { createWarehouse, getWarehouses, WarehouseError } from '@/services/warehouse';
+
+const ctx = { user: { id: 1 } } as any;
 
 describe('GET /api/v1/admin/warehouses', () => {
   beforeEach(() => {
@@ -79,7 +83,7 @@ describe('POST /api/v1/admin/warehouses', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'New' }),
     });
-    const res = await POST(req as any);
+    const res = await (POST as any)(req, ctx);
     const json = await res.json();
 
     expect(res.status).toBe(201);
@@ -92,7 +96,7 @@ describe('POST /api/v1/admin/warehouses', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     });
-    const res = await POST(req as any);
+    const res = await (POST as any)(req, ctx);
 
     expect(res.status).toBe(422);
   });
@@ -105,7 +109,7 @@ describe('POST /api/v1/admin/warehouses', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Dup' }),
     });
-    const res = await POST(req as any);
+    const res = await (POST as any)(req, ctx);
 
     expect(res.status).toBe(409);
   });
@@ -118,7 +122,7 @@ describe('POST /api/v1/admin/warehouses', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'New' }),
     });
-    const res = await POST(req as any);
+    const res = await (POST as any)(req, ctx);
 
     expect(res.status).toBe(500);
   });

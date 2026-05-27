@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -28,7 +28,7 @@ interface FeedbackItem {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  form: 'Форма зв\'язку',
+  form: "Форма зв'язку",
   callback: 'Зворотний дзвінок',
 };
 
@@ -85,7 +85,10 @@ export default function AdminFeedbackPage() {
     // Plain text → simple <p>-wrapped HTML; preserves paragraph breaks.
     const html = body
       .split(/\n\n+/)
-      .map((p) => `<p>${p.replace(/\n/g, '<br>').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+      .map(
+        (p) =>
+          `<p>${p.replace(/\n/g, '<br>').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`,
+      )
       .join('');
     const res = await apiClient.post(`/api/v1/admin/feedback/${item.id}/reply`, {
       subject: subj,
@@ -114,13 +117,23 @@ export default function AdminFeedbackPage() {
 
   const debouncedSearch = useDebounce(searchInput, SEARCH_DEBOUNCE_MS);
 
+  const updateFilter = useCallback(
+    (key: string, value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value) params.set(key, value);
+      else params.delete(key);
+      params.set('page', '1');
+      router.push(`/admin/feedback?${params}`);
+    },
+    [searchParams, router],
+  );
+
   useEffect(() => {
     const currentSearch = searchParams.get('search') || '';
     if (debouncedSearch !== currentSearch) {
       updateFilter('search', debouncedSearch);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch]);
+  }, [debouncedSearch, searchParams, updateFilter]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -145,23 +158,19 @@ export default function AdminFeedbackPage() {
       .finally(() => setIsLoading(false));
   }, [page, type, status, search, dateFrom, dateTo, limit]);
 
-  const updateFilter = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value) params.set(key, value);
-    else params.delete(key);
-    params.set('page', '1');
-    router.push(`/admin/feedback?${params}`);
-  };
-
   const handleStatusUpdate = async (id: number, newStatus: string) => {
     setConfirmAction(null);
     setUpdatingId(id);
     try {
       const res = await apiClient.put(`/api/v1/admin/feedback/${id}`, { status: newStatus });
       if (res.success) {
-        setItems((prev) => prev.map((item) =>
-          item.id === id ? { ...item, status: newStatus, processedAt: new Date().toISOString() } : item
-        ));
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? { ...item, status: newStatus, processedAt: new Date().toISOString() }
+              : item,
+          ),
+        );
         toast.success(`Статус змінено на "${STATUS_LABELS[newStatus]}"`);
       } else {
         toast.error(res.error || 'Помилка зміни статусу');
@@ -174,12 +183,23 @@ export default function AdminFeedbackPage() {
   };
 
   const formatDate = (d: string) =>
-    new Date(d).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    new Date(d).toLocaleString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-xl font-bold">Зворотний зв&apos;язок <span className="text-base font-normal text-[var(--color-text-secondary)]">({total})</span></h2>
+        <h2 className="text-xl font-bold">
+          Зворотний зв&apos;язок{' '}
+          <span className="text-base font-normal text-[var(--color-text-secondary)]">
+            ({total})
+          </span>
+        </h2>
         <div className="flex flex-wrap items-end gap-2">
           <Input
             value={searchInput}
@@ -187,20 +207,44 @@ export default function AdminFeedbackPage() {
             placeholder="Ім'я або email..."
             className="w-44"
           />
-          <Select options={TYPE_OPTIONS} value={type} onChange={(e) => updateFilter('type', e.target.value)} className="w-40" />
-          <Select options={STATUS_OPTIONS} value={status} onChange={(e) => updateFilter('status', e.target.value)} className="w-36" />
-          <Input type="date" value={dateFrom} onChange={(e) => updateFilter('dateFrom', e.target.value)} className="w-36" />
-          <Input type="date" value={dateTo} onChange={(e) => updateFilter('dateTo', e.target.value)} className="w-36" />
+          <Select
+            options={TYPE_OPTIONS}
+            value={type}
+            onChange={(e) => updateFilter('type', e.target.value)}
+            className="w-40"
+          />
+          <Select
+            options={STATUS_OPTIONS}
+            value={status}
+            onChange={(e) => updateFilter('status', e.target.value)}
+            className="w-36"
+          />
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => updateFilter('dateFrom', e.target.value)}
+            className="w-36"
+          />
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => updateFilter('dateTo', e.target.value)}
+            className="w-36"
+          />
           {(search || dateFrom || dateTo) && (
-            <Button size="sm" variant="outline" onClick={() => {
-              setSearchInput('');
-              const params = new URLSearchParams(searchParams.toString());
-              params.delete('search');
-              params.delete('dateFrom');
-              params.delete('dateTo');
-              params.set('page', '1');
-              router.push(`/admin/feedback?${params}`);
-            }}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setSearchInput('');
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete('search');
+                params.delete('dateFrom');
+                params.delete('dateTo');
+                params.set('page', '1');
+                router.push(`/admin/feedback?${params}`);
+              }}
+            >
               Скинути
             </Button>
           )}
@@ -213,7 +257,10 @@ export default function AdminFeedbackPage() {
         <>
           <div className="space-y-3">
             {items.map((item) => (
-              <div key={item.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] transition-colors hover:border-[var(--color-primary)]/30">
+              <div
+                key={item.id}
+                className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] transition-colors hover:border-[var(--color-primary)]/30"
+              >
                 <div
                   className="flex cursor-pointer items-center justify-between px-4 py-3"
                   onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
@@ -226,12 +273,26 @@ export default function AdminFeedbackPage() {
                       {STATUS_LABELS[item.status] || item.status}
                     </span>
                     <span className="text-sm font-medium">{item.name}</span>
-                    {item.subject && <span className="text-sm text-[var(--color-text-secondary)]">— {item.subject}</span>}
+                    {item.subject && (
+                      <span className="text-sm text-[var(--color-text-secondary)]">
+                        — {item.subject}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-[var(--color-text-secondary)]">{TYPE_LABELS[item.type] || item.type}</span>
-                    <span className="text-xs text-[var(--color-text-secondary)]">{formatDate(item.createdAt)}</span>
-                    <svg className={`h-4 w-4 text-[var(--color-text-secondary)] transition-transform ${expandedId === item.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      {TYPE_LABELS[item.type] || item.type}
+                    </span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      {formatDate(item.createdAt)}
+                    </span>
+                    <svg
+                      className={`h-4 w-4 text-[var(--color-text-secondary)] transition-transform ${expandedId === item.id ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
@@ -264,25 +325,45 @@ export default function AdminFeedbackPage() {
                           </a>
                         </div>
                       )}
-                      {item.processedAt && <div><span className="text-[var(--color-text-secondary)]">Оброблено: </span>{formatDate(item.processedAt)}</div>}
+                      {item.processedAt && (
+                        <div>
+                          <span className="text-[var(--color-text-secondary)]">Оброблено: </span>
+                          {formatDate(item.processedAt)}
+                        </div>
+                      )}
                     </div>
-                    <p className="mb-4 whitespace-pre-wrap rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-3 text-sm">{item.message}</p>
+                    <p className="mb-4 whitespace-pre-wrap rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-3 text-sm">
+                      {item.message}
+                    </p>
                     <div className="flex gap-2">
                       {item.status === 'new_feedback' && (
                         <>
-                          <Button size="sm" onClick={() => setConfirmAction({ id: item.id, status: 'processed' })} isLoading={updatingId === item.id}>
+                          <Button
+                            size="sm"
+                            onClick={() => setConfirmAction({ id: item.id, status: 'processed' })}
+                            isLoading={updatingId === item.id}
+                          >
                             Оброблено
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setConfirmAction({ id: item.id, status: 'rejected' })} isLoading={updatingId === item.id}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmAction({ id: item.id, status: 'rejected' })}
+                            isLoading={updatingId === item.id}
+                          >
                             Відхилити
                           </Button>
                         </>
                       )}
                       {item.status === 'processed' && (
-                        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">Оброблено</span>
+                        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+                          Оброблено
+                        </span>
                       )}
                       {item.status === 'rejected' && (
-                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">Відхилено</span>
+                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+                          Відхилено
+                        </span>
                       )}
                     </div>
 
@@ -329,13 +410,15 @@ export default function AdminFeedbackPage() {
             ))}
             {items.length === 0 && (
               <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] py-12 text-center text-[var(--color-text-secondary)]">
-                <span className="text-3xl" aria-hidden="true">💬</span>
+                <span className="text-3xl" aria-hidden="true">
+                  💬
+                </span>
                 <p className="text-sm font-medium">
                   {search || type || status || dateFrom || dateTo
                     ? 'Звернень за фільтрами не знайдено'
                     : 'Звернень ще немає'}
                 </p>
-                {(search || type || status || dateFrom || dateTo) ? (
+                {search || type || status || dateFrom || dateTo ? (
                   <button
                     onClick={() => router.push('/admin/feedback')}
                     className="text-xs text-[var(--color-primary)] hover:underline"
@@ -344,7 +427,8 @@ export default function AdminFeedbackPage() {
                   </button>
                 ) : (
                   <p className="max-w-md text-xs">
-                    Тут з&apos;являться звернення з форми зв&apos;язку та запити на зворотний дзвінок
+                    Тут з&apos;являться звернення з форми зв&apos;язку та запити на зворотний
+                    дзвінок
                   </p>
                 )}
               </div>
@@ -352,9 +436,16 @@ export default function AdminFeedbackPage() {
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <PageSizeSelector value={limit} onChange={(size) => updateFilter('limit', String(size))} />
+            <PageSizeSelector
+              value={limit}
+              onChange={(size) => updateFilter('limit', String(size))}
+            />
             {total > limit && (
-              <Pagination currentPage={page} totalPages={Math.ceil(total / limit)} baseUrl="/admin/feedback" />
+              <Pagination
+                currentPage={page}
+                totalPages={Math.ceil(total / limit)}
+                baseUrl="/admin/feedback"
+              />
             )}
           </div>
         </>
@@ -364,10 +455,16 @@ export default function AdminFeedbackPage() {
       <ConfirmDialog
         isOpen={!!confirmAction}
         onClose={() => setConfirmAction(null)}
-        onConfirm={() => confirmAction && handleStatusUpdate(confirmAction.id, confirmAction.status)}
+        onConfirm={() =>
+          confirmAction && handleStatusUpdate(confirmAction.id, confirmAction.status)
+        }
         variant={confirmAction?.status === 'rejected' ? 'danger' : 'default'}
         title="Зміна статусу"
-        message={confirmAction?.status === 'processed' ? 'Позначити звернення як оброблене?' : 'Відхилити звернення?'}
+        message={
+          confirmAction?.status === 'processed'
+            ? 'Позначити звернення як оброблене?'
+            : 'Відхилити звернення?'
+        }
         confirmText={confirmAction?.status === 'processed' ? 'Так, оброблено' : 'Так, відхилити'}
       />
     </div>

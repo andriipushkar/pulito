@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -102,6 +103,12 @@ export function SettingsTab() {
     });
   };
 
+  // Boolean toggles that live OUTSIDE the marketplace.fields[] array (they
+  // have a bespoke UI — checkbox, not <Input>). Centralised here so a future
+  // dev adding "auto-translate" or similar doesn't have to remember to insert
+  // a new `if (dirty.has('newKey'))` branch in buildConfigBody.
+  const EXTRA_BOOLEAN_KEYS = ['sandboxMode'] as const;
+
   const buildConfigBody = (marketplace: (typeof MARKETPLACES)[number]) => {
     const ch = marketplace.key;
     const config: Record<string, string | boolean> = { enabled: forms[ch]?.enabled ?? false };
@@ -114,15 +121,45 @@ export function SettingsTab() {
         config[f.key] = existing!;
       }
     }
-    // Special toggles outside the fields array (sandboxMode is a boolean checkbox)
-    if (dirty[ch]?.has('sandboxMode')) {
-      config.sandboxMode = forms[ch]?.sandboxMode === true;
+    for (const key of EXTRA_BOOLEAN_KEYS) {
+      if (dirty[ch]?.has(key)) {
+        config[key] = forms[ch]?.[key] === true;
+      }
     }
     return config;
   };
 
   const handleSave = async (marketplace: (typeof MARKETPLACES)[number]) => {
     const ch = marketplace.key;
+
+    // Catch the silent footgun: user clicked "Змінити" on a masked credential,
+    // didn't type anything, and is about to overwrite a working integration
+    // with an empty string. Confirm explicitly before saving — once accepted,
+    // the save proceeds; cancel keeps the credential intact (user can refresh
+    // to restore the masked display).
+    const clearedSensitive = marketplace.fields.filter((f) => {
+      if (!f.sensitive) return false;
+      if (!dirty[ch]?.has(f.key)) return false;
+      const current = forms[ch]?.[f.key];
+      if (typeof current !== 'string' || current.length > 0) return false;
+      // Was there a previously-saved value? Stored sensitive values come back
+      // masked with bullets (`••••`), so any non-empty `configs` value counts
+      // as "had a credential here".
+      const stored = configs[ch]?.[f.key];
+      return typeof stored === 'string' && stored.length > 0;
+    });
+
+    if (clearedSensitive.length > 0) {
+      const fieldLabels = clearedSensitive.map((f) => f.label).join(', ');
+      const ok = window.confirm(
+        `Ви залишили порожніми поля: ${fieldLabels}.\n\n` +
+          `Якщо зберегти зараз, ці креденшли буде стерто і ${marketplace.name} ` +
+          `перестане працювати, поки не введете нові значення.\n\n` +
+          `Точно зберегти порожні?`,
+      );
+      if (!ok) return;
+    }
+
     setSaving((prev) => ({ ...prev, [ch]: true }));
     const config = buildConfigBody(marketplace);
     const res = await apiClient.put('/api/v1/admin/channel-settings', { channel: ch, config });
@@ -147,12 +184,24 @@ export function SettingsTab() {
       const health = res.data;
       setStatuses((prev) => ({
         ...prev,
-        [ch]: prev[ch] ? { ...prev[ch]!, health } : ({ platform: ch, connected: true, publishedCount: 0, lastSyncProducts: null, lastSyncStock: null, lastSyncOrders: null, health } as MarketplaceStatus),
+        [ch]: prev[ch]
+          ? { ...prev[ch]!, health }
+          : ({
+              platform: ch,
+              connected: true,
+              publishedCount: 0,
+              lastSyncProducts: null,
+              lastSyncStock: null,
+              lastSyncOrders: null,
+              health,
+            } as MarketplaceStatus),
       }));
       if (health.status === 'ok') {
-        toast.success(`${marketplace.name}: підключено${health.accountName ? ` (${health.accountName})` : ''}`);
+        toast.success(
+          `${marketplace.name}: підключено${health.accountName ? ` (${health.accountName})` : ''}`,
+        );
       } else {
-        toast.error(`${marketplace.name}: ${health.error || 'помилка з\'єднання'}`);
+        toast.error(`${marketplace.name}: ${health.error || "помилка з'єднання"}`);
       }
     } else {
       toast.error(res.error || 'Помилка тестування');
@@ -160,19 +209,17 @@ export function SettingsTab() {
     setTesting((prev) => ({ ...prev, [ch]: false }));
   };
 
-  const handleSync = async (
-    marketplace: (typeof MARKETPLACES)[number],
-    action: SyncType,
-  ) => {
+  const handleSync = async (marketplace: (typeof MARKETPLACES)[number], action: SyncType) => {
     const ch = marketplace.key;
     const key = `${ch}:${action}`;
     setSyncing((prev) => ({ ...prev, [key]: true }));
-    const res = await apiClient.post<Record<string, number>>(
-      `/api/v1/admin/marketplaces/${ch}`,
-      { action },
-    );
+    const res = await apiClient.post<Record<string, number>>(`/api/v1/admin/marketplaces/${ch}`, {
+      action,
+    });
     if (res.success && res.data) {
-      const parts = Object.entries(res.data).map(([k, v]) => `${k}: ${v}`).join(', ');
+      const parts = Object.entries(res.data)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(', ');
       toast.success(`${marketplace.name} ${syncTypeLabel(action)} — ${parts}`);
       await loadAll();
     } else {
@@ -192,11 +239,11 @@ export function SettingsTab() {
   return (
     <div className="space-y-6">
       <div className="rounded-[var(--radius)] border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-        <strong>Перше підключення?</strong> Покрокові інструкції з отримання токенів для
-        кожного маркетплейсу — у{' '}
-        <a href="/admin/marketplaces/help" className="font-semibold underline">
+        <strong>Перше підключення?</strong> Покрокові інструкції з отримання токенів для кожного
+        маркетплейсу — у{' '}
+        <Link href="/admin/marketplaces/help" className="font-semibold underline">
           Довідці
-        </a>
+        </Link>
         . Наведіть курсор на іконку{' '}
         <span className="inline-block rounded-full border border-current px-1 text-[10px]">i</span>{' '}
         біля кожного поля — буде коротке пояснення.
@@ -223,8 +270,8 @@ export function SettingsTab() {
                 isEnabled && health?.status === 'ok'
                   ? 'border-green-200 bg-[var(--color-bg)] shadow-sm'
                   : isEnabled && health?.status === 'error'
-                  ? 'border-red-200 bg-[var(--color-bg)]'
-                  : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)]'
+                    ? 'border-red-200 bg-[var(--color-bg)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)]'
               }`}
             >
               <div className="mb-4 flex items-start justify-between gap-3">
@@ -240,12 +287,24 @@ export function SettingsTab() {
                         title={marketplace.docsLabel}
                         className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
                       >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                          />
                         </svg>
                       </a>
                     </div>
-                    <p className="text-xs text-[var(--color-text-secondary)]">{marketplace.description}</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      {marketplace.description}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -272,28 +331,30 @@ export function SettingsTab() {
                     Опубліковано: <strong>{status.publishedCount}</strong>
                   </span>
                 ) : null}
-                {tokenExpiry[ch] && tokenExpiry[ch].hasToken && tokenExpiry[ch].daysRemaining != null && (
-                  <span
-                    title={
-                      tokenExpiry[ch].expiresAt
-                        ? `Токен діє до ${new Date(tokenExpiry[ch].expiresAt!).toLocaleString('uk-UA')}`
-                        : ''
-                    }
-                    className={
-                      tokenExpiry[ch].health === 'expired'
-                        ? 'font-semibold text-red-600'
-                        : tokenExpiry[ch].health === 'critical'
-                        ? 'font-semibold text-red-600'
-                        : tokenExpiry[ch].health === 'warn'
-                        ? 'text-amber-700'
-                        : 'text-[var(--color-text-secondary)]'
-                    }
-                  >
-                    {tokenExpiry[ch].health === 'expired'
-                      ? '⚠ Токен прострочено'
-                      : `🔑 ${tokenExpiry[ch].daysRemaining} дн до закінчення`}
-                  </span>
-                )}
+                {tokenExpiry[ch] &&
+                  tokenExpiry[ch].hasToken &&
+                  tokenExpiry[ch].daysRemaining != null && (
+                    <span
+                      title={
+                        tokenExpiry[ch].expiresAt
+                          ? `Токен діє до ${new Date(tokenExpiry[ch].expiresAt!).toLocaleString('uk-UA')}`
+                          : ''
+                      }
+                      className={
+                        tokenExpiry[ch].health === 'expired'
+                          ? 'font-semibold text-red-600'
+                          : tokenExpiry[ch].health === 'critical'
+                            ? 'font-semibold text-red-600'
+                            : tokenExpiry[ch].health === 'warn'
+                              ? 'text-amber-700'
+                              : 'text-[var(--color-text-secondary)]'
+                      }
+                    >
+                      {tokenExpiry[ch].health === 'expired'
+                        ? '⚠ Токен прострочено'
+                        : `🔑 ${tokenExpiry[ch].daysRemaining} дн до закінчення`}
+                    </span>
+                  )}
                 {status?.rateUsage && (
                   <span
                     title={`Виклики API за останні 5 хв (поточний процес). Ліміт ${status.rateUsage.limit5min}/5хв.`}
@@ -320,13 +381,14 @@ export function SettingsTab() {
                   className="accent-[var(--color-primary)]"
                 />
                 <span>
-                  <strong>🧪 Sandbox / dry-run</strong> — не робити реальних запитів. Корисно при тестуванні (товари &quot;публікуються&quot; з fake-ID, без виклику API маркетплейсу).
+                  <strong>🧪 Sandbox / dry-run</strong> — не робити реальних запитів. Корисно при
+                  тестуванні (товари &quot;публікуються&quot; з fake-ID, без виклику API
+                  маркетплейсу).
                 </span>
               </label>
 
               <UptimeSparkline platform={ch} />
               <WebhookUrlBlock platform={ch} />
-
 
               <div className="space-y-3">
                 {marketplace.fields.map((field) => {
@@ -342,8 +404,7 @@ export function SettingsTab() {
                   return (
                     <div key={field.key}>
                       <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[var(--color-text-secondary)]">
-                        {field.label}{' '}
-                        {field.optional && <span>(опц.)</span>}
+                        {field.label} {field.optional && <span>(опц.)</span>}
                         {help && <HelpTooltip text={help} />}
                       </label>
                       {isMasked ? (
@@ -372,7 +433,9 @@ export function SettingsTab() {
                           {field.sensitive && (
                             <button
                               type="button"
-                              onClick={() => setShowTokens((prev) => ({ ...prev, [tokenKey]: !isShown }))}
+                              onClick={() =>
+                                setShowTokens((prev) => ({ ...prev, [tokenKey]: !isShown }))
+                              }
                               className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-xs text-[var(--color-text-secondary)]"
                             >
                               {isShown ? '🙈' : '👁️'}
@@ -399,7 +462,11 @@ export function SettingsTab() {
                   onClick={() => handleTest(marketplace)}
                   disabled={testing[ch] || !hasCreds}
                   isLoading={testing[ch]}
-                  title={hasCreds ? 'Перевірити з\'єднання з API маркетплейсу' : 'Заповніть обов\'язкові поля'}
+                  title={
+                    hasCreds
+                      ? "Перевірити з'єднання з API маркетплейсу"
+                      : "Заповніть обов'язкові поля"
+                  }
                 >
                   Перевірити підключення
                 </Button>
@@ -440,24 +507,26 @@ export function SettingsTab() {
                       type === 'products'
                         ? status?.lastSyncProducts
                         : type === 'stock'
-                        ? status?.lastSyncStock
-                        : status?.lastSyncOrders;
+                          ? status?.lastSyncStock
+                          : status?.lastSyncOrders;
                     return (
                       <div key={type} className="flex items-center gap-1.5">
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={!supported || !isEnabled || syncing[key] || health?.status === 'error'}
+                          disabled={
+                            !supported || !isEnabled || syncing[key] || health?.status === 'error'
+                          }
                           isLoading={syncing[key]}
                           onClick={() => handleSync(marketplace, type)}
                           title={
                             !supported
                               ? 'Не підтримується цим маркетплейсом'
                               : !isEnabled
-                              ? 'Спочатку увімкніть маркетплейс'
-                              : health?.status === 'error'
-                              ? 'Спочатку виправте помилку підключення'
-                              : `Останній: ${formatRelative(lastSync)}`
+                                ? 'Спочатку увімкніть маркетплейс'
+                                : health?.status === 'error'
+                                  ? 'Спочатку виправте помилку підключення'
+                                  : `Останній: ${formatRelative(lastSync)}`
                           }
                         >
                           {syncTypeLabel(type)}
@@ -496,8 +565,8 @@ export function SettingsTab() {
           <div>
             <h3 className="font-semibold">Auto cross-listing</h3>
             <p className="text-xs text-[var(--color-text-secondary)]">
-              Автоматично публікувати нові активні товари на всі увімкнені маркетплейси без
-              ручного кліку.
+              Автоматично публікувати нові активні товари на всі увімкнені маркетплейси без ручного
+              кліку.
             </p>
           </div>
         </div>

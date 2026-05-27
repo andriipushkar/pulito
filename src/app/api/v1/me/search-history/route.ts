@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { withAuth } from '@/middleware/auth';
 import {
   saveSearch,
@@ -14,6 +15,14 @@ import {
   errorResponse,
   parseSearchParams,
 } from '@/utils/api-response';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+
+const saveSchema = z.object({
+  // Search input field; 200 chars covers any realistic query while
+  // stopping a 10 MB body from landing in user_search_history.
+  query: z.string().min(1).max(200),
+  resultsCount: z.number().int().min(0).max(1_000_000).optional(),
+});
 
 export const GET = withAuth(async (request: NextRequest, { user }) => {
   try {
@@ -40,15 +49,23 @@ export const GET = withAuth(async (request: NextRequest, { user }) => {
 
 export const POST = withAuth(async (request: NextRequest, { user }) => {
   try {
-    const { query, resultsCount } = await request.json();
-    if (!query || typeof query !== 'string') {
-      return errorResponse("query обов'язковий", 400);
+    // Rate-limit so a scripted client can't flood user_search_history.
+    // `search` bucket (30/min) covers real autocomplete chatter.
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.search);
+    if (!rl.allowed) {
+      return errorResponse('Забагато запитів. Спробуйте пізніше.', 429);
     }
-    const trimmed = query.trim();
+
+    const body = await request.json();
+    const parsed = saveSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
+    }
+    const trimmed = parsed.data.query.trim();
     if (trimmed.length === 0) {
       return errorResponse('query не може бути порожнім', 400);
     }
-    const entry = await saveSearch(user.id, trimmed, resultsCount || 0);
+    const entry = await saveSearch(user.id, trimmed, parsed.data.resultsCount ?? 0);
     return successResponse(entry, 201);
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);

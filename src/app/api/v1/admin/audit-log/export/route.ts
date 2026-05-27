@@ -5,11 +5,21 @@ import { maskEmail, maskPhone, maskDigits, maskIp } from '@/utils/pii';
 import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { errorResponse } from '@/utils/api-response';
 
-const EXPORT_LIMIT = 10_000;
+// Per-export row cap. Previously 10k = ~10MB PII dump per request. Combined
+// with adminExport rate-limit (10/min) that's 100MB/min/admin — enough for
+// a stolen session to exfiltrate the full audit log in minutes. Lowered to
+// 2000 (≈ 2MB) which still covers normal "give me last 30 days" use-cases
+// and forces multi-request iteration for full-log scrape, capped naturally
+// by the rate-limit.
+const EXPORT_LIMIT = 2_000;
 
 function csvEscape(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '';
-  const s = String(value);
+  let s = String(value);
+  // CSV-injection guard: cells starting with =, +, -, @, tab or CR are
+  // interpreted as formulas by Excel/Sheets when the file is opened. Prefix
+  // with a single-quote which is the documented neutralisation.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }

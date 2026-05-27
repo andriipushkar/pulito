@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 export class WishlistError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'WishlistError';
@@ -68,7 +68,11 @@ export async function resolveWishlistId(userId: number, idParam: string): Promis
   return numId;
 }
 
-export async function isProductInWishlist(userId: number, wishlistId: number, productId: number): Promise<boolean> {
+export async function isProductInWishlist(
+  userId: number,
+  wishlistId: number,
+  productId: number,
+): Promise<boolean> {
   const item = await prisma.wishlistItem.findUnique({
     where: { wishlistId_productId: { wishlistId, productId } },
   });
@@ -126,7 +130,20 @@ export async function getWishlistById(userId: number, wishlistId: number) {
   return wishlist;
 }
 
+// Cap on wishlists per user — without it a scripted client can churn out
+// thousands of empty lists and bloat the DB. 50 covers a power user with
+// multiple themed wishlists without abuse headroom.
+const MAX_WISHLISTS_PER_USER = 50;
+
 export async function createWishlist(userId: number, name: string) {
+  const count = await prisma.wishlist.count({ where: { userId } });
+  if (count >= MAX_WISHLISTS_PER_USER) {
+    throw new WishlistError(
+      `Досягнуто максимуму списків бажань (${MAX_WISHLISTS_PER_USER}). Видаліть невикористані.`,
+      409,
+    );
+  }
+
   return prisma.wishlist.create({
     data: { userId, name },
     include: {
@@ -173,9 +190,7 @@ export async function deleteEmptyWishlists(userId: number): Promise<number> {
     orderBy: { createdAt: 'asc' },
   });
 
-  const emptyIds = allWishlists
-    .filter((wl) => wl._count.items === 0)
-    .map((wl) => wl.id);
+  const emptyIds = allWishlists.filter((wl) => wl._count.items === 0).map((wl) => wl.id);
 
   // Keep at least one wishlist
   if (emptyIds.length === allWishlists.length && emptyIds.length > 0) {
@@ -212,7 +227,11 @@ export async function addItemToWishlist(userId: number, wishlistId: number, prod
   });
 }
 
-export async function removeItemFromWishlist(userId: number, wishlistId: number, productId: number) {
+export async function removeItemFromWishlist(
+  userId: number,
+  wishlistId: number,
+  productId: number,
+) {
   const wishlist = await prisma.wishlist.findUnique({ where: { id: wishlistId } });
   if (!wishlist || wishlist.userId !== userId) {
     throw new WishlistError('Список не знайдено', 404);

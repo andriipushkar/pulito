@@ -49,6 +49,7 @@ export function MessagesTab() {
   const [filterUnread, setFilterUnread] = useState(false);
   const [filterUnanswered, setFilterUnanswered] = useState(false);
   const [filterAssign, setFilterAssign] = useState<FilterAssign>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [replyOpen, setReplyOpen] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
@@ -61,11 +62,9 @@ export function MessagesTab() {
 
   // Load static reference data once.
   useEffect(() => {
-    apiClient
-      .get<ReplyTemplate[]>('/api/v1/admin/marketplaces/reply-templates')
-      .then((r) => {
-        if (r.success && Array.isArray(r.data)) setTemplates(r.data);
-      });
+    apiClient.get<ReplyTemplate[]>('/api/v1/admin/marketplaces/reply-templates').then((r) => {
+      if (r.success && Array.isArray(r.data)) setTemplates(r.data);
+    });
     apiClient
       .get<{ data: StaffUser[] } | StaffUser[]>('/api/v1/admin/users?roles=admin,manager&limit=100')
       .then((r) => {
@@ -103,12 +102,14 @@ export function MessagesTab() {
     };
   }, [filterMp, filterUnread, filterUnanswered, filterAssign, reloadToken]);
 
+  // Pin to Kyiv time — see HistoryTab.formatDate for the reasoning.
   const formatDate = (d: string) =>
     new Date(d).toLocaleString('uk-UA', {
       day: '2-digit',
       month: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'Europe/Kyiv',
     });
 
   const waitingLabel = (mins: number | null | undefined) => {
@@ -150,11 +151,36 @@ export function MessagesTab() {
     }
   };
 
-  const unreadCount = messages.filter((m) => !m.isRead).length;
+  // Client-side substring search across text/buyer/listing. Tight integration
+  // with server filters means search runs on the already-filtered slice — fast
+  // for the typical message volume (<1k).
+  //
+  // Strings get NFC-normalized before comparison so visually-identical
+  // Ukrainian/Russian text composed differently (e.g. precomposed "й" vs
+  // "и" + combining breve U+0306) still matches. Cheap to do on a small
+  // dataset, but saves the "I see it but search doesn't find it" footgun.
+  const normalize = (s: string | undefined | null) => (s ?? '').normalize('NFC').toLowerCase();
+  const q = normalize(searchQuery.trim());
+  const displayedMessages = q
+    ? messages.filter(
+        (m) =>
+          normalize(m.text).includes(q) ||
+          normalize(m.buyerName).includes(q) ||
+          normalize(m.listingTitle).includes(q),
+      )
+    : messages;
+  const unreadCount = displayedMessages.filter((m) => !m.isRead).length;
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="🔍 Пошук за текстом, покупцем, товаром..."
+          className="w-64 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
+        />
         <select
           value={filterMp}
           onChange={(e) => setFilterMp(e.target.value)}
@@ -202,23 +228,24 @@ export function MessagesTab() {
           ↻ Оновити
         </Button>
         <p className="ml-auto text-xs text-[var(--color-text-secondary)]">
-          {messages.length} показано · <strong>{unreadCount}</strong> непрочитаних
+          {displayedMessages.length} показано · <strong>{unreadCount}</strong> непрочитаних
         </p>
       </div>
 
       {isLoading ? (
         <AdminTableSkeleton rows={5} columns={4} />
-      ) : messages.length === 0 ? (
+      ) : displayedMessages.length === 0 ? (
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-12 text-center text-[var(--color-text-secondary)]">
-          <p className="text-lg">Немає повідомлень</p>
+          <p className="text-lg">{q ? 'Нічого не знайдено' : 'Немає повідомлень'}</p>
           <p className="mt-1 text-sm">
-            Повідомлення від покупців з маркетплейсів з&apos;являться тут. Синхронізуються
-            автоматично через cron, або натисніть «Оновити».
+            {q
+              ? 'Спробуйте інший пошуковий запит або скиньте фільтри.'
+              : "Повідомлення від покупців з маркетплейсів з'являться тут. Синхронізуються автоматично через cron, або натисніть «Оновити»."}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {messages.map((msg) => {
+          {displayedMessages.map((msg) => {
             const replyKey = `${msg.marketplace}-${msg.id}`;
             return (
               <div

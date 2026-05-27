@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import Container from '@/components/ui/Container';
 import MegaMenuPanel from '@/components/layout/MegaMenuPanel';
 import { ChevronDown } from '@/components/icons';
@@ -115,7 +115,11 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
                 href="/catalog?promo=true"
                 className="group inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-white/90 transition-all hover:bg-white/10 hover:text-white"
               >
-                <svg className="h-4 w-4 text-[var(--color-gold-light)] transition-colors group-hover:text-white" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="h-4 w-4 text-[var(--color-gold-light)] transition-colors group-hover:text-white"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M12 2c.5 2.5 3 5 5 7-1 4-3 7-5 9-2-2-4-5-5-9 2-2 4.5-4.5 5-7z" />
                 </svg>
                 Акції

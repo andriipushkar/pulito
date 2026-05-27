@@ -31,15 +31,37 @@ const palletInclude = {
   },
 } as const;
 
-export async function listPallets(filters: { status?: string } = {}) {
-  const where = filters.status ? { status: filters.status as never } : {};
-  const pallets = await prisma.pallet.findMany({
-    where,
-    include: palletInclude,
-    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
-    take: 200,
-  });
-  return pallets;
+const VALID_STATUSES = ['forming', 'in_transit', 'delivered', 'cancelled'] as const;
+type PalletStatus = (typeof VALID_STATUSES)[number];
+
+export async function listPallets(
+  filters: { status?: string; page?: number; limit?: number } = {},
+) {
+  // Validate against enum so a bad `?status=foo` returns a friendly error
+  // instead of an empty list (Prisma silently treats unknown enum values
+  // as "no match" — masks UI/config bugs).
+  if (filters.status && !VALID_STATUSES.includes(filters.status as PalletStatus)) {
+    throw new PalletError(`Невалідний status. Дозволено: ${VALID_STATUSES.join(', ')}`, 400);
+  }
+  const where = filters.status ? { status: filters.status as PalletStatus } : {};
+
+  // Pagination: was hard-take=200 with unbounded nested orders. At scale the
+  // payload blows up; admin UI freezes. Cap limit at 100, default 50.
+  const page = Math.max(1, filters.page ?? 1);
+  const limit = Math.min(100, Math.max(1, filters.limit ?? 50));
+
+  const [items, total] = await Promise.all([
+    prisma.pallet.findMany({
+      where,
+      include: palletInclude,
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.pallet.count({ where }),
+  ]);
+
+  return { items, total, page, limit };
 }
 
 export async function getPalletById(id: number) {
@@ -76,8 +98,7 @@ export async function calculatePalletWeight(palletId: number): Promise<number> {
   let totalGrams = 0;
   for (const item of items) {
     const variant = item.product?.variants.find((v) => v.sku === item.productCode);
-    const grams =
-      variant?.weightGrams ?? item.product?.weightGrams ?? 300; // 300 g fallback
+    const grams = variant?.weightGrams ?? item.product?.weightGrams ?? 300; // 300 g fallback
     totalGrams += grams * item.quantity;
   }
   return Math.round(totalGrams / 1000); // kg, rounded
@@ -173,10 +194,7 @@ export async function setPalletStatus(
     cancelled: [],
   };
   if (!validTransitions[pallet.status].includes(status)) {
-    throw new PalletError(
-      `Неможливо перевести палету з "${pallet.status}" у "${status}"`,
-      400,
-    );
+    throw new PalletError(`Неможливо перевести палету з "${pallet.status}" у "${status}"`, 400);
   }
 
   const updateData: Record<string, unknown> = { status };
@@ -184,9 +202,22 @@ export async function setPalletStatus(
   if (status === 'in_transit') updateData.shippedAt = now;
   if (status === 'delivered') updateData.deliveredAt = now;
 
-  const updated = await prisma.pallet.update({
-    where: { id },
+  // Conditional update guarded by the status we read — refuses to overwrite
+  // if another request flipped the pallet between our read and write. Without
+  // this two operators clicking "Доставлено" could re-stamp `deliveredAt` on
+  // a pallet someone else has cancelled in parallel.
+  const guarded = await prisma.pallet.updateMany({
+    where: { id, status: pallet.status },
     data: updateData,
+  });
+  if (guarded.count === 0) {
+    throw new PalletError(
+      'Статус палети змінено паралельно іншим користувачем — перезавантажте сторінку',
+      409,
+    );
+  }
+  const updated = await prisma.pallet.findUniqueOrThrow({
+    where: { id },
     include: palletInclude,
   });
 
@@ -209,44 +240,56 @@ export async function setPalletStatus(
 
 export async function addOrdersToPallet(palletId: number, orderIds: number[]) {
   if (orderIds.length === 0) return getPalletById(palletId);
-  const pallet = await prisma.pallet.findUnique({ where: { id: palletId } });
-  if (!pallet) throw new PalletError('Палету не знайдено', 404);
-  if (pallet.status !== 'forming') {
-    throw new PalletError('Можна додавати замовлення лише до палет у статусі "Формується"', 400);
-  }
 
-  // Skip orders already on any pallet (FK-friendly idempotent add).
-  const existing = await prisma.palletOrder.findMany({
-    where: { orderId: { in: orderIds } },
-    select: { orderId: true, palletId: true },
-  });
-  const alreadyOnAnotherPallet = existing
-    .filter((e) => e.palletId !== palletId)
-    .map((e) => e.orderId);
-  if (alreadyOnAnotherPallet.length > 0) {
-    throw new PalletError(
-      `Замовлення вже на іншій палеті: ${alreadyOnAnotherPallet.join(', ')}`,
-      409,
+  // Wrap the check-then-create in a transaction so two concurrent adds
+  // can't both pass the "not on another pallet" guard for the same order.
+  // The `@@unique` on PalletOrder.orderId still catches dupes at DB level,
+  // but the user-facing error is much friendlier when we check first.
+  const result = await prisma.$transaction(async (tx) => {
+    const pallet = await tx.pallet.findUnique({ where: { id: palletId } });
+    if (!pallet) throw new PalletError('Палету не знайдено', 404);
+    if (pallet.status !== 'forming') {
+      throw new PalletError('Можна додавати замовлення лише до палет у статусі "Формується"', 400);
+    }
+
+    const existing = await tx.palletOrder.findMany({
+      where: { orderId: { in: orderIds } },
+      select: { orderId: true, palletId: true },
+    });
+    const alreadyOnAnotherPallet = existing
+      .filter((e) => e.palletId !== palletId)
+      .map((e) => e.orderId);
+    if (alreadyOnAnotherPallet.length > 0) {
+      throw new PalletError(
+        `Замовлення вже на іншій палеті: ${alreadyOnAnotherPallet.join(', ')}`,
+        409,
+      );
+    }
+    const alreadyOnThisPallet = new Set(
+      existing.filter((e) => e.palletId === palletId).map((e) => e.orderId),
     );
-  }
-  const alreadyOnThisPallet = new Set(existing.filter((e) => e.palletId === palletId).map((e) => e.orderId));
 
-  await prisma.palletOrder.createMany({
-    data: orderIds
-      .filter((id) => !alreadyOnThisPallet.has(id))
-      .map((orderId, idx) => ({ palletId, orderId, sortOrder: idx })),
-    skipDuplicates: true,
+    await tx.palletOrder.createMany({
+      data: orderIds
+        .filter((id) => !alreadyOnThisPallet.has(id))
+        .map((orderId, idx) => ({ palletId, orderId, sortOrder: idx })),
+      skipDuplicates: true,
+    });
+
+    return pallet;
   });
 
-  // Refresh estimated weight + cost using current config.
+  // Weight calc + cost refresh happen outside the transaction — they read
+  // related products/variants and would extend lock duration unnecessarily.
+  // A concurrent edit between will just trigger another recalc later.
   const weightKg = await calculatePalletWeight(palletId);
   let deliveryCost: number | null = null;
-  if (weightKg > 0 && pallet.region) {
+  if (weightKg > 0 && result.region) {
     try {
-      const calc = await calculatePalletDeliveryCost(weightKg, pallet.region);
+      const calc = await calculatePalletDeliveryCost(weightKg, result.region);
       deliveryCost = calc.cost;
     } catch {
-      // Region not in config or below min weight — leave cost as null.
+      /* Region not in config / below min weight — leave cost as null. */
     }
   }
   await prisma.pallet.update({

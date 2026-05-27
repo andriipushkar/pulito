@@ -4,6 +4,8 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { createTenant, getTenants } from '@/services/tenant';
 import { createTenantSchema } from '@/validators/tenant';
 import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 export const GET = withRole2fa('admin')(async (request: NextRequest) => {
   try {
@@ -21,7 +23,7 @@ export const GET = withRole2fa('admin')(async (request: NextRequest) => {
   }
 });
 
-export const POST = withRole2fa('admin')(async (request: NextRequest) => {
+export const POST = withRole2fa('admin')(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = createTenantSchema.safeParse(body);
@@ -29,13 +31,27 @@ export const POST = withRole2fa('admin')(async (request: NextRequest) => {
       return errorResponse(parsed.error.issues[0].message, 400);
     }
     const tenant = await createTenant(parsed.data);
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'tenant',
+      entityId: tenant.id,
+      details: { slug: parsed.data.slug, name: parsed.data.name },
+      ipAddress: getClientIp(request),
+    });
     return successResponse(tenant, 201);
   } catch (err) {
-    logger.error('[admin/tenants] POST failed', { error: err });
-    const message = err instanceof Error ? err.message : 'Помилка створення тенанта';
-    if (message.includes('Unique constraint')) {
+    // Catch Prisma P2002 by code, not by message string — localised builds
+    // change the message and the heuristic silently breaks.
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code: string }).code === 'P2002'
+    ) {
       return errorResponse('Тенант з таким slug або доменом вже існує', 409);
     }
-    return errorResponse(message, 500);
+    logger.error('[admin/tenants] POST failed', { error: err });
+    return errorResponse('Помилка створення тенанта', 500);
   }
 });

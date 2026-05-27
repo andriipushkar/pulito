@@ -11,8 +11,18 @@ import { isSafeUrl } from '@/utils/safe-url';
 const bannerSchema = z.object({
   title: z.string().max(200).nullish(),
   subtitle: z.string().max(500).nullish(),
-  imageDesktop: z.string().min(1, 'imageDesktop обов’язковий').max(500),
-  imageMobile: z.string().max(500).nullish(),
+  // Image fields go through the same scheme allow-list as buttonLink — see
+  // banners/[id]/route.ts for the SSRF / `data:` / `javascript:` rationale.
+  imageDesktop: z
+    .string()
+    .min(1, 'imageDesktop обов’язковий')
+    .max(500)
+    .refine((v) => isSafeUrl(v), 'imageDesktop має небезпечну схему'),
+  imageMobile: z
+    .string()
+    .max(500)
+    .nullish()
+    .refine((v) => isSafeUrl(v ?? null), 'imageMobile має небезпечну схему'),
   buttonText: z.string().max(100).nullish(),
   buttonLink: z
     .string()
@@ -48,6 +58,25 @@ export const POST = withRole(
     const parsed = bannerSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues[0].message, 422);
     const data = parsed.data;
+
+    // A/B weight sum check: if this banner joins an existing variantGroup,
+    // ensure the total of all weights doesn't exceed 100 — that would mean
+    // some traffic split is double-counted. Under-100 is fine mid-setup
+    // (admin still adding variants); exactly-100 is the target.
+    if (data.variantGroup) {
+      const existing = await prisma.banner.aggregate({
+        where: { variantGroup: data.variantGroup },
+        _sum: { variantWeight: true },
+      });
+      const currentSum = existing._sum.variantWeight ?? 0;
+      const newSum = currentSum + (data.variantWeight ?? 1);
+      if (newSum > 100) {
+        return errorResponse(
+          `Сума ваг у variantGroup "${data.variantGroup}" перевищить 100 (поточно ${currentSum}, новий +${data.variantWeight ?? 1}). Зменшіть ваги існуючих варіантів.`,
+          422,
+        );
+      }
+    }
 
     const maxOrder = await prisma.banner.aggregate({ _max: { sortOrder: true } });
 

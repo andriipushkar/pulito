@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
@@ -12,6 +13,8 @@ interface AdminFaqItem {
   id: number;
   question: string;
   answer: string;
+  questionEn: string | null;
+  answerEn: string | null;
   category: string;
   sortOrder: number;
   isPublished: boolean;
@@ -22,6 +25,8 @@ interface FaqFormData {
   category: string;
   question: string;
   answer: string;
+  questionEn: string;
+  answerEn: string;
   sortOrder: number;
   isPublished: boolean;
 }
@@ -30,6 +35,8 @@ const emptyForm: FaqFormData = {
   category: '',
   question: '',
   answer: '',
+  questionEn: '',
+  answerEn: '',
   sortOrder: 0,
   isPublished: false,
 };
@@ -202,6 +209,8 @@ export default function AdminFaqPage() {
       category: item.category,
       question: item.question,
       answer: item.answer,
+      questionEn: item.questionEn || '',
+      answerEn: item.answerEn || '',
       sortOrder: item.sortOrder,
       isPublished: item.isPublished,
     });
@@ -220,12 +229,12 @@ export default function AdminFaqPage() {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold">FAQ</h2>
         <div className="flex gap-2">
-          <a
+          <Link
             href="/admin/faq/categories"
             className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-2 text-sm hover:bg-[var(--color-bg-secondary)]"
           >
             🗂 Категорії
-          </a>
+          </Link>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
             className="flex items-center gap-1 rounded-[var(--radius)] bg-[var(--color-primary)] px-3 py-2 text-sm text-white transition-colors hover:bg-[var(--color-primary-dark)]"
@@ -327,6 +336,28 @@ export default function AdminFaqPage() {
               placeholder="Відповідь"
             />
           </div>
+          <details className="mt-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+            <summary className="cursor-pointer text-xs font-semibold">
+              <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                EN
+              </span>
+              Англійський переклад (опційно)
+            </summary>
+            <div className="mt-3 space-y-2">
+              <input
+                type="text"
+                placeholder="Question (EN)"
+                value={createForm.questionEn}
+                onChange={(e) => setCreateForm({ ...createForm, questionEn: e.target.value })}
+                className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
+              />
+              <WysiwygEditor
+                value={createForm.answerEn}
+                onChange={(html) => setCreateForm({ ...createForm, answerEn: html })}
+                placeholder="Answer (EN)"
+              />
+            </div>
+          </details>
           <div className="mt-3 flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -405,6 +436,28 @@ export default function AdminFaqPage() {
                       onChange={(html) => setEditForm({ ...editForm, answer: html })}
                       placeholder="Відповідь"
                     />
+                    <details className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-2">
+                      <summary className="cursor-pointer text-xs font-semibold">
+                        <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                          EN
+                        </span>
+                        Англійський переклад (опційно)
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        <input
+                          type="text"
+                          placeholder="Question (EN)"
+                          value={editForm.questionEn}
+                          onChange={(e) => setEditForm({ ...editForm, questionEn: e.target.value })}
+                          className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
+                        />
+                        <WysiwygEditor
+                          value={editForm.answerEn}
+                          onChange={(html) => setEditForm({ ...editForm, answerEn: html })}
+                          placeholder="Answer (EN)"
+                        />
+                      </div>
+                    </details>
                     <div className="flex items-center justify-between">
                       <label className="flex items-center gap-2 text-sm">
                         <input

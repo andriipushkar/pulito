@@ -220,6 +220,27 @@ export async function processCampaigns(): Promise<{ sent: number; skipped: numbe
         },
         select: { id: true, email: true, fullName: true },
       });
+      // Honour unsubscribe status. The Subscriber table tracks the source of
+      // truth for email opt-in/out (List-Unsubscribe header lands there).
+      // Without this filter we would mail unsubscribed users — both a
+      // GDPR breach and a fast track to provider blocklists.
+      if (usersToEmail.length > 0) {
+        const unsubscribed = await prisma.subscriber.findMany({
+          where: {
+            email: { in: usersToEmail.map((u) => u.email) },
+            OR: [{ status: 'unsubscribed' }, { unsubscribedAt: { not: null } }],
+          },
+          select: { email: true },
+        });
+        if (unsubscribed.length > 0) {
+          const blockedEmails = new Set(unsubscribed.map((s) => s.email));
+          for (let i = usersToEmail.length - 1; i >= 0; i--) {
+            if (blockedEmails.has(usersToEmail[i].email)) {
+              usersToEmail.splice(i, 1);
+            }
+          }
+        }
+      }
 
       for (const user of usersToEmail) {
         try {
@@ -322,15 +343,33 @@ export async function runCampaignNow(ruleId: number): Promise<{ sent: number; sk
     const now = new Date();
     const userIds = segment.customers.map((c) => c.userId);
 
-    // For "once" frequency, still skip users who already received this campaign
-    // to avoid double-sending. For others, allow re-send when admin triggers manually.
-    const alreadySent =
-      rule.frequency === 'once'
-        ? await prisma.campaignLog.findMany({
-            where: { ruleId: rule.id, userId: { in: userIds } },
-            select: { userId: true },
-          })
-        : [];
+    // Re-send guard. "once" → never re-send. Recurring (daily/weekly/monthly)
+    // → skip users who got the email within the current window, so a manual
+    // admin "Send now" click doesn't spam them with the same recurring blast
+    // twice in the same period.
+    const RECURRING_WINDOW_MS: Record<string, number> = {
+      daily: 24 * 3600 * 1000,
+      weekly: 7 * 24 * 3600 * 1000,
+      monthly: 30 * 24 * 3600 * 1000,
+    };
+    let alreadySent: { userId: number }[] = [];
+    if (rule.frequency === 'once') {
+      alreadySent = await prisma.campaignLog.findMany({
+        where: { ruleId: rule.id, userId: { in: userIds } },
+        select: { userId: true },
+      });
+    } else {
+      const windowMs = RECURRING_WINDOW_MS[rule.frequency] ?? 24 * 3600 * 1000;
+      const since = new Date(Date.now() - windowMs);
+      alreadySent = await prisma.campaignLog.findMany({
+        where: {
+          ruleId: rule.id,
+          userId: { in: userIds },
+          sentAt: { gte: since },
+        },
+        select: { userId: true },
+      });
+    }
     const alreadySentUserIds = new Set(alreadySent.map((l) => l.userId));
 
     const usersToEmail = await prisma.user.findMany({

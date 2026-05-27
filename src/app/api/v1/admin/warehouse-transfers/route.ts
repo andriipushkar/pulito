@@ -5,8 +5,12 @@ import {
   listTransfers,
   WarehouseTransferError,
 } from '@/services/warehouse-transfer';
+import { createTransferSchema } from '@/validators/warehouse-transfer';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 export const GET = withRole(
   'admin',
@@ -32,40 +36,44 @@ export const POST = withRole(
   'manager',
 )(async (request: NextRequest, { user }) => {
   try {
+    // Bulk create with nested item inserts is one of the heavier admin
+    // operations — adminExport (10/min per admin) is the right bucket.
+    const rl = await checkRateLimit(`user:${user!.id}`, RATE_LIMITS.adminExport);
+    if (!rl.allowed) {
+      return errorResponse(
+        `Забагато створень переміщень. Спробуйте через ${Math.ceil(rl.retryAfter)} с.`,
+        429,
+      );
+    }
+
     const body = await request.json();
-    const fromWarehouseId = Number(body.fromWarehouseId);
-    const toWarehouseId = Number(body.toWarehouseId);
-    if (!Number.isInteger(fromWarehouseId) || fromWarehouseId <= 0) {
-      return errorResponse('Невалідний fromWarehouseId', 400);
+    const parsed = createTransferSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
-    if (!Number.isInteger(toWarehouseId) || toWarehouseId <= 0) {
-      return errorResponse('Невалідний toWarehouseId', 400);
-    }
-    if (fromWarehouseId === toWarehouseId) {
-      return errorResponse('Склад відправлення та одержання не може бути однаковим', 400);
-    }
-    if (!Array.isArray(body.items) || body.items.length === 0) {
-      return errorResponse('items є обовʼязковим непорожнім масивом', 400);
-    }
-    const items: { productId: number; quantity: number }[] = [];
-    for (const raw of body.items) {
-      const productId = Number(raw?.productId);
-      const quantity = Number(raw?.quantity);
-      if (!Number.isInteger(productId) || productId <= 0) {
-        return errorResponse('Невалідний productId у items', 400);
-      }
-      if (!Number.isFinite(quantity) || quantity <= 0) {
-        return errorResponse('quantity у items має бути більше нуля', 400);
-      }
-      items.push({ productId, quantity });
-    }
+
     const transfer = await createTransfer({
-      fromWarehouseId,
-      toWarehouseId,
-      items,
-      comment: body.comment || undefined,
+      fromWarehouseId: parsed.data.fromWarehouseId,
+      toWarehouseId: parsed.data.toWarehouseId,
+      items: parsed.data.items,
+      comment: parsed.data.comment,
       createdBy: user!.id,
     });
+
+    await logAudit({
+      userId: user!.id,
+      actionType: 'data_create',
+      entityType: 'warehouse_transfer',
+      entityId: transfer.id,
+      details: {
+        reference: transfer.reference,
+        fromWarehouseId: transfer.fromWarehouseId,
+        toWarehouseId: transfer.toWarehouseId,
+        itemCount: parsed.data.items.length,
+      },
+      ipAddress: getClientIp(request),
+    });
+
     return successResponse(transfer, 201);
   } catch (error) {
     if (error instanceof WarehouseTransferError) {

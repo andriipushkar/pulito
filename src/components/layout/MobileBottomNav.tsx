@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import useSWR from 'swr';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { usePathname } from 'next/navigation';
 import { Heart, Cart, User } from '@/components/icons';
 import { useCart } from '@/hooks/useCart';
@@ -17,14 +17,34 @@ interface MobileBottomNavProps {
 }
 
 const IconHome = () => (
-  <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+  <svg
+    className="h-[22px] w-[22px]"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={1.8}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
+    />
   </svg>
 );
 
 const IconGrid = () => (
-  <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+  <svg
+    className="h-[22px] w-[22px]"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={1.8}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
+    />
   </svg>
 );
 
@@ -68,9 +88,10 @@ export default function MobileBottomNav({ categories }: MobileBottomNavProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navItemBase = "flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] font-semibold transition-all duration-200";
-  const activeClass = "text-[var(--color-primary)]";
-  const inactiveClass = "text-[var(--color-text-secondary)]";
+  const navItemBase =
+    'flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] font-semibold transition-all duration-200';
+  const activeClass = 'text-[var(--color-primary)]';
+  const inactiveClass = 'text-[var(--color-text-secondary)]';
 
   return (
     <>
@@ -101,11 +122,10 @@ export default function MobileBottomNav({ categories }: MobileBottomNavProps) {
           </button>
 
           {/* Cart — center accent */}
-          <Link
-            href="/cart"
-            className="relative -mt-4 flex flex-col items-center gap-0.5"
-          >
-            <div className={`relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white shadow-[var(--shadow-brand)] transition-transform duration-200 active:scale-95 ${itemCount > 0 ? 'animate-cart-pulse' : ''}`}>
+          <Link href="/cart" className="relative -mt-4 flex flex-col items-center gap-0.5">
+            <div
+              className={`relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white shadow-[var(--shadow-brand)] transition-transform duration-200 active:scale-95 ${itemCount > 0 ? 'animate-cart-pulse' : ''}`}
+            >
               <Cart size={22} />
               {itemCount > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--color-danger)] px-1 text-[9px] font-bold text-white ring-2 ring-white shadow-sm">
@@ -113,7 +133,11 @@ export default function MobileBottomNav({ categories }: MobileBottomNavProps) {
                 </span>
               )}
             </div>
-            <span className={`text-[10px] font-semibold ${isActive('/cart') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'}`}>Кошик</span>
+            <span
+              className={`text-[10px] font-semibold ${isActive('/cart') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'}`}
+            >
+              Кошик
+            </span>
           </Link>
 
           {/* Wishlist */}
@@ -150,11 +174,7 @@ export default function MobileBottomNav({ categories }: MobileBottomNavProps) {
         </div>
       </nav>
 
-      <MobileMenu
-        isOpen={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        categories={categories}
-      />
+      <MobileMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} categories={categories} />
     </>
   );
 }

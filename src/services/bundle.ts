@@ -5,7 +5,7 @@ import { addToCart } from '@/services/cart';
 export class BundleError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'BundleError';
@@ -37,13 +37,15 @@ export async function createBundle(
     name: string;
     slug?: string;
     description?: string;
+    nameEn?: string;
+    descriptionEn?: string;
     bundleType: 'curated' | 'custom';
     discountPercent?: number;
     fixedPrice?: number | null;
     imagePath?: string;
     items: { productId: number; quantity: number }[];
   },
-  createdBy: number
+  createdBy: number,
 ) {
   const slug = data.slug || createSlug(data.name);
 
@@ -67,6 +69,8 @@ export async function createBundle(
       name: data.name,
       slug,
       description: data.description,
+      nameEn: data.nameEn || null,
+      descriptionEn: data.descriptionEn || null,
       bundleType: data.bundleType,
       discountPercent: data.discountPercent ?? 0,
       fixedPrice: data.fixedPrice,
@@ -90,12 +94,14 @@ export async function updateBundle(
     name?: string;
     slug?: string;
     description?: string;
+    nameEn?: string;
+    descriptionEn?: string;
     bundleType?: 'curated' | 'custom';
     discountPercent?: number;
     fixedPrice?: number | null;
     imagePath?: string;
     items?: { productId: number; quantity: number }[];
-  }
+  },
 ) {
   const bundle = await prisma.bundle.findUnique({ where: { id } });
   if (!bundle) throw new BundleError('Комплект не знайдено', 404);
@@ -136,6 +142,10 @@ export async function updateBundle(
         ...(data.name !== undefined && { name: data.name }),
         ...(data.slug !== undefined && { slug: data.slug }),
         ...(data.description !== undefined && { description: data.description }),
+        ...(data.nameEn !== undefined && { nameEn: data.nameEn || null }),
+        ...(data.descriptionEn !== undefined && {
+          descriptionEn: data.descriptionEn || null,
+        }),
         ...(data.bundleType !== undefined && { bundleType: data.bundleType }),
         ...(data.discountPercent !== undefined && { discountPercent: data.discountPercent }),
         ...(data.fixedPrice !== undefined && { fixedPrice: data.fixedPrice }),
@@ -195,9 +205,10 @@ export async function calculateBundlePrice(bundleId: number) {
   // shown alongside the bundle, so the discount looks like a real saving against
   // the everyday price — not just a re-shuffle of the current promo.
   const originalPrice = bundle.items.reduce((sum, item) => {
-    const base = item.product.isPromo && item.product.priceRetailOld
-      ? Number(item.product.priceRetailOld)
-      : Number(item.product.priceRetail);
+    const base =
+      item.product.isPromo && item.product.priceRetailOld
+        ? Number(item.product.priceRetailOld)
+        : Number(item.product.priceRetail);
     return sum + base * item.quantity;
   }, 0);
 
@@ -223,8 +234,7 @@ export async function calculateBundlePrice(bundleId: number) {
   // best-deal-wins: customer never pays more than the sum of current promos.
   const finalPriceRaw = Math.min(bundleFinalPrice, effectivePromoPrice);
   const finalPrice = Math.round(finalPriceRaw * 100) / 100;
-  const appliedRule: 'bundle' | 'promo' =
-    finalPriceRaw === bundleFinalPrice ? 'bundle' : 'promo';
+  const appliedRule: 'bundle' | 'promo' = finalPriceRaw === bundleFinalPrice ? 'bundle' : 'promo';
 
   return {
     originalPrice: Math.round(originalPrice * 100) / 100,
@@ -241,7 +251,9 @@ export async function addBundleToCart(userId: number, bundleId: number) {
     include: {
       items: {
         include: {
-          product: { select: { id: true, isActive: true, quantity: true } },
+          product: {
+            select: { id: true, name: true, isActive: true, quantity: true },
+          },
         },
       },
     },
@@ -249,14 +261,24 @@ export async function addBundleToCart(userId: number, bundleId: number) {
 
   if (!bundle) throw new BundleError('Комплект не знайдено або неактивний', 404);
 
-  const results = [];
+  // Pre-flight validation of EVERY item before mutating the cart. Without
+  // this, a stock failure on item N left items 1..N-1 already added — the
+  // customer ended up with a half-bundle in their cart and no clear signal
+  // why. Validate first, mutate second.
   for (const item of bundle.items) {
     if (!item.product.isActive) {
+      throw new BundleError(`Товар "${item.product.name}" у комплекті недоступний`, 400);
+    }
+    if (item.product.quantity < item.quantity) {
       throw new BundleError(
-        `Товар ID ${item.productId} у комплекті недоступний`,
-        400
+        `Недостатньо «${item.product.name}» на складі: потрібно ${item.quantity}, є ${item.product.quantity}`,
+        409,
       );
     }
+  }
+
+  const results = [];
+  for (const item of bundle.items) {
     const cartItem = await addToCart(userId, item.productId, item.quantity);
     results.push(cartItem);
   }

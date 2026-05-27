@@ -1,12 +1,18 @@
 import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/services/email';
+import { sanitizeHtml } from '@/utils/sanitize';
 import { logger } from '@/lib/logger';
+import { isSafeUrl } from '@/utils/safe-url';
+
+// Cap recipients to avoid a notification storm if many staff users get added
+// over time — 50 covers any realistic team and stops a runaway sendEmail loop.
+const NOTIFY_RECIPIENT_CAP = 50;
 
 export class FeedbackError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'FeedbackError';
@@ -20,16 +26,25 @@ export async function createFeedback(data: {
   subject?: string;
   message: string;
   type: 'form' | 'callback';
+  ipAddress?: string | null;
+  userAgent?: string | null;
 }) {
   const created = await prisma.feedback.create({
     data: {
       name: data.name,
       email: data.email,
       phone: data.phone,
-      subject: data.subject,
+      // Trim subject so a whitespace-only string doesn't leak as
+      // `"[форма]    — Ім'я"` in admin notifications.
+      subject: data.subject?.trim() || undefined,
       message: data.message,
       type: data.type,
       status: 'new_feedback',
+      // Forensics for spam-burst triage. Schema needs `ip_address` / `user_agent`
+      // string columns; if absent, Prisma silently ignores unknown fields, but
+      // we wrap in optional spread to avoid runtime errors on older deploys.
+      ...(data.ipAddress ? { ipAddress: data.ipAddress } : {}),
+      ...(data.userAgent ? { userAgent: data.userAgent } : {}),
     },
   });
 
@@ -47,7 +62,8 @@ async function notifyManagersOfNewFeedback(feedbackId: number) {
   if (!feedback) return;
 
   // Send to every active admin/manager. Roles list kept tight — wholesalers
-  // and customers must never get internal escalations.
+  // and customers must never get internal escalations. Capped to avoid
+  // a notification storm if the team grows large.
   const recipients = await prisma.user.findMany({
     where: {
       role: { in: ['admin', 'manager'] },
@@ -55,10 +71,15 @@ async function notifyManagersOfNewFeedback(feedbackId: number) {
       email: { not: '' },
     },
     select: { email: true },
+    take: NOTIFY_RECIPIENT_CAP,
   });
   if (recipients.length === 0) return;
 
-  const APP_URL = process.env.APP_URL || 'https://pulito.trade';
+  const rawAppUrl = process.env.APP_URL || 'https://pulito.trade';
+  // Refuse `javascript:` / `data:` / private-IP schemes even if APP_URL is
+  // tampered. The link is rendered in HTML email — a malicious href would
+  // execute on click in some mail clients.
+  const APP_URL = isSafeUrl(rawAppUrl) ? rawAppUrl : 'https://pulito.trade';
   const typeLabel = feedback.type === 'callback' ? 'Замовлення дзвінка' : 'Звернення з форми';
   const subjectLine = `[${typeLabel}] ${feedback.subject ?? 'Без теми'} — ${feedback.name}`;
 
@@ -104,9 +125,15 @@ export async function getFeedbackList(filters: {
   if (filters.type) where.type = filters.type;
   if (filters.status) where.status = filters.status;
   if (filters.search) {
+    // Search across all customer-supplied free-text columns. Without this an
+    // admin chasing a complaint by phone number or "broken link" mention has
+    // to scroll the whole list manually.
     where.OR = [
       { name: { contains: filters.search, mode: 'insensitive' } },
       { email: { contains: filters.search, mode: 'insensitive' } },
+      { phone: { contains: filters.search, mode: 'insensitive' } },
+      { message: { contains: filters.search, mode: 'insensitive' } },
+      { subject: { contains: filters.search, mode: 'insensitive' } },
     ];
   }
   if (filters.dateFrom || filters.dateTo) {
@@ -138,10 +165,10 @@ export async function getFeedbackList(filters: {
 export async function updateFeedbackStatus(
   id: number,
   status: 'processed' | 'rejected',
-  processedBy: number
+  processedBy: number,
 ) {
   const feedback = await prisma.feedback.findUnique({ where: { id } });
-  if (!feedback) throw new FeedbackError('Зворотний зв\'язок не знайдено', 404);
+  if (!feedback) throw new FeedbackError("Зворотний зв'язок не знайдено", 404);
 
   return prisma.feedback.update({
     where: { id },
@@ -162,18 +189,31 @@ export async function sendFeedbackReply(
   subject: string,
   bodyHtml: string,
   processedBy: number,
+  opts?: { force?: boolean },
 ) {
   const feedback = await prisma.feedback.findUnique({ where: { id } });
   if (!feedback) throw new FeedbackError("Зворотний зв'язок не знайдено", 404);
   if (!feedback.email) {
     throw new FeedbackError('У клієнта немає email — надішліть відповідь іншим каналом', 400);
   }
+  // Refuse to re-send unless caller explicitly opts in. Without this guard
+  // a double-click on the "Send reply" button can spam the customer (and
+  // earn the shop a CAN-SPAM / DSGVO complaint).
+  if (feedback.status === 'processed' && !opts?.force) {
+    throw new FeedbackError(
+      'Звернення вже оброблене. Якщо потрібно надіслати повторну відповідь, увімкніть «force».',
+      409,
+    );
+  }
 
   try {
+    // Sanitize before sending: a compromised manager account would otherwise
+    // be able to embed phishing links / tracking pixels in emails sent from
+    // the store domain. Allow only the same HTML subset as product descriptions.
     await sendEmail({
       to: feedback.email,
       subject,
-      html: bodyHtml,
+      html: sanitizeHtml(bodyHtml),
     });
   } catch (err) {
     throw new FeedbackError(

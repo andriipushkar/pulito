@@ -5,6 +5,12 @@ export const ROUTE_LIMITS: Record<string, { max: number; window: number }> = {
   '/api/v1/orders': { max: 10, window: 60 },
   '/api/v1/cart': { max: 30, window: 60 },
   '/api/v1/reviews': { max: 5, window: 900 },
+  // Sensitive UGC endpoints — bot/spam targets. Match reviews' 5/15min cap.
+  // The route handlers ALSO enforce their own sensitive preset (3/15min) via
+  // services/rate-limit.ts, but this middleware layer catches first.
+  '/api/v1/feedback': { max: 5, window: 900 },
+  '/api/v1/subscribe': { max: 5, window: 900 },
+  '/api/v1/callback-request': { max: 5, window: 900 },
   '/api/v1/wholesale': { max: 10, window: 60 },
   '/api/v1/me/subscriptions': { max: 10, window: 60 },
   '/api/v1/blog': { max: 60, window: 60 },

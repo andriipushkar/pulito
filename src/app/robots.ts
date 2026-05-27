@@ -8,7 +8,18 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/admin/', '/account/', '/auth/', '/checkout/', '/cart/'],
+        disallow: [
+          '/api/',
+          '/admin/',
+          '/account/',
+          '/auth/',
+          '/checkout/',
+          '/cart/',
+          // /comparison is user-specific (compared items live in localStorage),
+          // so crawl budget is wasted on it. The page also carries noindex but
+          // an explicit Disallow stops Google from fetching it at all.
+          '/comparison',
+        ],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

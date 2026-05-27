@@ -35,6 +35,9 @@ export const checkoutSchema = z.object({
   palletWeightKg: z.number().positive().optional(),
   palletRegion: z.string().max(100).optional(),
   palletDeliveryCost: z.number().nonnegative().optional(),
+  utmSource: z.string().max(100).optional(),
+  utmMedium: z.string().max(100).optional(),
+  utmCampaign: z.string().max(100).optional(),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;

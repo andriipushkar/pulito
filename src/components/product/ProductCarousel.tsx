@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import ProductCard from './ProductCard';
 import { ChevronLeft, ChevronRight } from '@/components/icons';
 import type { ProductListItem } from '@/types/product';
@@ -16,17 +17,21 @@ interface ProductCarouselProps {
   accent?: CarouselAccent;
 }
 
-const accentStyles: Record<CarouselAccent, {
-  section: string;
-  underline: string;
-  iconLabel?: { label: string; bg: string; text: string };
-}> = {
+const accentStyles: Record<
+  CarouselAccent,
+  {
+    section: string;
+    underline: string;
+    iconLabel?: { label: string; bg: string; text: string };
+  }
+> = {
   default: {
     section: 'py-4 sm:py-6',
     underline: 'bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)]',
   },
   promo: {
-    section: 'rounded-3xl bg-gradient-to-br from-red-50 via-orange-50 to-white px-4 py-5 sm:px-6 sm:py-7',
+    section:
+      'rounded-3xl bg-gradient-to-br from-red-50 via-orange-50 to-white px-4 py-5 sm:px-6 sm:py-7',
     underline: 'bg-gradient-to-r from-[#FF6B35] to-[#F44336]',
     iconLabel: { label: 'Акція', bg: 'bg-[#F44336]', text: 'text-white' },
   },
@@ -36,13 +41,20 @@ const accentStyles: Record<CarouselAccent, {
     iconLabel: { label: 'New', bg: 'bg-[var(--color-primary)]', text: 'text-white' },
   },
   hits: {
-    section: 'rounded-3xl bg-gradient-to-br from-amber-50 via-yellow-50 to-white px-4 py-5 sm:px-6 sm:py-7',
+    section:
+      'rounded-3xl bg-gradient-to-br from-amber-50 via-yellow-50 to-white px-4 py-5 sm:px-6 sm:py-7',
     underline: 'bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-light)]',
     iconLabel: { label: 'Hit', bg: 'bg-[var(--color-gold)]', text: 'text-white' },
   },
 };
 
-export default function ProductCarousel({ title, products, viewAllHref, accent = 'default' }: ProductCarouselProps) {
+export default function ProductCarousel({
+  title,
+  products,
+  viewAllHref,
+  accent = 'default',
+}: ProductCarouselProps) {
+  const t = useTranslations('common');
   const [emblaRef, emblaApi] = useEmblaCarousel({
     slidesToScroll: 1,
     align: 'start',
@@ -93,7 +105,9 @@ export default function ProductCarousel({ title, products, viewAllHref, accent =
           )}
           <span className="relative">
             {title}
-            <span className={`absolute -bottom-1 left-0 h-0.5 w-10 rounded-full ${style.underline}`} />
+            <span
+              className={`absolute -bottom-1 left-0 h-0.5 w-10 rounded-full ${style.underline}`}
+            />
           </span>
         </h2>
         {viewAllHref && (
@@ -101,7 +115,7 @@ export default function ProductCarousel({ title, products, viewAllHref, accent =
             href={viewAllHref}
             className="rounded-full border border-[var(--color-primary)] px-4 py-1.5 text-sm font-medium text-[var(--color-primary)] transition-all hover:bg-[var(--color-primary)] hover:text-white"
           >
-            Дивитись все
+            {t('viewAll')}
           </Link>
         )}
       </div>

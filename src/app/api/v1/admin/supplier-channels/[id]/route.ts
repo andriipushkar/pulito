@@ -3,11 +3,20 @@ import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { isSafeOutboundUrl } from '@/utils/safe-url';
+import { encrypt } from '@/lib/encryption';
 import { logger } from '@/lib/logger';
 
 const updateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  feedUrl: z.string().url().max(2000).optional(),
+  feedUrl: z
+    .string()
+    .url()
+    .max(2000)
+    .refine((u) => isSafeOutboundUrl(u, { protocols: ['http:', 'https:'] }), {
+      message: 'URL вказує на приватну/локальну адресу — заборонено',
+    })
+    .optional(),
   format: z.enum(['xlsx', 'csv', 'yml', 'xml_1c']).optional(),
   authType: z.enum(['none', 'basic', 'bearer']).optional(),
   authUsername: z.string().max(255).optional().nullable(),
@@ -45,11 +54,18 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params }) =>
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
     // Don't overwrite secret fields if the client sent the redacted "***" mask.
+    // Otherwise encrypt before persisting so DB reads never expose plaintext.
     const data = { ...parsed.data };
     if (data.authPassword === '***') delete data.authPassword;
+    else if (data.authPassword) data.authPassword = encrypt(data.authPassword);
     if (data.authToken === '***') delete data.authToken;
+    else if (data.authToken) data.authToken = encrypt(data.authToken);
     const channel = await prisma.supplierChannel.update({ where: { id: numId }, data });
-    return successResponse(channel);
+    return successResponse({
+      ...channel,
+      authPassword: channel.authPassword ? '***' : null,
+      authToken: channel.authToken ? '***' : null,
+    });
   } catch (err) {
     logger.error('[admin/supplier-channels/[id]] PUT failed', { error: err });
     return errorResponse('Не вдалося оновити', 500);

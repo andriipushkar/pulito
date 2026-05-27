@@ -1,8 +1,16 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Search, Home } from '@/components/icons';
+import NotFoundLogger from '@/components/seo/NotFoundLogger';
 
 const RecentlyViewedSection = dynamic(() => import('@/components/product/RecentlyViewedSection'));
+
+export const metadata: Metadata = {
+  title: 'Сторінку не знайдено — Pulito Trade',
+  description: 'Сторінку не знайдено. Скористайтеся пошуком або перейдіть до каталогу.',
+  robots: { index: false, follow: false },
+};
 
 const popularCategories = [
   { name: 'Засоби для прання', href: '/catalog/zasoby-dlya-prannya' },
@@ -16,6 +24,7 @@ const popularCategories = [
 export default function NotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
+      <NotFoundLogger />
       <h1 className="mb-2 text-6xl font-bold text-[var(--color-primary)]">404</h1>
       <p className="mb-6 text-xl text-[var(--color-text-secondary)]">Сторінку не знайдено</p>
 

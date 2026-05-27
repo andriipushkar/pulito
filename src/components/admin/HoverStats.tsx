@@ -24,11 +24,7 @@ const productCache = new Map<number, ProductStats>();
 const HOVER_DELAY_MS = 250;
 
 export function HoverUserStats({ userId, children }: { userId: number; children: ReactNode }) {
-  return (
-    <HoverStatsBase target={{ type: 'user', id: userId }}>
-      {children}
-    </HoverStatsBase>
-  );
+  return <HoverStatsBase target={{ type: 'user', id: userId }}>{children}</HoverStatsBase>;
 }
 
 export function HoverProductStats({
@@ -38,34 +34,36 @@ export function HoverProductStats({
   productId: number;
   children: ReactNode;
 }) {
-  return (
-    <HoverStatsBase target={{ type: 'product', id: productId }}>
-      {children}
-    </HoverStatsBase>
-  );
+  return <HoverStatsBase target={{ type: 'product', id: productId }}>{children}</HoverStatsBase>;
 }
 
 function HoverStatsBase({ target, children }: { target: StatsFor; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [stats, setStats] = useState<UserStats | ProductStats | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether the popup is still meant to be visible by the time the
+  // async fetch resolves. Without this, leaving and re-entering on a different
+  // target showed the previous target's stats for a frame.
+  const currentTarget = useRef<string>(`${target.type}:${target.id}`);
 
   const fetchStats = async () => {
+    const targetKey = `${target.type}:${target.id}`;
+    currentTarget.current = targetKey;
     if (target.type === 'user') {
       const cached = userCache.get(target.id);
       if (cached) {
-        setStats(cached);
+        if (currentTarget.current === targetKey) setStats(cached);
         return;
       }
       const res = await apiClient.get<UserStats>(`/api/v1/admin/users/${target.id}/quick-stats`);
       if (res.success && res.data) {
         userCache.set(target.id, res.data);
-        setStats(res.data);
+        if (currentTarget.current === targetKey) setStats(res.data);
       }
     } else {
       const cached = productCache.get(target.id);
       if (cached) {
-        setStats(cached);
+        if (currentTarget.current === targetKey) setStats(cached);
         return;
       }
       const res = await apiClient.get<ProductStats>(
@@ -73,7 +71,7 @@ function HoverStatsBase({ target, children }: { target: StatsFor; children: Reac
       );
       if (res.success && res.data) {
         productCache.set(target.id, res.data);
-        setStats(res.data);
+        if (currentTarget.current === targetKey) setStats(res.data);
       }
     }
   };
@@ -88,6 +86,10 @@ function HoverStatsBase({ target, children }: { target: StatsFor; children: Reac
   const handleLeave = () => {
     if (timer.current) clearTimeout(timer.current);
     setOpen(false);
+    // Clear stale stats so the next hover always shows "Завантаження…" until
+    // the fresh fetch lands — never the previous target's body.
+    setStats(null);
+    currentTarget.current = '';
   };
 
   useEffect(() => {
@@ -97,11 +99,7 @@ function HoverStatsBase({ target, children }: { target: StatsFor; children: Reac
   }, []);
 
   return (
-    <span
-      className="relative inline-block"
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
-    >
+    <span className="relative inline-block" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       {children}
       {open && (
         <span className="pointer-events-none absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs shadow-lg">

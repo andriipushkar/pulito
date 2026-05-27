@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Cart } from '@/components/icons';
 import { useCart } from '@/hooks/useCart';

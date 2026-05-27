@@ -52,24 +52,45 @@ export default function PackPage() {
 
   useEffect(() => {
     let cancelled = false;
-    // Anything confirmed/paid but not yet shipped is fair game for packing.
-    // We surface confirmed first; the API doesn't accept multi-status filters,
-    // so we fetch a wider list and filter client-side.
-    apiClient
-      .get<{ orders: PackOrder[] }>('/api/v1/admin/orders/packable?limit=50')
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) {
-          setOrders(res.data.orders);
-          setActiveIdx(0);
-          setPicked(new Set());
-        }
-        setIsLoading(false);
-        refocus();
-      });
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    // Initial fetch, then poll every 60s so a confirmed order placed mid-shift
+    // shows up without the operator hitting refresh. Picked-state survives
+    // the merge so a half-picked order doesn't reset.
+    const fetchOnce = async () => {
+      const res = await apiClient.get<{ orders: PackOrder[] }>(
+        '/api/v1/admin/orders/packable?limit=50',
+      );
+      if (cancelled) return;
+      if (res.success && res.data) {
+        const data = res.data;
+        setOrders((prev) => {
+          const incoming = data.orders;
+          // Keep activeIdx pointing at the same order id when possible.
+          const currentId = prev[activeIdx]?.id;
+          const newIdx = currentId ? incoming.findIndex((o) => o.id === currentId) : -1;
+          if (newIdx >= 0 && newIdx !== activeIdx) {
+            // Schedule selection update outside setState callback.
+            setTimeout(() => setActiveIdx(newIdx), 0);
+          } else if (newIdx < 0 && prev.length > 0) {
+            setTimeout(() => setActiveIdx(0), 0);
+          }
+          return incoming;
+        });
+      }
+      setIsLoading(false);
+      refocus();
+      if (!cancelled) {
+        timer = setTimeout(fetchOnce, 60_000);
+      }
+    };
+    fetchOnce();
+
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Reset picked-set + refocus is triggered by each setActiveIdx call site
@@ -149,9 +170,7 @@ export default function PackPage() {
         selectOrder(Math.min(activeIdx, next.length - 1));
       } else {
         // Just bump status in-place so the UI shows the new state.
-        setOrders((curr) =>
-          curr.map((o, i) => (i === activeIdx ? { ...o, status: 'packed' } : o)),
-        );
+        setOrders((curr) => curr.map((o, i) => (i === activeIdx ? { ...o, status: 'packed' } : o)));
         refocus();
       }
     } else {
@@ -161,8 +180,20 @@ export default function PackPage() {
   };
 
   const handleMarkPacked = () => updateStatus('packed', 'Зібрано', 'упаковано');
-  const handlePackComplete = () =>
+  const handlePackComplete = () => {
+    // Shipping is irreversible (decrements stock, locks tracking, fires
+    // customer notification) — one stray click after picking shouldn't
+    // close the order. Force an explicit confirm.
+    if (!active) return;
+    const ok = window.confirm(
+      `Передати замовлення №${active.orderNumber} курʼєру? Цю дію не можна скасувати.`,
+    );
+    if (!ok) {
+      refocus();
+      return;
+    }
     updateStatus('shipped', 'Упаковано та передано курʼєру', 'відправлено');
+  };
 
   const handleNext = () => {
     if (activeIdx < orders.length - 1) selectOrder(activeIdx + 1);
@@ -254,9 +285,7 @@ export default function PackPage() {
               {active.contactName} · {active.contactPhone}
             </p>
             {active.trackingNumber && (
-              <p className="text-sm font-semibold text-violet-700">
-                ТТН: {active.trackingNumber}
-              </p>
+              <p className="text-sm font-semibold text-violet-700">ТТН: {active.trackingNumber}</p>
             )}
           </div>
           <div className="text-right">
@@ -277,86 +306,95 @@ export default function PackPage() {
               return a.productName.localeCompare(b.productName);
             })
             .map((item) => {
-            const isPicked = picked.has(item.id);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setPicked((s) => {
-                    const next = new Set(s);
-                    if (next.has(item.id)) next.delete(item.id);
-                    else next.add(item.id);
-                    return next;
-                  });
-                  refocus();
-                }}
-                className={`flex w-full items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-all ${
-                  isPicked
-                    ? 'border-emerald-500 bg-emerald-50'
-                    : 'border-[var(--color-border)] hover:border-[var(--color-primary)]'
-                }`}
-              >
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg font-bold ${
-                    isPicked ? 'bg-emerald-500 text-white' : 'bg-[var(--color-bg-secondary)]'
+              const isPicked = picked.has(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setPicked((s) => {
+                      const next = new Set(s);
+                      if (next.has(item.id)) next.delete(item.id);
+                      else next.add(item.id);
+                      return next;
+                    });
+                    refocus();
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-all ${
+                    isPicked
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-[var(--color-border)] hover:border-[var(--color-primary)]'
                   }`}
                 >
-                  {isPicked ? '✓' : ''}
-                </span>
-                <div className="flex-1">
-                  <p className={`font-medium ${isPicked ? 'line-through opacity-60' : ''}`}>
-                    {item.productName}
-                  </p>
-                  <p className="text-xs text-[var(--color-text-secondary)]">
-                    Код: {item.productCode}
-                    {item.locationCode && (
-                      <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[10px] text-blue-700">
-                        📦 {item.locationCode}{item.locationName ? ` (${item.locationName})` : ''}
-                      </span>
-                    )}
-                    {item.stockOnHand !== undefined && (
-                      <span
-                        className={`ml-2 rounded px-1.5 py-0.5 text-[10px] ${
-                          item.stockOnHand >= item.quantity
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
-                      >
-                        склад: {item.stockOnHand}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <span className="text-xl font-bold">×{item.quantity}</span>
-                {!isPicked && (item.stockOnHand ?? 0) < item.quantity && (
                   <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.confirm(`Підтвердити пакування "${item.productName}" попри нестачу на складі?`)) {
-                        forcePick(item.id);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg font-bold ${
+                      isPicked ? 'bg-emerald-500 text-white' : 'bg-[var(--color-bg-secondary)]'
+                    }`}
+                  >
+                    {isPicked ? '✓' : ''}
+                  </span>
+                  <div className="flex-1">
+                    <p className={`font-medium ${isPicked ? 'line-through opacity-60' : ''}`}>
+                      {item.productName}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      Код: {item.productCode}
+                      {item.locationCode && (
+                        <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[10px] text-blue-700">
+                          📦 {item.locationCode}
+                          {item.locationName ? ` (${item.locationName})` : ''}
+                        </span>
+                      )}
+                      {item.stockOnHand !== undefined && (
+                        <span
+                          className={`ml-2 rounded px-1.5 py-0.5 text-[10px] ${
+                            item.stockOnHand >= item.quantity
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          склад: {item.stockOnHand}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <span className="text-xl font-bold">×{item.quantity}</span>
+                  {!isPicked && (item.stockOnHand ?? 0) < item.quantity && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm(`Підтвердити пакування "${item.productName}" попри нестачу на складі?`)) {
+                        if (
+                          window.confirm(
+                            `Підтвердити пакування "${item.productName}" попри нестачу на складі?`,
+                          )
+                        ) {
                           forcePick(item.id);
                         }
-                      }
-                    }}
-                    className="ml-2 rounded border border-amber-400 px-2 py-0.5 text-xs text-amber-700 hover:bg-amber-50"
-                    title="Override stock check"
-                  >
-                    Все одно
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (
+                            window.confirm(
+                              `Підтвердити пакування "${item.productName}" попри нестачу на складі?`,
+                            )
+                          ) {
+                            forcePick(item.id);
+                          }
+                        }
+                      }}
+                      className="ml-2 rounded border border-amber-400 px-2 py-0.5 text-xs text-amber-700 hover:bg-amber-50"
+                      title="Override stock check"
+                    >
+                      Все одно
+                    </span>
+                  )}
+                </button>
+              );
+            })}
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
@@ -409,8 +447,8 @@ export default function PackPage() {
       </div>
 
       <p className="mt-4 text-center text-xs text-[var(--color-text-secondary)]">
-        💡 Сканер штрих-кодів автоматично друкує код у поле вгорі і натискає Enter. Якщо
-        сканера немає — клікайте по товарам вручну.
+        💡 Сканер штрих-кодів автоматично друкує код у поле вгорі і натискає Enter. Якщо сканера
+        немає — клікайте по товарам вручну.
       </p>
     </div>
   );

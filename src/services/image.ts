@@ -6,6 +6,7 @@ import { env } from '@/config/env';
 import { validateFileType } from '@/utils/file-validation';
 import { uploadFile, isCloudStorageEnabled } from '@/lib/storage';
 import { removeBackground, isBackgroundRemovalEnabled } from '@/services/background-removal';
+import { applyProductTemplate, getSeoTemplateByEntity } from '@/services/seo-template';
 
 const WATERMARK_TEXT = process.env.WATERMARK_TEXT || 'pulito.trade';
 const WATERMARK_ENABLED = process.env.WATERMARK_ENABLED !== 'false'; // enabled by default
@@ -47,6 +48,38 @@ async function ensureDir(dirPath: string) {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
+/** Build an image alt string from the configured SEO template, falling back to
+ * the legacy `"<name> — фото N"` pattern when no template is set or the result
+ * is empty. Supports {name}, {code}, {category}, {price}, {photo_number}.
+ * Exported so backfill scripts can mirror runtime behaviour for old rows. */
+export async function generateAutoAltText(vars: {
+  name: string;
+  code: string;
+  category: string;
+  categoryId: number | undefined;
+  price: string;
+  photoNumber: number;
+}): Promise<string> {
+  const fallback = `${vars.name}${vars.photoNumber > 1 ? ` — фото ${vars.photoNumber}` : ''}`;
+
+  const template =
+    (await getSeoTemplateByEntity('product', vars.categoryId)) ||
+    (await getSeoTemplateByEntity('product'));
+
+  const altTemplate = template?.altTemplate?.trim();
+  if (!altTemplate) return fallback;
+
+  const applied = applyProductTemplate(altTemplate, {
+    name: vars.name,
+    code: vars.code,
+    category: vars.category,
+    price: vars.price,
+    photo_number: String(vars.photoNumber),
+  }).trim();
+
+  return applied || fallback;
+}
+
 export async function processProductImage(
   fileBuffer: Buffer,
   mimeType: string,
@@ -71,7 +104,14 @@ export async function processProductImage(
   // Get product
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { id: true, code: true, name: true },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      priceRetail: true,
+      categoryId: true,
+      category: { select: { id: true, name: true } },
+    },
   });
 
   if (!product) {
@@ -210,7 +250,16 @@ export async function processProductImage(
 
   // Auto-fill altText from product name for SEO — sitemaps, marketplace feeds and
   // structured data all read this column verbatim. Owner can still override per-image.
-  const autoAltText = `${product.name}${sortOrder > 0 ? ` — фото ${sortOrder + 1}` : ''}`;
+  // Prefer category-specific alt template (seo_templates.altTemplate), then global,
+  // then fall back to the original hardcoded format.
+  const autoAltText = await generateAutoAltText({
+    name: product.name,
+    code: product.code,
+    category: product.category?.name ?? '',
+    categoryId: product.category?.id,
+    price: Number(product.priceRetail).toFixed(2),
+    photoNumber: sortOrder + 1,
+  });
 
   // Save to DB
   const image = await prisma.productImage.create({

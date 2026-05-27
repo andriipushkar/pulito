@@ -12,6 +12,7 @@ const mockPrisma = vi.hoisted(() => ({
   product: {
     findUnique: vi.fn(),
     findMany: vi.fn(),
+    count: vi.fn(),
   },
   productContent: {
     upsert: vi.fn(),
@@ -101,7 +102,7 @@ describe('seo-template', () => {
     it('throws SeoTemplateError if template not found', async () => {
       mockPrisma.seoTemplate.findUnique.mockResolvedValue(null);
       await expect(updateSeoTemplate(999, { titleTemplate: 'x' })).rejects.toThrow(
-        SeoTemplateError
+        SeoTemplateError,
       );
     });
 
@@ -193,52 +194,63 @@ describe('seo-template', () => {
       mockPrisma.product.findMany.mockResolvedValue([
         { id: 1, name: 'A', code: 'A1', priceRetail: 10, category: { id: 1, name: 'Cat' } },
       ]);
-      mockPrisma.seoTemplate.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          titleTemplate: '{name}',
-          descriptionTemplate: '{name} desc',
-        });
+      // Single findMany now pulls all `product`-scoped templates upfront.
+      // Global (categoryId=null) fallback matches when no category-specific row exists.
+      mockPrisma.seoTemplate.findMany.mockResolvedValue([
+        { categoryId: null, titleTemplate: '{name}', descriptionTemplate: '{name} desc' },
+      ]);
+      mockPrisma.product.count.mockResolvedValue(1);
       mockPrisma.productContent.upsert.mockResolvedValue({});
       const result = await bulkGenerateProductSeo();
-      expect(result).toEqual({ updated: 1, total: 1 });
+      expect(result).toMatchObject({ updated: 1, total: 1, remainingWithoutSeo: 0 });
     });
 
     it('skips products without matching template', async () => {
       mockPrisma.product.findMany.mockResolvedValue([
         { id: 1, name: 'A', code: 'A1', priceRetail: 10, category: null },
       ]);
-      mockPrisma.seoTemplate.findFirst.mockResolvedValue(null);
+      mockPrisma.seoTemplate.findMany.mockResolvedValue([]);
+      mockPrisma.product.count.mockResolvedValue(1);
       const result = await bulkGenerateProductSeo();
-      expect(result).toEqual({ updated: 0, total: 1 });
+      expect(result).toMatchObject({ updated: 0, total: 1 });
     });
 
     it('handles empty product list', async () => {
       mockPrisma.product.findMany.mockResolvedValue([]);
+      mockPrisma.seoTemplate.findMany.mockResolvedValue([]);
+      mockPrisma.product.count.mockResolvedValue(0);
       const result = await bulkGenerateProductSeo();
-      expect(result).toEqual({ updated: 0, total: 0 });
+      expect(result).toMatchObject({ updated: 0, total: 0 });
     });
 
     it('uses category-specific template when available', async () => {
       mockPrisma.product.findMany.mockResolvedValue([
-        { id: 1, name: 'Soap', code: 'S01', priceRetail: 50, category: { id: 3, name: 'Cleaning' } },
+        {
+          id: 1,
+          name: 'Soap',
+          code: 'S01',
+          priceRetail: 50,
+          category: { id: 3, name: 'Cleaning' },
+        },
       ]);
-      // Category-specific template found on first call
-      mockPrisma.seoTemplate.findFirst
-        .mockResolvedValueOnce({
+      mockPrisma.seoTemplate.findMany.mockResolvedValue([
+        {
+          categoryId: 3,
           titleTemplate: '{name} in {category}',
           descriptionTemplate: '{category}: {name}',
-        });
+        },
+      ]);
+      mockPrisma.product.count.mockResolvedValue(1);
       mockPrisma.productContent.upsert.mockResolvedValue({});
       const result = await bulkGenerateProductSeo();
-      expect(result).toEqual({ updated: 1, total: 1 });
+      expect(result).toMatchObject({ updated: 1, total: 1 });
       expect(mockPrisma.productContent.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           update: expect.objectContaining({
             seoTitle: 'Soap in Cleaning',
             seoDescription: 'Cleaning: Soap',
           }),
-        })
+        }),
       );
     });
   });
@@ -253,12 +265,11 @@ describe('seo-template', () => {
         category: { id: 1, name: 'Cleaning' },
         content: null,
       });
-      mockPrisma.seoTemplate.findFirst
-        .mockResolvedValueOnce({
-          titleTemplate: '{name}',
-          descriptionTemplate: '{name} desc',
-          altTemplate: '{name} image alt',
-        }); // category-specific found first
+      mockPrisma.seoTemplate.findFirst.mockResolvedValueOnce({
+        titleTemplate: '{name}',
+        descriptionTemplate: '{name} desc',
+        altTemplate: '{name} image alt',
+      }); // category-specific found first
 
       const result = await generateProductSeo(1);
       expect(result).toEqual({
@@ -317,26 +328,26 @@ describe('seo-template', () => {
       mockPrisma.product.findMany.mockResolvedValue([
         { id: 5, name: 'NoCat Product', code: 'NC01', priceRetail: 25, category: null },
       ]);
-      // First call for category-specific (categoryId=undefined) returns null
-      // Second call for global returns a template
-      mockPrisma.seoTemplate.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
+      mockPrisma.seoTemplate.findMany.mockResolvedValue([
+        {
+          categoryId: null,
           titleTemplate: '{name} - {category}',
           descriptionTemplate: '{name} in {category} for {price}',
-        });
+        },
+      ]);
+      mockPrisma.product.count.mockResolvedValue(1);
       mockPrisma.productContent.upsert.mockResolvedValue({});
 
       const result = await bulkGenerateProductSeo();
 
-      expect(result).toEqual({ updated: 1, total: 1 });
+      expect(result).toMatchObject({ updated: 1, total: 1 });
       expect(mockPrisma.productContent.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           update: expect.objectContaining({
             seoTitle: 'NoCat Product - ',
             seoDescription: 'NoCat Product in  for 25.00',
           }),
-        })
+        }),
       );
     });
   });

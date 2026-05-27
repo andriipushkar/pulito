@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
 import { apiClient, getAccessToken } from '@/lib/api-client';
-import { formatPrice } from '@/utils/format';
+import { formatPrice, plural, formatDateTime } from '@/utils/format';
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,
@@ -28,7 +29,9 @@ import AdminTableSkeleton, { AdminStatsSkeleton } from '@/components/admin/Admin
 import PageSizeSelector from '@/components/admin/PageSizeSelector';
 import SavedViews from '@/components/admin/SavedViews';
 import OrderQuickEditDrawer from '@/components/admin/OrderQuickEditDrawer';
+import KeyboardShortcutsHelp from '@/components/admin/KeyboardShortcutsHelp';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useOrderListKeyboard } from '@/hooks/useOrderListKeyboard';
 import { Search } from '@/components/icons';
 import {
   DEFAULT_PAGE_SIZE,
@@ -95,9 +98,19 @@ function playNotificationSound() {
 }
 
 export default function AdminOrdersPage() {
+  return (
+    <Suspense fallback={<AdminTableSkeleton rows={10} columns={8} />}>
+      <AdminOrdersPageInner />
+    </Suspense>
+  );
+}
+
+function AdminOrdersPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -116,6 +129,22 @@ export default function AdminOrdersPage() {
   const [bulkStatus, setBulkStatus] = useState('');
   const [isBulkStatusRunning, setIsBulkStatusRunning] = useState(false);
   const [bulkStatusConfirm, setBulkStatusConfirm] = useState<string | null>(null);
+  const [focusIndex, setFocusIndex] = useState(-1);
+  const { helpOpen, setHelpOpen } = useOrderListKeyboard({
+    orderIds: orders.map((o) => o.id),
+    focusIndex,
+    setFocusIndex,
+    onQuickEdit: (id) => setQuickEditId(id),
+    onQuickStatus: (id) => setQuickStatusOrderId(id),
+  });
+
+  // Reset focus when the actual list contents change so j/k starts from
+  // the top. Depending on `orders.length` missed the case where a filter
+  // swaps orders for the same count and focusIndex pointed at the wrong row.
+  const ordersFocusSig = orders.map((o) => o.id).join(',');
+  useEffect(() => {
+    setFocusIndex(-1);
+  }, [ordersFocusSig]);
 
   const toggleSelected = (id: number) => {
     setSelectedIds((prev) => {
@@ -131,8 +160,16 @@ export default function AdminOrdersPage() {
     else setSelectedIds(new Set(orders.map((o) => o.id)));
   };
 
+  // Synchronous in-flight guards. React's setState is async, so the
+  // `isBulkTtnRunning` flag doesn't disable the confirm button until the
+  // next render. A ref blocks the duplicate call immediately.
+  const bulkTtnInFlight = useRef(false);
+  const bulkStatusInFlight = useRef(false);
+
   const handleBulkTtn = async () => {
     if (selectedIds.size === 0) return;
+    if (bulkTtnInFlight.current) return;
+    bulkTtnInFlight.current = true;
     setIsBulkTtnRunning(true);
     try {
       const res = await apiClient.post<{
@@ -162,6 +199,7 @@ export default function AdminOrdersPage() {
     } catch {
       toast.error('Помилка мережі');
     } finally {
+      bulkTtnInFlight.current = false;
       setIsBulkTtnRunning(false);
       setBulkTtnConfirm(false);
     }
@@ -169,6 +207,8 @@ export default function AdminOrdersPage() {
 
   const handleBulkStatus = async (statusToApply: string) => {
     if (selectedIds.size === 0 || !statusToApply) return;
+    if (bulkStatusInFlight.current) return;
+    bulkStatusInFlight.current = true;
     setIsBulkStatusRunning(true);
     try {
       const res = await apiClient.post<{
@@ -181,7 +221,9 @@ export default function AdminOrdersPage() {
       if (res.success && res.data) {
         const { ok, failed } = res.data;
         if (ok.length > 0) {
-          toast.success(`Оновлено ${ok.length} замовлень → ${ORDER_STATUS_LABELS[statusToApply as OrderStatus]}`);
+          toast.success(
+            `Оновлено ${ok.length} замовлень → ${ORDER_STATUS_LABELS[statusToApply as OrderStatus]}`,
+          );
         }
         if (failed.length > 0) {
           toast.error(
@@ -202,6 +244,7 @@ export default function AdminOrdersPage() {
     } catch {
       toast.error('Помилка мережі');
     } finally {
+      bulkStatusInFlight.current = false;
       setIsBulkStatusRunning(false);
       setBulkStatusConfirm(null);
     }
@@ -328,7 +371,17 @@ export default function AdminOrdersPage() {
   // to rows that are no longer visible.
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [page, status, clientType, paymentMethod, paymentStatus, deliveryMethod, dateFrom, dateTo, search]);
+  }, [
+    page,
+    status,
+    clientType,
+    paymentMethod,
+    paymentStatus,
+    deliveryMethod,
+    dateFrom,
+    dateTo,
+    search,
+  ]);
 
   // Load stats
   const loadStats = useCallback(() => {
@@ -412,7 +465,8 @@ export default function AdminOrdersPage() {
     const iso = (d: Date) => d.toISOString().slice(0, 10);
     if (preset === 'today') return applyDateRange(iso(today), iso(today));
     const from = new Date(today);
-    if (preset === 'week') from.setDate(today.getDate() - 6); // last 7 days inclusive
+    if (preset === 'week')
+      from.setDate(today.getDate() - 6); // last 7 days inclusive
     else from.setDate(today.getDate() - 29); // last 30 days inclusive
     applyDateRange(iso(from), iso(today));
   };
@@ -518,14 +572,9 @@ export default function AdminOrdersPage() {
     }
   }, [status, newOrdersBadge, stats?.newOrders]);
 
-  const formatDate = (d: string | Date) =>
-    new Date(d).toLocaleString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  // formatDateTime is the canonical Kyiv-timezone formatter — using local
+  // toLocaleString here lost the timezone and drifted per server location.
+  const formatDate = formatDateTime;
 
   const paymentStatusColor = (s: string) => {
     switch (s) {
@@ -573,8 +622,18 @@ export default function AdminOrdersPage() {
           <Button size="sm" variant="outline" onClick={handleExport}>
             Експорт
           </Button>
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
+            title="Гарячі клавіші (?)"
+          >
+            <kbd className="font-mono">?</kbd>
+          </button>
         </div>
       </div>
+      <KeyboardShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      <OrdersAttentionPanel />
 
       {/* Stats cards */}
       {!stats ? (
@@ -748,14 +807,17 @@ export default function AdminOrdersPage() {
               disabled={isBulkStatusRunning || isBulkTtnRunning}
               options={[{ value: '', label: 'Змінити статус на…' }, ...STATUS_OPTIONS.slice(1)]}
             />
-            <Button
-              size="sm"
-              onClick={() => setBulkTtnConfirm(true)}
-              isLoading={isBulkTtnRunning}
-              disabled={isBulkStatusRunning}
-            >
-              Створити ТТН (НП)
-            </Button>
+            {isAdmin && (
+              <Button
+                size="sm"
+                onClick={() => setBulkTtnConfirm(true)}
+                isLoading={isBulkTtnRunning}
+                disabled={isBulkStatusRunning}
+                title="Створити Nova Poshta ТТН для всіх вибраних замовлень"
+              >
+                Створити ТТН (НП)
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -816,9 +878,13 @@ export default function AdminOrdersPage() {
             {orders.length === 0 && (
               <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] py-12 text-center">
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
-                  <span className="text-2xl" aria-hidden="true">📦</span>
+                  <span className="text-2xl" aria-hidden="true">
+                    📦
+                  </span>
                 </div>
-                <p className="mb-1 text-sm font-semibold text-[var(--color-text)]">Замовлень не знайдено</p>
+                <p className="mb-1 text-sm font-semibold text-[var(--color-text)]">
+                  Замовлень не знайдено
+                </p>
                 <p className="mx-auto mb-4 max-w-xs text-xs text-[var(--color-text-secondary)]">
                   Спробуйте змінити фільтри або скинути їх, щоб побачити всі замовлення
                 </p>
@@ -853,27 +919,32 @@ export default function AdminOrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => {
+                {orders.map((order, idx) => {
                   const transitions = ALLOWED_ORDER_TRANSITIONS[order.status] || [];
 
                   // Conditional formatting:
                   //  • red row → stuck new_order > 7 days (someone needs to act)
                   //  • amber row → shipped without tracking number (TTN missing)
+                  //  • blue ring → currently focused via keyboard (j/k)
                   const ageDays = Math.floor(
                     (Date.now() - new Date(order.createdAt).getTime()) / 86_400_000,
                   );
                   const isStale = order.status === 'new_order' && ageDays > 7;
                   const isShippedNoTtn = order.status === 'shipped' && !order.trackingNumber;
+                  const isFocused = idx === focusIndex;
                   const rowAccent = isStale
                     ? 'bg-red-50 hover:bg-red-100'
                     : isShippedNoTtn
                       ? 'bg-amber-50 hover:bg-amber-100'
                       : 'hover:bg-[var(--color-bg-secondary)]';
+                  const focusRing = isFocused
+                    ? 'outline outline-2 outline-[var(--color-primary)]'
+                    : '';
 
                   return (
                     <tr
                       key={order.id}
-                      className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${rowAccent}`}
+                      className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${rowAccent} ${focusRing}`}
                       title={
                         isStale
                           ? `Замовлення новіше 7 днів без обробки (${ageDays} днів)`
@@ -903,11 +974,7 @@ export default function AdminOrdersPage() {
                         {order.itemsCount > 0 && (
                           <p className="text-[11px] text-[var(--color-text-secondary)]">
                             {order.itemsCount}{' '}
-                            {order.itemsCount === 1
-                              ? 'товар'
-                              : order.itemsCount < 5
-                                ? 'товари'
-                                : 'товарів'}
+                            {plural(order.itemsCount, ['товар', 'товари', 'товарів'])}
                           </p>
                         )}
                       </td>
@@ -1182,5 +1249,120 @@ function StatCard({
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
       <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{label}</p>
     </Wrapper>
+  );
+}
+
+/**
+ * OrdersAttentionPanel — surfaces revenue-critical order states that would
+ * otherwise sit hidden inside column filters. Same idea as the marketplace
+ * AttentionPanel: zero counts collapse to a quiet "✓ Все ок" pill so the
+ * operator learns to trust the absence of badges.
+ */
+function OrdersAttentionPanel() {
+  const router = useRouter();
+  const [counts, setCounts] = useState<{
+    withoutTtn24h: number;
+    unpaid24h: number;
+    stuckProcessing3d: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<{
+        withoutTtn24h: number;
+        unpaid24h: number;
+        stuckProcessing3d: number;
+      }>('/api/v1/admin/orders/attention')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setCounts(res.data);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!counts) return null;
+  const total = counts.withoutTtn24h + counts.unpaid24h + counts.stuckProcessing3d;
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)]">
+        Потребує уваги:
+      </span>
+      {total === 0 ? (
+        <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs text-green-700">
+          ✓ Все ок
+        </span>
+      ) : (
+        <>
+          {counts.withoutTtn24h > 0 && (
+            <AttentionOrderPill
+              label="Без ТТН >24год"
+              count={counts.withoutTtn24h}
+              tone="danger"
+              onClick={() => {
+                router.push('/admin/orders?status=confirmed&deliveryMethod=nova_poshta');
+              }}
+              title="Замовлення Нової Пошти без TTN, створені більше доби тому"
+            />
+          )}
+          {counts.unpaid24h > 0 && (
+            <AttentionOrderPill
+              label="Без оплати >24год"
+              count={counts.unpaid24h}
+              tone="warn"
+              onClick={() => {
+                router.push('/admin/orders?paymentStatus=pending');
+              }}
+              title="Pending payment > 24 год — можливо abandoned cart або помилка Liqpay"
+            />
+          )}
+          {counts.stuckProcessing3d > 0 && (
+            <AttentionOrderPill
+              label="В обробці >3 дні"
+              count={counts.stuckProcessing3d}
+              tone="warn"
+              onClick={() => {
+                router.push('/admin/orders?status=processing');
+              }}
+              title="Зависли в processing — потрібне втручання менеджера"
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AttentionOrderPill({
+  label,
+  count,
+  tone,
+  onClick,
+  title,
+}: {
+  label: string;
+  count: number;
+  tone: 'danger' | 'warn';
+  onClick: () => void;
+  title?: string;
+}) {
+  const cls =
+    tone === 'danger'
+      ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+      : 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100';
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${cls}`}
+    >
+      <span>{label}</span>
+      <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-white/70 px-1 text-[10px] font-bold">
+        {count > 99 ? '99+' : count}
+      </span>
+    </button>
   );
 }

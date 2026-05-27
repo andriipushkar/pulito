@@ -14,10 +14,16 @@ const verifySchema = z.object({
  * POST /api/v1/auth/2fa/verify
  * Verifies a TOTP code against the stored (not yet enabled) secret.
  * If valid, enables 2FA for the user and returns backup codes.
+ *
+ * Role list mirrors /2fa/setup — customers must be able to finish the
+ * setup they started. Earlier admin/manager-only gating left customer
+ * 2FA half-enabled (secret stored, never flagged enabled).
  */
 export const POST = withRole(
   'admin',
   'manager',
+  'client',
+  'wholesaler',
 )(async (request, { user }) => {
   try {
     const body = await request.json();

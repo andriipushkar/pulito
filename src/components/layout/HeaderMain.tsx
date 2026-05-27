@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import Container from '@/components/ui/Container';
 import SearchBar from './SearchBar';
 import IconButton from '@/components/ui/IconButton';
@@ -41,12 +41,34 @@ export default function HeaderMain({ categories: _categories, shrink }: HeaderMa
     }
   }, [user]);
 
+  // Real-time unread count via SSE — falls back to 60s polling if EventSource
+  // is unavailable or the stream errors out. Mounts only when user is logged in.
   useEffect(() => {
-    const interval = setInterval(fetchNotificationCount, 60000);
-    // Use Promise.resolve to avoid synchronous setState in effect
-    Promise.resolve().then(fetchNotificationCount);
-    return () => clearInterval(interval);
-  }, [fetchNotificationCount]);
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    if (typeof EventSource === 'undefined') {
+      // Browser doesn't support SSE — fall back to polling.
+      const interval = setInterval(fetchNotificationCount, 60000);
+      Promise.resolve().then(fetchNotificationCount);
+      return () => clearInterval(interval);
+    }
+    const es = new EventSource('/api/v1/me/notifications/stream');
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (typeof data.count === 'number') setUnreadCount(data.count);
+      } catch {
+        // Ignore parse errors
+      }
+    };
+    es.onerror = () => {
+      // Connection dropped — close and rely on next mount to retry.
+      es.close();
+    };
+    return () => es.close();
+  }, [user, fetchNotificationCount]);
 
   return (
     <>

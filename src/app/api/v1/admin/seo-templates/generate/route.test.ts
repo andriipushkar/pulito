@@ -1,34 +1,81 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
+}));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/seo-template', () => ({
   bulkGenerateProductSeo: vi.fn(),
-  SeoTemplateError: class SeoTemplateError extends Error { statusCode = 400; },
+  SeoTemplateError: class SeoTemplateError extends Error {
+    statusCode = 400;
+  },
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 5, retryAfter: 0 }),
+  RATE_LIMITS: { adminSeoBulk: { prefix: 'rl:seobulk:', max: 5, windowSec: 3600 } },
 }));
 
 import { POST } from './route';
 import { bulkGenerateProductSeo } from '@/services/seo-template';
 
+function fakeRequest() {
+  return { headers: { get: () => null } } as any;
+}
+function fakeCtx() {
+  return { user: { id: 1 } } as any;
+}
+
 describe('POST /api/v1/admin/seo-templates/generate', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('generates SEO on success', async () => {
-    vi.mocked(bulkGenerateProductSeo).mockResolvedValue({ updated: 10 } as any);
-    const res = await (POST as any)();
+    vi.mocked(bulkGenerateProductSeo).mockResolvedValue({
+      updated: 10,
+      total: 10,
+      remainingWithoutSeo: 0,
+      batchLimit: 100,
+    });
+    const res = await (POST as any)(fakeRequest(), fakeCtx());
     expect(res.status).toBe(200);
   });
 
   it('returns 500 on error', async () => {
     vi.mocked(bulkGenerateProductSeo).mockRejectedValue(new Error('fail'));
-    const res = await (POST as any)();
+    const res = await (POST as any)(fakeRequest(), fakeCtx());
     expect(res.status).toBe(500);
   });
 
   it('returns SeoTemplateError status on SeoTemplateError', async () => {
     const { SeoTemplateError } = await import('@/services/seo-template');
     vi.mocked(bulkGenerateProductSeo).mockRejectedValue(new SeoTemplateError('no templates'));
-    const res = await (POST as any)();
+    const res = await (POST as any)(fakeRequest(), fakeCtx());
     expect(res.status).toBe(400);
+  });
+
+  it('returns 429 when rate-limit exceeded', async () => {
+    const { checkRateLimit } = await import('@/services/rate-limit');
+    vi.mocked(checkRateLimit).mockResolvedValueOnce({
+      allowed: false,
+      remaining: 0,
+      retryAfter: 3600,
+    });
+    const res = await (POST as any)(fakeRequest(), fakeCtx());
+    expect(res.status).toBe(429);
   });
 });

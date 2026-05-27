@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { errorResponse } from '@/utils/api-response';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 export interface ApiKeyContext {
   apiKeyId: number;
@@ -10,7 +11,7 @@ export interface ApiKeyContext {
 
 type ApiKeyHandler = (
   request: NextRequest,
-  context: ApiKeyContext & { params?: Promise<Record<string, string>> }
+  context: ApiKeyContext & { params?: Promise<Record<string, string>> },
 ) => Promise<NextResponse>;
 
 function hashApiKey(key: string): string {
@@ -26,7 +27,7 @@ export function withApiKey(permissions?: string[]) {
   return (handler: ApiKeyHandler) =>
     async (
       request: NextRequest,
-      segmentData?: { params?: Promise<Record<string, string>> }
+      segmentData?: { params?: Promise<Record<string, string>> },
     ): Promise<NextResponse> => {
       // Extract key from headers
       const authHeader = request.headers.get('authorization');
@@ -68,6 +69,13 @@ export function withApiKey(permissions?: string[]) {
         if (!hasAllPermissions) {
           return errorResponse('Insufficient permissions', 403);
         }
+      }
+
+      // Per-key rate-limit. Protects DB from a runaway 1C cron (or a stolen
+      // key) and keeps our own outbound footprint inside 1C's quota window.
+      const rl = await checkRateLimit(`apikey:${apiKey.id}`, RATE_LIMITS.integration1c);
+      if (!rl.allowed) {
+        return errorResponse(`Перевищено ліміт API key. Спробуйте через ${rl.retryAfter} с.`, 429);
       }
 
       // Update lastUsedAt (fire-and-forget)

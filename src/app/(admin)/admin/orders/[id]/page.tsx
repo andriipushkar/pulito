@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import { formatPrice } from '@/utils/format';
+import { formatPrice, formatDateTime } from '@/utils/format';
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,
@@ -26,6 +26,10 @@ import SmsTemplates from '@/components/admin/SmsTemplates';
 import OrderItemsEditor from '@/components/admin/OrderItemsEditor';
 import CreateTTNForm from '@/components/admin/CreateTTNForm';
 import TagPicker from '@/components/admin/TagPicker';
+import OrderTimeline from '@/components/admin/OrderTimeline';
+import CustomerLtvBadge from '@/components/admin/CustomerLtvBadge';
+import QuickContact from '@/components/admin/QuickContact';
+import OutOfStockAlert from '@/components/admin/OutOfStockAlert';
 import { ALLOWED_ORDER_TRANSITIONS, TTN_PATTERN } from '@/config/admin-constants';
 
 export default function AdminOrderDetailPage() {
@@ -50,6 +54,24 @@ export default function AdminOrderDetailPage() {
   const [selectedManager, setSelectedManager] = useState<string>('');
   const [confirmStatusChange, setConfirmStatusChange] = useState(false);
   const [confirmManagerChange, setConfirmManagerChange] = useState<string | null>(null);
+  // Pack mode — strips noisy admin sections (manager comment, timeline, tags,
+  // status-change UI) so the warehouse operator can focus on items + delivery
+  // address while picking and packing. Persisted to localStorage so the toggle
+  // sticks across orders during a packing run.
+  const [packMode, setPackMode] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setPackMode(window.localStorage.getItem('orders_pack_mode') === '1');
+  }, []);
+  const togglePackMode = () => {
+    setPackMode((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('orders_pack_mode', next ? '1' : '0');
+      }
+      return next;
+    });
+  };
 
   // Customer history (aggregated prior orders for this client)
   const [customerHistory, setCustomerHistory] = useState<{
@@ -80,12 +102,16 @@ export default function AdminOrderDetailPage() {
       })
       .finally(() => setIsLoading(false));
     // Load managers list
-    apiClient.get<{ id: number; fullName: string }[]>('/api/v1/admin/users?role=manager&role2=admin&limit=50').then((res) => {
-      if (res.success && res.data) {
-        const list = Array.isArray(res.data) ? res.data : [];
-        setManagers(list);
-      }
-    });
+    apiClient
+      .get<
+        { id: number; fullName: string }[]
+      >('/api/v1/admin/users?role=manager&role2=admin&limit=50')
+      .then((res) => {
+        if (res.success && res.data) {
+          const list = Array.isArray(res.data) ? res.data : [];
+          setManagers(list);
+        }
+      });
     // Load customer history (parallel, non-blocking — order page renders without it).
     apiClient
       .get<{
@@ -217,15 +243,6 @@ export default function AdminOrderDetailPage() {
     }
   };
 
-  const formatDateTime = (d: string | Date) =>
-    new Date(d).toLocaleString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -256,7 +273,10 @@ export default function AdminOrderDetailPage() {
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link href="/admin/orders" className="text-sm text-[var(--color-primary)] hover:underline">
+          <Link
+            href="/admin/orders"
+            className="text-sm text-[var(--color-primary)] hover:underline"
+          >
             &larr; Замовлення
           </Link>
           <div className="mt-1 flex items-center gap-3">
@@ -281,8 +301,19 @@ export default function AdminOrderDetailPage() {
               </span>
             )}
           </p>
+          <div className="mt-2">
+            <CustomerLtvBadge orderId={order.id} history={customerHistory} />
+          </div>
         </div>
         <div className="flex gap-2 print:hidden">
+          <Button
+            size="sm"
+            variant={packMode ? 'primary' : 'outline'}
+            onClick={togglePackMode}
+            title="Сховати все крім товарів та адреси доставки — для пакування"
+          >
+            {packMode ? '📦 Pack-mode ON' : '📦 Pack-mode'}
+          </Button>
           <Button size="sm" variant="outline" onClick={handleCreateInvoice}>
             Рахунок
           </Button>
@@ -296,8 +327,18 @@ export default function AdminOrderDetailPage() {
               if (typeof window !== 'undefined') window.print();
             }}
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"
+              />
             </svg>
             Друкувати
           </Button>
@@ -312,7 +353,7 @@ export default function AdminOrderDetailPage() {
       )}
 
       {/* Status update */}
-      {allowedStatuses.length > 0 && (
+      {allowedStatuses.length > 0 && !packMode && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4 print:hidden">
           <h3 className="mb-3 text-sm font-semibold">Змінити статус</h3>
           <div className="flex flex-wrap gap-3">
@@ -334,7 +375,11 @@ export default function AdminOrderDetailPage() {
               onChange={(e) => setComment(e.target.value)}
               className="flex-1"
             />
-            <Button onClick={() => newStatus && setConfirmStatusChange(true)} isLoading={isUpdating} disabled={!newStatus}>
+            <Button
+              onClick={() => newStatus && setConfirmStatusChange(true)}
+              isLoading={isUpdating}
+              disabled={!newStatus}
+            >
               Оновити
             </Button>
           </div>
@@ -342,27 +387,29 @@ export default function AdminOrderDetailPage() {
       )}
 
       {/* Manager assignment */}
-      <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Відповідальний менеджер</h3>
-        <div className="flex items-center gap-3">
-          <Select
-            options={[
-              { value: '', label: 'Не призначено' },
-              ...managers.map((m) => ({ value: String(m.id), label: m.fullName })),
-            ]}
-            value={selectedManager}
-            onChange={(e) => {
-              setConfirmManagerChange(e.target.value);
-            }}
-            className="w-64"
-          />
-          {selectedManager && (
-            <span className="text-xs text-[var(--color-text-secondary)]">
-              ID: {selectedManager}
-            </span>
-          )}
+      {!packMode && (
+        <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <h3 className="mb-3 text-sm font-semibold">Відповідальний менеджер</h3>
+          <div className="flex items-center gap-3">
+            <Select
+              options={[
+                { value: '', label: 'Не призначено' },
+                ...managers.map((m) => ({ value: String(m.id), label: m.fullName })),
+              ]}
+              value={selectedManager}
+              onChange={(e) => {
+                setConfirmManagerChange(e.target.value);
+              }}
+              className="w-64"
+            />
+            {selectedManager && (
+              <span className="text-xs text-[var(--color-text-secondary)]">
+                ID: {selectedManager}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Client */}
@@ -373,13 +420,7 @@ export default function AdminOrderDetailPage() {
           </div>
           {order.contactPhone && (
             <div className="flex flex-wrap items-center gap-1">
-              <a
-                href={`tel:${order.contactPhone}`}
-                className="hover:text-[var(--color-primary)]"
-                title="Подзвонити"
-              >
-                {order.contactPhone}
-              </a>
+              <QuickContact phone={order.contactPhone} email={order.contactEmail} />
               <CopyButton value={order.contactPhone} label="телефон" />
               <SmsTemplates
                 phone={order.contactPhone}
@@ -447,9 +488,11 @@ export default function AdminOrderDetailPage() {
               🆕 Перше замовлення цього клієнта
             </p>
           )}
-          <div className="mt-3">
-            <TagPicker entityType="order" entityId={order.id} />
-          </div>
+          {!packMode && (
+            <div className="mt-3">
+              <TagPicker entityType="order" entityId={order.id} />
+            </div>
+          )}
         </InfoCard>
 
         {/* Delivery + TTN */}
@@ -465,21 +508,22 @@ export default function AdminOrderDetailPage() {
               />
             </div>
           )}
-          {order.deliveryMethod === 'pallet' && (() => {
-            const o = order as typeof order & {
-              palletWeightKg?: number | string | null;
-              palletRegion?: string | null;
-            };
-            return (
-              <div className="mt-2 rounded bg-blue-50 p-2 text-xs">
-                <p className="font-semibold text-blue-700">📦 Палетна доставка</p>
-                {o.palletWeightKg && (
-                  <p className="text-blue-900">Вага: {Number(o.palletWeightKg)} кг</p>
-                )}
-                {o.palletRegion && <p className="text-blue-900">Регіон: {o.palletRegion}</p>}
-              </div>
-            );
-          })()}
+          {order.deliveryMethod === 'pallet' &&
+            (() => {
+              const o = order as typeof order & {
+                palletWeightKg?: number | string | null;
+                palletRegion?: string | null;
+              };
+              return (
+                <div className="mt-2 rounded bg-blue-50 p-2 text-xs">
+                  <p className="font-semibold text-blue-700">📦 Палетна доставка</p>
+                  {o.palletWeightKg && (
+                    <p className="text-blue-900">Вага: {Number(o.palletWeightKg)} кг</p>
+                  )}
+                  {o.palletRegion && <p className="text-blue-900">Регіон: {o.palletRegion}</p>}
+                </div>
+              );
+            })()}
 
           {/* TTN Section */}
           {order.trackingNumber && !isEditingTtn ? (
@@ -510,7 +554,12 @@ export default function AdminOrderDetailPage() {
                   placeholder="20450000000000"
                   className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
                 />
-                <Button size="sm" onClick={handleSaveTtn} isLoading={isSavingTtn} disabled={!ttnInput.trim()}>
+                <Button
+                  size="sm"
+                  onClick={handleSaveTtn}
+                  isLoading={isSavingTtn}
+                  disabled={!ttnInput.trim()}
+                >
                   OK
                 </Button>
                 {isEditingTtn && (
@@ -557,7 +606,14 @@ export default function AdminOrderDetailPage() {
               {order.payment.paymentProvider === 'monobank' ? 'Monobank' : 'LiqPay'}
               {order.payment.paidAt && (
                 <span className="ml-1">
-                  ({new Date(order.payment.paidAt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })})
+                  (
+                  {new Date(order.payment.paidAt).toLocaleString('uk-UA', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                  )
                 </span>
               )}
             </p>
@@ -569,8 +625,21 @@ export default function AdminOrderDetailPage() {
               rel="noopener noreferrer"
               className="mt-1 inline-flex items-center gap-1 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
               </svg>
               Електронний чек
             </a>
@@ -611,45 +680,70 @@ export default function AdminOrderDetailPage() {
       )}
 
       {/* Manager comment — auto-save on blur, with visual saved state */}
-      <div className="mt-4 rounded-[var(--radius)] border border-amber-200 bg-amber-50/40 p-4 print:hidden">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-700">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-            </svg>
-            Внутрішня нотатка
-          </p>
-          <span className="text-[10px] text-[var(--color-text-secondary)]">
-            {isSavingComment ? 'Збереження…' : 'Видно тільки команді'}
-          </span>
+      {!packMode && (
+        <div className="mt-4 rounded-[var(--radius)] border border-amber-200 bg-amber-50/40 p-4 print:hidden">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-700">
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+                />
+              </svg>
+              Внутрішня нотатка
+            </p>
+            <span className="text-[10px] text-[var(--color-text-secondary)]">
+              {isSavingComment ? 'Збереження…' : 'Видно тільки команді'}
+            </span>
+          </div>
+          <textarea
+            value={managerComment}
+            onChange={(e) => setManagerComment(e.target.value)}
+            onBlur={() => {
+              // Auto-save when user leaves the field
+              if (!isSavingComment) handleSaveComment();
+            }}
+            placeholder="Додайте нотатку для команди (зберігається автоматично при втраті фокусу)…"
+            rows={3}
+            maxLength={1000}
+            className="w-full resize-y rounded-[var(--radius)] border border-amber-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+          />
+          <div className="mt-1 flex items-center justify-between text-[10px] text-[var(--color-text-secondary)]">
+            <span>{managerComment.length} / 1000</span>
+            <button
+              type="button"
+              onClick={handleSaveComment}
+              disabled={isSavingComment}
+              className="font-semibold text-amber-700 hover:underline disabled:opacity-50"
+            >
+              Зберегти зараз
+            </button>
+          </div>
         </div>
-        <textarea
-          value={managerComment}
-          onChange={(e) => setManagerComment(e.target.value)}
-          onBlur={() => {
-            // Auto-save when user leaves the field
-            if (!isSavingComment) handleSaveComment();
-          }}
-          placeholder="Додайте нотатку для команди (зберігається автоматично при втраті фокусу)…"
-          rows={3}
-          maxLength={1000}
-          className="w-full resize-y rounded-[var(--radius)] border border-amber-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+      )}
+
+      {/* Stock warning — shown when an item in the order ran out since
+          checkout. Hidden when stock is fine. */}
+      <div className="mt-6">
+        <OutOfStockAlert
+          items={order.items.map((it) => ({
+            productId: it.productId,
+            productCode: it.productCode,
+            productName: it.productName,
+            quantity: it.quantity,
+          }))}
         />
-        <div className="mt-1 flex items-center justify-between text-[10px] text-[var(--color-text-secondary)]">
-          <span>{managerComment.length} / 1000</span>
-          <button
-            type="button"
-            onClick={handleSaveComment}
-            disabled={isSavingComment}
-            className="font-semibold text-amber-700 hover:underline disabled:opacity-50"
-          >
-            Зберегти зараз
-          </button>
-        </div>
       </div>
 
       {/* Items */}
-      <div className="mt-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
+      <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
         <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
           <h3 className="text-sm font-semibold">Товари ({order.items.length})</h3>
           {['new_order', 'processing', 'confirmed'].includes(order.status) && (
@@ -699,7 +793,8 @@ export default function AdminOrderDetailPage() {
                 {(() => {
                   // Margin display when the product has a recorded cost. Hidden
                   // when cost is null (no data yet) to avoid confusing 0% labels.
-                  const cost = (item as { product?: { cost?: number | string | null } }).product?.cost;
+                  const cost = (item as { product?: { cost?: number | string | null } }).product
+                    ?.cost;
                   if (cost == null) return null;
                   const costNum = Number(cost);
                   const price = Number(item.priceAtOrder);
@@ -720,9 +815,7 @@ export default function AdminOrderDetailPage() {
                     </span>
                   );
                 })()}
-                <span className="min-w-[80px] font-bold">
-                  {formatPrice(Number(item.subtotal))}
-                </span>
+                <span className="min-w-[80px] font-bold">{formatPrice(Number(item.subtotal))}</span>
                 <button
                   type="button"
                   title={
@@ -763,37 +856,9 @@ export default function AdminOrderDetailPage() {
         ))}
       </div>
 
-      {/* Status history */}
-      {order.statusHistory.length > 0 && (
-        <div className="mt-6">
-          <h3 className="mb-3 text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-            Історія змін
-          </h3>
-          <div className="space-y-2">
-            {order.statusHistory.map((h) => (
-              <div key={h.id} className="flex items-start gap-2 text-sm">
-                <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--color-primary)]" />
-                <div>
-                  <span>
-                    {h.oldStatus
-                      ? `${ORDER_STATUS_LABELS[h.oldStatus as OrderStatus]} \u2192 ${ORDER_STATUS_LABELS[h.newStatus as OrderStatus]}`
-                      : ORDER_STATUS_LABELS[h.newStatus as OrderStatus]}
-                  </span>
-                  <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
-                    {formatDateTime(h.createdAt)}
-                  </span>
-                  <span className="ml-1 text-[10px] text-[var(--color-text-secondary)]">
-                    ({h.changeSource === 'manager' ? 'менеджер' : h.changeSource === 'client_action' ? 'клієнт' : h.changeSource})
-                  </span>
-                  {h.comment && (
-                    <p className="text-xs italic text-[var(--color-text-secondary)]">{h.comment}</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Order activity timeline — combines status history, payment, TTN
+          assignment, and manager comments into a single chronological feed. */}
+      {!packMode && <OrderTimeline order={order} />}
 
       {/* Edit items modal */}
       <Modal
@@ -855,6 +920,9 @@ export default function AdminOrderDetailPage() {
         onConfirm={async () => {
           const val = confirmManagerChange || '';
           setConfirmManagerChange(null);
+          // Optimistically reflect the new value in the dropdown, but
+          // remember the previous state so we can revert if the API fails.
+          const previous = selectedManager;
           setSelectedManager(val);
           const res = await apiClient.put(`/api/v1/admin/orders/${id}`, {
             assignedManagerId: val ? Number(val) : null,
@@ -862,11 +930,16 @@ export default function AdminOrderDetailPage() {
           if (res.success) {
             toast.success(val ? 'Менеджера призначено' : 'Менеджера знято');
           } else {
+            setSelectedManager(previous);
             toast.error(res.error || 'Помилка');
           }
         }}
         title="Зміна менеджера"
-        message={confirmManagerChange ? `Призначити менеджера для цього замовлення?` : 'Зняти призначення менеджера?'}
+        message={
+          confirmManagerChange
+            ? `Призначити менеджера для цього замовлення?`
+            : 'Зняти призначення менеджера?'
+        }
         confirmText="Так"
       />
 

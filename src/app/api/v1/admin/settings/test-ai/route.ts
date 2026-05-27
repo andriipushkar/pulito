@@ -4,6 +4,9 @@ import { withRole2fa } from '@/middleware/auth';
 import { getSettings } from '@/services/settings';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 const schema = z.object({
   provider: z.enum(['claude', 'gemini']),
@@ -64,13 +67,35 @@ async function testGemini(
   }
 }
 
-export const POST = withRole2fa('admin')(async (request: NextRequest) => {
+export const POST = withRole2fa('admin')(async (request: NextRequest, { user }) => {
   try {
+    // Each call burns Claude/Gemini tokens — stuck UI button or stolen
+    // session shouldn't drain the API budget. 5/min matches the SMTP/payment
+    // test bucket (same risk profile: credential probe + cost).
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminPaymentTest);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато перевірок. Зачекайте ${rl.retryAfter}с.`, 429);
+    }
+
     const body = await request.json().catch(() => ({}));
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
+
+    // Audit: external API probe with admin-controlled key — same forensic
+    // category as channel-settings/test (was the admin testing a stolen key?).
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'ai_test',
+      details: {
+        action: 'test',
+        provider: parsed.data.provider,
+        usedOverrideKey: !!parsed.data.apiKey && !/^•+/.test(parsed.data.apiKey),
+      },
+      ipAddress: getClientIp(request),
+    });
 
     const settings = await getSettings();
 

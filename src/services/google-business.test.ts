@@ -17,36 +17,18 @@ import {
   getWriteReviewUrl,
   isConfigured,
 } from './google-business';
+import { DEFAULT_SETTINGS } from '@/types/settings';
 
 const mockSettings = vi.mocked(getSettings);
 
+// Spread DEFAULT_SETTINGS so test stays valid when new keys are added.
 const baseSettings = {
+  ...DEFAULT_SETTINGS,
   site_name: 'Test',
   site_phone: '+1',
   site_phone_display: '+1',
   site_email: 't@t',
-  site_address: '',
-  working_hours: '',
   free_delivery_threshold: '0',
-  social_telegram: '',
-  social_viber: '',
-  social_instagram: '',
-  social_facebook: '',
-  social_tiktok: '',
-  maintenance_mode: 'false',
-  company_description: '',
-  company_legal_name: '',
-  company_edrpou: '',
-  company_ipn: '',
-  company_iban: '',
-  company_bank: '',
-  company_legal_address: '',
-  default_seo_title: '',
-  default_seo_description: '',
-  google_analytics_id: '',
-  facebook_pixel_id: '',
-  google_maps_api_key: '',
-  google_business_place_id: '',
 } as const;
 
 const originalFetch = globalThis.fetch;

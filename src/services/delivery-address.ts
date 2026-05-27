@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 export class AddressError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'AddressError';
@@ -27,18 +27,20 @@ export async function createAddress(
     apartment?: string;
     postalCode?: string;
     isDefault?: boolean;
-  }
+  },
 ) {
-  // If setting as default, unset other defaults
-  if (data.isDefault) {
-    await prisma.userAddress.updateMany({
-      where: { userId, isDefault: true },
-      data: { isDefault: false },
+  // Wrap in a transaction so two concurrent POSTs marking isDefault=true
+  // can't both win the race and leave the user with two default addresses.
+  return prisma.$transaction(async (tx) => {
+    if (data.isDefault) {
+      await tx.userAddress.updateMany({
+        where: { userId, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+    return tx.userAddress.create({
+      data: { userId, ...data },
     });
-  }
-
-  return prisma.userAddress.create({
-    data: { userId, ...data },
   });
 }
 
@@ -53,23 +55,28 @@ export async function updateAddress(
     apartment?: string;
     postalCode?: string;
     isDefault?: boolean;
-  }
+  },
 ) {
-  const address = await prisma.userAddress.findFirst({
-    where: { id: addressId, userId },
-  });
-  if (!address) throw new AddressError('Адресу не знайдено', 404);
-
-  if (data.isDefault) {
-    await prisma.userAddress.updateMany({
-      where: { userId, isDefault: true, id: { not: addressId } },
-      data: { isDefault: false },
+  // Atomic: ownership check, unset-old-default and update all in one tx.
+  // Pre-fix flow had a window where a parallel update could leave 0 or 2
+  // default addresses on the user.
+  return prisma.$transaction(async (tx) => {
+    const address = await tx.userAddress.findFirst({
+      where: { id: addressId, userId },
     });
-  }
+    if (!address) throw new AddressError('Адресу не знайдено', 404);
 
-  return prisma.userAddress.update({
-    where: { id: addressId },
-    data,
+    if (data.isDefault) {
+      await tx.userAddress.updateMany({
+        where: { userId, isDefault: true, id: { not: addressId } },
+        data: { isDefault: false },
+      });
+    }
+
+    return tx.userAddress.update({
+      where: { id: addressId },
+      data,
+    });
   });
 }
 

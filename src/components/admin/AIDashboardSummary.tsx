@@ -29,16 +29,19 @@ const PROVIDER_BADGE_CLASS: Record<Provider, string> = {
  * choice is remembered in localStorage (shared with product/category gens).
  */
 export default function AIDashboardSummary() {
-  const [provider, setProvider] = useState<Provider>('gemini');
+  // Resolve the user's saved provider synchronously during initial render so
+  // the auto-generate effect never fires with the default 'gemini' before
+  // localStorage is read (the previous two-effect setup caused exactly that
+  // — the user's chosen provider only kicked in on manual refresh).
+  const [provider, setProvider] = useState<Provider>(() => {
+    if (typeof window === 'undefined') return 'gemini';
+    const stored = localStorage.getItem('pulito.aiProvider');
+    return stored === 'claude' || stored === 'gemini' || stored === 'rules' ? stored : 'gemini';
+  });
   const [text, setText] = useState<string | null>(null);
   const [usedProvider, setUsedProvider] = useState<Provider | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(null);
-
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('pulito.aiProvider') : null;
-    if (stored === 'claude' || stored === 'gemini' || stored === 'rules') setProvider(stored);
-  }, []);
 
   const updateProvider = (v: Provider) => {
     setProvider(v);

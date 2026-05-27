@@ -1,6 +1,7 @@
 import { serialize } from 'cookie';
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
+const SSE_GRANT_COOKIE_NAME = 'admin_sse_grant';
 const COOKIE_PATH = '/';
 
 // Dev Tunnels and similar proxies use HTTPS even in development
@@ -53,4 +54,27 @@ export function getAllRefreshTokensFromCookies(cookieHeader: string | null): str
     }
   }
   return tokens;
+}
+
+// SSE-grant cookie — short-lived (5 min), HttpOnly. Issued by a 2FA-gated
+// POST endpoint so EventSource doesn't have to carry tokens in URLs.
+export function serializeSseGrantCookie(token: string, maxAgeSeconds: number): string {
+  return serialize(SSE_GRANT_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite,
+    path: COOKIE_PATH,
+    maxAge: maxAgeSeconds,
+  });
+}
+
+export function getSseGrantFromCookies(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null;
+  for (const cookie of cookieHeader.split(';')) {
+    const [name, ...rest] = cookie.trim().split('=');
+    if (name === SSE_GRANT_COOKIE_NAME) {
+      return decodeURIComponent(rest.join('='));
+    }
+  }
+  return null;
 }

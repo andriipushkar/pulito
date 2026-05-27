@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isSafeUrl } from '@/utils/safe-url';
 
 export const createRoomSchema = z.object({
   subject: z.string().max(200).optional(),
@@ -6,7 +7,14 @@ export const createRoomSchema = z.object({
 
 export const sendMessageSchema = z.object({
   content: z.string().min(1, 'Повідомлення не може бути порожнім').max(5000),
-  attachmentUrl: z.string().url().optional(),
+  // attachmentUrl lands in a chat bubble as `<a href={url}>` — z.url() lets
+  // `javascript:` through, which an agent could weaponise into a phishing
+  // link aimed at a customer. Force http(s)://.
+  attachmentUrl: z
+    .string()
+    .max(2048)
+    .refine((v) => isSafeUrl(v), 'attachmentUrl має бути http(s)://')
+    .optional(),
 });
 
 export const adminChatFilterSchema = z.object({

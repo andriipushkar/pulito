@@ -21,119 +21,160 @@ const manualTTNSchema = z.object({
 });
 
 // Manual TTN entry
-export const PUT = withRole('admin', 'manager')(
-  async (request: NextRequest, { params, user }) => {
-    try {
-      const { id } = await params!;
-      const orderId = Number(id);
-      if (!orderId || isNaN(orderId)) {
-        return errorResponse('Невалідний ID замовлення', 400);
-      }
-
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        select: { id: true, trackingNumber: true },
-      });
-      if (!order) {
-        return errorResponse('Замовлення не знайдено', 404);
-      }
-
-      const body = await request.json();
-      const parsed = manualTTNSchema.safeParse(body);
-      if (!parsed.success) {
-        return errorResponse(parsed.error.issues[0].message, 422);
-      }
-
-      const updated = await prisma.order.update({
-        where: { id: orderId },
-        data: { trackingNumber: parsed.data.trackingNumber },
-        select: { id: true, trackingNumber: true },
-      });
-
-      await logAudit({
-        userId: user.id,
-        actionType: 'data_update',
-        entityType: 'order',
-        entityId: orderId,
-        details: {
-          field: 'trackingNumber',
-          before: order.trackingNumber,
-          after: parsed.data.trackingNumber,
-          source: 'manual',
-        },
-      });
-
-      // Fire-and-forget: notify the marketplace (if this order came from one).
-      void pushTrackingSafe(orderId, parsed.data.trackingNumber);
-
-      return successResponse(updated);
-    } catch (err) {
-      logger.error('[admin/orders/[id]/ttn] PUT failed', { error: err });
-      return errorResponse('Внутрішня помилка сервера', 500);
+export const PUT = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { params, user }) => {
+  try {
+    const { id } = await params!;
+    const orderId = Number(id);
+    if (!orderId || isNaN(orderId)) {
+      return errorResponse('Невалідний ID замовлення', 400);
     }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, trackingNumber: true },
+    });
+    if (!order) {
+      return errorResponse('Замовлення не знайдено', 404);
+    }
+
+    const body = await request.json();
+    const parsed = manualTTNSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0].message, 422);
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: { trackingNumber: parsed.data.trackingNumber },
+      select: { id: true, trackingNumber: true },
+    });
+
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'order',
+      entityId: orderId,
+      details: {
+        field: 'trackingNumber',
+        before: order.trackingNumber,
+        after: parsed.data.trackingNumber,
+        source: 'manual',
+      },
+    });
+
+    // Fire-and-forget: notify the marketplace (if this order came from one).
+    void pushTrackingSafe(orderId, parsed.data.trackingNumber);
+
+    return successResponse(updated);
+  } catch (err) {
+    logger.error('[admin/orders/[id]/ttn] PUT failed', { error: err });
+    return errorResponse('Внутрішня помилка сервера', 500);
   }
-);
+});
 
-export const POST = withRole('admin', 'manager')(
-  async (request: NextRequest, { params, user }) => {
+export const POST = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { params, user }) => {
+  try {
+    const { id } = await params!;
+    const orderId = Number(id);
+
+    if (!orderId || isNaN(orderId)) {
+      return errorResponse('Невалідний ID замовлення', 400);
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true, trackingNumber: true, orderNumber: true },
+    });
+
+    if (!order) {
+      return errorResponse('Замовлення не знайдено', 404);
+    }
+
+    if (order.trackingNumber) {
+      return errorResponse(`ТТН вже створено: ${order.trackingNumber}`, 400);
+    }
+
+    const body = await request.json();
+    const parsed = createTTNSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0].message, 422);
+    }
+
+    // Atomic claim BEFORE the external API call. We use a sentinel value
+    // (`PENDING_<orderId>`) so a concurrent request sees a non-null
+    // trackingNumber and bails. If the NP call fails we roll back.
+    // Previously two parallel clicks both passed `if (order.trackingNumber)`
+    // (saw the same null read) and BOTH hit NP — duplicate TTNs, double
+    // billed by NP.
+    const sentinel = `PENDING_${orderId}_${Date.now()}`;
+    const claim = await prisma.order.updateMany({
+      where: { id: orderId, trackingNumber: null },
+      data: { trackingNumber: sentinel },
+    });
+    if (claim.count === 0) {
+      // Re-read to give the user a useful message — could be a concurrent
+      // create that already finished, or another PENDING sentinel.
+      const fresh = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { trackingNumber: true },
+      });
+      const currentTtn = fresh?.trackingNumber || '';
+      if (currentTtn.startsWith('PENDING_')) {
+        return errorResponse('Створення ТТН уже виконується для цього замовлення', 409);
+      }
+      return errorResponse(`ТТН вже створено: ${currentTtn}`, 409);
+    }
+
+    let result;
     try {
-      const { id } = await params!;
-      const orderId = Number(id);
-
-      if (!orderId || isNaN(orderId)) {
-        return errorResponse('Невалідний ID замовлення', 400);
-      }
-
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        select: { id: true, status: true, trackingNumber: true, orderNumber: true },
+      result = await createInternetDocument(parsed.data);
+    } catch (err) {
+      // External call failed — release the sentinel so a retry can claim.
+      await prisma.order.updateMany({
+        where: { id: orderId, trackingNumber: sentinel },
+        data: { trackingNumber: null },
       });
+      throw err;
+    }
 
-      if (!order) {
-        return errorResponse('Замовлення не знайдено', 404);
-      }
+    // Save tracking number to order — only overwrite our own sentinel so
+    // a concurrent admin tool change (rare) doesn't get clobbered.
+    await prisma.order.updateMany({
+      where: { id: orderId, trackingNumber: sentinel },
+      data: { trackingNumber: result.intDocNumber },
+    });
 
-      if (order.trackingNumber) {
-        return errorResponse(`ТТН вже створено: ${order.trackingNumber}`, 400);
-      }
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'order',
+      entityId: orderId,
+      details: { field: 'trackingNumber', after: result.intDocNumber, source: 'nova_poshta_api' },
+    });
 
-      const body = await request.json();
-      const parsed = createTTNSchema.safeParse(body);
+    void pushTrackingSafe(orderId, result.intDocNumber);
 
-      if (!parsed.success) {
-        return errorResponse(parsed.error.issues[0].message, 422);
-      }
-
-      const result = await createInternetDocument(parsed.data);
-
-      // Save tracking number to order
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { trackingNumber: result.intDocNumber },
-      });
-
-      await logAudit({
-        userId: user.id,
-        actionType: 'data_update',
-        entityType: 'order',
-        entityId: orderId,
-        details: { field: 'trackingNumber', after: result.intDocNumber, source: 'nova_poshta_api' },
-      });
-
-      void pushTrackingSafe(orderId, result.intDocNumber);
-
-      return successResponse({
+    return successResponse(
+      {
         trackingNumber: result.intDocNumber,
         ref: result.ref,
         costOnSite: result.costOnSite,
         estimatedDeliveryDate: result.estimatedDeliveryDate,
-      }, 201);
-    } catch (error) {
-      if (error instanceof NovaPoshtaError) {
-        return errorResponse(error.message, error.statusCode);
-      }
-      logger.error('[admin/orders/[id]/ttn] POST failed', { error });
-      return errorResponse('Внутрішня помилка сервера', 500);
+      },
+      201,
+    );
+  } catch (error) {
+    if (error instanceof NovaPoshtaError) {
+      return errorResponse(error.message, error.statusCode);
     }
+    logger.error('[admin/orders/[id]/ttn] POST failed', { error });
+    return errorResponse('Внутрішня помилка сервера', 500);
   }
-);
+});

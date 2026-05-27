@@ -1,9 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import type {
-  TenantBilling,
-  BillingInvoice,
-  Plan,
-} from '../../generated/prisma';
+import type { TenantBilling, BillingInvoice, Plan } from '../../generated/prisma';
 
 export class BillingError extends Error {
   statusCode: number;
@@ -20,7 +16,7 @@ export class BillingError extends Error {
  */
 export async function createBillingForTenant(
   tenantId: number,
-  planId: number
+  planId: number,
 ): Promise<TenantBilling> {
   const existing = await prisma.tenantBilling.findUnique({
     where: { tenantId },
@@ -54,9 +50,7 @@ export async function createBillingForTenant(
 /**
  * Get billing info for a tenant including plan details.
  */
-export async function getBilling(
-  tenantId: number
-): Promise<TenantBilling & { plan: Plan }> {
+export async function getBilling(tenantId: number): Promise<TenantBilling & { plan: Plan }> {
   const billing = await prisma.tenantBilling.findUnique({
     where: { tenantId },
     include: { plan: true },
@@ -72,15 +66,15 @@ export async function getBilling(
 /**
  * Change plan for a tenant.
  */
-export async function changePlan(
-  tenantId: number,
-  newPlanId: number
-): Promise<TenantBilling> {
+export async function changePlan(tenantId: number, newPlanId: number): Promise<TenantBilling> {
   // Read + write in one tx so a concurrent markInvoicePaid (or another admin
   // changing the plan) can't observe a partial state where the plan changed
   // but the period reset hasn't happened yet.
   return prisma.$transaction(async (tx) => {
-    const billing = await tx.tenantBilling.findUnique({ where: { tenantId } });
+    const billing = await tx.tenantBilling.findUnique({
+      where: { tenantId },
+      include: { plan: true },
+    });
     if (!billing) throw new BillingError('Біллінг не знайдено', 404);
 
     const plan = await tx.plan.findUnique({ where: { id: newPlanId } });
@@ -90,6 +84,27 @@ export async function changePlan(
     const periodEnd = new Date(now);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
 
+    // Proration credit for unused days under the OLD plan. Compute the
+    // remaining-days portion of the old plan's monthly price and stash it
+    // on the billing record — createInvoice() will subtract it from the
+    // next invoice and reset to zero. Trial periods don't generate credit
+    // (no money was charged in the first place).
+    let credit = Number(billing.proratedCredit ?? 0);
+    if (billing.status !== 'trial' && billing.planId !== newPlanId) {
+      const periodStartMs = billing.currentPeriodStart.getTime();
+      const periodEndMs = billing.currentPeriodEnd.getTime();
+      const nowMs = now.getTime();
+      if (periodEndMs > periodStartMs && nowMs < periodEndMs) {
+        const remainingMs = Math.max(0, periodEndMs - nowMs);
+        const totalMs = periodEndMs - periodStartMs;
+        const oldPrice = Number(billing.plan.priceMonthly);
+        const remainingCredit = (oldPrice * remainingMs) / totalMs;
+        // Round to 2 decimals (kopecks). Accumulate with any existing credit
+        // (e.g. multiple plan changes in a row).
+        credit = Math.round((credit + remainingCredit) * 100) / 100;
+      }
+    }
+
     return tx.tenantBilling.update({
       where: { tenantId },
       data: {
@@ -97,44 +112,68 @@ export async function changePlan(
         status: 'active',
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
+        proratedCredit: credit,
       },
     });
   });
 }
 
 /**
- * Create an invoice for a billing period.
+ * Create an invoice for a billing period. Atomically:
+ *   1. Increments the per-tenant invoiceCounter (gap-free for UA compliance)
+ *   2. Applies any pending proratedCredit (clamps amount ≥ 0)
+ *   3. Zeroes the credit so subsequent invoices charge the full plan price
+ *
+ * All three operations live in a single transaction so a crash mid-way
+ * can't produce a duplicate invoiceNumber or apply the same credit twice.
  */
-export async function createInvoice(
-  billingId: number
-): Promise<BillingInvoice> {
-  const billing = await prisma.tenantBilling.findUnique({
-    where: { id: billingId },
-    include: { plan: true },
-  });
+export async function createInvoice(billingId: number): Promise<BillingInvoice> {
+  return prisma.$transaction(async (tx) => {
+    const billing = await tx.tenantBilling.findUnique({
+      where: { id: billingId },
+      include: { plan: true },
+    });
 
-  if (!billing) {
-    throw new BillingError('Біллінг не знайдено', 404);
-  }
+    if (!billing) {
+      throw new BillingError('Біллінг не знайдено', 404);
+    }
 
-  return prisma.billingInvoice.create({
-    data: {
-      billingId,
-      amount: billing.plan.priceMonthly,
-      currency: 'UAH',
-      status: 'draft',
-      periodStart: billing.currentPeriodStart,
-      periodEnd: billing.currentPeriodEnd,
-    },
+    const nextCounter = (billing.invoiceCounter ?? 0) + 1;
+    const invoiceNumber = `INV-${String(nextCounter).padStart(5, '0')}`;
+
+    const planPrice = Number(billing.plan.priceMonthly);
+    const credit = Number(billing.proratedCredit ?? 0);
+    const billed = Math.max(0, Math.round((planPrice - credit) * 100) / 100);
+
+    const invoice = await tx.billingInvoice.create({
+      data: {
+        billingId,
+        invoiceNumber,
+        amount: billed,
+        proratedCredit: credit,
+        currency: 'UAH',
+        status: 'draft',
+        periodStart: billing.currentPeriodStart,
+        periodEnd: billing.currentPeriodEnd,
+      },
+    });
+
+    await tx.tenantBilling.update({
+      where: { id: billingId },
+      data: {
+        invoiceCounter: nextCounter,
+        proratedCredit: 0,
+      },
+    });
+
+    return invoice;
   });
 }
 
 /**
  * Mark an invoice as paid.
  */
-export async function markInvoicePaid(
-  invoiceId: number
-): Promise<BillingInvoice> {
+export async function markInvoicePaid(invoiceId: number): Promise<BillingInvoice> {
   const invoice = await prisma.billingInvoice.findUnique({
     where: { id: invoiceId },
   });
@@ -155,9 +194,7 @@ export async function markInvoicePaid(
 /**
  * Check usage limits for a tenant against their plan.
  */
-export async function checkUsageLimits(
-  tenantId: number
-): Promise<{
+export async function checkUsageLimits(tenantId: number): Promise<{
   products: { used: number; max: number };
   orders: { used: number; max: number };
 }> {
@@ -170,8 +207,13 @@ export async function checkUsageLimits(
     throw new BillingError('Біллінг не знайдено', 404);
   }
 
+  // NOTE — Product/Order are currently single-tenant (no tenantId column),
+  // so a global `count()` is correct for the only tenant in play. When
+  // multi-tenant rolls out, both models will gain a tenantId FK and these
+  // counts MUST switch to `where: { tenantId }` — otherwise tenant A trips
+  // limits computed from tenant B's data (or worse, bypasses its own).
   const [productCount, orderCount] = await Promise.all([
-    prisma.product.count(),
+    prisma.product.count({ where: { deletedAt: null } }),
     prisma.order.count({
       where: {
         createdAt: {
@@ -191,11 +233,7 @@ export async function checkUsageLimits(
 /**
  * Record a usage metric for a tenant.
  */
-export async function recordUsage(
-  tenantId: number,
-  metric: string,
-  value: number
-): Promise<void> {
+export async function recordUsage(tenantId: number, metric: string, value: number): Promise<void> {
   await prisma.usageRecord.create({
     data: {
       tenantId,

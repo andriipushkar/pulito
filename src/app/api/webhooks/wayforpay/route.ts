@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
       String(error).includes('signature') ||
       String(error).includes('Signature');
     if (isSignatureError) {
+      // See liqpay/route.ts for the rationale — 401 makes forging detectable
+      // and lets monitoring alert; IP rate-limit caps retry-storm impact.
       logger.error('PAYMENT_WEBHOOK_SIGNATURE_MISMATCH', {
         provider: 'wayforpay',
         error: String(error),
@@ -58,13 +60,18 @@ export async function POST(request: NextRequest) {
     logWebhook({
       source: 'wayforpay',
       event: isSignatureError ? 'signature_failed' : 'error',
-      statusCode: isSignatureError ? 403 : 500,
+      statusCode: isSignatureError ? 401 : 500,
       error: String(error),
       durationMs: Date.now() - startTime,
     }).catch(() => {});
-    const responseBody = JSON.stringify({ status: 'accept' });
-    return new Response(responseBody, {
-      status: 200,
+    if (isSignatureError) {
+      return new Response(JSON.stringify({ status: 'rejected', reason: 'invalid signature' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ status: 'error' }), {
+      status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }

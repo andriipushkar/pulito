@@ -8,17 +8,28 @@ import { logAudit } from '@/services/audit';
 
 const createSchema = z.object({
   title: z.string().min(2).max(200),
-  slug: z.string().regex(/^[a-z0-9-]+$/).max(200).optional(),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .max(200)
+    .optional(),
   // 200 KB cap — well above any real static page; stops a single POST from
   // bloating cached HTML for every visitor.
   content: z.string().min(1).max(200_000),
   seoTitle: z.string().max(160).optional(),
   seoDescription: z.string().max(320).optional(),
+  titleEn: z.string().max(200).optional(),
+  contentEn: z.string().max(200_000).optional(),
+  seoTitleEn: z.string().max(160).optional(),
+  seoDescriptionEn: z.string().max(320).optional(),
   isPublished: z.boolean().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
 
-export const GET = withRole('manager', 'admin')(async () => {
+export const GET = withRole(
+  'manager',
+  'admin',
+)(async () => {
   try {
     const pages = await getAllPages();
     return successResponse(pages);
@@ -28,7 +39,10 @@ export const GET = withRole('manager', 'admin')(async () => {
   }
 });
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest, { user }) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = createSchema.safeParse(body);

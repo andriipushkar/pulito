@@ -1,18 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    moderationRule: { findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
   },
 }));
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    moderationRule: { findMany: vi.fn(), count: vi.fn(), create: vi.fn(), findFirst: vi.fn() },
+  },
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/utils/request', () => ({ getClientIp: () => null }));
 
 import { GET, POST } from './route';
 import { prisma } from '@/lib/prisma';
 
+const ctx = { user: { id: 1 } } as any;
+
 describe('GET /api/v1/admin/moderation/rules', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns rules on success', async () => {
     vi.mocked(prisma.moderationRule.findMany).mockResolvedValue([]);
@@ -32,13 +47,15 @@ describe('GET /api/v1/admin/moderation/rules', () => {
   it('filters by platform and ruleType params', async () => {
     vi.mocked(prisma.moderationRule.findMany).mockResolvedValue([]);
     vi.mocked(prisma.moderationRule.count).mockResolvedValue(0);
-    const req = new Request('http://localhost/api/v1/admin/moderation/rules?platform=telegram&ruleType=stop_words');
+    const req = new Request(
+      'http://localhost/api/v1/admin/moderation/rules?platform=telegram&ruleType=stop_words',
+    );
     const res = await GET(req as any);
     expect(res.status).toBe(200);
     expect(vi.mocked(prisma.moderationRule.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ platform: 'telegram', ruleType: 'stop_words' }),
-      })
+      }),
     );
   });
 
@@ -51,7 +68,7 @@ describe('GET /api/v1/admin/moderation/rules', () => {
     expect(vi.mocked(prisma.moderationRule.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ isActive: true }),
-      })
+      }),
     );
   });
 
@@ -64,7 +81,7 @@ describe('GET /api/v1/admin/moderation/rules', () => {
     expect(vi.mocked(prisma.moderationRule.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ isActive: false }),
-      })
+      }),
     );
   });
 
@@ -77,7 +94,7 @@ describe('GET /api/v1/admin/moderation/rules', () => {
     expect(vi.mocked(prisma.moderationRule.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: { platform: 'desc' },
-      })
+      }),
     );
   });
 
@@ -90,22 +107,29 @@ describe('GET /api/v1/admin/moderation/rules', () => {
     expect(vi.mocked(prisma.moderationRule.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: { createdAt: 'desc' },
-      })
+      }),
     );
   });
 });
 
 describe('POST /api/v1/admin/moderation/rules', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('creates rule on success', async () => {
     vi.mocked(prisma.moderationRule.create).mockResolvedValue({ id: 1 } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
-      body: JSON.stringify({ platform: 'telegram', ruleType: 'stop_words', action: 'delete', config: { words: ['spam'] } }),
+      body: JSON.stringify({
+        platform: 'telegram',
+        ruleType: 'stop_words',
+        action: 'delete',
+        config: { words: ['spam'] },
+      }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await POST(req as any);
+    const res = await (POST as any)(req, ctx);
     expect(res.status).toBe(201);
   });
 
@@ -113,50 +137,70 @@ describe('POST /api/v1/admin/moderation/rules', () => {
     vi.mocked(prisma.moderationRule.create).mockRejectedValue(new Error('fail'));
     const req = new Request('http://localhost', {
       method: 'POST',
-      body: JSON.stringify({ platform: 'telegram', ruleType: 'stop_words', action: 'delete', config: { words: [] } }),
+      body: JSON.stringify({
+        platform: 'telegram',
+        ruleType: 'stop_words',
+        action: 'delete',
+        config: { words: [] },
+      }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await POST(req as any);
+    const res = await (POST as any)(req, ctx);
     expect(res.status).toBe(500);
   });
 
   it('returns 400 for invalid platform', async () => {
     const req = new Request('http://localhost', {
       method: 'POST',
-      body: JSON.stringify({ platform: 'invalid', ruleType: 'stop_words', action: 'delete', config: { words: [] } }),
+      body: JSON.stringify({
+        platform: 'invalid',
+        ruleType: 'stop_words',
+        action: 'delete',
+        config: { words: [] },
+      }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await POST(req as any);
-    expect(res.status).toBe(400);
+    const res = await (POST as any)(req, ctx);
+    expect(res.status).toBe(422);
   });
 
-  it('returns 400 for invalid ruleType', async () => {
+  it('returns 422 for invalid ruleType', async () => {
     const req = new Request('http://localhost', {
       method: 'POST',
-      body: JSON.stringify({ platform: 'telegram', ruleType: 'invalid', action: 'delete', config: { words: [] } }),
+      body: JSON.stringify({
+        platform: 'telegram',
+        ruleType: 'invalid',
+        action: 'delete',
+        config: { words: [] },
+      }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await POST(req as any);
-    expect(res.status).toBe(400);
+    const res = await (POST as any)(req, ctx);
+    expect(res.status).toBe(422);
   });
 
-  it('returns 400 for invalid action', async () => {
+  it('returns 422 for invalid action', async () => {
     const req = new Request('http://localhost', {
       method: 'POST',
-      body: JSON.stringify({ platform: 'telegram', ruleType: 'stop_words', action: 'invalid', config: { words: [] } }),
+      body: JSON.stringify({
+        platform: 'telegram',
+        ruleType: 'stop_words',
+        action: 'invalid',
+        config: { words: [] },
+      }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await POST(req as any);
+    const res = await (POST as any)(req, ctx);
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 for missing config', async () => {
+  it('returns 422 for missing config', async () => {
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ platform: 'telegram', ruleType: 'stop_words', action: 'delete' }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await POST(req as any);
-    expect(res.status).toBe(400);
+    const res = await (POST as any)(req, ctx);
+    expect(res.status).toBe(422);
   });
 });

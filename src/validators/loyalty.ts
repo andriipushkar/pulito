@@ -3,7 +3,11 @@ import { z } from 'zod';
 export const adjustPointsSchema = z.object({
   userId: z.number().int().positive(),
   type: z.enum(['manual_add', 'manual_deduct']),
-  points: z.number().int().positive(),
+  // Cap single manual adjustment at 100k points (worth ≈ 10k UAH at a 0.1
+  // UAH/point rate). Anything above is almost certainly a typo or a
+  // compromised admin session — multi-step admin task should split into
+  // separate adjusts rather than 1M-point one-shot.
+  points: z.number().int().positive().max(100_000),
   description: z.string().min(1).max(500),
 });
 

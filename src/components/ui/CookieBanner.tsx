@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-
+import { Link } from '@/i18n/navigation';
 const COOKIE_CONSENT_KEY = 'cookie-consent-accepted';
 
 export default function CookieBanner() {
@@ -11,7 +10,9 @@ export default function CookieBanner() {
   useEffect(() => {
     try {
       if (!localStorage.getItem(COOKIE_CONSENT_KEY)) setVisible(true);
-    } catch { /* SSR / private browsing */ }
+    } catch {
+      /* SSR / private browsing */
+    }
   }, []);
   const [showSettings, setShowSettings] = useState(false);
   const [analytics, setAnalytics] = useState(true);
@@ -19,11 +20,14 @@ export default function CookieBanner() {
 
   const saveConsent = async (analyticsAccepted: boolean, marketingAccepted: boolean) => {
     const sessionId = crypto.randomUUID();
-    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({
-      analytics: analyticsAccepted,
-      marketing: marketingAccepted,
-      date: new Date().toISOString(),
-    }));
+    localStorage.setItem(
+      COOKIE_CONSENT_KEY,
+      JSON.stringify({
+        analytics: analyticsAccepted,
+        marketing: marketingAccepted,
+        date: new Date().toISOString(),
+      }),
+    );
     setVisible(false);
 
     try {
@@ -61,7 +65,11 @@ export default function CookieBanner() {
             <p className="flex-1 text-sm" style={{ color: 'var(--color-text-secondary, #475569)' }}>
               Ми використовуємо файли cookie для покращення роботи сайту та аналізу трафіку.
               Натискаючи &quot;Прийняти&quot;, ви погоджуєтеся з використанням cookie.{' '}
-              <Link href="/pages/privacy-policy" className="underline hover:no-underline" style={{ color: 'var(--color-primary, #2563eb)' }}>
+              <Link
+                href="/pages/privacy-policy"
+                className="underline hover:no-underline"
+                style={{ color: 'var(--color-primary, #2563eb)' }}
+              >
                 Політика конфіденційності
               </Link>
             </p>

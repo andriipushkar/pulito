@@ -12,8 +12,21 @@ import { isSafeUrl } from '@/utils/safe-url';
 const bannerUpdateSchema = z.object({
   title: z.string().max(200).nullish(),
   subtitle: z.string().max(500).nullish(),
-  imageDesktop: z.string().max(500).optional(),
-  imageMobile: z.string().max(500).nullish(),
+  // Image URLs go through the same scheme-allow-list as buttonLink.
+  // Previously these accepted anything ≤500 chars — `javascript:`,
+  // `data:image/svg+xml;base64,…` (XSS via inline SVG script), or an
+  // attacker-controlled SSRF target would all save and then be rendered
+  // by <Image>/<img> on the public homepage.
+  imageDesktop: z
+    .string()
+    .max(500)
+    .optional()
+    .refine((v) => isSafeUrl(v ?? null), 'imageDesktop має небезпечну схему'),
+  imageMobile: z
+    .string()
+    .max(500)
+    .nullish()
+    .refine((v) => isSafeUrl(v ?? null), 'imageMobile має небезпечну схему'),
   buttonLink: z
     .string()
     .max(500)
@@ -92,6 +105,31 @@ export const DELETE = withRole('admin')(async (request: NextRequest, { params, u
     const { id } = await params!;
     const numId = Number(id);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
+
+    // Warn if banner is part of an A/B variantGroup with active siblings.
+    // Deleting orphans the remaining variants — their weights no longer
+    // sum to 100, and the A/B statistics for the group become incomplete.
+    // Admin must pass `?force=1` to acknowledge. Catches the common
+    // mistake of "clean up one banner" → broken A/B.
+    const banner = await prisma.banner.findUnique({
+      where: { id: numId },
+      select: { variantGroup: true, variantWeight: true },
+    });
+    if (banner?.variantGroup) {
+      const siblings = await prisma.banner.count({
+        where: { variantGroup: banner.variantGroup, id: { not: numId } },
+      });
+      if (siblings > 0) {
+        const force = request.nextUrl.searchParams.get('force') === '1';
+        if (!force) {
+          return errorResponse(
+            `Цей банер є частиною A/B-групи "${banner.variantGroup}" (ще ${siblings} варіантів). Видалення зламає тест. Якщо це навмисно — повторіть з ?force=1.`,
+            409,
+          );
+        }
+      }
+    }
+
     try {
       await prisma.banner.delete({ where: { id: numId } });
     } catch (err: unknown) {

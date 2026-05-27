@@ -75,7 +75,9 @@ export default function CreateTTNForm({
   const [description, setDescription] = useState('Побутова хімія');
   const [cost, setCost] = useState(String(orderAmount));
   const [payerType, setPayerType] = useState<'Sender' | 'Recipient'>('Recipient');
-  const [serviceType, setServiceType] = useState<'WarehouseWarehouse' | 'WarehouseDoors'>('WarehouseWarehouse');
+  const [serviceType, setServiceType] = useState<'WarehouseWarehouse' | 'WarehouseDoors'>(
+    'WarehouseWarehouse',
+  );
 
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
@@ -98,14 +100,27 @@ export default function CreateTTNForm({
         senderContactRef: s.senderContactRef || prev.senderContactRef,
         senderPhone: s.senderPhone || prev.senderPhone,
       }));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  // Save sender settings
+  // Save sender settings.
+  // NOTE: stored values are Nova Poshta reference IDs + phone — they're
+  // identifiers, not secrets (NP API key lives server-side). Still, anyone
+  // with local access to the admin's browser can read them; document this
+  // expectation in onboarding rather than trying to encrypt client-side
+  // (which provides no real protection).
   const saveSenderSettings = () => {
-    localStorage.setItem('np_sender_settings', JSON.stringify({
-      senderRef, senderAddressRef, senderContactRef, senderPhone,
-    }));
+    localStorage.setItem(
+      'np_sender_settings',
+      JSON.stringify({
+        senderRef,
+        senderAddressRef,
+        senderContactRef,
+        senderPhone,
+      }),
+    );
   };
 
   // City search
@@ -113,7 +128,9 @@ export default function CreateTTNForm({
     if (cityQuery.length < 2 || selectedCityRef) return;
     clearTimeout(cityTimeoutRef.current);
     cityTimeoutRef.current = setTimeout(async () => {
-      const res = await apiClient.get<CityResult[]>(`/api/v1/delivery/cities?q=${encodeURIComponent(cityQuery)}`);
+      const res = await apiClient.get<CityResult[]>(
+        `/api/v1/delivery/cities?q=${encodeURIComponent(cityQuery)}`,
+      );
       if (res.success && res.data) {
         // Nova Poshta returns nested Addresses array
         const data = res.data as unknown as { Addresses?: CityResult[] }[];
@@ -131,7 +148,9 @@ export default function CreateTTNForm({
     clearTimeout(warehouseTimeoutRef.current);
     warehouseTimeoutRef.current = setTimeout(async () => {
       const q = warehouseQuery ? `&q=${encodeURIComponent(warehouseQuery)}` : '';
-      const res = await apiClient.get<WarehouseResult[]>(`/api/v1/delivery/warehouses?cityRef=${selectedCityRef}${q}`);
+      const res = await apiClient.get<WarehouseResult[]>(
+        `/api/v1/delivery/warehouses?cityRef=${selectedCityRef}${q}`,
+      );
       if (res.success && res.data) {
         setWarehouses(res.data as unknown as WarehouseResult[]);
         if (warehouseQuery) setShowWarehouseDropdown(true);
@@ -197,7 +216,8 @@ export default function CreateTTNForm({
       recipientName,
       recipientPhone,
       recipientCityRef: selectedCityRef,
-      recipientWarehouseRef: serviceType === 'WarehouseWarehouse' ? selectedWarehouseRef : undefined,
+      recipientWarehouseRef:
+        serviceType === 'WarehouseWarehouse' ? selectedWarehouseRef : undefined,
       payerType,
       paymentMethod: 'Cash',
       cargoType: 'Parcel',
@@ -226,7 +246,9 @@ export default function CreateTTNForm({
         </summary>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">Sender Ref</label>
+            <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">
+              Sender Ref
+            </label>
             <input
               value={senderRef}
               onChange={(e) => setSenderRef(e.target.value)}
@@ -235,7 +257,9 @@ export default function CreateTTNForm({
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">Sender Address Ref</label>
+            <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">
+              Sender Address Ref
+            </label>
             <input
               value={senderAddressRef}
               onChange={(e) => setSenderAddressRef(e.target.value)}
@@ -244,7 +268,9 @@ export default function CreateTTNForm({
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">Contact Sender Ref</label>
+            <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">
+              Contact Sender Ref
+            </label>
             <input
               value={senderContactRef}
               onChange={(e) => setSenderContactRef(e.target.value)}
@@ -253,7 +279,9 @@ export default function CreateTTNForm({
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">Телефон відправника</label>
+            <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">
+              Телефон відправника
+            </label>
             <input
               value={senderPhone}
               onChange={(e) => setSenderPhone(e.target.value)}
@@ -423,9 +451,7 @@ export default function CreateTTNForm({
         </div>
       </div>
 
-      {error && (
-        <p className="text-sm text-[var(--color-danger)]">{error}</p>
-      )}
+      {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>

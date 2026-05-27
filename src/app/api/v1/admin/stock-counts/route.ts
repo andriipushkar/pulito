@@ -1,10 +1,7 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
-import {
-  startStockCount,
-  listStockCounts,
-  StockCountError,
-} from '@/services/stock-count';
+import { startStockCount, listStockCounts, StockCountError } from '@/services/stock-count';
+import { startStockCountSchema } from '@/validators/stock-count';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 
@@ -30,9 +27,11 @@ export const POST = withRole(
 )(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
-    const warehouseId = Number(body.warehouseId);
-    if (!warehouseId) return errorResponse('Невалідний склад', 400);
-    const count = await startStockCount(warehouseId, user!.id, body.comment);
+    const parsed = startStockCountSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
+    }
+    const count = await startStockCount(parsed.data.warehouseId, user!.id, parsed.data.comment);
     return successResponse(count, 201);
   } catch (error) {
     if (error instanceof StockCountError) {

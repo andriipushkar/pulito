@@ -18,6 +18,10 @@ const updateSchema = z.object({
   content: z.string().min(1).max(200_000).optional(),
   seoTitle: z.string().max(160).optional(),
   seoDescription: z.string().max(320).optional(),
+  titleEn: z.string().max(200).optional(),
+  contentEn: z.string().max(200_000).optional(),
+  seoTitleEn: z.string().max(160).optional(),
+  seoDescriptionEn: z.string().max(320).optional(),
   isPublished: z.boolean().optional(),
   sortOrder: z.number().int().min(0).optional(),
   // Hierarchy — one level deep. null = root.

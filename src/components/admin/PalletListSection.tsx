@@ -68,8 +68,13 @@ export default function PalletListSection() {
 
   const load = async () => {
     setIsLoading(true);
-    const res = await apiClient.get<Pallet[]>('/api/v1/admin/pallets');
-    if (res.success && res.data) setPallets(res.data);
+    // Endpoint now returns paginated envelope { items, total, page, limit }.
+    // 100 limit covers the realistic in-progress pallet count; if it ever
+    // outgrows that, add UI pagination — not needed today.
+    const res = await apiClient.get<{ items: Pallet[]; total: number }>(
+      '/api/v1/admin/pallets?limit=100',
+    );
+    if (res.success && res.data) setPallets(res.data.items);
     setIsLoading(false);
   };
 
@@ -134,9 +139,11 @@ export default function PalletListSection() {
     }
   };
 
-  const setStatus = async (palletId: number, status: Status, forceUnpacked = false) => {
+  // Split into request + initial confirm wrapper so the override path is
+  // a single linear flow (no recursion, no chance of stacking confirms with
+  // confirmDelete or other modal state).
+  const sendStatusUpdate = async (palletId: number, status: Status, forceUnpacked: boolean) => {
     const label = STATUS_LABEL[status];
-    if (!forceUnpacked && !window.confirm(`Перевести палету у статус "${label}"?`)) return;
     const res = await apiClient.put(`/api/v1/admin/pallets/${palletId}/status`, {
       status,
       ...(forceUnpacked ? { forceUnpacked: true } : {}),
@@ -144,15 +151,21 @@ export default function PalletListSection() {
     if (res.success) {
       toast.success(`Статус: ${label}`);
       load();
-    } else if (res.statusCode === 409 && status === 'in_transit') {
-      // Backend refused because some orders aren't packed yet — show the
-      // server's detailed message and offer an override.
-      if (window.confirm(`${res.error}\n\nВідправити все одно?`)) {
-        setStatus(palletId, status, true);
-      }
-    } else {
-      toast.error(res.error || 'Помилка');
+      return;
     }
+    if (res.statusCode === 409 && status === 'in_transit' && !forceUnpacked) {
+      if (window.confirm(`${res.error}\n\nВідправити все одно?`)) {
+        await sendStatusUpdate(palletId, status, true);
+      }
+      return;
+    }
+    toast.error(res.error || 'Помилка');
+  };
+
+  const setStatus = async (palletId: number, status: Status) => {
+    const label = STATUS_LABEL[status];
+    if (!window.confirm(`Перевести палету у статус "${label}"?`)) return;
+    await sendStatusUpdate(palletId, status, false);
   };
 
   const deletePallet = (palletId: number, name: string) => {

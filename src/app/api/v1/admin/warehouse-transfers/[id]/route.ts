@@ -5,8 +5,10 @@ import {
   shipTransfer,
   receiveTransfer,
   cancelTransfer,
+  cancelInTransitTransfer,
   WarehouseTransferError,
 } from '@/services/warehouse-transfer';
+import { transferActionSchema } from '@/validators/warehouse-transfer';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 
@@ -34,21 +36,33 @@ export const PUT = withRole(
   try {
     const { id } = await params!;
     const numId = Number(id);
+    if (!Number.isInteger(numId) || numId <= 0) {
+      return errorResponse('Невалідний ID', 400);
+    }
     const body = await request.json();
+    const parsed = transferActionSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
+    }
 
-    if (body.action === 'ship') {
-      const transfer = await shipTransfer(numId, user!.id);
-      return successResponse(transfer);
+    switch (parsed.data.action) {
+      case 'ship': {
+        const transfer = await shipTransfer(numId, user!.id);
+        return successResponse(transfer);
+      }
+      case 'receive': {
+        const transfer = await receiveTransfer(numId, user!.id);
+        return successResponse(transfer);
+      }
+      case 'cancel': {
+        const transfer = await cancelTransfer(numId, parsed.data.reason || '', user!.id);
+        return successResponse(transfer);
+      }
+      case 'cancel-in-transit': {
+        const transfer = await cancelInTransitTransfer(numId, parsed.data.reason || '', user!.id);
+        return successResponse(transfer);
+      }
     }
-    if (body.action === 'receive') {
-      const transfer = await receiveTransfer(numId, user!.id);
-      return successResponse(transfer);
-    }
-    if (body.action === 'cancel') {
-      const transfer = await cancelTransfer(numId, body.reason || '', user!.id);
-      return successResponse(transfer);
-    }
-    return errorResponse('Невідома дія', 400);
   } catch (error) {
     if (error instanceof WarehouseTransferError) {
       return errorResponse(error.message, error.statusCode);

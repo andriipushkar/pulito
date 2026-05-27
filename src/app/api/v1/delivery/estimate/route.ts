@@ -3,9 +3,15 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { deliveryEstimateSchema } from '@/validators/delivery';
 import { estimateDeliveryCost, NovaPoshtaError } from '@/services/nova-poshta';
 import { redis, CACHE_TTL } from '@/lib/redis';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+import { getClientIp } from '@/utils/request';
 
 export async function GET(request: NextRequest) {
   try {
+    const rl = await checkRateLimit(getClientIp(request), RATE_LIMITS.publicDelivery);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато запитів. Спробуйте через ${rl.retryAfter} с.`, 429);
+    }
     const params = Object.fromEntries(request.nextUrl.searchParams);
     const parsed = deliveryEstimateSchema.safeParse(params);
 
@@ -44,8 +50,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Check Redis cache
-    const cacheKey = `delivery:estimate:${method}:${city}:${weight}:${total}`;
+    // Check Redis cache. Round weight/total to 1 decimal so floating-point
+    // serialization differences (`1.1` vs `1.1000000000000001`) don't cause
+    // cache misses for what is functionally the same query. Customers
+    // adjusting cart by single units typically land on the same bucket.
+    const wKey = (Math.round(weight * 10) / 10).toFixed(1);
+    const tKey = (Math.round(total * 100) / 100).toFixed(2);
+    const cacheKey = `delivery:estimate:${method}:${city}:${wKey}:${tKey}`;
     const cached = await redis.get(cacheKey).catch(() => null);
     if (cached) {
       return successResponse({ ...JSON.parse(cached), freeFrom });

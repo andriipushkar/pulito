@@ -1,22 +1,16 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
-type ChannelKey =
-  | 'telegram'
-  | 'viber'
-  | 'facebook'
-  | 'instagram'
-  | 'tiktok'
-  | 'olx'
-  | 'rozetka'
-  | 'prom'
-  | 'epicentrk';
+// Маркетплейси (olx/rozetka/prom/epicentrk) керуються через /admin/marketplaces,
+// тут лише соцмережі та месенджери — щоб не дублювати UI.
+type ChannelKey = 'telegram' | 'viber' | 'facebook' | 'instagram' | 'tiktok';
 
 interface ChannelField {
   key: string;
@@ -122,68 +116,6 @@ const CHANNELS: ChannelDef[] = [
         sensitive: true,
       },
       { key: 'openId', label: 'Open ID', placeholder: 'Ваш TikTok Open ID' },
-    ],
-  },
-  {
-    key: 'olx',
-    name: 'OLX',
-    icon: '🟢',
-    color: '#002f34',
-    description: 'Публікація оголошень на OLX.ua',
-    fields: [
-      { key: 'clientId', label: 'Client ID', placeholder: 'OLX API Client ID' },
-      {
-        key: 'accessToken',
-        label: 'Access Token',
-        placeholder: 'OLX API Access Token',
-        sensitive: true,
-      },
-      {
-        key: 'defaultCategoryId',
-        label: 'Категорія за замовч.',
-        placeholder: '1430 (Побутова хімія)',
-        optional: true,
-      },
-      { key: 'cityId', label: 'Місто (ID)', placeholder: '1 (Київ)', optional: true },
-      { key: 'contactName', label: "Ім'я контакту", placeholder: 'Pulito Trade', optional: true },
-      { key: 'contactPhone', label: 'Телефон', placeholder: '+380501234567', optional: true },
-    ],
-  },
-  {
-    key: 'rozetka',
-    name: 'Rozetka',
-    icon: '🟩',
-    color: '#00a046',
-    description: 'Публікація товарів на Rozetka Marketplace',
-    fields: [
-      { key: 'apiKey', label: 'API Key', placeholder: 'Rozetka Seller API Key', sensitive: true },
-      { key: 'sellerId', label: 'Seller ID', placeholder: '12345' },
-    ],
-  },
-  {
-    key: 'prom',
-    name: 'Prom.ua',
-    icon: '🔵',
-    color: '#2b5797',
-    description: 'Публікація товарів на Prom.ua',
-    fields: [
-      { key: 'apiToken', label: 'API Token', placeholder: 'Prom.ua API Token', sensitive: true },
-    ],
-  },
-  {
-    key: 'epicentrk',
-    name: 'Epicentr K',
-    icon: '🟠',
-    color: '#f57c00',
-    description: 'Публікація товарів на маркетплейсі Епіцентр К',
-    fields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        placeholder: 'Epicentr Marketplace API Key',
-        sensitive: true,
-      },
-      { key: 'sellerId', label: 'Seller ID', placeholder: '12345' },
     ],
   },
 ];
@@ -340,10 +272,19 @@ export default function ChannelSettingsPage() {
 
   return (
     <div>
-      <h2 className="mb-2 text-xl font-bold">Налаштування каналів</h2>
-      <p className="mb-6 text-sm text-[var(--color-text-secondary)]">
-        Підключіть свої канали для автоматичної публікації контенту
+      <h2 className="mb-2 text-xl font-bold">Акаунти соцмереж</h2>
+      <p className="mb-3 text-sm text-[var(--color-text-secondary)]">
+        Підключіть месенджери та соцмережі для публікацій і комунікації з клієнтами.
       </p>
+      <div className="mb-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-2 text-xs text-[var(--color-text-secondary)]">
+        🛒 Маркетплейси (OLX, Rozetka, Prom.ua, Епіцентр) тепер керуються в окремому розділі —{' '}
+        <Link
+          href="/admin/marketplaces"
+          className="font-medium text-[var(--color-primary)] hover:underline"
+        >
+          /admin/marketplaces
+        </Link>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {CHANNELS.map((channelDef) => {

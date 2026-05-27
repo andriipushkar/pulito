@@ -12,6 +12,45 @@ export class BlogError extends Error {
   }
 }
 
+/** Google SERP cuts title around 60–70 chars and description around 155–160. */
+const SEO_TITLE_MAX = 70;
+const SEO_DESCRIPTION_MAX = 160;
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const slice = text.slice(0, max - 1).trimEnd();
+  const lastSpace = slice.lastIndexOf(' ');
+  const base = lastSpace > max * 0.6 ? slice.slice(0, lastSpace) : slice;
+  return `${base}…`;
+}
+
+function plainText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function deriveSeoFallback(
+  seoTitle: string | undefined,
+  seoDescription: string | undefined,
+  title: string,
+  excerpt: string | undefined,
+  content: string,
+): { seoTitle: string; seoDescription: string } {
+  const resolvedTitle = seoTitle?.trim() || truncate(title.trim(), SEO_TITLE_MAX);
+  const descSource =
+    seoDescription?.trim() || (excerpt ? plainText(excerpt) : '') || plainText(content);
+  const resolvedDescription = truncate(descSource, SEO_DESCRIPTION_MAX);
+  return { seoTitle: resolvedTitle, seoDescription: resolvedDescription };
+}
+
 export async function createPost(
   data: {
     title: string;
@@ -23,6 +62,11 @@ export async function createPost(
     tags?: string[];
     seoTitle?: string;
     seoDescription?: string;
+    titleEn?: string;
+    excerptEn?: string;
+    contentEn?: string;
+    seoTitleEn?: string;
+    seoDescriptionEn?: string;
     isPublished?: boolean;
   },
   authorId: number,
@@ -41,20 +85,43 @@ export async function createPost(
     }
   }
 
+  const cleanContent = sanitizeHtml(data.content);
+  const cleanExcerpt = data.excerpt ? sanitizeHtml(data.excerpt) : data.excerpt;
+
+  // Auto-fill SEO fields so admins don't have to think about them; manual
+  // values still win. Saved to DB (not just runtime fallback) so feeds/exports
+  // and any third-party reader see the same string.
+  const { seoTitle, seoDescription } = deriveSeoFallback(
+    data.seoTitle,
+    data.seoDescription,
+    data.title,
+    cleanExcerpt,
+    cleanContent,
+  );
+
+  const cleanContentEn = data.contentEn ? sanitizeHtml(data.contentEn) : null;
+  const cleanExcerptEn = data.excerptEn ? sanitizeHtml(data.excerptEn) : null;
+
   return prisma.blogPost.create({
     data: {
       title: data.title,
       slug,
-      content: sanitizeHtml(data.content),
+      content: cleanContent,
       // Excerpt is plain-text-only on the storefront but the editor lets
       // managers paste HTML; sanitize so a <script> in the preview doesn't
       // make it into category listings.
-      excerpt: data.excerpt ? sanitizeHtml(data.excerpt) : data.excerpt,
+      excerpt: cleanExcerpt,
       coverImage: data.coverImage,
       categoryId: data.categoryId,
       tags: data.tags ?? [],
-      seoTitle: data.seoTitle,
-      seoDescription: data.seoDescription,
+      seoTitle,
+      seoDescription,
+      // EN translations — nullable; admin fills these from the EN tab in the form.
+      titleEn: data.titleEn || null,
+      excerptEn: cleanExcerptEn,
+      contentEn: cleanContentEn,
+      seoTitleEn: data.seoTitleEn || null,
+      seoDescriptionEn: data.seoDescriptionEn || null,
       isPublished: data.isPublished ?? false,
       publishedAt: data.isPublished ? new Date() : null,
       authorId,
@@ -75,6 +142,11 @@ export async function updatePost(
     tags?: string[];
     seoTitle?: string;
     seoDescription?: string;
+    titleEn?: string;
+    excerptEn?: string;
+    contentEn?: string;
+    seoTitleEn?: string;
+    seoDescriptionEn?: string;
     isPublished?: boolean;
   },
 ) {
@@ -103,18 +175,78 @@ export async function updatePost(
 
   const publishedAt = data.isPublished === true && !post.isPublished ? new Date() : undefined;
 
+  const cleanContent = data.content !== undefined ? sanitizeHtml(data.content) : undefined;
+  const cleanExcerpt =
+    data.excerpt !== undefined
+      ? data.excerpt
+        ? sanitizeHtml(data.excerpt)
+        : data.excerpt
+      : undefined;
+
+  // Re-derive SEO fallback whenever the source fields (title/excerpt/content)
+  // or the SEO fields themselves change. Treat empty string as "clear" — that
+  // signals admin removed the override, so regenerate from the post body.
+  let seoTitle: string | undefined;
+  let seoDescription: string | undefined;
+  const titleChanged = data.title !== undefined && data.title !== post.title;
+  const contentChanged = cleanContent !== undefined && cleanContent !== post.content;
+  const excerptChanged = cleanExcerpt !== undefined && cleanExcerpt !== post.excerpt;
+  const seoTitleProvided = data.seoTitle !== undefined;
+  const seoDescProvided = data.seoDescription !== undefined;
+
+  if (seoTitleProvided || seoDescProvided || titleChanged || contentChanged || excerptChanged) {
+    const effectiveTitle = data.title ?? post.title;
+    const effectiveContent = cleanContent ?? post.content;
+    const effectiveExcerpt =
+      cleanExcerpt !== undefined ? cleanExcerpt : (post.excerpt ?? undefined);
+    const incomingSeoTitle = seoTitleProvided ? data.seoTitle : (post.seoTitle ?? undefined);
+    const incomingSeoDesc = seoDescProvided
+      ? data.seoDescription
+      : (post.seoDescription ?? undefined);
+    const derived = deriveSeoFallback(
+      incomingSeoTitle,
+      incomingSeoDesc,
+      effectiveTitle,
+      effectiveExcerpt,
+      effectiveContent,
+    );
+    seoTitle = derived.seoTitle;
+    seoDescription = derived.seoDescription;
+  }
+
+  const cleanContentEn =
+    data.contentEn !== undefined
+      ? data.contentEn
+        ? sanitizeHtml(data.contentEn)
+        : null
+      : undefined;
+  const cleanExcerptEn =
+    data.excerptEn !== undefined
+      ? data.excerptEn
+        ? sanitizeHtml(data.excerptEn)
+        : null
+      : undefined;
+
   return prisma.blogPost.update({
     where: { id },
     data: {
       ...(data.title !== undefined && { title: data.title }),
       ...(data.slug !== undefined && { slug: data.slug }),
-      ...(data.content !== undefined && { content: sanitizeHtml(data.content) }),
-      ...(data.excerpt !== undefined && { excerpt: data.excerpt ? sanitizeHtml(data.excerpt) : data.excerpt }),
+      ...(cleanContent !== undefined && { content: cleanContent }),
+      ...(cleanExcerpt !== undefined && { excerpt: cleanExcerpt }),
       ...(data.coverImage !== undefined && { coverImage: data.coverImage }),
       ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
       ...(data.tags !== undefined && { tags: data.tags }),
-      ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
-      ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
+      ...(seoTitle !== undefined && { seoTitle }),
+      ...(seoDescription !== undefined && { seoDescription }),
+      // EN — admin can pass empty string to clear, undefined to keep current.
+      ...(data.titleEn !== undefined && { titleEn: data.titleEn || null }),
+      ...(cleanExcerptEn !== undefined && { excerptEn: cleanExcerptEn }),
+      ...(cleanContentEn !== undefined && { contentEn: cleanContentEn }),
+      ...(data.seoTitleEn !== undefined && { seoTitleEn: data.seoTitleEn || null }),
+      ...(data.seoDescriptionEn !== undefined && {
+        seoDescriptionEn: data.seoDescriptionEn || null,
+      }),
       ...(data.isPublished !== undefined && { isPublished: data.isPublished }),
       ...(publishedAt !== undefined && { publishedAt }),
     },
@@ -253,6 +385,10 @@ export async function createCategory(data: {
   description?: string;
   seoTitle?: string;
   seoDescription?: string;
+  nameEn?: string;
+  descriptionEn?: string;
+  seoTitleEn?: string;
+  seoDescriptionEn?: string;
 }) {
   const slug = data.slug || createSlug(data.name);
 
@@ -268,6 +404,10 @@ export async function createCategory(data: {
       description: data.description,
       seoTitle: data.seoTitle,
       seoDescription: data.seoDescription,
+      nameEn: data.nameEn || null,
+      descriptionEn: data.descriptionEn || null,
+      seoTitleEn: data.seoTitleEn || null,
+      seoDescriptionEn: data.seoDescriptionEn || null,
     },
   });
 }
@@ -280,6 +420,10 @@ export async function updateCategory(
     description?: string;
     seoTitle?: string;
     seoDescription?: string;
+    nameEn?: string;
+    descriptionEn?: string;
+    seoTitleEn?: string;
+    seoDescriptionEn?: string;
   },
 ) {
   const category = await prisma.blogCategory.findUnique({ where: { id } });
@@ -298,6 +442,12 @@ export async function updateCategory(
       ...(data.description !== undefined && { description: data.description }),
       ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
       ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
+      ...(data.nameEn !== undefined && { nameEn: data.nameEn || null }),
+      ...(data.descriptionEn !== undefined && { descriptionEn: data.descriptionEn || null }),
+      ...(data.seoTitleEn !== undefined && { seoTitleEn: data.seoTitleEn || null }),
+      ...(data.seoDescriptionEn !== undefined && {
+        seoDescriptionEn: data.seoDescriptionEn || null,
+      }),
     },
   });
 }

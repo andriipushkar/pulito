@@ -40,7 +40,11 @@ export async function validateCoupon(
     }
   }
 
-  if (orderAmount && coupon.minOrderAmount && orderAmount < Number(coupon.minOrderAmount)) {
+  if (
+    orderAmount !== undefined &&
+    coupon.minOrderAmount &&
+    orderAmount < Number(coupon.minOrderAmount)
+  ) {
     throw new CouponError(
       `Мінімальна сума замовлення для цього промокоду: ${coupon.minOrderAmount} грн`,
     );
@@ -70,6 +74,15 @@ export async function validateCoupon(
         );
       }
     }
+  } else if (coupon.applicableCategoryIds.length > 0 || coupon.excludedProductIds.length > 0) {
+    // The coupon has product/category restrictions but the caller didn't
+    // pass cart context — refuse rather than silently letting the discount
+    // apply globally. Legacy clients that don't know about cart context
+    // were previously bypassing these restrictions entirely.
+    throw new CouponError(
+      'Промокод має обмеження за товарами — оформіть замовлення через звичайний кошик, щоб перевірити умови',
+      400,
+    );
   }
 
   return coupon;
@@ -85,9 +98,12 @@ export function calculateDiscount(
 ): number {
   const value = Number(coupon.value);
   if (coupon.type === 'percent') {
-    const discount = (orderAmount * value) / 100;
+    // Defensive clamp: even if a legacy/imported coupon has value > 100,
+    // we never produce a discount larger than the order amount itself.
+    const pct = Math.min(Math.max(value, 0), 100);
+    const discount = (orderAmount * pct) / 100;
     const max = coupon.maxDiscount ? Number(coupon.maxDiscount) : Infinity;
-    return Math.min(discount, max);
+    return Math.min(discount, max, orderAmount);
   }
   if (coupon.type === 'fixed_amount') {
     return Math.min(value, orderAmount);
@@ -120,6 +136,13 @@ export async function redeemCoupon(
       if (claimed.count === 0) {
         throw new CouponError('Промокод вичерпано');
       }
+      // Auto-disable when the increment brought us to the limit so a
+      // depleted coupon stops eating validation cycles and shows as
+      // inactive in the admin list immediately.
+      await tx.coupon.updateMany({
+        where: { id: couponId, usedCount: { gte: coupon.usageLimit }, isActive: true },
+        data: { isActive: false },
+      });
     } else {
       await tx.coupon.update({
         where: { id: couponId },
@@ -163,6 +186,17 @@ export async function createCoupon(data: {
   stackableWith?: string[];
   createdBy?: number;
 }) {
+  // Up-front validation. Previously calculateDiscount silently clamped
+  // percent>100 to 100, so an admin typo like `value: 1000` produced a
+  // 100% discount that LOOKED right in the list but quietly handed out
+  // free goods. Better to refuse at create time so the admin sees the
+  // error immediately.
+  if (data.type === 'percent' && (data.value < 0 || data.value > 100)) {
+    throw new CouponError(`Відсоток знижки має бути 0–100 (отримано ${data.value})`, 400);
+  }
+  if (data.type === 'fixed_amount' && data.value < 0) {
+    throw new CouponError("Фіксована сума знижки не може бути від'ємною", 400);
+  }
   return prisma.coupon.create({
     data: {
       code: data.code.toUpperCase(),

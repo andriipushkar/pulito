@@ -35,7 +35,12 @@ export default function CatalogToolbar({ total, onOpenFilters }: CatalogToolbarP
   };
 
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div
+      // Sticky on mobile so the Filter / Sort controls stay in reach while
+      // the user scrolls a long product grid — a major mobile UX win for
+      // ecommerce. Plain top:0 sticks under the site header (already sticky).
+      className="sticky top-[60px] z-10 -mx-4 flex items-center justify-between gap-4 border-b border-[var(--color-border)] bg-[var(--color-bg)]/95 px-4 py-2 backdrop-blur sm:relative sm:top-0 sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+    >
       <p className="text-sm text-[var(--color-text-secondary)]">
         Знайдено: <strong className="text-[var(--color-text)]">{total}</strong> товарів
       </p>

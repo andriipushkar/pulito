@@ -40,16 +40,21 @@ export default function AdminFeatureFlagsPage() {
   const [editDescription, setEditDescription] = useState('');
 
   const loadFlags = () => {
-    apiClient.get<FeatureFlag[]>('/api/v1/admin/feature-flags').then((res) => {
-      if (res.success && res.data) setFlags(res.data);
-    }).finally(() => setIsLoading(false));
+    apiClient
+      .get<FeatureFlag[]>('/api/v1/admin/feature-flags')
+      .then((res) => {
+        if (res.success && res.data) setFlags(res.data);
+      })
+      .finally(() => setIsLoading(false));
   };
 
-  useEffect(() => { loadFlags(); }, []);
+  useEffect(() => {
+    loadFlags();
+  }, []);
 
   const handleCreate = async () => {
     if (!form.key) {
-      toast.error('Ключ обов\'язковий');
+      toast.error("Ключ обов'язковий");
       return;
     }
 
@@ -59,25 +64,61 @@ export default function AdminFeatureFlagsPage() {
       isEnabled: form.isEnabled,
       rolloutPercent: form.rolloutPercent,
       targetRoles: form.targetRoles ? form.targetRoles.split(',').map((r) => r.trim()) : [],
-      targetUserIds: form.targetUserIds ? form.targetUserIds.split(',').map((id) => Number(id.trim())).filter(Boolean) : [],
+      targetUserIds: form.targetUserIds
+        ? form.targetUserIds
+            .split(',')
+            .map((id) => Number(id.trim()))
+            .filter(Boolean)
+        : [],
     });
 
     if (res.success) {
       toast.success('Фічефлаг створено');
       setShowForm(false);
-      setForm({ key: '', description: '', isEnabled: false, rolloutPercent: 100, targetRoles: '', targetUserIds: '' });
+      setForm({
+        key: '',
+        description: '',
+        isEnabled: false,
+        rolloutPercent: 100,
+        targetRoles: '',
+        targetUserIds: '',
+      });
       loadFlags();
     } else {
       toast.error(res.error || 'Помилка створення');
     }
   };
 
+  // Flags whose key matches one of these patterns are treated as
+  // critical — flipping them off mid-day can drop entire revenue paths
+  // (payment, checkout, marketplace publishing). Require an explicit
+  // confirm so a stray click doesn't take prod offline.
+  const CRITICAL_FLAG_PATTERNS = /^(payment|checkout|cart|order|marketplace|sync|auth|wholesale)/i;
+
   const toggleFlag = async (flag: FeatureFlag) => {
+    const turningOff = flag.isEnabled;
+    const isCritical = CRITICAL_FLAG_PATTERNS.test(flag.key);
+    if (turningOff && isCritical) {
+      const ok = window.confirm(
+        `Ви збираєтесь ВИМКНУТИ критичний фічефлаг «${flag.key}».\n\n` +
+          `Це може зупинити частину функціоналу прод-сайту негайно (платежі, ` +
+          `checkout, синхронізація з маркетплейсами тощо).\n\n` +
+          `Точно продовжити?`,
+      );
+      if (!ok) return;
+    }
     const res = await apiClient.patch(`/api/v1/admin/feature-flags/${flag.key}`, {
       isEnabled: !flag.isEnabled,
+      // Optimistic-lock token: include current value so the server can
+      // detect a concurrent edit (another admin flipped the flag while we
+      // were holding the page). updatedAt is the natural version.
+      expectedUpdatedAt: flag.updatedAt,
     });
     if (res.success) {
       toast.success(flag.isEnabled ? 'Фічефлаг вимкнено' : 'Фічефлаг увімкнено');
+      loadFlags();
+    } else if (res.statusCode === 409) {
+      toast.error('Цей фічефлаг змінив інший адмін — перезавантажте сторінку');
       loadFlags();
     } else {
       toast.error(res.error || 'Помилка');
@@ -97,7 +138,12 @@ export default function AdminFeatureFlagsPage() {
       rolloutPercent: editRollout,
       description: editDescription || null,
       targetRoles: editRoles ? editRoles.split(',').map((r) => r.trim()) : [],
-      targetUserIds: editUserIds ? editUserIds.split(',').map((id) => Number(id.trim())).filter(Boolean) : [],
+      targetUserIds: editUserIds
+        ? editUserIds
+            .split(',')
+            .map((id) => Number(id.trim()))
+            .filter(Boolean)
+        : [],
     });
     if (res.success) {
       toast.success('Фічефлаг оновлено');
@@ -126,18 +172,32 @@ export default function AdminFeatureFlagsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold">Фічефлаги</h2>
-        <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Скасувати' : '+ Додати фічефлаг'}</Button>
+        <Button onClick={() => setShowForm(!showForm)}>
+          {showForm ? 'Скасувати' : '+ Додати фічефлаг'}
+        </Button>
       </div>
 
       {showForm && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Ключ" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="new-checkout-flow" />
-            <Input label="Опис" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Новий флоу оформлення" />
+            <Input
+              label="Ключ"
+              value={form.key}
+              onChange={(e) => setForm({ ...form, key: e.target.value })}
+              placeholder="new-checkout-flow"
+            />
+            <Input
+              label="Опис"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Новий флоу оформлення"
+            />
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Розкатка: {form.rolloutPercent}%</label>
+              <label className="mb-1 block text-sm font-medium">
+                Розкатка: {form.rolloutPercent}%
+              </label>
               <input
                 type="range"
                 min={0}
@@ -147,8 +207,18 @@ export default function AdminFeatureFlagsPage() {
                 className="w-full"
               />
             </div>
-            <Input label="Ролі (через кому)" value={form.targetRoles} onChange={(e) => setForm({ ...form, targetRoles: e.target.value })} placeholder="admin, wholesaler" />
-            <Input label="ID користувачів (через кому)" value={form.targetUserIds} onChange={(e) => setForm({ ...form, targetUserIds: e.target.value })} placeholder="1, 42, 100" />
+            <Input
+              label="Ролі (через кому)"
+              value={form.targetRoles}
+              onChange={(e) => setForm({ ...form, targetRoles: e.target.value })}
+              placeholder="admin, wholesaler"
+            />
+            <Input
+              label="ID користувачів (через кому)"
+              value={form.targetUserIds}
+              onChange={(e) => setForm({ ...form, targetUserIds: e.target.value })}
+              placeholder="1, 42, 100"
+            />
           </div>
           <div className="mt-4 flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm">
@@ -167,13 +237,22 @@ export default function AdminFeatureFlagsPage() {
 
       <div className="space-y-2">
         {flags.map((flag) => (
-          <div key={flag.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+          <div
+            key={flag.id}
+            className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3"
+          >
             {editingKey === flag.key ? (
               <div className="space-y-3">
-                <Input label="Опис" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+                <Input
+                  label="Опис"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium">Розкатка: {editRollout}%</label>
+                    <label className="mb-1 block text-xs font-medium">
+                      Розкатка: {editRollout}%
+                    </label>
                     <input
                       type="range"
                       min={0}
@@ -183,8 +262,16 @@ export default function AdminFeatureFlagsPage() {
                       className="w-full"
                     />
                   </div>
-                  <Input label="Ролі" value={editRoles} onChange={(e) => setEditRoles(e.target.value)} />
-                  <Input label="User IDs" value={editUserIds} onChange={(e) => setEditUserIds(e.target.value)} />
+                  <Input
+                    label="Ролі"
+                    value={editRoles}
+                    onChange={(e) => setEditRoles(e.target.value)}
+                  />
+                  <Input
+                    label="User IDs"
+                    value={editUserIds}
+                    onChange={(e) => setEditUserIds(e.target.value)}
+                  />
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button onClick={() => setEditingKey(null)}>Скасувати</Button>
@@ -200,19 +287,37 @@ export default function AdminFeatureFlagsPage() {
                   {flag.isEnabled ? 'ON' : 'OFF'}
                 </button>
                 <code className="text-sm font-mono">{flag.key}</code>
-                <span className="flex-1 text-sm text-[var(--color-text-secondary)]">{flag.description || '—'}</span>
-                <span className="text-xs text-[var(--color-text-secondary)]">{flag.rolloutPercent}%</span>
+                <span className="flex-1 text-sm text-[var(--color-text-secondary)]">
+                  {flag.description || '—'}
+                </span>
+                <span className="text-xs text-[var(--color-text-secondary)]">
+                  {flag.rolloutPercent}%
+                </span>
                 {flag.targetRoles.length > 0 && (
-                  <span className="text-xs text-[var(--color-text-secondary)]">Ролі: {flag.targetRoles.join(', ')}</span>
+                  <span className="text-xs text-[var(--color-text-secondary)]">
+                    Ролі: {flag.targetRoles.join(', ')}
+                  </span>
                 )}
-                <button onClick={() => startEdit(flag)} className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]">Редагувати</button>
-                <button onClick={() => setDeleteKey(flag.key)} className="text-xs text-red-500 hover:text-red-700">Видалити</button>
+                <button
+                  onClick={() => startEdit(flag)}
+                  className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
+                >
+                  Редагувати
+                </button>
+                <button
+                  onClick={() => setDeleteKey(flag.key)}
+                  className="text-xs text-red-500 hover:text-red-700"
+                >
+                  Видалити
+                </button>
               </div>
             )}
           </div>
         ))}
         {flags.length === 0 && (
-          <div className="py-8 text-center text-[var(--color-text-secondary)]">Фічефлагів немає</div>
+          <div className="py-8 text-center text-[var(--color-text-secondary)]">
+            Фічефлагів немає
+          </div>
         )}
       </div>
 

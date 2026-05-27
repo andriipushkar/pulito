@@ -4,7 +4,7 @@ import type { AdjustPointsInput } from '@/validators/loyalty';
 export class LoyaltyError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'LoyaltyError';
@@ -56,10 +56,14 @@ export async function earnPoints(userId: number, orderId: number, orderAmount: n
     });
 
     // Inline tier recalc against the same set of levels we read above.
+    // Sort by minSpent ASC so an admin who reorders sortOrder doesn't drop
+    // a user back to a lower tier when their totalSpent qualifies them for
+    // a higher one.
     if (levels.length > 0) {
       const totalSpent = Number(updated.totalSpent);
-      let newLevel = levels[0];
-      for (const level of levels) {
+      const sortedByMinSpent = [...levels].sort((a, b) => Number(a.minSpent) - Number(b.minSpent));
+      let newLevel = sortedByMinSpent[0];
+      for (const level of sortedByMinSpent) {
         if (totalSpent >= Number(level.minSpent)) newLevel = level;
       }
       if (newLevel.name !== updated.level) {
@@ -170,7 +174,8 @@ export async function getLoyaltyDashboard(userId: number) {
 
   const currentLevel = levels.find((l) => l.name === account.level) || null;
   const currentIdx = levels.findIndex((l) => l.name === account.level);
-  const nextLevel = currentIdx >= 0 && currentIdx < levels.length - 1 ? levels[currentIdx + 1] : null;
+  const nextLevel =
+    currentIdx >= 0 && currentIdx < levels.length - 1 ? levels[currentIdx + 1] : null;
 
   const recentTransactions = await prisma.loyaltyTransaction.findMany({
     where: { userId },
@@ -178,7 +183,7 @@ export async function getLoyaltyDashboard(userId: number) {
     take: 10,
   });
 
-  const serializeLevel = (level: typeof levels[number]) => ({
+  const serializeLevel = (level: (typeof levels)[number]) => ({
     id: level.id,
     name: level.name,
     minSpent: Number(level.minSpent),
@@ -201,11 +206,7 @@ export async function getLoyaltyDashboard(userId: number) {
   };
 }
 
-export async function getTransactionHistory(
-  userId: number,
-  page: number,
-  limit: number
-) {
+export async function getTransactionHistory(userId: number, page: number, limit: number) {
   const skip = (page - 1) * limit;
 
   const [items, total] = await Promise.all([
@@ -227,8 +228,78 @@ export async function getLoyaltyLevels() {
   });
 }
 
+/**
+ * Aggregate loyalty program metrics for the admin overview widget.
+ * Returns earn/spend/expire totals for the given window plus top 10
+ * point holders. All amounts are integer point counts (1 point ≈ 1 ₴).
+ */
+export async function getLoyaltyStats(opts: { days?: number } = {}) {
+  const days = opts.days ?? 30;
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const txGrouped = await prisma.loyaltyTransaction.groupBy({
+    by: ['type'],
+    where: { createdAt: { gte: since } },
+    _sum: { points: true },
+    _count: { _all: true },
+  });
+
+  let earned = 0;
+  let spent = 0;
+  let expired = 0;
+  let adjusted = 0;
+  for (const row of txGrouped) {
+    const sum = row._sum.points || 0;
+    if (row.type === 'earn') earned += sum;
+    else if (row.type === 'spend') spent += sum;
+    else if (row.type === 'expire') expired += sum;
+    else if (row.type === 'manual_add' || row.type === 'manual_deduct') adjusted += sum;
+  }
+
+  // Top 10 holders — descending by current balance.
+  const topHolders = await prisma.loyaltyAccount.findMany({
+    where: { points: { gt: 0 } },
+    orderBy: { points: 'desc' },
+    take: 10,
+    include: {
+      user: { select: { id: true, email: true, fullName: true } },
+    },
+  });
+
+  // Total liability — sum of all positive balances (this is what we'd owe
+  // customers in discounts if they all redeemed today).
+  const liability = await prisma.loyaltyAccount.aggregate({
+    where: { points: { gt: 0 } },
+    _sum: { points: true },
+  });
+
+  return {
+    windowDays: days,
+    earned,
+    spent,
+    expired,
+    adjusted,
+    totalLiability: liability._sum.points || 0,
+    topHolders: topHolders.map((h) => ({
+      userId: h.userId,
+      email: h.user?.email ?? '',
+      fullName: h.user?.fullName ?? '',
+      points: h.points,
+      level: h.level,
+      totalSpent: Number(h.totalSpent),
+    })),
+  };
+}
+
 export async function updateLoyaltySettings(
-  levels: { name: string; minSpent: number; pointsMultiplier: number; discountPercent: number; sortOrder: number }[]
+  levels: {
+    name: string;
+    minSpent: number;
+    pointsMultiplier: number;
+    discountPercent: number;
+    sortOrder: number;
+  }[],
 ) {
   // Replace all levels atomically — a crash mid-loop would otherwise leave
   // an empty levels table, which makes recalculateLevel + earnPoints silently

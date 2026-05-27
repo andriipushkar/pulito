@@ -1,12 +1,14 @@
+import { sanitizeHtml } from '@/utils/sanitize';
+
 interface BlogContentProps {
   content: string;
 }
 
 /**
  * Renders blog post HTML content.
- * IMPORTANT: Content must be sanitized server-side before storing in the database.
- * The blog service should use a library like DOMPurify or sanitize-html
- * when creating/updating posts to prevent XSS attacks.
+ * Defense-in-depth: while createPost/updatePost already sanitize on write,
+ * we re-sanitize on render so a script that bypassed the service (e.g. raw
+ * Prisma in a one-off import) still can't execute. sanitize-html is cheap.
  */
 export default function BlogContent({ content }: BlogContentProps) {
   return (
@@ -25,7 +27,7 @@ export default function BlogContent({ content }: BlogContentProps) {
         prose-pre:rounded-[var(--radius)] prose-pre:bg-[var(--color-bg-secondary)] prose-pre:p-4
         prose-table:w-full prose-th:border prose-th:border-[var(--color-border)] prose-th:bg-[var(--color-bg-secondary)] prose-th:p-2
         prose-td:border prose-td:border-[var(--color-border)] prose-td:p-2"
-      dangerouslySetInnerHTML={{ __html: content }}
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
     />
   );
 }

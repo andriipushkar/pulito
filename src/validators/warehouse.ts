@@ -2,8 +2,12 @@ import { z } from 'zod';
 
 export const createWarehouseSchema = z.object({
   name: z.string().min(2, 'Мінімум 2 символи').max(200),
-  code: z.string().min(1, 'Код обов\'язковий').max(50).regex(/^[A-Za-z0-9_-]+$/, 'Код може містити лише латиницю, цифри, _ та -'),
-  city: z.string().min(2, 'Місто обов\'язкове').max(100),
+  code: z
+    .string()
+    .min(1, "Код обов'язковий")
+    .max(50)
+    .regex(/^[A-Za-z0-9_-]+$/, 'Код може містити лише латиницю, цифри, _ та -'),
+  city: z.string().min(2, "Місто обов'язкове").max(100),
   address: z.string().max(500).optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
@@ -12,7 +16,12 @@ export const createWarehouseSchema = z.object({
 
 export const updateWarehouseSchema = z.object({
   name: z.string().min(2, 'Мінімум 2 символи').max(200).optional(),
-  code: z.string().min(1).max(50).regex(/^[A-Za-z0-9_-]+$/, 'Код може містити лише латиницю, цифри, _ та -').optional(),
+  code: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[A-Za-z0-9_-]+$/, 'Код може містити лише латиницю, цифри, _ та -')
+    .optional(),
   city: z.string().min(2).max(100).optional(),
   address: z.string().max(500).optional(),
   latitude: z.number().min(-90).max(90).optional(),
@@ -20,11 +29,23 @@ export const updateWarehouseSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
+// 500 covers a realistic admin bulk-edit (paste a CSV of all SKUs in a small
+// warehouse). Above that, force the admin to chunk — single POST with 10k
+// upserts exhausts DB connections under load.
+export const STOCK_BULK_LIMIT = 500;
+
 export const updateStockSchema = z.object({
-  items: z.array(
-    z.object({
-      productId: z.number().int().positive('productId має бути додатнім числом'),
-      quantity: z.number().int().min(0, 'Кількість не може бути від\'ємною'),
-    })
-  ).min(1, 'Потрібен хоча б один товар'),
+  items: z
+    .array(
+      z.object({
+        productId: z.number().int().positive('productId має бути додатнім числом'),
+        quantity: z
+          .number()
+          .int()
+          .min(0, "Кількість не може бути від'ємною")
+          .max(1_000_000, 'Кількість занадто велика'),
+      }),
+    )
+    .min(1, 'Потрібен хоча б один товар')
+    .max(STOCK_BULK_LIMIT, `Максимум ${STOCK_BULK_LIMIT} позицій за раз — розбийте на пакети`),
 });

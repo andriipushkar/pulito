@@ -231,6 +231,30 @@ export async function removeProductFromIndex(productId: number): Promise<void> {
   }
 }
 
+// Upsert a search query for analytics. Normalised key = lowercased, trimmed,
+// whitespace collapsed. Ignored if shorter than 2 chars (random noise).
+async function logSearchQuery(rawTerm: string, resultsCount: number) {
+  const term = (rawTerm || '').trim();
+  if (term.length < 2 || term.length > 200) return;
+  const normalized = term.toLowerCase().replace(/\s+/g, ' ');
+  try {
+    const { prisma } = await import('@/lib/prisma');
+    await prisma.searchQuery.upsert({
+      where: { termNormalized: normalized },
+      update: {
+        count: { increment: 1 },
+        lastSearchedAt: new Date(),
+        // Always persist the latest results count — surface trend changes
+        // (e.g. query goes from 0 → many results after a product is added).
+        resultsCount,
+      },
+      create: { term, termNormalized: normalized, count: 1, resultsCount },
+    });
+  } catch {
+    // swallow — analytics must never break user-facing search
+  }
+}
+
 /**
  * Search products via Typesense with typo tolerance & instant results.
  */
@@ -261,12 +285,19 @@ export async function searchProducts(
         highlight_full_fields: 'name',
       });
 
+    const hits = (result.hits || []).map((hit) => ({
+      ...(hit.document as Record<string, unknown>),
+      id: Number((hit.document as { id: string }).id),
+      highlight: hit.highlights,
+    }));
+
+    // Search-intelligence: persist the query + result count so admin can see
+    // what users search for, especially zero-result queries (lost demand).
+    // Best-effort, never throws — search must succeed even if logging fails.
+    void logSearchQuery(query, result.found || 0).catch(() => {});
+
     return {
-      hits: (result.hits || []).map((hit) => ({
-        ...(hit.document as Record<string, unknown>),
-        id: Number((hit.document as { id: string }).id),
-        highlight: hit.highlights,
-      })),
+      hits,
       total: result.found,
       page: result.page,
     };

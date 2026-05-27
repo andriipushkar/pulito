@@ -1,9 +1,15 @@
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
+import { redis } from '@/lib/redis';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { logger } from '@/lib/logger';
+
+// Replay-protection window. Long enough that any reasonable provider retry
+// cycle (typically minutes) lands inside it, short enough that the Redis
+// keyspace stays bounded.
+const WEBHOOK_DEDUPE_TTL_SECONDS = 60 * 60 * 24; // 24h
 
 /**
  * Generic billing webhook for SaaS subscription payments. Accepts a payload
@@ -45,6 +51,17 @@ export async function POST(request: NextRequest) {
       return errorResponse('Невалідний підпис', 401);
     }
 
+    // Replay-protection: SET NX on the signature (which already covers
+    // provider+invoiceId+paid). A duplicate delivery from the provider's
+    // retry queue lands here with the same signature → second SET fails →
+    // we early-return without re-writing state or audit log.
+    const dedupeKey = `billing:webhook:${signature}`;
+    const wasSet = await redis.set(dedupeKey, '1', 'EX', WEBHOOK_DEDUPE_TTL_SECONDS, 'NX');
+    if (!wasSet) {
+      logger.info('[billing/webhook] duplicate delivery ignored', { provider, invoiceId });
+      return successResponse({ ok: true, duplicate: true });
+    }
+
     const invoice = await prisma.billingInvoice.findUnique({ where: { id: invoiceId } });
     if (!invoice) return errorResponse('Інвойс не знайдено', 404);
 
@@ -68,6 +85,13 @@ export async function POST(request: NextRequest) {
       if (claimed.count > 0) {
         logger.warn(`[billing/webhook] invoice ${invoiceId} reverted (refund?) by ${provider}`);
       }
+    } else if (!paid) {
+      // Provider reported failure / declined on an invoice that's still
+      // unpaid (pending/overdue). Don't change state, but log it — without
+      // this trace, a chain of rejected attempts is invisible to finance.
+      logger.warn(
+        `[billing/webhook] invoice ${invoiceId} rejected by ${provider} (status=${invoice.status})`,
+      );
     }
 
     // No user context — log as system action with provider in details.

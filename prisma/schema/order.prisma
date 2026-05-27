@@ -178,6 +178,11 @@ model Payment {
   paymentMethod   PaymentMethod @map("payment_method")
   paymentStatus   PaymentStatus @default(pending) @map("payment_status")
   amount          Decimal       @db.Decimal(10, 2)
+  // Running total of refunded amount. Defaults to 0; each successful refund
+  // increments it. Prevents over-refunding even if paymentStatus is manually
+  // flipped back to `paid` by an admin tool (which would otherwise re-open
+  // the refund window).
+  refundedAmount  Decimal       @default(0) @db.Decimal(10, 2) @map("refunded_amount")
   paidAt          DateTime?     @map("paid_at")
   confirmedBy     Int?          @map("confirmed_by")
   confirmer       User?         @relation("PaymentConfirmer", fields: [confirmedBy], references: [id])

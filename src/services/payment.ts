@@ -138,15 +138,15 @@ export async function handlePaymentCallback(
   } = callbackResult;
 
   // Replay protection: atomic SET NX ensures only one thread processes each
-  // webhook. When the provider response is missing a transactionId we fall
-  // back to (orderId,status,timestamp) instead of an empty string — otherwise
-  // every malformed-callback would share the same key `webhook:liqpay:` and
-  // dedupe each other (or a deliberate empty-ID retry could race against a
-  // legitimate later transactionId-bearing callback).
+  // webhook. Dedup fingerprint:
+  //   - With transactionId: use it directly — the provider's own unique key.
+  //   - Without transactionId: hash (orderId, status, amount, provider). Was
+  //     using Date.now() which made each call "unique", silently bypassing
+  //     replay protection — two webhooks 1ms apart would BOTH process.
   const dedupeKeyPart =
     transactionId && transactionId.length > 0
       ? transactionId
-      : `o${orderId}:s${status}:t${Date.now()}`;
+      : `o${orderId}:s${status}:a${paidAmount ?? 'na'}`;
   const webhookKey = `webhook:${provider}:${dedupeKeyPart}`;
   const wasSet = await redis.set(webhookKey, '1', 'EX', WEBHOOK_TTL_SECONDS, 'NX');
   if (!wasSet) {
@@ -154,7 +154,10 @@ export async function handlePaymentCallback(
     return; // Already processed
   }
 
-  // Amount validation: verify paid amount matches order total
+  // Amount validation: verify paid amount matches order total. A mismatch is
+  // a security signal (manipulated callback or kopecks/UAH confusion in a
+  // provider response) — we both REJECT the payment AND surface it via an
+  // audit-grade log so monitoring picks it up.
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     select: { totalAmount: true, orderNumber: true, userId: true },
@@ -164,12 +167,35 @@ export async function handlePaymentCallback(
 
   if (status === 'success' && paidAmount != null && order) {
     const expectedAmount = Number(order.totalAmount);
-    if (Math.abs(paidAmount - expectedAmount) > 0.01) {
-      logger.warn('Payment amount mismatch', {
+    const diff = Math.abs(paidAmount - expectedAmount);
+
+    // Defensive sanity check: if paidAmount is ~100× expected, the provider
+    // likely sent kopecks instead of hryvnias (or vice versa). Surface as a
+    // distinct log signature so ops can spot a misconfigured provider quickly.
+    if (
+      expectedAmount > 0 &&
+      Math.abs(paidAmount / expectedAmount - 100) < 1 &&
+      paidAmount > expectedAmount
+    ) {
+      logger.error('PAYMENT_AMOUNT_LIKELY_KOPECKS_CONFUSION', {
         orderId,
         provider,
         paidAmount,
         expectedAmount,
+        hint: 'paidAmount ≈ 100× expected — check if provider switched to kopecks unit',
+      });
+    }
+
+    if (diff > 0.01) {
+      // Audit-grade signal — payment amount mismatch is a serious anomaly,
+      // not just a warning. Log with a fixed signature so monitoring can
+      // alert on it.
+      logger.error('PAYMENT_AMOUNT_MISMATCH', {
+        orderId,
+        provider,
+        paidAmount,
+        expectedAmount,
+        diff,
       });
       effectiveStatus = 'failure';
     }
@@ -296,6 +322,7 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
       paymentProvider: true,
       transactionId: true,
       amount: true,
+      refundedAmount: true,
       order: {
         select: { orderNumber: true, totalAmount: true, status: true },
       },
@@ -306,7 +333,7 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
     throw new PaymentError('Платіж не знайдено', 404);
   }
 
-  if (payment.paymentStatus !== 'paid') {
+  if (!['paid', 'partial'].includes(payment.paymentStatus)) {
     throw new PaymentError('Повернення можливе тільки для оплачених замовлень', 400);
   }
 
@@ -315,14 +342,23 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
   }
 
   const paidAmount = Number(payment.amount);
-  const refundAmount = amount ?? paidAmount;
-  if (refundAmount > paidAmount) {
+  const alreadyRefunded = Number(payment.refundedAmount);
+  const remaining = paidAmount - alreadyRefunded;
+  const refundAmount = amount ?? remaining;
+  // Accumulated check: every refund (this + prior partials) must fit inside
+  // the paid total. Defends against the case where paymentStatus was manually
+  // flipped back to `paid` after a partial refund.
+  if (refundAmount > remaining + 0.01) {
     throw new PaymentError(
-      `Сума повернення (${refundAmount}) перевищує сплачену (${paidAmount})`,
+      `Сума повернення (${refundAmount}) перевищує доступну (${remaining.toFixed(2)} = ` +
+        `сплачено ${paidAmount} − вже повернуто ${alreadyRefunded})`,
       400,
     );
   }
-  const isPartial = refundAmount < paidAmount;
+  if (refundAmount <= 0) {
+    throw new PaymentError('Сума повернення має бути додатною', 400);
+  }
+  const isPartial = alreadyRefunded + refundAmount < paidAmount;
   const provider = payment.paymentProvider as PaymentProvider;
 
   // Serialise concurrent refunds for the same order. Without this, two
@@ -382,7 +418,10 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
       await prisma.$transaction([
         prisma.payment.update({
           where: { orderId },
-          data: { paymentStatus: newPaymentStatus },
+          data: {
+            paymentStatus: newPaymentStatus,
+            refundedAmount: { increment: refundAmount },
+          },
         }),
         prisma.order.update({
           where: { id: orderId },

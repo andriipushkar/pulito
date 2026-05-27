@@ -4,7 +4,7 @@ import { sanitizeHtml } from '@/utils/sanitize';
 export class FaqError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'FaqError';
@@ -65,16 +65,24 @@ export async function getFaqCategories() {
   return Array.from(names).sort();
 }
 
+const MAX_SEARCH_QUERY_LENGTH = 200;
+
 export async function searchFaq(query: string) {
+  // Truncate + strip control chars. Long contains() patterns scan every
+  // FaqItem.answer (no full-text index here yet); a 5k-char query would
+  // turn the FAQ search into a DoS hot-path.
+
+  const cleaned = query.replace(/[\x00-\x1F\x7F]/g, ' ').slice(0, MAX_SEARCH_QUERY_LENGTH);
   return prisma.faqItem.findMany({
     where: {
       isPublished: true,
       OR: [
-        { question: { contains: query, mode: 'insensitive' } },
-        { answer: { contains: query, mode: 'insensitive' } },
+        { question: { contains: cleaned, mode: 'insensitive' } },
+        { answer: { contains: cleaned, mode: 'insensitive' } },
       ],
     },
     orderBy: { clickCount: 'desc' },
+    take: 50,
   });
 }
 
@@ -95,6 +103,8 @@ export async function createFaqItem(data: {
   category: string;
   question: string;
   answer: string;
+  questionEn?: string;
+  answerEn?: string;
   sortOrder?: number;
   isPublished?: boolean;
 }) {
@@ -105,6 +115,8 @@ export async function createFaqItem(data: {
       // Answer is rendered as HTML on the storefront — sanitize at write time
       // so a stored-XSS payload can't reach the visitor's browser.
       answer: sanitizeHtml(data.answer),
+      questionEn: data.questionEn || null,
+      answerEn: data.answerEn ? sanitizeHtml(data.answerEn) : null,
       sortOrder: data.sortOrder ?? 0,
       isPublished: data.isPublished ?? true,
     },
@@ -117,18 +129,25 @@ export async function updateFaqItem(
     category?: string;
     question?: string;
     answer?: string;
+    questionEn?: string;
+    answerEn?: string;
     sortOrder?: number;
     isPublished?: boolean;
-  }
+  },
 ) {
   const item = await prisma.faqItem.findUnique({ where: { id } });
   if (!item) throw new FaqError('Питання не знайдено', 404);
 
+  // Build a typed update payload so EN fields convert empty → null instead of
+  // being treated as an unrelated string property by the spread above.
+  const { questionEn, answerEn, ...rest } = data;
   return prisma.faqItem.update({
     where: { id },
     data: {
-      ...data,
-      ...(data.answer !== undefined && { answer: sanitizeHtml(data.answer) }),
+      ...rest,
+      ...(rest.answer !== undefined && { answer: sanitizeHtml(rest.answer) }),
+      ...(questionEn !== undefined && { questionEn: questionEn || null }),
+      ...(answerEn !== undefined && { answerEn: answerEn ? sanitizeHtml(answerEn) : null }),
     },
   });
 }

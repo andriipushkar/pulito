@@ -24,6 +24,15 @@ export class MonobankError extends Error {
 
 let cachedPubKey: { key: crypto.KeyObject; expiresAt: number } | null = null;
 
+/**
+ * Force the next getMonoPubKey() call to re-fetch from Monobank's endpoint.
+ * Called after a signature verification failure so a key rotation is picked
+ * up immediately instead of being accepted-as-forged for up to 24h.
+ */
+function invalidateMonoPubKey(): void {
+  cachedPubKey = null;
+}
+
 async function getMonoPubKey(): Promise<crypto.KeyObject> {
   if (cachedPubKey && cachedPubKey.expiresAt > Date.now()) {
     return cachedPubKey.key;
@@ -167,7 +176,20 @@ export async function verifyCallback(
   );
 
   if (!isValid) {
-    throw new MonobankError('Invalid Monobank signature', 403);
+    // Mono may have rotated their signing key. Drop the cached pubkey and
+    // try ONCE more with a fresh fetch — if the second attempt also fails,
+    // the signature really is invalid (legit forge attempt) and we throw.
+    invalidateMonoPubKey();
+    const freshKey = await getMonoPubKey();
+    const isValidRetry = crypto.verify(
+      'SHA256',
+      Buffer.from(body),
+      freshKey,
+      Buffer.from(xSignHeader, 'base64'),
+    );
+    if (!isValidRetry) {
+      throw new MonobankError('Invalid Monobank signature', 403);
+    }
   }
 
   const data: MonobankCallbackData = JSON.parse(body);

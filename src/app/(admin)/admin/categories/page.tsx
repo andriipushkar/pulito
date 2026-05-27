@@ -37,6 +37,10 @@ interface AdminCategory {
   description: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
+  nameEn: string | null;
+  descriptionEn: string | null;
+  seoTitleEn: string | null;
+  seoDescriptionEn: string | null;
   coverImage: string | null;
   iconPath: string | null;
   version?: number;
@@ -52,6 +56,10 @@ interface CategoryEditForm {
   description: string;
   seoTitle: string;
   seoDescription: string;
+  nameEn: string;
+  descriptionEn: string;
+  seoTitleEn: string;
+  seoDescriptionEn: string;
   coverImage: string;
   iconPath: string;
 }
@@ -69,6 +77,10 @@ export default function AdminCategoriesPage() {
     description: '',
     seoTitle: '',
     seoDescription: '',
+    nameEn: '',
+    descriptionEn: '',
+    seoTitleEn: '',
+    seoDescriptionEn: '',
     coverImage: '',
     iconPath: '',
   });
@@ -87,6 +99,10 @@ export default function AdminCategoriesPage() {
     description: '',
     seoTitle: '',
     seoDescription: '',
+    nameEn: '',
+    descriptionEn: '',
+    seoTitleEn: '',
+    seoDescriptionEn: '',
     coverImage: '',
     iconPath: '',
   };
@@ -299,6 +315,10 @@ export default function AdminCategoriesPage() {
       description: cat.description || '',
       seoTitle: cat.seoTitle || '',
       seoDescription: cat.seoDescription || '',
+      nameEn: cat.nameEn || '',
+      descriptionEn: cat.descriptionEn || '',
+      seoTitleEn: cat.seoTitleEn || '',
+      seoDescriptionEn: cat.seoDescriptionEn || '',
       coverImage: cat.coverImage || '',
       iconPath: cat.iconPath || '',
     });
@@ -349,6 +369,10 @@ export default function AdminCategoriesPage() {
         description: editForm.description.trim() || null,
         seoTitle: editForm.seoTitle.trim() || null,
         seoDescription: editForm.seoDescription.trim() || null,
+        nameEn: editForm.nameEn.trim() || null,
+        descriptionEn: editForm.descriptionEn.trim() || null,
+        seoTitleEn: editForm.seoTitleEn.trim() || null,
+        seoDescriptionEn: editForm.seoDescriptionEn.trim() || null,
         coverImage: editForm.coverImage.trim() || null,
         iconPath: editForm.iconPath.trim() || null,
         version: current?.version,
@@ -489,6 +513,10 @@ export default function AdminCategoriesPage() {
         description: createForm.description.trim() || null,
         seoTitle: createForm.seoTitle.trim() || null,
         seoDescription: createForm.seoDescription.trim() || null,
+        nameEn: createForm.nameEn.trim() || null,
+        descriptionEn: createForm.descriptionEn.trim() || null,
+        seoTitleEn: createForm.seoTitleEn.trim() || null,
+        seoDescriptionEn: createForm.seoDescriptionEn.trim() || null,
         coverImage: createForm.coverImage.trim() || null,
         iconPath: createForm.iconPath.trim() || null,
       };
@@ -747,6 +775,49 @@ export default function AdminCategoriesPage() {
                 </p>
               </div>
             </div>
+
+            <details className="mt-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+              <summary className="cursor-pointer text-xs font-semibold">
+                <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                  EN
+                </span>
+                Англійський переклад (опційно)
+              </summary>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <Input
+                  label="Name (EN)"
+                  value={createForm.nameEn}
+                  onChange={(e) => setCreateForm({ ...createForm, nameEn: e.target.value })}
+                />
+                <Input
+                  label="SEO Title (EN)"
+                  value={createForm.seoTitleEn}
+                  onChange={(e) => setCreateForm({ ...createForm, seoTitleEn: e.target.value })}
+                />
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-xs font-medium">Description (EN)</label>
+                  <textarea
+                    value={createForm.descriptionEn}
+                    onChange={(e) =>
+                      setCreateForm({ ...createForm, descriptionEn: e.target.value })
+                    }
+                    rows={3}
+                    className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-xs font-medium">SEO Description (EN)</label>
+                  <textarea
+                    value={createForm.seoDescriptionEn}
+                    onChange={(e) =>
+                      setCreateForm({ ...createForm, seoDescriptionEn: e.target.value })
+                    }
+                    rows={2}
+                    className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                  />
+                </div>
+              </div>
+            </details>
           </div>
 
           <div className="mt-3 flex justify-end gap-2">
@@ -1222,6 +1293,47 @@ function SortableCategoryRow({
               </p>
             </div>
           </div>
+
+          <details className="mt-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+            <summary className="cursor-pointer text-xs font-semibold">
+              <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                EN
+              </span>
+              Англійський переклад (опційно)
+            </summary>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <Input
+                label="Name (EN)"
+                value={editForm.nameEn}
+                onChange={(e) => onEditFormChange({ ...editForm, nameEn: e.target.value })}
+              />
+              <Input
+                label="SEO Title (EN)"
+                value={editForm.seoTitleEn}
+                onChange={(e) => onEditFormChange({ ...editForm, seoTitleEn: e.target.value })}
+              />
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-xs font-medium">Description (EN)</label>
+                <textarea
+                  value={editForm.descriptionEn}
+                  onChange={(e) => onEditFormChange({ ...editForm, descriptionEn: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-xs font-medium">SEO Description (EN)</label>
+                <textarea
+                  value={editForm.seoDescriptionEn}
+                  onChange={(e) =>
+                    onEditFormChange({ ...editForm, seoDescriptionEn: e.target.value })
+                  }
+                  rows={2}
+                  className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+            </div>
+          </details>
         </div>
 
         <div className="mt-3 flex justify-end gap-2">

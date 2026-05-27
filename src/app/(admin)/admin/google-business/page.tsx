@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -102,9 +103,9 @@ export default function GoogleBusinessPage() {
           <p className="font-semibold text-amber-900">Інтеграція не налаштована</p>
           <p className="mt-1 text-amber-800">
             Щоб бачити рейтинг та відгуки з Google Maps, додайте у{' '}
-            <a className="underline" href="/admin/settings">
+            <Link className="underline" href="/admin/settings">
               налаштуваннях сайту
-            </a>{' '}
+            </Link>{' '}
             два значення:
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-800">
@@ -204,7 +205,9 @@ export default function GoogleBusinessPage() {
         <h3 className="mb-3 text-lg font-semibold">Останні відгуки</h3>
         {d.reviews.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-8 text-center text-[var(--color-text-secondary)]">
-            <span className="text-2xl" aria-hidden="true">⭐</span>
+            <span className="text-2xl" aria-hidden="true">
+              ⭐
+            </span>
             <p className="text-sm">Відгуків ще немає</p>
             {d.reviewUrl && (
               <a

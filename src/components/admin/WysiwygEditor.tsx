@@ -14,6 +14,15 @@ import Color from '@tiptap/extension-color';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { plural } from '@/utils/format';
 
+// Refuse to embed any URL whose scheme is not in this allow-list. Tiptap will
+// happily store `javascript:` / `data:` / `vbscript:` hrefs — they get stripped
+// by DOMPurify at render time *today*, but the dangerous string still lives in
+// the saved HTML. Filtering at input time makes the stored HTML safe by design.
+const ALLOWED_URL_SCHEMES = /^(https?:|\/|mailto:|tel:|#)/i;
+function isSafeEditorUrl(value: string): boolean {
+  return ALLOWED_URL_SCHEMES.test(value.trim());
+}
+
 interface WysiwygEditorProps {
   value: string;
   onChange: (html: string) => void;
@@ -57,8 +66,7 @@ export default function WysiwygEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class:
-          'prose max-w-none min-h-[200px] px-4 py-3 text-sm outline-none focus:outline-none',
+        class: 'prose max-w-none min-h-[200px] px-4 py-3 text-sm outline-none focus:outline-none',
       },
     },
     onUpdate: ({ editor }) => {
@@ -94,7 +102,10 @@ export default function WysiwygEditor({
       setUploading((n) => n + images.length);
       for (const file of images) {
         const url = await uploadImageToServer(file);
-        if (url) editor.chain().focus().setImage({ src: url }).run();
+        if (url) {
+          const alt = promptForAltText(filenameToAlt(file.name));
+          if (alt !== null) editor.chain().focus().setImage({ src: url, alt }).run();
+        }
         setUploading((n) => n - 1);
       }
     };
@@ -191,6 +202,28 @@ export default function WysiwygEditor({
       </div>
     </div>
   );
+}
+
+/** Turn a filename like "ваза-керамічна-001.jpg" into a sensible alt default. */
+function filenameToAlt(filename: string): string {
+  return filename
+    .replace(/\.[^.]+$/, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Block-insertion ask for alt text. Returns trimmed value or null if user
+ * cancelled. Empty input falls back to the default so we never insert an
+ * image with empty alt — bad for SEO and screen readers. */
+function promptForAltText(defaultValue: string): string | null {
+  const answer = window.prompt(
+    'Опис зображення (alt) — обов’язково для SEO та доступності:',
+    defaultValue,
+  );
+  if (answer === null) return null;
+  const trimmed = answer.trim();
+  return trimmed || defaultValue || 'Зображення';
 }
 
 async function uploadImageToServer(file: File): Promise<string | null> {
@@ -473,7 +506,11 @@ function Toolbar({
             editor.chain().focus().extendMarkRange('link').unsetLink().run();
             return;
           }
-          editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+          if (!isSafeEditorUrl(url)) {
+            window.alert('Дозволені лише https://, http://, mailto:, tel:, /path, #anchor');
+            return;
+          }
+          editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
         }}
         active={editor.isActive('link')}
         disabled={sourceOnly}
@@ -497,7 +534,10 @@ function Toolbar({
           const file = e.target.files?.[0];
           if (file) {
             const url = await uploadImageToServer(file);
-            if (url) editor.chain().focus().setImage({ src: url }).run();
+            if (url) {
+              const alt = promptForAltText(filenameToAlt(file.name));
+              if (alt !== null) editor.chain().focus().setImage({ src: url, alt }).run();
+            }
           }
           e.target.value = '';
         }}
@@ -505,7 +545,13 @@ function Toolbar({
       <Btn
         onClick={() => {
           const url = window.prompt('URL зображення:');
-          if (url) editor.chain().focus().setImage({ src: url }).run();
+          if (!url) return;
+          if (!isSafeEditorUrl(url)) {
+            window.alert('Дозволені лише https://, http://, /path');
+            return;
+          }
+          const alt = promptForAltText(filenameToAlt(url.split('/').pop() || ''));
+          if (alt !== null) editor.chain().focus().setImage({ src: url.trim(), alt }).run();
         }}
         disabled={sourceOnly}
         title="Зображення за URL"
@@ -525,10 +571,16 @@ function Toolbar({
       {inTable && !sourceOnly && (
         <>
           <Sep />
-          <Btn onClick={() => editor.chain().focus().addRowBefore().run()} title="Додати рядок вище">
+          <Btn
+            onClick={() => editor.chain().focus().addRowBefore().run()}
+            title="Додати рядок вище"
+          >
             ↑+
           </Btn>
-          <Btn onClick={() => editor.chain().focus().addRowAfter().run()} title="Додати рядок нижче">
+          <Btn
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+            title="Додати рядок нижче"
+          >
             ↓+
           </Btn>
           <Btn onClick={() => editor.chain().focus().deleteRow().run()} title="Видалити рядок">

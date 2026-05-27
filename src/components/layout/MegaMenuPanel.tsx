@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { ChevronRight } from '@/components/icons';
 import type { CategoryWithChildren } from '@/types/category';
 
@@ -138,7 +138,10 @@ export default function MegaMenuPanel({ category, onClose, promoBanner }: MegaMe
 
             {/* Promotional banner slot */}
             {promoBanner && (
-              <div className="mt-4 border-t border-[var(--color-border)] pt-4" data-testid="promo-banner">
+              <div
+                className="mt-4 border-t border-[var(--color-border)] pt-4"
+                data-testid="promo-banner"
+              >
                 {promoBanner}
               </div>
             )}
@@ -158,9 +161,7 @@ export default function MegaMenuPanel({ category, onClose, promoBanner }: MegaMe
               <div className="absolute inset-x-0 bottom-0 p-4">
                 <p className="text-lg font-semibold text-white">{category.name}</p>
                 {category.description && (
-                  <p className="mt-1 line-clamp-2 text-sm text-white/80">
-                    {category.description}
-                  </p>
+                  <p className="mt-1 line-clamp-2 text-sm text-white/80">{category.description}</p>
                 )}
               </div>
             </div>

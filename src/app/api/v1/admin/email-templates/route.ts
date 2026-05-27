@@ -5,7 +5,10 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { sanitizeHtml } from '@/utils/sanitize';
 import { logAudit } from '@/services/audit';
 
-export const GET = withRole('admin', 'manager')(async () => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async () => {
   try {
     const templates = await prisma.emailTemplate.findMany({
       orderBy: { templateKey: 'asc' },
@@ -23,7 +26,22 @@ export const POST = withRole('admin')(async (request: NextRequest, { user }) => 
     const { templateKey, subject, bodyHtml, bodyText, isMarketing } = body;
 
     if (!templateKey || !subject || !bodyHtml) {
-      return errorResponse('templateKey, subject та bodyHtml обов\'язкові', 400);
+      return errorResponse("templateKey, subject та bodyHtml обов'язкові", 400);
+    }
+    // Length caps — body up to 200 KB (transactional templates rarely
+    // exceed 50 KB), subject up to 300 chars (RFC suggests ≤78 for ASCII;
+    // 300 covers Unicode and a small margin).
+    if (String(templateKey).length > 100) {
+      return errorResponse('templateKey занадто довгий', 422);
+    }
+    if (String(subject).length > 300) {
+      return errorResponse('subject має бути ≤300 символів', 422);
+    }
+    if (String(bodyHtml).length > 200_000) {
+      return errorResponse('bodyHtml занадто великий (макс 200 KB)', 422);
+    }
+    if (bodyText && String(bodyText).length > 50_000) {
+      return errorResponse('bodyText занадто великий (макс 50 KB)', 422);
     }
 
     const existing = await prisma.emailTemplate.findUnique({ where: { templateKey } });

@@ -77,7 +77,7 @@ export const MARKETPLACES = [
         placeholder: 'Секрет для перевірки підпису webhook',
         sensitive: true,
         optional: true,
-        help: 'Якщо OLX підписує webhook, вставте сюди секрет. Без нього всі POST приймаються без перевірки.',
+        help: 'Секрет від OLX для перевірки HMAC-підпису webhook. У production без нього всі POST блокуються (503) — інакше зловмисник може надсилати фейкові події. Не optional на проді.',
       },
       {
         key: 'priceMarkupPercent',
@@ -85,7 +85,7 @@ export const MARKETPLACES = [
         placeholder: '0',
         sensitive: false,
         optional: true,
-        help: 'Націнка до базової ціни (можна від\'ємну). Наприклад, 5 = +5%, -3 = -3%. Діапазон ±50%.',
+        help: "Націнка до базової ціни (можна від'ємну). Наприклад, 5 = +5%, -3 = -3%. Діапазон ±50%.",
       },
       {
         key: 'stockAllocationPercent',
@@ -94,6 +94,14 @@ export const MARKETPLACES = [
         sensitive: false,
         optional: true,
         help: 'Який % загального залишку показувати на цьому маркетплейсі. 100 = весь залишок, 30 = 30%. Корисно щоб ділити запас між маркетплейсами і уникнути overselling.',
+      },
+      {
+        key: 'commissionPercent',
+        label: 'Комісія маркетплейсу, %',
+        placeholder: '15',
+        sensitive: false,
+        optional: true,
+        help: 'Середня комісія цього маркетплейсу з продажу (5-25%). Використовується для розрахунку чистого прибутку в Аналітиці. Залиште 0, якщо не знаєте — буде показано лише виручку.',
       },
       {
         key: 'clientSecret',
@@ -145,7 +153,7 @@ export const MARKETPLACES = [
         placeholder: 'Секрет для перевірки підпису webhook',
         sensitive: true,
         optional: true,
-        help: 'Секрет з налаштувань webhook у кабінеті Rozetka. Без нього всі POST приймаються без перевірки.',
+        help: 'Секрет з налаштувань webhook у кабінеті Rozetka для перевірки HMAC-підпису. У production без нього всі POST блокуються (503). Не optional на проді.',
       },
       {
         key: 'priceMarkupPercent',
@@ -153,7 +161,7 @@ export const MARKETPLACES = [
         placeholder: '0',
         sensitive: false,
         optional: true,
-        help: 'Націнка до базової ціни (можна від\'ємну). Наприклад, 5 = +5%, -3 = -3%. Діапазон ±50%.',
+        help: "Націнка до базової ціни (можна від'ємну). Наприклад, 5 = +5%, -3 = -3%. Діапазон ±50%.",
       },
       {
         key: 'stockAllocationPercent',
@@ -162,6 +170,14 @@ export const MARKETPLACES = [
         sensitive: false,
         optional: true,
         help: 'Який % загального залишку показувати на цьому маркетплейсі. 100 = весь залишок, 30 = 30%. Корисно щоб ділити запас між маркетплейсами і уникнути overselling.',
+      },
+      {
+        key: 'commissionPercent',
+        label: 'Комісія маркетплейсу, %',
+        placeholder: '15',
+        sensitive: false,
+        optional: true,
+        help: 'Середня комісія цього маркетплейсу з продажу (5-25%). Використовується для розрахунку чистого прибутку в Аналітиці. Залиште 0, якщо не знаєте — буде показано лише виручку.',
       },
     ],
   },
@@ -189,7 +205,7 @@ export const MARKETPLACES = [
         placeholder: 'Секрет для перевірки підпису webhook',
         sensitive: true,
         optional: true,
-        help: 'Секрет з налаштувань webhook у кабінеті Prom. Без нього всі POST приймаються без перевірки.',
+        help: 'Секрет з налаштувань webhook у кабінеті Prom для перевірки HMAC-підпису. У production без нього всі POST блокуються (503). Не optional на проді.',
       },
       {
         key: 'priceMarkupPercent',
@@ -197,7 +213,7 @@ export const MARKETPLACES = [
         placeholder: '0',
         sensitive: false,
         optional: true,
-        help: 'Націнка до базової ціни (можна від\'ємну). Наприклад, 5 = +5%, -3 = -3%. Діапазон ±50%.',
+        help: "Націнка до базової ціни (можна від'ємну). Наприклад, 5 = +5%, -3 = -3%. Діапазон ±50%.",
       },
       {
         key: 'stockAllocationPercent',
@@ -206,6 +222,14 @@ export const MARKETPLACES = [
         sensitive: false,
         optional: true,
         help: 'Який % загального залишку показувати на цьому маркетплейсі. 100 = весь залишок, 30 = 30%. Корисно щоб ділити запас між маркетплейсами і уникнути overselling.',
+      },
+      {
+        key: 'commissionPercent',
+        label: 'Комісія маркетплейсу, %',
+        placeholder: '15',
+        sensitive: false,
+        optional: true,
+        help: 'Середня комісія цього маркетплейсу з продажу (5-25%). Використовується для розрахунку чистого прибутку в Аналітиці. Залиште 0, якщо не знаєте — буде показано лише виручку.',
       },
     ],
   },
@@ -241,7 +265,7 @@ export const MARKETPLACES = [
         placeholder: 'Секрет для перевірки підпису webhook',
         sensitive: true,
         optional: true,
-        help: 'Секрет з налаштувань webhook у кабінеті Epicentr. Без нього всі POST приймаються без перевірки.',
+        help: 'Секрет з налаштувань webhook у кабінеті Epicentr для перевірки HMAC-підпису. У production без нього всі POST блокуються (503). Не optional на проді.',
       },
       {
         key: 'priceMarkupPercent',
@@ -249,7 +273,7 @@ export const MARKETPLACES = [
         placeholder: '0',
         sensitive: false,
         optional: true,
-        help: 'Націнка до базової ціни (можна від\'ємну). Наприклад, 5 = +5%, -3 = -3%. Діапазон ±50%.',
+        help: "Націнка до базової ціни (можна від'ємну). Наприклад, 5 = +5%, -3 = -3%. Діапазон ±50%.",
       },
       {
         key: 'stockAllocationPercent',
@@ -259,9 +283,24 @@ export const MARKETPLACES = [
         optional: true,
         help: 'Який % загального залишку показувати на цьому маркетплейсі. 100 = весь залишок, 30 = 30%. Корисно щоб ділити запас між маркетплейсами і уникнути overselling.',
       },
+      {
+        key: 'commissionPercent',
+        label: 'Комісія маркетплейсу, %',
+        placeholder: '15',
+        sensitive: false,
+        optional: true,
+        help: 'Середня комісія цього маркетплейсу з продажу (5-25%). Використовується для розрахунку чистого прибутку в Аналітиці. Залиште 0, якщо не знаєте — буде показано лише виручку.',
+      },
     ],
   },
 ] as const;
+
+// O(1) lookup map. Each MARKETPLACES.find(m => m.key === k) call inside JSX
+// rendered O(N) per row, which adds up across history/products/analytics
+// tables on big shops. Build the index once.
+export const MARKETPLACE_BY_KEY: Record<string, (typeof MARKETPLACES)[number]> = Object.fromEntries(
+  MARKETPLACES.map((m) => [m.key, m]),
+);
 
 export type TabKey = 'products' | 'history' | 'messages' | 'analytics' | 'settings';
 

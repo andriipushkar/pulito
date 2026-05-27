@@ -4,6 +4,8 @@ import { withRole } from '@/middleware/auth';
 import { addOrdersToPallet, removeOrderFromPallet, PalletError } from '@/services/pallet';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 const addSchema = z.object({
   orderIds: z.array(z.number().int().positive()).min(1).max(50),
@@ -14,7 +16,7 @@ const addSchema = z.object({
 export const POST = withRole(
   'manager',
   'admin',
-)(async (request: NextRequest, { params }) => {
+)(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -25,6 +27,14 @@ export const POST = withRole(
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
     const pallet = await addOrdersToPallet(numId, parsed.data.orderIds);
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'pallet',
+      entityId: numId,
+      details: { action: 'add_orders', orderIds: parsed.data.orderIds },
+      ipAddress: getClientIp(request),
+    });
     return successResponse(pallet);
   } catch (err) {
     if (err instanceof PalletError) return errorResponse(err.message, err.statusCode);
@@ -36,7 +46,7 @@ export const POST = withRole(
 export const DELETE = withRole(
   'manager',
   'admin',
-)(async (request: NextRequest, { params }) => {
+)(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const palletId = Number(id);
@@ -45,6 +55,14 @@ export const DELETE = withRole(
     const orderId = Number(orderIdRaw);
     if (!orderIdRaw || isNaN(orderId)) return errorResponse('Очікувався ?orderId=', 400);
     const pallet = await removeOrderFromPallet(palletId, orderId);
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'pallet',
+      entityId: palletId,
+      details: { action: 'remove_order', orderId },
+      ipAddress: getClientIp(request),
+    });
     return successResponse(pallet);
   } catch (err) {
     if (err instanceof PalletError) return errorResponse(err.message, err.statusCode);

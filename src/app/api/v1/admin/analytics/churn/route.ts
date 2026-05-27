@@ -15,12 +15,21 @@ export const GET = withRole(
 
     const now = new Date();
 
-    // Get all customers who had orders before the analysis period
+    // Get customers who had orders within an extended lookback window.
+    // Previously this groupBy had no date filter — on shops with multi-year
+    // history (100k+ customers across all time) it loaded the entire
+    // customer base into memory just to compute a single churn metric.
+    // 3× the analysis window is enough to detect "lapsed" customers
+    // without dragging the dead inventory of 2018 customers into RAM.
+    const lookbackSince = new Date();
+    lookbackSince.setDate(lookbackSince.getDate() - days * 3);
+
     const allCustomers = await prisma.order.groupBy({
       by: ['userId'],
       where: {
         userId: { not: null },
         NOT: [{ status: 'cancelled' }, { status: 'returned' }],
+        createdAt: { gte: lookbackSince },
       },
       _count: { id: true },
       _sum: { totalAmount: true },

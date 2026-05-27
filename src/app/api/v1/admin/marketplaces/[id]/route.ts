@@ -176,11 +176,42 @@ export const DELETE = withRole(
       return errorResponse('Невідомий маркетплейс', 400);
     }
 
-    const result = await deleteMarketplaceListing(channel, externalId);
+    // Idempotency lock: atomically transition the matching publicationChannel
+    // row into a transient `deleting` status. If the row was already in that
+    // state, another concurrent DELETE is in flight — return 409 instead of
+    // hitting the marketplace API a second time (which on OLX/Rozetka would
+    // surface as a confusing "listing not found" error to the user).
+    const { prisma } = await import('@/lib/prisma');
+    const existing = await prisma.publicationChannel.findFirst({
+      where: { channel, externalId },
+    });
+    if (existing) {
+      const claim = await prisma.publicationChannel.updateMany({
+        where: { id: existing.id, NOT: { status: 'deleting' } },
+        data: { status: 'deleting' },
+      });
+      if (claim.count === 0) {
+        return errorResponse('Видалення вже виконується', 409);
+      }
+    }
+
+    let result;
+    try {
+      result = await deleteMarketplaceListing(channel, externalId);
+    } catch (err) {
+      // Roll the lock back so the user can retry — otherwise the listing
+      // would stay stuck in `deleting`.
+      if (existing) {
+        await prisma.publicationChannel.updateMany({
+          where: { id: existing.id },
+          data: { status: existing.status },
+        });
+      }
+      throw err;
+    }
 
     if (result.status === 'published') {
       // Mirror the deletion in our DB so the listing no longer shows as published.
-      const { prisma } = await import('@/lib/prisma');
       await prisma.publicationChannel.updateMany({
         where: { channel, externalId },
         data: { status: 'unpublished', externalId: null, permalink: null },
@@ -192,6 +223,14 @@ export const DELETE = withRole(
         details: { channel, externalId },
       });
       return successResponse({ deleted: true });
+    }
+
+    // Marketplace API failed — restore previous status so the user can retry.
+    if (existing) {
+      await prisma.publicationChannel.updateMany({
+        where: { id: existing.id },
+        data: { status: existing.status },
+      });
     }
     return errorResponse(result.error || 'Помилка видалення', 400);
   } catch (err) {

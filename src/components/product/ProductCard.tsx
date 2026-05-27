@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { toast } from 'sonner';
 import Badge from '@/components/ui/Badge';
 import PriceDisplay from './PriceDisplay';
@@ -98,10 +98,17 @@ export default function ProductCard({ product }: ProductCardProps) {
       ? Math.round(((oldPrice - currentPrice) / oldPrice) * 100)
       : 0;
 
-  const isNew = (() => {
+  // Prefer server-computed isNew (via serializeProduct) so SSR/CSR agree on the
+  // first paint. Fall back to client computation for any caller that bypassed
+  // the serializer (e.g. older fetch paths that hand-build product objects).
+  const [isNew, setIsNew] = useState<boolean>(product.isNew ?? false);
+  useEffect(() => {
+    if (product.isNew !== undefined) return;
+    if (!product.createdAt) return;
     const created = new Date(product.createdAt as string | Date).getTime();
-    return Number.isFinite(created) && Date.now() - created < 30 * 24 * 60 * 60 * 1000;
-  })();
+    if (!Number.isFinite(created)) return;
+    setIsNew(Date.now() - created < 30 * 24 * 60 * 60 * 1000);
+  }, [product.createdAt, product.isNew]);
 
   const avgRating = product.avgRating ?? null;
   const reviewCount = product.reviewCount ?? 0;

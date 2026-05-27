@@ -6,6 +6,7 @@ import {
   cancelStockCount,
   StockCountError,
 } from '@/services/stock-count';
+import { stockCountActionSchema } from '@/validators/stock-count';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 
@@ -33,16 +34,21 @@ export const PUT = withRole(
   try {
     const { id } = await params!;
     const numId = Number(id);
+    if (!Number.isInteger(numId) || numId <= 0) {
+      return errorResponse('Невалідний ID', 400);
+    }
     const body = await request.json();
-    if (body.action === 'complete') {
+    const parsed = stockCountActionSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
+    }
+
+    if (parsed.data.action === 'complete') {
       const c = await completeStockCount(numId, user!.id);
       return successResponse(c);
     }
-    if (body.action === 'cancel') {
-      const c = await cancelStockCount(numId, user!.id);
-      return successResponse(c);
-    }
-    return errorResponse('Невідома дія', 400);
+    const c = await cancelStockCount(numId, user!.id);
+    return successResponse(c);
   } catch (error) {
     if (error instanceof StockCountError) {
       return errorResponse(error.message, error.statusCode);

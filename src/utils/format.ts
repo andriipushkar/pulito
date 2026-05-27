@@ -29,6 +29,15 @@ export function formatDateTime(date: Date | string): string {
 }
 
 /**
+ * Returns today's Kyiv date as a YYYY-MM-DD string. Prefer this over
+ * `todayKyiv().toISOString().slice(0,10)` — the ISO form is UTC-based, so
+ * between Kyiv 00:00 and Kyiv 02–03:00 it yields yesterday's date.
+ */
+export function todayKyivIso(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: KYIV_TZ });
+}
+
+/**
  * Returns "today midnight" in Kyiv timezone as a UTC Date.
  * Use for analytics/cron date boundaries so "today" always means Kyiv day.
  */
@@ -38,7 +47,11 @@ export function todayKyiv(): Date {
   // Determine Kyiv UTC offset via Intl (handles DST automatically)
   const noonUtc = new Date(`${kyivDate}T12:00:00Z`);
   const kyivHourAtNoonUtc = Number(
-    new Intl.DateTimeFormat('en-US', { timeZone: KYIV_TZ, hour: 'numeric', hourCycle: 'h23' }).format(noonUtc)
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: KYIV_TZ,
+      hour: 'numeric',
+      hourCycle: 'h23',
+    }).format(noonUtc),
   );
   const offsetHours = kyivHourAtNoonUtc - 12; // +2 (winter) or +3 (summer)
   // Kyiv midnight in UTC = subtract offset from midnight
@@ -78,7 +91,9 @@ export function plural(n: number, forms: [string, string, string]): string {
  * Return a user-friendly display name: fullName if present, otherwise the part
  * of the email before "@" with first letter uppercased, otherwise "Користувач".
  */
-export function displayName(user: { fullName?: string | null; email?: string | null } | null | undefined): string {
+export function displayName(
+  user: { fullName?: string | null; email?: string | null } | null | undefined,
+): string {
   if (!user) return 'Користувач';
   const full = user.fullName?.trim();
   if (full) return full;

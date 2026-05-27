@@ -5,7 +5,10 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { sanitizeHtml } from '@/utils/sanitize';
 import { logAudit } from '@/services/audit';
 
-export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { params }) => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (_request: NextRequest, { params }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -41,8 +44,20 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params, user
       }
       data.subject = subj;
     }
-    if ('bodyHtml' in body) data.bodyHtml = sanitizeHtml(String(body.bodyHtml));
-    if ('bodyText' in body) data.bodyText = body.bodyText;
+    if ('bodyHtml' in body) {
+      const raw = String(body.bodyHtml);
+      if (raw.length > 200_000) {
+        return errorResponse('bodyHtml занадто великий (макс 200 KB)', 422);
+      }
+      data.bodyHtml = sanitizeHtml(raw);
+    }
+    if ('bodyText' in body) {
+      const t = body.bodyText == null ? null : String(body.bodyText);
+      if (t && t.length > 50_000) {
+        return errorResponse('bodyText занадто великий (макс 50 KB)', 422);
+      }
+      data.bodyText = t;
+    }
     if ('isActive' in body) data.isActive = body.isActive;
     if ('isMarketing' in body) data.isMarketing = body.isMarketing;
 

@@ -29,6 +29,7 @@
     "all": "Toate",
     "noResults": "Niciun rezultat gasit",
     "showMore": "Arata mai mult",
+    "viewAll": "Vezi toate",
     "currency": "lei",
     "copy": "Copiaza",
     "copied": "Copiat",
@@ -291,5 +292,42 @@
     "disconnected": "Deconectat",
     "lastSync": "Ultima sincronizare",
     "syncNow": "Sincronizeaza"
+  },
+  "home": {
+    "promoTitle": "Promotii",
+    "newTitle": "Noutati",
+    "popularTitle": "Bestselleruri",
+    "recentlyViewed": "Vizualizate recent"
+  },
+  "banner": {
+    "prev": "Anterior",
+    "next": "Urmator"
+  },
+  "accountNav": {
+    "sections": {
+      "main": "Principal",
+      "work": "Lucru",
+      "loyalty": "Programe de fidelitate",
+      "reference": "Referinta",
+      "settings": "Setari"
+    },
+    "items": {
+      "home": "Acasa",
+      "orders": "Comenzi",
+      "wishlist": "Lista de dorinte",
+      "notifications": "Notificari",
+      "loyalty": "Program de fidelitate",
+      "referral": "Program de recomandare",
+      "pricelist": "Liste de preturi",
+      "addresses": "Adrese",
+      "settings": "Setari",
+      "security": "Securitate",
+      "quickOrder": "Comanda rapida",
+      "finance": "Finante",
+      "notes": "Notite",
+      "manager": "Manager",
+      "status": "Termenii mei",
+      "wholesaleCta": "Devino angrosist"
+    }
   }
 }

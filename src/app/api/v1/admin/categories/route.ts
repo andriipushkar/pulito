@@ -5,6 +5,8 @@ import { createCategorySchema } from '@/validators/category';
 import { createCategory, getCategories, CategoryError } from '@/services/category';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 export const GET = withRole(
   'manager',
@@ -22,7 +24,7 @@ export const GET = withRole(
 export const POST = withRole(
   'manager',
   'admin',
-)(async (request: NextRequest) => {
+)(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = createCategorySchema.safeParse(body);
@@ -33,6 +35,14 @@ export const POST = withRole(
     }
 
     const category = await createCategory(parsed.data);
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'category',
+      entityId: category.id,
+      details: { name: category.name, slug: category.slug },
+      ipAddress: getClientIp(request),
+    });
     try {
       revalidatePath('/catalog');
       revalidatePath('/');

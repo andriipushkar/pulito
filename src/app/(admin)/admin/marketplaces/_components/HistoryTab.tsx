@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
-import { MARKETPLACES } from '../_shared';
+import { MARKETPLACES, MARKETPLACE_BY_KEY } from '../_shared';
 
 interface PublicationHistoryItem {
   id: number;
@@ -42,7 +42,14 @@ export function HistoryTab() {
   } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set()); // "pubId:channel" keys
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkAction, setBulkAction] = useState<'retry' | 'delete' | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const bulkCancelRef = useRef(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
+  // Worker pool cap. Same value as ProductsTab.publishMany — keeps fan-out
+  // to the marketplace APIs predictable across all bulk surfaces.
+  const BULK_PARALLEL = 3;
 
   const mpChannels = useMemo<string[]>(() => MARKETPLACES.map((m) => m.key), []);
 
@@ -82,17 +89,32 @@ export function HistoryTab() {
     };
   }, [page, filterMp, filterStatus, mpChannels, requestKey]);
 
+  // Synchronous in-flight guard. React's setState is async, so two clicks
+  // within the same tick both see `disabled={retrying[key]}` as false. A
+  // ref-backed Set updates immediately and blocks the duplicate request.
+  const retryInFlight = useRef<Set<string>>(new Set());
+
   const handleRetry = async (pubId: number, channel: string) => {
     const key = `${pubId}:${channel}`;
+    if (retryInFlight.current.has(key)) return;
+    retryInFlight.current.add(key);
     setRetrying((prev) => ({ ...prev, [key]: true }));
-    const res = await apiClient.post(`/api/v1/admin/publications/${pubId}/retry`, { channel });
-    if (res.success) {
-      toast.success(`Повторено публікацію на ${MARKETPLACES.find((m) => m.key === channel)?.name || channel}`);
-      loadHistory();
-    } else {
-      toast.error(res.error || 'Не вдалося повторити публікацію');
+    try {
+      const res = await apiClient.post(`/api/v1/admin/publications/${pubId}/retry`, { channel });
+      if (res.success) {
+        toast.success(`Повторено публікацію на ${MARKETPLACE_BY_KEY[channel]?.name || channel}`);
+        loadHistory();
+      } else if (res.statusCode === 409) {
+        // Server-side idempotency: another retry for the same channel is
+        // still running. Don't reload — let the user wait for it.
+        toast.info(res.error || 'Публікація на цей канал вже триває');
+      } else {
+        toast.error(res.error || 'Не вдалося повторити публікацію');
+      }
+    } finally {
+      retryInFlight.current.delete(key);
+      setRetrying((prev) => ({ ...prev, [key]: false }));
     }
-    setRetrying((prev) => ({ ...prev, [key]: false }));
   };
 
   const toggleExpand = (key: string) => {
@@ -104,21 +126,34 @@ export function HistoryTab() {
     });
   };
 
+  // Same guard pattern as retry: synchronous ref blocks double-click during
+  // the React render gap, and 409 from the server is treated as info, not
+  // failure (means another tab/click already started this delete).
+  const deleteInFlight = useRef<Set<string>>(new Set());
+
   const handleDelete = async () => {
     if (!confirmDelete) return;
     const { pubId, channel, externalId } = confirmDelete;
     const key = `${pubId}:${channel}`;
     setConfirmDelete(null);
+    if (deleteInFlight.current.has(key)) return;
+    deleteInFlight.current.add(key);
     setDeleting((prev) => ({ ...prev, [key]: true }));
-    const url = `/api/v1/admin/marketplaces/${channel}?channel=${encodeURIComponent(channel)}&externalId=${encodeURIComponent(externalId)}`;
-    const res = await apiClient.delete(url);
-    if (res.success) {
-      toast.success(`Знято з ${MARKETPLACES.find((m) => m.key === channel)?.name || channel}`);
-      loadHistory();
-    } else {
-      toast.error(res.error || 'Не вдалося видалити з маркетплейсу');
+    try {
+      const url = `/api/v1/admin/marketplaces/${channel}?channel=${encodeURIComponent(channel)}&externalId=${encodeURIComponent(externalId)}`;
+      const res = await apiClient.delete(url);
+      if (res.success) {
+        toast.success(`Знято з ${MARKETPLACE_BY_KEY[channel]?.name || channel}`);
+        loadHistory();
+      } else if (res.statusCode === 409) {
+        toast.info(res.error || 'Видалення вже виконується');
+      } else {
+        toast.error(res.error || 'Не вдалося видалити з маркетплейсу');
+      }
+    } finally {
+      deleteInFlight.current.delete(key);
+      setDeleting((prev) => ({ ...prev, [key]: false }));
     }
-    setDeleting((prev) => ({ ...prev, [key]: false }));
   };
 
   const toggleSelected = (key: string) => {
@@ -130,52 +165,136 @@ export function HistoryTab() {
     });
   };
 
-  const handleBulkRetry = async () => {
-    if (selected.size === 0) return;
-    setBulkBusy(true);
+  // Generic worker-pool runner shared by bulk Retry and bulk Delete.
+  // Each worker pulls the next index from a shared cursor, so finished
+  // requests immediately get replaced — no head-of-line blocking.
+  // `signal.cancelled` is checked between tasks so an in-flight request still
+  // resolves but no new ones are started after the user hits "Скасувати".
+  const runBulkPool = async <T,>(
+    items: T[],
+    worker: (item: T) => Promise<'ok' | 'fail' | 'inProgress'>,
+  ): Promise<{ ok: number; fail: number; inProgress: number; cancelled: boolean }> => {
+    bulkCancelRef.current = false;
+    setBulkProgress({ current: 0, total: items.length });
+
+    let cursor = 0;
+    let done = 0;
     let ok = 0;
     let fail = 0;
-    for (const key of Array.from(selected)) {
+    let inProgress = 0;
+
+    const tick = async () => {
+      while (true) {
+        if (bulkCancelRef.current) return;
+        const i = cursor++;
+        if (i >= items.length) return;
+        const r = await worker(items[i]);
+        if (r === 'ok') ok++;
+        else if (r === 'inProgress') inProgress++;
+        else fail++;
+        done++;
+        setBulkProgress({ current: done, total: items.length });
+      }
+    };
+
+    const workerCount = Math.min(BULK_PARALLEL, items.length);
+    await Promise.all(Array.from({ length: workerCount }, tick));
+
+    const cancelled = bulkCancelRef.current;
+    bulkCancelRef.current = false;
+    return { ok, fail, inProgress, cancelled };
+  };
+
+  const handleBulkRetry = async () => {
+    if (selected.size === 0) return;
+    const keys = Array.from(selected).filter((key) => {
+      const [pubIdStr, channel] = key.split(':');
+      return Boolean(Number(pubIdStr)) && Boolean(channel);
+    });
+    if (keys.length === 0) return;
+
+    setBulkAction('retry');
+    setBulkBusy(true);
+
+    const { ok, fail, inProgress, cancelled } = await runBulkPool(keys, async (key) => {
       const [pubIdStr, channel] = key.split(':');
       const pubId = Number(pubIdStr);
-      if (!pubId || !channel) continue;
-      const res = await apiClient.post(`/api/v1/admin/publications/${pubId}/retry`, { channel });
-      if (res.success) ok++;
-      else fail++;
-    }
+      if (retryInFlight.current.has(key)) return 'inProgress';
+      retryInFlight.current.add(key);
+      try {
+        const res = await apiClient.post(`/api/v1/admin/publications/${pubId}/retry`, { channel });
+        if (res.success) return 'ok';
+        if (res.statusCode === 409) return 'inProgress';
+        return 'fail';
+      } finally {
+        retryInFlight.current.delete(key);
+      }
+    });
+
     setBulkBusy(false);
+    setBulkAction(null);
+    setBulkProgress({ current: 0, total: 0 });
     setSelected(new Set());
     loadHistory();
+
+    if (cancelled) {
+      toast.info(`Скасовано. Встигли: ${ok} ok, ${fail} помилок, ${inProgress} вже в роботі`);
+      return;
+    }
     if (ok > 0) toast.success(`Повторено: ${ok}`);
+    if (inProgress > 0) toast.info(`Вже виконується: ${inProgress}`);
     if (fail > 0) toast.error(`З помилкою: ${fail}`);
   };
 
   const handleBulkDelete = async () => {
     setConfirmBulkDelete(false);
     if (selected.size === 0) return;
-    setBulkBusy(true);
-    let ok = 0;
-    let fail = 0;
-    for (const key of Array.from(selected)) {
-      const [, channel] = key.split(':');
-      // Find externalId from current items
-      const [pubIdStr, ch] = key.split(':');
+
+    // Resolve externalId up-front so worker only does the network call.
+    type DeleteTask = { key: string; channel: string; externalId: string };
+    const tasks: DeleteTask[] = [];
+    let skippedNoExternalId = 0;
+    for (const key of selected) {
+      const [pubIdStr, channel] = key.split(':');
       const pub = items.find((p) => p.id === Number(pubIdStr));
-      const cr = pub?.channelResults?.find((c) => c.channel === ch);
+      const cr = pub?.channelResults?.find((c) => c.channel === channel);
       if (!cr?.externalId) {
-        fail++;
+        skippedNoExternalId++;
         continue;
       }
-      const url = `/api/v1/admin/marketplaces/${channel}?channel=${encodeURIComponent(channel)}&externalId=${encodeURIComponent(cr.externalId)}`;
-      const res = await apiClient.delete(url);
-      if (res.success) ok++;
-      else fail++;
+      tasks.push({ key, channel, externalId: cr.externalId });
     }
+    if (tasks.length === 0) {
+      if (skippedNoExternalId > 0) toast.error('Жоден з вибраних не має externalId');
+      return;
+    }
+
+    setBulkAction('delete');
+    setBulkBusy(true);
+
+    const { ok, fail, cancelled } = await runBulkPool(tasks, async ({ channel, externalId }) => {
+      const url = `/api/v1/admin/marketplaces/${channel}?channel=${encodeURIComponent(channel)}&externalId=${encodeURIComponent(externalId)}`;
+      const res = await apiClient.delete(url);
+      return res.success ? 'ok' : 'fail';
+    });
+
     setBulkBusy(false);
+    setBulkAction(null);
+    setBulkProgress({ current: 0, total: 0 });
     setSelected(new Set());
     loadHistory();
+
+    const totalFail = fail + skippedNoExternalId;
+    if (cancelled) {
+      toast.info(`Скасовано. Знято: ${ok}, помилок: ${totalFail}`);
+      return;
+    }
     if (ok > 0) toast.success(`Знято з продажу: ${ok}`);
-    if (fail > 0) toast.error(`З помилкою: ${fail}`);
+    if (totalFail > 0) toast.error(`З помилкою: ${totalFail}`);
+  };
+
+  const cancelBulk = () => {
+    bulkCancelRef.current = true;
   };
 
   const selectedFailedCount = useMemo(() => {
@@ -200,6 +319,9 @@ export function HistoryTab() {
     return c;
   }, [selected, items]);
 
+  // Pin to Kyiv time — the shop is run from Lviv and operators reason about
+  // pickup/return windows in local time, not the OS timezone of whichever
+  // device they happen to be on (e.g. a manager travelling abroad).
   const formatDate = (d: string) =>
     new Date(d).toLocaleString('uk-UA', {
       day: '2-digit',
@@ -207,6 +329,7 @@ export function HistoryTab() {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'Europe/Kyiv',
     });
 
   const statusLabel = (s: string) => {
@@ -266,7 +389,11 @@ export function HistoryTab() {
               disabled={selectedFailedCount === 0 || bulkBusy}
               isLoading={bulkBusy && selectedFailedCount > 0}
               onClick={handleBulkRetry}
-              title={selectedFailedCount === 0 ? 'Виберіть провалені публікації' : `Повторити: ${selectedFailedCount}`}
+              title={
+                selectedFailedCount === 0
+                  ? 'Виберіть провалені публікації'
+                  : `Повторити: ${selectedFailedCount}`
+              }
             >
               Повторити ({selectedFailedCount})
             </Button>
@@ -275,7 +402,11 @@ export function HistoryTab() {
               variant="outline"
               disabled={selectedPublishedCount === 0 || bulkBusy}
               onClick={() => setConfirmBulkDelete(true)}
-              title={selectedPublishedCount === 0 ? 'Виберіть опубліковані лістинги' : `Зняти: ${selectedPublishedCount}`}
+              title={
+                selectedPublishedCount === 0
+                  ? 'Виберіть опубліковані лістинги'
+                  : `Зняти: ${selectedPublishedCount}`
+              }
             >
               Зняти з продажу ({selectedPublishedCount})
             </Button>
@@ -288,6 +419,34 @@ export function HistoryTab() {
           </>
         )}
       </div>
+
+      {bulkBusy && bulkProgress.total > 0 && (
+        <div className="mb-4">
+          <div className="mb-1 flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
+            <span>
+              {bulkAction === 'delete' ? 'Зняття з продажу' : 'Повторна публікація'} (паралельно{' '}
+              {BULK_PARALLEL})…
+            </span>
+            <div className="flex items-center gap-3">
+              <span>
+                {bulkProgress.current} / {bulkProgress.total}
+              </span>
+              <button
+                onClick={cancelBulk}
+                className="rounded border border-red-300 px-2 py-0.5 text-[10px] text-red-600 hover:bg-red-50"
+              >
+                Скасувати
+              </button>
+            </div>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--color-bg-secondary)]">
+            <div
+              className="h-full rounded-full bg-[var(--color-primary)] transition-all duration-300"
+              style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <AdminTableSkeleton rows={8} columns={5} />
@@ -338,7 +497,7 @@ export function HistoryTab() {
                                 />
                                 <span>{cr.status === 'published' ? '✅' : '❌'}</span>
                                 <span className="font-medium">
-                                  {MARKETPLACES.find((m) => m.key === cr.channel)?.name || cr.channel}
+                                  {MARKETPLACE_BY_KEY[cr.channel]?.name || cr.channel}
                                 </span>
                                 {cr.permalink && (
                                   <a
@@ -432,7 +591,7 @@ export function HistoryTab() {
         title="Зняти з продажу"
         message={
           confirmDelete
-            ? `Видалити "${confirmDelete.title}" з ${MARKETPLACES.find((m) => m.key === confirmDelete.channel)?.name || confirmDelete.channel}? Лістинг буде видалено на маркетплейсі. Цю дію не можна скасувати.`
+            ? `Видалити "${confirmDelete.title}" з ${MARKETPLACE_BY_KEY[confirmDelete.channel]?.name || confirmDelete.channel}? Лістинг буде видалено на маркетплейсі. Цю дію не можна скасувати.`
             : ''
         }
         confirmText="Так, видалити"

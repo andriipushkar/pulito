@@ -5,27 +5,65 @@ import { generateReport } from '@/services/report-generator';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 // Allowed entity types for the `custom` template — anything else is rejected
 // before reaching the SQL layer.
 const ALLOWED_ENTITIES = ['orders', 'products', 'users', 'wholesalers'] as const;
 const ALLOWED_FIELDS: Record<(typeof ALLOWED_ENTITIES)[number], readonly string[]> = {
   orders: [
-    'orderNumber', 'status', 'paymentStatus', 'totalAmount', 'createdAt',
-    'contactName', 'contactPhone', 'contactEmail', 'deliveryMethod', 'paymentMethod',
-    'companyName', 'edrpou', 'deliveryCity', 'itemsCount',
+    'orderNumber',
+    'status',
+    'paymentStatus',
+    'totalAmount',
+    'createdAt',
+    'contactName',
+    'contactPhone',
+    'contactEmail',
+    'deliveryMethod',
+    'paymentMethod',
+    'companyName',
+    'edrpou',
+    'deliveryCity',
+    'itemsCount',
   ],
   products: [
-    'code', 'name', 'priceRetail', 'priceWholesale', 'priceWholesale2',
-    'priceWholesale3', 'quantity', 'isActive', 'isPromo', 'ordersCount', 'categoryName',
+    'code',
+    'name',
+    'priceRetail',
+    'priceWholesale',
+    'priceWholesale2',
+    'priceWholesale3',
+    'quantity',
+    'isActive',
+    'isPromo',
+    'ordersCount',
+    'categoryName',
   ],
   users: [
-    'id', 'fullName', 'email', 'phone', 'role', 'createdAt', 'wholesaleStatus',
-    'wholesaleGroup', 'totalSpent', 'orderCount',
+    'id',
+    'fullName',
+    'email',
+    'phone',
+    'role',
+    'createdAt',
+    'wholesaleStatus',
+    'wholesaleGroup',
+    'totalSpent',
+    'orderCount',
   ],
   wholesalers: [
-    'id', 'fullName', 'email', 'phone', 'companyName', 'edrpou',
-    'wholesaleGroup', 'totalSpent', 'orderCount', 'createdAt',
+    'id',
+    'fullName',
+    'email',
+    'phone',
+    'companyName',
+    'edrpou',
+    'wholesaleGroup',
+    'totalSpent',
+    'orderCount',
+    'createdAt',
   ],
 };
 
@@ -53,19 +91,40 @@ const generateSchema = z.object({
   format: z.enum(['xlsx', 'csv', 'pdf']),
   params: z
     .object({
-      dateFrom: z.string().optional().refine((v) => !v || looksLikeIsoDate(v), 'Невалідна дата dateFrom'),
-      dateTo: z.string().optional().refine((v) => !v || looksLikeIsoDate(v), 'Невалідна дата dateTo'),
+      dateFrom: z
+        .string()
+        .optional()
+        .refine((v) => !v || looksLikeIsoDate(v), 'Невалідна дата dateFrom'),
+      dateTo: z
+        .string()
+        .optional()
+        .refine((v) => !v || looksLikeIsoDate(v), 'Невалідна дата dateTo'),
       status: z.string().max(50).optional(),
       entity: z.enum(ALLOWED_ENTITIES).optional(),
       fields: z.array(z.string().max(50)).max(50).optional(),
-      filters: z.record(z.string(), z.unknown()).optional(),
+      filters: z
+        .record(z.string(), z.unknown())
+        // Cap at 20 keys — past that it's mis-use as a free-form filter store
+        // and the report renderer was never tested with 1000+ filters.
+        .refine((v) => Object.keys(v).length <= 20, 'Забагато filters (макс 20)')
+        .optional(),
     })
     .optional()
     .default({}),
 });
 
-export const POST = withRole('admin', 'manager')(async (request: NextRequest, { user }) => {
+export const POST = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { user }) => {
   try {
+    // XLSX/PDF render reads a wide table + walks a templating pipeline;
+    // a stuck UI button could OOM the worker. Cap at 10/min per admin.
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminExport);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато експортів. Зачекайте ${rl.retryAfter}с.`, 429);
+    }
+
     const body = await request.json();
     const parsed = generateSchema.safeParse(body);
 
@@ -95,7 +154,16 @@ export const POST = withRole('admin', 'manager')(async (request: NextRequest, { 
       userId: user.id,
       actionType: 'gdpr_export',
       entityType: 'report',
-      details: { templateKey, format, entity: params.entity, fieldsCount: params.fields?.length ?? 0 },
+      details: {
+        templateKey,
+        format,
+        entity: params.entity,
+        // Full field list (not just count) — GDPR audit needs to confirm
+        // exactly which columns were exported, e.g. did this run include
+        // contactPhone and contactEmail?
+        fields: params.fields ?? [],
+      },
+      ipAddress: getClientIp(request),
     });
 
     return successResponse(result);

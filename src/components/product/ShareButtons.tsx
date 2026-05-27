@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Copy, Facebook, Telegram, Viber, Instagram, Check } from '@/components/icons';
+import { Copy, Facebook, Telegram, Viber, Instagram, Check, Share } from '@/components/icons';
 
 interface ShareButtonsProps {
   url: string;
@@ -12,9 +12,11 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
   const [igCopied, setIgCopied] = useState(false);
   const [fullUrl, setFullUrl] = useState('');
+  const [canNativeShare, setCanNativeShare] = useState(false);
 
   useEffect(() => {
     setFullUrl(`${window.location.origin}${url}`);
+    setCanNativeShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
   }, [url]);
 
   const encodedUrl = encodeURIComponent(fullUrl);
@@ -33,10 +35,31 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
   const btnClass =
     'flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] active:scale-95';
 
+  const handleNativeShare = async () => {
+    try {
+      await navigator.share({ title, url: fullUrl });
+    } catch {}
+  };
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-[var(--color-text-secondary)]">Поділитись:</span>
-      <button onClick={handleCopy} className={btnClass} aria-label="Копіювати посилання" title="Копіювати посилання">
+      {canNativeShare && (
+        <button
+          onClick={handleNativeShare}
+          className={btnClass}
+          aria-label="Поділитись (системне меню)"
+          title="Поділитись"
+        >
+          <Share size={16} />
+        </button>
+      )}
+      <button
+        onClick={handleCopy}
+        className={btnClass}
+        aria-label="Копіювати посилання"
+        title="Копіювати посилання"
+      >
         {copied ? <Check size={16} /> : <Copy size={16} />}
       </button>
       <a

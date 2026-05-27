@@ -25,7 +25,14 @@ export const POST = withRole(
     if (!parsed.success) {
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
-    const updated = await sendFeedbackReply(numId, parsed.data.subject, parsed.data.bodyHtml, user.id);
+    const force = request.nextUrl.searchParams.get('force') === '1';
+    const updated = await sendFeedbackReply(
+      numId,
+      parsed.data.subject,
+      parsed.data.bodyHtml,
+      user.id,
+      { force },
+    );
 
     await logAudit({
       userId: user.id,

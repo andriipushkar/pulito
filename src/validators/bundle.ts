@@ -11,6 +11,8 @@ export const createBundleSchema = z.object({
     .max(200)
     .optional(),
   description: z.string().max(2000).optional(),
+  nameEn: z.string().max(200).optional(),
+  descriptionEn: z.string().max(2000).optional(),
   bundleType: z.enum(['curated', 'custom'], {
     error: 'Тип комплекту має бути curated або custom',
   }),

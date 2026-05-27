@@ -12,10 +12,19 @@ export class StockCountError extends Error {
   }
 }
 
+// Same advisory-lock namespace as services/warehouse.ts updateStock and
+// services/warehouse-transfer.ts so close-inventory serialises against any
+// other stock writer on the same warehouse. Without this the final upsert
+// can stomp a concurrent order-fulfillment decrement.
+const WAREHOUSE_STOCK_LOCK_NS = 470001;
+
 function generateReference(): string {
   const d = new Date();
   const prefix = `SC-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-  return `${prefix}-${randomBytes(2).toString('hex').toUpperCase()}`;
+  // 4 bytes (~4.3B combos) — was 2 bytes (65k). At even 200 counts/day the
+  // birthday-paradox collision odds with the old size become non-negligible
+  // within a few months, surfacing as confusing P2002 errors.
+  return `${prefix}-${randomBytes(4).toString('hex').toUpperCase()}`;
 }
 
 /**
@@ -32,6 +41,20 @@ export async function startStockCount(warehouseId: number, userId: number, comme
   });
   if (!warehouse) throw new StockCountError('Склад не знайдено', 404);
   if (!warehouse.isActive) throw new StockCountError('Склад деактивовано', 400);
+
+  // Refuse a second concurrent count on the same warehouse. Two `in_progress`
+  // records would each apply a separate `complete()` and the second would
+  // overwrite the first's adjustments with stale expected values.
+  const existing = await prisma.stockCount.findFirst({
+    where: { warehouseId, status: 'in_progress' },
+    select: { id: true, reference: true },
+  });
+  if (existing) {
+    throw new StockCountError(
+      `На цьому складі вже триває інвентаризація ${existing.reference}. Завершіть або скасуйте її перед стартом нової.`,
+      409,
+    );
+  }
 
   // Skip soft-deleted products in the snapshot — they aren't visible in the
   // scan UI, so listing them as "missing" would just clutter the report.
@@ -76,24 +99,43 @@ export async function startStockCount(warehouseId: number, userId: number, comme
   return created;
 }
 
-export async function recordCount(countId: number, productId: number, countedQty: number) {
+/**
+ * Record a counted quantity on a stock-count item.
+ *
+ * `mode = 'add'` (default, scanner workflow): each call ADDs to the current
+ *   counted total. A bin with 50 items scanned one at a time ends up at 50,
+ *   not 1. This is the correct default for a barcode workflow.
+ *
+ * `mode = 'set'` (manual UI): override the counted total. Used by the
+ *   "I miscounted, the correct number is X" override field on the UI.
+ *
+ * Pre-fix behaviour was always SET — which silently undercounted any
+ * product scanned more than once.
+ */
+export async function recordCount(
+  countId: number,
+  productId: number,
+  qty: number,
+  mode: 'add' | 'set' = 'add',
+) {
   const count = await prisma.stockCount.findUnique({ where: { id: countId } });
   if (!count) throw new StockCountError('Інвентаризацію не знайдено', 404);
   if (count.status !== 'in_progress') {
     throw new StockCountError('Інвентаризація вже закрита');
   }
-  if (countedQty < 0) throw new StockCountError('Кількість не може бути від’ємною');
+  if (qty < 0) throw new StockCountError('Кількість не може бути від’ємною');
 
   const existing = await prisma.stockCountItem.findUnique({
     where: { countId_productId: { countId, productId } },
   });
 
   if (existing) {
+    const newCounted = mode === 'add' ? (existing.countedQty ?? 0) + qty : qty;
     return prisma.stockCountItem.update({
       where: { id: existing.id },
       data: {
-        countedQty,
-        variance: countedQty - existing.expectedQty,
+        countedQty: newCounted,
+        variance: newCounted - existing.expectedQty,
         countedAt: new Date(),
       },
     });
@@ -105,8 +147,8 @@ export async function recordCount(countId: number, productId: number, countedQty
       countId,
       productId,
       expectedQty: 0,
-      countedQty,
-      variance: countedQty,
+      countedQty: qty,
+      variance: qty,
       countedAt: new Date(),
     },
   });
@@ -127,12 +169,34 @@ export async function completeStockCount(countId: number, userId: number) {
       throw new StockCountError('Інвентаризація вже закрита');
     }
 
+    // Advisory lock the warehouse before mutating stock so a concurrent
+    // order-fulfillment / manual stock edit can't lose a write here.
+    await tx.$executeRawUnsafe(
+      `SELECT pg_advisory_xact_lock(${WAREHOUSE_STOCK_LOCK_NS}, $1::int)`,
+      count.warehouseId,
+    );
+
+    // Snapshot existing rows so we preserve `reserved` (commitments to live
+    // orders). Pre-fix code reset reserved to 0, which freed already-promised
+    // units back into available stock and let the next order oversell.
+    const existingStock = await tx.warehouseStock.findMany({
+      where: {
+        warehouseId: count.warehouseId,
+        productId: { in: count.items.map((i) => i.productId) },
+      },
+      select: { productId: true, reserved: true },
+    });
+    const reservedByProduct = new Map(existingStock.map((s) => [s.productId, s.reserved]));
+
     for (const item of count.items) {
       const counted = item.countedQty ?? 0;
-      // Closing an inventory means the physical count is the new truth. Reset
-      // `reserved` to 0 — leaving stale reservations behind would make the
-      // displayed "available" turn negative for any product that had open
-      // orders against it at the moment of the count.
+      const reservedNow = reservedByProduct.get(item.productId) ?? 0;
+      // Honour the CHECK constraint `reserved <= quantity`: if the physical
+      // count came in below currently-reserved (a pending order can't be
+      // fulfilled), clamp reserved to the new ceiling. The over-promised
+      // orders will surface as fulfillment errors downstream — the right
+      // place to deal with them, not silently inside the inventory close.
+      const reservedAfter = Math.min(reservedNow, counted);
       await tx.warehouseStock.upsert({
         where: {
           warehouseId_productId: {
@@ -140,7 +204,7 @@ export async function completeStockCount(countId: number, userId: number) {
             productId: item.productId,
           },
         },
-        update: { quantity: counted, reserved: 0 },
+        update: { quantity: counted, reserved: reservedAfter },
         create: {
           warehouseId: count.warehouseId,
           productId: item.productId,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -14,7 +14,10 @@ import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import SavedViews from '@/components/admin/SavedViews';
 import PageSizeSelector from '@/components/admin/PageSizeSelector';
 import ProductQuickEditDrawer from '@/components/admin/ProductQuickEditDrawer';
+import KeyboardShortcutsHelp from '@/components/admin/KeyboardShortcutsHelp';
+import InventoryStatsWidget from '@/components/admin/InventoryStatsWidget';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useOrderListKeyboard } from '@/hooks/useOrderListKeyboard';
 import Image from 'next/image';
 import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
 
@@ -32,6 +35,7 @@ interface AdminProduct {
   barcode: string | null;
   ordersCount: number;
   sortOrder: number;
+  version?: number;
   category: { id: number; name: string } | null;
   brand: { id: number; name: string } | null;
 }
@@ -102,7 +106,18 @@ const PRICE_MODE_OPTIONS = [
   { value: 'round', label: 'Округлити до кратного' },
 ];
 
+// Next.js requires components that call useSearchParams() to live inside a
+// Suspense boundary. Without this wrapper the build emits a warning and the
+// page de-opts to fully dynamic rendering even when it doesn't need to.
 export default function AdminProductsPage() {
+  return (
+    <Suspense fallback={<AdminTableSkeleton rows={8} columns={6} />}>
+      <AdminProductsPageInner />
+    </Suspense>
+  );
+}
+
+function AdminProductsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -126,6 +141,24 @@ export default function AdminProductsPage() {
   const [quickEditId, setQuickEditId] = useState<number | null>(null);
   const [isDeletingRow, setIsDeletingRow] = useState(false);
   const [pendingSortOrder, setPendingSortOrder] = useState<Record<number, string>>({});
+  const [focusIndex, setFocusIndex] = useState(-1);
+  // Synchronous in-flight guard. A fast double-click on "Apply" would
+  // otherwise fire two POSTs (and for change_price, double-apply the
+  // percent — turning +10% into +21%).
+  const bulkInFlight = useRef(false);
+  const { helpOpen, setHelpOpen } = useOrderListKeyboard({
+    orderIds: products.map((p) => p.id),
+    focusIndex,
+    setFocusIndex,
+    onQuickEdit: (id) => setQuickEditId(id),
+    detailPathPrefix: '/admin/products',
+  });
+  // Reset focus on actual list change — `products.length` missed filter
+  // swaps that kept the count but moved the rows under the focus index.
+  const productsFocusSig = products.map((p) => p.id).join(',');
+  useEffect(() => {
+    setFocusIndex(-1);
+  }, [productsFocusSig]);
   const [pendingPrice, setPendingPrice] = useState<Record<number, string>>({});
   const [pendingQty, setPendingQty] = useState<Record<number, string>>({});
 
@@ -231,6 +264,12 @@ export default function AdminProductsPage() {
     if (value) params.set(key, value);
     else params.delete(key);
     params.set('page', '1');
+    // Clear pending inline drafts — otherwise the user sees a price/qty/sort
+    // input pre-filled with a value from a row that is no longer visible
+    // after the filter change.
+    setPendingPrice({});
+    setPendingQty({});
+    setPendingSortOrder({});
     router.push(`/admin/products?${params}`);
   };
 
@@ -274,6 +313,8 @@ export default function AdminProductsPage() {
       return;
     }
 
+    if (bulkInFlight.current) return;
+    bulkInFlight.current = true;
     setConfirmBulk(false);
     setIsProcessing(true);
 
@@ -409,6 +450,7 @@ export default function AdminProductsPage() {
     } catch {
       toast.error('Помилка виконання');
     } finally {
+      bulkInFlight.current = false;
       setIsProcessing(false);
       setBulkAction('');
       setSelected(new Set());
@@ -443,6 +485,44 @@ export default function AdminProductsPage() {
     }
   };
 
+  // Shared helper: send a PUT with the row's optimistic-lock version and
+  // on 409 re-fetch the row + revert the optimistic UI change. Detects the
+  // case where another admin edited the same product in a parallel tab.
+  const commitInlineField = async <K extends keyof AdminProduct>(
+    product: AdminProduct,
+    field: K,
+    next: AdminProduct[K],
+    successMessage: string,
+  ): Promise<boolean> => {
+    const res = await apiClient.put<AdminProduct>(`/api/v1/admin/products/${product.id}`, {
+      [field]: next,
+      version: product.version,
+    });
+    if (res.success && res.data) {
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === product.id
+            ? { ...p, [field]: next, version: res.data!.version ?? (p.version ?? 0) + 1 }
+            : p,
+        ),
+      );
+      toast.success(successMessage);
+      return true;
+    }
+    if (res.statusCode === 409) {
+      const refreshed = await apiClient.get<AdminProduct>(`/api/v1/admin/products/${product.id}`);
+      if (refreshed.success && refreshed.data) {
+        setProducts((prev) => prev.map((p) => (p.id === product.id ? refreshed.data! : p)));
+      }
+      toast.error(
+        'Цей товар було змінено в іншій вкладці — оновлено. Перевірте і збережіть знову.',
+      );
+      return false;
+    }
+    toast.error(res.error || 'Помилка');
+    return false;
+  };
+
   const commitInlinePrice = async (product: AdminProduct, raw: string) => {
     const next = Number(raw);
     if (!Number.isFinite(next) || next <= 0 || next === Number(product.priceRetail)) {
@@ -453,17 +533,7 @@ export default function AdminProductsPage() {
       });
       return;
     }
-    const res = await apiClient.put(`/api/v1/admin/products/${product.id}`, {
-      priceRetail: next,
-    });
-    if (res.success) {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === product.id ? { ...p, priceRetail: next } : p)),
-      );
-      toast.success('Ціна оновлена');
-    } else {
-      toast.error(res.error || 'Помилка');
-    }
+    await commitInlineField(product, 'priceRetail', next, 'Ціна оновлена');
     setPendingPrice((prev) => {
       const copy = { ...prev };
       delete copy[product.id];
@@ -481,13 +551,7 @@ export default function AdminProductsPage() {
       });
       return;
     }
-    const res = await apiClient.put(`/api/v1/admin/products/${product.id}`, { quantity: next });
-    if (res.success) {
-      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, quantity: next } : p)));
-      toast.success('Залишок оновлено');
-    } else {
-      toast.error(res.error || 'Помилка');
-    }
+    await commitInlineField(product, 'quantity', next, 'Залишок оновлено');
     setPendingQty((prev) => {
       const copy = { ...prev };
       delete copy[product.id];
@@ -505,13 +569,7 @@ export default function AdminProductsPage() {
       });
       return;
     }
-    const res = await apiClient.put(`/api/v1/admin/products/${product.id}`, { sortOrder: next });
-    if (res.success) {
-      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, sortOrder: next } : p)));
-      toast.success('Порядок оновлено');
-    } else {
-      toast.error(res.error || 'Не вдалося оновити порядок');
-    }
+    await commitInlineField(product, 'sortOrder', next, 'Порядок оновлено');
     setPendingSortOrder((prev) => {
       const copy = { ...prev };
       delete copy[product.id];
@@ -611,6 +669,8 @@ export default function AdminProductsPage() {
         <SavedViews storageKey="products" basePath="/admin/products" />
       </div>
 
+      <InventoryStatsWidget />
+
       {/* Filters panel */}
       {showFilters && (
         <div className="mb-4 grid gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -676,7 +736,15 @@ export default function AdminProductsPage() {
       {selected.size > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
           <span className="text-sm text-[var(--color-text-secondary)]">
-            Обрано: <strong>{selected.size}</strong>
+            Обрано <strong>{selected.size}</strong> на цій сторінці
+            {total > products.length && (
+              <span
+                className="ml-2 text-xs text-amber-700"
+                title="Bulk-дії застосовуються тільки до вибраних на ЦІЙ сторінці. Щоб охопити більше — змініть розмір сторінки або зробіть кілька проходів."
+              >
+                ⚠ (з {total} загальних — інші сторінки не зачіпаються)
+              </span>
+            )}
           </span>
           <Select
             options={BULK_ACTIONS}
@@ -819,10 +887,10 @@ export default function AdminProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => (
+                {products.map((p, idx) => (
                   <tr
                     key={p.id}
-                    className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${selected.has(p.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'}`}
+                    className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${selected.has(p.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'} ${idx === focusIndex ? 'outline outline-2 outline-[var(--color-primary)]' : ''}`}
                   >
                     <td className="px-3 py-3">
                       <input
@@ -1067,7 +1135,32 @@ export default function AdminProductsPage() {
                       : bulkPriceMode === 'percent'
                         ? `${bulkPriceValue}%`
                         : `${bulkPriceValue} грн`;
-                  return `Застосувати "${modeLabel}" (${valueLabel}) до ціни «${targetLabel}» для ${selected.size} товарів? Дію не можна скасувати.`;
+
+                  // Preview: compute the same transform the server will apply
+                  // for the first 3 currently-visible selected products. Lets
+                  // the operator sanity-check the math before committing.
+                  const valueNum = Number(bulkPriceValue);
+                  const roundStep = Number(bulkPriceRound);
+                  const samples = products
+                    .filter((p) => selected.has(p.id))
+                    .slice(0, 3)
+                    .map((p) => {
+                      const current = Number(p.priceRetail);
+                      let next = current;
+                      if (bulkPriceMode === 'percent') next = current * (1 + valueNum / 100);
+                      else if (bulkPriceMode === 'add') next = current + valueNum;
+                      else if (bulkPriceMode === 'fixed') next = valueNum;
+                      else if (bulkPriceMode === 'round' && roundStep > 0)
+                        next = Math.round(current / roundStep) * roundStep;
+                      next = Math.max(0, Math.round(next * 100) / 100);
+                      return `  • ${p.code} «${p.name}»: ${current.toFixed(2)} → ${next.toFixed(2)} ₴`;
+                    });
+                  const preview =
+                    samples.length > 0
+                      ? `\n\nПриклад:\n${samples.join('\n')}${selected.size > 3 ? `\n  …та ще ${selected.size - 3} товарів` : ''}`
+                      : '';
+
+                  return `Застосувати "${modeLabel}" (${valueLabel}) до ціни «${targetLabel}» для ${selected.size} товарів? Дію не можна скасувати.${preview}`;
                 })()
               : `Ви впевнені, що хочете виконати "${bulkActionLabel}" для ${selected.size} товарів?`
         }
@@ -1102,6 +1195,16 @@ export default function AdminProductsPage() {
         onClose={() => setQuickEditId(null)}
         onSaved={() => loadProducts()}
       />
+
+      <KeyboardShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <button
+        onClick={() => setHelpOpen(true)}
+        className="fixed bottom-4 right-4 z-10 rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs text-[var(--color-text-secondary)] shadow-lg hover:text-[var(--color-primary)]"
+        title="Гарячі клавіші (?)"
+        aria-label="Гарячі клавіші"
+      >
+        <kbd className="font-mono">?</kbd>
+      </button>
     </div>
   );
 }

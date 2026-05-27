@@ -53,6 +53,9 @@ export interface ProductListItem {
   // Optional aggregate rating (only present when the service includes it)
   avgRating?: number | null;
   reviewCount?: number;
+  // Pre-computed on the server (serializeProduct) so the "Новинка" badge
+  // matches between SSR and CSR — no one-frame flicker on hydration.
+  isNew?: boolean;
 }
 
 export interface ProductContent {

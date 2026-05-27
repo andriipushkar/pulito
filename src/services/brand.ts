@@ -23,16 +23,32 @@ export class BrandError extends Error {
 export async function getBrands(options?: {
   includeHidden?: boolean;
   includeProductCount?: boolean;
+  page?: number;
+  limit?: number;
 }) {
   const where: Prisma.BrandWhereInput = { deletedAt: null };
   if (!options?.includeHidden) where.isVisible = true;
+
+  // Pagination — earlier always returned every brand which started to lag
+  // the admin UI past ~150 rows (each row pulls _count.products). Cap at
+  // 200, default 50 so the UI gets a responsive first page.
+  const page = options?.page ? Math.max(1, options.page) : undefined;
+  const limit = options?.limit ? Math.min(200, Math.max(1, options.limit)) : undefined;
+
   return prisma.brand.findMany({
     where,
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     ...(options?.includeProductCount
       ? { include: { _count: { select: { products: { where: { isActive: true } } } } } }
       : {}),
+    ...(page !== undefined && limit !== undefined ? { skip: (page - 1) * limit, take: limit } : {}),
   });
+}
+
+export async function countBrands(options?: { includeHidden?: boolean }) {
+  const where: Prisma.BrandWhereInput = { deletedAt: null };
+  if (!options?.includeHidden) where.isVisible = true;
+  return prisma.brand.count({ where });
 }
 
 /**
@@ -83,6 +99,10 @@ interface BrandWritable {
   country?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  nameEn?: string | null;
+  descriptionEn?: string | null;
+  seoTitleEn?: string | null;
+  seoDescriptionEn?: string | null;
   isVisible?: boolean;
   sortOrder?: number;
   // Optimistic concurrency: when provided, PUT only succeeds if the row's
@@ -100,6 +120,10 @@ function pickOptionalFields(data: BrandWritable) {
     ...(data.country !== undefined && { country: data.country }),
     ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
     ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
+    ...(data.nameEn !== undefined && { nameEn: data.nameEn }),
+    ...(data.descriptionEn !== undefined && { descriptionEn: data.descriptionEn }),
+    ...(data.seoTitleEn !== undefined && { seoTitleEn: data.seoTitleEn }),
+    ...(data.seoDescriptionEn !== undefined && { seoDescriptionEn: data.seoDescriptionEn }),
     ...(data.isVisible !== undefined && { isVisible: data.isVisible }),
     ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
   };
@@ -204,16 +228,26 @@ export async function updateBrand(id: number, data: BrandWritable) {
   return updated;
 }
 
-export async function deleteBrand(id: number): Promise<{ hard: boolean }> {
+export async function deleteBrand(id: number): Promise<{
+  hard: boolean;
+  affectedProducts: number;
+}> {
   const brand = await prisma.brand.findFirst({ where: { id, deletedAt: null } });
   if (!brand) throw new BrandError('Торгової марки не знайдено', 404);
+
+  // Snapshot count of active products that will lose their brand link via
+  // `ON DELETE SET NULL`. Without this the operator deletes "Ariel" and
+  // doesn't realise 200 products silently lost their brand badge.
+  const affectedProducts = await prisma.product.count({
+    where: { brandId: id, deletedAt: null },
+  });
 
   // Try hard delete; FK on products is ON DELETE SET NULL, so this only
   // fails if some other table without SET NULL references the brand.
   try {
     await prisma.brand.delete({ where: { id } });
     await invalidateBrandCaches();
-    return { hard: true };
+    return { hard: true, affectedProducts };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
       await prisma.brand.update({
@@ -221,7 +255,7 @@ export async function deleteBrand(id: number): Promise<{ hard: boolean }> {
         data: { deletedAt: new Date(), isVisible: false },
       });
       await invalidateBrandCaches();
-      return { hard: false };
+      return { hard: false, affectedProducts };
     }
     throw err;
   }

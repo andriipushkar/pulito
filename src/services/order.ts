@@ -244,8 +244,20 @@ export async function createOrder(
       : await calculateDeliveryCost(checkout.deliveryMethod as DeliveryMethod, itemsTotal);
   // Clamp loyalty discount so an out-of-range value can't drive totalAmount
   // negative (which would make the courier refund money to the customer).
+  // Also cap by SiteSetting loyalty_max_redemption_percent so customers can't
+  // pay 100% with points (typical cap: 50%). 0 in setting disables the cap.
   const grossTotal = itemsTotal + deliveryCost;
-  const discountAmount = Math.max(0, Math.min(Number(loyaltyPointsToSpend) || 0, grossTotal));
+  const settingsMod = await import('@/services/settings');
+  const _settings = await settingsMod.getSettings();
+  const maxPercent = Math.max(
+    0,
+    Math.min(100, Number(_settings.loyalty_max_redemption_percent) || 0),
+  );
+  const percentCap = maxPercent > 0 ? Math.floor((grossTotal * maxPercent) / 100) : grossTotal;
+  const discountAmount = Math.max(
+    0,
+    Math.min(Number(loyaltyPointsToSpend) || 0, grossTotal, percentCap),
+  );
   const netTotal = grossTotal - discountAmount;
   const orderNumber = generateOrderNumber();
 
@@ -323,6 +335,9 @@ export async function createOrder(
         paymentStatus: 'pending',
         comment: checkout.comment,
         source: 'web',
+        utmSource: checkout.utmSource ?? null,
+        utmMedium: checkout.utmMedium ?? null,
+        utmCampaign: checkout.utmCampaign ?? null,
         items: {
           create: cartItems.map((item) => ({
             productId: item.productId,

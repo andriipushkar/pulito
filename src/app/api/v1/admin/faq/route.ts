@@ -10,11 +10,16 @@ const createSchema = z.object({
   category: z.string().min(1).max(100),
   question: z.string().min(5).max(500),
   answer: z.string().min(5).max(20_000),
+  questionEn: z.string().max(500).optional(),
+  answerEn: z.string().max(20_000).optional(),
   sortOrder: z.number().int().min(0).optional(),
   isPublished: z.boolean().optional(),
 });
 
-export const GET = withRole('manager', 'admin')(async () => {
+export const GET = withRole(
+  'manager',
+  'admin',
+)(async () => {
   try {
     const faq = await getAllFaq();
     return successResponse(faq);
@@ -24,7 +29,10 @@ export const GET = withRole('manager', 'admin')(async () => {
   }
 });
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest, { user }) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = createSchema.safeParse(body);

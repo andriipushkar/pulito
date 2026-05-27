@@ -3,6 +3,10 @@ import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { notifyManagerFeedback } from '@/services/telegram';
+import { wholesaleRequestSchema } from '@/validators/wholesale-request';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 export const GET = withAuth(async (_request: NextRequest, { user }) => {
   const u = await prisma.user.findUnique({
@@ -27,6 +31,14 @@ export const GET = withAuth(async (_request: NextRequest, { user }) => {
 });
 
 export const POST = withAuth(async (request: NextRequest, { user }) => {
+  // Heavy operation (DB update + Telegram notify). Cap submissions per user
+  // — `sensitive` bucket (3 per 15 min) blocks bot spam without obstructing
+  // an honest customer re-submission after fixing a typo.
+  const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.sensitive);
+  if (!rl.allowed) {
+    return errorResponse('Забагато спроб. Спробуйте через 15 хв.', 429);
+  }
+
   const current = await prisma.user.findUnique({
     where: { id: user.id },
     select: { wholesaleStatus: true, role: true },
@@ -38,6 +50,10 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
     return errorResponse('Заявка вже подана і очікує розгляду', 400);
 
   const body = await request.json();
+  const parsed = wholesaleRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
+  }
   const {
     companyName,
     edrpou,
@@ -48,11 +64,7 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
     contactPersonPhone,
     wholesaleMonthlyVol,
     comment,
-  } = body;
-
-  if (!companyName?.trim()) return errorResponse('Вкажіть назву компанії', 400);
-  if (!contactPersonName?.trim()) return errorResponse('Вкажіть контактну особу', 400);
-  if (!contactPersonPhone?.trim()) return errorResponse('Вкажіть телефон контактної особи', 400);
+  } = parsed.data;
 
   const updated = await prisma.user.update({
     where: { id: user.id },
@@ -73,6 +85,21 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
       wholesaleRequestDate: true,
       companyName: true,
     },
+  });
+
+  // Wholesale status flip is financial (unlocks wholesale prices once
+  // approved) — audit-log every transition with company + contact context.
+  await logAudit({
+    userId: user.id,
+    actionType: 'user_edit',
+    entityType: 'user',
+    entityId: user.id,
+    details: {
+      action: 'wholesale_request_submitted',
+      companyName,
+      edrpou: edrpou ?? null,
+    },
+    ipAddress: getClientIp(request),
   });
 
   // Notify managers via Telegram

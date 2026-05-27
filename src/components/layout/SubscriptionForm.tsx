@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { useId, useState } from 'react';
 
 interface SubscriptionFormProps {
@@ -79,7 +79,14 @@ export default function SubscriptionForm({ variant = 'dark' }: SubscriptionFormP
         autoComplete="off"
         tabIndex={-1}
         aria-hidden="true"
-        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: 0, height: 0, overflow: 'hidden' }}
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: '-9999px',
+          width: 0,
+          height: 0,
+          overflow: 'hidden',
+        }}
       />
       <div className="flex gap-2">
         <label htmlFor={`${consentId}-email`} className="sr-only">
@@ -94,11 +101,7 @@ export default function SubscriptionForm({ variant = 'dark' }: SubscriptionFormP
           required
           className={inputClass}
         />
-        <button
-          type="submit"
-          disabled={status === 'loading' || !consent}
-          className={buttonClass}
-        >
+        <button type="submit" disabled={status === 'loading' || !consent} className={buttonClass}>
           {status === 'loading' ? '...' : isLight ? 'Підписатись' : 'OK'}
         </button>
       </div>

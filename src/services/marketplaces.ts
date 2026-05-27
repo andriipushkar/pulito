@@ -44,8 +44,8 @@ export interface MarketplaceListingData {
   price: number;
   currency?: string;
   images: string[];
-  category?: string;            // resolved external category id (sent upstream)
-  localCategoryId?: number;     // local category id, used by the dispatcher to resolve `category`
+  category?: string; // resolved external category id (sent upstream)
+  localCategoryId?: number; // local category id, used by the dispatcher to resolve `category`
   productCode?: string;
   /** EAN/UPC barcode (8-14 digits). Required by some marketplaces for new
    *  listings; falls back to `identifier_exists=no` semantics when missing. */
@@ -97,7 +97,10 @@ export async function refreshOlxToken(): Promise<{
       error_description?: string;
     };
     if (!res.ok || !data.access_token) {
-      return { success: false, error: data.error_description || data.error || `HTTP ${res.status}` };
+      return {
+        success: false,
+        error: data.error_description || data.error || `HTTP ${res.status}`,
+      };
     }
     // Persist new tokens
     const { saveChannelConfig } = await import('@/services/channel-config');
@@ -131,7 +134,8 @@ export async function publishToOlx(
   try {
     const imageUrls = data.images.map((img) => (img.startsWith('http') ? img : `${appUrl}${img}`));
 
-    const categoryId = data.category || (config.defaultCategoryId ? String(config.defaultCategoryId) : null);
+    const categoryId =
+      data.category || (config.defaultCategoryId ? String(config.defaultCategoryId) : null);
     if (!categoryId) {
       return {
         status: 'failed',
@@ -367,7 +371,10 @@ export async function getMarketplacePrice(
   let withBase = applyMarkup(basePrice, baseMultiplier);
 
   // Stack repricing rule adjustment on top of the channel-wide markup.
-  if (repricingCtx && (channel === 'olx' || channel === 'rozetka' || channel === 'prom' || channel === 'epicentrk')) {
+  if (
+    repricingCtx &&
+    (channel === 'olx' || channel === 'rozetka' || channel === 'prom' || channel === 'epicentrk')
+  ) {
     try {
       const { evalRepricing } = await import('@/services/marketplace-repricing');
       const extra = await evalRepricing(channel, {
@@ -404,19 +411,20 @@ export async function getMarketplaceStock(
   productId?: number,
 ): Promise<number> {
   try {
-    const config = (await getChannelConfig(channel as 'olx' | 'rozetka' | 'prom' | 'epicentrk')) as
-      | MarketplaceConfig
-      | null;
+    const config = (await getChannelConfig(
+      channel as 'olx' | 'rozetka' | 'prom' | 'epicentrk',
+    )) as MarketplaceConfig | null;
     if (!config) return baseQuantity;
 
     // If a specific warehouse is bound to this channel, pull stock from it.
     let effectiveBase = baseQuantity;
     const warehouseIdRaw = config.warehouseId;
-    const warehouseId = typeof warehouseIdRaw === 'string'
-      ? parseInt(warehouseIdRaw, 10)
-      : typeof warehouseIdRaw === 'number'
-      ? warehouseIdRaw
-      : NaN;
+    const warehouseId =
+      typeof warehouseIdRaw === 'string'
+        ? parseInt(warehouseIdRaw, 10)
+        : typeof warehouseIdRaw === 'number'
+          ? warehouseIdRaw
+          : NaN;
     if (Number.isFinite(warehouseId) && productId != null) {
       const { prisma } = await import('@/lib/prisma');
       const stock = await prisma.warehouseStock.findUnique({
@@ -453,9 +461,9 @@ export type FulfilmentMode = 'fbo' | 'fbs';
 
 export async function getFulfilmentMode(channel: string): Promise<FulfilmentMode> {
   try {
-    const config = (await getChannelConfig(channel as 'olx' | 'rozetka' | 'prom' | 'epicentrk')) as
-      | MarketplaceConfig
-      | null;
+    const config = (await getChannelConfig(
+      channel as 'olx' | 'rozetka' | 'prom' | 'epicentrk',
+    )) as MarketplaceConfig | null;
     return config?.fulfilmentMode === 'fbo' ? 'fbo' : 'fbs';
   } catch {
     return 'fbs';
@@ -469,9 +477,9 @@ export async function getFulfilmentMode(channel: string): Promise<FulfilmentMode
  */
 async function getPriceMultiplier(channel: string): Promise<number> {
   try {
-    const config = (await getChannelConfig(channel as 'olx' | 'rozetka' | 'prom' | 'epicentrk')) as
-      | MarketplaceConfig
-      | null;
+    const config = (await getChannelConfig(
+      channel as 'olx' | 'rozetka' | 'prom' | 'epicentrk',
+    )) as MarketplaceConfig | null;
     if (!config) return 1;
     const raw = config.priceMarkupPercent;
     const pct = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseFloat(raw) : 0;
@@ -539,7 +547,9 @@ export function validateForMarketplace(
   if (!data.description || data.description.trim().length === 0) {
     errors.push('Опис порожній');
   } else if (data.description.trim().length < MIN_DESCRIPTION_LEN) {
-    errors.push(`Опис закороткий (${data.description.trim().length}/${MIN_DESCRIPTION_LEN} символів мінімум)`);
+    errors.push(
+      `Опис закороткий (${data.description.trim().length}/${MIN_DESCRIPTION_LEN} символів мінімум)`,
+    );
   } else if (rules.descriptionMax && data.description.length > rules.descriptionMax) {
     errors.push(`Опис задовгий (${data.description.length}/${rules.descriptionMax})`);
   }
@@ -555,9 +565,7 @@ export function validateForMarketplace(
   } else {
     // Sanity-check image URLs: they must be absolute https or start with /uploads/
     const badUrls = data.images.filter(
-      (u) =>
-        !u ||
-        (!u.startsWith('http://') && !u.startsWith('https://') && !u.startsWith('/')),
+      (u) => !u || (!u.startsWith('http://') && !u.startsWith('https://') && !u.startsWith('/')),
     );
     if (badUrls.length > 0) {
       errors.push(`Невалідні URL зображень: ${badUrls.length} шт.`);
@@ -585,7 +593,9 @@ export function validateForMarketplace(
   // Category check: warn if external category is required and not resolved.
   // (publishToMarketplace will refuse anyway, but a pre-publish warning is friendlier.)
   if (!data.category && data.localCategoryId == null) {
-    warnings.push(`Категорія не вказана — використається defaultCategoryId з налаштувань ${channel}`);
+    warnings.push(
+      `Категорія не вказана — використається defaultCategoryId з налаштувань ${channel}`,
+    );
   }
 
   return { valid: errors.length === 0, errors, warnings };
@@ -610,19 +620,31 @@ export async function getEpicentrkReturns(dateFrom?: string): Promise<Normalized
       log.error('Epicentr getReturns failed', { platform: 'epicentrk', httpStatus: res.status });
       return [];
     }
-    const data = (await res.json()) as { data?: Record<string, unknown>[]; returns?: Record<string, unknown>[] };
+    const data = (await res.json()) as {
+      data?: Record<string, unknown>[];
+      returns?: Record<string, unknown>[];
+    };
     const list = data.data || data.returns || [];
-    return list.map((r): NormalizedReturn => ({
-      id: String(r.id),
-      orderId: r.order_id ? String(r.order_id) : undefined,
-      status: String(r.status || 'pending'),
-      reason: r.reason ? String(r.reason) : undefined,
-      quantity: Number(r.quantity ?? 1),
-      refundAmount: r.refund_amount ? Number(r.refund_amount) : undefined,
-      createdAt: r.created_at ? String(r.created_at) : r.date_created ? String(r.date_created) : undefined,
-    }));
+    return list.map(
+      (r): NormalizedReturn => ({
+        id: String(r.id),
+        orderId: r.order_id ? String(r.order_id) : undefined,
+        status: String(r.status || 'pending'),
+        reason: r.reason ? String(r.reason) : undefined,
+        quantity: Number(r.quantity ?? 1),
+        refundAmount: r.refund_amount ? Number(r.refund_amount) : undefined,
+        createdAt: r.created_at
+          ? String(r.created_at)
+          : r.date_created
+            ? String(r.date_created)
+            : undefined,
+      }),
+    );
   } catch (err) {
-    log.error('Epicentr getReturns error', { platform: 'epicentrk', error: err instanceof Error ? err.message : String(err) });
+    log.error('Epicentr getReturns error', {
+      platform: 'epicentrk',
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }
@@ -631,9 +653,9 @@ export async function getEpicentrkReturns(dateFrom?: string): Promise<Normalized
 
 async function isSandbox(channel: string): Promise<boolean> {
   try {
-    const config = (await getChannelConfig(channel as 'olx' | 'rozetka' | 'prom' | 'epicentrk')) as
-      | MarketplaceConfig
-      | null;
+    const config = (await getChannelConfig(
+      channel as 'olx' | 'rozetka' | 'prom' | 'epicentrk',
+    )) as MarketplaceConfig | null;
     return Boolean(config?.sandboxMode);
   } catch {
     return false;
@@ -672,7 +694,10 @@ export async function publishToMarketplace(
   // Apply per-marketplace markup and resolve category mapping before dispatch.
   const multiplier = await getPriceMultiplier(channel);
   let externalCategory: string | null = null;
-  if (data.localCategoryId != null && (channel === 'olx' || channel === 'rozetka' || channel === 'prom' || channel === 'epicentrk')) {
+  if (
+    data.localCategoryId != null &&
+    (channel === 'olx' || channel === 'rozetka' || channel === 'prom' || channel === 'epicentrk')
+  ) {
     const { resolveExternalCategory } = await import('@/services/marketplace-categories');
     externalCategory = await resolveExternalCategory(channel, data.localCategoryId);
   }
@@ -1025,7 +1050,10 @@ export async function replyToMarketplaceMessage(
         recordMarketplaceCall('prom');
         const res = await fetch('https://my.prom.ua/api/v1/messages/reply', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${config.apiToken}`, 'Content-Type': 'application/json' },
+          headers: {
+            Authorization: `Bearer ${config.apiToken}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ message_id: Number(threadId), text }),
           signal: AbortSignal.timeout(15000),
         });
@@ -1086,7 +1114,10 @@ export async function syncMarketplacePrices(
   return { updated, failed };
 }
 
-export const MARKETPLACE_CHANNELS = ['olx', 'rozetka', 'prom', 'epicentrk'] as const;
+// Re-export the canonical list from marketplace-health to keep this file
+// in sync without forcing every caller to migrate import paths. Adding a
+// new marketplace now only requires editing MARKETPLACE_PLATFORMS.
+export { MARKETPLACE_PLATFORMS as MARKETPLACE_CHANNELS } from '@/services/marketplace-health';
 
 // ── Generic order shape used by importOrdersFromMarketplace ──
 
@@ -1139,7 +1170,10 @@ export async function getOlxOrders(dateFrom?: string): Promise<NormalizedOrder[]
       };
     });
   } catch (err) {
-    log.error('OLX getOrders error', { platform: 'olx', error: err instanceof Error ? err.message : String(err) });
+    log.error('OLX getOrders error', {
+      platform: 'olx',
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }
@@ -1177,17 +1211,22 @@ export async function getOlxReturns(dateFrom?: string): Promise<NormalizedReturn
       return [];
     }
     const data = (await res.json()) as { data?: Record<string, unknown>[] };
-    return (data.data || []).map((r): NormalizedReturn => ({
-      id: String(r.id),
-      orderId: r.order_id ? String(r.order_id) : undefined,
-      status: String(r.status || 'pending'),
-      reason: r.reason ? String(r.reason) : undefined,
-      quantity: Number(r.quantity ?? 1),
-      refundAmount: r.refund_amount ? Number(r.refund_amount) : undefined,
-      createdAt: r.created_at ? String(r.created_at) : undefined,
-    }));
+    return (data.data || []).map(
+      (r): NormalizedReturn => ({
+        id: String(r.id),
+        orderId: r.order_id ? String(r.order_id) : undefined,
+        status: String(r.status || 'pending'),
+        reason: r.reason ? String(r.reason) : undefined,
+        quantity: Number(r.quantity ?? 1),
+        refundAmount: r.refund_amount ? Number(r.refund_amount) : undefined,
+        createdAt: r.created_at ? String(r.created_at) : undefined,
+      }),
+    );
   } catch (err) {
-    log.error('OLX getReturns error', { platform: 'olx', error: err instanceof Error ? err.message : String(err) });
+    log.error('OLX getReturns error', {
+      platform: 'olx',
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }
@@ -1210,14 +1249,16 @@ export async function getEpicentrkOrders(dateFrom?: string): Promise<NormalizedO
       log.error('Epicentr getOrders failed', { platform: 'epicentrk', httpStatus: res.status });
       return [];
     }
-    const data = (await res.json()) as { data?: Record<string, unknown>[]; orders?: Record<string, unknown>[] };
+    const data = (await res.json()) as {
+      data?: Record<string, unknown>[];
+      orders?: Record<string, unknown>[];
+    };
     const list = data.data || data.orders || [];
     return list.map((o) => {
-      const buyer = (o.buyer as Record<string, unknown>) || (o.customer as Record<string, unknown>) || {};
+      const buyer =
+        (o.buyer as Record<string, unknown>) || (o.customer as Record<string, unknown>) || {};
       const itemsRaw =
-        (o.items as Record<string, unknown>[]) ||
-        (o.products as Record<string, unknown>[]) ||
-        [];
+        (o.items as Record<string, unknown>[]) || (o.products as Record<string, unknown>[]) || [];
       const items = itemsRaw.map((it) => ({
         name: String(it.name || it.title || 'Товар'),
         quantity: Number(it.quantity ?? it.stock ?? 1),
@@ -1230,11 +1271,18 @@ export async function getEpicentrkOrders(dateFrom?: string): Promise<NormalizedO
         buyerPhone: buyer.phone ? String(buyer.phone) : undefined,
         buyerEmail: buyer.email ? String(buyer.email) : undefined,
         items,
-        createdAt: o.created_at ? String(o.created_at) : o.date_created ? String(o.date_created) : undefined,
+        createdAt: o.created_at
+          ? String(o.created_at)
+          : o.date_created
+            ? String(o.date_created)
+            : undefined,
       };
     });
   } catch (err) {
-    log.error('Epicentr getOrders error', { platform: 'epicentrk', error: err instanceof Error ? err.message : String(err) });
+    log.error('Epicentr getOrders error', {
+      platform: 'epicentrk',
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }

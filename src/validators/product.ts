@@ -64,6 +64,13 @@ export const createProductSchema = z.object({
   specifications: z.string().max(50000).optional().nullable(),
   seoTitle: z.string().max(70, 'SEO title до 70 символів').optional().nullable(),
   seoDescription: z.string().max(160, 'SEO description до 160 символів').optional().nullable(),
+  // EN translations — optional; empty string clears the translation.
+  nameEn: z.string().max(255).optional().nullable(),
+  descriptionEn: z.string().max(2000).optional().nullable(),
+  descriptionHtmlEn: z.string().max(50000).optional().nullable(),
+  specificationsEn: z.string().max(50000).optional().nullable(),
+  seoTitleEn: z.string().max(70).optional().nullable(),
+  seoDescriptionEn: z.string().max(160).optional().nullable(),
   brandId: z.number().int().positive().optional().nullable(),
   // Accept ISO date-time strings; the service coerces to Date.
   promoStartDate: z

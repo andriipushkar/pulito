@@ -13,6 +13,10 @@ import {
 } from '@/services/chat';
 import { adminChatUpdateSchema, sendMessageSchema } from '@/validators/chat';
 import { logger } from '@/lib/logger';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+import { prisma } from '@/lib/prisma';
 
 // GET /api/v1/admin/chat/[roomId] - get room detail with messages
 export const GET = withRole(
@@ -59,6 +63,22 @@ export const PATCH = withRole(
 
     const { action, agentId } = parsed.data;
 
+    // For assign: validate that the proposed agent is actually an admin or
+    // manager. Without this an admin could "assign" a customer or wholesaler
+    // as the chat agent and the agent UI would silently show the wrong rows.
+    if (action === 'assign' && agentId && agentId !== user.id) {
+      const target = await prisma.user.findUnique({
+        where: { id: agentId },
+        select: { role: true, isBlocked: true, deletedAt: true },
+      });
+      if (!target || target.isBlocked || target.deletedAt) {
+        return errorResponse('Користувача не знайдено', 404);
+      }
+      if (target.role !== 'admin' && target.role !== 'manager') {
+        return errorResponse('Агентом може бути лише admin або manager', 400);
+      }
+    }
+
     let result;
     switch (action) {
       case 'assign':
@@ -76,6 +96,17 @@ export const PATCH = withRole(
         break;
     }
 
+    // Lifecycle events (assign/resolve/close) are auditable — manager-level
+    // policy actions affecting customer conversations.
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'chat_room',
+      entityId: id,
+      details: { action, agentId: agentId ?? null },
+      ipAddress: getClientIp(request),
+    });
+
     return successResponse(result);
   } catch (err) {
     if (err instanceof ChatError) {
@@ -92,6 +123,14 @@ export const POST = withRole(
   'manager',
 )(async (request: NextRequest, { user, params }) => {
   try {
+    // Cap agent message rate so a stuck UI button (or stolen session) can't
+    // spam a customer chat. 60/min per agent covers a realistic typing pace
+    // (1 msg/sec sustained) while stopping a flood.
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminScan);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато повідомлень. Зачекайте ${rl.retryAfter}с.`, 429);
+    }
+
     const { roomId } = (await params) || {};
     const id = Number(roomId);
     if (!id) return errorResponse('Невірний ID чату', 400);

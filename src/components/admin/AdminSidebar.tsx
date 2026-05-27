@@ -125,8 +125,15 @@ export default function AdminSidebar({
   const sections = useMemo<NavSection[]>(() => {
     const q = query.trim().toLowerCase();
     if (q) {
+      // Search only over baseSections (which already applies the
+      // isPlatformAdmin filter). Searching ADMIN_PAGES directly let
+      // non-platform admins find and navigate to Tenants/Billing.
+      const allowed = new Set<string>();
+      for (const s of baseSections) {
+        for (const i of s.items) allowed.add(i.href);
+      }
       const flat = ADMIN_PAGES.filter(
-        (p) => !p.hiddenFromSidebar && p.label.toLowerCase().includes(q),
+        (p) => !p.hiddenFromSidebar && allowed.has(p.href) && p.label.toLowerCase().includes(q),
       );
       return flat.length ? [{ items: flat }] : [];
     }
@@ -236,8 +243,9 @@ export default function AdminSidebar({
             alwaysOpen || expandedSections.has(sectionTitle) || sectionTitle === activeSectionTitle;
           return (
             <div key={(section.title ?? '_top') + si} className="mb-3">
-              {sectionTitle && !collapsed && (
-                alwaysOpen && isPinnedSection ? (
+              {sectionTitle &&
+                !collapsed &&
+                (alwaysOpen && isPinnedSection ? (
                   <p className="mb-1 flex items-center gap-1 px-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
                     <Star size={10} fill="currentColor" aria-hidden />
                     {sectionTitle}
@@ -256,90 +264,85 @@ export default function AdminSidebar({
                       aria-hidden
                     />
                   </button>
-                )
-              )}
+                ))}
               {sectionTitle && collapsed && (
                 <div className="mx-auto mb-1 h-px w-8 bg-[var(--color-border)]" />
               )}
               {!isExpanded ? null : (
-              <ul className="space-y-0.5">
-                {section.items.map((item) => {
-                  const badgeCount = item.badgeKey ? sidebarCounts[item.badgeKey] : 0;
-                  const active = isActive(item.href, item.exact);
-                  const isPinned = pinned.includes(item.href);
-                  const Icon = item.icon;
-                  return (
-                    <li key={item.href} className="group relative">
-                      <Link
-                        href={item.href}
-                        onClick={onNavigate}
-                        title={
-                          collapsed
-                            ? `${item.label}${badgeCount > 0 ? ` (${badgeCount})` : ''}`
-                            : undefined
-                        }
-                        className={`relative flex items-center gap-2.5 rounded-[var(--radius)] px-3 py-2 text-sm font-medium transition-colors ${
-                          collapsed ? 'justify-center' : ''
-                        } ${
-                          active
-                            ? 'bg-[var(--color-primary)] text-white'
-                            : 'text-[var(--color-text)] hover:bg-[var(--color-bg-secondary)]'
-                        }`}
-                      >
-                        <span className="relative shrink-0">
-                          <Icon
-                            size={collapsed ? 20 : 18}
-                            strokeWidth={1.75}
-                            aria-hidden
-                          />
-                          {collapsed && badgeCount > 0 && (
-                            <span
-                              className="absolute -right-1.5 -top-1.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white"
-                              aria-label={`${badgeCount} нових`}
-                            >
-                              {badgeCount > 9 ? '9+' : badgeCount}
-                            </span>
-                          )}
-                        </span>
-                        {!collapsed && (
-                          <>
-                            <span className="flex-1 truncate">{item.label}</span>
-                            {badgeCount > 0 && (
+                <ul className="space-y-0.5">
+                  {section.items.map((item) => {
+                    const badgeCount = item.badgeKey ? sidebarCounts[item.badgeKey] : 0;
+                    const active = isActive(item.href, item.exact);
+                    const isPinned = pinned.includes(item.href);
+                    const Icon = item.icon;
+                    return (
+                      <li key={item.href} className="group relative">
+                        <Link
+                          href={item.href}
+                          onClick={onNavigate}
+                          title={
+                            collapsed
+                              ? `${item.label}${badgeCount > 0 ? ` (${badgeCount})` : ''}`
+                              : undefined
+                          }
+                          className={`relative flex items-center gap-2.5 rounded-[var(--radius)] px-3 py-2 text-sm font-medium transition-colors ${
+                            collapsed ? 'justify-center' : ''
+                          } ${
+                            active
+                              ? 'bg-[var(--color-primary)] text-white'
+                              : 'text-[var(--color-text)] hover:bg-[var(--color-bg-secondary)]'
+                          }`}
+                        >
+                          <span className="relative shrink-0">
+                            <Icon size={collapsed ? 20 : 18} strokeWidth={1.75} aria-hidden />
+                            {collapsed && badgeCount > 0 && (
                               <span
-                                className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                                  active ? 'bg-white/20 text-white' : 'bg-red-500 text-white'
-                                }`}
+                                className="absolute -right-1.5 -top-1.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white"
                                 aria-label={`${badgeCount} нових`}
                               >
-                                {badgeCount > 99 ? '99+' : badgeCount}
+                                {badgeCount > 9 ? '9+' : badgeCount}
                               </span>
                             )}
-                          </>
+                          </span>
+                          {!collapsed && (
+                            <>
+                              <span className="flex-1 truncate">{item.label}</span>
+                              {badgeCount > 0 && (
+                                <span
+                                  className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                                    active ? 'bg-white/20 text-white' : 'bg-red-500 text-white'
+                                  }`}
+                                  aria-label={`${badgeCount} нових`}
+                                >
+                                  {badgeCount > 99 ? '99+' : badgeCount}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </Link>
+                        {!collapsed && (
+                          <button
+                            onClick={() => togglePin(item.href)}
+                            className={`absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 transition-opacity ${
+                              isPinned
+                                ? 'text-amber-400 opacity-100 hover:text-amber-500'
+                                : 'text-[var(--color-text-secondary)] opacity-0 hover:text-amber-500 group-hover:opacity-60 focus:opacity-100'
+                            } ${active ? 'hover:bg-white/10' : 'hover:bg-[var(--color-border)]'}`}
+                            aria-label={isPinned ? 'Відкріпити' : 'Закріпити'}
+                            title={isPinned ? 'Відкріпити' : 'Закріпити'}
+                          >
+                            <Star
+                              size={12}
+                              fill={isPinned ? 'currentColor' : 'none'}
+                              strokeWidth={2}
+                              aria-hidden
+                            />
+                          </button>
                         )}
-                      </Link>
-                      {!collapsed && (
-                        <button
-                          onClick={() => togglePin(item.href)}
-                          className={`absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 transition-opacity ${
-                            isPinned
-                              ? 'text-amber-400 opacity-100 hover:text-amber-500'
-                              : 'text-[var(--color-text-secondary)] opacity-0 hover:text-amber-500 group-hover:opacity-60 focus:opacity-100'
-                          } ${active ? 'hover:bg-white/10' : 'hover:bg-[var(--color-border)]'}`}
-                          aria-label={isPinned ? 'Відкріпити' : 'Закріпити'}
-                          title={isPinned ? 'Відкріпити' : 'Закріпити'}
-                        >
-                          <Star
-                            size={12}
-                            fill={isPinned ? 'currentColor' : 'none'}
-                            strokeWidth={2}
-                            aria-hidden
-                          />
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
           );
@@ -419,15 +422,25 @@ function ProfileChip({
           {initial}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-[var(--color-text)]">{userLabel}</span>
+          <span className="block truncate text-sm font-medium text-[var(--color-text)]">
+            {userLabel}
+          </span>
           <span className="block truncate text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">
             {userRole}
           </span>
         </span>
         {open ? (
-          <ChevronDown size={14} className="shrink-0 text-[var(--color-text-secondary)]" aria-hidden />
+          <ChevronDown
+            size={14}
+            className="shrink-0 text-[var(--color-text-secondary)]"
+            aria-hidden
+          />
         ) : (
-          <ChevronUp size={14} className="shrink-0 text-[var(--color-text-secondary)]" aria-hidden />
+          <ChevronUp
+            size={14}
+            className="shrink-0 text-[var(--color-text-secondary)]"
+            aria-hidden
+          />
         )}
       </button>
       {open && (
@@ -473,13 +486,25 @@ function ProfileMenu({
         onClick={onClose}
         className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg-secondary)]"
       >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+        <svg
+          className="h-3.5 w-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+          />
         </svg>
         Налаштування 2FA
       </Link>
       <div className="border-t border-[var(--color-border)] px-3 py-2">
-        <p className="mb-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Тема</p>
+        <p className="mb-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+          Тема
+        </p>
         <ThemeToggle />
       </div>
       <button

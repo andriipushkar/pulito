@@ -11,7 +11,12 @@ import PageSizeSelector from '@/components/admin/PageSizeSelector';
 import { useDebounce } from '@/hooks/useDebounce';
 import { SEARCH_DEBOUNCE_MS, DEFAULT_PAGE_SIZE } from '@/config/admin-constants';
 import Image from 'next/image';
-import { MARKETPLACES, type MarketplaceConfig, type ProductForMarketplace } from '../_shared';
+import {
+  MARKETPLACES,
+  MARKETPLACE_BY_KEY,
+  type MarketplaceConfig,
+  type ProductForMarketplace,
+} from '../_shared';
 
 export function ProductsTab() {
   const [products, setProducts] = useState<ProductForMarketplace[]>([]);
@@ -34,7 +39,10 @@ export function ProductsTab() {
 
   const debouncedSearch = useDebounce(search, SEARCH_DEBOUNCE_MS);
   // Derive isLoading from a request key (changes whenever fetch inputs change).
-  const productsRequestKey = `${page}|${limit}|${debouncedSearch}`;
+  // `showOnlyUnpublished` + `targetMarketplace` are part of the key because
+  // they translate into a server-side notPublishedOn filter — flipping them
+  // changes which page of products comes back.
+  const productsRequestKey = `${page}|${limit}|${debouncedSearch}|${showOnlyUnpublished ? targetMarketplace : ''}`;
   const [productsCompletedKey, setProductsCompletedKey] = useState<string | null>(null);
   const isLoading = productsCompletedKey !== productsRequestKey;
 
@@ -54,21 +62,18 @@ export function ProductsTab() {
       });
   }, []);
 
-  // Load which products are already published on selected marketplace
+  // Load which products are already published on each marketplace.
+  // Uses a dedicated aggregated endpoint so the full set fits in one request
+  // without a `limit=1000` cap that silently broke once publications grew
+  // past 1k rows.
   useEffect(() => {
     apiClient
-      .get<
-        { id: number; productId: number; channels: string[] }[]
-      >(`/api/v1/admin/publications?limit=1000&status=published`)
+      .get<Record<string, number[]>>('/api/v1/admin/marketplaces/published-product-ids')
       .then((res) => {
         if (res.success && res.data) {
           const byChannel: Record<string, Set<number>> = {};
-          for (const pub of res.data) {
-            if (!pub.productId) continue;
-            for (const ch of pub.channels) {
-              if (!byChannel[ch]) byChannel[ch] = new Set();
-              byChannel[ch].add(pub.productId);
-            }
+          for (const [ch, ids] of Object.entries(res.data)) {
+            byChannel[ch] = new Set(ids);
           }
           setPublishedIds(byChannel);
         }
@@ -79,23 +84,22 @@ export function ProductsTab() {
     let cancelled = false;
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (debouncedSearch) params.set('search', debouncedSearch);
+    if (showOnlyUnpublished) params.set('notPublishedOn', targetMarketplace);
 
-    apiClient
-      .get<ProductForMarketplace[]>(`/api/v1/admin/products?${params}`)
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data) {
-          setProducts(res.data);
-          setTotal(res.pagination?.total || 0);
-        } else {
-          toast.error('Не вдалося завантажити товари');
-        }
-        setProductsCompletedKey(productsRequestKey);
-      });
+    apiClient.get<ProductForMarketplace[]>(`/api/v1/admin/products?${params}`).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) {
+        setProducts(res.data);
+        setTotal(res.pagination?.total || 0);
+      } else {
+        toast.error('Не вдалося завантажити товари');
+      }
+      setProductsCompletedKey(productsRequestKey);
+    });
     return () => {
       cancelled = true;
     };
-  }, [page, limit, debouncedSearch, productsRequestKey]);
+  }, [page, limit, debouncedSearch, showOnlyUnpublished, targetMarketplace, productsRequestKey]);
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
@@ -125,7 +129,7 @@ export function ProductsTab() {
 
     if (!isConfigured) {
       toast.error(
-        `${MARKETPLACES.find((m) => m.key === targetMarketplace)?.name} не налаштовано. Перейдіть на вкладку "Налаштування API".`,
+        `${MARKETPLACE_BY_KEY[targetMarketplace]?.name} не налаштовано. Перейдіть на вкладку "Налаштування API".`,
       );
       return;
     }
@@ -148,10 +152,9 @@ export function ProductsTab() {
         const product = products.find((p) => p.id === productId);
 
         try {
-          const res = await apiClient.post(
-            `/api/v1/admin/products/${productId}/marketplaces`,
-            { channel: targetMarketplace },
-          );
+          const res = await apiClient.post(`/api/v1/admin/products/${productId}/marketplaces`, {
+            channel: targetMarketplace,
+          });
           results.push({
             id: productId,
             name: product?.name || `#${productId}`,
@@ -179,7 +182,7 @@ export function ProductsTab() {
     const successCount = results.filter((r) => r.status === 'ok').length;
     const failCount = results.filter((r) => r.status === 'error').length;
     const cancelled = cancelRef.current;
-    const mpName = MARKETPLACES.find((m) => m.key === targetMarketplace)?.name;
+    const mpName = MARKETPLACE_BY_KEY[targetMarketplace]?.name;
 
     if (cancelled) {
       toast.info(`Скасовано. Встигли: ${successCount} ok, ${failCount} помилок`);
@@ -200,9 +203,7 @@ export function ProductsTab() {
   };
 
   const handleRetryFailed = () => {
-    const failedIds = publishResults
-      .filter((r) => r.status === 'error')
-      .map((r) => r.id);
+    const failedIds = publishResults.filter((r) => r.status === 'error').map((r) => r.id);
     if (failedIds.length === 0) return;
     void publishMany(failedIds);
   };
@@ -225,8 +226,13 @@ export function ProductsTab() {
         {statsPerMarketplace.map((m) => (
           <div
             key={m.key}
-            onClick={() => setTargetMarketplace(m.key)}
-            className={`cursor-pointer rounded-xl border px-4 py-3 transition-all hover:shadow-sm ${
+            onClick={() => {
+              if (isPublishing) return;
+              setTargetMarketplace(m.key);
+            }}
+            className={`rounded-xl border px-4 py-3 transition-all ${
+              isPublishing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:shadow-sm'
+            } ${
               targetMarketplace === m.key
                 ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
                 : 'border-[var(--color-border)] bg-[var(--color-bg)]'
@@ -270,11 +276,24 @@ export function ProductsTab() {
             }}
             isLoading={isSyncing}
           >
-            Синхронізувати ціни на {MARKETPLACES.find((m) => m.key === targetMarketplace)?.name}
+            Синхронізувати ціни на {MARKETPLACE_BY_KEY[targetMarketplace]?.name}
           </Button>
           <p className="text-xs text-[var(--color-text-secondary)]">
             Оновить ціни та залишки для {publishedIds[targetMarketplace]?.size || 0} товарів
           </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Download XLSX through a hidden link to keep the export call
+              // server-streamed (matches /api/v1/admin/export pattern).
+              const url = `/api/v1/admin/marketplaces/export?type=listings&platform=${targetMarketplace}`;
+              window.location.href = url;
+            }}
+            title="Експорт активних listings у Excel"
+          >
+            📥 Експорт XLSX
+          </Button>
         </div>
       )}
 
@@ -296,7 +315,7 @@ export function ProductsTab() {
           </svg>
           <div>
             <p className="text-sm font-medium text-amber-800">
-              {MARKETPLACES.find((m) => m.key === targetMarketplace)?.name} не налаштовано
+              {MARKETPLACE_BY_KEY[targetMarketplace]?.name} не налаштовано
             </p>
             <p className="text-xs text-amber-600">
               Перейдіть на вкладку &quot;Налаштування API&quot; щоб додати API ключі
@@ -319,7 +338,9 @@ export function ProductsTab() {
         <select
           value={targetMarketplace}
           onChange={(e) => setTargetMarketplace(e.target.value)}
-          className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
+          disabled={isPublishing}
+          title={isPublishing ? 'Не можна змінювати маркетплейс під час публікації' : undefined}
+          className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
           {MARKETPLACES.map((m) => (
             <option key={m.key} value={m.key}>
@@ -441,73 +462,74 @@ export function ProductsTab() {
                 </tr>
               </thead>
               <tbody>
-                {products
-                  .filter((p) => !showOnlyUnpublished || !publishedOnTarget.has(p.id))
-                  .map((p) => {
-                    const isPublished = publishedOnTarget.has(p.id);
-                    return (
-                      <tr
-                        key={p.id}
-                        className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${selected.has(p.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'}`}
-                      >
-                        <td className="px-3 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(p.id)}
-                            onChange={() => toggleSelect(p.id)}
-                            className="accent-[var(--color-primary)]"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
-                              {p.imagePath ? (
-                                <Image
-                                  src={p.imagePath}
-                                  alt=""
-                                  width={40}
-                                  height={40}
-                                  className="h-full w-full object-contain"
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">
-                                  —
-                                </div>
-                              )}
-                            </div>
-                            <span className="font-medium">{p.name}</span>
+                {products.map((p) => {
+                  // `showOnlyUnpublished` is applied server-side now, so we
+                  // don't filter here — the server already returned only
+                  // matching rows, and any client filter would shrink the
+                  // page (e.g. last page might show <limit) and break the
+                  // pagination math below.
+                  const isPublished = publishedOnTarget.has(p.id);
+                  return (
+                    <tr
+                      key={p.id}
+                      className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${selected.has(p.id) ? 'bg-[var(--color-primary)]/5' : 'hover:bg-[var(--color-bg-secondary)]'}`}
+                    >
+                      <td className="px-3 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                          className="accent-[var(--color-primary)]"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-[var(--color-bg-secondary)]">
+                            {p.imagePath ? (
+                              <Image
+                                src={p.imagePath}
+                                alt=""
+                                width={40}
+                                height={40}
+                                className="h-full w-full object-contain"
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">
+                                —
+                              </div>
+                            )}
                           </div>
-                        </td>
-                        <td className="px-4 py-3 text-[var(--color-text-secondary)]">{p.code}</td>
-                        <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                          {p.category?.name || '—'}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {Number(p.priceRetail).toFixed(2)} ₴
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className={
-                              p.quantity === 0 ? 'font-medium text-[var(--color-danger)]' : ''
-                            }
-                          >
-                            {p.quantity}
+                          <span className="font-medium">{p.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[var(--color-text-secondary)]">{p.code}</td>
+                      <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                        {p.category?.name || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right">{Number(p.priceRetail).toFixed(2)} ₴</td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={
+                            p.quantity === 0 ? 'font-medium text-[var(--color-danger)]' : ''
+                          }
+                        >
+                          {p.quantity}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {isPublished ? (
+                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                            Опублік.
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {isPublished ? (
-                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                              Опублік.
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                              —
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        ) : (
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                            —
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {products.length === 0 && (
                   <tr>
                     <td
@@ -565,7 +587,7 @@ export function ProductsTab() {
         onClose={() => setConfirmPublish(false)}
         onConfirm={handlePublish}
         title="Публікація на маркетплейс"
-        message={`Опублікувати ${selected.size} товарів на ${MARKETPLACES.find((m) => m.key === targetMarketplace)?.name}?`}
+        message={`Опублікувати ${selected.size} товарів на ${MARKETPLACE_BY_KEY[targetMarketplace]?.name}?`}
         confirmText="Так, опублікувати"
       />
     </div>

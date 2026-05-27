@@ -2,8 +2,10 @@ import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, privateResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
-export const DELETE = withAuth(async (_request: NextRequest, { user }) => {
+export const DELETE = withAuth(async (request: NextRequest, { user }) => {
   try {
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -25,6 +27,17 @@ export const DELETE = withAuth(async (_request: NextRequest, { user }) => {
     await prisma.user.update({
       where: { id: user.id },
       data: { googleId: null },
+    });
+
+    // Removing the OAuth identity is a security event — it changes the set
+    // of factors that can sign in to the account.
+    await logAudit({
+      userId: user.id,
+      actionType: 'user_edit',
+      entityType: 'user',
+      entityId: user.id,
+      details: { action: 'google_unlinked' },
+      ipAddress: getClientIp(request),
     });
 
     return successResponse({ message: "Google акаунт від'єднано" });

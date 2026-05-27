@@ -4,6 +4,7 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { generateForProduct } from '@/services/ai-content';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 const schema = z.object({
   name: z.string().min(1).max(200),
@@ -22,8 +23,18 @@ const schema = z.object({
 export const POST = withRole(
   'admin',
   'manager',
-)(async (request: NextRequest) => {
+)(async (request: NextRequest, { user }) => {
   try {
+    // Shares the per-user AI quota with /[id]/ai-generate so a malicious or
+    // stuck client can't bypass the limit by switching endpoints.
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminAiGenerate);
+    if (!rl.allowed) {
+      return errorResponse(
+        `Ліміт AI-генерації вичерпано. Спробуйте через ${rl.retryAfter} с.`,
+        429,
+      );
+    }
+
     const body = await request.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {

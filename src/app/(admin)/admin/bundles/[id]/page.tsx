@@ -30,6 +30,8 @@ interface BundleData {
   id: number;
   name: string;
   description: string | null;
+  nameEn: string | null;
+  descriptionEn: string | null;
   bundleType: 'curated' | 'custom';
   discountPercent: number | string;
   fixedPrice: number | string | null;
@@ -46,6 +48,8 @@ interface ProductOption {
 type Form = {
   name: string;
   description: string;
+  nameEn: string;
+  descriptionEn: string;
   bundleType: 'curated' | 'custom';
   discountPercent: number;
   fixedPrice: string;
@@ -55,6 +59,8 @@ type Form = {
 const EMPTY_FORM: Form = {
   name: '',
   description: '',
+  nameEn: '',
+  descriptionEn: '',
   bundleType: 'curated',
   discountPercent: 0,
   fixedPrice: '',
@@ -80,8 +86,7 @@ export default function AdminBundleEditPage() {
   const [newQuantity, setNewQuantity] = useState('1');
   const debouncedQuery = useDebounce(productQuery, SEARCH_DEBOUNCE_MS);
   const [completedQuery, setCompletedQuery] = useState<string | null>(null);
-  const searchingProducts =
-    debouncedQuery.length >= 2 && completedQuery !== debouncedQuery;
+  const searchingProducts = debouncedQuery.length >= 2 && completedQuery !== debouncedQuery;
 
   const isDirty = useMemo(() => {
     if (!snapshot) {
@@ -114,6 +119,8 @@ export default function AdminBundleEditPage() {
           const loadedForm: Form = {
             name: d.name,
             description: d.description || '',
+            nameEn: d.nameEn || '',
+            descriptionEn: d.descriptionEn || '',
             bundleType: d.bundleType,
             discountPercent: Number(d.discountPercent) || 0,
             fixedPrice: d.fixedPrice != null ? String(d.fixedPrice) : '',
@@ -193,7 +200,7 @@ export default function AdminBundleEditPage() {
       return 'Знижка має бути в межах 0–100%';
     }
     if (form.fixedPrice && Number(form.fixedPrice) < 0) {
-      return 'Фіксована ціна не може бути від\'ємною';
+      return "Фіксована ціна не може бути від'ємною";
     }
     if (items.length === 0) return 'Додайте хоча б один товар у набір';
     return null;
@@ -210,6 +217,8 @@ export default function AdminBundleEditPage() {
       const payload = {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
+        nameEn: form.nameEn.trim() || undefined,
+        descriptionEn: form.descriptionEn.trim() || undefined,
         bundleType: form.bundleType,
         discountPercent: form.discountPercent,
         fixedPrice: form.fixedPrice ? Number(form.fixedPrice) : null,
@@ -347,6 +356,31 @@ export default function AdminBundleEditPage() {
               Активний
             </label>
           </div>
+
+          <details className="mt-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+            <summary className="cursor-pointer text-xs font-semibold">
+              <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                EN
+              </span>
+              Англійський переклад (опційно)
+            </summary>
+            <div className="mt-3 space-y-3">
+              <Input
+                label="Name (EN)"
+                value={form.nameEn}
+                onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+              />
+              <div>
+                <label className="mb-1 block text-sm font-medium">Description (EN)</label>
+                <textarea
+                  value={form.descriptionEn}
+                  onChange={(e) => setForm({ ...form, descriptionEn: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+            </div>
+          </details>
         </div>
 
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
