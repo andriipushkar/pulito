@@ -974,6 +974,24 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "smsTemplates": {
+      "labelReady": "Order ready",
+      "labelTtn": "Waybill",
+      "labelPayment": "Awaiting payment",
+      "labelArrived": "Arrived at branch",
+      "labelThanks": "Thanks for your purchase",
+      "copied": "Text copied — paste into Viber/Telegram",
+      "copyFailed": "Failed to copy",
+      "smsButtonTitle": "SMS to customer",
+      "modalTitle": "SMS to {phone}",
+      "close": "Close",
+      "dialogLabel": "SMS templates",
+      "hint": "«Send» opens the SMS app (on a phone). «Copy» — for pasting into Viber/Telegram.",
+      "sendSms": "Send SMS",
+      "copy": "Copy",
+      "customLabel": "Custom text",
+      "customPlaceholder": "Write your text…"
+    },
     "variantsSection": {
       "fillSkuName": "Fill in SKU and name",
       "added": "Variant added",

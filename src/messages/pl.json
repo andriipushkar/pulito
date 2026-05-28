@@ -974,6 +974,24 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "smsTemplates": {
+      "labelReady": "Zamówienie gotowe",
+      "labelTtn": "List przewozowy",
+      "labelPayment": "Oczekujemy płatności",
+      "labelArrived": "Dotarło do oddziału",
+      "labelThanks": "Dziękujemy za zakup",
+      "copied": "Tekst skopiowany — wklej do Viber/Telegram",
+      "copyFailed": "Nie udało się skopiować",
+      "smsButtonTitle": "SMS do klienta",
+      "modalTitle": "SMS do {phone}",
+      "close": "Zamknij",
+      "dialogLabel": "Szablony SMS",
+      "hint": "«Wyślij» otwiera aplikację SMS (na telefonie). «Kopiuj» — do wklejenia do Viber/Telegram.",
+      "sendSms": "Wyślij SMS",
+      "copy": "Kopiuj",
+      "customLabel": "Własny tekst",
+      "customPlaceholder": "Napisz tekst…"
+    },
     "variantsSection": {
       "fillSkuName": "Wypełnij SKU i nazwę",
       "added": "Wariant dodany",

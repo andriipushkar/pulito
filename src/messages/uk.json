@@ -974,6 +974,24 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "smsTemplates": {
+      "labelReady": "Замовлення готове",
+      "labelTtn": "ТТН",
+      "labelPayment": "Очікуємо оплату",
+      "labelArrived": "Прибуло у відділення",
+      "labelThanks": "Дякуємо за покупку",
+      "copied": "Текст скопійовано — вставте у Viber/Telegram",
+      "copyFailed": "Не вдалося скопіювати",
+      "smsButtonTitle": "SMS клієнту",
+      "modalTitle": "SMS для {phone}",
+      "close": "Закрити",
+      "dialogLabel": "SMS-шаблони",
+      "hint": "«Надіслати» відкриває SMS-додаток (на телефоні). «Скопіювати» — для вставки у Viber/Telegram.",
+      "sendSms": "Надіслати SMS",
+      "copy": "Скопіювати",
+      "customLabel": "Свій текст",
+      "customPlaceholder": "Напишіть текст…"
+    },
     "variantsSection": {
       "fillSkuName": "Заповніть SKU та назву",
       "added": "Варіант додано",
