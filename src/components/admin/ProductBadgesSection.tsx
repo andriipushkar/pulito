@@ -1,21 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { Check, Close } from '@/components/icons';
 
-const BADGE_TYPES = [
-  { value: 'promo', label: 'Акція' },
-  { value: 'new_arrival', label: 'Новинка' },
-  { value: 'hit', label: 'Хіт' },
-  { value: 'eco', label: 'Еко' },
-  { value: 'custom', label: 'Інший' },
-] as const;
+const BADGE_TYPE_VALUES = ['promo', 'new_arrival', 'hit', 'eco', 'custom'] as const;
 
-type BadgeType = (typeof BADGE_TYPES)[number]['value'];
+type BadgeType = (typeof BADGE_TYPE_VALUES)[number];
 
 interface ProductBadge {
   id: number;
@@ -42,11 +37,23 @@ const EMPTY_FORM: AddForm = {
   priority: 0,
 };
 
-function getBadgeLabel(type: string) {
-  return BADGE_TYPES.find((t) => t.value === type)?.label ?? type;
-}
-
 export default function ProductBadgesSection({ productId }: { productId: number }) {
+  const t = useTranslations('admin.productBadgesSection');
+  const badgeLabels = useMemo<Record<BadgeType, string>>(
+    () => ({
+      promo: t('typePromo'),
+      new_arrival: t('typeNewArrival'),
+      hit: t('typeHit'),
+      eco: t('typeEco'),
+      custom: t('typeCustom'),
+    }),
+    [t],
+  );
+  const BADGE_TYPES = useMemo(
+    () => BADGE_TYPE_VALUES.map((value) => ({ value, label: badgeLabels[value] })),
+    [badgeLabels],
+  );
+  const getBadgeLabel = (type: string) => badgeLabels[type as BadgeType] ?? type;
   const [badges, setBadges] = useState<ProductBadge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -63,7 +70,7 @@ export default function ProductBadgesSection({ productId }: { productId: number 
       );
       setBadges(res.data ?? []);
     } catch {
-      toast.error('Не вдалося завантажити бейджі');
+      toast.error(t('loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -75,11 +82,11 @@ export default function ProductBadgesSection({ productId }: { productId: number 
   }, [productId]);
 
   const usedTypes = new Set(badges.map((b) => b.badgeType));
-  const availableTypes = BADGE_TYPES.filter((t) => !usedTypes.has(t.value));
+  const availableTypes = BADGE_TYPES.filter((bt) => !usedTypes.has(bt.value));
 
   const handleAdd = async () => {
     if (availableTypes.length === 0) {
-      toast.error('Усі типи бейджів уже додано');
+      toast.error(t('allTypesAdded'));
       return;
     }
     try {
@@ -93,7 +100,7 @@ export default function ProductBadgesSection({ productId }: { productId: number 
         isLocked: true, // pinned by admin — cron will not touch it
       };
       await apiClient.post('/api/v1/admin/badges', payload);
-      toast.success('Бейдж додано');
+      toast.success(t('added'));
       setForm(EMPTY_FORM);
       setShowAdd(false);
       await load();
@@ -101,7 +108,7 @@ export default function ProductBadgesSection({ productId }: { productId: number 
       const msg =
         err && typeof err === 'object' && 'message' in err
           ? String((err as { message: string }).message)
-          : 'Помилка створення бейджа';
+          : t('createError');
       toast.error(msg);
     }
   };
@@ -113,41 +120,40 @@ export default function ProductBadgesSection({ productId }: { productId: number 
       });
       await load();
     } catch {
-      toast.error('Не вдалося оновити бейдж');
+      toast.error(t('updateFailed'));
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Видалити цей бейдж з товару?')) return;
+    if (!confirm(t('confirmDelete'))) return;
     try {
       await apiClient.delete(`/api/v1/admin/badges/${id}`);
-      toast.success('Бейдж видалено');
+      toast.success(t('deleted'));
       await load();
     } catch {
-      toast.error('Не вдалося видалити бейдж');
+      toast.error(t('deleteFailed'));
     }
   };
 
   return (
     <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Бейджі</h3>
+        <h3 className="text-sm font-semibold">{t('title')}</h3>
         <Button
           variant="secondary"
           onClick={() => setShowAdd((v) => !v)}
           disabled={availableTypes.length === 0}
         >
-          {showAdd ? 'Скасувати' : 'Додати бейдж'}
+          {showAdd ? t('cancel') : t('addBadge')}
         </Button>
       </div>
 
-      {isLoading && <div className="text-sm text-[var(--color-text-secondary)]">Завантаження…</div>}
+      {isLoading && (
+        <div className="text-sm text-[var(--color-text-secondary)]">{t('loading')}</div>
+      )}
 
       {!isLoading && badges.length === 0 && !showAdd && (
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          У товара немає бейджів. «Новинка» та «Хіт» додаються автоматично за правилами; інші —
-          вручну.
-        </p>
+        <p className="text-sm text-[var(--color-text-secondary)]">{t('empty')}</p>
       )}
 
       {badges.length > 0 && (
@@ -165,11 +171,7 @@ export default function ProductBadgesSection({ productId }: { productId: number 
               <span className="text-[var(--color-text-secondary)]">#{b.priority}</span>
               <button
                 type="button"
-                title={
-                  b.isActive
-                    ? 'Активний — клікніть, щоб приховати'
-                    : 'Прихований — клікніть, щоб показати'
-                }
+                title={b.isActive ? t('activeTitle') : t('hiddenTitle')}
                 onClick={() => handleToggle(b, 'isActive')}
                 className="text-[var(--color-text-secondary)] hover:opacity-70"
               >
@@ -177,11 +179,7 @@ export default function ProductBadgesSection({ productId }: { productId: number 
               </button>
               <button
                 type="button"
-                title={
-                  b.isLocked
-                    ? 'Закріплений адміном — cron не зніме. Клікніть, щоб дозволити автологіку'
-                    : 'Не закріплений — cron може видалити. Клікніть, щоб закріпити'
-                }
+                title={b.isLocked ? t('lockedTitle') : t('unlockedTitle')}
                 onClick={() => handleToggle(b, 'isLocked')}
                 className={
                   b.isLocked
@@ -195,7 +193,7 @@ export default function ProductBadgesSection({ productId }: { productId: number 
                 type="button"
                 onClick={() => handleDelete(b.id)}
                 className="text-red-500 hover:opacity-70"
-                aria-label="Видалити"
+                aria-label={t('deleteAria')}
               >
                 <Close className="h-3.5 w-3.5" />
               </button>
@@ -210,21 +208,21 @@ export default function ProductBadgesSection({ productId }: { productId: number 
             className={`grid gap-3 ${form.badgeType === 'custom' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}
           >
             <div>
-              <label className="mb-1 block text-xs font-medium">Тип</label>
+              <label className="mb-1 block text-xs font-medium">{t('typeLabel')}</label>
               <select
                 value={form.badgeType}
                 onChange={(e) => setForm({ ...form, badgeType: e.target.value as BadgeType })}
                 className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-sm"
               >
-                {availableTypes.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
+                {availableTypes.map((bt) => (
+                  <option key={bt.value} value={bt.value}>
+                    {bt.label}
                   </option>
                 ))}
               </select>
             </div>
             <Input
-              label="Пріоритет"
+              label={t('priorityLabel')}
               type="number"
               value={String(form.priority)}
               onChange={(e) => setForm({ ...form, priority: Number(e.target.value) || 0 })}
@@ -232,12 +230,12 @@ export default function ProductBadgesSection({ productId }: { productId: number 
             {form.badgeType === 'custom' && (
               <>
                 <Input
-                  label="Текст"
+                  label={t('textLabel')}
                   value={form.customText}
                   onChange={(e) => setForm({ ...form, customText: e.target.value })}
                 />
                 <div>
-                  <label className="mb-1 block text-xs font-medium">Колір</label>
+                  <label className="mb-1 block text-xs font-medium">{t('colorLabel')}</label>
                   <input
                     type="color"
                     value={form.customColor}
@@ -256,9 +254,9 @@ export default function ProductBadgesSection({ productId }: { productId: number 
                 setForm(EMPTY_FORM);
               }}
             >
-              Скасувати
+              {t('cancel')}
             </Button>
-            <Button onClick={handleAdd}>Додати</Button>
+            <Button onClick={handleAdd}>{t('add')}</Button>
           </div>
         </div>
       )}
