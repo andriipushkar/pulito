@@ -32,6 +32,7 @@ interface TokenExpiryInfo {
 }
 
 export function SettingsTab() {
+  const t = useTranslations('admin.settingsTab');
   const tSync = useTranslations('admin.autoSyncSettings');
   const tShared = useTranslations('admin.marketplacesShared');
   const [configs, setConfigs] = useState<Record<string, MarketplaceConfig | null>>({});
@@ -154,12 +155,7 @@ export function SettingsTab() {
 
     if (clearedSensitive.length > 0) {
       const fieldLabels = clearedSensitive.map((f) => tShared(f.label)).join(', ');
-      const ok = window.confirm(
-        `Ви залишили порожніми поля: ${fieldLabels}.\n\n` +
-          `Якщо зберегти зараз, ці креденшли буде стерто і ${marketplace.name} ` +
-          `перестане працювати, поки не введете нові значення.\n\n` +
-          `Точно зберегти порожні?`,
-      );
+      const ok = window.confirm(t('confirmEmpty', { fields: fieldLabels, name: marketplace.name }));
       if (!ok) return;
     }
 
@@ -167,10 +163,10 @@ export function SettingsTab() {
     const config = buildConfigBody(marketplace);
     const res = await apiClient.put('/api/v1/admin/channel-settings', { channel: ch, config });
     if (res.success) {
-      toast.success(`${marketplace.name} збережено`);
+      toast.success(t('savedToast', { name: marketplace.name }));
       await loadAll();
     } else {
-      toast.error(res.error || 'Помилка збереження');
+      toast.error(res.error || t('saveError'));
     }
     setSaving((prev) => ({ ...prev, [ch]: false }));
   };
@@ -201,13 +197,21 @@ export function SettingsTab() {
       }));
       if (health.status === 'ok') {
         toast.success(
-          `${marketplace.name}: підключено${health.accountName ? ` (${health.accountName})` : ''}`,
+          t('connectedToast', {
+            name: marketplace.name,
+            suffix: health.accountName ? ` (${health.accountName})` : '',
+          }),
         );
       } else {
-        toast.error(`${marketplace.name}: ${health.error || "помилка з'єднання"}`);
+        toast.error(
+          t('testErrorToast', {
+            name: marketplace.name,
+            error: health.error || t('connectionError'),
+          }),
+        );
       }
     } else {
-      toast.error(res.error || 'Помилка тестування');
+      toast.error(res.error || t('testError'));
     }
     setTesting((prev) => ({ ...prev, [ch]: false }));
   };
@@ -226,7 +230,7 @@ export function SettingsTab() {
       toast.success(`${marketplace.name} ${syncTypeLabel(tSync, action)} — ${parts}`);
       await loadAll();
     } else {
-      toast.error(res.error || 'Помилка синхронізації');
+      toast.error(res.error || t('syncError'));
     }
     setSyncing((prev) => ({ ...prev, [key]: false }));
   };
@@ -242,14 +246,19 @@ export function SettingsTab() {
   return (
     <div className="space-y-6">
       <div className="rounded-[var(--radius)] border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-        <strong>Перше підключення?</strong> Покрокові інструкції з отримання токенів для кожного
-        маркетплейсу — у{' '}
-        <Link href="/admin/marketplaces/help" className="font-semibold underline">
-          Довідці
-        </Link>
-        . Наведіть курсор на іконку{' '}
-        <span className="inline-block rounded-full border border-current px-1 text-[10px]">i</span>{' '}
-        біля кожного поля — буде коротке пояснення.
+        {t.rich('introBanner', {
+          b: (c) => <strong>{c}</strong>,
+          link: (c) => (
+            <Link href="/admin/marketplaces/help" className="font-semibold underline">
+              {c}
+            </Link>
+          ),
+          icon: () => (
+            <span className="inline-block rounded-full border border-current px-1 text-[10px]">
+              i
+            </span>
+          ),
+        })}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -326,12 +335,15 @@ export function SettingsTab() {
                 <HealthBadge health={health} enabled={isEnabled} />
                 {health && (
                   <span className="text-[var(--color-text-secondary)]">
-                    Перевірено: {formatRelative(tShared, health.checkedAt)}
+                    {t('checkedLabel')} {formatRelative(tShared, health.checkedAt)}
                   </span>
                 )}
                 {status?.publishedCount ? (
                   <span className="text-[var(--color-text-secondary)]">
-                    Опубліковано: <strong>{status.publishedCount}</strong>
+                    {t.rich('publishedLabel', {
+                      count: status.publishedCount,
+                      b: (c) => <strong>{c}</strong>,
+                    })}
                   </span>
                 ) : null}
                 {tokenExpiry[ch] &&
@@ -340,7 +352,9 @@ export function SettingsTab() {
                     <span
                       title={
                         tokenExpiry[ch].expiresAt
-                          ? `Токен діє до ${new Date(tokenExpiry[ch].expiresAt!).toLocaleString('uk-UA')}`
+                          ? t('tokenValidUntil', {
+                              date: new Date(tokenExpiry[ch].expiresAt!).toLocaleString('uk-UA'),
+                            })
                           : ''
                       }
                       className={
@@ -354,25 +368,28 @@ export function SettingsTab() {
                       }
                     >
                       {tokenExpiry[ch].health === 'expired'
-                        ? '⚠ Токен прострочено'
-                        : `🔑 ${tokenExpiry[ch].daysRemaining} дн до закінчення`}
+                        ? t('tokenExpired')
+                        : t('tokenDaysLeft', { days: tokenExpiry[ch].daysRemaining! })}
                     </span>
                   )}
                 {status?.rateUsage && (
                   <span
-                    title={`Виклики API за останні 5 хв (поточний процес). Ліміт ${status.rateUsage.limit5min}/5хв.`}
+                    title={t('rateTitle', { limit: status.rateUsage.limit5min })}
                     className={`text-[var(--color-text-secondary)] ${
                       status.rateUsage.warning ? 'text-amber-700' : ''
                     }`}
                   >
-                    API: {status.rateUsage.count}/{status.rateUsage.limit5min} за 5 хв
+                    {t('rateLabel', {
+                      count: status.rateUsage.count,
+                      limit: status.rateUsage.limit5min,
+                    })}
                   </span>
                 )}
               </div>
 
               {health?.status === 'error' && (
                 <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  <strong>Помилка підключення:</strong> {health.error}
+                  <strong>{t('connErrorLabel')}</strong> {health.error}
                 </div>
               )}
 
@@ -383,11 +400,7 @@ export function SettingsTab() {
                   onChange={(e) => updateField(ch, 'sandboxMode', e.target.checked)}
                   className="accent-[var(--color-primary)]"
                 />
-                <span>
-                  <strong>🧪 Sandbox / dry-run</strong> — не робити реальних запитів. Корисно при
-                  тестуванні (товари &quot;публікуються&quot; з fake-ID, без виклику API
-                  маркетплейсу).
-                </span>
+                <span>{t.rich('sandboxNote', { b: (c) => <strong>{c}</strong> })}</span>
               </label>
 
               <UptimeSparkline platform={ch} />
@@ -407,7 +420,7 @@ export function SettingsTab() {
                   return (
                     <div key={field.key}>
                       <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[var(--color-text-secondary)]">
-                        {tShared(field.label)} {field.optional && <span>(опц.)</span>}
+                        {tShared(field.label)} {field.optional && <span>{t('optional')}</span>}
                         {help && <HelpTooltip text={tShared(help)} />}
                       </label>
                       {isMasked ? (
@@ -415,14 +428,14 @@ export function SettingsTab() {
                           <span className="font-mono text-[var(--color-text-secondary)]">
                             {currentValue}
                           </span>
-                          <span className="text-[10px] text-green-600">✓ збережено</span>
+                          <span className="text-[10px] text-green-600">{t('savedInline')}</span>
                           <button
                             type="button"
                             onClick={() => updateField(ch, field.key, '')}
                             className="ml-auto text-[var(--color-primary)] hover:underline"
-                            title="Очистити поле для введення нового токену"
+                            title={t('clearFieldTitle')}
                           >
-                            Змінити
+                            {t('change')}
                           </button>
                         </div>
                       ) : (
@@ -457,7 +470,7 @@ export function SettingsTab() {
                   onClick={() => handleSave(marketplace)}
                   disabled={saving[ch] || !dirty[ch]?.size}
                 >
-                  {saving[ch] ? 'Зберігаю...' : 'Зберегти'}
+                  {saving[ch] ? t('saving') : t('save')}
                 </Button>
                 <Button
                   size="sm"
@@ -465,13 +478,9 @@ export function SettingsTab() {
                   onClick={() => handleTest(marketplace)}
                   disabled={testing[ch] || !hasCreds}
                   isLoading={testing[ch]}
-                  title={
-                    hasCreds
-                      ? "Перевірити з'єднання з API маркетплейсу"
-                      : "Заповніть обов'язкові поля"
-                  }
+                  title={hasCreds ? t('testTitle') : t('fillRequired')}
                 >
-                  Перевірити підключення
+                  {t('testBtn')}
                 </Button>
                 {ch === 'olx' && (
                   <Button
@@ -483,24 +492,24 @@ export function SettingsTab() {
                       );
                       if (res.success) {
                         const exp = res.data?.expiresIn
-                          ? ` (діє ${Math.floor(res.data.expiresIn / 86400)} днів)`
+                          ? t('validForDays', { days: Math.floor(res.data.expiresIn / 86400) })
                           : '';
-                        toast.success(`Токен OLX оновлено${exp}`);
+                        toast.success(t('olxTokenRefreshed', { exp }));
                         loadAll();
                       } else {
-                        toast.error(res.error || 'Не вдалося оновити токен');
+                        toast.error(res.error || t('tokenRefreshFailed'));
                       }
                     }}
-                    title="Оновити OLX Access Token через refresh_token"
+                    title={t('refreshTokenTitle')}
                   >
-                    Оновити токен
+                    {t('refreshTokenBtn')}
                   </Button>
                 )}
               </div>
 
               <div className="mt-4 border-t border-[var(--color-border)] pt-4">
                 <p className="mb-2 text-xs font-semibold text-[var(--color-text-secondary)]">
-                  Ручна синхронізація
+                  {t('manualSync')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {(['products', 'stock', 'orders'] as SyncType[]).map((type) => {
@@ -524,12 +533,12 @@ export function SettingsTab() {
                           onClick={() => handleSync(marketplace, type)}
                           title={
                             !supported
-                              ? 'Не підтримується цим маркетплейсом'
+                              ? t('notSupportedByMp')
                               : !isEnabled
-                                ? 'Спочатку увімкніть маркетплейс'
+                                ? t('enableFirst')
                                 : health?.status === 'error'
-                                  ? 'Спочатку виправте помилку підключення'
-                                  : `Останній: ${formatRelative(tShared, lastSync)}`
+                                  ? t('fixConnFirst')
+                                  : t('lastSyncTitle', { rel: formatRelative(tShared, lastSync) })
                           }
                         >
                           {syncTypeLabel(tSync, type)}
@@ -553,10 +562,8 @@ export function SettingsTab() {
         <div className="mb-4 flex items-center gap-3">
           <span className="text-2xl">🔄</span>
           <div>
-            <h3 className="font-semibold">Автоматична синхронізація</h3>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Періодична синхронізація через cron. Налаштування зберігаються в базі.
-            </p>
+            <h3 className="font-semibold">{t('autoSyncTitle')}</h3>
+            <p className="text-xs text-[var(--color-text-secondary)]">{t('autoSyncDesc')}</p>
           </div>
         </div>
         <AutoSyncSettings />
@@ -567,10 +574,7 @@ export function SettingsTab() {
           <span className="text-2xl">🚀</span>
           <div>
             <h3 className="font-semibold">Auto cross-listing</h3>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Автоматично публікувати нові активні товари на всі увімкнені маркетплейси без ручного
-              кліку.
-            </p>
+            <p className="text-xs text-[var(--color-text-secondary)]">{t('autoCrosslistDesc')}</p>
           </div>
         </div>
         <AutoCrosslistSettings />
