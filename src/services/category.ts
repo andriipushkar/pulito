@@ -58,8 +58,12 @@ export async function getCategories(options?: {
 }
 
 export async function getCategoryBySlug(slug: string) {
-  return prisma.category.findUnique({
-    where: { slug },
+  // findFirst (not findUnique) so we can filter out soft-deleted rows — a
+  // deleted category keeps its slug on the unique index, and serving it on the
+  // public catalog/[slug] route would leak removed content (and shadow a
+  // resurrected category sharing the slug).
+  return prisma.category.findFirst({
+    where: { slug, deletedAt: null },
     include: {
       parent: {
         select: { name: true, slug: true },
@@ -108,6 +112,13 @@ export async function createCategory(data: {
     });
     if (!parent) {
       throw new CategoryError('Батьківська категорія не знайдена', 404);
+    }
+    // Max depth = 2 levels: the parent must itself be a root category.
+    if (parent.parentId !== null) {
+      throw new CategoryError(
+        'Максимальна вкладеність — 2 рівні (підкатегорія не може мати підкатегорій)',
+        400,
+      );
     }
   }
 
@@ -298,6 +309,25 @@ export async function updateCategory(
     const parent = await prisma.category.findUnique({ where: { id: data.parentId } });
     if (!parent) {
       throw new CategoryError('Батьківська категорія не знайдена', 404);
+    }
+    // Max depth = 2 levels (root → child). The parent must itself be a root,
+    // and a category that already has children can't become a child — either
+    // would push the tree to a 3rd level the UI can't render. The client
+    // enforces this too, but the API must reject malformed writes directly.
+    if (parent.parentId !== null) {
+      throw new CategoryError(
+        'Максимальна вкладеність — 2 рівні (підкатегорія не може мати підкатегорій)',
+        400,
+      );
+    }
+    const childCount = await prisma.category.count({
+      where: { parentId: id, deletedAt: null },
+    });
+    if (childCount > 0) {
+      throw new CategoryError(
+        'Категорія має власні підкатегорії — її не можна зробити підкатегорією іншої',
+        400,
+      );
     }
     // Cycle protection: walk up from the proposed parent; if we hit our own
     // id in the chain, we're about to create A→B→A. Previously only the

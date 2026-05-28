@@ -4,6 +4,8 @@ import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { cacheInvalidate } from '@/services/cache';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
 
 const reorderSchema = z.object({
@@ -18,7 +20,10 @@ const reorderSchema = z.object({
     .max(500),
 });
 
-export const POST = withRole('manager', 'admin')(async (request: NextRequest) => {
+export const POST = withRole(
+  'manager',
+  'admin',
+)(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
     const parsed = reorderSchema.safeParse(body);
@@ -38,6 +43,13 @@ export const POST = withRole('manager', 'admin')(async (request: NextRequest) =>
     );
 
     await cacheInvalidate('categories:*');
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'category',
+      details: { action: 'reorder', count: parsed.data.items.length },
+      ipAddress: getClientIp(request),
+    });
     return successResponse({ updated: parsed.data.items.length });
   } catch (error) {
     logger.error('[admin/categories/reorder] POST failed', { error });

@@ -37,7 +37,7 @@ export const GET = withRole(
 export const PUT = withRole(
   'manager',
   'admin',
-)(async (request: NextRequest, { params }) => {
+)(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -51,6 +51,14 @@ export const PUT = withRole(
     }
 
     const category = await updateCategory(numId, parsed.data);
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'category',
+      entityId: numId,
+      details: { fields: Object.keys(parsed.data) },
+      ipAddress: getClientIp(request),
+    });
     // Bust the storefront mega-menu + catalog ISR caches so the rename
     // or visibility flip appears immediately instead of waiting on
     // revalidate. Touch the sitemap too — slug changes alter URLs.

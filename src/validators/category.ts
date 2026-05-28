@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isSafeUrl } from '@/utils/safe-url';
 
 export const createCategorySchema = z.object({
   name: z
@@ -11,8 +12,18 @@ export const createCategorySchema = z.object({
     .max(100)
     .optional(),
   description: z.string().max(2000).optional().nullable(),
-  iconPath: z.string().max(255).optional().nullable(),
-  coverImage: z.string().max(255).optional().nullable(),
+  iconPath: z
+    .string()
+    .max(255)
+    .refine(isSafeUrl, 'Недопустиме посилання на іконку')
+    .optional()
+    .nullable(),
+  coverImage: z
+    .string()
+    .max(255)
+    .refine(isSafeUrl, 'Недопустиме посилання на зображення')
+    .optional()
+    .nullable(),
   seoTitle: z.string().max(160).optional().nullable(),
   seoDescription: z.string().max(320).optional().nullable(),
   // EN translations
