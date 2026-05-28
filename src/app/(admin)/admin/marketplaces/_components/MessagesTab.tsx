@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -44,6 +45,7 @@ const MP_ICONS: Record<string, string> = { olx: '🟢', rozetka: '🟩', prom: '
 type FilterAssign = '' | 'unassigned' | string; // '' = all, 'unassigned', or numeric user id
 
 export function MessagesTab() {
+  const t = useTranslations('admin.messagesTab');
   const [messages, setMessages] = useState<MarketplaceMessage[]>([]);
   const [filterMp, setFilterMp] = useState('');
   const [filterUnread, setFilterUnread] = useState(false);
@@ -89,10 +91,10 @@ export function MessagesTab() {
       .then((res) => {
         if (cancelled) return;
         if (res.success && Array.isArray(res.data)) setMessages(res.data);
-        else if (!res.success) toast.error('Не вдалося завантажити повідомлення');
+        else if (!res.success) toast.error(t('loadFailed'));
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка мережі');
+        if (!cancelled) toast.error(t('networkError'));
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -100,7 +102,7 @@ export function MessagesTab() {
     return () => {
       cancelled = true;
     };
-  }, [filterMp, filterUnread, filterUnanswered, filterAssign, reloadToken]);
+  }, [filterMp, filterUnread, filterUnanswered, filterAssign, reloadToken, t]);
 
   // Pin to Kyiv time — see HistoryTab.formatDate for the reasoning.
   const formatDate = (d: string) =>
@@ -114,10 +116,10 @@ export function MessagesTab() {
 
   const waitingLabel = (mins: number | null | undefined) => {
     if (mins == null) return null;
-    if (mins < 60) return `${mins} хв`;
+    if (mins < 60) return t('waitMin', { n: mins });
     const h = Math.floor(mins / 60);
-    if (h < 24) return `${h} год`;
-    return `${Math.floor(h / 24)} дн`;
+    if (h < 24) return t('waitHour', { n: h });
+    return t('waitDay', { n: Math.floor(h / 24) });
   };
 
   const waitingColor = (mins: number | null | undefined) => {
@@ -136,9 +138,9 @@ export function MessagesTab() {
       setMessages((prev) =>
         prev.map((m) => (m.id === msg.id ? { ...m, assignee: res.data!.assignee } : m)),
       );
-      toast.success(assigneeId ? 'Призначено' : 'Знято призначення');
+      toast.success(assigneeId ? t('assigned') : t('unassigned'));
     } else {
-      toast.error(res.error || 'Помилка призначення');
+      toast.error(res.error || t('assignError'));
     }
   };
 
@@ -147,7 +149,7 @@ export function MessagesTab() {
     if (res.success) {
       setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, isRead } : m)));
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('error'));
     }
   };
 
@@ -178,7 +180,7 @@ export function MessagesTab() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="🔍 Пошук за текстом, покупцем, товаром..."
+          placeholder={t('searchPlaceholder')}
           className="w-64 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         />
         <select
@@ -186,7 +188,7 @@ export function MessagesTab() {
           onChange={(e) => setFilterMp(e.target.value)}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
-          <option value="">Всі маркетплейси</option>
+          <option value="">{t('allMarketplaces')}</option>
           {MARKETPLACES.map((m) => (
             <option key={m.key} value={m.key}>
               {m.icon} {m.name}
@@ -198,8 +200,8 @@ export function MessagesTab() {
           onChange={(e) => setFilterAssign(e.target.value as FilterAssign)}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
-          <option value="">Будь-який менеджер</option>
-          <option value="unassigned">Без призначення</option>
+          <option value="">{t('anyManager')}</option>
+          <option value="unassigned">{t('unassignedOption')}</option>
           {staff.map((u) => (
             <option key={u.id} value={String(u.id)}>
               👤 {u.fullName}
@@ -213,7 +215,7 @@ export function MessagesTab() {
             onChange={(e) => setFilterUnread(e.target.checked)}
             className="accent-[var(--color-primary)]"
           />
-          Лише непрочитані
+          {t('onlyUnread')}
         </label>
         <label className="flex items-center gap-1.5 text-xs">
           <input
@@ -222,13 +224,17 @@ export function MessagesTab() {
             onChange={(e) => setFilterUnanswered(e.target.checked)}
             className="accent-[var(--color-primary)]"
           />
-          Без відповіді
+          {t('unanswered')}
         </label>
-        <Button size="sm" variant="outline" onClick={refresh} title="Оновити список">
-          ↻ Оновити
+        <Button size="sm" variant="outline" onClick={refresh} title={t('refreshTitle')}>
+          {t('refresh')}
         </Button>
         <p className="ml-auto text-xs text-[var(--color-text-secondary)]">
-          {displayedMessages.length} показано · <strong>{unreadCount}</strong> непрочитаних
+          {t.rich('countLine', {
+            shown: displayedMessages.length,
+            unread: unreadCount,
+            b: (c) => <strong>{c}</strong>,
+          })}
         </p>
       </div>
 
@@ -236,12 +242,8 @@ export function MessagesTab() {
         <AdminTableSkeleton rows={5} columns={4} />
       ) : displayedMessages.length === 0 ? (
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-12 text-center text-[var(--color-text-secondary)]">
-          <p className="text-lg">{q ? 'Нічого не знайдено' : 'Немає повідомлень'}</p>
-          <p className="mt-1 text-sm">
-            {q
-              ? 'Спробуйте інший пошуковий запит або скиньте фільтри.'
-              : "Повідомлення від покупців з маркетплейсів з'являться тут. Синхронізуються автоматично через cron, або натисніть «Оновити»."}
-          </p>
+          <p className="text-lg">{q ? t('notFound') : t('noMessages')}</p>
+          <p className="mt-1 text-sm">{q ? t('searchHint') : t('emptyHint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -264,20 +266,20 @@ export function MessagesTab() {
                     </span>
                     {!msg.isRead && (
                       <span className="rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-[9px] font-bold text-white">
-                        Нове
+                        {t('newBadge')}
                       </span>
                     )}
                     {msg.waitingMinutes != null && (
                       <span
                         className={`text-[10px] ${waitingColor(msg.waitingMinutes)}`}
-                        title="Час очікування відповіді"
+                        title={t('waitTitle')}
                       >
                         ⏱ {waitingLabel(msg.waitingMinutes)}
                       </span>
                     )}
                     {msg.firstRespondedAt && (
-                      <span className="text-[10px] text-green-600" title="Вже відповіли">
-                        ✓ відповіли
+                      <span className="text-[10px] text-green-600" title={t('respondedTitle')}>
+                        {t('respondedBadge')}
                       </span>
                     )}
                   </div>
@@ -294,7 +296,7 @@ export function MessagesTab() {
                     <p className="mt-0.5 text-sm text-[var(--color-text)]">{msg.text}</p>
                     {msg.listingTitle && (
                       <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                        Товар: {msg.listingTitle}
+                        {t('product', { title: msg.listingTitle })}
                       </p>
                     )}
 
@@ -306,7 +308,7 @@ export function MessagesTab() {
                         }
                         className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-0.5 text-[11px]"
                       >
-                        <option value="">— без менеджера —</option>
+                        <option value="">{t('noManagerOption')}</option>
                         {staff.map((u) => (
                           <option key={u.id} value={String(u.id)}>
                             👤 {u.fullName}
@@ -317,7 +319,7 @@ export function MessagesTab() {
                         onClick={() => handleMarkRead(msg, !msg.isRead)}
                         className="text-[11px] text-[var(--color-text-secondary)] hover:underline"
                       >
-                        {msg.isRead ? '↩ Відмітити непрочитаним' : '✓ Прочитано'}
+                        {msg.isRead ? t('markUnread') : t('markRead')}
                       </button>
                     </div>
 
@@ -327,19 +329,19 @@ export function MessagesTab() {
                           {templates.length > 0 && (
                             <select
                               onChange={(e) => {
-                                const t = templates.find((x) => String(x.id) === e.target.value);
-                                if (t) setReplyText(t.content);
+                                const tpl = templates.find((x) => String(x.id) === e.target.value);
+                                if (tpl) setReplyText(tpl.content);
                                 e.target.value = '';
                               }}
                               className="w-full rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
                               defaultValue=""
                             >
                               <option value="" disabled>
-                                Підставити шаблон…
+                                {t('insertTemplate')}
                               </option>
-                              {templates.map((t) => (
-                                <option key={t.id} value={String(t.id)}>
-                                  {t.name}
+                              {templates.map((tpl) => (
+                                <option key={tpl.id} value={String(tpl.id)}>
+                                  {tpl.name}
                                 </option>
                               ))}
                             </select>
@@ -348,7 +350,7 @@ export function MessagesTab() {
                             <textarea
                               value={replyText}
                               onChange={(e) => setReplyText(e.target.value)}
-                              placeholder="Ваша відповідь..."
+                              placeholder={t('replyPlaceholder')}
                               rows={3}
                               className="flex-1 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
                               autoFocus
@@ -369,7 +371,7 @@ export function MessagesTab() {
                                     },
                                   );
                                   if (res.success) {
-                                    toast.success('Відповідь надіслано');
+                                    toast.success(t('replySent'));
                                     setReplyOpen(null);
                                     setReplyText('');
                                     setMessages((prev) =>
@@ -384,12 +386,12 @@ export function MessagesTab() {
                                       ),
                                     );
                                   } else {
-                                    toast.error(res.error || 'Не вдалося надіслати');
+                                    toast.error(res.error || t('sendFailed'));
                                   }
                                   setSending(false);
                                 }}
                               >
-                                Відправити
+                                {t('send')}
                               </Button>
                               <button
                                 onClick={() => {
@@ -398,7 +400,7 @@ export function MessagesTab() {
                                 }}
                                 className="text-xs text-[var(--color-text-secondary)] hover:underline"
                               >
-                                Скасувати
+                                {t('cancel')}
                               </button>
                             </div>
                           </div>
@@ -411,7 +413,7 @@ export function MessagesTab() {
                           }}
                           className="text-xs text-[var(--color-primary)] hover:underline"
                         >
-                          Відповісти
+                          {t('reply')}
                         </button>
                       )}
                     </div>
