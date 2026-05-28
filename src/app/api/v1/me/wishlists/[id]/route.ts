@@ -1,8 +1,16 @@
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
 import { z } from 'zod';
-import { resolveWishlistId, getWishlistById, updateWishlist, deleteWishlist, WishlistError } from '@/services/wishlist';
+import {
+  resolveWishlistId,
+  getWishlistById,
+  updateWishlist,
+  deleteWishlist,
+  WishlistError,
+} from '@/services/wishlist';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 
 export const GET = withAuth(async (_request: NextRequest, { user, params }) => {
   try {
@@ -36,11 +44,18 @@ export const PUT = withAuth(async (request: NextRequest, { user, params }) => {
   }
 });
 
-export const DELETE = withAuth(async (_request: NextRequest, { user, params }) => {
+export const DELETE = withAuth(async (request: NextRequest, { user, params }) => {
   try {
     const { id } = await params!;
     const wishlistId = await resolveWishlistId(user.id, id);
     await deleteWishlist(user.id, wishlistId);
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_delete',
+      entityType: 'wishlist',
+      entityId: wishlistId,
+      ipAddress: getClientIp(request),
+    });
     return successResponse({ message: 'Список видалено' });
   } catch (error) {
     if (error instanceof WishlistError) return errorResponse(error.message, error.statusCode);
