@@ -974,6 +974,38 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "keyboardShortcutsHelp": {
+      "title": "Scurtături de tastatură",
+      "close": "Închide",
+      "shortcutNext": "Comanda următoare",
+      "shortcutPrev": "Comanda anterioară",
+      "shortcutOpen": "Deschide comanda",
+      "shortcutQuickEdit": "Editare rapidă (drawer)",
+      "shortcutQuickStatus": "Schimbare rapidă a statusului",
+      "shortcutToggleHelp": "Arată/ascunde acest ajutor",
+      "shortcutCloseHelp": "Închide ajutorul",
+      "hint": "Sfat: apasă <kbd>?</kbd> oricând pentru a deschide această listă."
+    },
+    "shortcutsModal": {
+      "title": "Scurtături de tastatură",
+      "close": "Închide",
+      "then": "apoi",
+      "groupNav": "Navigare globală",
+      "groupGoto": "Salt (g + tastă)",
+      "groupActions": "Acțiuni",
+      "openSearch": "Deschide căutarea rapidă",
+      "focusMenuSearch": "Focus pe căutarea din meniu",
+      "showHelp": "Arată acest ajutor",
+      "closeModal": "Închide modalul / deselectează",
+      "gotoOrders": "Comenzi",
+      "gotoProducts": "Produse",
+      "gotoUsers": "Utilizatori",
+      "gotoCategories": "Categorii",
+      "gotoAnalytics": "Analiză",
+      "gotoSettings": "Setări",
+      "createNew": "Creează nou (produs/categorie/publicație — în funcție de pagină)",
+      "hint": "Apasă <kbd>?</kbd> oricând pentru a deschide acest ajutor"
+    },
     "cameraBarcodeScanner": {
       "unsupported": "Browserul nu acceptă BarcodeDetector. Încearcă Chrome pe Android sau Safari pe iOS 17+.",
       "initFailed": "Nu s-a putut inițializa scanerul: {error}",

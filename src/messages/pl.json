@@ -974,6 +974,38 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "keyboardShortcutsHelp": {
+      "title": "Skróty klawiszowe",
+      "close": "Zamknij",
+      "shortcutNext": "Następne zamówienie",
+      "shortcutPrev": "Poprzednie zamówienie",
+      "shortcutOpen": "Otwórz zamówienie",
+      "shortcutQuickEdit": "Szybka edycja (drawer)",
+      "shortcutQuickStatus": "Szybka zmiana statusu",
+      "shortcutToggleHelp": "Pokaż/ukryj tę pomoc",
+      "shortcutCloseHelp": "Zamknij pomoc",
+      "hint": "Wskazówka: naciśnij <kbd>?</kbd> w dowolnym momencie, aby otworzyć tę listę."
+    },
+    "shortcutsModal": {
+      "title": "Skróty klawiszowe",
+      "close": "Zamknij",
+      "then": "potem",
+      "groupNav": "Nawigacja globalna",
+      "groupGoto": "Przejście (g + klawisz)",
+      "groupActions": "Akcje",
+      "openSearch": "Otwórz szybkie wyszukiwanie",
+      "focusMenuSearch": "Fokus na wyszukiwanie w menu",
+      "showHelp": "Pokaż tę pomoc",
+      "closeModal": "Zamknij modal / usuń zaznaczenie",
+      "gotoOrders": "Zamówienia",
+      "gotoProducts": "Produkty",
+      "gotoUsers": "Użytkownicy",
+      "gotoCategories": "Kategorie",
+      "gotoAnalytics": "Analityka",
+      "gotoSettings": "Ustawienia",
+      "createNew": "Utwórz nowy (produkt/kategorię/publikację — w zależności od strony)",
+      "hint": "Naciśnij <kbd>?</kbd> w dowolnym momencie, aby otworzyć tę pomoc"
+    },
     "cameraBarcodeScanner": {
       "unsupported": "Przeglądarka nie obsługuje BarcodeDetector. Spróbuj Chrome na Androidzie lub Safari na iOS 17+.",
       "initFailed": "Nie udało się zainicjować skanera: {error}",

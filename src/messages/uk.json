@@ -974,6 +974,38 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "keyboardShortcutsHelp": {
+      "title": "Гарячі клавіші",
+      "close": "Закрити",
+      "shortcutNext": "Наступне замовлення",
+      "shortcutPrev": "Попереднє замовлення",
+      "shortcutOpen": "Відкрити замовлення",
+      "shortcutQuickEdit": "Швидке редагування (drawer)",
+      "shortcutQuickStatus": "Швидка зміна статусу",
+      "shortcutToggleHelp": "Показати/сховати цю довідку",
+      "shortcutCloseHelp": "Закрити довідку",
+      "hint": "Підказка: натисніть <kbd>?</kbd> в будь-який момент щоб відкрити цей список."
+    },
+    "shortcutsModal": {
+      "title": "Клавіатурні шорткати",
+      "close": "Закрити",
+      "then": "потім",
+      "groupNav": "Глобальна навігація",
+      "groupGoto": "Перехід (g + клавіша)",
+      "groupActions": "Дії",
+      "openSearch": "Відкрити швидкий пошук",
+      "focusMenuSearch": "Фокус на пошук у меню",
+      "showHelp": "Показати цю довідку",
+      "closeModal": "Закрити модалку / зняти виділення",
+      "gotoOrders": "Замовлення",
+      "gotoProducts": "Товари",
+      "gotoUsers": "Користувачі",
+      "gotoCategories": "Категорії",
+      "gotoAnalytics": "Аналітика",
+      "gotoSettings": "Налаштування",
+      "createNew": "Створити новий (товар/категорію/публікацію — залежно від сторінки)",
+      "hint": "Натисни <kbd>?</kbd> у будь-який момент щоб відкрити цю довідку"
+    },
     "cameraBarcodeScanner": {
       "unsupported": "Браузер не підтримує BarcodeDetector. Спробуйте Chrome на Android або Safari на iOS 17+.",
       "initFailed": "Не вдалося ініціалізувати сканер: {error}",

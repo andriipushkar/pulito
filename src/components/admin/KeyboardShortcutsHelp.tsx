@@ -1,19 +1,11 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 interface ShortcutRow {
   keys: string[];
   description: string;
 }
-
-const SHORTCUTS: ShortcutRow[] = [
-  { keys: ['j', '↓'], description: 'Наступне замовлення' },
-  { keys: ['k', '↑'], description: 'Попереднє замовлення' },
-  { keys: ['Enter', 'o'], description: 'Відкрити замовлення' },
-  { keys: ['e'], description: 'Швидке редагування (drawer)' },
-  { keys: ['s'], description: 'Швидка зміна статусу' },
-  { keys: ['?'], description: 'Показати/сховати цю довідку' },
-  { keys: ['Esc'], description: 'Закрити довідку' },
-];
 
 /** Modal-style overlay that lists all keyboard shortcuts. Toggled by `?`. */
 export default function KeyboardShortcutsHelp({
@@ -23,6 +15,16 @@ export default function KeyboardShortcutsHelp({
   open: boolean;
   onClose: () => void;
 }) {
+  const t = useTranslations('admin.keyboardShortcutsHelp');
+  const SHORTCUTS: ShortcutRow[] = [
+    { keys: ['j', '↓'], description: t('shortcutNext') },
+    { keys: ['k', '↑'], description: t('shortcutPrev') },
+    { keys: ['Enter', 'o'], description: t('shortcutOpen') },
+    { keys: ['e'], description: t('shortcutQuickEdit') },
+    { keys: ['s'], description: t('shortcutQuickStatus') },
+    { keys: ['?'], description: t('shortcutToggleHelp') },
+    { keys: ['Esc'], description: t('shortcutCloseHelp') },
+  ];
   if (!open) return null;
   return (
     <div
@@ -34,11 +36,11 @@ export default function KeyboardShortcutsHelp({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Гарячі клавіші</h3>
+          <h3 className="text-lg font-semibold">{t('title')}</h3>
           <button
             onClick={onClose}
             className="rounded-full p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
-            aria-label="Закрити"
+            aria-label={t('close')}
           >
             ✕
           </button>
@@ -61,8 +63,9 @@ export default function KeyboardShortcutsHelp({
           ))}
         </ul>
         <p className="mt-4 text-[11px] text-[var(--color-text-secondary)]">
-          Підказка: натисніть <kbd className="rounded border px-1">?</kbd> в будь-який момент щоб
-          відкрити цей список.
+          {t.rich('hint', {
+            kbd: (chunks) => <kbd className="rounded border px-1">{chunks}</kbd>,
+          })}
         </p>
       </div>
     </div>

@@ -974,6 +974,38 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "keyboardShortcutsHelp": {
+      "title": "Keyboard shortcuts",
+      "close": "Close",
+      "shortcutNext": "Next order",
+      "shortcutPrev": "Previous order",
+      "shortcutOpen": "Open order",
+      "shortcutQuickEdit": "Quick edit (drawer)",
+      "shortcutQuickStatus": "Quick status change",
+      "shortcutToggleHelp": "Show/hide this help",
+      "shortcutCloseHelp": "Close help",
+      "hint": "Tip: press <kbd>?</kbd> at any time to open this list."
+    },
+    "shortcutsModal": {
+      "title": "Keyboard shortcuts",
+      "close": "Close",
+      "then": "then",
+      "groupNav": "Global navigation",
+      "groupGoto": "Go to (g + key)",
+      "groupActions": "Actions",
+      "openSearch": "Open quick search",
+      "focusMenuSearch": "Focus the menu search",
+      "showHelp": "Show this help",
+      "closeModal": "Close modal / clear selection",
+      "gotoOrders": "Orders",
+      "gotoProducts": "Products",
+      "gotoUsers": "Users",
+      "gotoCategories": "Categories",
+      "gotoAnalytics": "Analytics",
+      "gotoSettings": "Settings",
+      "createNew": "Create new (product/category/publication — depending on the page)",
+      "hint": "Press <kbd>?</kbd> at any time to open this help"
+    },
     "cameraBarcodeScanner": {
       "unsupported": "Your browser doesn't support BarcodeDetector. Try Chrome on Android or Safari on iOS 17+.",
       "initFailed": "Failed to initialize the scanner: {error}",
