@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import Button from '@/components/ui/Button';
 import { apiClient, getAccessToken } from '@/lib/api-client';
-import { formatPrice, plural, formatDateTime } from '@/utils/format';
+import { formatPrice, formatDateTime } from '@/utils/format';
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,
@@ -39,36 +40,6 @@ import {
   ALLOWED_ORDER_TRANSITIONS,
   SEARCH_DEBOUNCE_MS,
 } from '@/config/admin-constants';
-
-const STATUS_OPTIONS = [
-  { value: '', label: 'Всі статуси' },
-  ...Object.entries(ORDER_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
-];
-
-const CLIENT_TYPE_OPTIONS = [
-  { value: '', label: 'Всі типи' },
-  { value: 'retail', label: 'Роздріб' },
-  { value: 'wholesale', label: 'Опт' },
-];
-
-const PAYMENT_METHOD_OPTIONS = [
-  { value: '', label: 'Всі способи оплати' },
-  ...Object.entries(PAYMENT_METHOD_LABELS).map(([v, l]) => ({ value: v, label: l })),
-];
-
-const DELIVERY_METHOD_OPTIONS = [
-  { value: '', label: 'Вся доставка' },
-  ...Object.entries(DELIVERY_METHOD_LABELS).map(([v, l]) => ({ value: v, label: l })),
-];
-
-const SORT_OPTIONS = [
-  { value: 'createdAt:desc', label: 'Найновіші' },
-  { value: 'createdAt:asc', label: 'Найстаріші' },
-  { value: 'totalAmount:desc', label: 'Сума (більше)' },
-  { value: 'totalAmount:asc', label: 'Сума (менше)' },
-  { value: 'status:asc', label: 'Статус (A-Z)' },
-  { value: 'orderNumber:desc', label: 'Номер (новіші)' },
-];
 
 interface OrderStats {
   newOrders: number;
@@ -106,6 +77,47 @@ export default function AdminOrdersPage() {
 }
 
 function AdminOrdersPageInner() {
+  const t = useTranslations('admin.ordersListPage');
+  const STATUS_OPTIONS = useMemo(
+    () => [
+      { value: '', label: t('allStatuses') },
+      ...Object.entries(ORDER_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
+    ],
+    [t],
+  );
+  const CLIENT_TYPE_OPTIONS = useMemo(
+    () => [
+      { value: '', label: t('ctAll') },
+      { value: 'retail', label: t('ctRetail') },
+      { value: 'wholesale', label: t('ctWholesale') },
+    ],
+    [t],
+  );
+  const PAYMENT_METHOD_OPTIONS = useMemo(
+    () => [
+      { value: '', label: t('allPayment') },
+      ...Object.entries(PAYMENT_METHOD_LABELS).map(([v, l]) => ({ value: v, label: l })),
+    ],
+    [t],
+  );
+  const DELIVERY_METHOD_OPTIONS = useMemo(
+    () => [
+      { value: '', label: t('allDelivery') },
+      ...Object.entries(DELIVERY_METHOD_LABELS).map(([v, l]) => ({ value: v, label: l })),
+    ],
+    [t],
+  );
+  const SORT_OPTIONS = useMemo(
+    () => [
+      { value: 'createdAt:desc', label: t('sortNewest') },
+      { value: 'createdAt:asc', label: t('sortOldest') },
+      { value: 'totalAmount:desc', label: t('sortAmountDesc') },
+      { value: 'totalAmount:asc', label: t('sortAmountAsc') },
+      { value: 'status:asc', label: t('sortStatusAsc') },
+      { value: 'orderNumber:desc', label: t('sortNumberDesc') },
+    ],
+    [t],
+  );
   const searchParams = useSearchParams();
   const router = useRouter();
   const [orders, setOrders] = useState<OrderListItem[]>([]);
@@ -179,25 +191,24 @@ function AdminOrdersPageInner() {
       if (res.success && res.data) {
         const { ok, failed } = res.data;
         if (ok.length > 0) {
-          toast.success(`Створено ${ok.length} ТТН`);
+          toast.success(t('ttnCreated', { count: ok.length }));
         }
         if (failed.length > 0) {
-          toast.error(
-            `Не створено ${failed.length}: ${failed
+          const details =
+            failed
               .slice(0, 3)
               .map((f) => `#${f.orderNumber} (${f.error})`)
-              .join('; ')}${failed.length > 3 ? '…' : ''}`,
-            { duration: 8000 },
-          );
+              .join('; ') + (failed.length > 3 ? '…' : '');
+          toast.error(t('ttnFailed', { count: failed.length, details }), { duration: 8000 });
         }
         setSelectedIds(new Set());
         // Refresh list to show new tracking numbers
         loadOrders();
       } else {
-        toast.error(res.error || 'Помилка масового створення ТТН');
+        toast.error(res.error || t('ttnError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       bulkTtnInFlight.current = false;
       setIsBulkTtnRunning(false);
@@ -222,27 +233,29 @@ function AdminOrdersPageInner() {
         const { ok, failed } = res.data;
         if (ok.length > 0) {
           toast.success(
-            `Оновлено ${ok.length} замовлень → ${ORDER_STATUS_LABELS[statusToApply as OrderStatus]}`,
+            t('statusUpdatedN', {
+              count: ok.length,
+              status: ORDER_STATUS_LABELS[statusToApply as OrderStatus],
+            }),
           );
         }
         if (failed.length > 0) {
-          toast.error(
-            `Не оновлено ${failed.length}: ${failed
+          const details =
+            failed
               .slice(0, 3)
               .map((f) => `#${f.orderNumber} (${f.error})`)
-              .join('; ')}${failed.length > 3 ? '…' : ''}`,
-            { duration: 8000 },
-          );
+              .join('; ') + (failed.length > 3 ? '…' : '');
+          toast.error(t('statusFailedN', { count: failed.length, details }), { duration: 8000 });
         }
         setSelectedIds(new Set());
         setBulkStatus('');
         loadOrders();
         loadStats();
       } else {
-        toast.error(res.error || 'Помилка масової зміни статусу');
+        toast.error(res.error || t('statusError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       bulkStatusInFlight.current = false;
       setIsBulkStatusRunning(false);
@@ -340,11 +353,11 @@ function AdminOrdersPageInner() {
           setTotal(res.pagination?.total || 0);
           hasLoadedOnceRef.current = true;
         } else {
-          toast.error(res.error || 'Не вдалося завантажити замовлення');
+          toast.error(res.error || t('loadError'));
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка мережі');
+        if (!cancelled) toast.error(t('networkError'));
       })
       .finally(() => {
         if (!cancelled) {
@@ -355,7 +368,7 @@ function AdminOrdersPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [buildOrdersQuery, ordersReloadToken]);
+  }, [buildOrdersQuery, ordersReloadToken, t]);
 
   // Esc clears bulk selection so the operator can recover without scrolling
   useEffect(() => {
@@ -394,12 +407,12 @@ function AdminOrdersPageInner() {
           const diff = res.data.newOrders - lastKnownNewRef.current;
           setNewOrdersBadge((prev) => prev + diff);
           playNotificationSound();
-          toast.info(`+${diff} нових замовлень!`);
+          toast.info(t('newOrdersToast', { count: diff }));
         }
         lastKnownNewRef.current = res.data.newOrders;
       }
     });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     // Visible-tab gate: don't poll when the tab is hidden — a backgrounded
@@ -492,15 +505,17 @@ function AdminOrdersPageInner() {
         status: nextStatus,
       });
       if (res.success) {
-        toast.success(`Статус змінено на "${ORDER_STATUS_LABELS[nextStatus as OrderStatus]}"`);
+        toast.success(
+          t('statusChangedTo', { status: ORDER_STATUS_LABELS[nextStatus as OrderStatus] }),
+        );
         loadStats();
       } else {
         setOrders(prevOrders);
-        toast.error(res.error || 'Помилка зміни статусу');
+        toast.error(res.error || t('statusChangeError'));
       }
     } catch {
       setOrders(prevOrders);
-      toast.error('Помилка мережі — спробуйте ще раз');
+      toast.error(t('networkRetry'));
     } finally {
       setConfirmStatusChange(null);
       setQuickStatusOrderId(null);
@@ -531,7 +546,7 @@ function AdminOrdersPageInner() {
       });
 
       if (!res.ok) {
-        toast.error('Помилка експорту');
+        toast.error(t('exportError'));
         return;
       }
 
@@ -549,9 +564,9 @@ function AdminOrdersPageInner() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success('Експорт завершено');
+      toast.success(t('exportDone'));
     } catch {
-      toast.error('Помилка експорту');
+      toast.error(t('exportError'));
     }
   };
 
@@ -595,13 +610,13 @@ function AdminOrdersPageInner() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-xl font-bold">Замовлення</h2>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
           {newOrdersBadge > 0 && (
             <button
               onClick={handleNewOrdersBadgeClick}
               className="animate-pulse rounded-full bg-red-500 px-2.5 py-0.5 text-xs font-bold text-white transition-transform hover:scale-110"
             >
-              +{newOrdersBadge} нових
+              {t('newBadge', { count: newOrdersBadge })}
             </button>
           )}
           <SavedViews storageKey="orders" basePath="/admin/orders" />
@@ -611,21 +626,21 @@ function AdminOrdersPageInner() {
             href="/admin/orders/board"
             className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-bg-secondary)]"
           >
-            🗂️ Дошка
+            🗂️ {t('board')}
           </Link>
           <Button size="sm" variant="outline" onClick={() => setShowFilters(!showFilters)}>
-            {showFilters ? 'Сховати фільтри' : 'Фільтри'}
+            {showFilters ? t('hideFilters') : t('filters')}
             {hasFilters && !showFilters && (
               <span className="ml-1 inline-block h-2 w-2 rounded-full bg-[var(--color-primary)]" />
             )}
           </Button>
           <Button size="sm" variant="outline" onClick={handleExport}>
-            Експорт
+            {t('export')}
           </Button>
           <button
             onClick={() => setHelpOpen(true)}
             className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
-            title="Гарячі клавіші (?)"
+            title={t('shortcutsTitle')}
           >
             <kbd className="font-mono">?</kbd>
           </button>
@@ -641,35 +656,35 @@ function AdminOrdersPageInner() {
       ) : (
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard
-            label="Нових"
+            label={t('statNew')}
             value={stats.newOrders}
             color="text-blue-600"
             bg="bg-blue-50"
             onClick={handleNewOrdersBadgeClick}
           />
           <StatCard
-            label="В обробці"
+            label={t('statProcessing')}
             value={stats.processingOrders}
             color="text-amber-600"
             bg="bg-amber-50"
             onClick={() => updateFilter('status', 'processing')}
           />
           <StatCard
-            label="Очікують оплати"
+            label={t('statUnpaid')}
             value={stats.unpaidOrders}
             color="text-red-600"
             bg="bg-red-50"
             onClick={() => updateFilter('paymentStatus', 'pending')}
           />
           <StatCard
-            label="Замовлень сьогодні"
+            label={t('statTodayOrders')}
             value={stats.todayOrders}
             color="text-violet-600"
             bg="bg-violet-50"
             onClick={() => setDatePreset('today')}
           />
           <StatCard
-            label="Виручка сьогодні"
+            label={t('statTodayRevenue')}
             value={formatPrice(stats.todayRevenue)}
             color="text-emerald-600"
             bg="bg-emerald-50"
@@ -689,7 +704,7 @@ function AdminOrdersPageInner() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Номер, ім\u02BCя, телефон, ТТН..."
+            placeholder={t('searchPh')}
             className="w-64 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm"
           />
         </div>
@@ -704,7 +719,7 @@ function AdminOrdersPageInner() {
             onClick={() => router.push('/admin/orders')}
             className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:underline"
           >
-            Скинути фільтри
+            {t('resetFilters')}
           </button>
         )}
       </div>
@@ -714,7 +729,7 @@ function AdminOrdersPageInner() {
         <div className="mb-4 flex flex-wrap items-end gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Статус
+              {t('filterStatus')}
             </label>
             <Select
               options={STATUS_OPTIONS}
@@ -725,7 +740,7 @@ function AdminOrdersPageInner() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Тип клієнта
+              {t('filterClientType')}
             </label>
             <Select
               options={CLIENT_TYPE_OPTIONS}
@@ -736,7 +751,7 @@ function AdminOrdersPageInner() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Спосіб оплати
+              {t('filterPayment')}
             </label>
             <Select
               options={PAYMENT_METHOD_OPTIONS}
@@ -747,7 +762,7 @@ function AdminOrdersPageInner() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Доставка
+              {t('filterDelivery')}
             </label>
             <Select
               options={DELIVERY_METHOD_OPTIONS}
@@ -758,7 +773,7 @@ function AdminOrdersPageInner() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Дата від
+              {t('dateFrom')}
             </label>
             <input
               type="date"
@@ -769,7 +784,7 @@ function AdminOrdersPageInner() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Дата до
+              {t('dateTo')}
             </label>
             <input
               type="date"
@@ -779,12 +794,12 @@ function AdminOrdersPageInner() {
             />
           </div>
           <div className="flex w-full items-end gap-1 sm:w-auto">
-            <DatePresetButton onClick={() => setDatePreset('today')} label="Сьогодні" />
-            <DatePresetButton onClick={() => setDatePreset('week')} label="Тиждень" />
-            <DatePresetButton onClick={() => setDatePreset('month')} label="Місяць" />
+            <DatePresetButton onClick={() => setDatePreset('today')} label={t('presetToday')} />
+            <DatePresetButton onClick={() => setDatePreset('week')} label={t('presetWeek')} />
+            <DatePresetButton onClick={() => setDatePreset('month')} label={t('presetMonth')} />
             <DatePresetButton
               onClick={() => setDatePreset('clear')}
-              label="Очистити"
+              label={t('presetClear')}
               disabled={!dateFrom && !dateTo}
             />
           </div>
@@ -794,7 +809,7 @@ function AdminOrdersPageInner() {
       {selectedIds.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 px-4 py-2">
           <span className="text-sm">
-            Вибрано: <strong>{selectedIds.size}</strong>
+            {t('selected')} <strong>{selectedIds.size}</strong>
           </span>
           <div className="flex flex-wrap items-center gap-2">
             <Select
@@ -805,7 +820,7 @@ function AdminOrdersPageInner() {
                 if (next) setBulkStatusConfirm(next);
               }}
               disabled={isBulkStatusRunning || isBulkTtnRunning}
-              options={[{ value: '', label: 'Змінити статус на…' }, ...STATUS_OPTIONS.slice(1)]}
+              options={[{ value: '', label: t('changeStatusTo') }, ...STATUS_OPTIONS.slice(1)]}
             />
             {isAdmin && (
               <Button
@@ -813,9 +828,9 @@ function AdminOrdersPageInner() {
                 onClick={() => setBulkTtnConfirm(true)}
                 isLoading={isBulkTtnRunning}
                 disabled={isBulkStatusRunning}
-                title="Створити Nova Poshta ТТН для всіх вибраних замовлень"
+                title={t('createTtnNpTitle')}
               >
-                Створити ТТН (НП)
+                {t('createTtnNp')}
               </Button>
             )}
             <Button
@@ -824,7 +839,7 @@ function AdminOrdersPageInner() {
               onClick={() => setSelectedIds(new Set())}
               disabled={isBulkTtnRunning || isBulkStatusRunning}
             >
-              Скасувати вибір
+              {t('clearSelection')}
             </Button>
           </div>
         </div>
@@ -870,7 +885,7 @@ function AdminOrdersPageInner() {
                 </div>
                 {order.trackingNumber && (
                   <p className="mt-1 text-[11px] font-medium text-[var(--color-primary)]">
-                    ТТН: {order.trackingNumber}
+                    {t('ttnLabel', { ttn: order.trackingNumber })}
                   </p>
                 )}
               </Link>
@@ -883,10 +898,10 @@ function AdminOrdersPageInner() {
                   </span>
                 </div>
                 <p className="mb-1 text-sm font-semibold text-[var(--color-text)]">
-                  Замовлень не знайдено
+                  {t('emptyTitle')}
                 </p>
                 <p className="mx-auto mb-4 max-w-xs text-xs text-[var(--color-text-secondary)]">
-                  Спробуйте змінити фільтри або скинути їх, щоб побачити всі замовлення
+                  {t('emptyHintMobile')}
                 </p>
               </div>
             )}
@@ -906,16 +921,16 @@ function AdminOrdersPageInner() {
                       type="checkbox"
                       checked={orders.length > 0 && selectedIds.size === orders.length}
                       onChange={toggleSelectAll}
-                      aria-label="Вибрати всі"
+                      aria-label={t('selectAll')}
                     />
                   </th>
-                  <th className="px-3 py-3 text-left font-medium">Замовлення</th>
-                  <th className="px-3 py-3 text-left font-medium">Клієнт</th>
-                  <th className="px-3 py-3 text-left font-medium">Статус</th>
-                  <th className="px-3 py-3 text-left font-medium">Оплата</th>
-                  <th className="px-3 py-3 text-left font-medium">Доставка</th>
-                  <th className="px-3 py-3 text-right font-medium">Сума</th>
-                  <th className="px-3 py-3 text-center font-medium w-10">Дії</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('thOrder')}</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('thClient')}</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('thStatus')}</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('thPayment')}</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('thDelivery')}</th>
+                  <th className="px-3 py-3 text-right font-medium">{t('thAmount')}</th>
+                  <th className="px-3 py-3 text-center font-medium w-10">{t('thActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -947,9 +962,9 @@ function AdminOrdersPageInner() {
                       className={`border-b border-[var(--color-border)] last:border-0 transition-colors ${rowAccent} ${focusRing}`}
                       title={
                         isStale
-                          ? `Замовлення новіше 7 днів без обробки (${ageDays} днів)`
+                          ? t('staleTitle', { days: ageDays })
                           : isShippedNoTtn
-                            ? 'Відправлено, але ТТН не присвоєно'
+                            ? t('shippedNoTtnTitle')
                             : undefined
                       }
                     >
@@ -958,7 +973,7 @@ function AdminOrdersPageInner() {
                           type="checkbox"
                           checked={selectedIds.has(order.id)}
                           onChange={() => toggleSelected(order.id)}
-                          aria-label={`Вибрати замовлення ${order.orderNumber}`}
+                          aria-label={t('selectOrderAria', { n: order.orderNumber })}
                         />
                       </td>
                       <td className="px-3 py-3">
@@ -973,8 +988,7 @@ function AdminOrdersPageInner() {
                         </p>
                         {order.itemsCount > 0 && (
                           <p className="text-[11px] text-[var(--color-text-secondary)]">
-                            {order.itemsCount}{' '}
-                            {plural(order.itemsCount, ['товар', 'товари', 'товарів'])}
+                            {t('itemsCount', { count: order.itemsCount })}
                           </p>
                         )}
                       </td>
@@ -985,7 +999,7 @@ function AdminOrdersPageInner() {
                         </p>
                         {order.clientType === 'wholesale' && (
                           <span className="mt-0.5 inline-block rounded bg-[var(--color-primary)]/10 px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-primary)]">
-                            ОПТ
+                            {t('wholesale')}
                           </span>
                         )}
                       </td>
@@ -1015,7 +1029,7 @@ function AdminOrdersPageInner() {
                         </p>
                         {order.trackingNumber && (
                           <p className="mt-0.5 text-[11px] font-medium text-[var(--color-primary)]">
-                            ТТН: {order.trackingNumber}
+                            {t('ttnLabel', { ttn: order.trackingNumber })}
                           </p>
                         )}
                       </td>
@@ -1033,7 +1047,7 @@ function AdminOrdersPageInner() {
                                   className="w-28 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-1 py-1 text-[11px]"
                                   autoFocus
                                 >
-                                  <option value="">Статус...</option>
+                                  <option value="">{t('statusPlaceholder')}</option>
                                   {transitions.map((s) => (
                                     <option key={s} value={s}>
                                       {ORDER_STATUS_LABELS[s as OrderStatus]}
@@ -1060,7 +1074,7 @@ function AdminOrdersPageInner() {
                             ) : (
                               <button
                                 onClick={() => setQuickStatusOrderId(order.id)}
-                                title="Швидка зміна статусу"
+                                title={t('quickStatusTitle')}
                                 className="rounded p-1 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-primary)]"
                               >
                                 <svg
@@ -1081,7 +1095,7 @@ function AdminOrdersPageInner() {
                             )}
                             <button
                               onClick={() => setQuickEditId(order.id)}
-                              title="Швидкий перегляд / редагування"
+                              title={t('quickEditTitle')}
                               className="rounded p-1 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-primary)]"
                             >
                               <svg
@@ -1112,16 +1126,16 @@ function AdminOrdersPageInner() {
                         <span className="text-3xl" aria-hidden="true">
                           📦
                         </span>
-                        <p className="text-sm font-medium">Замовлень не знайдено</p>
+                        <p className="text-sm font-medium">{t('emptyTitle')}</p>
                         {hasFilters ? (
                           <button
                             onClick={() => router.push('/admin/orders')}
                             className="text-xs text-[var(--color-primary)] hover:underline"
                           >
-                            Скинути всі фільтри
+                            {t('resetAllFilters')}
                           </button>
                         ) : (
-                          <p className="text-xs">Тут з&apos;являться нові замовлення клієнтів</p>
+                          <p className="text-xs">{t('emptyHint')}</p>
                         )}
                       </div>
                     </td>
@@ -1133,7 +1147,7 @@ function AdminOrdersPageInner() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
-              <p className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('total', { total })}</p>
               <PageSizeSelector value={limit} onChange={handlePageSizeChange} />
             </div>
             {total > limit && (
@@ -1153,13 +1167,15 @@ function AdminOrdersPageInner() {
         onClose={() => setConfirmStatusChange(null)}
         onConfirm={handleQuickStatusConfirm}
         variant="warning"
-        title="Зміна статусу"
+        title={t('statusChangeTitle')}
         message={
           confirmStatusChange
-            ? `Змінити статус замовлення на "${ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus]}"?`
+            ? t('statusChangeMsg', {
+                status: ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus],
+              })
             : ''
         }
-        confirmText="Так, змінити"
+        confirmText={t('confirmChange')}
         isLoading={quickStatusUpdating}
       />
 
@@ -1169,11 +1185,9 @@ function AdminOrdersPageInner() {
         onClose={() => setBulkTtnConfirm(false)}
         onConfirm={handleBulkTtn}
         variant="warning"
-        title="Масове створення ТТН"
-        message={`Створити ТТН Нової Пошти для ${selectedIds.size} ${
-          selectedIds.size === 1 ? 'замовлення' : 'замовлень'
-        }? Замовлення без необхідних даних будуть пропущені.`}
-        confirmText="Так, створити"
+        title={t('bulkTtnTitle')}
+        message={t('bulkTtnMsg', { count: selectedIds.size })}
+        confirmText={t('confirmCreate')}
         isLoading={isBulkTtnRunning}
       />
 
@@ -1186,13 +1200,16 @@ function AdminOrdersPageInner() {
         }}
         onConfirm={() => bulkStatusConfirm && handleBulkStatus(bulkStatusConfirm)}
         variant="warning"
-        title="Масова зміна статусу"
+        title={t('bulkStatusTitle')}
         message={
           bulkStatusConfirm
-            ? `Змінити статус ${selectedIds.size} замовлень на "${ORDER_STATUS_LABELS[bulkStatusConfirm as OrderStatus]}"? Якщо допустимий перехід неможливий — замовлення пропуститься.`
+            ? t('bulkStatusMsg', {
+                count: selectedIds.size,
+                status: ORDER_STATUS_LABELS[bulkStatusConfirm as OrderStatus],
+              })
             : ''
         }
-        confirmText="Так, змінити"
+        confirmText={t('confirmChange')}
         isLoading={isBulkStatusRunning}
       />
 
@@ -1259,6 +1276,7 @@ function StatCard({
  * operator learns to trust the absence of badges.
  */
 function OrdersAttentionPanel() {
+  const t = useTranslations('admin.ordersListPage');
   const router = useRouter();
   const [counts, setCounts] = useState<{
     withoutTtn24h: number;
@@ -1289,45 +1307,45 @@ function OrdersAttentionPanel() {
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
       <span className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)]">
-        Потребує уваги:
+        {t('needsAttention')}
       </span>
       {total === 0 ? (
         <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs text-green-700">
-          ✓ Все ок
+          {t('allOk')}
         </span>
       ) : (
         <>
           {counts.withoutTtn24h > 0 && (
             <AttentionOrderPill
-              label="Без ТТН >24год"
+              label={t('pillNoTtn')}
               count={counts.withoutTtn24h}
               tone="danger"
               onClick={() => {
                 router.push('/admin/orders?status=confirmed&deliveryMethod=nova_poshta');
               }}
-              title="Замовлення Нової Пошти без TTN, створені більше доби тому"
+              title={t('pillNoTtnTitle')}
             />
           )}
           {counts.unpaid24h > 0 && (
             <AttentionOrderPill
-              label="Без оплати >24год"
+              label={t('pillUnpaid')}
               count={counts.unpaid24h}
               tone="warn"
               onClick={() => {
                 router.push('/admin/orders?paymentStatus=pending');
               }}
-              title="Pending payment > 24 год — можливо abandoned cart або помилка Liqpay"
+              title={t('pillUnpaidTitle')}
             />
           )}
           {counts.stuckProcessing3d > 0 && (
             <AttentionOrderPill
-              label="В обробці >3 дні"
+              label={t('pillStuck')}
               count={counts.stuckProcessing3d}
               tone="warn"
               onClick={() => {
                 router.push('/admin/orders?status=processing');
               }}
-              title="Зависли в processing — потрібне втручання менеджера"
+              title={t('pillStuckTitle')}
             />
           )}
         </>
