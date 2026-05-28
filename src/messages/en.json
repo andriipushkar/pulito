@@ -974,6 +974,20 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "savedViews": {
+      "saved": "Saved: {name}",
+      "savedLabel": "Saved:",
+      "applyTitle": "Apply filter: {query}",
+      "empty": "(empty)",
+      "deleteAria": "Delete {name}",
+      "saveCurrentTitle": "Save current filters",
+      "saveView": "+ Save view",
+      "saveFilterTitle": "Save filter",
+      "saveHint": "Name the filter set to quickly return to it.",
+      "namePlaceholder": "E.g. «Today + new_order»",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
     "priceAnalytics": {
       "totalChanges": "Price changes",
       "increases": "Increases",

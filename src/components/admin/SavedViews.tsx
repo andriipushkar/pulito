@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, useSyncExternalStore } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -36,6 +37,7 @@ const EMPTY_VIEWS: SavedView[] = [];
 const viewsCache = new Map<string, SavedView[]>();
 
 export default function SavedViews({ storageKey, basePath }: Props) {
+  const t = useTranslations('admin.savedViews');
   const router = useRouter();
   const searchParams = useSearchParams();
   const fullKey = `admin-saved-views:${storageKey}`;
@@ -106,7 +108,7 @@ export default function SavedViews({ storageKey, basePath }: Props) {
     persist(next);
     setName('');
     setShowSave(false);
-    toast.success(`Збережено: ${trimmed}`);
+    toast.success(t('saved', { name: trimmed }));
   };
 
   const handleApply = (view: SavedView) => {
@@ -120,7 +122,7 @@ export default function SavedViews({ storageKey, basePath }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {views.length > 0 && (
-        <span className="text-xs text-[var(--color-text-secondary)]">Збережені:</span>
+        <span className="text-xs text-[var(--color-text-secondary)]">{t('savedLabel')}</span>
       )}
       {views.map((v) => (
         <span
@@ -131,7 +133,7 @@ export default function SavedViews({ storageKey, basePath }: Props) {
             type="button"
             onClick={() => handleApply(v)}
             className="font-medium hover:text-[var(--color-primary)]"
-            title={`Застосувати фільтр: ${v.query || '(пусто)'}`}
+            title={t('applyTitle', { query: v.query || t('empty') })}
           >
             {v.name}
           </button>
@@ -139,7 +141,7 @@ export default function SavedViews({ storageKey, basePath }: Props) {
             type="button"
             onClick={() => handleDelete(v.id)}
             className="text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
-            aria-label={`Видалити ${v.name}`}
+            aria-label={t('deleteAria', { name: v.name })}
           >
             ✕
           </button>
@@ -150,9 +152,9 @@ export default function SavedViews({ storageKey, basePath }: Props) {
           type="button"
           onClick={() => setShowSave(true)}
           className="rounded-full border border-dashed border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-          title="Зберегти поточні фільтри"
+          title={t('saveCurrentTitle')}
         >
-          + Зберегти вигляд
+          {t('saveView')}
         </button>
       )}
 
@@ -167,10 +169,8 @@ export default function SavedViews({ storageKey, basePath }: Props) {
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 shadow-lg"
           >
-            <h3 className="mb-2 text-base font-bold">Зберегти фільтр</h3>
-            <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-              Назвіть набір фільтрів, щоб швидко повертатись.
-            </p>
+            <h3 className="mb-2 text-base font-bold">{t('saveFilterTitle')}</h3>
+            <p className="mb-3 text-xs text-[var(--color-text-secondary)]">{t('saveHint')}</p>
             <input
               autoFocus
               value={name}
@@ -178,7 +178,7 @@ export default function SavedViews({ storageKey, basePath }: Props) {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSave();
               }}
-              placeholder="Напр. «Сьогодні + new_order»"
+              placeholder={t('namePlaceholder')}
               className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
             />
             <div className="mt-3 flex justify-end gap-2">
@@ -187,7 +187,7 @@ export default function SavedViews({ storageKey, basePath }: Props) {
                 onClick={() => setShowSave(false)}
                 className="rounded-[var(--radius)] px-3 py-1.5 text-xs hover:bg-[var(--color-bg-secondary)]"
               >
-                Скасувати
+                {t('cancel')}
               </button>
               <button
                 type="button"
@@ -195,7 +195,7 @@ export default function SavedViews({ storageKey, basePath }: Props) {
                 disabled={!name.trim()}
                 className="rounded-[var(--radius)] bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
               >
-                Зберегти
+                {t('save')}
               </button>
             </div>
           </div>

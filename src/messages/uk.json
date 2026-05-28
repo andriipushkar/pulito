@@ -974,6 +974,20 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "savedViews": {
+      "saved": "Збережено: {name}",
+      "savedLabel": "Збережені:",
+      "applyTitle": "Застосувати фільтр: {query}",
+      "empty": "(пусто)",
+      "deleteAria": "Видалити {name}",
+      "saveCurrentTitle": "Зберегти поточні фільтри",
+      "saveView": "+ Зберегти вигляд",
+      "saveFilterTitle": "Зберегти фільтр",
+      "saveHint": "Назвіть набір фільтрів, щоб швидко повертатись.",
+      "namePlaceholder": "Напр. «Сьогодні + new_order»",
+      "cancel": "Скасувати",
+      "save": "Зберегти"
+    },
     "priceAnalytics": {
       "totalChanges": "Змін цін",
       "increases": "Підвищення",

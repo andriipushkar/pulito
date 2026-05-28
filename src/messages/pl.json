@@ -974,6 +974,20 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "savedViews": {
+      "saved": "Zapisano: {name}",
+      "savedLabel": "Zapisane:",
+      "applyTitle": "Zastosuj filtr: {query}",
+      "empty": "(puste)",
+      "deleteAria": "Usuń {name}",
+      "saveCurrentTitle": "Zapisz bieżące filtry",
+      "saveView": "+ Zapisz widok",
+      "saveFilterTitle": "Zapisz filtr",
+      "saveHint": "Nazwij zestaw filtrów, aby szybko wracać.",
+      "namePlaceholder": "Np. «Dzisiaj + new_order»",
+      "cancel": "Anuluj",
+      "save": "Zapisz"
+    },
     "priceAnalytics": {
       "totalChanges": "Zmiany cen",
       "increases": "Podwyżki",

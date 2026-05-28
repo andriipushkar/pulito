@@ -974,6 +974,20 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "savedViews": {
+      "saved": "Salvat: {name}",
+      "savedLabel": "Salvate:",
+      "applyTitle": "Aplică filtrul: {query}",
+      "empty": "(gol)",
+      "deleteAria": "Șterge {name}",
+      "saveCurrentTitle": "Salvează filtrele curente",
+      "saveView": "+ Salvează vizualizarea",
+      "saveFilterTitle": "Salvează filtrul",
+      "saveHint": "Denumește setul de filtre pentru a reveni rapid.",
+      "namePlaceholder": "Ex. «Astăzi + new_order»",
+      "cancel": "Anulează",
+      "save": "Salvează"
+    },
     "priceAnalytics": {
       "totalChanges": "Modificări de preț",
       "increases": "Creșteri",
