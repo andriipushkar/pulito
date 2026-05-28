@@ -12,7 +12,7 @@ import Superscript from '@tiptap/extension-superscript';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { plural } from '@/utils/format';
+import { useTranslations } from 'next-intl';
 
 // Refuse to embed any URL whose scheme is not in this allow-list. Tiptap will
 // happily store `javascript:` / `data:` / `vbscript:` hrefs — they get stripped
@@ -41,6 +41,7 @@ export default function WysiwygEditor({
   className,
   maxLength,
 }: WysiwygEditorProps) {
+  const t = useTranslations('admin.wysiwygEditor');
   const [fullscreen, setFullscreen] = useState(false);
   const [showSource, setShowSource] = useState(false);
   const [sourceValue, setSourceValue] = useState(value || '');
@@ -59,7 +60,7 @@ export default function WysiwygEditor({
       Superscript,
       TextStyle,
       Color,
-      Placeholder.configure({ placeholder: placeholder || 'Введіть текст...' }),
+      Placeholder.configure({ placeholder: placeholder || t('placeholder') }),
       CharacterCount.configure({ limit: maxLength }),
     ],
     content: value || '',
@@ -103,7 +104,7 @@ export default function WysiwygEditor({
       for (const file of images) {
         const url = await uploadImageToServer(file);
         if (url) {
-          const alt = promptForAltText(filenameToAlt(file.name));
+          const alt = promptForAltText(filenameToAlt(file.name), t('altPrompt'), t('imageAlt'));
           if (alt !== null) editor.chain().focus().setImage({ src: url, alt }).run();
         }
         setUploading((n) => n - 1);
@@ -132,7 +133,7 @@ export default function WysiwygEditor({
       dom.removeEventListener('paste', onPaste);
       dom.removeEventListener('drop', onDrop);
     };
-  }, [editor]);
+  }, [editor, t]);
 
   const switchToWysiwyg = () => {
     if (editor && sourceValue !== editor.getHTML()) {
@@ -187,17 +188,16 @@ export default function WysiwygEditor({
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)]">
         <span className={overLimit ? 'text-[var(--color-danger)]' : undefined}>
-          {words} {plural(words, ['слово', 'слова', 'слів'])} · {characters}{' '}
-          {plural(characters, ['символ', 'символи', 'символів'])}
+          {t('wordsLabel', { count: words })} · {t('charsLabel', { count: characters })}
           {maxLength ? ` / ${maxLength}` : ''}
         </span>
         <span className="hidden gap-3 sm:flex">
           {uploading > 0 && (
             <span className="text-[var(--color-primary)]">
-              Завантаження зображень: {uploading}…
+              {t('uploadingImages', { count: uploading })}
             </span>
           )}
-          <span>Підказка: можна вставляти й перетягувати зображення</span>
+          <span>{t('dragHint')}</span>
         </span>
       </div>
     </div>
@@ -216,14 +216,15 @@ function filenameToAlt(filename: string): string {
 /** Block-insertion ask for alt text. Returns trimmed value or null if user
  * cancelled. Empty input falls back to the default so we never insert an
  * image with empty alt — bad for SEO and screen readers. */
-function promptForAltText(defaultValue: string): string | null {
-  const answer = window.prompt(
-    'Опис зображення (alt) — обов’язково для SEO та доступності:',
-    defaultValue,
-  );
+function promptForAltText(
+  defaultValue: string,
+  promptLabel: string,
+  fallback: string,
+): string | null {
+  const answer = window.prompt(promptLabel, defaultValue);
   if (answer === null) return null;
   const trimmed = answer.trim();
-  return trimmed || defaultValue || 'Зображення';
+  return trimmed || defaultValue || fallback;
 }
 
 async function uploadImageToServer(file: File): Promise<string | null> {
@@ -260,6 +261,7 @@ function Toolbar({
   showSource,
   onToggleSource,
 }: ToolbarProps) {
+  const t = useTranslations('admin.wysiwygEditor');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
   const highlightInputRef = useRef<HTMLInputElement>(null);
@@ -279,7 +281,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleBold().run()}
         active={editor.isActive('bold')}
         disabled={sourceOnly}
-        title="Жирний (Ctrl+B)"
+        title={t('bold')}
       >
         <b>B</b>
       </Btn>
@@ -287,7 +289,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleItalic().run()}
         active={editor.isActive('italic')}
         disabled={sourceOnly}
-        title="Курсив (Ctrl+I)"
+        title={t('italic')}
       >
         <i>I</i>
       </Btn>
@@ -295,7 +297,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         active={editor.isActive('underline')}
         disabled={sourceOnly}
-        title="Підкреслений (Ctrl+U)"
+        title={t('underline')}
       >
         <u>U</u>
       </Btn>
@@ -303,7 +305,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleStrike().run()}
         active={editor.isActive('strike')}
         disabled={sourceOnly}
-        title="Закреслений"
+        title={t('strike')}
       >
         <s>S</s>
       </Btn>
@@ -311,7 +313,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleSubscript().run()}
         active={editor.isActive('subscript')}
         disabled={sourceOnly}
-        title="Нижній індекс (H₂O)"
+        title={t('subscript')}
       >
         X₂
       </Btn>
@@ -319,7 +321,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleSuperscript().run()}
         active={editor.isActive('superscript')}
         disabled={sourceOnly}
-        title="Верхній індекс (м²)"
+        title={t('superscript')}
       >
         X²
       </Btn>
@@ -330,7 +332,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         active={editor.isActive('heading', { level: 2 })}
         disabled={sourceOnly}
-        title="Заголовок 2"
+        title={t('heading2')}
       >
         H2
       </Btn>
@@ -338,7 +340,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
         active={editor.isActive('heading', { level: 3 })}
         disabled={sourceOnly}
-        title="Заголовок 3"
+        title={t('heading3')}
       >
         H3
       </Btn>
@@ -346,7 +348,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
         active={editor.isActive('heading', { level: 4 })}
         disabled={sourceOnly}
-        title="Заголовок 4"
+        title={t('heading4')}
       >
         H4
       </Btn>
@@ -354,7 +356,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().setParagraph().run()}
         active={editor.isActive('paragraph') && !editor.isActive('heading')}
         disabled={sourceOnly}
-        title="Абзац"
+        title={t('paragraph')}
       >
         P
       </Btn>
@@ -365,7 +367,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         active={editor.isActive('bulletList')}
         disabled={sourceOnly}
-        title="Маркований список"
+        title={t('bulletList')}
       >
         •
       </Btn>
@@ -373,7 +375,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         active={editor.isActive('orderedList')}
         disabled={sourceOnly}
-        title="Нумерований список"
+        title={t('orderedList')}
       >
         1.
       </Btn>
@@ -381,7 +383,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         active={editor.isActive('blockquote')}
         disabled={sourceOnly}
-        title="Цитата"
+        title={t('blockquote')}
       >
         ❝
       </Btn>
@@ -389,14 +391,14 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         active={editor.isActive('codeBlock')}
         disabled={sourceOnly}
-        title="Блок коду"
+        title={t('codeBlock')}
       >
         {'</>'}
       </Btn>
       <Btn
         onClick={() => editor.chain().focus().setHorizontalRule().run()}
         disabled={sourceOnly}
-        title="Розділювач (горизонтальна лінія)"
+        title={t('horizontalRule')}
       >
         —
       </Btn>
@@ -407,7 +409,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().setTextAlign('left').run()}
         active={editor.isActive({ textAlign: 'left' })}
         disabled={sourceOnly}
-        title="Вирівняти ліворуч"
+        title={t('alignLeft')}
       >
         ⇤
       </Btn>
@@ -415,7 +417,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().setTextAlign('center').run()}
         active={editor.isActive({ textAlign: 'center' })}
         disabled={sourceOnly}
-        title="Центрувати"
+        title={t('alignCenter')}
       >
         ↔
       </Btn>
@@ -423,7 +425,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().setTextAlign('right').run()}
         active={editor.isActive({ textAlign: 'right' })}
         disabled={sourceOnly}
-        title="Вирівняти праворуч"
+        title={t('alignRight')}
       >
         ⇥
       </Btn>
@@ -431,7 +433,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().setTextAlign('justify').run()}
         active={editor.isActive({ textAlign: 'justify' })}
         disabled={sourceOnly}
-        title="По ширині"
+        title={t('alignJustify')}
       >
         ☰
       </Btn>
@@ -440,13 +442,13 @@ function Toolbar({
 
       <label
         className="relative flex h-6 min-w-[28px] cursor-pointer items-center justify-center rounded px-2 py-0.5 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
-        title="Колір тексту"
+        title={t('textColor')}
       >
         A<span className="text-[10px] leading-none">▾</span>
         <input
           ref={colorInputRef}
           type="color"
-          aria-label="Колір тексту"
+          aria-label={t('textColor')}
           disabled={sourceOnly}
           onInput={(e) =>
             editor
@@ -461,13 +463,13 @@ function Toolbar({
       <Btn
         onClick={() => editor.chain().focus().unsetColor().run()}
         disabled={sourceOnly}
-        title="Скинути колір тексту"
+        title={t('resetColor')}
       >
         A✕
       </Btn>
       <label
         className="relative flex h-6 min-w-[28px] cursor-pointer items-center justify-center rounded px-2 py-0.5 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
-        title="Колір підсвітки"
+        title={t('highlightColor')}
       >
         <span className="rounded px-1" style={{ backgroundColor: '#fde68a' }}>
           H
@@ -475,7 +477,7 @@ function Toolbar({
         <input
           ref={highlightInputRef}
           type="color"
-          aria-label="Колір підсвітки"
+          aria-label={t('highlightColor')}
           disabled={sourceOnly}
           onInput={(e) =>
             editor
@@ -490,7 +492,7 @@ function Toolbar({
       <Btn
         onClick={() => editor.chain().focus().unsetHighlight().run()}
         disabled={sourceOnly}
-        title="Зняти підсвітку"
+        title={t('removeHighlight')}
       >
         H✕
       </Btn>
@@ -500,28 +502,28 @@ function Toolbar({
       <Btn
         onClick={() => {
           const previous = editor.getAttributes('link').href as string | undefined;
-          const url = window.prompt('URL посилання (порожньо — видалити):', previous ?? '');
+          const url = window.prompt(t('linkPrompt'), previous ?? '');
           if (url === null) return;
           if (url === '') {
             editor.chain().focus().extendMarkRange('link').unsetLink().run();
             return;
           }
           if (!isSafeEditorUrl(url)) {
-            window.alert('Дозволені лише https://, http://, mailto:, tel:, /path, #anchor');
+            window.alert(t('linkSchemeAlert'));
             return;
           }
           editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
         }}
         active={editor.isActive('link')}
         disabled={sourceOnly}
-        title="Посилання"
+        title={t('link')}
       >
         🔗
       </Btn>
       <Btn
         onClick={() => fileInputRef.current?.click()}
         disabled={sourceOnly}
-        title="Завантажити зображення з ПК"
+        title={t('uploadImage')}
       >
         🖼
       </Btn>
@@ -535,7 +537,7 @@ function Toolbar({
           if (file) {
             const url = await uploadImageToServer(file);
             if (url) {
-              const alt = promptForAltText(filenameToAlt(file.name));
+              const alt = promptForAltText(filenameToAlt(file.name), t('altPrompt'), t('imageAlt'));
               if (alt !== null) editor.chain().focus().setImage({ src: url, alt }).run();
             }
           }
@@ -544,17 +546,21 @@ function Toolbar({
       />
       <Btn
         onClick={() => {
-          const url = window.prompt('URL зображення:');
+          const url = window.prompt(t('imageUrlPrompt'));
           if (!url) return;
           if (!isSafeEditorUrl(url)) {
-            window.alert('Дозволені лише https://, http://, /path');
+            window.alert(t('imageSchemeAlert'));
             return;
           }
-          const alt = promptForAltText(filenameToAlt(url.split('/').pop() || ''));
+          const alt = promptForAltText(
+            filenameToAlt(url.split('/').pop() || ''),
+            t('altPrompt'),
+            t('imageAlt'),
+          );
           if (alt !== null) editor.chain().focus().setImage({ src: url.trim(), alt }).run();
         }}
         disabled={sourceOnly}
-        title="Зображення за URL"
+        title={t('imageByUrl')}
       >
         🔗🖼
       </Btn>
@@ -563,7 +569,7 @@ function Toolbar({
           editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
         }
         disabled={sourceOnly}
-        title="Вставити таблицю 3×3"
+        title={t('insertTable')}
       >
         ⊞
       </Btn>
@@ -573,50 +579,47 @@ function Toolbar({
           <Sep />
           <Btn
             onClick={() => editor.chain().focus().addRowBefore().run()}
-            title="Додати рядок вище"
+            title={t('addRowBefore')}
           >
             ↑+
           </Btn>
-          <Btn
-            onClick={() => editor.chain().focus().addRowAfter().run()}
-            title="Додати рядок нижче"
-          >
+          <Btn onClick={() => editor.chain().focus().addRowAfter().run()} title={t('addRowAfter')}>
             ↓+
           </Btn>
-          <Btn onClick={() => editor.chain().focus().deleteRow().run()} title="Видалити рядок">
+          <Btn onClick={() => editor.chain().focus().deleteRow().run()} title={t('deleteRow')}>
             ↕−
           </Btn>
           <Btn
             onClick={() => editor.chain().focus().addColumnBefore().run()}
-            title="Додати стовпець ліворуч"
+            title={t('addColumnBefore')}
           >
             ←+
           </Btn>
           <Btn
             onClick={() => editor.chain().focus().addColumnAfter().run()}
-            title="Додати стовпець праворуч"
+            title={t('addColumnAfter')}
           >
             +→
           </Btn>
           <Btn
             onClick={() => editor.chain().focus().deleteColumn().run()}
-            title="Видалити стовпець"
+            title={t('deleteColumn')}
           >
             ↔−
           </Btn>
           <Btn
             onClick={() => editor.chain().focus().toggleHeaderRow().run()}
-            title="Перемкнути заголовок рядка"
+            title={t('toggleHeaderRow')}
           >
             TH
           </Btn>
           <Btn
             onClick={() => editor.chain().focus().mergeOrSplit().run()}
-            title="Об'єднати / розділити комірки"
+            title={t('mergeOrSplit')}
           >
             ⊟
           </Btn>
-          <Btn onClick={() => editor.chain().focus().deleteTable().run()} title="Видалити таблицю">
+          <Btn onClick={() => editor.chain().focus().deleteTable().run()} title={t('deleteTable')}>
             ✕⊞
           </Btn>
         </>
@@ -627,21 +630,21 @@ function Toolbar({
       <Btn
         onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
         disabled={sourceOnly}
-        title="Скинути форматування"
+        title={t('clearFormat')}
       >
         ✕
       </Btn>
       <Btn
         onClick={() => editor.chain().focus().undo().run()}
         disabled={sourceOnly || !editor.can().undo()}
-        title="Відмінити (Ctrl+Z)"
+        title={t('undo')}
       >
         ↶
       </Btn>
       <Btn
         onClick={() => editor.chain().focus().redo().run()}
         disabled={sourceOnly || !editor.can().redo()}
-        title="Повторити (Ctrl+Shift+Z)"
+        title={t('redo')}
       >
         ↷
       </Btn>
@@ -651,14 +654,14 @@ function Toolbar({
         <Btn
           onClick={onToggleSource}
           active={showSource}
-          title={showSource ? 'Назад у візуальний редактор' : 'Показати HTML'}
+          title={showSource ? t('backToVisual') : t('showHtml')}
         >
           {showSource ? '👁' : '<>'}
         </Btn>
         <Btn
           onClick={onToggleFullscreen}
           active={fullscreen}
-          title={fullscreen ? 'Вийти з повноекранного режиму' : 'На весь екран'}
+          title={fullscreen ? t('exitFullscreen') : t('fullscreen')}
         >
           {fullscreen ? '⤢' : '⛶'}
         </Btn>
