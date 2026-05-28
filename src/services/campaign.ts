@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from './email';
 import { createNotification } from './notification';
-import { getCustomerSegmentation } from './analytics-reports';
+import { getAllSegmentUserIds, getSegmentUserIds } from './analytics-reports';
 import { generateUnsubscribeToken } from './subscriber';
 import { env } from '@/config/env';
 import type { CampaignFrequency, CampaignRule } from '../../generated/prisma';
@@ -156,8 +156,9 @@ export async function processCampaigns(): Promise<{ sent: number; skipped: numbe
     },
   });
 
-  // Get all customer segments once
-  const segmentation = await getCustomerSegmentation();
+  // Full per-segment membership (all user IDs, not the dashboard's capped
+  // 10-row preview) — computed once and reused across every rule below.
+  const segmentUserIds = await getAllSegmentUserIds();
 
   for (const rule of rules) {
     if (!shouldRunCampaign(rule, now)) {
@@ -179,9 +180,9 @@ export async function processCampaigns(): Promise<{ sent: number; skipped: numbe
         continue;
       }
 
-      // Find customers in the matching segment
-      const segment = segmentation.segments.find((s) => s.segment === rule.rfmSegment);
-      if (!segment || segment.customers.length === 0) {
+      // All user IDs in the matching segment.
+      const userIds = (segmentUserIds as Record<string, number[]>)[rule.rfmSegment] ?? [];
+      if (userIds.length === 0) {
         // Update lastRunAt even if no customers to prevent re-checking too soon
         await prisma.campaignRule.update({
           where: { id: rule.id },
@@ -190,10 +191,6 @@ export async function processCampaigns(): Promise<{ sent: number; skipped: numbe
         skipped++;
         continue;
       }
-
-      // Get full user list for this segment (segment.customers is capped at 10 in getCustomerSegmentation)
-      // We need all users' IDs from the segment, so we use the userId list
-      const userIds = segment.customers.map((c) => c.userId);
 
       // Filter out users who already received this campaign (for "once" frequency)
       // For recurring, filter those who received it within the current frequency window
@@ -331,9 +328,8 @@ export async function runCampaignNow(ruleId: number): Promise<{ sent: number; sk
     if (!rule) throw new CampaignError('Кампанію не знайдено', 404);
     if (!rule.emailTemplate.isActive) throw new CampaignError('Email-шаблон неактивний', 400);
 
-    const segmentation = await getCustomerSegmentation();
-    const segment = segmentation.segments.find((s) => s.segment === rule.rfmSegment);
-    if (!segment || segment.customers.length === 0) {
+    const userIds = await getSegmentUserIds(rule.rfmSegment);
+    if (userIds.length === 0) {
       await prisma.campaignRule.update({ where: { id: rule.id }, data: { lastRunAt: new Date() } });
       return { sent: 0, skipped: 0 };
     }
@@ -341,17 +337,12 @@ export async function runCampaignNow(ruleId: number): Promise<{ sent: number; sk
     let sent = 0;
     let skipped = 0;
     const now = new Date();
-    const userIds = segment.customers.map((c) => c.userId);
 
-    // Re-send guard. "once" → never re-send. Recurring (daily/weekly/monthly)
+    // Re-send guard. "once" → never re-send. Recurring (weekly/biweekly/monthly)
     // → skip users who got the email within the current window, so a manual
     // admin "Send now" click doesn't spam them with the same recurring blast
-    // twice in the same period.
-    const RECURRING_WINDOW_MS: Record<string, number> = {
-      daily: 24 * 3600 * 1000,
-      weekly: 7 * 24 * 3600 * 1000,
-      monthly: 30 * 24 * 3600 * 1000,
-    };
+    // twice in the same period. Reuse the canonical FREQUENCY_MS so biweekly is
+    // honoured (a divergent local map silently fell back to a 24h window).
     let alreadySent: { userId: number }[] = [];
     if (rule.frequency === 'once') {
       alreadySent = await prisma.campaignLog.findMany({
@@ -359,7 +350,7 @@ export async function runCampaignNow(ruleId: number): Promise<{ sent: number; sk
         select: { userId: true },
       });
     } else {
-      const windowMs = RECURRING_WINDOW_MS[rule.frequency] ?? 24 * 3600 * 1000;
+      const windowMs = FREQUENCY_MS[rule.frequency];
       const since = new Date(Date.now() - windowMs);
       alreadySent = await prisma.campaignLog.findMany({
         where: {

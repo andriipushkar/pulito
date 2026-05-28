@@ -19,7 +19,20 @@ vi.mock('@/lib/prisma', () => ({
     user: {
       findMany: vi.fn(),
     },
+    subscriber: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    // Advisory-lock helpers (tryAcquire/release) hit $queryRaw — grant the lock.
+    $queryRaw: vi.fn().mockResolvedValue([{ ok: true }]),
   },
+}));
+
+vi.mock('./subscriber', () => ({
+  generateUnsubscribeToken: vi.fn().mockReturnValue('unsub-token'),
+}));
+
+vi.mock('./notification', () => ({
+  createNotification: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock('./email', () => ({
@@ -27,12 +40,13 @@ vi.mock('./email', () => ({
 }));
 
 vi.mock('./analytics-reports', () => ({
-  getCustomerSegmentation: vi.fn(),
+  getAllSegmentUserIds: vi.fn(),
+  getSegmentUserIds: vi.fn(),
 }));
 
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from './email';
-import { getCustomerSegmentation } from './analytics-reports';
+import { getAllSegmentUserIds } from './analytics-reports';
 import { processCampaigns, createCampaignRule, shouldRunCampaign, CampaignError } from './campaign';
 
 const ruleFindMany = prisma.campaignRule.findMany as ReturnType<typeof vi.fn>;
@@ -43,7 +57,7 @@ const logFindMany = prisma.campaignLog.findMany as ReturnType<typeof vi.fn>;
 const logCreate = prisma.campaignLog.create as ReturnType<typeof vi.fn>;
 const templateFindUnique = prisma.emailTemplate.findUnique as ReturnType<typeof vi.fn>;
 const userFindMany = prisma.user.findMany as ReturnType<typeof vi.fn>;
-const mockGetSegmentation = getCustomerSegmentation as ReturnType<typeof vi.fn>;
+const mockGetAllSegmentUserIds = getAllSegmentUserIds as ReturnType<typeof vi.fn>;
 const mockSendEmail = sendEmail as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -90,11 +104,13 @@ describe('createCampaignRule', () => {
   it('validates that email template exists', async () => {
     templateFindUnique.mockResolvedValue(null);
 
-    await expect(createCampaignRule({
-      name: 'Test',
-      rfmSegment: 'champions',
-      emailTemplateId: 999,
-    })).rejects.toThrow(CampaignError);
+    await expect(
+      createCampaignRule({
+        name: 'Test',
+        rfmSegment: 'champions',
+        emailTemplateId: 999,
+      }),
+    ).rejects.toThrow(CampaignError);
   });
 
   it('creates a campaign rule when template exists', async () => {
@@ -140,23 +156,7 @@ describe('processCampaigns', () => {
       },
     ]);
 
-    mockGetSegmentation.mockResolvedValue({
-      segments: [
-        {
-          segment: 'lost',
-          label: 'Втрачені',
-          count: 2,
-          revenue: 0,
-          avgCheck: 0,
-          customers: [
-            { userId: 10, email: 'a@test.com', fullName: 'User A', lastOrderDays: 400, orderCount: 1, totalSpent: 100 },
-            { userId: 20, email: 'b@test.com', fullName: 'User B', lastOrderDays: 500, orderCount: 2, totalSpent: 200 },
-          ],
-        },
-      ],
-      totalCustomers: 2,
-      totalRevenue: 300,
-    });
+    mockGetAllSegmentUserIds.mockResolvedValue({ lost: [10, 20] });
 
     logFindMany.mockResolvedValue([]);
     userFindMany.mockResolvedValue([
@@ -170,15 +170,19 @@ describe('processCampaigns', () => {
 
     expect(result.sent).toBe(2);
     expect(mockSendEmail).toHaveBeenCalledTimes(2);
-    expect(mockSendEmail).toHaveBeenCalledWith(expect.objectContaining({
-      to: 'a@test.com',
-      subject: 'We miss you',
-    }));
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'a@test.com',
+        subject: 'We miss you',
+      }),
+    );
     expect(logCreate).toHaveBeenCalledTimes(2);
-    expect(ruleUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 1 },
-      data: { lastRunAt: expect.any(Date) },
-    }));
+    expect(ruleUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 1 },
+        data: { lastRunAt: expect.any(Date) },
+      }),
+    );
   });
 
   it('skips users who already received campaign', async () => {
@@ -200,29 +204,11 @@ describe('processCampaigns', () => {
       },
     ]);
 
-    mockGetSegmentation.mockResolvedValue({
-      segments: [
-        {
-          segment: 'lost',
-          label: 'Втрачені',
-          count: 2,
-          revenue: 0,
-          avgCheck: 0,
-          customers: [
-            { userId: 10, email: 'a@test.com', fullName: 'A', lastOrderDays: 400, orderCount: 1, totalSpent: 100 },
-            { userId: 20, email: 'b@test.com', fullName: 'B', lastOrderDays: 500, orderCount: 2, totalSpent: 200 },
-          ],
-        },
-      ],
-      totalCustomers: 2,
-      totalRevenue: 300,
-    });
+    mockGetAllSegmentUserIds.mockResolvedValue({ lost: [10, 20] });
 
     // User 10 already received this campaign
     logFindMany.mockResolvedValue([{ userId: 10 }]);
-    userFindMany.mockResolvedValue([
-      { id: 20, email: 'b@test.com', fullName: 'B' },
-    ]);
+    userFindMany.mockResolvedValue([{ id: 20, email: 'b@test.com', fullName: 'B' }]);
     logCreate.mockResolvedValue({});
     ruleUpdate.mockResolvedValue({});
 
@@ -245,15 +231,17 @@ describe('processCampaigns', () => {
         frequency: 'weekly',
         isActive: true,
         lastRunAt: lastRun,
-        emailTemplate: { id: 1, subject: 'Test', bodyHtml: '<p>Hi</p>', bodyText: null, isActive: true },
+        emailTemplate: {
+          id: 1,
+          subject: 'Test',
+          bodyHtml: '<p>Hi</p>',
+          bodyText: null,
+          isActive: true,
+        },
       },
     ]);
 
-    mockGetSegmentation.mockResolvedValue({
-      segments: [],
-      totalCustomers: 0,
-      totalRevenue: 0,
-    });
+    mockGetAllSegmentUserIds.mockResolvedValue({});
 
     const result = await processCampaigns();
 

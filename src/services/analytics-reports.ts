@@ -559,6 +559,73 @@ interface CustomerSegment {
   }[];
 }
 
+// Pure RFM classification — shared by the dashboard segmentation (which keeps
+// a capped 10-customer preview per segment) and by getAllSegmentUserIds (which
+// needs the full membership for campaign targeting).
+function classifySegment(daysSinceLastOrder: number, orderCount: number): SegmentName {
+  if (daysSinceLastOrder <= 30 && orderCount >= 5) return 'champions';
+  if (daysSinceLastOrder <= 60 && orderCount >= 3) return 'loyal';
+  if (daysSinceLastOrder <= 30 && orderCount === 1) return 'new';
+  if (daysSinceLastOrder <= 30 && orderCount >= 2) return 'recent';
+  if (daysSinceLastOrder <= 90 && orderCount >= 2) return 'promising';
+  if (daysSinceLastOrder <= 180) return 'at_risk';
+  if (daysSinceLastOrder <= 365) return 'sleeping';
+  return 'lost';
+}
+
+/**
+ * Full RFM-segment membership (all matching user IDs, uncapped) keyed by
+ * segment. Unlike getCustomerSegmentation — whose `customers` array is a
+ * capped 10-row preview for the dashboard — this returns every user in each
+ * segment, which campaign targeting needs so a blast reaches the whole segment
+ * rather than just the preview sample.
+ */
+export async function getAllSegmentUserIds(
+  days: number = 365,
+): Promise<Record<SegmentName, number[]>> {
+  const now = new Date();
+  const dateFrom = new Date(now);
+  dateFrom.setDate(dateFrom.getDate() - days);
+
+  const customerStats = await prisma.order.groupBy({
+    by: ['userId'],
+    where: {
+      userId: { not: null },
+      status: { notIn: ['cancelled', 'returned'] },
+      createdAt: { gte: dateFrom },
+    },
+    _count: true,
+    _max: { createdAt: true },
+  });
+
+  const result: Record<SegmentName, number[]> = {
+    champions: [],
+    loyal: [],
+    recent: [],
+    promising: [],
+    at_risk: [],
+    sleeping: [],
+    lost: [],
+    new: [],
+  };
+
+  for (const c of customerStats) {
+    if (!c.userId || !c._max.createdAt) continue;
+    const daysSinceLastOrder = Math.floor(
+      (now.getTime() - c._max.createdAt.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    result[classifySegment(daysSinceLastOrder, c._count)].push(c.userId);
+  }
+
+  return result;
+}
+
+/** Full membership of a single RFM segment (uncapped). */
+export async function getSegmentUserIds(segment: string, days: number = 365): Promise<number[]> {
+  const map = await getAllSegmentUserIds(days);
+  return (map as Record<string, number[]>)[segment] ?? [];
+}
+
 export async function getCustomerSegmentation(days: number = 365) {
   const now = new Date();
   // Bound the scan to a recency window (default 1 year) so the groupBy + the
@@ -613,24 +680,7 @@ export async function getCustomerSegmentation(days: number = 365) {
     const totalSpent = Number(c._sum.totalAmount || 0);
     const user = userMap.get(c.userId);
 
-    let segment: SegmentName;
-    if (daysSinceLastOrder <= 30 && orderCount >= 5) {
-      segment = 'champions';
-    } else if (daysSinceLastOrder <= 60 && orderCount >= 3) {
-      segment = 'loyal';
-    } else if (daysSinceLastOrder <= 30 && orderCount === 1) {
-      segment = 'new';
-    } else if (daysSinceLastOrder <= 30 && orderCount >= 2) {
-      segment = 'recent';
-    } else if (daysSinceLastOrder <= 90 && orderCount >= 2) {
-      segment = 'promising';
-    } else if (daysSinceLastOrder <= 180) {
-      segment = 'at_risk';
-    } else if (daysSinceLastOrder <= 365) {
-      segment = 'sleeping';
-    } else {
-      segment = 'lost';
-    }
+    const segment = classifySegment(daysSinceLastOrder, orderCount);
 
     segmented[segment].count++;
     segmented[segment].revenue += totalSpent;
