@@ -387,7 +387,9 @@ function buildSortOrder(sort: string): Prisma.ProductOrderByWithRelationInput[] 
  * @param filters - Фільтри (пошук, категорія, ціна, акції, наявність, сортування, пагінація)
  * @returns Об'єкт зі списком товарів та загальною кількістю
  */
-export async function getProducts(filters: ProductFilterInput) {
+export async function getProducts(
+  filters: ProductFilterInput,
+): Promise<{ products: ProductListItem[]; total: number }> {
   const cacheKey = `products:list:${JSON.stringify(filters)}`;
   const cached = await cacheGet<{ products: ProductListItem[]; total: number }>(cacheKey);
   if (cached) return cached;
