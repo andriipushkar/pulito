@@ -389,6 +389,10 @@ function AdminProductsPageInner() {
             priceValue: valNum,
             priceRound: bulkPriceMode === 'round' ? Number(bulkPriceRound) : undefined,
           },
+          // Idempotency key so a network retry can't compound percent/add price
+          // changes (e.g. "+10%" applied twice → +21%). Server replays the
+          // original result for a duplicate key within the TTL window.
+          { headers: { 'x-idempotency-key': crypto.randomUUID() } },
         );
         if (res.success && res.data) {
           toast.success(

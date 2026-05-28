@@ -17,6 +17,7 @@ import {
   drawFooter,
 } from '@/lib/pdf-theme';
 import { generateReorderQR } from '@/services/qr-code';
+import { sumMoney } from '@/utils/format';
 
 export class PdfError extends Error {
   constructor(
@@ -161,7 +162,7 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
   const totalsX = PAGE.margin + 300;
   const totalsW = 195;
 
-  const subtotal = order.items.reduce((sum, item) => sum + Number(item.subtotal), 0);
+  const subtotal = sumMoney(order.items.map((item) => Number(item.subtotal)));
 
   doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
   doc.text(`Сума товарів:`, totalsX, doc.y, { width: totalsW - 80 });

@@ -1,6 +1,7 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@/../generated/prisma';
 import { withRole } from '@/middleware/auth';
+import { reserveIdempotencyKey, updateIdempotentResponse } from '@/services/idempotency';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { z } from 'zod';
@@ -72,24 +73,34 @@ export const POST = withRole(
     if (action === 'delete') {
       if (!productIds?.length) return errorResponse('Не обрано товарів', 400);
 
-      // Pre-classify ids: those with FK references go to soft-delete, the rest
-      // can be hard-deleted. Doing this in a single transaction makes the
-      // operation all-or-nothing — previously a mid-loop throw left half the
-      // batch deleted and half untouched.
-      const referencedIds = new Set<number>();
-      const referencingCounts = await prisma.orderItem.groupBy({
-        by: ['productId'],
-        where: { productId: { in: productIds } },
-        _count: { productId: true },
-      });
-      for (const r of referencingCounts) {
-        if (r.productId !== null) referencedIds.add(r.productId);
-      }
-
-      const hardIds = productIds.filter((id) => !referencedIds.has(id));
-      const softDeletedIds = productIds.filter((id) => referencedIds.has(id));
+      // Classify ids: those with FK references → soft-delete, the rest →
+      // hard-delete. PR6: both the classification (groupBy on order_items) and
+      // the deletes run INSIDE one transaction that first row-locks the
+      // candidate products with `FOR UPDATE`. Order creation updates
+      // `product.quantity` (a row-level write lock) before inserting its
+      // order_items, so our lock serializes against it: a concurrent checkout
+      // either commits first (then we see its order_item and soft-delete) or
+      // blocks until we commit (then its quantity update matches 0 deleted
+      // rows and the order fails gracefully). Closes the classify→delete race
+      // where a freshly-referenced product could be hard-deleted (FK error).
+      let hardIds: number[] = [];
+      let softDeletedIds: number[] = [];
 
       await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM products WHERE id = ANY(${productIds}::int[]) FOR UPDATE`;
+
+        const referencingCounts = await tx.orderItem.groupBy({
+          by: ['productId'],
+          where: { productId: { in: productIds } },
+          _count: { productId: true },
+        });
+        const referencedIds = new Set<number>();
+        for (const r of referencingCounts) {
+          if (r.productId !== null) referencedIds.add(r.productId);
+        }
+        hardIds = productIds.filter((id) => !referencedIds.has(id));
+        softDeletedIds = productIds.filter((id) => referencedIds.has(id));
+
         if (hardIds.length > 0) {
           await tx.product.deleteMany({ where: { id: { in: hardIds } } });
         }
@@ -164,6 +175,25 @@ export const POST = withRole(
       }
       if (priceMode === 'round' && !priceRound) {
         return errorResponse('Не вказано крок округлення', 400);
+      }
+
+      // Server idempotency for the one non-idempotent bulk action: `percent`
+      // and `add` price modes compound on re-apply (a retried "+10%" becomes
+      // +21%). A client-supplied x-idempotency-key lets a network retry replay
+      // the original result instead of double-applying. (activate/deactivate/
+      // category/brand are naturally idempotent and don't need this.)
+      const idemKey = request.headers.get('x-idempotency-key');
+      if (idemKey) {
+        const slot = await reserveIdempotencyKey(idemKey);
+        if (!slot.reserved) {
+          if ('inFlight' in slot) {
+            return errorResponse('Зміну цін уже опрацьовується. Зачекайте і оновіть список.', 409);
+          }
+          if (slot.cached) {
+            return NextResponse.json(JSON.parse(slot.cached), { status: 200 });
+          }
+          return errorResponse('Цю зміну цін уже застосовано', 409);
+        }
       }
 
       const targets: ('priceRetail' | 'priceWholesale' | 'priceWholesale2' | 'priceWholesale3')[] =
@@ -271,7 +301,14 @@ export const POST = withRole(
         },
         ipAddress,
       });
-      return successResponse({ updated: updatedCount, skipped: skippedCount });
+      const responseData = { updated: updatedCount, skipped: skippedCount };
+      if (idemKey) {
+        await updateIdempotentResponse(
+          idemKey,
+          JSON.stringify({ success: true, data: responseData }),
+        );
+      }
+      return successResponse(responseData);
     }
 
     if (action === 'change_brand') {

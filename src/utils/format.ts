@@ -8,6 +8,16 @@ export function formatPrice(price: number): string {
   }).format(price);
 }
 
+/**
+ * Sum an array of UAH money amounts without binary-float drift. Each value is
+ * rounded to integer kopecks before summing, so e.g. 0.1 + 0.2 yields 0.30
+ * (not 0.30000000000000004) and long invoice item lists don't accumulate the
+ * 1-2 kopeck error that plain `reduce((s, x) => s + x, 0)` produces.
+ */
+export function sumMoney(amounts: number[]): number {
+  return amounts.reduce((kopecks, amount) => kopecks + Math.round(amount * 100), 0) / 100;
+}
+
 export function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat('uk-UA', {
     day: '2-digit',

@@ -7,7 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import { formatPrice, formatDateTime } from '@/utils/format';
+import { formatPrice, formatDateTime, sumMoney } from '@/utils/format';
 import { ORDER_STATUS_COLORS } from '@/types/order';
 import type { OrderDetail, OrderStatus } from '@/types/order';
 import Select from '@/components/ui/Select';
@@ -267,7 +267,7 @@ export default function AdminOrderDetailPage() {
   const orderTotal = Number(order.totalAmount);
   const deliveryCost = Number(order.deliveryCost || 0);
   const discount = Number(order.discountAmount || 0);
-  const itemsSubtotal = order.items.reduce((sum, item) => sum + Number(item.subtotal), 0);
+  const itemsSubtotal = sumMoney(order.items.map((item) => Number(item.subtotal)));
 
   return (
     <div>

@@ -6,7 +6,10 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 import { logAudit } from '@/services/audit';
 
-export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { params }) => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (_request: NextRequest, { params }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -22,7 +25,10 @@ export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { 
   }
 });
 
-export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { params, user }) => {
+export const PUT = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
@@ -60,10 +66,27 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { p
       select: { assignedManagerId: true },
     });
 
+    // O3: a manager may not reassign an order that's already owned by a
+    // different manager (cross-team theft). Admins are unrestricted; a manager
+    // can claim an unassigned order or manage one already assigned to itself.
+    if (
+      'assignedManagerId' in data &&
+      user.role !== 'admin' &&
+      prev?.assignedManagerId != null &&
+      prev.assignedManagerId !== user.id
+    ) {
+      return errorResponse('Це замовлення вже призначене іншому менеджеру', 403);
+    }
+
     try {
       await prisma.order.update({ where: { id: numId }, data });
     } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'P2025') {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        (err as { code: string }).code === 'P2025'
+      ) {
         return errorResponse('Замовлення не знайдено', 404);
       }
       throw err;
