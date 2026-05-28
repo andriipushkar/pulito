@@ -379,6 +379,22 @@ export async function getCategories() {
   });
 }
 
+// Slugs that would collide with blog routing or admin paths. A category slug
+// lands in /blog/<slug>-style URLs, so reserving these stops an admin from
+// shadowing a real route (e.g. /blog/admin, /blog/new).
+const RESERVED_BLOG_SLUGS = new Set([
+  'admin',
+  'api',
+  'new',
+  'edit',
+  'create',
+  'feed',
+  'rss',
+  'category',
+  'tag',
+  'search',
+]);
+
 export async function createCategory(data: {
   name: string;
   slug?: string;
@@ -391,6 +407,10 @@ export async function createCategory(data: {
   seoDescriptionEn?: string;
 }) {
   const slug = data.slug || createSlug(data.name);
+
+  if (RESERVED_BLOG_SLUGS.has(slug)) {
+    throw new BlogError('Цей slug зарезервовано системою', 422);
+  }
 
   const existing = await prisma.blogCategory.findUnique({ where: { slug } });
   if (existing) {
@@ -430,6 +450,9 @@ export async function updateCategory(
   if (!category) throw new BlogError('Категорію не знайдено', 404);
 
   if (data.slug && data.slug !== category.slug) {
+    if (RESERVED_BLOG_SLUGS.has(data.slug)) {
+      throw new BlogError('Цей slug зарезервовано системою', 422);
+    }
     const existing = await prisma.blogCategory.findUnique({ where: { slug: data.slug } });
     if (existing) throw new BlogError('Категорія з таким slug вже існує', 409);
   }

@@ -7,6 +7,11 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/prisma';
+
+// Body fields too large to copy into the audit diff verbatim (up to 200KB).
+// We record that they changed, not their full text.
+const LARGE_PAGE_FIELDS = new Set(['content', 'contentEn']);
 
 const updateSchema = z.object({
   title: z.string().min(2).max(200).optional(),
@@ -42,13 +47,33 @@ export const PUT = withRole(
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
 
+    // Snapshot before the write for an audit diff. Dumping the full new payload
+    // (old behaviour) both bloated the log with up to 200KB of content and gave
+    // no "before" to compare against.
+    const prev = (await prisma.staticPage.findUnique({ where: { id: numId } })) as Record<
+      string,
+      unknown
+    > | null;
+    const changedFields = Object.keys(parsed.data);
+    const before: Record<string, string | null> = {};
+    const after: Record<string, string | null> = {};
+    for (const k of changedFields) {
+      if (LARGE_PAGE_FIELDS.has(k)) {
+        before[k] = '[змінено]';
+        after[k] = '[змінено]';
+        continue;
+      }
+      before[k] = prev ? String(prev[k] ?? '') : null;
+      after[k] = String((parsed.data as Record<string, unknown>)[k] ?? '');
+    }
+
     const page = await updatePage(numId, { ...parsed.data, updatedBy: user.id });
     await logAudit({
       userId: user.id,
       actionType: 'page_edit',
       entityType: 'page',
       entityId: numId,
-      details: parsed.data,
+      details: { fields: changedFields, before, after },
       ipAddress: getClientIp(request),
     });
     // Bust ISR cache so storefront shows the edit immediately.

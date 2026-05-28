@@ -54,6 +54,12 @@ export async function POST(request: NextRequest) {
 // GET — list approved comments for a post (newest first, threaded).
 export async function GET(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await checkRateLimit(`ip:${ip}`, RATE_LIMITS.content);
+    if (!rl.allowed) {
+      return errorResponse('Забагато запитів — спробуйте пізніше', 429);
+    }
+
     const postIdRaw = request.nextUrl.searchParams.get('postId');
     const postId = Number(postIdRaw);
     // `isNaN(-5) === false` — guard with positive-integer check.
@@ -73,7 +79,9 @@ export async function GET(request: NextRequest) {
         parentId: true,
       },
     });
-    return successResponse(comments);
+    const res = successResponse(comments);
+    res.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60');
+    return res;
   } catch (err) {
     logger.error('[blog/comments] GET failed', { error: err });
     return errorResponse('Помилка завантаження коментарів', 500);
