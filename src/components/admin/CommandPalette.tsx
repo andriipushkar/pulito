@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -61,32 +62,23 @@ function pushRecent(href: string) {
   }
 }
 
-// Navigation commands derived from the single ADMIN_PAGES registry. Section
-// label defaults to the registry section, or "Основне" for top-level items.
-const NAV_COMMANDS: CommandItem[] = ADMIN_PAGES.filter((p) => !p.hiddenFromSidebar).map((p) => ({
-  label: p.label,
-  href: p.href,
-  icon: p.icon,
-  section: p.section ?? 'Основне',
-}));
-
 // Quick actions — creation + saved-filter shortcuts. Kept hand-curated because
 // they target query-string variants of pages rather than the pages themselves.
-const QUICK_ACTIONS: CommandItem[] = [
-  { label: '+ Створити товар', href: '/admin/products/new', icon: Plus, section: 'Дії', isAction: true },
-  { label: '+ Створити сторінку', href: '/admin/pages?new=1', icon: Plus, section: 'Дії', isAction: true },
-  { label: '+ Нова публікація', href: '/admin/publications?new=1', icon: Plus, section: 'Дії', isAction: true },
-  { label: '+ Імпортувати каталог', href: '/admin/import', icon: Download, section: 'Дії', isAction: true },
-  { label: '+ Нове замовлення', href: '/admin/orders', icon: Plus, section: 'Дії', isAction: true },
-  { label: 'Нові замовлення', href: '/admin/orders?status=new_order', icon: Sparkles, section: 'Дії', isAction: true },
-  { label: 'Гуртові запити', href: '/admin/users?wholesaleStatus=pending', icon: Clock, section: 'Дії', isAction: true },
-  { label: 'Низькі залишки', href: '/admin/products?stock=low', icon: AlertTriangle, section: 'Дії', isAction: true },
-  { label: 'Немає в наявності', href: '/admin/products?stock=out', icon: XCircle, section: 'Дії', isAction: true },
+// `key` resolves to a label in the admin.commandPalette namespace at render.
+const QUICK_ACTION_SPECS: { key: string; href: string; icon: LucideIcon }[] = [
+  { key: 'qa_createProduct', href: '/admin/products/new', icon: Plus },
+  { key: 'qa_createPage', href: '/admin/pages?new=1', icon: Plus },
+  { key: 'qa_newPublication', href: '/admin/publications?new=1', icon: Plus },
+  { key: 'qa_importCatalog', href: '/admin/import', icon: Download },
+  { key: 'qa_newOrder', href: '/admin/orders', icon: Plus },
+  { key: 'qa_newOrders', href: '/admin/orders?status=new_order', icon: Sparkles },
+  { key: 'qa_wholesaleRequests', href: '/admin/users?wholesaleStatus=pending', icon: Clock },
+  { key: 'qa_lowStock', href: '/admin/products?stock=low', icon: AlertTriangle },
+  { key: 'qa_outOfStock', href: '/admin/products?stock=out', icon: XCircle },
 ];
 
-const COMMANDS: CommandItem[] = [...NAV_COMMANDS, ...QUICK_ACTIONS];
-
 export default function CommandPalette() {
+  const t = useTranslations('admin');
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -102,9 +94,30 @@ export default function CommandPalette() {
 
   const [pinnedHrefs, setPinnedHrefs] = useState<string[]>([]);
 
+  // Resolve nav + quick-action labels through i18n. Nav labels/sections live in
+  // the adminNav namespace (keys come from the ADMIN_PAGES registry); quick
+  // actions in commandPalette.
+  const commands = useMemo<CommandItem[]>(() => {
+    const nav: CommandItem[] = ADMIN_PAGES.filter((p) => !p.hiddenFromSidebar).map((p) => ({
+      label: t(`adminNav.${p.label}`),
+      href: p.href,
+      icon: p.icon,
+      section: p.section ? t(`adminNav.${p.section}`) : t('commandPalette.section_top'),
+    }));
+    const actions: CommandItem[] = QUICK_ACTION_SPECS.map((a) => ({
+      label: t(`commandPalette.${a.key}`),
+      href: a.href,
+      icon: a.icon,
+      section: t('commandPalette.section_actions'),
+      isAction: true,
+    }));
+    return [...nav, ...actions];
+  }, [t]);
+
   const filtered = useMemo(() => {
     const qOriginal = query.trim();
     const q = qOriginal.toLowerCase();
+    const searchSection = t('commandPalette.section_search');
 
     // Phone-like (≥7 digits, mostly numeric) — search orders & users by phone.
     const digits = q.replace(/\D+/g, '');
@@ -114,37 +127,37 @@ export default function CommandPalette() {
       // 8-14 digits → likely an EAN/UPC barcode. Prioritize barcode lookup.
       if (digits.length >= 8 && digits.length <= 14) {
         phoneActions.push({
-          label: `Товар за штрихкодом ${digits}`,
+          label: t('commandPalette.searchProductByBarcode', { digits }),
           href: `/admin/products?barcode=${encodeURIComponent(digits)}`,
           icon: Hash,
-          section: 'Пошук',
+          section: searchSection,
           isAction: true,
         });
       }
       phoneActions.push(
         {
-          label: `Замовлення з номером ${qOriginal}`,
+          label: t('commandPalette.searchOrderByPhone', { q: qOriginal }),
           href: `/admin/orders?search=${encodeURIComponent(qOriginal)}`,
           icon: Phone,
-          section: 'Пошук',
+          section: searchSection,
           isAction: true,
         },
         {
-          label: `Клієнт з номером ${qOriginal}`,
+          label: t('commandPalette.searchCustomerByPhone', { q: qOriginal }),
           href: `/admin/users?search=${encodeURIComponent(qOriginal)}`,
           icon: Phone,
-          section: 'Пошук',
+          section: searchSection,
           isAction: true,
         },
         {
-          label: `Замовлення №${digits}`,
+          label: t('commandPalette.searchOrderByNumber', { digits }),
           href: `/admin/orders?search=${encodeURIComponent(digits)}`,
           icon: Hash,
-          section: 'Пошук',
+          section: searchSection,
           isAction: true,
         },
       );
-      const rest = COMMANDS.filter(
+      const rest = commands.filter(
         (c) => c.label.toLowerCase().includes(q) || c.href.toLowerCase().includes(q),
       );
       return [...phoneActions, ...rest];
@@ -154,31 +167,36 @@ export default function CommandPalette() {
     if (q.includes('@')) {
       const emailActions: CommandItem[] = [
         {
-          label: `Клієнт за email "${qOriginal}"`,
+          label: t('commandPalette.searchCustomerByEmail', { q: qOriginal }),
           href: `/admin/users?search=${encodeURIComponent(qOriginal)}`,
           icon: AtSign,
-          section: 'Пошук',
+          section: searchSection,
           isAction: true,
         },
       ];
-      const rest = COMMANDS.filter(
+      const rest = commands.filter(
         (c) => c.label.toLowerCase().includes(q) || c.href.toLowerCase().includes(q),
       );
       return [...emailActions, ...rest];
     }
 
     // Product code / SKU-like (3+ chars, mix of letters and digits, no spaces)
-    if (qOriginal.length >= 3 && !qOriginal.includes(' ') && /\d/.test(qOriginal) && /[a-zа-я]/i.test(qOriginal)) {
+    if (
+      qOriginal.length >= 3 &&
+      !qOriginal.includes(' ') &&
+      /\d/.test(qOriginal) &&
+      /[a-zа-я]/i.test(qOriginal)
+    ) {
       const skuActions: CommandItem[] = [
         {
-          label: `Товар за артикулом "${qOriginal}"`,
+          label: t('commandPalette.searchProductBySku', { q: qOriginal }),
           href: `/admin/products?search=${encodeURIComponent(qOriginal)}`,
           icon: ShoppingBag,
-          section: 'Пошук',
+          section: searchSection,
           isAction: true,
         },
       ];
-      const rest = COMMANDS.filter(
+      const rest = commands.filter(
         (c) => c.label.toLowerCase().includes(q) || c.href.toLowerCase().includes(q),
       );
       return [...skuActions, ...rest];
@@ -187,28 +205,28 @@ export default function CommandPalette() {
     if (!q) {
       // Empty query: Pinned → Quick Actions → Recently Visited → everything else.
       const pinnedItems = pinnedHrefs
-        .map((h) => COMMANDS.find((c) => c.href === h))
+        .map((h) => commands.find((c) => c.href === h))
         .filter((c): c is CommandItem => Boolean(c))
-        .map((c) => ({ ...c, section: 'Закріплене' }));
-      const actions = COMMANDS.filter((c) => c.isAction);
+        .map((c) => ({ ...c, section: t('commandPalette.section_pinned') }));
+      const actions = commands.filter((c) => c.isAction);
       const recentItems = recentHrefs
         .filter((h) => !pinnedHrefs.includes(h))
-        .map((h) => COMMANDS.find((c) => c.href === h))
+        .map((h) => commands.find((c) => c.href === h))
         .filter((c): c is CommandItem => Boolean(c) && !c!.isAction)
-        .map((c) => ({ ...c, section: 'Нещодавно' }));
+        .map((c) => ({ ...c, section: t('commandPalette.section_recent') }));
       const seen = new Set([
         ...pinnedItems.map((p) => p.href),
         ...actions.map((a) => a.href),
         ...recentItems.map((r) => r.href),
       ]);
-      const rest = COMMANDS.filter((c) => !c.isAction && !seen.has(c.href));
+      const rest = commands.filter((c) => !c.isAction && !seen.has(c.href));
       return [...pinnedItems, ...actions, ...recentItems, ...rest];
     }
 
-    return COMMANDS.filter(
+    return commands.filter(
       (c) => c.label.toLowerCase().includes(q) || c.href.toLowerCase().includes(q),
     );
-  }, [query, recentHrefs, pinnedHrefs]);
+  }, [query, recentHrefs, pinnedHrefs, commands, t]);
 
   // Open/close is centralized so we can reset state on open without an effect
   // that calls setState in response to `isOpen` flipping.
@@ -266,7 +284,7 @@ export default function CommandPalette() {
       className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh]"
       role="dialog"
       aria-modal="true"
-      aria-label="Швидкий перехід"
+      aria-label={t('commandPalette.dialogAria')}
     >
       <div
         className="absolute inset-0 bg-black/40"
@@ -290,7 +308,7 @@ export default function CommandPalette() {
               setSelectedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Шукай товар, замовлення, клієнта, сторінку…"
+            placeholder={t('commandPalette.placeholder')}
             className="flex-1 bg-transparent py-3.5 text-sm outline-none placeholder:text-[var(--color-text-secondary)]"
           />
           <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-secondary)]">
@@ -301,32 +319,32 @@ export default function CommandPalette() {
         <div className="max-h-80 overflow-y-auto p-2">
           {filtered.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-[var(--color-text-secondary)]">
-              Нічого не знайдено
+              {t('commandPalette.nothingFound')}
             </p>
           ) : (
             filtered.map((item, i) => {
               const Icon = item.icon;
               return (
-              <button
-                key={item.href + (item.isAction ? '-a' : '')}
-                onClick={() => navigate(item.href)}
-                onMouseEnter={() => setSelectedIndex(i)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                  i === selectedIndex
-                    ? 'bg-[var(--color-primary)] text-white'
-                    : 'text-[var(--color-text)] hover:bg-[var(--color-bg-secondary)]'
-                }`}
-              >
-                <Icon size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
-                <span className="font-medium">{item.label}</span>
-                {item.section && (
-                  <span
-                    className={`ml-auto text-xs ${i === selectedIndex ? 'text-white/70' : 'text-[var(--color-text-secondary)]'}`}
-                  >
-                    {item.section}
-                  </span>
-                )}
-              </button>
+                <button
+                  key={item.href + (item.isAction ? '-a' : '')}
+                  onClick={() => navigate(item.href)}
+                  onMouseEnter={() => setSelectedIndex(i)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                    i === selectedIndex
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'text-[var(--color-text)] hover:bg-[var(--color-bg-secondary)]'
+                  }`}
+                >
+                  <Icon size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
+                  <span className="font-medium">{item.label}</span>
+                  {item.section && (
+                    <span
+                      className={`ml-auto text-xs ${i === selectedIndex ? 'text-white/70' : 'text-[var(--color-text-secondary)]'}`}
+                    >
+                      {item.section}
+                    </span>
+                  )}
+                </button>
               );
             })
           )}
@@ -334,15 +352,19 @@ export default function CommandPalette() {
 
         <div className="flex flex-wrap items-center gap-4 border-t border-[var(--color-border)] px-4 py-2">
           <span className="flex items-center gap-1 text-[10px] text-[var(--color-text-secondary)]">
-            <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-1 font-mono">↑↓</kbd>
-            навігація
+            <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-1 font-mono">
+              ↑↓
+            </kbd>
+            {t('commandPalette.navHint')}
           </span>
           <span className="flex items-center gap-1 text-[10px] text-[var(--color-text-secondary)]">
-            <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-1 font-mono">↵</kbd>
-            перейти
+            <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-1 font-mono">
+              ↵
+            </kbd>
+            {t('commandPalette.goHint')}
           </span>
           <span className="ml-auto hidden text-[10px] text-[var(--color-text-secondary)] sm:inline">
-            Підказка: введи телефон, email або артикул для пошуку клієнта/замовлення/товару
+            {t('commandPalette.hint')}
           </span>
         </div>
       </div>

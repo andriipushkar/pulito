@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import Spinner from '@/components/ui/Spinner';
@@ -81,6 +82,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
 function AdminLayoutInner({ children }: { children: ReactNode }) {
   const { user, isLoading, logout } = useAuth();
+  const tNav = useTranslations('admin.adminNav');
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -153,9 +155,9 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     let currentPath = '';
     for (const segment of segments) {
       currentPath += `/${segment}`;
-      const label = PATH_LABELS[currentPath];
-      if (label) {
-        crumbs.push({ label, href: currentPath });
+      const labelKey = PATH_LABELS[currentPath];
+      if (labelKey) {
+        crumbs.push({ label: tNav(labelKey), href: currentPath });
       } else if (/^\d+$/.test(segment)) {
         // Numeric ID - show as detail page
         crumbs.push({ label: `#${segment}` });
@@ -166,7 +168,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       crumbs[crumbs.length - 1] = { label: crumbs[crumbs.length - 1].label };
     }
     return crumbs;
-  }, [pathname]);
+  }, [pathname, tNav]);
 
   if (isLoading) {
     return (
