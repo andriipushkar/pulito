@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -57,18 +58,21 @@ const EMPTY_FORM: FormState = {
   scheduleCron: '',
 };
 
-// Common cron presets — picking from a dropdown is faster than typing 5-field
-// cron expressions, and avoids the "min/hour/dom/mon/dow" ordering gotcha.
-const CRON_PRESETS = [
-  { value: '', label: 'Лише вручну' },
-  { value: '0 * * * *', label: 'Щогодини' },
-  { value: '0 */3 * * *', label: 'Кожні 3 години' },
-  { value: '0 8 * * *', label: 'Щодня о 08:00' },
-  { value: '0 8 * * 1', label: 'Щопонеділка о 08:00' },
-  { value: '0 0 1 * *', label: 'Щомісяця 1-го о 00:00' },
-];
-
 export default function SupplierChannelsSection() {
+  const t = useTranslations('admin.supplierChannelsSection');
+  // Common cron presets — picking from a dropdown is faster than typing 5-field
+  // cron expressions, and avoids the "min/hour/dom/mon/dow" ordering gotcha.
+  const CRON_PRESETS = useMemo(
+    () => [
+      { value: '', label: t('cronManual') },
+      { value: '0 * * * *', label: t('cronHourly') },
+      { value: '0 */3 * * *', label: t('cron3h') },
+      { value: '0 8 * * *', label: t('cronDaily8') },
+      { value: '0 8 * * 1', label: t('cronMon8') },
+      { value: '0 0 1 * *', label: t('cronMonth1') },
+    ],
+    [t],
+  );
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
@@ -81,7 +85,7 @@ export default function SupplierChannelsSection() {
       const res = await apiClient.get<Channel[]>('/api/v1/admin/supplier-channels');
       if (res.success && res.data) setChannels(res.data);
     } catch {
-      toast.error('Не вдалося завантажити канали');
+      toast.error(t('loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +117,7 @@ export default function SupplierChannelsSection() {
 
   const save = async () => {
     if (!form.name.trim() || !form.feedUrl.trim()) {
-      toast.error('Назва і URL обов\'язкові');
+      toast.error(t('nameUrlRequired'));
       return;
     }
     const payload = {
@@ -128,33 +132,34 @@ export default function SupplierChannelsSection() {
       scheduleCron: form.scheduleCron.trim() || null,
     };
     try {
-      const res = editingId === 'new'
-        ? await apiClient.post<Channel>('/api/v1/admin/supplier-channels', payload)
-        : await apiClient.put<Channel>(`/api/v1/admin/supplier-channels/${editingId}`, payload);
+      const res =
+        editingId === 'new'
+          ? await apiClient.post<Channel>('/api/v1/admin/supplier-channels', payload)
+          : await apiClient.put<Channel>(`/api/v1/admin/supplier-channels/${editingId}`, payload);
       if (res.success) {
-        toast.success(editingId === 'new' ? 'Канал створено' : 'Канал оновлено');
+        toast.success(editingId === 'new' ? t('created') : t('updated'));
         setEditingId(null);
         load();
       } else {
-        toast.error(res.error || 'Помилка');
+        toast.error(res.error || t('error'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     }
   };
 
   const remove = async (id: number, name: string) => {
-    if (!confirm(`Видалити канал "${name}"?`)) return;
+    if (!confirm(t('confirmDelete', { name }))) return;
     try {
       const res = await apiClient.delete(`/api/v1/admin/supplier-channels/${id}`);
       if (res.success) {
-        toast.success('Канал видалено');
+        toast.success(t('deleted'));
         load();
       } else {
-        toast.error(res.error || 'Помилка');
+        toast.error(res.error || t('error'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     }
   };
 
@@ -165,20 +170,24 @@ export default function SupplierChannelsSection() {
         `/api/v1/admin/supplier-channels/${id}/sync${dryRun ? '?dryRun=1' : ''}`,
       );
       if (res.success && res.data) {
-        const prefix = dryRun ? 'Симуляція (БД не змінено)' : 'Синхронізовано';
-        const variants =
-          (res.data.variantsCreated ?? 0) + (res.data.variantsUpdated ?? 0) > 0
-            ? `, варіантів: ${(res.data.variantsCreated ?? 0) + (res.data.variantsUpdated ?? 0)}`
-            : '';
+        const prefix = dryRun ? t('simPrefix') : t('syncedPrefix');
+        const variantCount = (res.data.variantsCreated ?? 0) + (res.data.variantsUpdated ?? 0);
+        const variants = variantCount > 0 ? t('variantsSuffix', { count: variantCount }) : '';
         toast.success(
-          `${prefix}: створено ${res.data.created}, оновлено ${res.data.updated}, пропущено ${res.data.skipped}${variants}`,
+          t('syncResult', {
+            prefix,
+            created: res.data.created,
+            updated: res.data.updated,
+            skipped: res.data.skipped,
+            variants,
+          }),
         );
         if (!dryRun) load();
       } else {
-        toast.error(res.error || 'Не вдалося синхронізувати');
+        toast.error(res.error || t('syncFailed'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setSyncingId(null);
     }
@@ -188,20 +197,20 @@ export default function SupplierChannelsSection() {
     <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold">Канали постачальників</h3>
-          <p className="text-xs text-[var(--color-text-secondary)]">
-            Тягни прайс з URL постачальника (XLSX, CSV, YML, 1С XML) і запускай імпорт натиском кнопки
-          </p>
+          <h3 className="text-sm font-semibold">{t('title')}</h3>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('subtitle')}</p>
         </div>
-        <Button size="sm" onClick={openNew}>+ Додати канал</Button>
+        <Button size="sm" onClick={openNew}>
+          {t('addChannel')}
+        </Button>
       </div>
 
-      {isLoading && <div className="text-sm text-[var(--color-text-secondary)]">Завантаження…</div>}
+      {isLoading && (
+        <div className="text-sm text-[var(--color-text-secondary)]">{t('loading')}</div>
+      )}
 
       {!isLoading && channels.length === 0 && editingId !== 'new' && (
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          Каналів немає. Додай URL постачальника щоб імпортувати прайс одним кліком.
-        </p>
+        <p className="text-sm text-[var(--color-text-secondary)]">{t('empty')}</p>
       )}
 
       {channels.length > 0 && (
@@ -209,11 +218,11 @@ export default function SupplierChannelsSection() {
           <table className="w-full text-sm">
             <thead className="border-b border-[var(--color-border)] text-xs text-[var(--color-text-secondary)]">
               <tr>
-                <th className="px-2 py-2 text-left">Назва</th>
-                <th className="px-2 py-2 text-left">Формат</th>
-                <th className="px-2 py-2 text-left">Остання синхр.</th>
-                <th className="px-2 py-2 text-center">Активн.</th>
-                <th className="px-2 py-2 text-right">Дії</th>
+                <th className="px-2 py-2 text-left">{t('colName')}</th>
+                <th className="px-2 py-2 text-left">{t('colFormat')}</th>
+                <th className="px-2 py-2 text-left">{t('colLastSync')}</th>
+                <th className="px-2 py-2 text-center">{t('colActive')}</th>
+                <th className="px-2 py-2 text-right">{t('colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -225,8 +234,10 @@ export default function SupplierChannelsSection() {
                     {c.lastSyncAt ? new Date(c.lastSyncAt).toLocaleString('uk-UA') : '—'}
                   </td>
                   <td className="px-2 py-2 text-center">
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {c.isActive ? 'Так' : 'Ні'}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                    >
+                      {c.isActive ? t('yes') : t('no')}
                     </span>
                   </td>
                   <td className="px-2 py-2 text-right">
@@ -236,16 +247,16 @@ export default function SupplierChannelsSection() {
                         variant="outline"
                         onClick={() => sync(c.id, true)}
                         disabled={syncingId === c.id || !c.isActive}
-                        title="Симуляція без запису в БД"
+                        title={t('dryRunTitle')}
                       >
-                        Перевір
+                        {t('check')}
                       </Button>
                       <Button
                         size="sm"
                         onClick={() => sync(c.id, false)}
                         disabled={syncingId === c.id || !c.isActive}
                       >
-                        {syncingId === c.id ? '…' : 'Синхр.'}
+                        {syncingId === c.id ? '…' : t('sync')}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => openEdit(c)}>
                         ✏️
@@ -265,68 +276,68 @@ export default function SupplierChannelsSection() {
       {editingId !== null && (
         <div className="mt-4 rounded-md border border-[var(--color-border)] p-4">
           <h4 className="mb-3 text-sm font-semibold">
-            {editingId === 'new' ? 'Новий канал' : `Редагувати канал #${editingId}`}
+            {editingId === 'new' ? t('newChannel') : t('editChannel', { id: editingId })}
           </h4>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
-              label="Назва"
+              label={t('nameLabel')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Постачальник А"
+              placeholder={t('namePlaceholder')}
             />
             <Input
-              label="URL фіда"
+              label={t('feedUrlLabel')}
               value={form.feedUrl}
               onChange={(e) => setForm({ ...form, feedUrl: e.target.value })}
               placeholder="https://supplier.example/price.yml"
             />
             <div>
-              <label className="mb-1 block text-sm font-medium">Формат</label>
+              <label className="mb-1 block text-sm font-medium">{t('formatLabel')}</label>
               <select
                 value={form.format}
                 onChange={(e) => setForm({ ...form, format: e.target.value as Format })}
                 className="h-10 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
               >
-                <option value="xlsx">XLSX (Excel)</option>
-                <option value="csv">CSV</option>
-                <option value="yml">YML (Yandex Market)</option>
-                <option value="xml_1c">XML / 1С</option>
+                <option value="xlsx">{t('formatXlsx')}</option>
+                <option value="csv">{t('formatCsv')}</option>
+                <option value="yml">{t('formatYml')}</option>
+                <option value="xml_1c">{t('formatXml1c')}</option>
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Тип авторизації</label>
+              <label className="mb-1 block text-sm font-medium">{t('authTypeLabel')}</label>
               <select
                 value={form.authType}
                 onChange={(e) => setForm({ ...form, authType: e.target.value as AuthType })}
                 className="h-10 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
               >
-                <option value="none">Без авторизації</option>
-                <option value="basic">Basic (логін + пароль)</option>
-                <option value="bearer">Bearer Token</option>
+                <option value="none">{t('authNone')}</option>
+                <option value="basic">{t('authBasic')}</option>
+                <option value="bearer">{t('authBearer')}</option>
               </select>
             </div>
             {form.authType === 'basic' && (
               <>
                 <Input
-                  label="Логін"
+                  label={t('loginLabel')}
                   value={form.authUsername}
                   onChange={(e) => setForm({ ...form, authUsername: e.target.value })}
                 />
                 <Input
-                  label="Пароль"
+                  label={t('passwordLabel')}
                   type="password"
                   value={form.authPassword}
                   onChange={(e) => setForm({ ...form, authPassword: e.target.value })}
-                  placeholder={editingId !== 'new' ? '*** (залиш порожнім — не змінювати)' : ''}
+                  placeholder={editingId !== 'new' ? t('secretPlaceholder') : ''}
                 />
               </>
             )}
             {form.authType === 'bearer' && (
               <Input
-                label="Token"
+                label={t('tokenLabel')}
                 value={form.authToken}
                 onChange={(e) => setForm({ ...form, authToken: e.target.value })}
-                placeholder={editingId !== 'new' ? '*** (залиш порожнім — не змінювати)' : ''}
+                placeholder={editingId !== 'new' ? t('secretPlaceholder') : ''}
               />
             )}
             <label className="flex items-center gap-2 self-end pb-2 text-sm">
@@ -336,10 +347,10 @@ export default function SupplierChannelsSection() {
                 onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
                 className="accent-[var(--color-primary)]"
               />
-              Активний
+              {t('activeLabel')}
             </label>
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium">Автозапуск (cron)</label>
+              <label className="mb-1 block text-sm font-medium">{t('cronLabel')}</label>
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={
@@ -359,7 +370,7 @@ export default function SupplierChannelsSection() {
                       {p.label}
                     </option>
                   ))}
-                  <option value="custom">Власний cron-вираз</option>
+                  <option value="custom">{t('cronCustom')}</option>
                 </select>
                 <input
                   type="text"
@@ -370,15 +381,17 @@ export default function SupplierChannelsSection() {
                 />
               </div>
               <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                Формат: <code>хвилина година день місяць день_тижня</code>. Порожнє = тільки кнопка «Синхр.»
+                {t.rich('cronHint', { code: (chunks) => <code>{chunks}</code> })}
               </p>
             </div>
           </div>
           <div className="mt-3 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
-              Скасувати
+              {t('cancel')}
             </Button>
-            <Button size="sm" onClick={save}>Зберегти</Button>
+            <Button size="sm" onClick={save}>
+              {t('save')}
+            </Button>
           </div>
         </div>
       )}

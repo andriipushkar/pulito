@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -41,13 +42,6 @@ interface Pallet {
   orders: PalletOrderRow[];
 }
 
-const STATUS_LABEL: Record<Status, string> = {
-  forming: 'Формується',
-  in_transit: 'В дорозі',
-  delivered: 'Доставлено',
-  cancelled: 'Скасовано',
-};
-
 const STATUS_COLOR: Record<Status, string> = {
   forming: 'bg-blue-100 text-blue-700',
   in_transit: 'bg-amber-100 text-amber-700',
@@ -56,6 +50,16 @@ const STATUS_COLOR: Record<Status, string> = {
 };
 
 export default function PalletListSection() {
+  const t = useTranslations('admin.palletListSection');
+  const STATUS_LABEL = useMemo<Record<Status, string>>(
+    () => ({
+      forming: t('statusForming'),
+      in_transit: t('statusInTransit'),
+      delivered: t('statusDelivered'),
+      cancelled: t('statusCancelled'),
+    }),
+    [t],
+  );
   const [pallets, setPallets] = useState<Pallet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -84,7 +88,7 @@ export default function PalletListSection() {
 
   const createPallet = async () => {
     if (!newName.trim()) {
-      toast.error('Назва обовʼязкова');
+      toast.error(t('nameRequired'));
       return;
     }
     const res = await apiClient.post('/api/v1/admin/pallets', {
@@ -93,14 +97,14 @@ export default function PalletListSection() {
       carrier: newCarrier.trim() || null,
     });
     if (res.success) {
-      toast.success('Палету створено');
+      toast.success(t('palletCreated'));
       setNewName('');
       setNewRegion('');
       setNewCarrier('');
       setShowCreate(false);
       load();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('error'));
     }
   };
 
@@ -111,31 +115,31 @@ export default function PalletListSection() {
       .map((s) => Number(s.trim()))
       .filter((n) => Number.isFinite(n) && n > 0);
     if (ids.length === 0) {
-      toast.error('Вкажіть ID замовлень (через кому або пробіл)');
+      toast.error(t('enterOrderIds'));
       return;
     }
     const res = await apiClient.post(`/api/v1/admin/pallets/${palletId}/orders`, {
       orderIds: ids,
     });
     if (res.success) {
-      toast.success(`Додано ${ids.length} замовлень`);
+      toast.success(t('ordersAdded', { count: ids.length }));
       setOrderIdsInput((curr) => ({ ...curr, [palletId]: '' }));
       load();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('error'));
     }
   };
 
   const removeOrder = async (palletId: number, orderId: number) => {
-    if (!window.confirm(`Видалити замовлення #${orderId} з палети?`)) return;
+    if (!window.confirm(t('confirmRemoveOrder', { id: orderId }))) return;
     const res = await apiClient.delete(
       `/api/v1/admin/pallets/${palletId}/orders?orderId=${orderId}`,
     );
     if (res.success) {
-      toast.success('Видалено');
+      toast.success(t('removed'));
       load();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('error'));
     }
   };
 
@@ -149,22 +153,22 @@ export default function PalletListSection() {
       ...(forceUnpacked ? { forceUnpacked: true } : {}),
     });
     if (res.success) {
-      toast.success(`Статус: ${label}`);
+      toast.success(t('statusSet', { status: label }));
       load();
       return;
     }
     if (res.statusCode === 409 && status === 'in_transit' && !forceUnpacked) {
-      if (window.confirm(`${res.error}\n\nВідправити все одно?`)) {
+      if (window.confirm(t('sendAnyway', { error: res.error ?? '' }))) {
         await sendStatusUpdate(palletId, status, true);
       }
       return;
     }
-    toast.error(res.error || 'Помилка');
+    toast.error(res.error || t('error'));
   };
 
   const setStatus = async (palletId: number, status: Status) => {
     const label = STATUS_LABEL[status];
-    if (!window.confirm(`Перевести палету у статус "${label}"?`)) return;
+    if (!window.confirm(t('confirmStatus', { status: label }))) return;
     await sendStatusUpdate(palletId, status, false);
   };
 
@@ -177,10 +181,10 @@ export default function PalletListSection() {
     const res = await apiClient.delete(`/api/v1/admin/pallets/${confirmDelete.id}`);
     setConfirmDelete(null);
     if (res.success) {
-      toast.success('Видалено');
+      toast.success(t('removed'));
       load();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('error'));
     }
   };
 
@@ -188,48 +192,45 @@ export default function PalletListSection() {
     <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Палети</h2>
-          <p className="text-xs text-[var(--color-text-secondary)]">
-            Об&apos;єднай B2B-замовлення на одну машину. Вага і вартість розраховуються автоматично
-            з товарів.
-          </p>
+          <h2 className="text-lg font-semibold">{t('title')}</h2>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('subtitle')}</p>
         </div>
         <Button onClick={() => setShowCreate((v) => !v)}>
-          {showCreate ? 'Скасувати' : '+ Створити палету'}
+          {showCreate ? t('cancel') : t('createPalletToggle')}
         </Button>
       </div>
 
       {showCreate && (
         <div className="mb-4 grid gap-3 rounded-md border border-[var(--color-border)] p-3 sm:grid-cols-4">
           <Input
-            label="Назва"
+            label={t('nameLabel')}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Львів-Київ #14"
+            placeholder={t('namePlaceholder')}
           />
           <Input
-            label="Регіон"
+            label={t('regionLabel')}
             value={newRegion}
             onChange={(e) => setNewRegion(e.target.value)}
-            placeholder="Київ та область"
+            placeholder={t('regionPlaceholder')}
           />
           <Input
-            label="Перевізник"
+            label={t('carrierLabel')}
             value={newCarrier}
             onChange={(e) => setNewCarrier(e.target.value)}
-            placeholder="Делівері, INTIME…"
+            placeholder={t('carrierPlaceholder')}
           />
           <div className="flex items-end">
-            <Button onClick={createPallet}>Створити</Button>
+            <Button onClick={createPallet}>{t('create')}</Button>
           </div>
         </div>
       )}
 
-      {isLoading && <div className="text-sm text-[var(--color-text-secondary)]">Завантаження…</div>}
+      {isLoading && (
+        <div className="text-sm text-[var(--color-text-secondary)]">{t('loading')}</div>
+      )}
       {!isLoading && pallets.length === 0 && (
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          Палет ще немає. Створи першу, щоб об&apos;єднати замовлення в одну доставку.
-        </p>
+        <p className="text-sm text-[var(--color-text-secondary)]">{t('empty')}</p>
       )}
 
       {pallets.length > 0 && (
@@ -264,17 +265,17 @@ export default function PalletListSection() {
                     </span>
                   )}
                   <span className="text-xs text-[var(--color-text-secondary)]">
-                    {totalOrders} замовлень
+                    {t('ordersCount', { count: totalOrders })}
                     {totalOrders > 0 && ` · ${formatPrice(totalAmount)}`}
                   </span>
                   {p.weightKg != null && (
                     <span className="text-xs text-[var(--color-text-secondary)]">
-                      ⚖ {Number(p.weightKg)} кг
+                      ⚖ {t('weight', { weight: Number(p.weightKg) })}
                     </span>
                   )}
                   {p.deliveryCost != null && (
                     <span className="text-xs font-medium text-emerald-700">
-                      доставка: {formatPrice(Number(p.deliveryCost))}
+                      {t('deliveryCost', { price: formatPrice(Number(p.deliveryCost)) })}
                     </span>
                   )}
                   <div className="ml-auto flex gap-1">
@@ -284,12 +285,12 @@ export default function PalletListSection() {
                         variant="outline"
                         onClick={() => setStatus(p.id, 'in_transit')}
                       >
-                        Відправити →
+                        {t('ship')}
                       </Button>
                     )}
                     {p.status === 'in_transit' && (
                       <Button size="sm" onClick={() => setStatus(p.id, 'delivered')}>
-                        Доставлено
+                        {t('statusDelivered')}
                       </Button>
                     )}
                     {(p.status === 'forming' || p.status === 'in_transit') && (
@@ -298,7 +299,7 @@ export default function PalletListSection() {
                         variant="danger"
                         onClick={() => setStatus(p.id, 'cancelled')}
                       >
-                        Скасувати
+                        {t('cancel')}
                       </Button>
                     )}
                     {p.status !== 'in_transit' && p.status !== 'delivered' && (
@@ -306,7 +307,7 @@ export default function PalletListSection() {
                         size="sm"
                         variant="danger"
                         onClick={() => deletePallet(p.id, p.name)}
-                        aria-label={`Видалити палет ${p.name}`}
+                        aria-label={t('deleteAria', { name: p.name })}
                       >
                         🗑
                       </Button>
@@ -318,17 +319,17 @@ export default function PalletListSection() {
                   <div className="mt-3 border-t border-[var(--color-border)] pt-3">
                     {p.orders.length === 0 && (
                       <p className="mb-3 text-sm text-[var(--color-text-secondary)]">
-                        У палеті ще немає замовлень.
+                        {t('noOrders')}
                       </p>
                     )}
                     {p.orders.length > 0 && (
                       <table className="mb-3 w-full text-sm">
                         <thead>
                           <tr className="text-xs text-[var(--color-text-secondary)]">
-                            <th className="px-2 py-1 text-left">Замовл.</th>
-                            <th className="px-2 py-1 text-left">Клієнт</th>
-                            <th className="px-2 py-1 text-left">Місто</th>
-                            <th className="px-2 py-1 text-right">Сума</th>
+                            <th className="px-2 py-1 text-left">{t('colOrder')}</th>
+                            <th className="px-2 py-1 text-left">{t('colClient')}</th>
+                            <th className="px-2 py-1 text-left">{t('colCity')}</th>
+                            <th className="px-2 py-1 text-right">{t('colSum')}</th>
                             <th className="px-2 py-1"></th>
                           </tr>
                         </thead>
@@ -355,7 +356,7 @@ export default function PalletListSection() {
                                     onClick={() => removeOrder(p.id, po.order.id)}
                                     className="text-xs text-[var(--color-danger)] hover:underline"
                                   >
-                                    видалити
+                                    {t('removeLink')}
                                   </button>
                                 )}
                               </td>
@@ -369,7 +370,7 @@ export default function PalletListSection() {
                       <div className="flex flex-wrap items-end gap-2">
                         <div className="flex-1 min-w-[300px]">
                           <Input
-                            label="Додати замовлення (ID через кому)"
+                            label={t('addOrdersLabel')}
                             value={orderIdsInput[p.id] ?? ''}
                             onChange={(e) =>
                               setOrderIdsInput((curr) => ({ ...curr, [p.id]: e.target.value }))
@@ -377,13 +378,13 @@ export default function PalletListSection() {
                             placeholder="123, 124, 125"
                           />
                         </div>
-                        <Button onClick={() => addOrders(p.id)}>Додати</Button>
+                        <Button onClick={() => addOrders(p.id)}>{t('add')}</Button>
                       </div>
                     )}
 
                     {p.notes && (
                       <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                        Нотатки: {p.notes}
+                        {t('notes', { notes: p.notes })}
                       </p>
                     )}
                   </div>
@@ -398,9 +399,9 @@ export default function PalletListSection() {
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleConfirmedDelete}
         variant="danger"
-        title="Видалення палети"
-        message={`Видалити палету "${confirmDelete?.name ?? ''}"? Цю дію не можна скасувати.`}
-        confirmText="Так, видалити"
+        title={t('deleteTitle')}
+        message={t('deleteMessage', { name: confirmDelete?.name ?? '' })}
+        confirmText={t('deleteConfirm')}
       />
     </div>
   );
