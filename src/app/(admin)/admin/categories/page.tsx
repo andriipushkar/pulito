@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -65,6 +66,7 @@ interface CategoryEditForm {
 }
 
 export default function AdminCategoriesPage() {
+  const t = useTranslations('admin.categoriesPage');
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -146,13 +148,11 @@ export default function AdminCategoriesPage() {
   ): { description: string; seoTitle: string; seoDescription: string } | null => {
     // Returns next-state to apply, or null when caller should keep current.
     const conflicts: string[] = [];
-    if (current.description.trim()) conflicts.push('Опис');
-    if (current.seoTitle.trim()) conflicts.push('SEO Title');
-    if (current.seoDescription.trim()) conflicts.push('SEO Description');
+    if (current.description.trim()) conflicts.push(t('conflictDesc'));
+    if (current.seoTitle.trim()) conflicts.push(t('conflictSeoTitle'));
+    if (current.seoDescription.trim()) conflicts.push(t('conflictSeoDesc'));
     if (conflicts.length === 0) return next;
-    const ok = window.confirm(
-      `Замінити заповнені поля?\n\n${conflicts.join(', ')}\n\nOK — замінити, Cancel — лише порожні.`,
-    );
+    const ok = window.confirm(t('replaceConfirm', { fields: conflicts.join(', ') }));
     if (ok) return next;
     return {
       description: current.description || next.description,
@@ -163,7 +163,7 @@ export default function AdminCategoriesPage() {
 
   const handleGenerateForCreate = async () => {
     if (!createForm.name.trim()) {
-      toast.error('Спочатку введіть назву категорії');
+      toast.error(t('enterNameFirst'));
       return;
     }
     setIsGeneratingAi(true);
@@ -178,7 +178,7 @@ export default function AdminCategoriesPage() {
         provider: aiProvider,
       });
       if (!res.success || !res.data) {
-        toast.error(res.error || 'Не вдалося згенерувати');
+        toast.error(res.error || t('generateFailed'));
         return;
       }
       const merged = askConflictOverwrite(res.data, {
@@ -188,10 +188,10 @@ export default function AdminCategoriesPage() {
       });
       if (merged) {
         setCreateForm((prev) => ({ ...prev, ...merged }));
-        toast.success('Згенеровано — перевірте поля');
+        toast.success(t('generated'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsGeneratingAi(false);
     }
@@ -206,7 +206,7 @@ export default function AdminCategoriesPage() {
         seoDescription: string;
       }>(`/api/v1/admin/categories/${catId}/ai-generate`, { provider: aiProvider });
       if (!res.success || !res.data) {
-        toast.error(res.error || 'Не вдалося згенерувати');
+        toast.error(res.error || t('generateFailed'));
         return;
       }
       const merged = askConflictOverwrite(res.data, {
@@ -216,10 +216,10 @@ export default function AdminCategoriesPage() {
       });
       if (merged) {
         setEditForm((prev) => ({ ...prev, ...merged }));
-        toast.success('Згенеровано — перевірте поля');
+        toast.success(t('generated'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsGeneratingAi(false);
     }
@@ -238,7 +238,8 @@ export default function AdminCategoriesPage() {
 
   const runBulk = async (action: 'show' | 'hide' | 'delete' | 'setParent') => {
     if (selectedIds.size === 0) return;
-    if (action === 'delete' && !window.confirm(`Видалити ${selectedIds.size} категорій?`)) return;
+    if (action === 'delete' && !window.confirm(t('bulkDeleteConfirm', { count: selectedIds.size })))
+      return;
 
     setIsBulkRunning(true);
     try {
@@ -251,14 +252,14 @@ export default function AdminCategoriesPage() {
       }
       const res = await apiClient.post('/api/v1/admin/categories/bulk', payload);
       if (res.success) {
-        toast.success('Готово');
+        toast.success(t('bulkDone'));
         clearSelected();
         loadCategories();
       } else {
-        toast.error(res.error || 'Помилка bulk-операції');
+        toast.error(res.error || t('bulkError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsBulkRunning(false);
     }
@@ -332,13 +333,13 @@ export default function AdminCategoriesPage() {
       formData.append('folder', 'categories');
       const res = await apiClient.upload<{ path: string }>('/api/v1/admin/upload', formData);
       if (res.success && res.data) {
-        toast.success('Піктограму завантажено');
+        toast.success(t('iconUploaded'));
         return res.data.path;
       }
-      toast.error(res.error || 'Не вдалося завантажити піктограму');
+      toast.error(res.error || t('iconUploadError'));
       return null;
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
       return null;
     } finally {
       setIsUploadingIcon(false);
@@ -379,26 +380,26 @@ export default function AdminCategoriesPage() {
       };
       const res = await apiClient.put(`/api/v1/admin/categories/${editingId}`, payload);
       if (res.success) {
-        toast.success('Категорію оновлено');
+        toast.success(t('categoryUpdated'));
         setEditingId(null);
         loadCategories();
       } else if (res.statusCode === 409) {
-        toast.error(res.error || 'Категорію змінено іншим адміністратором', {
+        toast.error(res.error || t('conflictError'), {
           duration: 12000,
           action: {
-            label: 'Оновити з сервера',
+            label: t('refreshAction'),
             onClick: () => {
               loadCategories();
               setEditingId(null);
-              toast.success('Оновлено — відкрийте знову і повторіть редагування');
+              toast.success(t('refreshedRetry'));
             },
           },
         });
       } else {
-        toast.error(res.error || 'Не вдалося оновити категорію');
+        toast.error(res.error || t('updateError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -427,9 +428,12 @@ export default function AdminCategoriesPage() {
       // the UI only renders 2 levels — keep them in sync.
       if (newParentId !== null && activeCat.id === newParentId) return;
       const ok = window.confirm(
-        `Перенести "${activeCat.name}" → "${
-          newParentId ? categories.find((c) => c.id === newParentId)?.name : 'верхній рівень'
-        }"?`,
+        t('reparentConfirm', {
+          name: activeCat.name,
+          target: newParentId
+            ? (categories.find((c) => c.id === newParentId)?.name ?? '')
+            : t('topLevel'),
+        }),
       );
       if (!ok) return;
 
@@ -437,10 +441,10 @@ export default function AdminCategoriesPage() {
         parentId: newParentId,
       });
       if (res.success) {
-        toast.success('Категорію перенесено');
+        toast.success(t('categoryMoved'));
         loadCategories();
       } else {
-        toast.error(res.error || 'Не вдалося перенести');
+        toast.error(res.error || t('moveError'));
       }
       return;
     }
@@ -462,7 +466,7 @@ export default function AdminCategoriesPage() {
       items: reordered.map((cat, idx) => ({ id: cat.id, sortOrder: idx })),
     });
     if (!res.success) {
-      toast.error(res.error || 'Не вдалося оновити порядок');
+      toast.error(res.error || t('reorderError'));
       loadCategories();
     }
   };
@@ -484,15 +488,15 @@ export default function AdminCategoriesPage() {
         targetCategoryId: targetId,
       });
       if (res.success) {
-        toast.success('Категорії об’єднано');
+        toast.success(t('categoriesMerged'));
         setMergeSource(null);
         setMergeTarget('');
         loadCategories();
       } else {
-        toast.error(res.error || 'Не вдалося об’єднати');
+        toast.error(res.error || t('mergeError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsMerging(false);
     }
@@ -500,7 +504,7 @@ export default function AdminCategoriesPage() {
 
   const handleCreate = async () => {
     if (!createForm.name.trim()) {
-      toast.error('Введіть назву категорії');
+      toast.error(t('enterName'));
       return;
     }
     setIsCreating(true);
@@ -524,15 +528,15 @@ export default function AdminCategoriesPage() {
       if (createForm.parentId) payload.parentId = Number(createForm.parentId);
       const res = await apiClient.post('/api/v1/admin/categories', payload);
       if (res.success) {
-        toast.success('Категорію створено');
+        toast.success(t('categoryCreated'));
         setShowCreate(false);
         setCreateForm(emptyCreateForm);
         loadCategories();
       } else {
-        toast.error(res.error || 'Не вдалося створити категорію');
+        toast.error(res.error || t('createError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsCreating(false);
     }
@@ -552,13 +556,13 @@ export default function AdminCategoriesPage() {
     try {
       const res = await apiClient.delete(`/api/v1/admin/categories/${catId}`);
       if (res.success) {
-        toast.success('Категорію видалено');
+        toast.success(t('categoryDeleted'));
         loadCategories();
       } else {
-        toast.error(res.error || 'Не вдалося видалити');
+        toast.error(res.error || t('deleteError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsDeleting(null);
     }
@@ -568,8 +572,8 @@ export default function AdminCategoriesPage() {
     const res = await apiClient.put(`/api/v1/admin/categories/${cat.id}`, {
       isVisible: !cat.isVisible,
     });
-    if (res.success) toast.success(cat.isVisible ? 'Категорію сховано' : 'Категорію показано');
-    else toast.error(res.error || 'Помилка');
+    if (res.success) toast.success(cat.isVisible ? t('categoryHidden') : t('categoryShown'));
+    else toast.error(res.error || t('error'));
     loadCategories();
   };
 
@@ -580,47 +584,47 @@ export default function AdminCategoriesPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Категорії</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <Button
           onClick={() => {
             if (showCreate) setCreateForm(emptyCreateForm);
             setShowCreate(!showCreate);
           }}
         >
-          {showCreate ? 'Скасувати' : '+ Створити категорію'}
+          {showCreate ? t('cancel') : t('createCategory')}
         </Button>
       </div>
 
       {showCreate && (
         <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="mb-3 text-sm font-semibold">Нова категорія</p>
+          <p className="mb-3 text-sm font-semibold">{t('newCategory')}</p>
           <div className="flex flex-wrap gap-3">
             <Input
               value={createForm.name}
               onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-              placeholder="Назва категорії"
+              placeholder={t('namePh')}
               className="w-56"
             />
             <Input
               value={createForm.slug}
               onChange={(e) => setCreateForm({ ...createForm, slug: e.target.value })}
-              placeholder="Slug (автоматично)"
+              placeholder={t('slugPh')}
               className="w-44"
             />
             <Input
               type="number"
               value={String(createForm.sortOrder)}
               onChange={(e) => setCreateForm({ ...createForm, sortOrder: Number(e.target.value) })}
-              placeholder="Порядок"
+              placeholder={t('orderPh')}
               className="w-24"
             />
             <select
               value={createForm.parentId}
               onChange={(e) => setCreateForm({ ...createForm, parentId: e.target.value })}
               className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
-              title="Батьківська категорія"
+              title={t('parentTitle')}
             >
-              <option value="">Без батьківської (root)</option>
+              <option value="">{t('noParent')}</option>
               {rootCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -634,13 +638,13 @@ export default function AdminCategoriesPage() {
                 onChange={(e) => setCreateForm({ ...createForm, isVisible: e.target.checked })}
                 className="accent-[var(--color-primary)]"
               />
-              Активна
+              {t('active')}
             </label>
           </div>
 
           <div className="mt-3 rounded-md border border-[var(--color-border)] p-3">
             <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-              Піктограма (мобільна головна)
+              {t('iconSection')}
             </p>
             <div className="flex items-start gap-3">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[22px] border border-[var(--color-border)] bg-gradient-to-br from-blue-50 to-blue-100">
@@ -654,7 +658,7 @@ export default function AdminCategoriesPage() {
                   />
                 ) : (
                   <span className="flex h-full items-center justify-center text-[10px] text-[var(--color-text-secondary)]">
-                    нема
+                    {t('noIcon')}
                   </span>
                 )}
               </div>
@@ -678,7 +682,7 @@ export default function AdminCategoriesPage() {
                     onClick={() => createIconInputRef.current?.click()}
                     isLoading={isUploadingIcon}
                   >
-                    {createForm.iconPath ? 'Замінити' : 'Завантажити'}
+                    {createForm.iconPath ? t('replace') : t('upload')}
                   </Button>
                   {createForm.iconPath && (
                     <button
@@ -686,16 +690,20 @@ export default function AdminCategoriesPage() {
                       onClick={() => setCreateForm({ ...createForm, iconPath: '' })}
                       className="text-xs text-[var(--color-danger)] hover:underline"
                     >
-                      Видалити
+                      {t('delete')}
                     </button>
                   )}
                 </div>
                 <p className="text-[11px] leading-snug text-[var(--color-text-secondary)]">
-                  Формат: <strong>PNG або WebP</strong> з прозорим тлом (також JPG/GIF).
+                  {t('iconHintFormatPre')}
+                  <strong>{t('iconHintFormatBold')}</strong>
+                  {t('iconHintFormatPostCreate')}
                   <br />
-                  Розмір: <strong>256×256 пікселів</strong>, макс. 5&nbsp;МБ.
+                  {t('iconHintSizePre')}
+                  <strong>{t('iconHintSizeBold')}</strong>
+                  {t('iconHintSizePostCreate')}
                   <br />
-                  Піктограма має займати ≈70% площі — навколо лишайте прозорі поля.
+                  {t('iconHintAreaCreate')}
                 </p>
               </div>
             </div>
@@ -704,7 +712,7 @@ export default function AdminCategoriesPage() {
           <div className="mt-3 rounded-md border border-[var(--color-border)] p-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                SEO та контент
+                {t('seoContent')}
               </p>
               <div className="flex items-center gap-2">
                 <select
@@ -714,11 +722,11 @@ export default function AdminCategoriesPage() {
                   }
                   disabled={isGeneratingAi}
                   className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-                  title="Виберіть джерело генерації"
+                  title={t('aiSourceTitle')}
                 >
-                  <option value="claude">Claude (дорого, краща якість)</option>
-                  <option value="gemini">Gemini (дешево)</option>
-                  <option value="rules">Без AI (шаблон)</option>
+                  <option value="claude">{t('aiClaude')}</option>
+                  <option value="gemini">{t('aiGemini')}</option>
+                  <option value="rules">{t('aiRules')}</option>
                 </select>
                 <Button
                   variant="outline"
@@ -727,25 +735,25 @@ export default function AdminCategoriesPage() {
                   isLoading={isGeneratingAi}
                   disabled={!createForm.name.trim()}
                 >
-                  ✨ Згенерувати
+                  ✨ {t('generate')}
                 </Button>
               </div>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-medium">Опис категорії</label>
+                <label className="mb-1 block text-xs font-medium">{t('descLabel')}</label>
                 <textarea
                   value={createForm.description}
                   onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
                   rows={2}
                   className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-                  placeholder="Коротка інформація для сторінки категорії"
+                  placeholder={t('descPhCreate')}
                 />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <Input
-                    label="SEO Title"
+                    label={t('seoTitleLabel')}
                     value={createForm.seoTitle}
                     onChange={(e) => setCreateForm({ ...createForm, seoTitle: e.target.value })}
                     maxLength={70}
@@ -755,14 +763,14 @@ export default function AdminCategoriesPage() {
                   </p>
                 </div>
                 <Input
-                  label="Обкладинка (URL)"
+                  label={t('coverLabel')}
                   value={createForm.coverImage}
                   onChange={(e) => setCreateForm({ ...createForm, coverImage: e.target.value })}
-                  placeholder="/uploads/categories/cover.jpg"
+                  placeholder={t('coverPh')}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium">SEO Description</label>
+                <label className="mb-1 block text-xs font-medium">{t('seoDescLabel')}</label>
                 <textarea
                   value={createForm.seoDescription}
                   onChange={(e) => setCreateForm({ ...createForm, seoDescription: e.target.value })}
@@ -781,7 +789,7 @@ export default function AdminCategoriesPage() {
                 <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                   EN
                 </span>
-                Англійський переклад (опційно)
+                {t('enTranslation')}
               </summary>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <Input
@@ -829,10 +837,10 @@ export default function AdminCategoriesPage() {
                 setCreateForm(emptyCreateForm);
               }}
             >
-              Скасувати
+              {t('cancel')}
             </Button>
             <Button size="sm" onClick={handleCreate} isLoading={isCreating}>
-              Створити
+              {t('createBtn')}
             </Button>
           </div>
         </div>
@@ -841,7 +849,7 @@ export default function AdminCategoriesPage() {
       {mergeSource && (
         <div className="mb-4 rounded-[var(--radius)] border border-yellow-300 bg-yellow-50 p-4">
           <p className="mb-2 text-sm font-medium">
-            Об&apos;єднати &quot;{categories.find((c) => c.id === mergeSource)?.name}&quot; в:
+            {t('mergeInto', { name: categories.find((c) => c.id === mergeSource)?.name ?? '' })}
           </p>
           <div className="flex gap-2">
             <select
@@ -849,7 +857,7 @@ export default function AdminCategoriesPage() {
               onChange={(e) => setMergeTarget(e.target.value)}
               className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
             >
-              <option value="">Оберіть категорію</option>
+              <option value="">{t('selectCategory')}</option>
               {categories
                 .filter((c) => c.id !== mergeSource)
                 .map((c) => (
@@ -859,7 +867,7 @@ export default function AdminCategoriesPage() {
                 ))}
             </select>
             <Button size="sm" onClick={handleMerge} isLoading={isMerging} disabled={!mergeTarget}>
-              Об&apos;єднати
+              {t('merge')}
             </Button>
             <Button
               size="sm"
@@ -869,21 +877,18 @@ export default function AdminCategoriesPage() {
                 setMergeTarget('');
               }}
             >
-              Скасувати
+              {t('cancel')}
             </Button>
           </div>
         </div>
       )}
 
-      <p className="mb-2 text-xs text-[var(--color-text-secondary)]">
-        Перетягуйте категорії для зміни порядку. Перетягнення на категорію іншого рівня → запит на
-        перенос.
-      </p>
+      <p className="mb-2 text-xs text-[var(--color-text-secondary)]">{t('reorderHint')}</p>
 
       {selectedIds.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm">
           <span className="text-[var(--color-text-secondary)]">
-            Обрано: <strong>{selectedIds.size}</strong>
+            {t('selectedLabel')} <strong>{selectedIds.size}</strong>
           </span>
           <Button
             size="sm"
@@ -891,7 +896,7 @@ export default function AdminCategoriesPage() {
             onClick={() => runBulk('show')}
             disabled={isBulkRunning}
           >
-            Показати
+            {t('show')}
           </Button>
           <Button
             size="sm"
@@ -899,14 +904,14 @@ export default function AdminCategoriesPage() {
             onClick={() => runBulk('hide')}
             disabled={isBulkRunning}
           >
-            Сховати
+            {t('hide')}
           </Button>
           <select
             value={bulkParent}
             onChange={(e) => setBulkParent(e.target.value)}
             className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
           >
-            <option value="">Зробити кореневою</option>
+            <option value="">{t('makeRoot')}</option>
             {rootCategories.map((c) => (
               <option key={c.id} value={c.id}>
                 → {c.name}
@@ -919,7 +924,7 @@ export default function AdminCategoriesPage() {
             onClick={() => runBulk('setParent')}
             disabled={isBulkRunning}
           >
-            Застосувати батька
+            {t('applyParent')}
           </Button>
           <Button
             size="sm"
@@ -927,10 +932,10 @@ export default function AdminCategoriesPage() {
             onClick={() => runBulk('delete')}
             disabled={isBulkRunning}
           >
-            Видалити
+            {t('delete')}
           </Button>
           <Button size="sm" variant="outline" onClick={clearSelected}>
-            Скасувати
+            {t('cancel')}
           </Button>
         </div>
       )}
@@ -1008,12 +1013,12 @@ export default function AdminCategoriesPage() {
             <span className="text-3xl" aria-hidden="true">
               📁
             </span>
-            <p className="text-sm font-medium">Категорій немає</p>
+            <p className="text-sm font-medium">{t('emptyTitle')}</p>
             <button
               onClick={() => setShowCreate(true)}
               className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
             >
-              + Створити першу категорію
+              {t('createFirst')}
             </button>
           </div>
         )}
@@ -1023,9 +1028,9 @@ export default function AdminCategoriesPage() {
         isOpen={confirmAction?.type === 'merge'}
         onClose={() => setConfirmAction(null)}
         onConfirm={executeMerge}
-        title="Об'єднання категорій"
-        message="Об'єднати категорію в іншу? Всі товари будуть переміщені."
-        confirmText="Об'єднати"
+        title={t('mergeTitle')}
+        message={t('mergeMsg')}
+        confirmText={t('merge')}
         variant="warning"
       />
 
@@ -1033,9 +1038,9 @@ export default function AdminCategoriesPage() {
         isOpen={confirmAction?.type === 'delete'}
         onClose={() => setConfirmAction(null)}
         onConfirm={executeDelete}
-        title="Видалення категорії"
-        message={`Видалити категорію "${confirmAction?.name ?? ''}"? Товари залишаться без категорії.`}
-        confirmText="Видалити"
+        title={t('deleteTitle')}
+        message={t('deleteMsg', { name: confirmAction?.name ?? '' })}
+        confirmText={t('delete')}
         variant="danger"
       />
     </div>
@@ -1091,6 +1096,7 @@ function SortableCategoryRow({
   isGeneratingAi: boolean;
   onGenerate: (catId: number) => void;
 }) {
+  const t = useTranslations('admin.categoriesPage');
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: cat.id,
   });
@@ -1114,29 +1120,29 @@ function SortableCategoryRow({
           <Input
             value={editForm.name}
             onChange={(e) => onEditFormChange({ ...editForm, name: e.target.value })}
-            placeholder="Назва"
+            placeholder={t('nameEditPh')}
             className="w-48"
           />
           <Input
             value={editForm.slug}
             onChange={(e) => onEditFormChange({ ...editForm, slug: e.target.value })}
-            placeholder="Slug"
+            placeholder={t('slugEditPh')}
             className="w-40"
           />
           <Input
             type="number"
             value={String(editForm.sortOrder)}
             onChange={(e) => onEditFormChange({ ...editForm, sortOrder: Number(e.target.value) })}
-            placeholder="Порядок"
+            placeholder={t('orderPh')}
             className="w-24"
           />
           <select
             value={editForm.parentId}
             onChange={(e) => onEditFormChange({ ...editForm, parentId: e.target.value })}
             className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
-            title="Батьківська категорія"
+            title={t('parentTitle')}
           >
-            <option value="">Без батьківської (root)</option>
+            <option value="">{t('noParent')}</option>
             {parentOptions
               .filter((c) => c.id !== cat.id)
               .map((c) => (
@@ -1152,13 +1158,13 @@ function SortableCategoryRow({
               onChange={(e) => onEditFormChange({ ...editForm, isVisible: e.target.checked })}
               className="accent-[var(--color-primary)]"
             />
-            Активна
+            {t('active')}
           </label>
         </div>
 
         <div className="mt-3 rounded-md border border-[var(--color-border)] p-3">
           <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-            Піктограма (мобільна головна)
+            {t('iconSection')}
           </p>
           <div className="flex items-start gap-3">
             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[22px] border border-[var(--color-border)] bg-gradient-to-br from-blue-50 to-blue-100">
@@ -1172,7 +1178,7 @@ function SortableCategoryRow({
                 />
               ) : (
                 <span className="flex h-full items-center justify-center text-[10px] text-[var(--color-text-secondary)]">
-                  нема
+                  {t('noIcon')}
                 </span>
               )}
             </div>
@@ -1196,7 +1202,7 @@ function SortableCategoryRow({
                   onClick={() => iconInputRef.current?.click()}
                   isLoading={isUploadingIcon}
                 >
-                  {editForm.iconPath ? 'Замінити' : 'Завантажити'}
+                  {editForm.iconPath ? t('replace') : t('upload')}
                 </Button>
                 {editForm.iconPath && (
                   <button
@@ -1204,17 +1210,20 @@ function SortableCategoryRow({
                     onClick={() => onEditFormChange({ ...editForm, iconPath: '' })}
                     className="text-xs text-[var(--color-danger)] hover:underline"
                   >
-                    Видалити
+                    {t('delete')}
                   </button>
                 )}
               </div>
               <p className="text-[11px] leading-snug text-[var(--color-text-secondary)]">
-                Формат: <strong>PNG або WebP</strong> з прозорим тлом (також приймаються JPG/GIF).
+                {t('iconHintFormatPre')}
+                <strong>{t('iconHintFormatBold')}</strong>
+                {t('iconHintFormatPostEdit')}
                 <br />
-                Розмір: <strong>256×256 пікселів</strong> (квадрат), макс. 5&nbsp;МБ.
+                {t('iconHintSizePre')}
+                <strong>{t('iconHintSizeBold')}</strong>
+                {t('iconHintSizePostEdit')}
                 <br />
-                Сама піктограма має займати ≈70% площі — навколо неї лишайте прозорі поля. На сайті
-                відображається на градієнтному тлі (як стандартні значки).
+                {t('iconHintAreaEdit')}
               </p>
             </div>
           </div>
@@ -1223,7 +1232,7 @@ function SortableCategoryRow({
         <div className="mt-3 rounded-md border border-[var(--color-border)] p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-              SEO та контент
+              {t('seoContent')}
             </p>
             <div className="flex items-center gap-2">
               <select
@@ -1233,11 +1242,11 @@ function SortableCategoryRow({
                 }
                 disabled={isGeneratingAi}
                 className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-                title="Виберіть джерело генерації"
+                title={t('aiSourceTitle')}
               >
-                <option value="claude">Claude (дорого, краща якість)</option>
-                <option value="gemini">Gemini (дешево)</option>
-                <option value="rules">Без AI (шаблон)</option>
+                <option value="claude">{t('aiClaude')}</option>
+                <option value="gemini">{t('aiGemini')}</option>
+                <option value="rules">{t('aiRules')}</option>
               </select>
               <Button
                 variant="outline"
@@ -1245,19 +1254,19 @@ function SortableCategoryRow({
                 onClick={() => onGenerate(cat.id)}
                 isLoading={isGeneratingAi}
               >
-                ✨ Згенерувати
+                ✨ {t('generate')}
               </Button>
             </div>
           </div>
           <div className="space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-medium">Опис категорії</label>
+              <label className="mb-1 block text-xs font-medium">{t('descLabel')}</label>
               <textarea
                 value={editForm.description}
                 onChange={(e) => onEditFormChange({ ...editForm, description: e.target.value })}
                 rows={4}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-                placeholder="HTML-опис для сторінки категорії (генератор повертає вже з тегами h2/h3/p/ul)"
+                placeholder={t('descPhEdit')}
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1273,14 +1282,14 @@ function SortableCategoryRow({
                 </p>
               </div>
               <Input
-                label="Обкладинка (URL)"
+                label={t('coverLabel')}
                 value={editForm.coverImage}
                 onChange={(e) => onEditFormChange({ ...editForm, coverImage: e.target.value })}
                 placeholder="/uploads/categories/cover.jpg"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium">SEO Description</label>
+              <label className="mb-1 block text-xs font-medium">{t('seoDescLabel')}</label>
               <textarea
                 value={editForm.seoDescription}
                 onChange={(e) => onEditFormChange({ ...editForm, seoDescription: e.target.value })}
@@ -1299,7 +1308,7 @@ function SortableCategoryRow({
               <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                 EN
               </span>
-              Англійський переклад (опційно)
+              {t('enTranslation')}
             </summary>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <Input
@@ -1338,10 +1347,10 @@ function SortableCategoryRow({
 
         <div className="mt-3 flex justify-end gap-2">
           <Button size="sm" variant="outline" onClick={onCancel}>
-            Скасувати
+            {t('cancel')}
           </Button>
           <Button size="sm" onClick={onSave} isLoading={isSaving}>
-            Зберегти
+            {t('save')}
           </Button>
         </div>
       </div>
@@ -1360,13 +1369,13 @@ function SortableCategoryRow({
           checked={isSelected}
           onChange={onSelectToggle}
           className="accent-[var(--color-primary)]"
-          aria-label={`Обрати ${cat.name}`}
+          aria-label={t('selectAria', { name: cat.name })}
         />
         <button
           {...attributes}
           {...listeners}
           className="cursor-grab touch-none rounded p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-border)] active:cursor-grabbing"
-          aria-label={`Перетягнути ${cat.name}`}
+          aria-label={t('dragAria', { name: cat.name })}
         >
           <svg
             className="h-4 w-4"
@@ -1388,7 +1397,7 @@ function SortableCategoryRow({
                   ? 'bg-gray-100 text-gray-500'
                   : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
               }`}
-              title={`${cat._count.products} товарів`}
+              title={t('productsTitle', { count: cat._count.products })}
             >
               {cat._count.products}
             </span>
@@ -1400,32 +1409,32 @@ function SortableCategoryRow({
           onClick={onToggle}
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${cat.isVisible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}
         >
-          {cat.isVisible ? 'Активна' : 'Вимкнена'}
+          {cat.isVisible ? t('activeBadge') : t('disabledBadge')}
         </button>
         <a
           href={`/categories/${cat.slug}`}
           target="_blank"
           rel="noreferrer"
           className="text-xs text-[var(--color-text-secondary)] hover:underline"
-          title="Переглянути на сайті"
+          title={t('viewOnSiteTitle')}
         >
           ↗
         </a>
         <button onClick={onEdit} className="text-xs text-[var(--color-primary)] hover:underline">
-          Редагувати
+          {t('edit')}
         </button>
         <button
           onClick={onMerge}
           className="text-xs text-[var(--color-text-secondary)] hover:underline"
         >
-          Об&apos;єднати
+          {t('merge')}
         </button>
         <button
           onClick={onDelete}
           disabled={isDeleting}
           className="text-xs text-[var(--color-danger)] hover:underline disabled:opacity-50"
         >
-          {isDeleting ? '...' : 'Видалити'}
+          {isDeleting ? '...' : t('delete')}
         </button>
       </div>
     </div>
