@@ -974,6 +974,39 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "aiDashboardSummary": {
+      "providerRules": "Șablon",
+      "generateFailed": "Nu s-a putut genera briefingul",
+      "networkError": "Eroare de rețea",
+      "title": "Briefing-ul zilei",
+      "subtitle": "Rezumat AI al stării curente a magazinului",
+      "providerSelectTitle": "Alege sursa de generare",
+      "providerGeminiOption": "Gemini (ieftin)",
+      "providerClaudeOption": "Claude (mai bine)",
+      "providerRulesOption": "Fără AI (șablon)",
+      "generating": "Generăm…",
+      "refresh": "↻ Reîmprospătează",
+      "generatedAt": "Generat {time}",
+      "empty": "Apasă «Reîmprospătează» pentru a genera briefing-ul zilei."
+    },
+    "specsEditor": {
+      "empty": "Nicio specificație. Adaugă pentru ca clienții să vadă o descriere structurată: «Volum: 5 l», «Marcă: Ariel» etc.",
+      "keyPlaceholder": "Nume (ex. Volum)",
+      "valuePlaceholder": "Valoare (ex. 5 l)",
+      "removeAria": "Șterge specificația",
+      "remove": "Șterge",
+      "add": "Adaugă specificație"
+    },
+    "barcodeInput": {
+      "label": "Cod de bare (EAN / UPC)",
+      "placeholder": "4823033008007 (Enter — caută)",
+      "searchingAria": "Căutare",
+      "scanTitle": "Scanează codul de bare cu camera",
+      "scanAria": "Scanează codul de bare",
+      "hintFilled": "Cod EAN/UPC — folosit pentru căutare, deduplicare și marketplace-uri",
+      "hintEmpty": "Introdu 8-14 cifre și apasă Enter, sau scanează cu camera",
+      "scanned": "Scanat: {code}"
+    },
     "activityFeed": {
       "title": "Activitate",
       "last20": "Ultimele 20 de evenimente"

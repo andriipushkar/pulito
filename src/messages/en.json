@@ -974,6 +974,39 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "aiDashboardSummary": {
+      "providerRules": "Template",
+      "generateFailed": "Failed to generate the briefing",
+      "networkError": "Network error",
+      "title": "Daily briefing",
+      "subtitle": "AI summary of the current store state",
+      "providerSelectTitle": "Choose the generation source",
+      "providerGeminiOption": "Gemini (cheap)",
+      "providerClaudeOption": "Claude (better)",
+      "providerRulesOption": "No AI (template)",
+      "generating": "Generating…",
+      "refresh": "↻ Refresh",
+      "generatedAt": "Generated {time}",
+      "empty": "Click «Refresh» to generate the daily briefing."
+    },
+    "specsEditor": {
+      "empty": "No specifications. Add some so customers see a structured description: «Volume: 5 L», «Brand: Ariel», etc.",
+      "keyPlaceholder": "Name (e.g. Volume)",
+      "valuePlaceholder": "Value (e.g. 5 L)",
+      "removeAria": "Delete specification",
+      "remove": "Delete",
+      "add": "Add specification"
+    },
+    "barcodeInput": {
+      "label": "Barcode (EAN / UPC)",
+      "placeholder": "4823033008007 (Enter — search)",
+      "searchingAria": "Searching",
+      "scanTitle": "Scan barcode with camera",
+      "scanAria": "Scan barcode",
+      "hintFilled": "EAN/UPC code — used for search, deduplication and marketplaces",
+      "hintEmpty": "Enter 8-14 digits and press Enter, or scan with the camera",
+      "scanned": "Scanned: {code}"
+    },
     "activityFeed": {
       "title": "Activity",
       "last20": "Last 20 events"

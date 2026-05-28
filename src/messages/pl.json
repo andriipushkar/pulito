@@ -974,6 +974,39 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "aiDashboardSummary": {
+      "providerRules": "Szablon",
+      "generateFailed": "Nie udało się wygenerować briefingu",
+      "networkError": "Błąd sieci",
+      "title": "Briefing dnia",
+      "subtitle": "Podsumowanie AI bieżącego stanu sklepu",
+      "providerSelectTitle": "Wybierz źródło generowania",
+      "providerGeminiOption": "Gemini (tanio)",
+      "providerClaudeOption": "Claude (lepiej)",
+      "providerRulesOption": "Bez AI (szablon)",
+      "generating": "Generujemy…",
+      "refresh": "↻ Odśwież",
+      "generatedAt": "Wygenerowano {time}",
+      "empty": "Kliknij «Odśwież», aby wygenerować briefing dnia."
+    },
+    "specsEditor": {
+      "empty": "Brak parametrów. Dodaj, aby klienci widzieli uporządkowany opis: «Pojemność: 5 l», «Marka: Ariel» itp.",
+      "keyPlaceholder": "Nazwa (np. Pojemność)",
+      "valuePlaceholder": "Wartość (np. 5 l)",
+      "removeAria": "Usuń parametr",
+      "remove": "Usuń",
+      "add": "Dodaj parametr"
+    },
+    "barcodeInput": {
+      "label": "Kod kreskowy (EAN / UPC)",
+      "placeholder": "4823033008007 (Enter — szukaj)",
+      "searchingAria": "Szukanie",
+      "scanTitle": "Zeskanuj kod kreskowy kamerą",
+      "scanAria": "Zeskanuj kod kreskowy",
+      "hintFilled": "Kod EAN/UPC — używany do wyszukiwania, deduplikacji i marketplace'ów",
+      "hintEmpty": "Wprowadź 8-14 cyfr i naciśnij Enter lub zeskanuj kamerą",
+      "scanned": "Zeskanowano: {code}"
+    },
     "activityFeed": {
       "title": "Aktywność",
       "last20": "Ostatnie 20 zdarzeń"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 
@@ -10,12 +11,6 @@ interface SummaryResponse {
   text: string;
   provider: Provider;
 }
-
-const PROVIDER_LABEL: Record<Provider, string> = {
-  claude: 'Claude',
-  gemini: 'Gemini',
-  rules: 'Шаблон',
-};
 
 const PROVIDER_BADGE_CLASS: Record<Provider, string> = {
   claude: 'bg-purple-100 text-purple-700',
@@ -29,6 +24,12 @@ const PROVIDER_BADGE_CLASS: Record<Provider, string> = {
  * choice is remembered in localStorage (shared with product/category gens).
  */
 export default function AIDashboardSummary() {
+  const t = useTranslations('admin.aiDashboardSummary');
+  const PROVIDER_LABEL: Record<Provider, string> = {
+    claude: 'Claude',
+    gemini: 'Gemini',
+    rules: t('providerRules'),
+  };
   // Resolve the user's saved provider synchronously during initial render so
   // the auto-generate effect never fires with the default 'gemini' before
   // localStorage is read (the previous two-effect setup caused exactly that
@@ -59,14 +60,14 @@ export default function AIDashboardSummary() {
         setUsedProvider(res.data.provider);
         setLastGeneratedAt(new Date());
       } else {
-        toast.error(res.error || 'Не вдалося згенерувати брифінг');
+        toast.error(res.error || t('generateFailed'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsLoading(false);
     }
-  }, [provider]);
+  }, [provider, t]);
 
   // Auto-generate on mount once. User refresh via button.
   useEffect(() => {
@@ -94,10 +95,8 @@ export default function AIDashboardSummary() {
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold">Брифінг дня</h3>
-            <p className="text-[11px] text-[var(--color-text-secondary)]">
-              AI-резюме поточного стану магазину
-            </p>
+            <h3 className="text-sm font-semibold">{t('title')}</h3>
+            <p className="text-[11px] text-[var(--color-text-secondary)]">{t('subtitle')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -106,11 +105,11 @@ export default function AIDashboardSummary() {
             onChange={(e) => updateProvider(e.target.value as Provider)}
             disabled={isLoading}
             className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-            title="Виберіть джерело генерації"
+            title={t('providerSelectTitle')}
           >
-            <option value="gemini">Gemini (дешево)</option>
-            <option value="claude">Claude (краще)</option>
-            <option value="rules">Без AI (шаблон)</option>
+            <option value="gemini">{t('providerGeminiOption')}</option>
+            <option value="claude">{t('providerClaudeOption')}</option>
+            <option value="rules">{t('providerRulesOption')}</option>
           </select>
           <button
             type="button"
@@ -121,10 +120,10 @@ export default function AIDashboardSummary() {
             {isLoading ? (
               <>
                 <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Генеруємо…
+                {t('generating')}
               </>
             ) : (
-              <>↻ Оновити</>
+              <>{t('refresh')}</>
             )}
           </button>
         </div>
@@ -153,10 +152,11 @@ export default function AIDashboardSummary() {
               )}
               {lastGeneratedAt && (
                 <span>
-                  Згенеровано{' '}
-                  {lastGeneratedAt.toLocaleTimeString('uk-UA', {
-                    hour: '2-digit',
-                    minute: '2-digit',
+                  {t('generatedAt', {
+                    time: lastGeneratedAt.toLocaleTimeString('uk-UA', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
                   })}
                 </span>
               )}
@@ -164,9 +164,7 @@ export default function AIDashboardSummary() {
           </>
         )}
         {!text && !isLoading && (
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            Натисніть «Оновити», щоб згенерувати брифінг дня.
-          </p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{t('empty')}</p>
         )}
       </div>
     </div>

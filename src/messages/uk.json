@@ -974,6 +974,39 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "aiDashboardSummary": {
+      "providerRules": "Шаблон",
+      "generateFailed": "Не вдалося згенерувати брифінг",
+      "networkError": "Помилка мережі",
+      "title": "Брифінг дня",
+      "subtitle": "AI-резюме поточного стану магазину",
+      "providerSelectTitle": "Виберіть джерело генерації",
+      "providerGeminiOption": "Gemini (дешево)",
+      "providerClaudeOption": "Claude (краще)",
+      "providerRulesOption": "Без AI (шаблон)",
+      "generating": "Генеруємо…",
+      "refresh": "↻ Оновити",
+      "generatedAt": "Згенеровано {time}",
+      "empty": "Натисніть «Оновити», щоб згенерувати брифінг дня."
+    },
+    "specsEditor": {
+      "empty": "Немає характеристик. Додайте, щоб клієнти бачили структурований опис: «Об'єм: 5 л», «Торгова марка: Ariel» тощо.",
+      "keyPlaceholder": "Назва (напр. Об'єм)",
+      "valuePlaceholder": "Значення (напр. 5 л)",
+      "removeAria": "Видалити характеристику",
+      "remove": "Видалити",
+      "add": "Додати характеристику"
+    },
+    "barcodeInput": {
+      "label": "Штрихкод (EAN / UPC)",
+      "placeholder": "4823033008007 (Enter — пошук)",
+      "searchingAria": "Пошук",
+      "scanTitle": "Сканувати штрихкод камерою",
+      "scanAria": "Сканувати штрихкод",
+      "hintFilled": "EAN/UPC код — використовується для пошуку, дедуплікації та маркетплейсів",
+      "hintEmpty": "Введіть 8-14 цифр і натисніть Enter, або скануйте камерою",
+      "scanned": "Відсканований: {code}"
+    },
     "activityFeed": {
       "title": "Активність",
       "last20": "Останні 20 подій"

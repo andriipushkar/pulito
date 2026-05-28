@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface Spec {
   key: string;
@@ -64,6 +65,7 @@ function serialize(specs: Spec[]): string {
 }
 
 export default function SpecsEditor({ value, onChange }: Props) {
+  const t = useTranslations('admin.specsEditor');
   const [specs, setSpecs] = useState<Spec[]>(() => parse(value));
 
   // Re-parse only when the upstream value differs from our own serialised
@@ -93,10 +95,7 @@ export default function SpecsEditor({ value, onChange }: Props) {
   return (
     <div>
       {specs.length === 0 ? (
-        <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-          Немає характеристик. Додайте, щоб клієнти бачили структурований опис: «Об&apos;єм: 5 л»,
-          «Торгова марка: Ariel» тощо.
-        </p>
+        <p className="mb-3 text-xs text-[var(--color-text-secondary)]">{t('empty')}</p>
       ) : (
         <ul className="mb-3 space-y-1.5">
           {specs.map((s, i) => (
@@ -108,7 +107,7 @@ export default function SpecsEditor({ value, onChange }: Props) {
                 type="text"
                 value={s.key}
                 onChange={(e) => update(i, { key: e.target.value })}
-                placeholder="Назва (напр. Об'єм)"
+                placeholder={t('keyPlaceholder')}
                 className="w-44 flex-shrink-0 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
               />
               <span className="text-[var(--color-text-secondary)]">:</span>
@@ -116,15 +115,15 @@ export default function SpecsEditor({ value, onChange }: Props) {
                 type="text"
                 value={s.value}
                 onChange={(e) => update(i, { value: e.target.value })}
-                placeholder="Значення (напр. 5 л)"
+                placeholder={t('valuePlaceholder')}
                 className="min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
               />
               <button
                 type="button"
                 onClick={() => remove(i)}
                 className="rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-red-50 hover:text-red-500"
-                aria-label="Видалити характеристику"
-                title="Видалити"
+                aria-label={t('removeAria')}
+                title={t('remove')}
               >
                 <svg
                   className="h-4 w-4"
@@ -158,7 +157,7 @@ export default function SpecsEditor({ value, onChange }: Props) {
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
-        Додати характеристику
+        {t('add')}
       </button>
     </div>
   );

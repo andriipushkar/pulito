@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import Input from '@/components/ui/Input';
 import CameraBarcodeScanner from './CameraBarcodeScanner';
@@ -24,6 +25,7 @@ interface Props {
  *  - on blur, if value is a valid 8-14 digit code
  */
 export default function BarcodeInput({ value, onChange, onScanned, hideLookupHint }: Props) {
+  const t = useTranslations('admin.barcodeInput');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isLooking, setIsLooking] = useState(false);
 
@@ -47,7 +49,7 @@ export default function BarcodeInput({ value, onChange, onScanned, hideLookupHin
   return (
     <div>
       <label className="mb-1 block text-sm font-medium text-[var(--color-text)]">
-        Штрихкод (EAN / UPC)
+        {t('label')}
       </label>
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -61,14 +63,14 @@ export default function BarcodeInput({ value, onChange, onScanned, hideLookupHin
                 runLookup((e.target as HTMLInputElement).value);
               }
             }}
-            placeholder="4823033008007 (Enter — пошук)"
+            placeholder={t('placeholder')}
             className="pr-10 font-mono"
             disabled={isLooking}
           />
           {isLooking && (
             <span
               className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
-              aria-label="Пошук"
+              aria-label={t('searchingAria')}
             >
               <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
             </span>
@@ -79,17 +81,15 @@ export default function BarcodeInput({ value, onChange, onScanned, hideLookupHin
           onClick={() => setScannerOpen(true)}
           disabled={isLooking}
           className="shrink-0 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
-          title="Сканувати штрихкод камерою"
-          aria-label="Сканувати штрихкод"
+          title={t('scanTitle')}
+          aria-label={t('scanAria')}
         >
           📷
         </button>
       </div>
       {!hideLookupHint && (
         <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
-          {value
-            ? 'EAN/UPC код — використовується для пошуку, дедуплікації та маркетплейсів'
-            : 'Введіть 8-14 цифр і натисніть Enter, або скануйте камерою'}
+          {value ? t('hintFilled') : t('hintEmpty')}
         </p>
       )}
       <CameraBarcodeScanner
@@ -99,7 +99,7 @@ export default function BarcodeInput({ value, onChange, onScanned, hideLookupHin
           const clean = code.replace(/\D/g, '').slice(0, 14);
           onChange(clean);
           setScannerOpen(false);
-          toast.success(`Відсканований: ${code}`);
+          toast.success(t('scanned', { code }));
           runLookup(clean);
         }}
       />
