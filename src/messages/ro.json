@@ -974,6 +974,23 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "subscriptionAnalyticsBar": {
+      "loading": "Se încarcă analiza…",
+      "reasonUserRequested": "La cererea clientului",
+      "reasonPaymentFailed": "Plăți eșuate",
+      "reasonProductUnavailable": "Produs indisponibil",
+      "reasonOther": "Altul",
+      "reasonUnknown": "Nespecificat",
+      "active": "Active",
+      "pausedCancelled": "în pauză: {paused} · anulate: {cancelled}",
+      "over30d": "În 30 de zile",
+      "cancelledLabel": "anulate:",
+      "churnTitle": "Churn (30 zile)",
+      "churnHint": "procentul abonamentelor pierdute",
+      "avgLtv": "LTV mediu",
+      "amongSubscribers": "dintre {count, plural, one {# abonat} few {# abonați} other {# de abonați}}",
+      "cancelReasonsTitle": "Motive de anulare"
+    },
     "loyaltyStatsPanel": {
       "title": "Statistici program",
       "roiSubtitle": "ROI-ul programului de fidelitate pe {days, plural, one {# zi} few {# zile} other {# de zile}}",

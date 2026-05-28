@@ -974,6 +974,23 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "subscriptionAnalyticsBar": {
+      "loading": "Ładowanie analityki…",
+      "reasonUserRequested": "Na życzenie klienta",
+      "reasonPaymentFailed": "Nieudane płatności",
+      "reasonProductUnavailable": "Produkt niedostępny",
+      "reasonOther": "Inne",
+      "reasonUnknown": "Nie podano",
+      "active": "Aktywne",
+      "pausedCancelled": "wstrzymane: {paused} · anulowane: {cancelled}",
+      "over30d": "Przez 30 dni",
+      "cancelledLabel": "anulowano:",
+      "churnTitle": "Churn (30 dni)",
+      "churnHint": "procent utraconych subskrypcji",
+      "avgLtv": "Średni LTV",
+      "amongSubscribers": "wśród {count, plural, one {# subskrybenta} few {# subskrybentów} many {# subskrybentów} other {# subskrybenta}}",
+      "cancelReasonsTitle": "Powody anulowania"
+    },
     "loyaltyStatsPanel": {
       "title": "Statystyki programu",
       "roiSubtitle": "ROI programu lojalnościowego za {days, plural, one {# dzień} few {# dni} many {# dni} other {# dnia}}",

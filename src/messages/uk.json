@@ -974,6 +974,23 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "subscriptionAnalyticsBar": {
+      "loading": "Завантаження аналітики…",
+      "reasonUserRequested": "За запитом клієнта",
+      "reasonPaymentFailed": "Невдалі платежі",
+      "reasonProductUnavailable": "Товар недоступний",
+      "reasonOther": "Інше",
+      "reasonUnknown": "Не вказано",
+      "active": "Активних",
+      "pausedCancelled": "паузованих: {paused} · скасованих: {cancelled}",
+      "over30d": "За 30 днів",
+      "cancelledLabel": "скасовано:",
+      "churnTitle": "Churn (30 днів)",
+      "churnHint": "відсоток втрачених підписок",
+      "avgLtv": "Середній LTV",
+      "amongSubscribers": "серед {count, plural, one {# підписника} few {# підписників} many {# підписників} other {# підписників}}",
+      "cancelReasonsTitle": "Причини скасування"
+    },
     "loyaltyStatsPanel": {
       "title": "Статистика програми",
       "roiSubtitle": "ROI бонусної програми за {days, plural, one {# день} few {# дні} many {# днів} other {# днів}}",

@@ -974,6 +974,23 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "subscriptionAnalyticsBar": {
+      "loading": "Loading analytics…",
+      "reasonUserRequested": "At customer's request",
+      "reasonPaymentFailed": "Failed payments",
+      "reasonProductUnavailable": "Product unavailable",
+      "reasonOther": "Other",
+      "reasonUnknown": "Not specified",
+      "active": "Active",
+      "pausedCancelled": "paused: {paused} · cancelled: {cancelled}",
+      "over30d": "Over 30 days",
+      "cancelledLabel": "cancelled:",
+      "churnTitle": "Churn (30 days)",
+      "churnHint": "percentage of lost subscriptions",
+      "avgLtv": "Average LTV",
+      "amongSubscribers": "among {count, plural, one {# subscriber} other {# subscribers}}",
+      "cancelReasonsTitle": "Cancellation reasons"
+    },
     "loyaltyStatsPanel": {
       "title": "Program statistics",
       "roiSubtitle": "Loyalty program ROI over {days, plural, one {# day} other {# days}}",
