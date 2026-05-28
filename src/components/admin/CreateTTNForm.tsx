@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 
@@ -43,6 +44,7 @@ export default function CreateTTNForm({
   onCreated,
   onCancel,
 }: CreateTTNFormProps) {
+  const t = useTranslations('admin.createTtnForm');
   // Sender (from env/config — stored locally, could be admin settings).
   // Combined into one object so the localStorage hydration effect below
   // performs a single setState (and needs at most one rule-disable).
@@ -72,7 +74,7 @@ export default function CreateTTNForm({
   // Cargo
   const [weight, setWeight] = useState('0.5');
   const [seatsAmount, setSeatsAmount] = useState('1');
-  const [description, setDescription] = useState('Побутова хімія');
+  const [description, setDescription] = useState(t('defaultDescription'));
   const [cost, setCost] = useState(String(orderAmount));
   const [payerType, setPayerType] = useState<'Sender' | 'Recipient'>('Recipient');
   const [serviceType, setServiceType] = useState<'WarehouseWarehouse' | 'WarehouseDoors'>(
@@ -177,15 +179,15 @@ export default function CreateTTNForm({
     setError('');
 
     if (!senderRef || !senderAddressRef || !senderContactRef || !senderPhone) {
-      setError('Заповніть дані відправника. Ref можна знайти в кабінеті Нової Пошти.');
+      setError(t('senderRequired'));
       return;
     }
     if (!selectedCityRef) {
-      setError('Оберіть місто отримувача');
+      setError(t('selectCity'));
       return;
     }
     if (serviceType === 'WarehouseWarehouse' && !selectedWarehouseRef) {
-      setError('Оберіть відділення отримувача');
+      setError(t('selectWarehouse'));
       return;
     }
 
@@ -193,15 +195,15 @@ export default function CreateTTNForm({
     const seatsNum = Number.parseInt(seatsAmount, 10);
     const costNum = Number.parseFloat(cost);
     if (!Number.isFinite(weightNum) || weightNum <= 0) {
-      setError('Вкажіть коректну вагу (більше 0)');
+      setError(t('invalidWeight'));
       return;
     }
     if (!Number.isFinite(seatsNum) || seatsNum < 1) {
-      setError('Кількість місць має бути не менше 1');
+      setError(t('invalidSeats'));
       return;
     }
     if (!Number.isFinite(costNum) || costNum <= 0) {
-      setError('Вкажіть коректну оціночну вартість');
+      setError(t('invalidCost'));
       return;
     }
 
@@ -232,7 +234,7 @@ export default function CreateTTNForm({
       const data = res.data as { trackingNumber: string };
       onCreated(data.trackingNumber);
     } else {
-      setError(res.error || 'Помилка створення ТТН');
+      setError(res.error || t('createError'));
     }
     setIsCreating(false);
   };
@@ -242,7 +244,7 @@ export default function CreateTTNForm({
       {/* Sender settings (collapsible) */}
       <details className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
         <summary className="cursor-pointer text-sm font-medium text-[var(--color-text-secondary)]">
-          Дані відправника (Ref з кабінету НП)
+          {t('senderSummary')}
         </summary>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
@@ -252,7 +254,7 @@ export default function CreateTTNForm({
             <input
               value={senderRef}
               onChange={(e) => setSenderRef(e.target.value)}
-              placeholder="UUID відправника"
+              placeholder={t('uuidSender')}
               className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
             />
           </div>
@@ -263,7 +265,7 @@ export default function CreateTTNForm({
             <input
               value={senderAddressRef}
               onChange={(e) => setSenderAddressRef(e.target.value)}
-              placeholder="UUID адреси"
+              placeholder={t('uuidAddress')}
               className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
             />
           </div>
@@ -274,13 +276,13 @@ export default function CreateTTNForm({
             <input
               value={senderContactRef}
               onChange={(e) => setSenderContactRef(e.target.value)}
-              placeholder="UUID контакту"
+              placeholder={t('uuidContact')}
               className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
             />
           </div>
           <div>
             <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">
-              Телефон відправника
+              {t('senderPhoneLabel')}
             </label>
             <input
               value={senderPhone}
@@ -290,15 +292,13 @@ export default function CreateTTNForm({
             />
           </div>
         </div>
-        <p className="mt-2 text-[10px] text-[var(--color-text-secondary)]">
-          Дані зберігаються в браузері. Знайти Ref можна в API-налаштуваннях кабінету Нової Пошти.
-        </p>
+        <p className="mt-2 text-[10px] text-[var(--color-text-secondary)]">{t('senderHint')}</p>
       </details>
 
       {/* Recipient */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium">Отримувач</label>
+          <label className="mb-1 block text-xs font-medium">{t('recipientLabel')}</label>
           <input
             value={recipientName}
             readOnly
@@ -306,7 +306,7 @@ export default function CreateTTNForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium">Телефон</label>
+          <label className="mb-1 block text-xs font-medium">{t('phoneLabel')}</label>
           <input
             value={recipientPhone}
             readOnly
@@ -317,14 +317,14 @@ export default function CreateTTNForm({
 
       {/* City search */}
       <div className="relative">
-        <label className="mb-1 block text-xs font-medium">Місто</label>
+        <label className="mb-1 block text-xs font-medium">{t('cityLabel')}</label>
         <input
           value={cityQuery}
           onChange={(e) => {
             setCityQuery(e.target.value);
             setSelectedCityRef('');
           }}
-          placeholder="Пошук міста..."
+          placeholder={t('citySearchPlaceholder')}
           className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
         />
         {showCityDropdown && cities.length > 0 && (
@@ -345,14 +345,14 @@ export default function CreateTTNForm({
       {/* Warehouse */}
       {serviceType === 'WarehouseWarehouse' && selectedCityRef && (
         <div className="relative">
-          <label className="mb-1 block text-xs font-medium">Відділення</label>
+          <label className="mb-1 block text-xs font-medium">{t('warehouseLabel')}</label>
           <input
             value={warehouseQuery}
             onChange={(e) => {
               setWarehouseQuery(e.target.value);
               setSelectedWarehouseRef('');
             }}
-            placeholder="Пошук відділення..."
+            placeholder={t('warehouseSearchPlaceholder')}
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
           />
           {showWarehouseDropdown && warehouses.length > 0 && (
@@ -387,29 +387,29 @@ export default function CreateTTNForm({
       {/* Cargo details */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div>
-          <label className="mb-1 block text-xs font-medium">Тип доставки</label>
+          <label className="mb-1 block text-xs font-medium">{t('serviceTypeLabel')}</label>
           <select
             value={serviceType}
             onChange={(e) => setServiceType(e.target.value as typeof serviceType)}
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
           >
-            <option value="WarehouseWarehouse">Відділення-Відділення</option>
-            <option value="WarehouseDoors">Відділення-Двері</option>
+            <option value="WarehouseWarehouse">{t('serviceWarehouse')}</option>
+            <option value="WarehouseDoors">{t('serviceDoors')}</option>
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium">Платник</label>
+          <label className="mb-1 block text-xs font-medium">{t('payerLabel')}</label>
           <select
             value={payerType}
             onChange={(e) => setPayerType(e.target.value as typeof payerType)}
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
           >
-            <option value="Recipient">Отримувач</option>
-            <option value="Sender">Відправник</option>
+            <option value="Recipient">{t('payerRecipient')}</option>
+            <option value="Sender">{t('payerSender')}</option>
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium">Вага (кг)</label>
+          <label className="mb-1 block text-xs font-medium">{t('weightLabel')}</label>
           <input
             type="number"
             step="0.1"
@@ -420,7 +420,7 @@ export default function CreateTTNForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium">Місць</label>
+          <label className="mb-1 block text-xs font-medium">{t('seatsLabel')}</label>
           <input
             type="number"
             min="1"
@@ -433,7 +433,7 @@ export default function CreateTTNForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium">Опис вантажу</label>
+          <label className="mb-1 block text-xs font-medium">{t('descriptionLabel')}</label>
           <input
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -441,7 +441,7 @@ export default function CreateTTNForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium">Оціночна вартість (грн)</label>
+          <label className="mb-1 block text-xs font-medium">{t('costLabel')}</label>
           <input
             type="number"
             value={cost}
@@ -455,10 +455,10 @@ export default function CreateTTNForm({
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>
-          Скасувати
+          {t('cancel')}
         </Button>
         <Button onClick={handleCreate} isLoading={isCreating}>
-          Створити ТТН
+          {t('createTtn')}
         </Button>
       </div>
     </div>
