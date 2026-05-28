@@ -974,6 +974,33 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "activityFeed": {
+      "title": "Aktywność",
+      "last20": "Ostatnie 20 zdarzeń"
+    },
+    "anomaliesWidget": {
+      "today": "Dzisiaj:",
+      "baseline14d": "Średnia (14d):"
+    },
+    "churnRadarWidget": {
+      "title": "🎯 Radar odpływu",
+      "subtitle": "Klienci o wysokim LTV, którzy nie zamawiali ≥{days} dni",
+      "dayBtn": "{days}d",
+      "empty": "Brak klientów w grupie ryzyka 🎉",
+      "colClient": "Klient",
+      "colOrders": "Zamówień",
+      "colSilent": "Milczy",
+      "daysShort": "{days}d"
+    },
+    "productQualityWidget": {
+      "title": "📝 Jakość opisów — wymaga uwagi",
+      "subtitle": "Top 10 sprzedających się produktów ze słabym opisem — największy potencjał wzrostu konwersji.",
+      "colProduct": "Produkt",
+      "colSales": "Sprzedaż",
+      "colFix": "Co poprawić",
+      "moreReasons": "…jeszcze {count}",
+      "hint": "Kliknij produkt → w formularzu edycji kliknij «✨ Generuj» → AI od razu napisze dobry opis."
+    },
     "themeToggle": {
       "light": "Jasny",
       "dark": "Ciemny",

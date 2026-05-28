@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
 interface Anomaly {
@@ -31,6 +32,7 @@ const SEVERITY_ICON = {
  * Hides when no anomalies — owners only see signals worth attention.
  */
 export default function AnomaliesWidget() {
+  const t = useTranslations('admin.anomaliesWidget');
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -64,10 +66,10 @@ export default function AnomaliesWidget() {
             <p className="mt-1 text-sm">{a.message}</p>
             <div className="mt-2 flex gap-4 text-xs text-[var(--color-text-secondary)]">
               <span>
-                Сьогодні: <strong>{a.today.toLocaleString('uk-UA')}</strong>
+                {t('today')} <strong>{a.today.toLocaleString('uk-UA')}</strong>
               </span>
               <span>
-                Середнє (14д): <strong>{a.baseline.toLocaleString('uk-UA')}</strong>
+                {t('baseline14d')} <strong>{a.baseline.toLocaleString('uk-UA')}</strong>
               </span>
               <span className={`font-bold ${a.deviation > 0 ? 'text-green-700' : 'text-red-700'}`}>
                 {a.deviation > 0 ? '+' : ''}

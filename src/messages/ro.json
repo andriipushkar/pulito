@@ -974,6 +974,33 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "activityFeed": {
+      "title": "Activitate",
+      "last20": "Ultimele 20 de evenimente"
+    },
+    "anomaliesWidget": {
+      "today": "Astăzi:",
+      "baseline14d": "Medie (14z):"
+    },
+    "churnRadarWidget": {
+      "title": "🎯 Radar de pierdere",
+      "subtitle": "Clienți cu LTV ridicat care nu au comandat de ≥{days} zile",
+      "dayBtn": "{days}z",
+      "empty": "Niciun client în zona de risc 🎉",
+      "colClient": "Client",
+      "colOrders": "Comenzi",
+      "colSilent": "Tace",
+      "daysShort": "{days}z"
+    },
+    "productQualityWidget": {
+      "title": "📝 Calitatea descrierilor — necesită atenție",
+      "subtitle": "Top 10 produse care se vând dar au descrieri slabe — cel mai mare potențial de creștere a conversiei.",
+      "colProduct": "Produs",
+      "colSales": "Vânzări",
+      "colFix": "Ce de corectat",
+      "moreReasons": "…încă {count}",
+      "hint": "Apasă pe produs → în formularul de editare apasă «✨ Generează» → AI va scrie imediat o descriere de calitate."
+    },
     "themeToggle": {
       "light": "Luminoasă",
       "dark": "Întunecată",

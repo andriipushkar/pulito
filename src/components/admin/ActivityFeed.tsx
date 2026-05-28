@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
@@ -19,6 +20,7 @@ const ICONS: Record<ActivityEvent['type'], string> = {
 };
 
 export default function ActivityFeed() {
+  const t = useTranslations('admin.activityFeed');
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { notifications } = useAdminNotifications();
@@ -67,8 +69,8 @@ export default function ActivityFeed() {
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Активність</h3>
-        <span className="text-[10px] text-[var(--color-text-secondary)]">Останні 20 подій</span>
+        <h3 className="text-sm font-semibold">{t('title')}</h3>
+        <span className="text-[10px] text-[var(--color-text-secondary)]">{t('last20')}</span>
       </div>
       {displayedEvents.length === 0 ? null : (
         <ul className="max-h-96 space-y-1.5 overflow-y-auto">

@@ -974,6 +974,33 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "activityFeed": {
+      "title": "Activity",
+      "last20": "Last 20 events"
+    },
+    "anomaliesWidget": {
+      "today": "Today:",
+      "baseline14d": "Average (14d):"
+    },
+    "churnRadarWidget": {
+      "title": "🎯 Churn radar",
+      "subtitle": "High-LTV customers who haven't ordered in ≥{days} days",
+      "dayBtn": "{days}d",
+      "empty": "No customers at risk 🎉",
+      "colClient": "Customer",
+      "colOrders": "Orders",
+      "colSilent": "Silent",
+      "daysShort": "{days}d"
+    },
+    "productQualityWidget": {
+      "title": "📝 Description quality — needs attention",
+      "subtitle": "Top 10 selling products with weak descriptions — the biggest conversion-growth potential.",
+      "colProduct": "Product",
+      "colSales": "Sales",
+      "colFix": "What to fix",
+      "moreReasons": "…{count} more",
+      "hint": "Click a product → in the edit form click «✨ Generate» → AI will instantly write a quality description."
+    },
     "themeToggle": {
       "light": "Light",
       "dark": "Dark",

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 
@@ -26,6 +27,7 @@ interface ChurnResponse {
  * before they're permanently lost to a competitor.
  */
 export default function ChurnRadarWidget() {
+  const t = useTranslations('admin.churnRadarWidget');
   const [data, setData] = useState<ChurnResponse | null>(null);
   const [days, setDays] = useState(30);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,10 +52,8 @@ export default function ChurnRadarWidget() {
     <div className="mb-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-base font-bold">🎯 Радар відтоку</h2>
-          <p className="text-xs text-[var(--color-text-secondary)]">
-            Високо-LTV клієнти, які не замовляли ≥{days} днів
-          </p>
+          <h2 className="text-base font-bold">{t('title')}</h2>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('subtitle', { days })}</p>
         </div>
         <div className="inline-flex overflow-hidden rounded-lg border border-[var(--color-border)] text-xs font-medium">
           {[30, 60, 90].map((d) => (
@@ -67,7 +67,7 @@ export default function ChurnRadarWidget() {
                   : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]'
               }`}
             >
-              {d}д
+              {t('dayBtn', { days: d })}
             </button>
           ))}
         </div>
@@ -80,18 +80,16 @@ export default function ChurnRadarWidget() {
           ))}
         </div>
       ) : !data || data.entries.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-          Немає клієнтів у зоні ризику 🎉
-        </p>
+        <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">{t('empty')}</p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-[var(--color-border)]">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
               <tr>
-                <th className="px-3 py-2 text-left">Клієнт</th>
+                <th className="px-3 py-2 text-left">{t('colClient')}</th>
                 <th className="px-3 py-2 text-right">LTV</th>
-                <th className="px-3 py-2 text-right">Замовлень</th>
-                <th className="px-3 py-2 text-right">Мовчить</th>
+                <th className="px-3 py-2 text-right">{t('colOrders')}</th>
+                <th className="px-3 py-2 text-right">{t('colSilent')}</th>
               </tr>
             </thead>
             <tbody>
@@ -123,7 +121,7 @@ export default function ChurnRadarWidget() {
                             : 'bg-yellow-100 text-yellow-700'
                       }`}
                     >
-                      {c.daysSinceLastOrder}д
+                      {t('daysShort', { days: c.daysSinceLastOrder })}
                     </span>
                   </td>
                 </tr>

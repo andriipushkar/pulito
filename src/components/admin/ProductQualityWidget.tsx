@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 
@@ -18,6 +19,7 @@ interface QualityIssue {
  * the few descriptions that, if improved, directly increase conversion.
  */
 export default function ProductQualityWidget() {
+  const t = useTranslations('admin.productQualityWidget');
   const [products, setProducts] = useState<QualityIssue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -41,21 +43,18 @@ export default function ProductQualityWidget() {
   return (
     <div className="mb-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5">
       <div className="mb-4">
-        <h2 className="text-base font-bold">📝 Якість описів — увага потрібно</h2>
-        <p className="text-xs text-[var(--color-text-secondary)]">
-          Топ-10 товарів що продаються, але мають слабкий опис — найбільший потенціал росту
-          конверсії.
-        </p>
+        <h2 className="text-base font-bold">{t('title')}</h2>
+        <p className="text-xs text-[var(--color-text-secondary)]">{t('subtitle')}</p>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-[var(--color-border)]">
         <table className="w-full text-sm">
           <thead className="bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
             <tr>
-              <th className="px-3 py-2 text-left">Товар</th>
+              <th className="px-3 py-2 text-left">{t('colProduct')}</th>
               <th className="px-3 py-2 text-right">Score</th>
-              <th className="px-3 py-2 text-right">Продажів</th>
-              <th className="px-3 py-2 text-left">Що поправити</th>
+              <th className="px-3 py-2 text-right">{t('colSales')}</th>
+              <th className="px-3 py-2 text-left">{t('colFix')}</th>
             </tr>
           </thead>
           <tbody>
@@ -88,7 +87,11 @@ export default function ProductQualityWidget() {
                     {p.reasons.slice(0, 4).map((r, i) => (
                       <li key={i}>• {r}</li>
                     ))}
-                    {p.reasons.length > 4 && <li className="italic">…ще {p.reasons.length - 4}</li>}
+                    {p.reasons.length > 4 && (
+                      <li className="italic">
+                        {t('moreReasons', { count: p.reasons.length - 4 })}
+                      </li>
+                    )}
                   </ul>
                 </td>
               </tr>
@@ -97,10 +100,7 @@ export default function ProductQualityWidget() {
         </table>
       </div>
 
-      <p className="mt-3 text-xs text-[var(--color-text-secondary)]">
-        Натисніть на товар → у формі редагування натисніть «✨ Згенерувати» → AI відразу зробить
-        якісний опис.
-      </p>
+      <p className="mt-3 text-xs text-[var(--color-text-secondary)]">{t('hint')}</p>
     </div>
   );
 }
