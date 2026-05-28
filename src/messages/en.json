@@ -974,6 +974,27 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "conversionFunnel": {
+      "title": "Conversion funnel",
+      "tooltipValue": "{value} ({pct}% from the first step)",
+      "tooltipName": "Count",
+      "colStep": "Step",
+      "colCount": "Count",
+      "colFromPrev": "% from previous",
+      "colFromFirst": "% from first"
+    },
+    "customerSegmentation": {
+      "totalCustomers": "Total customers",
+      "totalRevenue": "Total revenue",
+      "distributionTitle": "Customer distribution by segment",
+      "customersLabel": "customers",
+      "revenueLabel": "revenue",
+      "avgCheckLabel": "avg. check",
+      "colName": "Name",
+      "colOrders": "Orders",
+      "colSpent": "Spent",
+      "colDaysAgo": "Days ago"
+    },
     "abcAnalysis": {
       "totalRevenue": "Total revenue",
       "groupLabel": "Group {cat} ({pct} of revenue)",

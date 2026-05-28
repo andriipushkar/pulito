@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 
@@ -40,57 +41,71 @@ const SEGMENT_COLORS: Record<string, string> = {
 };
 
 export default function CustomerSegmentation() {
+  const t = useTranslations('admin.customerSegmentation');
   const [data, setData] = useState<SegmentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    apiClient.get<SegmentData>('/api/v1/admin/analytics/segments')
-      .then((res) => { if (res.success && res.data) setData(res.data); })
+    apiClient
+      .get<SegmentData>('/api/v1/admin/analytics/segments')
+      .then((res) => {
+        if (res.success && res.data) setData(res.data);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
-  if (isLoading) return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   if (!data) return null;
 
   return (
     <div>
       <div className="mb-6 grid gap-4 md:grid-cols-2">
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="text-xs text-[var(--color-text-secondary)]">Всього клієнтів</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('totalCustomers')}</p>
           <p className="text-2xl font-bold">{data.totalCustomers}</p>
         </div>
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="text-xs text-[var(--color-text-secondary)]">Загальна виручка</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('totalRevenue')}</p>
           <p className="text-2xl font-bold">{data.totalRevenue.toFixed(0)} ₴</p>
         </div>
       </div>
 
       {/* Segment bars */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-4 text-sm font-semibold">Розподіл клієнтів по сегментах</h3>
+        <h3 className="mb-4 text-sm font-semibold">{t('distributionTitle')}</h3>
         {data.totalCustomers > 0 && (
           <div className="mb-3 flex h-8 overflow-hidden rounded-[var(--radius)]">
-            {data.segments.filter((s) => s.count > 0).map((seg) => (
-              <div
-                key={seg.segment}
-                className="flex items-center justify-center text-[10px] font-medium text-white transition-all"
-                style={{
-                  width: `${(seg.count / data.totalCustomers) * 100}%`,
-                  backgroundColor: SEGMENT_COLORS[seg.segment] || '#94a3b8',
-                  minWidth: seg.count > 0 ? 24 : 0,
-                }}
-                title={`${seg.label}: ${seg.count}`}
-              >
-                {(seg.count / data.totalCustomers) * 100 >= 5 ? seg.count : ''}
-              </div>
-            ))}
+            {data.segments
+              .filter((s) => s.count > 0)
+              .map((seg) => (
+                <div
+                  key={seg.segment}
+                  className="flex items-center justify-center text-[10px] font-medium text-white transition-all"
+                  style={{
+                    width: `${(seg.count / data.totalCustomers) * 100}%`,
+                    backgroundColor: SEGMENT_COLORS[seg.segment] || '#94a3b8',
+                    minWidth: seg.count > 0 ? 24 : 0,
+                  }}
+                  title={`${seg.label}: ${seg.count}`}
+                >
+                  {(seg.count / data.totalCustomers) * 100 >= 5 ? seg.count : ''}
+                </div>
+              ))}
           </div>
         )}
         <div className="flex flex-wrap gap-3">
           {data.segments.map((seg) => (
             <div key={seg.segment} className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: SEGMENT_COLORS[seg.segment] || '#94a3b8' }} />
+              <div
+                className="h-3 w-3 rounded-sm"
+                style={{ backgroundColor: SEGMENT_COLORS[seg.segment] || '#94a3b8' }}
+              />
               <span className="text-xs">{seg.label}</span>
             </div>
           ))}
@@ -115,24 +130,36 @@ export default function CustomerSegmentation() {
               <div className="flex-1">
                 <span className="text-sm font-medium">{seg.label}</span>
                 <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
-                  ({data.totalCustomers > 0 ? ((seg.count / data.totalCustomers) * 100).toFixed(1) : 0}%)
+                  (
+                  {data.totalCustomers > 0
+                    ? ((seg.count / data.totalCustomers) * 100).toFixed(1)
+                    : 0}
+                  %)
                 </span>
               </div>
               <div className="flex gap-6 text-right">
                 <div>
                   <p className="text-sm font-bold">{seg.count}</p>
-                  <p className="text-[10px] text-[var(--color-text-secondary)]">клієнтів</p>
+                  <p className="text-[10px] text-[var(--color-text-secondary)]">
+                    {t('customersLabel')}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-bold">{seg.revenue.toFixed(0)} ₴</p>
-                  <p className="text-[10px] text-[var(--color-text-secondary)]">виручка</p>
+                  <p className="text-[10px] text-[var(--color-text-secondary)]">
+                    {t('revenueLabel')}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-bold">{seg.avgCheck} ₴</p>
-                  <p className="text-[10px] text-[var(--color-text-secondary)]">сер. чек</p>
+                  <p className="text-[10px] text-[var(--color-text-secondary)]">
+                    {t('avgCheckLabel')}
+                  </p>
                 </div>
               </div>
-              <span className="text-xs text-[var(--color-text-secondary)]">{expanded === seg.segment ? '▲' : '▼'}</span>
+              <span className="text-xs text-[var(--color-text-secondary)]">
+                {expanded === seg.segment ? '▲' : '▼'}
+              </span>
             </button>
 
             {expanded === seg.segment && seg.customers.length > 0 && (
@@ -141,10 +168,10 @@ export default function CustomerSegmentation() {
                   <thead>
                     <tr className="text-[var(--color-text-secondary)]">
                       <th className="py-1 text-left font-medium">Email</th>
-                      <th className="py-1 text-left font-medium">Ім&apos;я</th>
-                      <th className="py-1 text-right font-medium">Замовлень</th>
-                      <th className="py-1 text-right font-medium">Витрачено</th>
-                      <th className="py-1 text-right font-medium">Днів тому</th>
+                      <th className="py-1 text-left font-medium">{t('colName')}</th>
+                      <th className="py-1 text-right font-medium">{t('colOrders')}</th>
+                      <th className="py-1 text-right font-medium">{t('colSpent')}</th>
+                      <th className="py-1 text-right font-medium">{t('colDaysAgo')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -154,7 +181,9 @@ export default function CustomerSegmentation() {
                         <td className="py-1.5">{c.fullName || '—'}</td>
                         <td className="py-1.5 text-right">{c.orderCount}</td>
                         <td className="py-1.5 text-right font-medium">{c.totalSpent} ₴</td>
-                        <td className="py-1.5 text-right text-[var(--color-text-secondary)]">{c.lastOrderDays}</td>
+                        <td className="py-1.5 text-right text-[var(--color-text-secondary)]">
+                          {c.lastOrderDays}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -974,6 +974,27 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "conversionFunnel": {
+      "title": "Воронка конверсії",
+      "tooltipValue": "{value} ({pct}% від першого кроку)",
+      "tooltipName": "Кількість",
+      "colStep": "Крок",
+      "colCount": "Кількість",
+      "colFromPrev": "% від попереднього",
+      "colFromFirst": "% від першого"
+    },
+    "customerSegmentation": {
+      "totalCustomers": "Всього клієнтів",
+      "totalRevenue": "Загальна виручка",
+      "distributionTitle": "Розподіл клієнтів по сегментах",
+      "customersLabel": "клієнтів",
+      "revenueLabel": "виручка",
+      "avgCheckLabel": "сер. чек",
+      "colName": "Ім'я",
+      "colOrders": "Замовлень",
+      "colSpent": "Витрачено",
+      "colDaysAgo": "Днів тому"
+    },
     "abcAnalysis": {
       "totalRevenue": "Загальна виручка",
       "groupLabel": "Група {cat} ({pct} виручки)",

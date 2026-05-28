@@ -974,6 +974,27 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "conversionFunnel": {
+      "title": "Lejek konwersji",
+      "tooltipValue": "{value} ({pct}% od pierwszego kroku)",
+      "tooltipName": "Liczba",
+      "colStep": "Krok",
+      "colCount": "Liczba",
+      "colFromPrev": "% od poprzedniego",
+      "colFromFirst": "% od pierwszego"
+    },
+    "customerSegmentation": {
+      "totalCustomers": "Łącznie klientów",
+      "totalRevenue": "Całkowity przychód",
+      "distributionTitle": "Rozkład klientów według segmentów",
+      "customersLabel": "klientów",
+      "revenueLabel": "przychód",
+      "avgCheckLabel": "śr. koszyk",
+      "colName": "Imię",
+      "colOrders": "Zamówienia",
+      "colSpent": "Wydano",
+      "colDaysAgo": "Dni temu"
+    },
     "abcAnalysis": {
       "totalRevenue": "Całkowity przychód",
       "groupLabel": "Grupa {cat} ({pct} przychodu)",

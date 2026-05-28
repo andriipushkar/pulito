@@ -974,6 +974,27 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "conversionFunnel": {
+      "title": "Pâlnie de conversie",
+      "tooltipValue": "{value} ({pct}% din primul pas)",
+      "tooltipName": "Număr",
+      "colStep": "Pas",
+      "colCount": "Număr",
+      "colFromPrev": "% din precedentul",
+      "colFromFirst": "% din primul"
+    },
+    "customerSegmentation": {
+      "totalCustomers": "Total clienți",
+      "totalRevenue": "Venit total",
+      "distributionTitle": "Distribuția clienților pe segmente",
+      "customersLabel": "clienți",
+      "revenueLabel": "venit",
+      "avgCheckLabel": "bon mediu",
+      "colName": "Nume",
+      "colOrders": "Comenzi",
+      "colSpent": "Cheltuit",
+      "colDaysAgo": "Zile în urmă"
+    },
     "abcAnalysis": {
       "totalRevenue": "Venit total",
       "groupLabel": "Grupa {cat} ({pct} din venit)",

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -20,6 +21,7 @@ interface FunnelData {
 const COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#10b981'];
 
 export default function ConversionFunnel({ days = 30 }: { days?: number }) {
+  const t = useTranslations('admin.conversionFunnel');
   const [data, setData] = useState<FunnelData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -43,15 +45,18 @@ export default function ConversionFunnel({ days = 30 }: { days?: number }) {
   return (
     <div>
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-4 text-sm font-semibold">Воронка конверсії</h3>
+        <h3 className="mb-4 text-sm font-semibold">{t('title')}</h3>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data.steps} layout="vertical">
             <XAxis type="number" />
             <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 12 }} />
             <Tooltip
               formatter={(value, _name, props) => [
-                `${Number(value).toLocaleString()} (${(props.payload as FunnelStep).conversionFromFirst.toFixed(1)}% від першого кроку)`,
-                'Кількість',
+                t('tooltipValue', {
+                  value: Number(value).toLocaleString(),
+                  pct: (props.payload as FunnelStep).conversionFromFirst.toFixed(1),
+                }),
+                t('tooltipName'),
               ]}
             />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
@@ -67,10 +72,10 @@ export default function ConversionFunnel({ days = 30 }: { days?: number }) {
         <table className="w-full text-sm">
           <thead className="bg-[var(--color-bg-secondary)]">
             <tr>
-              <th className="px-4 py-2 text-left">Крок</th>
-              <th className="px-4 py-2 text-right">Кількість</th>
-              <th className="px-4 py-2 text-right">% від попереднього</th>
-              <th className="px-4 py-2 text-right">% від першого</th>
+              <th className="px-4 py-2 text-left">{t('colStep')}</th>
+              <th className="px-4 py-2 text-right">{t('colCount')}</th>
+              <th className="px-4 py-2 text-right">{t('colFromPrev')}</th>
+              <th className="px-4 py-2 text-right">{t('colFromFirst')}</th>
             </tr>
           </thead>
           <tbody>
