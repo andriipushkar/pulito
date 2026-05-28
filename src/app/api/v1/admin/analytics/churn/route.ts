@@ -2,12 +2,17 @@ import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 export const GET = withRole(
   'admin',
   'manager',
-)(async (request: NextRequest) => {
+)(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`u${user.id}`, RATE_LIMITS.admin);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато запитів. Спробуйте через ${rl.retryAfter}с`, 429);
+    }
     const { searchParams } = new URL(request.url);
     const days = Math.min(365, Math.max(7, Number(searchParams.get('days')) || 90));
     const since = new Date();

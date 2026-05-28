@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '../email';
 import { env } from '@/config/env';
+import { escapeHtml } from '@/utils/format';
 
 type DigestPeriod = 'daily' | 'weekly' | 'monthly';
 
@@ -53,8 +54,8 @@ export async function sendAnalyticsDigest(period: DigestPeriod) {
       (p, i) => `
     <tr>
       <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb">${i + 1}</td>
-      <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb">${p.productCode}</td>
-      <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb">${p.productName}</td>
+      <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb">${escapeHtml(p.productCode)}</td>
+      <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb">${escapeHtml(p.productName)}</td>
       <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:right">${Number(p._sum.quantity || 0)}</td>
       <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:right">${Number(p._sum.subtotal || 0).toFixed(0)} ₴</td>
     </tr>

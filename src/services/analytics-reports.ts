@@ -559,15 +559,22 @@ interface CustomerSegment {
   }[];
 }
 
-export async function getCustomerSegmentation() {
+export async function getCustomerSegmentation(days: number = 365) {
   const now = new Date();
+  // Bound the scan to a recency window (default 1 year) so the groupBy + the
+  // follow-up user findMany can't load the entire historical customer base
+  // into memory on a large, long-running shop. Segmentation targets the active
+  // customer base; clients with no orders inside the window are out of scope.
+  const dateFrom = new Date(now);
+  dateFrom.setDate(dateFrom.getDate() - days);
 
-  // Get all customers with orders
+  // Get all customers with orders in the window
   const customerStats = await prisma.order.groupBy({
     by: ['userId'],
     where: {
       userId: { not: null },
       status: { notIn: ['cancelled', 'returned'] },
+      createdAt: { gte: dateFrom },
     },
     _sum: { totalAmount: true },
     _count: true,

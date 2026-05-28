@@ -1,11 +1,22 @@
+import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
 import { getCustomerSegmentation } from '@/services/analytics-reports';
 import { successResponse, errorResponse } from '@/utils/api-response';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+import { parseDays } from '@/utils/analytics-days';
 import { logger } from '@/lib/logger';
 
-export const GET = withRole('admin', 'manager')(async () => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { user }) => {
   try {
-    const data = await getCustomerSegmentation();
+    const rl = await checkRateLimit(`u${user.id}`, RATE_LIMITS.admin);
+    if (!rl.allowed) {
+      return errorResponse(`Забагато запитів. Спробуйте через ${rl.retryAfter}с`, 429);
+    }
+    const days = parseDays(new URL(request.url).searchParams.get('days'), 365);
+    const data = await getCustomerSegmentation(days);
     return successResponse(data);
   } catch (err) {
     logger.error('[admin/analytics/segments] GET failed', { error: err });

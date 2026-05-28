@@ -18,6 +18,20 @@ export function sumMoney(amounts: number[]): number {
   return amounts.reduce((kopecks, amount) => kopecks + Math.round(amount * 100), 0) / 100;
 }
 
+/**
+ * Escape a string for safe interpolation into an HTML document (e.g. email
+ * templates built via string concatenation). Prevents stored values such as
+ * product names from injecting markup/script into the rendered HTML.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat('uk-UA', {
     day: '2-digit',
