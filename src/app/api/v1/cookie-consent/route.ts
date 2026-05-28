@@ -1,24 +1,35 @@
 import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
+
+const consentSchema = z.object({
+  // Real session IDs from the client are crypto-random 32-64 chars; cap at
+  // 128 so a malicious caller can't insert multi-KB blob rows.
+  sessionId: z.string().min(1).max(128),
+  analyticsAccepted: z.boolean().optional(),
+  marketingAccepted: z.boolean().optional(),
+});
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const rl = await checkRateLimit(ip, RATE_LIMITS.api);
+    if (!rl.allowed) return errorResponse('Забагато запитів', 429);
+
     const body = await request.json();
-    const { sessionId, analyticsAccepted, marketingAccepted } = body;
-
-    if (!sessionId || typeof sessionId !== 'string') {
-      return errorResponse('sessionId обов\'язковий', 400);
+    const parsed = consentSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
-
-    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
 
     const consent = await prisma.cookieConsent.create({
       data: {
-        sessionId,
-        analyticsAccepted: Boolean(analyticsAccepted),
-        marketingAccepted: Boolean(marketingAccepted),
-        ipAddress,
+        sessionId: parsed.data.sessionId,
+        analyticsAccepted: !!parsed.data.analyticsAccepted,
+        marketingAccepted: !!parsed.data.marketingAccepted,
+        ipAddress: ip === 'unknown' ? null : ip,
       },
     });
 

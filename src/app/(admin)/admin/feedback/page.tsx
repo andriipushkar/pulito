@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
@@ -27,35 +28,31 @@ interface FeedbackItem {
   createdAt: string;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  form: "Форма зв'язку",
-  callback: 'Зворотний дзвінок',
-};
-
-// Aligned with DB enum: FeedbackStatus = new_feedback | processed | rejected
-const STATUS_LABELS: Record<string, string> = {
-  new_feedback: 'Новий',
-  processed: 'Оброблено',
-  rejected: 'Відхилено',
-};
-
 const STATUS_COLORS: Record<string, string> = {
   new_feedback: '#f59e0b',
   processed: '#22c55e',
   rejected: '#6b7280',
 };
 
-const TYPE_OPTIONS = [
-  { value: '', label: 'Всі типи' },
-  ...Object.entries(TYPE_LABELS).map(([v, l]) => ({ value: v, label: l })),
-];
-
-const STATUS_OPTIONS = [
-  { value: '', label: 'Всі статуси' },
-  ...Object.entries(STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
-];
-
 export default function AdminFeedbackPage() {
+  const t = useTranslations('admin.feedbackPage');
+  const TYPE_LABELS: Record<string, string> = {
+    form: t('typeForm'),
+    callback: t('typeCallback'),
+  };
+  const STATUS_LABELS: Record<string, string> = {
+    new_feedback: t('statusNew'),
+    processed: t('statusProcessed'),
+    rejected: t('statusRejected'),
+  };
+  const TYPE_OPTIONS = [
+    { value: '', label: t('typeAll') },
+    ...Object.entries(TYPE_LABELS).map(([v, l]) => ({ value: v, label: l })),
+  ];
+  const STATUS_OPTIONS = [
+    { value: '', label: t('statusAll') },
+    ...Object.entries(STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
+  ];
   const searchParams = useSearchParams();
   const router = useRouter();
   const [items, setItems] = useState<FeedbackItem[]>([]);
@@ -71,14 +68,15 @@ export default function AdminFeedbackPage() {
   const [replyingId, setReplyingId] = useState<number | null>(null);
 
   const sendReply = async (item: FeedbackItem) => {
-    const subj = (replySubject[item.id] ?? `Re: ${item.subject ?? 'ваше звернення'}`).trim();
+    const defaultSubject = t('replySubjectPh', { subject: item.subject ?? t('replyDefault') });
+    const subj = (replySubject[item.id] ?? defaultSubject).trim();
     const body = (replyBody[item.id] ?? '').trim();
     if (!body) {
-      toast.error('Введіть текст відповіді');
+      toast.error(t('validateReply'));
       return;
     }
     if (!item.email) {
-      toast.error('У клієнта немає email');
+      toast.error(t('noEmail'));
       return;
     }
     setReplyingId(item.id);
@@ -96,13 +94,13 @@ export default function AdminFeedbackPage() {
     });
     setReplyingId(null);
     if (res.success) {
-      toast.success(`Відповідь надіслано на ${item.email}`);
+      toast.success(t('replySentToast', { email: item.email }));
       // Clear local draft + refresh status (it becomes processed).
       setReplyBody((s) => ({ ...s, [item.id]: '' }));
       // Trigger re-fetch by toggling page param noop — easiest hack.
       router.refresh();
     } else {
-      toast.error(res.error || 'Не вдалося надіслати');
+      toast.error(res.error || t('replyError'));
     }
   };
 
@@ -151,11 +149,12 @@ export default function AdminFeedbackPage() {
           setItems(res.data);
           setTotal(res.pagination?.total || 0);
         } else {
-          toast.error('Не вдалося завантажити звернення');
+          toast.error(t('loadError'));
         }
       })
-      .catch(() => toast.error('Помилка мережі'))
+      .catch(() => toast.error(t('networkError')))
       .finally(() => setIsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, type, status, search, dateFrom, dateTo, limit]);
 
   const handleStatusUpdate = async (id: number, newStatus: string) => {
@@ -171,12 +170,12 @@ export default function AdminFeedbackPage() {
               : item,
           ),
         );
-        toast.success(`Статус змінено на "${STATUS_LABELS[newStatus]}"`);
+        toast.success(t('statusChanged', { status: STATUS_LABELS[newStatus] }));
       } else {
-        toast.error(res.error || 'Помилка зміни статусу');
+        toast.error(res.error || t('statusError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setUpdatingId(null);
     }
@@ -195,7 +194,7 @@ export default function AdminFeedbackPage() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-xl font-bold">
-          Зворотний зв&apos;язок{' '}
+          {t('title')}{' '}
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({total})
           </span>
@@ -204,7 +203,7 @@ export default function AdminFeedbackPage() {
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Ім'я або email..."
+            placeholder={t('searchPh')}
             className="w-44"
           />
           <Select
@@ -245,7 +244,7 @@ export default function AdminFeedbackPage() {
                 router.push(`/admin/feedback?${params}`);
               }}
             >
-              Скинути
+              {t('resetBtn')}
             </Button>
           )}
         </div>
@@ -303,7 +302,9 @@ export default function AdminFeedbackPage() {
                     <div className="mb-3 grid gap-2 text-sm sm:grid-cols-3">
                       {item.email && (
                         <div>
-                          <span className="text-[var(--color-text-secondary)]">Email: </span>
+                          <span className="text-[var(--color-text-secondary)]">
+                            {t('emailLabel')}{' '}
+                          </span>
                           <a
                             href={`mailto:${item.email}`}
                             className="text-[var(--color-primary)] hover:underline"
@@ -315,7 +316,9 @@ export default function AdminFeedbackPage() {
                       )}
                       {item.phone && (
                         <div>
-                          <span className="text-[var(--color-text-secondary)]">Телефон: </span>
+                          <span className="text-[var(--color-text-secondary)]">
+                            {t('phoneLabel')}{' '}
+                          </span>
                           <a
                             href={`tel:${item.phone}`}
                             className="text-[var(--color-primary)] hover:underline"
@@ -327,7 +330,9 @@ export default function AdminFeedbackPage() {
                       )}
                       {item.processedAt && (
                         <div>
-                          <span className="text-[var(--color-text-secondary)]">Оброблено: </span>
+                          <span className="text-[var(--color-text-secondary)]">
+                            {t('processedLabel')}{' '}
+                          </span>
                           {formatDate(item.processedAt)}
                         </div>
                       )}
@@ -343,7 +348,7 @@ export default function AdminFeedbackPage() {
                             onClick={() => setConfirmAction({ id: item.id, status: 'processed' })}
                             isLoading={updatingId === item.id}
                           >
-                            Оброблено
+                            {t('markProcessed')}
                           </Button>
                           <Button
                             size="sm"
@@ -351,18 +356,18 @@ export default function AdminFeedbackPage() {
                             onClick={() => setConfirmAction({ id: item.id, status: 'rejected' })}
                             isLoading={updatingId === item.id}
                           >
-                            Відхилити
+                            {t('rejectBtn')}
                           </Button>
                         </>
                       )}
                       {item.status === 'processed' && (
                         <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-                          Оброблено
+                          {t('statusProcessed')}
                         </span>
                       )}
                       {item.status === 'rejected' && (
                         <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
-                          Відхилено
+                          {t('statusRejected')}
                         </span>
                       )}
                     </div>
@@ -373,10 +378,12 @@ export default function AdminFeedbackPage() {
                     {item.email && item.status !== 'rejected' && (
                       <div className="mt-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
                         <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                          Надіслати відповідь
+                          {t('replyTitle')}
                         </p>
                         <Input
-                          placeholder={`Re: ${item.subject ?? 'ваше звернення'}`}
+                          placeholder={t('replySubjectPh', {
+                            subject: item.subject ?? t('replyDefault'),
+                          })}
                           value={replySubject[item.id] ?? ''}
                           onChange={(e) =>
                             setReplySubject((s) => ({ ...s, [item.id]: e.target.value }))
@@ -384,7 +391,7 @@ export default function AdminFeedbackPage() {
                           className="mb-2"
                         />
                         <textarea
-                          placeholder="Текст відповіді клієнту…"
+                          placeholder={t('replyBodyPh')}
                           value={replyBody[item.id] ?? ''}
                           onChange={(e) =>
                             setReplyBody((s) => ({ ...s, [item.id]: e.target.value }))
@@ -399,7 +406,7 @@ export default function AdminFeedbackPage() {
                             isLoading={replyingId === item.id}
                             disabled={!replyBody[item.id]?.trim()}
                           >
-                            ✉ Надіслати + позначити обробленим
+                            {t('sendReplyBtn')}
                           </Button>
                         </div>
                       </div>
@@ -415,21 +422,18 @@ export default function AdminFeedbackPage() {
                 </span>
                 <p className="text-sm font-medium">
                   {search || type || status || dateFrom || dateTo
-                    ? 'Звернень за фільтрами не знайдено'
-                    : 'Звернень ще немає'}
+                    ? t('emptyFiltered')
+                    : t('emptyAll')}
                 </p>
                 {search || type || status || dateFrom || dateTo ? (
                   <button
                     onClick={() => router.push('/admin/feedback')}
                     className="text-xs text-[var(--color-primary)] hover:underline"
                   >
-                    Скинути всі фільтри
+                    {t('resetAll')}
                   </button>
                 ) : (
-                  <p className="max-w-md text-xs">
-                    Тут з&apos;являться звернення з форми зв&apos;язку та запити на зворотний
-                    дзвінок
-                  </p>
+                  <p className="max-w-md text-xs">{t('emptyHint')}</p>
                 )}
               </div>
             )}
@@ -459,13 +463,13 @@ export default function AdminFeedbackPage() {
           confirmAction && handleStatusUpdate(confirmAction.id, confirmAction.status)
         }
         variant={confirmAction?.status === 'rejected' ? 'danger' : 'default'}
-        title="Зміна статусу"
+        title={t('confirmStatusTitle')}
         message={
-          confirmAction?.status === 'processed'
-            ? 'Позначити звернення як оброблене?'
-            : 'Відхилити звернення?'
+          confirmAction?.status === 'processed' ? t('confirmProcessedMsg') : t('confirmRejectedMsg')
         }
-        confirmText={confirmAction?.status === 'processed' ? 'Так, оброблено' : 'Так, відхилити'}
+        confirmText={
+          confirmAction?.status === 'processed' ? t('confirmProcessedBtn') : t('confirmRejectedBtn')
+        }
       />
     </div>
   );

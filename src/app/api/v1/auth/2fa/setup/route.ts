@@ -1,6 +1,7 @@
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { generateSecret, generateOtpauthUrl } from '@/services/totp';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { privateResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
@@ -21,6 +22,12 @@ export const POST = withRole(
   'wholesaler',
 )(async (request, { user }) => {
   try {
+    // Setup is cheap-ish but allocates a TOTP secret + QR PNG; cap per-user
+    // so a stuck UI loop or stolen session can't loop the endpoint, rotating
+    // secrets and clearing the 30-min TTL repeatedly.
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.sensitive);
+    if (!rl.allowed) return errorResponse('Забагато спроб налаштування 2FA', 429);
+
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: { email: true, twoFactorEnabled: true },

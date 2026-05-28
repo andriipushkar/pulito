@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -36,48 +37,12 @@ interface SegmentResult {
 
 type SegmentRoleScope = 'client' | 'wholesaler' | 'both';
 
-const FIELD_LABELS: Record<SegmentField, string> = {
-  orderCount: 'Кількість замовлень',
-  totalSpent: 'Загальна сума',
-  lastOrderDays: 'Днів з останнього замовлення',
-  city: 'Місто',
-};
-
 const FIELDS_FOR_OP: Record<SegmentField, SegmentOp[]> = {
   orderCount: ['gte', 'lte', 'eq'],
   totalSpent: ['gte', 'lte'],
   lastOrderDays: ['gte', 'lte'],
   city: ['eq', 'contains'],
 };
-
-const OP_LABELS: Record<SegmentOp, string> = {
-  gte: '≥',
-  lte: '≤',
-  eq: '=',
-  contains: 'містить',
-};
-
-const PRESETS: { label: string; rules: Omit<SegmentRule, 'id'>[] }[] = [
-  {
-    label: 'VIP-клієнти (>3 замовлень)',
-    rules: [{ field: 'orderCount', op: 'gte', value: '3' }],
-  },
-  {
-    label: 'Сплячі (не купували 60+ днів)',
-    rules: [
-      { field: 'lastOrderDays', op: 'gte', value: '60' },
-      { field: 'orderCount', op: 'gte', value: '1' },
-    ],
-  },
-  {
-    label: 'Високий середній чек (>2000 грн)',
-    rules: [{ field: 'totalSpent', op: 'gte', value: '2000' }],
-  },
-  {
-    label: 'Клієнти з Києва',
-    rules: [{ field: 'city', op: 'contains', value: 'Київ' }],
-  },
-];
 
 function newRule(): SegmentRule {
   return {
@@ -89,6 +54,40 @@ function newRule(): SegmentRule {
 }
 
 export default function SegmentsPage() {
+  const t = useTranslations('admin.segmentsPage');
+  const FIELD_LABELS: Record<SegmentField, string> = {
+    orderCount: t('fieldOrderCount'),
+    totalSpent: t('fieldTotalSpent'),
+    lastOrderDays: t('fieldLastOrderDays'),
+    city: t('fieldCity'),
+  };
+  const OP_LABELS: Record<SegmentOp, string> = {
+    gte: '≥',
+    lte: '≤',
+    eq: '=',
+    contains: t('opContains'),
+  };
+  const PRESETS: { label: string; rules: Omit<SegmentRule, 'id'>[] }[] = [
+    {
+      label: t('presetVip'),
+      rules: [{ field: 'orderCount', op: 'gte', value: '3' }],
+    },
+    {
+      label: t('presetSleeping'),
+      rules: [
+        { field: 'lastOrderDays', op: 'gte', value: '60' },
+        { field: 'orderCount', op: 'gte', value: '1' },
+      ],
+    },
+    {
+      label: t('presetHighAvg'),
+      rules: [{ field: 'totalSpent', op: 'gte', value: '2000' }],
+    },
+    {
+      label: t('presetKyiv'),
+      rules: [{ field: 'city', op: 'contains', value: t('presetCityKyiv') }],
+    },
+  ];
   const [rules, setRules] = useState<SegmentRule[]>([newRule()]);
   const [result, setResult] = useState<SegmentResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -99,13 +98,13 @@ export default function SegmentsPage() {
   const runPreview = async (offset = 0) => {
     for (const r of rules) {
       if (r.value === '' || r.value === null || r.value === undefined) {
-        toast.error('Заповніть значення для всіх правил');
+        toast.error(t('validateValues'));
         return;
       }
       if (r.field !== 'city') {
         const n = Number(r.value);
         if (!Number.isFinite(n)) {
-          toast.error(`Невірне числове значення для "${r.field}"`);
+          toast.error(t('validateNumeric', { field: r.field }));
           return;
         }
       }
@@ -127,7 +126,7 @@ export default function SegmentsPage() {
       setResult(res.data);
       setPageOffset(offset);
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
@@ -143,22 +142,19 @@ export default function SegmentsPage() {
       .filter(Boolean)
       .join('\n');
     navigator.clipboard.writeText(text);
-    toast.success(`Скопійовано ${text.split('\n').length} номерів`);
+    toast.success(t('copiedToast', { count: text.split('\n').length }));
   };
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">Сегменти клієнтів</h1>
-        <p className="text-xs text-[var(--color-text-secondary)]">
-          Сформуйте групу клієнтів за критеріями, перегляньте і експортуйте список номерів для
-          SMS-розсилки.
-        </p>
+        <h1 className="text-xl font-bold">{t('title')}</h1>
+        <p className="text-xs text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <p className="mb-2 text-xs font-semibold text-[var(--color-text-secondary)]">
-          Швидкі шаблони:
+          {t('presetsLabel')}
         </p>
         <div className="flex flex-wrap gap-2">
           {PRESETS.map((p) => (
@@ -174,7 +170,7 @@ export default function SegmentsPage() {
       </div>
 
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Правила (всі мають виконуватись)</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('rulesTitle')}</h3>
         <div className="space-y-2">
           {rules.map((rule, i) => (
             <div key={rule.id} className="flex flex-wrap items-center gap-2">
@@ -217,7 +213,7 @@ export default function SegmentsPage() {
                 <button
                   onClick={() => setRules((rs) => rs.filter((r) => r.id !== rule.id))}
                   className="rounded p-1 text-xs text-[var(--color-danger)] hover:bg-[var(--color-bg-secondary)]"
-                  aria-label="Видалити правило"
+                  aria-label={t('removeRule')}
                 >
                   ✕
                 </button>
@@ -227,22 +223,22 @@ export default function SegmentsPage() {
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setRules((r) => [...r, newRule()])}>
-            + Додати правило
+            {t('addRule')}
           </Button>
           <div className="flex items-center gap-1 text-xs">
-            <span className="text-[var(--color-text-secondary)]">Кого включити:</span>
+            <span className="text-[var(--color-text-secondary)]">{t('scopeLabel')}</span>
             <select
               value={roleScope}
               onChange={(e) => setRoleScope(e.target.value as SegmentRoleScope)}
               className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
             >
-              <option value="client">Тільки роздрібних</option>
-              <option value="wholesaler">Тільки гуртових</option>
-              <option value="both">Обох</option>
+              <option value="client">{t('scopeClient')}</option>
+              <option value="wholesaler">{t('scopeWholesaler')}</option>
+              <option value="both">{t('scopeBoth')}</option>
             </select>
           </div>
           <Button size="sm" onClick={() => runPreview(0)} disabled={isRunning}>
-            {isRunning ? 'Обчислюємо…' : 'Перегляд'}
+            {isRunning ? t('computing') : t('preview')}
           </Button>
         </div>
       </div>
@@ -252,18 +248,21 @@ export default function SegmentsPage() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-semibold">
-                Знайдено: <span className="text-[var(--color-primary)]">{result.total}</span>{' '}
-                клієнтів
+                {t('foundLabel')}{' '}
+                <span className="text-[var(--color-primary)]">{result.total}</span>{' '}
+                {t('clientsSuffix')}
                 {result.total > PAGE_LIMIT && (
                   <span className="ml-2 text-xs font-normal text-[var(--color-text-secondary)]">
-                    (показано {pageOffset + 1}–
-                    {Math.min(pageOffset + result.users.length, result.total)})
+                    {t('showingLabel', {
+                      from: pageOffset + 1,
+                      to: Math.min(pageOffset + result.users.length, result.total),
+                    })}
                   </span>
                 )}
               </h3>
               {result.computedAt && (
                 <p className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">
-                  Обчислено: {new Date(result.computedAt).toLocaleString('uk-UA')}
+                  {t('computedAt', { date: new Date(result.computedAt).toLocaleString('uk-UA') })}
                 </p>
               )}
             </div>
@@ -276,7 +275,7 @@ export default function SegmentsPage() {
                     onClick={() => runPreview(Math.max(0, pageOffset - PAGE_LIMIT))}
                     disabled={pageOffset === 0 || isRunning}
                   >
-                    ← Назад
+                    {t('prev')}
                   </Button>
                   <Button
                     size="sm"
@@ -284,31 +283,31 @@ export default function SegmentsPage() {
                     onClick={() => runPreview(pageOffset + PAGE_LIMIT)}
                     disabled={pageOffset + PAGE_LIMIT >= result.total || isRunning}
                   >
-                    Вперед →
+                    {t('next')}
                   </Button>
                 </>
               )}
               {result.users.length > 0 && (
                 <Button size="sm" variant="outline" onClick={exportPhones}>
-                  📋 Скопіювати телефони
+                  {t('copyPhones')}
                 </Button>
               )}
             </div>
           </div>
           {result.users.length === 0 ? (
             <p className="py-6 text-center text-sm text-[var(--color-text-secondary)]">
-              Жоден клієнт не відповідає правилам.
+              {t('noClients')}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="text-left text-[var(--color-text-secondary)]">
                   <tr>
-                    <th className="px-2 py-2">Ім&apos;я</th>
-                    <th className="px-2 py-2">Телефон</th>
-                    <th className="px-2 py-2 text-right">Замовлень</th>
-                    <th className="px-2 py-2 text-right">Витрачено</th>
-                    <th className="px-2 py-2 text-right">Днів тому</th>
+                    <th className="px-2 py-2">{t('colName')}</th>
+                    <th className="px-2 py-2">{t('colPhone')}</th>
+                    <th className="px-2 py-2 text-right">{t('colOrders')}</th>
+                    <th className="px-2 py-2 text-right">{t('colSpent')}</th>
+                    <th className="px-2 py-2 text-right">{t('colDaysAgo')}</th>
                   </tr>
                 </thead>
                 <tbody>

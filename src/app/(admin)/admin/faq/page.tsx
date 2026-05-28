@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -42,6 +43,7 @@ const emptyForm: FaqFormData = {
 };
 
 export default function AdminFaqPage() {
+  const t = useTranslations('admin.faqPage');
   const [items, setItems] = useState<AdminFaqItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -131,15 +133,15 @@ export default function AdminFaqPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!createForm.category.trim()) {
-      toast.error('Введіть категорію');
+      toast.error(t('enterCategory'));
       return;
     }
     if (!createForm.question.trim()) {
-      toast.error('Введіть питання');
+      toast.error(t('enterQuestion'));
       return;
     }
     if (!createForm.answer.trim()) {
-      toast.error('Введіть відповідь');
+      toast.error(t('enterAnswer'));
       return;
     }
     setSaving(true);
@@ -151,12 +153,12 @@ export default function AdminFaqPage() {
       answer: createForm.answer.trim(),
     });
     if (res.success && res.data) {
-      toast.success('Питання створено');
+      toast.success(t('created'));
       setItems((prev) => [...prev, res.data!]);
       setCreateForm(emptyForm);
       setShowCreateForm(false);
     } else {
-      toast.error(res.error || 'Помилка створення');
+      toast.error(res.error || t('createError'));
     }
     setSaving(false);
   }
@@ -166,11 +168,11 @@ export default function AdminFaqPage() {
     await ensureCategoryExists(editForm.category);
     const res = await apiClient.put<AdminFaqItem>(`/api/v1/admin/faq/${id}`, editForm);
     if (res.success && res.data) {
-      toast.success('Питання оновлено');
+      toast.success(t('updated'));
       setItems((prev) => prev.map((item) => (item.id === id ? res.data! : item)));
       setEditingId(null);
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('error'));
     }
     setSaving(false);
   }
@@ -185,10 +187,10 @@ export default function AdminFaqPage() {
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/faq/${id}`);
     if (res.success) {
-      toast.success('Питання видалено');
+      toast.success(t('deleted'));
       setItems((prev) => prev.filter((item) => item.id !== id));
     } else {
-      toast.error('Помилка видалення');
+      toast.error(t('deleteError'));
     }
   }
 
@@ -199,7 +201,7 @@ export default function AdminFaqPage() {
     if (res.success && res.data) {
       setItems((prev) => prev.map((i) => (i.id === item.id ? res.data! : i)));
     } else {
-      toast.error(res.error || 'Помилка оновлення');
+      toast.error(res.error || t('updateError'));
     }
   }
 
@@ -227,19 +229,19 @@ export default function AdminFaqPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">FAQ</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <div className="flex gap-2">
           <Link
             href="/admin/faq/categories"
             className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-2 text-sm hover:bg-[var(--color-bg-secondary)]"
           >
-            🗂 Категорії
+            🗂 {t('categories')}
           </Link>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
             className="flex items-center gap-1 rounded-[var(--radius)] bg-[var(--color-primary)] px-3 py-2 text-sm text-white transition-colors hover:bg-[var(--color-primary-dark)]"
           >
-            <Plus size={16} /> Додати питання
+            <Plus size={16} /> {t('addQuestion')}
           </button>
         </div>
       </div>
@@ -248,14 +250,14 @@ export default function AdminFaqPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         {categories.length > 1 && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-[var(--color-text-secondary)]">Фільтр:</span>
+            <span className="text-sm text-[var(--color-text-secondary)]">{t('filter')}</span>
             <div className="relative">
               <select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
                 className="appearance-none rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-1.5 pl-3 pr-8 text-sm"
               >
-                <option value="">Всі категорії</option>
+                <option value="">{t('allCategories')}</option>
                 {categories.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -270,12 +272,12 @@ export default function AdminFaqPage() {
           </div>
         )}
         <div className="flex items-center gap-1 text-xs">
-          <span className="text-[var(--color-text-secondary)]">Сортувати:</span>
+          <span className="text-[var(--color-text-secondary)]">{t('sortBy')}</span>
           {(
             [
-              ['sortOrder', 'Порядок'],
-              ['question', 'Питання'],
-              ['clickCount', 'Кліки'],
+              ['sortOrder', t('sortOrder')],
+              ['question', t('sortQuestion')],
+              ['clickCount', t('sortClicks')],
             ] as const
           ).map(([field, label]) => (
             <button
@@ -295,11 +297,11 @@ export default function AdminFaqPage() {
           onSubmit={handleCreate}
           className="mb-6 rounded-[var(--radius)] border border-[var(--color-primary)] bg-[var(--color-bg)] p-4"
         >
-          <h3 className="mb-3 text-sm font-semibold">Нове питання</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('newQuestion')}</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               type="text"
-              placeholder="Категорія (нова або з підказок)"
+              placeholder={t('categoryPh')}
               value={createForm.category}
               onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
               list="faq-categories"
@@ -313,7 +315,7 @@ export default function AdminFaqPage() {
             </datalist>
             <input
               type="number"
-              placeholder="Порядок"
+              placeholder={t('orderPh')}
               value={createForm.sortOrder}
               onChange={(e) => setCreateForm({ ...createForm, sortOrder: Number(e.target.value) })}
               className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-2 text-sm"
@@ -322,7 +324,7 @@ export default function AdminFaqPage() {
           </div>
           <input
             type="text"
-            placeholder="Питання"
+            placeholder={t('questionPh')}
             value={createForm.question}
             onChange={(e) => setCreateForm({ ...createForm, question: e.target.value })}
             className="mt-3 w-full rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-2 text-sm"
@@ -333,7 +335,7 @@ export default function AdminFaqPage() {
             <WysiwygEditor
               value={createForm.answer}
               onChange={(html) => setCreateForm({ ...createForm, answer: html })}
-              placeholder="Відповідь"
+              placeholder={t('answerPh')}
             />
           </div>
           <details className="mt-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
@@ -341,7 +343,7 @@ export default function AdminFaqPage() {
               <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                 EN
               </span>
-              Англійський переклад (опційно)
+              {t('enTranslation')}
             </summary>
             <div className="mt-3 space-y-2">
               <input
@@ -365,7 +367,7 @@ export default function AdminFaqPage() {
                 checked={createForm.isPublished}
                 onChange={(e) => setCreateForm({ ...createForm, isPublished: e.target.checked })}
               />
-              Опублікувати одразу
+              {t('publishNow')}
             </label>
             <div className="flex gap-2">
               <button
@@ -376,14 +378,14 @@ export default function AdminFaqPage() {
                 }}
                 className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
               >
-                Скасувати
+                {t('cancel')}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="rounded-[var(--radius)] bg-[var(--color-primary)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
               >
-                {saving ? 'Збереження...' : 'Створити'}
+                {saving ? t('saving') : t('create')}
               </button>
             </div>
           </div>
@@ -412,7 +414,7 @@ export default function AdminFaqPage() {
                         onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                         list="faq-categories"
                         className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
-                        placeholder="Категорія"
+                        placeholder={t('categoryEditPh')}
                       />
                       <input
                         type="number"
@@ -429,12 +431,12 @@ export default function AdminFaqPage() {
                       value={editForm.question}
                       onChange={(e) => setEditForm({ ...editForm, question: e.target.value })}
                       className="w-full rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
-                      placeholder="Питання"
+                      placeholder={t('questionPh')}
                     />
                     <WysiwygEditor
                       value={editForm.answer}
                       onChange={(html) => setEditForm({ ...editForm, answer: html })}
-                      placeholder="Відповідь"
+                      placeholder={t('answerPh')}
                     />
                     <details className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-2">
                       <summary className="cursor-pointer text-xs font-semibold">
@@ -467,13 +469,13 @@ export default function AdminFaqPage() {
                             setEditForm({ ...editForm, isPublished: e.target.checked })
                           }
                         />
-                        Опубліковано
+                        {t('published')}
                       </label>
                       <div className="flex gap-2">
                         <button
                           onClick={() => setEditingId(null)}
                           className="rounded-[var(--radius)] border border-[var(--color-border)] p-1.5"
-                          title="Скасувати"
+                          title={t('cancel')}
                         >
                           <Close size={16} />
                         </button>
@@ -481,7 +483,7 @@ export default function AdminFaqPage() {
                           onClick={() => handleUpdate(item.id)}
                           disabled={saving}
                           className="rounded-[var(--radius)] bg-[var(--color-primary)] p-1.5 text-white disabled:opacity-50"
-                          title="Зберегти"
+                          title={t('save')}
                         >
                           <Check size={16} />
                         </button>
@@ -499,7 +501,7 @@ export default function AdminFaqPage() {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="text-xs text-[var(--color-text-secondary)]">
-                        {item.clickCount} кліків
+                        {t('clicks', { count: item.clickCount })}
                       </span>
                       <button
                         onClick={() => handleTogglePublished(item)}
@@ -509,18 +511,18 @@ export default function AdminFaqPage() {
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
-                        {item.isPublished ? 'Опубл.' : 'Чернетка'}
+                        {item.isPublished ? t('publishedShort') : t('draft')}
                       </button>
                       <button
                         onClick={() => startEdit(item)}
                         className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
                       >
-                        Редагувати
+                        {t('edit')}
                       </button>
                       <button
                         onClick={() => handleDelete(item.id)}
                         className="rounded-[var(--radius)] p-1 text-[var(--color-danger)] hover:bg-red-50"
-                        title="Видалити"
+                        title={t('delete')}
                       >
                         <Trash size={14} />
                       </button>
@@ -539,21 +541,21 @@ export default function AdminFaqPage() {
             ❓
           </span>
           <p className="text-sm font-medium">
-            {filterCategory ? 'Немає питань у цій категорії' : 'FAQ порожній'}
+            {filterCategory ? t('emptyCategory') : t('emptyAll')}
           </p>
           {filterCategory ? (
             <button
               onClick={() => setFilterCategory('')}
               className="text-xs text-[var(--color-primary)] hover:underline"
             >
-              Показати всі категорії
+              {t('showAll')}
             </button>
           ) : (
             <button
               onClick={() => setShowCreateForm(true)}
               className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
             >
-              + Додати перше питання
+              {t('addFirst')}
             </button>
           )}
         </div>
@@ -564,7 +566,7 @@ export default function AdminFaqPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={executeDelete}
         variant="danger"
-        message="Видалити це питання?"
+        message={t('confirmDelete')}
       />
     </div>
   );

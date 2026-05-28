@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -26,11 +27,6 @@ interface VolumeDiscount {
   createdAt: string;
 }
 
-const DISCOUNT_TYPE_OPTIONS = [
-  { value: 'percentage', label: 'Відсоток (%)' },
-  { value: 'fixed_amount', label: 'Фіксована сума (грн)' },
-];
-
 const initialForm = {
   productId: '',
   categoryId: '',
@@ -48,6 +44,11 @@ const initialForm = {
 };
 
 export default function AdminVolumeDiscountsPage() {
+  const t = useTranslations('admin.volumeDiscountsPage');
+  const DISCOUNT_TYPE_OPTIONS = [
+    { value: 'percentage', label: t('typePercentage') },
+    { value: 'fixed_amount', label: t('typeFixed') },
+  ];
   const [discounts, setDiscounts] = useState<VolumeDiscount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -62,9 +63,9 @@ export default function AdminVolumeDiscountsPage() {
       .get<VolumeDiscount[]>('/api/v1/admin/volume-discounts')
       .then((res) => {
         if (res.success && res.data) setDiscounts(res.data);
-        else toast.error('Не вдалося завантажити знижки');
+        else toast.error(t('loadError'));
       })
-      .catch(() => toast.error('Помилка мережі'))
+      .catch(() => toast.error(t('networkError')))
       .finally(() => setIsLoading(false));
   };
 
@@ -105,30 +106,30 @@ export default function AdminVolumeDiscountsPage() {
     const discount = Number(form.discountPercent);
 
     if (!Number.isFinite(minQty) || minQty <= 0) {
-      toast.error('Мінімальна кількість має бути більше 0');
+      toast.error(t('validateMinQty'));
       return;
     }
     if (maxQty !== null && (!Number.isFinite(maxQty) || maxQty < minQty)) {
-      toast.error('Максимальна кількість має бути ≥ мінімальної');
+      toast.error(t('validateMaxQty'));
       return;
     }
     if (!Number.isFinite(discount) || discount <= 0) {
-      toast.error('Розмір знижки має бути більше 0');
+      toast.error(t('validateDiscount'));
       return;
     }
     if (form.discountType === 'percent' && discount > 100) {
-      toast.error('Відсоткова знижка не може перевищувати 100%');
+      toast.error(t('validateDiscount100'));
       return;
     }
     if (form.startsAt && form.endsAt) {
       const start = new Date(form.startsAt);
       const end = new Date(form.endsAt);
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        toast.error('Невірний формат дат');
+        toast.error(t('validateDates'));
         return;
       }
       if (start >= end) {
-        toast.error('Дата початку має бути раніше дати завершення');
+        toast.error(t('validateDateOrder'));
         return;
       }
     }
@@ -159,14 +160,14 @@ export default function AdminVolumeDiscountsPage() {
         : await apiClient.post('/api/v1/admin/volume-discounts', payload);
 
       if (res.success) {
-        toast.success(editingId ? 'Знижку оновлено' : 'Знижку створено');
+        toast.success(editingId ? t('savedToast') : t('createdToast'));
         resetForm();
         loadDiscounts();
       } else {
-        toast.error(res.error || 'Помилка збереження');
+        toast.error(res.error || t('saveError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -182,9 +183,9 @@ export default function AdminVolumeDiscountsPage() {
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/volume-discounts/${id}`);
     if (res.success) {
-      toast.success('Знижку видалено');
+      toast.success(t('deletedToast'));
     } else {
-      toast.error('Помилка видалення');
+      toast.error(t('deleteError'));
     }
     loadDiscounts();
   };
@@ -193,14 +194,14 @@ export default function AdminVolumeDiscountsPage() {
     const res = await apiClient.patch(`/api/v1/admin/volume-discounts/${d.id}`, {
       isActive: !d.isActive,
     });
-    if (res.success) toast.success(d.isActive ? 'Знижку вимкнено' : 'Знижку увімкнено');
-    else toast.error(res.error || 'Помилка оновлення');
+    if (res.success) toast.success(d.isActive ? t('disabledToast') : t('enabledToast'));
+    else toast.error(res.error || t('updateError'));
     loadDiscounts();
   };
 
   const formatRange = (d: VolumeDiscount) => {
-    if (d.maxQuantity) return `${d.minQuantity} — ${d.maxQuantity} шт`;
-    return `від ${d.minQuantity} шт`;
+    if (d.maxQuantity) return t('rangeMinMax', { min: d.minQuantity, max: d.maxQuantity });
+    return t('rangeFromMin', { min: d.minQuantity });
   };
 
   const formatDiscount = (d: VolumeDiscount) => {
@@ -216,51 +217,51 @@ export default function AdminVolumeDiscountsPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Знижки за обсяг</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <Button
           onClick={() => {
             resetForm();
             setShowForm(true);
           }}
         >
-          Додати знижку
+          {t('add')}
         </Button>
       </div>
 
       {showForm && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">{editingId ? 'Редагувати' : 'Нова знижка'}</h3>
+          <h3 className="mb-3 text-sm font-semibold">{editingId ? t('edit') : t('newDiscount')}</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Input
-              label="ID товару (опціонально)"
+              label={t('productIdLabel')}
               type="number"
               value={form.productId}
               onChange={(e) => setForm({ ...form, productId: e.target.value })}
-              placeholder="Для конкретного товару"
+              placeholder={t('productIdPh')}
             />
             <Input
-              label="ID категорії (опціонально)"
+              label={t('categoryIdLabel')}
               type="number"
               value={form.categoryId}
               onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-              placeholder="Для категорії"
+              placeholder={t('categoryIdPh')}
             />
             <Input
-              label="Мін. кількість *"
+              label={t('minQtyLabel')}
               type="number"
               value={form.minQuantity}
               onChange={(e) => setForm({ ...form, minQuantity: e.target.value })}
               placeholder="10"
             />
             <Input
-              label="Макс. кількість"
+              label={t('maxQtyLabel')}
               type="number"
               value={form.maxQuantity}
               onChange={(e) => setForm({ ...form, maxQuantity: e.target.value })}
-              placeholder="Без обмеження"
+              placeholder={t('maxQtyPh')}
             />
             <Input
-              label="Знижка *"
+              label={t('discountLabel')}
               type="number"
               value={form.discountPercent}
               onChange={(e) => setForm({ ...form, discountPercent: e.target.value })}
@@ -268,7 +269,7 @@ export default function AdminVolumeDiscountsPage() {
             />
             <div>
               <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-                Тип знижки
+                {t('discountTypeLabel')}
               </label>
               <Select
                 options={DISCOUNT_TYPE_OPTIONS}
@@ -277,7 +278,7 @@ export default function AdminVolumeDiscountsPage() {
               />
             </div>
             <Input
-              label="Пріоритет"
+              label={t('priorityLabel')}
               type="number"
               value={form.priority}
               onChange={(e) => setForm({ ...form, priority: e.target.value })}
@@ -291,17 +292,17 @@ export default function AdminVolumeDiscountsPage() {
                   onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
                   className="accent-[var(--color-primary)]"
                 />
-                Активна
+                {t('activeLabel')}
               </label>
             </div>
             <Input
-              label="Початок дії"
+              label={t('startsAtLabel')}
               type="datetime-local"
               value={form.startsAt}
               onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
             />
             <Input
-              label="Кінець дії"
+              label={t('endsAtLabel')}
               type="datetime-local"
               value={form.endsAt}
               onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
@@ -311,7 +312,7 @@ export default function AdminVolumeDiscountsPage() {
           {/* Stacking — порожній набір означає «не комбінується» */}
           <div className="mt-4 rounded-md border border-[var(--color-border)] p-3">
             <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-              Поєднання з іншими знижками
+              {t('stackTitle')}
             </p>
             <div className="flex flex-wrap gap-3 text-sm">
               <label className="flex items-center gap-1.5">
@@ -321,7 +322,7 @@ export default function AdminVolumeDiscountsPage() {
                   onChange={(e) => setForm({ ...form, stackPersonal: e.target.checked })}
                   className="accent-[var(--color-primary)]"
                 />
-                Персональна ціна
+                {t('stackPersonal')}
               </label>
               <label className="flex items-center gap-1.5">
                 <input
@@ -330,7 +331,7 @@ export default function AdminVolumeDiscountsPage() {
                   onChange={(e) => setForm({ ...form, stackCoupon: e.target.checked })}
                   className="accent-[var(--color-primary)]"
                 />
-                Промокод
+                {t('stackCoupon')}
               </label>
               <label className="flex items-center gap-1.5">
                 <input
@@ -339,7 +340,7 @@ export default function AdminVolumeDiscountsPage() {
                   onChange={(e) => setForm({ ...form, stackLoyalty: e.target.checked })}
                   className="accent-[var(--color-primary)]"
                 />
-                Бали лояльності
+                {t('stackLoyalty')}
               </label>
             </div>
           </div>
@@ -350,10 +351,10 @@ export default function AdminVolumeDiscountsPage() {
               isLoading={isSaving}
               disabled={!form.minQuantity || !form.discountPercent}
             >
-              {editingId ? 'Зберегти' : 'Створити'}
+              {editingId ? t('save') : t('create')}
             </Button>
             <Button variant="outline" onClick={resetForm}>
-              Скасувати
+              {t('cancel')}
             </Button>
           </div>
         </div>
@@ -366,13 +367,13 @@ export default function AdminVolumeDiscountsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                <th className="px-4 py-3 text-left font-medium">Товар / Категорія</th>
-                <th className="px-4 py-3 text-left font-medium">Діапазон кількості</th>
-                <th className="px-4 py-3 text-right font-medium">Знижка</th>
-                <th className="px-4 py-3 text-center font-medium">Пріоритет</th>
-                <th className="px-4 py-3 text-left font-medium">Дати</th>
-                <th className="px-4 py-3 text-center font-medium">Статус</th>
-                <th className="px-4 py-3 text-right font-medium">Дії</th>
+                <th className="px-4 py-3 text-left font-medium">{t('colProductCategory')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('colRange')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('colDiscount')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('colPriority')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('colDates')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('colStatus')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -385,7 +386,7 @@ export default function AdminVolumeDiscountsPage() {
                     {d.product
                       ? `${d.product.name} (${d.product.code})`
                       : d.category
-                        ? `Категорія: ${d.category.name}`
+                        ? t('categoryPrefix', { name: d.category.name })
                         : '—'}
                   </td>
                   <td className="px-4 py-3">{formatRange(d)}</td>
@@ -407,13 +408,13 @@ export default function AdminVolumeDiscountsPage() {
                       onClick={() => handleEdit(d)}
                       className="mr-2 text-xs text-[var(--color-primary)] hover:underline"
                     >
-                      Редагувати
+                      {t('edit')}
                     </button>
                     <button
                       onClick={() => handleDelete(d.id)}
                       className="text-xs text-[var(--color-danger)] hover:underline"
                     >
-                      Видалити
+                      {t('delete')}
                     </button>
                   </td>
                 </tr>
@@ -424,7 +425,7 @@ export default function AdminVolumeDiscountsPage() {
                     colSpan={7}
                     className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                   >
-                    Знижок за обсяг немає
+                    {t('empty')}
                   </td>
                 </tr>
               )}
@@ -438,7 +439,7 @@ export default function AdminVolumeDiscountsPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={executeDelete}
         variant="danger"
-        message="Видалити цю знижку?"
+        message={t('deleteMsg')}
       />
     </div>
   );

@@ -5,6 +5,8 @@ import { checkWebhookRateLimit } from '@/utils/webhook-security';
 import { logWebhook } from '@/services/webhook-log';
 import { logger } from '@/lib/logger';
 
+const PAYMENT_MAX_BODY = 64 * 1024; // 64KB — LiqPay callbacks are ~1-2KB
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   try {
@@ -12,6 +14,13 @@ export async function POST(request: NextRequest) {
     const allowed = await checkWebhookRateLimit('liqpay', ip);
     if (!allowed) {
       return new Response('Rate limited', { status: 429 });
+    }
+
+    // Cap body size before formData parsing — Content-Length header is the
+    // first gate so we don't allocate hundreds of MB for a hostile payload.
+    const cl = Number(request.headers.get('content-length') || 0);
+    if (cl > PAYMENT_MAX_BODY) {
+      return new Response('Payload too large', { status: 413 });
     }
 
     const formData = await request.formData();

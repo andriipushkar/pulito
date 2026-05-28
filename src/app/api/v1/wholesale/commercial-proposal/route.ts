@@ -3,6 +3,7 @@ import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { resolveBulkOrder } from '@/services/b2b';
 import { generateCommercialProposal } from '@/services/commercial-proposal';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { z } from 'zod';
 
@@ -10,22 +11,29 @@ const proposalSchema = z.object({
   items: z
     .array(
       z.object({
-        code: z.string().min(1),
-        quantity: z.number().int().positive(),
+        code: z.string().trim().min(1).max(64),
+        quantity: z.number().int().positive().max(100_000),
       }),
     )
-    .min(1),
-  comment: z.string().max(500).optional(),
+    .min(1)
+    .max(500),
+  comment: z.string().trim().max(500).optional(),
   validDays: z.number().int().min(1).max(90).optional(),
 });
 
+// PDF generation is expensive (Chromium spawn + DB joins). Cap per-user with
+// the adminPdfExport bucket (50/day) — a non-admin wholesale client looping
+// the endpoint would otherwise exhaust disk space overnight.
 export const POST = withAuth(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.adminPdfExport);
+    if (!rl.allowed) return errorResponse('Денний ліміт генерації пропозицій вичерпано', 429);
+
     const body = await request.json();
     const parsed = proposalSchema.safeParse(body);
 
     if (!parsed.success) {
-      return errorResponse('Невірні дані', 400);
+      return errorResponse(parsed.error.issues[0]?.message || 'Невірні дані', 422);
     }
 
     const userData = await prisma.user.findUnique({

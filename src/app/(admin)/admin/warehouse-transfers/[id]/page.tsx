@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -26,13 +27,10 @@ interface TransferDetail {
   createdAt: string;
 }
 
-export default function TransferDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function TransferDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const t = useTranslations('admin.warehouseTransferDetailPage');
   const [transfer, setTransfer] = useState<TransferDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -44,7 +42,7 @@ export default function TransferDetailPage({
     if (res.success && res.data) {
       setTransfer(res.data);
     } else {
-      setError(res.error || 'Не знайдено');
+      setError(res.error || t('notFound'));
     }
     setLoading(false);
   };
@@ -57,19 +55,19 @@ export default function TransferDetailPage({
   const act = async (action: 'ship' | 'receive' | 'cancel') => {
     let reason: string | undefined;
     if (action === 'cancel') {
-      reason = prompt('Причина скасування?') || '';
+      reason = prompt(t('cancelReasonPrompt')) || '';
       if (reason === null) return;
     }
     setBusy(true);
     setError(null);
-    const res = await apiClient.put<TransferDetail>(
-      `/api/v1/admin/warehouse-transfers/${id}`,
-      { action, reason },
-    );
+    const res = await apiClient.put<TransferDetail>(`/api/v1/admin/warehouse-transfers/${id}`, {
+      action,
+      reason,
+    });
     if (res.success && res.data) {
       setTransfer(res.data);
     } else {
-      setError(res.error || 'Помилка');
+      setError(res.error || t('errorGeneric'));
     }
     setBusy(false);
   };
@@ -85,13 +83,13 @@ export default function TransferDetailPage({
   if (!transfer) {
     return (
       <div>
-        <p className="text-sm text-[var(--color-text-secondary)]">{error ?? 'Не знайдено'}</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">{error ?? t('notFound')}</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/admin/warehouse-transfers')}
         >
-          До списку
+          {t('backToList')}
         </Button>
       </div>
     );
@@ -105,14 +103,14 @@ export default function TransferDetailPage({
         href="/admin/warehouse-transfers"
         className="text-sm text-[var(--color-primary)] hover:underline"
       >
-        &larr; До списку
+        {t('backArrow')}
       </Link>
 
       <div className="mt-4 mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-mono text-xl font-bold">{transfer.reference}</h1>
           <p className="text-sm text-[var(--color-text-secondary)]">
-            Створено{' '}
+            {t('created')}{' '}
             {new Date(transfer.createdAt).toLocaleString('uk-UA', {
               day: '2-digit',
               month: '2-digit',
@@ -126,16 +124,16 @@ export default function TransferDetailPage({
           {transfer.status === 'draft' && (
             <>
               <Button onClick={() => act('ship')} isLoading={busy}>
-                Відвантажити
+                {t('ship')}
               </Button>
               <Button variant="danger" onClick={() => act('cancel')} disabled={busy}>
-                Скасувати
+                {t('cancel')}
               </Button>
             </>
           )}
           {transfer.status === 'in_transit' && (
             <Button onClick={() => act('receive')} isLoading={busy}>
-              Оприбуткувати
+              {t('receive')}
             </Button>
           )}
         </div>
@@ -148,25 +146,25 @@ export default function TransferDetailPage({
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2">
-        <InfoBlock title="Звідки">
+        <InfoBlock title={t('from')}>
           <p className="text-base font-semibold">{transfer.fromWarehouse.name}</p>
           <p className="text-xs text-[var(--color-text-secondary)]">
-            Код: {transfer.fromWarehouse.code}
+            {t('codeLabel')} {transfer.fromWarehouse.code}
           </p>
           {transfer.shippedAt && (
             <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-              ✓ Відвантажено: {new Date(transfer.shippedAt).toLocaleString('uk-UA')}
+              {t('shippedOn')} {new Date(transfer.shippedAt).toLocaleString('uk-UA')}
             </p>
           )}
         </InfoBlock>
-        <InfoBlock title="Куди">
+        <InfoBlock title={t('to')}>
           <p className="text-base font-semibold">{transfer.toWarehouse.name}</p>
           <p className="text-xs text-[var(--color-text-secondary)]">
-            Код: {transfer.toWarehouse.code}
+            {t('codeLabel')} {transfer.toWarehouse.code}
           </p>
           {transfer.receivedAt && (
             <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-              ✓ Оприбутковано: {new Date(transfer.receivedAt).toLocaleString('uk-UA')}
+              {t('receivedOn')} {new Date(transfer.receivedAt).toLocaleString('uk-UA')}
             </p>
           )}
         </InfoBlock>
@@ -174,14 +172,14 @@ export default function TransferDetailPage({
 
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-5">
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
-          Товари ({transfer.items.length} поз. / {totalQty} шт)
+          {t('itemsTitle', { count: transfer.items.length, total: totalQty })}
         </h2>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)]">
-              <th className="py-2 text-left font-medium">Артикул</th>
-              <th className="py-2 text-left font-medium">Назва</th>
-              <th className="py-2 text-right font-medium">Кількість</th>
+              <th className="py-2 text-left font-medium">{t('colArticle')}</th>
+              <th className="py-2 text-left font-medium">{t('colName')}</th>
+              <th className="py-2 text-right font-medium">{t('colQty')}</th>
             </tr>
           </thead>
           <tbody>
@@ -199,7 +197,7 @@ export default function TransferDetailPage({
       {transfer.comment && (
         <div className="mt-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4 text-sm">
           <p className="mb-1 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-            Коментар
+            {t('commentLabel')}
           </p>
           <p className="whitespace-pre-wrap">{transfer.comment}</p>
         </div>
@@ -208,7 +206,7 @@ export default function TransferDetailPage({
       {transfer.cancelledAt && (
         <div className="mt-4 rounded-[var(--radius)] border border-red-200 bg-red-50 p-4 text-sm">
           <p className="font-medium text-red-700">
-            Скасовано {new Date(transfer.cancelledAt).toLocaleString('uk-UA')}
+            {t('cancelledOn', { date: new Date(transfer.cancelledAt).toLocaleString('uk-UA') })}
           </p>
           {transfer.cancelledReason && (
             <p className="mt-1 text-red-700">{transfer.cancelledReason}</p>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import SubscriptionAnalyticsBar from '@/components/admin/SubscriptionAnalyticsBar';
@@ -17,25 +18,24 @@ interface Subscription {
   createdAt: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  active: 'Активна',
-  paused: 'Призупинена',
-  cancelled: 'Скасована',
-};
-
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
   paused: 'bg-yellow-100 text-yellow-700',
   cancelled: 'bg-gray-100 text-gray-500',
 };
 
-const FREQUENCY_LABELS: Record<string, string> = {
-  weekly: 'Щотижня',
-  biweekly: 'Раз на 2 тижні',
-  monthly: 'Щомісяця',
-};
-
 export default function AdminSubscriptionsPage() {
+  const t = useTranslations('admin.subscriptionsPage');
+  const STATUS_LABELS: Record<string, string> = {
+    active: t('statusActive'),
+    paused: t('statusPaused'),
+    cancelled: t('statusCancelled'),
+  };
+  const FREQUENCY_LABELS: Record<string, string> = {
+    weekly: t('freqWeekly'),
+    biweekly: t('freqBiweekly'),
+    monthly: t('freqMonthly'),
+  };
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   // Derive isLoading from completed filter to avoid synchronous setIsLoading(true) in effect.
@@ -50,7 +50,7 @@ export default function AdminSubscriptionsPage() {
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) setSubscriptions(res.data);
-        else toast.error('Не вдалося завантажити підписки');
+        else toast.error(t('loadError'));
       })
       .finally(() => {
         if (!cancelled) setCompletedFilter(statusFilter);
@@ -58,7 +58,7 @@ export default function AdminSubscriptionsPage() {
     return () => {
       cancelled = true;
     };
-  }, [statusFilter]);
+  }, [statusFilter, t]);
 
   if (isLoading) {
     return <AdminTableSkeleton rows={6} columns={7} />;
@@ -70,7 +70,7 @@ export default function AdminSubscriptionsPage() {
 
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold">
-          Підписки{' '}
+          {t('title')}{' '}
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({subscriptions.length})
           </span>
@@ -81,10 +81,10 @@ export default function AdminSubscriptionsPage() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
           >
-            <option value="">Всі статуси</option>
-            <option value="active">Активні</option>
-            <option value="paused">Призупинені</option>
-            <option value="cancelled">Скасовані</option>
+            <option value="">{t('statusAll')}</option>
+            <option value="active">{t('statusActiveMany')}</option>
+            <option value="paused">{t('statusPausedMany')}</option>
+            <option value="cancelled">{t('statusCancelledMany')}</option>
           </select>
         </div>
       </div>
@@ -93,12 +93,12 @@ export default function AdminSubscriptionsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-              <th className="px-4 py-3 text-left font-medium">Користувач</th>
-              <th className="px-4 py-3 text-left font-medium">Частота</th>
-              <th className="px-4 py-3 text-center font-medium">Статус</th>
-              <th className="px-4 py-3 text-left font-medium">Наступна доставка</th>
-              <th className="px-4 py-3 text-right font-medium">Товарів</th>
-              <th className="px-4 py-3 text-left font-medium">Створено</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colUser')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colFrequency')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('colStatus')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colNextDelivery')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colItems')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colCreated')}</th>
             </tr>
           </thead>
           <tbody>
@@ -142,7 +142,7 @@ export default function AdminSubscriptionsPage() {
                   colSpan={6}
                   className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                 >
-                  Підписок немає
+                  {t('empty')}
                 </td>
               </tr>
             )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -24,6 +25,7 @@ interface PaginatedResponse {
 }
 
 export default function NotFoundLogPage() {
+  const t = useTranslations('admin.notFoundLog');
   const [logs, setLogs] = useState<NotFoundLogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<'lastSeen' | 'count'>('lastSeen');
@@ -40,34 +42,34 @@ export default function NotFoundLogPage() {
           setLogs(res.data.items);
           setTotal(res.data.total);
         } else {
-          toast.error(res.error || 'Не вдалося завантажити лог');
+          toast.error(res.error || t('loadError'));
         }
         setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [sort]);
+  }, [sort, t]);
 
   const deleteOne = async (id: number) => {
     const res = await apiClient.delete(`/api/v1/admin/not-found-log?id=${id}`);
     if (res.success) {
       setLogs((prev) => prev.filter((l) => l.id !== id));
-      setTotal((t) => Math.max(0, t - 1));
+      setTotal((prev) => Math.max(0, prev - 1));
     } else {
-      toast.error(res.error || 'Не вдалося видалити');
+      toast.error(res.error || t('deleteError'));
     }
   };
 
   const clearAll = async () => {
-    if (!window.confirm(`Очистити весь лог (${total} записів)?`)) return;
+    if (!window.confirm(t('confirmClear', { total }))) return;
     const res = await apiClient.delete('/api/v1/admin/not-found-log?confirm=all');
     if (res.success) {
       setLogs([]);
       setTotal(0);
-      toast.success('Лог очищено');
+      toast.success(t('cleared'));
     } else {
-      toast.error(res.error || 'Не вдалося очистити');
+      toast.error(res.error || t('clearError'));
     }
   };
 
@@ -75,11 +77,8 @@ export default function NotFoundLogPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">404 лог</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Усі сторінки, які запитували відвідувачі, але вони не існують. Шукайте биті внутрішні
-            посилання або додавайте slug-редіректи.
-          </p>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -87,12 +86,12 @@ export default function NotFoundLogPage() {
             onChange={(e) => setSort(e.target.value as 'lastSeen' | 'count')}
             className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
           >
-            <option value="lastSeen">Спочатку останні</option>
-            <option value="count">Спочатку найчастіші</option>
+            <option value="lastSeen">{t('sortRecent')}</option>
+            <option value="count">{t('sortMostFrequent')}</option>
           </select>
           {logs.length > 0 && (
             <Button variant="outline" onClick={clearAll}>
-              Очистити все
+              {t('clearAll')}
             </Button>
           )}
         </div>
@@ -104,18 +103,17 @@ export default function NotFoundLogPage() {
         </div>
       ) : logs.length === 0 ? (
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-          Лог порожній. Це добре — або сайт працює бездоганно, або 404 ще ніхто не ловив після
-          деплою.
+          {t('empty')}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)]">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-bg-secondary)] text-xs uppercase text-[var(--color-text-secondary)]">
               <tr>
-                <th className="px-3 py-2 text-left">Path</th>
-                <th className="px-3 py-2 text-right">Hits</th>
-                <th className="px-3 py-2 text-left">Останній</th>
-                <th className="px-3 py-2 text-left">Referrer</th>
+                <th className="px-3 py-2 text-left">{t('colPath')}</th>
+                <th className="px-3 py-2 text-right">{t('colHits')}</th>
+                <th className="px-3 py-2 text-left">{t('colLast')}</th>
+                <th className="px-3 py-2 text-left">{t('colReferrer')}</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
@@ -144,7 +142,7 @@ export default function NotFoundLogPage() {
                       onClick={() => deleteOne(log.id)}
                       className="text-xs text-[var(--color-danger)] hover:underline"
                     >
-                      Видалити
+                      {t('delete')}
                     </button>
                   </td>
                 </tr>

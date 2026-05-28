@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -29,96 +30,7 @@ interface ChannelDef {
   fields: ChannelField[];
 }
 
-const CHANNELS: ChannelDef[] = [
-  {
-    key: 'telegram',
-    name: 'Telegram',
-    icon: '✈️',
-    color: '#0088cc',
-    description: 'Бот для публікацій у канал або групу',
-    fields: [
-      {
-        key: 'botToken',
-        label: 'Bot Token',
-        placeholder: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
-        sensitive: true,
-      },
-      { key: 'channelId', label: 'Channel ID', placeholder: '@my_channel або -1001234567890' },
-      {
-        key: 'managerChatId',
-        label: 'Chat ID менеджера',
-        placeholder: '123456789',
-        optional: true,
-      },
-    ],
-  },
-  {
-    key: 'viber',
-    name: 'Viber',
-    icon: '💬',
-    color: '#7360f2',
-    description: 'Бот для спільноти або групи Viber',
-    fields: [
-      {
-        key: 'authToken',
-        label: 'Auth Token',
-        placeholder: 'Viber Bot Auth Token',
-        sensitive: true,
-      },
-    ],
-  },
-  {
-    key: 'facebook',
-    name: 'Facebook',
-    icon: '📘',
-    color: '#1877f2',
-    description: 'Публікації на Facebook-сторінку',
-    fields: [
-      {
-        key: 'pageAccessToken',
-        label: 'Page Access Token',
-        placeholder: 'EAAx...',
-        sensitive: true,
-      },
-      { key: 'pageId', label: 'Page ID', placeholder: '123456789012345' },
-    ],
-  },
-  {
-    key: 'instagram',
-    name: 'Instagram',
-    icon: '📷',
-    color: '#e4405f',
-    description: 'Публікації в Instagram Business акаунт',
-    fields: [
-      { key: 'accessToken', label: 'Access Token', placeholder: 'IGQ...', sensitive: true },
-      { key: 'businessAccountId', label: 'Business Account ID', placeholder: '17841400000000000' },
-      { key: 'appId', label: 'App ID', placeholder: '123456789', optional: true },
-      {
-        key: 'appSecret',
-        label: 'App Secret',
-        placeholder: 'abc123...',
-        sensitive: true,
-        optional: true,
-      },
-    ],
-  },
-  {
-    key: 'tiktok',
-    name: 'TikTok',
-    icon: '🎵',
-    color: '#000000',
-    description: 'Публікації відео в TikTok акаунт',
-    fields: [
-      {
-        key: 'accessToken',
-        label: 'Access Token',
-        placeholder: 'TikTok API Access Token',
-        sensitive: true,
-      },
-      { key: 'openId', label: 'Open ID', placeholder: 'Ваш TikTok Open ID' },
-    ],
-  },
-];
+const CHANNEL_KEYS: ChannelKey[] = ['telegram', 'viber', 'facebook', 'instagram', 'tiktok'];
 
 interface TestResult {
   success: boolean;
@@ -127,36 +39,130 @@ interface TestResult {
 }
 
 export default function ChannelSettingsPage() {
+  const t = useTranslations('admin.channelSettingsPage');
+  const CHANNELS: ChannelDef[] = useMemo(
+    () => [
+      {
+        key: 'telegram',
+        name: 'Telegram',
+        icon: '✈️',
+        color: '#0088cc',
+        description: t('tgDesc'),
+        fields: [
+          {
+            key: 'botToken',
+            label: t('tgBotToken'),
+            placeholder: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+            sensitive: true,
+          },
+          { key: 'channelId', label: t('tgChannelId'), placeholder: t('tgChannelIdPh') },
+          {
+            key: 'managerChatId',
+            label: t('tgManagerChat'),
+            placeholder: '123456789',
+            optional: true,
+          },
+        ],
+      },
+      {
+        key: 'viber',
+        name: 'Viber',
+        icon: '💬',
+        color: '#7360f2',
+        description: t('viberDesc'),
+        fields: [
+          {
+            key: 'authToken',
+            label: t('viberAuthToken'),
+            placeholder: t('viberAuthTokenPh'),
+            sensitive: true,
+          },
+        ],
+      },
+      {
+        key: 'facebook',
+        name: 'Facebook',
+        icon: '📘',
+        color: '#1877f2',
+        description: t('fbDesc'),
+        fields: [
+          {
+            key: 'pageAccessToken',
+            label: t('fbPageToken'),
+            placeholder: 'EAAx...',
+            sensitive: true,
+          },
+          { key: 'pageId', label: t('fbPageId'), placeholder: t('fbPageIdPh') },
+        ],
+      },
+      {
+        key: 'instagram',
+        name: 'Instagram',
+        icon: '📷',
+        color: '#e4405f',
+        description: t('igDesc'),
+        fields: [
+          { key: 'accessToken', label: t('igAccessToken'), placeholder: 'IGQ...', sensitive: true },
+          { key: 'businessAccountId', label: t('igBusinessId'), placeholder: t('igBusinessIdPh') },
+          { key: 'appId', label: t('igAppId'), placeholder: t('igAppIdPh'), optional: true },
+          {
+            key: 'appSecret',
+            label: t('igAppSecret'),
+            placeholder: t('igAppSecretPh'),
+            sensitive: true,
+            optional: true,
+          },
+        ],
+      },
+      {
+        key: 'tiktok',
+        name: 'TikTok',
+        icon: '🎵',
+        color: '#000000',
+        description: t('tiktokDesc'),
+        fields: [
+          {
+            key: 'accessToken',
+            label: t('igAccessToken'),
+            placeholder: t('tiktokAccessTokenPh'),
+            sensitive: true,
+          },
+          { key: 'openId', label: t('tiktokOpenId'), placeholder: t('tiktokOpenIdPh') },
+        ],
+      },
+    ],
+    [t],
+  );
   const [configs, setConfigs] = useState(() => {
     const o = {} as Record<ChannelKey, Record<string, string | boolean> | null>;
-    CHANNELS.forEach((c) => {
-      o[c.key] = null;
+    CHANNEL_KEYS.forEach((k) => {
+      o[k] = null;
     });
     return o;
   });
   const [forms, setForms] = useState(() => {
     const o = {} as Record<ChannelKey, Record<string, string | boolean>>;
-    CHANNELS.forEach((c) => {
-      o[c.key] = { enabled: false };
+    CHANNEL_KEYS.forEach((k) => {
+      o[k] = { enabled: false };
     });
     return o;
   });
   const [dirty, setDirty] = useState(() => {
     const o = {} as Record<ChannelKey, Set<string>>;
-    CHANNELS.forEach((c) => {
-      o[c.key] = new Set();
+    CHANNEL_KEYS.forEach((k) => {
+      o[k] = new Set();
     });
     return o;
   });
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
   const [testing, setTesting] = useState<Record<ChannelKey, boolean>>(
-    Object.fromEntries(CHANNELS.map((c) => [c.key, false])) as Record<ChannelKey, boolean>,
+    Object.fromEntries(CHANNEL_KEYS.map((k) => [k, false])) as Record<ChannelKey, boolean>,
   );
   const [testResults, setTestResults] = useState<Record<ChannelKey, TestResult | null>>(
-    Object.fromEntries(CHANNELS.map((c) => [c.key, null])) as Record<ChannelKey, TestResult | null>,
+    Object.fromEntries(CHANNEL_KEYS.map((k) => [k, null])) as Record<ChannelKey, TestResult | null>,
   );
   const [saving, setSaving] = useState<Record<ChannelKey, boolean>>(
-    Object.fromEntries(CHANNELS.map((c) => [c.key, false])) as Record<ChannelKey, boolean>,
+    Object.fromEntries(CHANNEL_KEYS.map((k) => [k, false])) as Record<ChannelKey, boolean>,
   );
   const [isLoading, setIsLoading] = useState(true);
 
@@ -180,7 +186,7 @@ export default function ChannelSettingsPage() {
       }
       setForms(newForms);
       setDirty(
-        Object.fromEntries(CHANNELS.map((c) => [c.key, new Set<string>()])) as Record<
+        Object.fromEntries(CHANNEL_KEYS.map((k) => [k, new Set<string>()])) as Record<
           ChannelKey,
           Set<string>
         >,
@@ -226,7 +232,7 @@ export default function ChannelSettingsPage() {
 
     setTestResults((prev) => ({
       ...prev,
-      [ch]: res.success && res.data ? res.data : { success: false, error: 'Помилка запиту' },
+      [ch]: res.success && res.data ? res.data : { success: false, error: t('requestError') },
     }));
     setTesting((prev) => ({ ...prev, [ch]: false }));
   };
@@ -254,10 +260,10 @@ export default function ChannelSettingsPage() {
 
     const res = await apiClient.put('/api/v1/admin/channel-settings', { channel: ch, config });
     if (res.success) {
-      toast.success(`${channelDef.name} збережено`);
+      toast.success(t('savedToast', { name: channelDef.name }));
       await loadConfigs();
     } else {
-      toast.error(res.error || `Помилка збереження ${channelDef.name}`);
+      toast.error(res.error || t('saveErrorToast', { name: channelDef.name }));
     }
     setSaving((prev) => ({ ...prev, [ch]: false }));
   };
@@ -272,12 +278,10 @@ export default function ChannelSettingsPage() {
 
   return (
     <div>
-      <h2 className="mb-2 text-xl font-bold">Акаунти соцмереж</h2>
-      <p className="mb-3 text-sm text-[var(--color-text-secondary)]">
-        Підключіть месенджери та соцмережі для публікацій і комунікації з клієнтами.
-      </p>
+      <h2 className="mb-2 text-xl font-bold">{t('title')}</h2>
+      <p className="mb-3 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
       <div className="mb-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-2 text-xs text-[var(--color-text-secondary)]">
-        🛒 Маркетплейси (OLX, Rozetka, Prom.ua, Епіцентр) тепер керуються в окремому розділі —{' '}
+        {t('marketplacesNote')}
         <Link
           href="/admin/marketplaces"
           className="font-medium text-[var(--color-primary)] hover:underline"
@@ -343,7 +347,9 @@ export default function ChannelSettingsPage() {
                       <label className="mb-1 flex items-center gap-1 text-xs font-medium text-[var(--color-text-secondary)]">
                         {field.label}
                         {field.optional && (
-                          <span className="text-[var(--color-text-muted)]">(опц.)</span>
+                          <span className="text-[var(--color-text-muted)]">
+                            {t('optionalLabel')}
+                          </span>
                         )}
                       </label>
                       <div className="relative">
@@ -381,9 +387,9 @@ export default function ChannelSettingsPage() {
                   }`}
                 >
                   {result.success ? (
-                    <span>✅ Підключено: {result.name}</span>
+                    <span>{t('connected', { name: result.name ?? '' })}</span>
                   ) : (
-                    <span>❌ {result.error}</span>
+                    <span>{t('testFailed', { error: result.error ?? '' })}</span>
                   )}
                 </div>
               )}
@@ -398,10 +404,10 @@ export default function ChannelSettingsPage() {
                 >
                   {testing[ch] ? (
                     <>
-                      <Spinner size="sm" /> Перевірка...
+                      <Spinner size="sm" /> {t('checking')}
                     </>
                   ) : (
-                    "Перевірити з'єднання"
+                    t('checkConnection')
                   )}
                 </Button>
                 <Button
@@ -411,10 +417,10 @@ export default function ChannelSettingsPage() {
                 >
                   {saving[ch] ? (
                     <>
-                      <Spinner size="sm" /> Зберігаю...
+                      <Spinner size="sm" /> {t('saving')}
                     </>
                   ) : (
-                    'Зберегти'
+                    t('save')
                   )}
                 </Button>
               </div>

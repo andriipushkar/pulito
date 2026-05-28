@@ -8,11 +8,11 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { serializeRefreshTokenCookie } from '@/utils/cookies';
 import { getClientIp } from '@/utils/request';
 import { env } from '@/config/env';
+import { logAudit } from '@/services/audit';
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
   try {
-    const ip = getClientIp(request);
-
     // Rate limit: 10 register attempts per minute per IP
     const rl = await checkRateLimit(ip, RATE_LIMITS.auth);
     if (!rl.allowed) {
@@ -29,12 +29,21 @@ export async function POST(request: NextRequest) {
 
     const { user, tokens } = await registerUser(parsed.data);
 
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'user',
+      entityId: user.id,
+      details: { action: 'register', method: 'password', hasReferral: !!parsed.data.referralCode },
+      ipAddress: ip,
+    });
+
     const refreshTtl = parseTtlToSeconds(env.JWT_REFRESH_TTL);
-    const response = successResponse(
-      { user, accessToken: tokens.accessToken },
-      201
+    const response = successResponse({ user, accessToken: tokens.accessToken }, 201);
+    response.headers.set(
+      'Set-Cookie',
+      serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl),
     );
-    response.headers.set('Set-Cookie', serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl));
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('Pragma', 'no-cache');
 

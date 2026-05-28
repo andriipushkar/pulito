@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
@@ -27,14 +28,6 @@ const STATUS_COLORS: Record<Dispute['status'], string> = {
   closed: 'bg-gray-100 text-gray-800',
 };
 
-const STATUS_LABELS: Record<Dispute['status'], string> = {
-  open: 'Відкрито',
-  in_review: 'На розгляді',
-  resolved_buyer: 'На користь покупця',
-  resolved_seller: 'На користь продавця',
-  closed: 'Закрито',
-};
-
 const PLATFORM_LABELS: Record<string, string> = {
   olx: '🟢 OLX',
   rozetka: '🟩 Rozetka',
@@ -43,6 +36,14 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 export default function MarketplaceDisputesPage() {
+  const t = useTranslations('admin.marketplaceDisputesPage');
+  const STATUS_LABELS: Record<Dispute['status'], string> = {
+    open: t('statusOpen'),
+    in_review: t('statusInReview'),
+    resolved_buyer: t('statusResolvedBuyer'),
+    resolved_seller: t('statusResolvedSeller'),
+    closed: t('statusClosed'),
+  };
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
@@ -57,10 +58,10 @@ export default function MarketplaceDisputesPage() {
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) setDisputes(res.data.disputes);
-        else toast.error(res.error || 'Не вдалося завантажити спори');
+        else toast.error(res.error || t('loadError'));
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка мережі');
+        if (!cancelled) toast.error(t('networkError'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -68,7 +69,7 @@ export default function MarketplaceDisputesPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadToken]);
+  }, [reloadToken, t]);
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleString('uk-UA', {
@@ -100,23 +101,22 @@ export default function MarketplaceDisputesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Спори на маркетплейсах</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Скарги покупців, які потребують відповіді. Дедлайн позначено червоним.
-          </p>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
+          <p className="mt-1 text-sm text-gray-500">{t('intro')}</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">
-            Всього: {disputes.length} · Відкритих: <strong>{openCount}</strong>
+            {t('stats', { total: disputes.length })}
+            <strong>{openCount}</strong>
             {urgentCount > 0 && (
               <>
                 {' · '}
-                <span className="text-red-600">⚠ Терміново: {urgentCount}</span>
+                <span className="text-red-600">{t('urgentBadge', { count: urgentCount })}</span>
               </>
             )}
           </span>
           <Button size="sm" variant="outline" onClick={refresh}>
-            ↻ Оновити
+            {t('refresh')}
           </Button>
         </div>
       </div>
@@ -125,10 +125,8 @@ export default function MarketplaceDisputesPage() {
         <AdminTableSkeleton rows={5} columns={7} />
       ) : disputes.length === 0 ? (
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-12 text-center text-[var(--color-text-secondary)]">
-          <p className="text-lg">Немає відкритих спорів</p>
-          <p className="mt-1 text-sm">
-            Спори синхронізуються при кожному запиті. Натисніть «Оновити», щоб перезавантажити.
-          </p>
+          <p className="text-lg">{t('empty')}</p>
+          <p className="mt-1 text-sm">{t('emptyHint')}</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -136,25 +134,25 @@ export default function MarketplaceDisputesPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Маркетплейс
+                  {t('colMarketplace')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  ID
+                  {t('colId')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Замовлення
+                  {t('colOrder')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Причина
+                  {t('colReason')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Статус
+                  {t('colStatus')}
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
-                  Сума
+                  {t('colAmount')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Дедлайн
+                  {t('colDeadline')}
                 </th>
               </tr>
             </thead>

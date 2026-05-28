@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -36,6 +37,7 @@ interface EditForm {
 }
 
 export default function AdminBannersPage() {
+  const t = useTranslations('admin.adminBannersPage');
   const [banners, setBanners] = useState<Banner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -68,8 +70,8 @@ export default function AdminBannersPage() {
 
   const toggleActive = async (id: number, isActive: boolean) => {
     const res = await apiClient.put(`/api/v1/admin/banners/${id}`, { isActive: !isActive });
-    if (res.success) toast.success(isActive ? 'Банер вимкнено' : 'Банер увімкнено');
-    else toast.error('Помилка');
+    if (res.success) toast.success(isActive ? t('disabledToast') : t('enabledToast'));
+    else toast.error(t('errorGeneric'));
     loadBanners();
   };
 
@@ -82,8 +84,8 @@ export default function AdminBannersPage() {
     const id = deleteId;
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/banners/${id}`);
-    if (res.success) toast.success('Банер видалено');
-    else toast.error('Помилка видалення');
+    if (res.success) toast.success(t('deletedToast'));
+    else toast.error(t('deleteError'));
     loadBanners();
   };
 
@@ -107,8 +109,8 @@ export default function AdminBannersPage() {
       variantWeight: Math.max(1, Number(editForm.variantWeight) || 1),
     };
     const res = await apiClient.put(`/api/v1/admin/banners/${id}`, payload);
-    if (res.success) toast.success('Банер оновлено');
-    else toast.error(res.error || 'Помилка');
+    if (res.success) toast.success(t('updatedToast'));
+    else toast.error(res.error || t('errorGeneric'));
     setEditingId(null);
     loadBanners();
   };
@@ -129,11 +131,11 @@ export default function AdminBannersPage() {
         headers,
       });
       if (res.ok) {
-        toast.success('Зображення завантажено');
+        toast.success(t('uploadedToast'));
         loadBanners();
-      } else toast.error('Помилка завантаження зображення');
+      } else toast.error(t('uploadError'));
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setUploading(null);
     }
@@ -162,7 +164,7 @@ export default function AdminBannersPage() {
     const res = await apiClient.put('/api/v1/admin/banners/reorder', { orderedIds });
     if (!res.success) {
       setBanners(prevBanners);
-      toast.error(res.error || 'Не вдалося зберегти порядок');
+      toast.error(res.error || t('reorderError'));
       return;
     }
     loadBanners();
@@ -180,10 +182,8 @@ export default function AdminBannersPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold">Банери / Слайдер</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Перетягуйте, щоб змінити порядок. Натисніть на зображення, щоб завантажити нове.
-          </p>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         <div className="flex items-center gap-3">
           <a
@@ -192,7 +192,7 @@ export default function AdminBannersPage() {
             rel="noopener noreferrer"
             className="text-sm text-[var(--color-primary)] hover:underline"
           >
-            Переглянути на сайті ↗
+            {t('viewOnSite')}
           </a>
           <Button
             disabled={isCreating}
@@ -202,19 +202,19 @@ export default function AdminBannersPage() {
               setIsCreating(true);
               try {
                 const res = await apiClient.post('/api/v1/admin/banners', {
-                  title: 'Новий банер',
+                  title: t('newBanner'),
                   imageDesktop: '',
                 });
                 if (res.success) {
-                  toast.success('Банер створено — додайте зображення та натисніть «Редагувати»');
+                  toast.success(t('createdToast'));
                   loadBanners();
-                } else toast.error('Помилка створення');
+                } else toast.error(t('createError'));
               } finally {
                 setIsCreating(false);
               }
             }}
           >
-            + Додати
+            {t('add')}
           </Button>
         </div>
       </div>
@@ -243,18 +243,18 @@ export default function AdminBannersPage() {
                 {b.imageDesktop ? (
                   <Image
                     src={b.imageDesktop}
-                    alt={b.title || 'Банер'}
+                    alt={b.title || t('imageAlt')}
                     fill
                     sizes="128px"
                     className="object-cover"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-secondary)]">
-                    Немає зобр.
+                    {t('noImage')}
                   </div>
                 )}
                 <label className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/0 text-xs text-transparent transition-all hover:bg-black/40 hover:text-white">
-                  {uploading === b.id ? '...' : 'Завантажити'}
+                  {uploading === b.id ? t('uploading') : t('upload')}
                   <input
                     type="file"
                     accept="image/*"
@@ -272,25 +272,25 @@ export default function AdminBannersPage() {
                 <div className="flex-1 space-y-2">
                   <div className="grid gap-2 sm:grid-cols-2">
                     <input
-                      placeholder="Назва"
+                      placeholder={t('titlePh')}
                       value={editForm.title}
                       onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                       className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                     />
                     <input
-                      placeholder="Підзаголовок"
+                      placeholder={t('subtitlePh')}
                       value={editForm.subtitle}
                       onChange={(e) => setEditForm({ ...editForm, subtitle: e.target.value })}
                       className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                     />
                     <input
-                      placeholder="Посилання"
+                      placeholder={t('linkPh')}
                       value={editForm.buttonLink}
                       onChange={(e) => setEditForm({ ...editForm, buttonLink: e.target.value })}
                       className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                     />
                     <input
-                      placeholder="Текст кнопки"
+                      placeholder={t('buttonTextPh')}
                       value={editForm.buttonText}
                       onChange={(e) => setEditForm({ ...editForm, buttonText: e.target.value })}
                       className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
@@ -299,7 +299,7 @@ export default function AdminBannersPage() {
                   <div className="grid gap-2 sm:grid-cols-3">
                     <input
                       type="number"
-                      placeholder="Порядок"
+                      placeholder={t('sortOrderPh')}
                       value={editForm.sortOrder}
                       onChange={(e) =>
                         setEditForm({ ...editForm, sortOrder: Number(e.target.value) })
@@ -307,43 +307,43 @@ export default function AdminBannersPage() {
                       className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                     />
                     <input
-                      placeholder="A/B група (порожньо = немає)"
+                      placeholder={t('variantGroupPh')}
                       value={editForm.variantGroup}
                       onChange={(e) => setEditForm({ ...editForm, variantGroup: e.target.value })}
-                      title="Банери з однаковою групою показуються рандомно з вагою variantWeight"
+                      title={t('variantGroupTitle')}
                       className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                     />
                     <input
                       type="number"
-                      placeholder="Вага варіанту"
+                      placeholder={t('variantWeightPh')}
                       min={1}
                       value={editForm.variantWeight}
                       onChange={(e) =>
                         setEditForm({ ...editForm, variantWeight: Number(e.target.value) })
                       }
-                      title="Вище = частіше показується серед варіантів цієї групи"
+                      title={t('variantWeightTitle')}
                       className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                     />
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-[var(--color-text-secondary)]">
-                      📊 {b.impressions} показів · {b.clicks} кліків
+                      {t('statsLine', { impressions: b.impressions, clicks: b.clicks })}
                       {b.impressions > 0 && (
                         <span className="ml-1">
-                          ({((b.clicks / b.impressions) * 100).toFixed(1)}% CTR)
+                          {t('ctrSuffix', { ctr: ((b.clicks / b.impressions) * 100).toFixed(1) })}
                         </span>
                       )}
                     </span>
                     <div className="flex gap-2">
                       <button
-                        aria-label="Зберегти банер"
+                        aria-label={t('saveAria')}
                         onClick={() => saveEdit(b.id)}
                         className="rounded-[var(--radius)] bg-[var(--color-primary)] p-1.5 text-white"
                       >
                         <Check size={16} />
                       </button>
                       <button
-                        aria-label="Скасувати редагування"
+                        aria-label={t('cancelEditAria')}
                         onClick={() => setEditingId(null)}
                         className="rounded-[var(--radius)] border border-[var(--color-border)] p-1.5"
                       >
@@ -357,25 +357,25 @@ export default function AdminBannersPage() {
                 <div className="flex flex-1 items-center gap-4">
                   <span className="text-sm text-[var(--color-text-secondary)]">#{b.sortOrder}</span>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">{b.title || 'Без назви'}</p>
+                    <p className="text-sm font-medium">{b.title || t('untitled')}</p>
                     <p className="text-xs text-[var(--color-text-secondary)]">
-                      {b.buttonLink || 'Без посилання'}
+                      {b.buttonLink || t('noLink')}
                     </p>
                   </div>
                   <button
                     onClick={() => startEdit(b)}
                     className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
                   >
-                    Редагувати
+                    {t('edit')}
                   </button>
                   <button
                     onClick={() => toggleActive(b.id, b.isActive)}
                     className={`rounded-full px-3 py-1 text-xs ${b.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                   >
-                    {b.isActive ? 'Активний' : 'Вимкнено'}
+                    {b.isActive ? t('statusActive') : t('statusInactive')}
                   </button>
                   <button
-                    aria-label="Видалити банер"
+                    aria-label={t('deleteAria')}
                     onClick={() => deleteBanner(b.id)}
                     className="p-1 text-[var(--color-danger)]"
                   >
@@ -392,11 +392,8 @@ export default function AdminBannersPage() {
             <span className="text-3xl" aria-hidden="true">
               🖼️
             </span>
-            <p className="text-sm font-medium">Банерів ще немає</p>
-            <p className="max-w-md text-xs">
-              Банери — це слайди у верхній частині головної сторінки. Додайте перший, щоб привернути
-              увагу до акцій.
-            </p>
+            <p className="text-sm font-medium">{t('emptyTitle')}</p>
+            <p className="max-w-md text-xs">{t('emptyHint')}</p>
           </div>
         )}
       </div>
@@ -406,7 +403,7 @@ export default function AdminBannersPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={executeDeleteBanner}
         variant="danger"
-        message="Видалити банер?"
+        message={t('deleteMsg')}
       />
     </div>
   );

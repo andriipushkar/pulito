@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { formatPrice } from '@/utils/format';
 import Spinner from '@/components/ui/Spinner';
@@ -40,6 +41,7 @@ interface BoardResponse {
 }
 
 export default function AdminOrdersBoardPage() {
+  const t = useTranslations('admin.ordersBoard');
   const [orders, setOrders] = useState<BoardOrder[]>([]);
   const [boardMeta, setBoardMeta] = useState<{
     total: number;
@@ -99,7 +101,10 @@ export default function AdminOrdersBoardPage() {
     const allowed = ALLOWED_ORDER_TRANSITIONS[order.status] || [];
     if (!allowed.includes(target)) {
       toast.error(
-        `Неможливо: "${ORDER_STATUS_LABELS[order.status]}" → "${ORDER_STATUS_LABELS[target]}"`,
+        t('transitionForbidden', {
+          from: ORDER_STATUS_LABELS[order.status],
+          to: ORDER_STATUS_LABELS[target],
+        }),
       );
       return;
     }
@@ -114,9 +119,11 @@ export default function AdminOrdersBoardPage() {
       status: target,
     });
     if (res.success) {
-      toast.success(`#${order.orderNumber} → ${ORDER_STATUS_LABELS[target]}`);
+      toast.success(
+        t('updateSuccess', { number: order.orderNumber, to: ORDER_STATUS_LABELS[target] }),
+      );
     } else {
-      toast.error(res.error || 'Не вдалося оновити статус');
+      toast.error(res.error || t('updateFailed'));
       setOrders((all) =>
         all.map((o) => (o.id === order.id ? { ...o, status: originalStatus } : o)),
       );
@@ -135,36 +142,33 @@ export default function AdminOrdersBoardPage() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Дошка замовлень</h1>
-          <p className="text-xs text-[var(--color-text-secondary)]">
-            Перетягуйте картки між колонками щоб змінити статус. Дозволені переходи підсвічуються
-            зеленим при перетягуванні.
-          </p>
+          <h1 className="text-xl font-bold">{t('title')}</h1>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         <div className="flex gap-2">
           <Link
             href="/admin/orders"
             className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-bg-secondary)]"
           >
-            Таблиця
+            {t('viewTable')}
           </Link>
           <button
             onClick={fetchOrders}
             className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-bg-secondary)]"
           >
-            Оновити
+            {t('refresh')}
           </button>
         </div>
       </div>
 
       {boardMeta?.truncated && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          ⚠ Активних замовлень {boardMeta.total}, показано лише перші {boardMeta.cap} (найновіші за
-          датою). Решта приховані щоб дошка лишалась читабельною — користуйтесь{' '}
+          {t('truncatedPrefix')} {boardMeta.total}, {t('truncatedShown')} {boardMeta.cap}{' '}
+          {t('truncatedSuffix')}{' '}
           <Link href="/admin/orders" className="font-semibold underline">
-            Таблицею
+            {t('truncatedTableLink')}
           </Link>{' '}
-          для повного списку.
+          {t('truncatedTail')}
         </div>
       )}
 
@@ -208,7 +212,7 @@ export default function AdminOrdersBoardPage() {
               <div className="flex-1 space-y-2 overflow-y-auto p-2">
                 {cards.length === 0 && (
                   <p className="py-6 text-center text-xs text-[var(--color-text-secondary)]">
-                    Порожньо
+                    {t('empty')}
                   </p>
                 )}
                 {cards.map((order) => (
@@ -236,7 +240,7 @@ export default function AdminOrdersBoardPage() {
                     </p>
                     {order.trackingNumber && (
                       <p className="mt-1 truncate text-[10px] text-violet-700">
-                        ТТН: {order.trackingNumber}
+                        {t('tracking')} {order.trackingNumber}
                       </p>
                     )}
                     <p className="mt-1 text-[10px] text-[var(--color-text-secondary)]">

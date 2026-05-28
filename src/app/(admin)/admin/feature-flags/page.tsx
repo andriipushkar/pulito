@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -21,6 +22,7 @@ interface FeatureFlag {
 }
 
 export default function AdminFeatureFlagsPage() {
+  const t = useTranslations('admin.adminFeatureFlagsPage');
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -54,7 +56,7 @@ export default function AdminFeatureFlagsPage() {
 
   const handleCreate = async () => {
     if (!form.key) {
-      toast.error("Ключ обов'язковий");
+      toast.error(t('validateKey'));
       return;
     }
 
@@ -73,7 +75,7 @@ export default function AdminFeatureFlagsPage() {
     });
 
     if (res.success) {
-      toast.success('Фічефлаг створено');
+      toast.success(t('createdToast'));
       setShowForm(false);
       setForm({
         key: '',
@@ -85,7 +87,7 @@ export default function AdminFeatureFlagsPage() {
       });
       loadFlags();
     } else {
-      toast.error(res.error || 'Помилка створення');
+      toast.error(res.error || t('createError'));
     }
   };
 
@@ -99,12 +101,7 @@ export default function AdminFeatureFlagsPage() {
     const turningOff = flag.isEnabled;
     const isCritical = CRITICAL_FLAG_PATTERNS.test(flag.key);
     if (turningOff && isCritical) {
-      const ok = window.confirm(
-        `Ви збираєтесь ВИМКНУТИ критичний фічефлаг «${flag.key}».\n\n` +
-          `Це може зупинити частину функціоналу прод-сайту негайно (платежі, ` +
-          `checkout, синхронізація з маркетплейсами тощо).\n\n` +
-          `Точно продовжити?`,
-      );
+      const ok = window.confirm(t('criticalConfirm', { key: flag.key }));
       if (!ok) return;
     }
     const res = await apiClient.patch(`/api/v1/admin/feature-flags/${flag.key}`, {
@@ -115,13 +112,13 @@ export default function AdminFeatureFlagsPage() {
       expectedUpdatedAt: flag.updatedAt,
     });
     if (res.success) {
-      toast.success(flag.isEnabled ? 'Фічефлаг вимкнено' : 'Фічефлаг увімкнено');
+      toast.success(flag.isEnabled ? t('disabledToast') : t('enabledToast'));
       loadFlags();
     } else if (res.statusCode === 409) {
-      toast.error('Цей фічефлаг змінив інший адмін — перезавантажте сторінку');
+      toast.error(t('conflictToast'));
       loadFlags();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
@@ -146,9 +143,9 @@ export default function AdminFeatureFlagsPage() {
         : [],
     });
     if (res.success) {
-      toast.success('Фічефлаг оновлено');
+      toast.success(t('updatedToast'));
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
     setEditingKey(null);
     loadFlags();
@@ -159,8 +156,8 @@ export default function AdminFeatureFlagsPage() {
     const key = deleteKey;
     setDeleteKey(null);
     const res = await apiClient.delete(`/api/v1/admin/feature-flags/${key}`);
-    if (res.success) toast.success('Фічефлаг видалено');
-    else toast.error('Помилка видалення');
+    if (res.success) toast.success(t('deletedToast'));
+    else toast.error(t('deleteError'));
     loadFlags();
   };
 
@@ -171,9 +168,9 @@ export default function AdminFeatureFlagsPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Фічефлаги</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Скасувати' : '+ Додати фічефлаг'}
+          {showForm ? t('cancel') : t('addBtn')}
         </Button>
       </div>
 
@@ -181,22 +178,22 @@ export default function AdminFeatureFlagsPage() {
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Input
-              label="Ключ"
+              label={t('keyLabel')}
               value={form.key}
               onChange={(e) => setForm({ ...form, key: e.target.value })}
-              placeholder="new-checkout-flow"
+              placeholder={t('keyPh')}
             />
             <Input
-              label="Опис"
+              label={t('descLabel')}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Новий флоу оформлення"
+              placeholder={t('descPh')}
             />
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium">
-                Розкатка: {form.rolloutPercent}%
+                {t('rolloutLabel', { percent: form.rolloutPercent })}
               </label>
               <input
                 type="range"
@@ -208,16 +205,16 @@ export default function AdminFeatureFlagsPage() {
               />
             </div>
             <Input
-              label="Ролі (через кому)"
+              label={t('rolesLabel')}
               value={form.targetRoles}
               onChange={(e) => setForm({ ...form, targetRoles: e.target.value })}
-              placeholder="admin, wholesaler"
+              placeholder={t('rolesPh')}
             />
             <Input
-              label="ID користувачів (через кому)"
+              label={t('userIdsLabel')}
               value={form.targetUserIds}
               onChange={(e) => setForm({ ...form, targetUserIds: e.target.value })}
-              placeholder="1, 42, 100"
+              placeholder={t('userIdsPh')}
             />
           </div>
           <div className="mt-4 flex items-center gap-4">
@@ -227,10 +224,10 @@ export default function AdminFeatureFlagsPage() {
                 checked={form.isEnabled}
                 onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })}
               />
-              Увімкнено
+              {t('enabled')}
             </label>
             <div className="flex-1" />
-            <Button onClick={handleCreate}>Створити</Button>
+            <Button onClick={handleCreate}>{t('create')}</Button>
           </div>
         </div>
       )}
@@ -244,14 +241,14 @@ export default function AdminFeatureFlagsPage() {
             {editingKey === flag.key ? (
               <div className="space-y-3">
                 <Input
-                  label="Опис"
+                  label={t('descLabel')}
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                 />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div>
                     <label className="mb-1 block text-xs font-medium">
-                      Розкатка: {editRollout}%
+                      {t('rolloutLabel', { percent: editRollout })}
                     </label>
                     <input
                       type="range"
@@ -263,19 +260,19 @@ export default function AdminFeatureFlagsPage() {
                     />
                   </div>
                   <Input
-                    label="Ролі"
+                    label={t('editLabelRoles')}
                     value={editRoles}
                     onChange={(e) => setEditRoles(e.target.value)}
                   />
                   <Input
-                    label="User IDs"
+                    label={t('editLabelUserIds')}
                     value={editUserIds}
                     onChange={(e) => setEditUserIds(e.target.value)}
                   />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button onClick={() => setEditingKey(null)}>Скасувати</Button>
-                  <Button onClick={() => saveEdit(flag.key)}>Зберегти</Button>
+                  <Button onClick={() => setEditingKey(null)}>{t('cancel')}</Button>
+                  <Button onClick={() => saveEdit(flag.key)}>{t('save')}</Button>
                 </div>
               </div>
             ) : (
@@ -295,29 +292,27 @@ export default function AdminFeatureFlagsPage() {
                 </span>
                 {flag.targetRoles.length > 0 && (
                   <span className="text-xs text-[var(--color-text-secondary)]">
-                    Ролі: {flag.targetRoles.join(', ')}
+                    {t('rolesPrefix')} {flag.targetRoles.join(', ')}
                   </span>
                 )}
                 <button
                   onClick={() => startEdit(flag)}
                   className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
                 >
-                  Редагувати
+                  {t('edit')}
                 </button>
                 <button
                   onClick={() => setDeleteKey(flag.key)}
                   className="text-xs text-red-500 hover:text-red-700"
                 >
-                  Видалити
+                  {t('delete')}
                 </button>
               </div>
             )}
           </div>
         ))}
         {flags.length === 0 && (
-          <div className="py-8 text-center text-[var(--color-text-secondary)]">
-            Фічефлагів немає
-          </div>
+          <div className="py-8 text-center text-[var(--color-text-secondary)]">{t('empty')}</div>
         )}
       </div>
 
@@ -326,7 +321,7 @@ export default function AdminFeatureFlagsPage() {
         onClose={() => setDeleteKey(null)}
         onConfirm={executeDelete}
         variant="danger"
-        message="Видалити фічефлаг?"
+        message={t('deleteMsg')}
       />
     </div>
   );

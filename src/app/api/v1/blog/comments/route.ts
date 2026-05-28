@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createComment, BlogCommentError } from '@/services/blog-comments';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
@@ -8,25 +9,11 @@ import { prisma } from '@/lib/prisma';
 
 const submitSchema = z.object({
   postId: z.number().int().positive(),
-  authorName: z.string().min(1).max(100),
-  authorEmail: z.string().email().max(255).optional().nullable(),
-  content: z.string().min(2).max(2000),
+  authorName: z.string().trim().min(1).max(100),
+  authorEmail: z.string().trim().toLowerCase().email().max(255).optional().nullable(),
+  content: z.string().trim().min(2).max(2000),
   parentId: z.number().int().positive().optional().nullable(),
 });
-
-// Naive in-memory rate limit per IP. Production should use Redis, but this
-// catches the obvious spam-bot case (1 IP firing 50 comments in a minute).
-const RATE_BUCKET = new Map<string, number[]>();
-const RATE_WINDOW_MS = 60_000;
-const RATE_MAX = 5;
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const hits = (RATE_BUCKET.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  hits.push(now);
-  RATE_BUCKET.set(ip, hits);
-  return hits.length > RATE_MAX;
-}
 
 // POST — submit a new comment from the public storefront. Defaults to
 // status=pending so admins must approve before it shows. Public route, no
@@ -34,8 +21,11 @@ function isRateLimited(ip: string): boolean {
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
-    if (isRateLimited(ip)) {
-      return errorResponse('Забагато коментарів за хвилину — спробуйте пізніше', 429);
+    // Redis-backed rate-limit shared across PM2 workers — the previous
+    // in-memory Map died on every deploy and didn't dedupe between forks.
+    const rl = await checkRateLimit(`ip:${ip}`, RATE_LIMITS.reviews);
+    if (!rl.allowed) {
+      return errorResponse('Забагато коментарів — спробуйте пізніше', 429);
     }
 
     const body = await request.json();
@@ -66,7 +56,10 @@ export async function GET(request: NextRequest) {
   try {
     const postIdRaw = request.nextUrl.searchParams.get('postId');
     const postId = Number(postIdRaw);
-    if (!postIdRaw || isNaN(postId)) return errorResponse('Очікувався ?postId=', 400);
+    // `isNaN(-5) === false` — guard with positive-integer check.
+    if (!postIdRaw || !Number.isFinite(postId) || postId <= 0 || !Number.isInteger(postId)) {
+      return errorResponse('Очікувався ?postId=', 400);
+    }
 
     const comments = await prisma.blogComment.findMany({
       where: { postId, status: 'approved' },

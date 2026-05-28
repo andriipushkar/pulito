@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 
@@ -24,13 +25,6 @@ interface Comment {
   _count?: { replies: number };
 }
 
-const STATUS_LABEL: Record<Status, string> = {
-  pending: 'Очікує модерації',
-  approved: 'Схвалено',
-  rejected: 'Відхилено',
-  spam: 'Спам',
-};
-
 const STATUS_COLOR: Record<Status, string> = {
   pending: 'bg-amber-100 text-amber-700',
   approved: 'bg-emerald-100 text-emerald-700',
@@ -39,6 +33,13 @@ const STATUS_COLOR: Record<Status, string> = {
 };
 
 export default function BlogCommentsModerationPage() {
+  const t = useTranslations('admin.blogCommentsPage');
+  const STATUS_LABEL: Record<Status, string> = {
+    pending: t('statusPending'),
+    approved: t('statusApproved'),
+    rejected: t('statusRejected'),
+    spam: t('statusSpam'),
+  };
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<Status | ''>('pending');
@@ -62,30 +63,36 @@ export default function BlogCommentsModerationPage() {
     const res = await apiClient.put(`/api/v1/admin/blog-comments/${id}`, { action });
     setBusyId(null);
     if (res.success) {
-      toast.success(action === 'approve' ? 'Схвалено' : action === 'spam' ? 'Помічено як спам' : 'Відхилено');
+      toast.success(
+        action === 'approve'
+          ? t('approvedToast')
+          : action === 'spam'
+            ? t('spamToast')
+            : t('rejectedToast'),
+      );
       load();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
   const remove = async (id: number) => {
-    if (!window.confirm('Видалити коментар повністю?')) return;
+    if (!window.confirm(t('confirmDelete'))) return;
     setBusyId(id);
     const res = await apiClient.delete(`/api/v1/admin/blog-comments/${id}`);
     setBusyId(null);
     if (res.success) {
-      toast.success('Видалено');
+      toast.success(t('deletedToast'));
       load();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Коментарі блогу</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <div className="flex gap-2">
           {(['pending', 'approved', 'rejected', 'spam', ''] as const).map((s) => (
             <button
@@ -98,16 +105,16 @@ export default function BlogCommentsModerationPage() {
                   : 'border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]'
               }`}
             >
-              {s ? STATUS_LABEL[s] : 'Всі'}
+              {s ? STATUS_LABEL[s] : t('filterAll')}
             </button>
           ))}
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-[var(--color-text-secondary)]">Завантаження…</p>}
+      {isLoading && <p className="text-sm text-[var(--color-text-secondary)]">{t('loading')}</p>}
       {!isLoading && comments.length === 0 && (
         <p className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-          Коментарів немає
+          {t('empty')}
         </p>
       )}
 
@@ -122,7 +129,9 @@ export default function BlogCommentsModerationPage() {
                 {STATUS_LABEL[c.status]}
               </span>
               <strong>{c.authorName}</strong>
-              {c.authorEmail && <span className="text-[var(--color-text-secondary)]">{c.authorEmail}</span>}
+              {c.authorEmail && (
+                <span className="text-[var(--color-text-secondary)]">{c.authorEmail}</span>
+              )}
               <span className="text-[var(--color-text-secondary)]">
                 {new Date(c.createdAt).toLocaleString('uk-UA')}
               </span>
@@ -144,7 +153,7 @@ export default function BlogCommentsModerationPage() {
             <div className="mt-3 flex flex-wrap gap-2">
               {c.status !== 'approved' && (
                 <Button size="sm" onClick={() => act(c.id, 'approve')} disabled={busyId === c.id}>
-                  ✓ Схвалити
+                  {t('approve')}
                 </Button>
               )}
               {c.status !== 'rejected' && (
@@ -154,7 +163,7 @@ export default function BlogCommentsModerationPage() {
                   onClick={() => act(c.id, 'reject')}
                   disabled={busyId === c.id}
                 >
-                  ✗ Відхилити
+                  {t('reject')}
                 </Button>
               )}
               {c.status !== 'spam' && (
@@ -164,11 +173,16 @@ export default function BlogCommentsModerationPage() {
                   onClick={() => act(c.id, 'spam')}
                   disabled={busyId === c.id}
                 >
-                  🛑 Спам
+                  {t('spam')}
                 </Button>
               )}
-              <Button size="sm" variant="danger" onClick={() => remove(c.id)} disabled={busyId === c.id}>
-                🗑 Видалити
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => remove(c.id)}
+                disabled={busyId === c.id}
+              >
+                {t('delete')}
               </Button>
             </div>
           </div>

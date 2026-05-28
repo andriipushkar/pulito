@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { formatPrice } from '@/utils/format';
 import Spinner from '@/components/ui/Spinner';
@@ -36,6 +37,7 @@ const PLATFORM_LABEL: Record<string, string> = {
 };
 
 export default function PricingParityPage() {
+  const t = useTranslations('admin.pricingParity');
   const [report, setReport] = useState<ParityReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'error' | 'stale'>('all');
@@ -57,8 +59,7 @@ export default function PricingParityPage() {
     );
   }
 
-  if (!report)
-    return <p className="text-sm text-[var(--color-danger)]">Не вдалося завантажити звіт</p>;
+  if (!report) return <p className="text-sm text-[var(--color-danger)]">{t('loadError')}</p>;
 
   const filtered = report.rows.filter((r) => filter === 'all' || r.issue === filter);
 
@@ -70,13 +71,10 @@ export default function PricingParityPage() {
             href="/admin/marketplaces"
             className="text-sm text-[var(--color-primary)] hover:underline"
           >
-            ← Маркетплейси
+            {t('backToMarketplaces')}
           </Link>
-          <h2 className="mt-1 text-xl font-bold">Pricing Parity</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Listings де ціна на маркетплейсі може відрізнятись від сайту (sync помилки або
-            застарілі).
-          </p>
+          <h2 className="mt-1 text-xl font-bold">{t('title')}</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
       </div>
 
@@ -86,38 +84,38 @@ export default function PricingParityPage() {
           className={`rounded-xl bg-slate-50 px-4 py-3 text-left transition-all hover:scale-[1.02] hover:shadow-md ${filter === 'all' ? 'ring-2 ring-[var(--color-primary)]' : ''}`}
         >
           <p className="text-2xl font-bold text-slate-700">{report.total}</p>
-          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Усі проблеми</p>
+          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{t('filterAll')}</p>
         </button>
         <button
           onClick={() => setFilter('error')}
           className={`rounded-xl bg-red-50 px-4 py-3 text-left transition-all hover:scale-[1.02] hover:shadow-md ${filter === 'error' ? 'ring-2 ring-[var(--color-primary)]' : ''}`}
         >
           <p className="text-2xl font-bold text-red-700">{report.withErrors}</p>
-          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Sync помилки</p>
+          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{t('filterErrors')}</p>
         </button>
         <button
           onClick={() => setFilter('stale')}
           className={`rounded-xl bg-amber-50 px-4 py-3 text-left transition-all hover:scale-[1.02] hover:shadow-md ${filter === 'stale' ? 'ring-2 ring-[var(--color-primary)]' : ''}`}
         >
           <p className="text-2xl font-bold text-amber-700">{report.stale}</p>
-          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Застарілі &gt;7 днів</p>
+          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{t('filterStale')}</p>
         </button>
       </div>
 
       {filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--color-border)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-          🎉 Усі listings синхронізовано вчасно. Pricing parity OK.
+          {t('empty')}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-bg-secondary)] text-xs uppercase">
               <tr>
-                <th className="px-3 py-2 text-left">Платформа</th>
-                <th className="px-3 py-2 text-left">Товар</th>
-                <th className="px-3 py-2 text-right">Ціна сайту</th>
-                <th className="px-3 py-2 text-left">Sync</th>
-                <th className="px-3 py-2 text-left">Проблема</th>
+                <th className="px-3 py-2 text-left">{t('colPlatform')}</th>
+                <th className="px-3 py-2 text-left">{t('colProduct')}</th>
+                <th className="px-3 py-2 text-right">{t('colSitePrice')}</th>
+                <th className="px-3 py-2 text-left">{t('colSync')}</th>
+                <th className="px-3 py-2 text-left">{t('colIssue')}</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
@@ -143,7 +141,7 @@ export default function PricingParityPage() {
                     {formatPrice(row.sitePrice)}
                   </td>
                   <td className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                    {row.syncedAt ? new Date(row.syncedAt).toLocaleString('uk-UA') : '— ніколи —'}
+                    {row.syncedAt ? new Date(row.syncedAt).toLocaleString('uk-UA') : t('syncNever')}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {row.lastError ? (
@@ -152,7 +150,7 @@ export default function PricingParityPage() {
                         {row.lastError.length > 40 ? '…' : ''}
                       </span>
                     ) : (
-                      <span className="text-amber-700">🟡 Не синхронізовано &gt;7 днів</span>
+                      <span className="text-amber-700">{t('issueStale')}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right">

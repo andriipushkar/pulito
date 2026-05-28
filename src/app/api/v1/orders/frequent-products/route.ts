@@ -5,7 +5,10 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 
 export const GET = withAuth(async (request: NextRequest, { user }) => {
   try {
-    const limit = Number(request.nextUrl.searchParams.get('limit')) || 6;
+    // Clamp limit — without this `?limit=-5` reaches Prisma `take: -5` which
+    // reverses the order rather than capping it.
+    const raw = Number(request.nextUrl.searchParams.get('limit'));
+    const limit = Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 50) : 6;
 
     const items = await prisma.orderItem.groupBy({
       by: ['productId', 'productCode', 'productName'],

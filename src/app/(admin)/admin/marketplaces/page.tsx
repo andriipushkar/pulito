@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import type { TabKey } from './_shared';
 import { ProductsTab } from './_components/ProductsTab';
@@ -19,6 +20,7 @@ function readTabFromUrl(param: string | null): TabKey {
 }
 
 export default function MarketplacesPage() {
+  const t = useTranslations('admin.marketplacesPage');
   // Read initial tab from ?tab= on the client. SSR runs with window
   // undefined and falls back to 'products'; a quick client-side correction
   // in useEffect below switches if the URL says otherwise (avoids forcing
@@ -95,21 +97,19 @@ export default function MarketplacesPage() {
   }, [tab]);
 
   const tabs: { key: TabKey; label: string; badge?: number }[] = [
-    { key: 'products', label: 'Публікація товарів' },
-    { key: 'history', label: 'Історія' },
-    { key: 'messages', label: 'Повідомлення', badge: messageCount },
-    { key: 'analytics', label: 'Аналітика' },
-    { key: 'settings', label: 'Налаштування API' },
+    { key: 'products', label: t('tabProducts') },
+    { key: 'history', label: t('tabHistory') },
+    { key: 'messages', label: t('tabMessages'), badge: messageCount },
+    { key: 'analytics', label: t('tabAnalytics') },
+    { key: 'settings', label: t('tabSettings') },
   ];
 
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold">Маркетплейси</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Публікуйте товари на OLX, Rozetka, Prom.ua та Epicentr K
-          </p>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         {/* Header sub-nav: most-used surfaced, rest tucked into ⋯ menu so
             the header stops looking like a wall of buttons. */}
@@ -118,25 +118,25 @@ export default function MarketplacesPage() {
             href="/admin/marketplaces/categories"
             className="rounded border border-[var(--color-border)] px-3 py-1.5 hover:bg-[var(--color-bg-secondary)]"
           >
-            Mapping категорій
+            {t('navCategories')}
           </Link>
           <Link
             href="/admin/marketplaces/returns"
             className="rounded border border-[var(--color-border)] px-3 py-1.5 hover:bg-[var(--color-bg-secondary)]"
           >
-            Повернення
+            {t('navReturns')}
           </Link>
           <Link
             href="/admin/marketplaces/pick-list"
             className="rounded border border-[var(--color-border)] px-3 py-1.5 hover:bg-[var(--color-bg-secondary)]"
           >
-            Pick-list
+            {t('navPickList')}
           </Link>
           <button
             onClick={() => setCompareOpen(true)}
             className="rounded border border-[var(--color-border)] px-3 py-1.5 hover:bg-[var(--color-bg-secondary)]"
           >
-            ⚖️ Порівняти
+            {t('navCompare')}
           </button>
           <MoreMenu />
         </div>
@@ -149,16 +149,16 @@ export default function MarketplacesPage() {
       <AttentionPanel />
 
       <div className="mb-6 flex gap-1 rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-1">
-        {tabs.map((t) => (
+        {tabs.map((tabItem) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`relative rounded-[var(--radius)] px-4 py-2 text-sm font-medium transition-colors ${tab === t.key ? 'bg-[var(--color-bg)] shadow-sm' : 'text-[var(--color-text-secondary)]'}`}
+            key={tabItem.key}
+            onClick={() => setTab(tabItem.key)}
+            className={`relative rounded-[var(--radius)] px-4 py-2 text-sm font-medium transition-colors ${tab === tabItem.key ? 'bg-[var(--color-bg)] shadow-sm' : 'text-[var(--color-text-secondary)]'}`}
           >
-            {t.label}
-            {t.badge ? (
+            {tabItem.label}
+            {tabItem.badge ? (
               <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                {t.badge > 99 ? '99+' : t.badge}
+                {tabItem.badge > 99 ? '99+' : tabItem.badge}
               </span>
             ) : null}
           </button>
@@ -176,6 +176,7 @@ export default function MarketplacesPage() {
 
 /** Overflow menu for less-frequent marketplace pages. Closes on outside click. */
 function MoreMenu() {
+  const t = useTranslations('admin.marketplacesPage');
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -192,9 +193,9 @@ function MoreMenu() {
     // Disputes / Pricing parity / Repricing now live in <AttentionPanel /> so
     // they surface with live counts above the tabs. Keeping them out of this
     // overflow menu prevents the same destination appearing twice.
-    { href: '/admin/marketplaces/buyer', label: 'Картка покупця', icon: '👤' },
-    { href: '/admin/marketplaces/audit', label: 'Webhook журнал', icon: '📜' },
-    { href: '/admin/marketplaces/help', label: 'Довідка', icon: '❓' },
+    { href: '/admin/marketplaces/buyer', label: t('moreBuyer'), icon: '👤' },
+    { href: '/admin/marketplaces/audit', label: t('moreAudit'), icon: '📜' },
+    { href: '/admin/marketplaces/help', label: t('moreHelp'), icon: '❓' },
   ];
 
   return (
@@ -205,7 +206,7 @@ function MoreMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        Інше ⋯
+        {t('moreMenu')}
       </button>
       {open && (
         <div className="absolute right-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
@@ -239,6 +240,7 @@ function MoreMenu() {
  * to do" signal instead of an unexplained absence.
  */
 function AttentionPanel() {
+  const t = useTranslations('admin.marketplacesPage');
   const [disputes, setDisputes] = useState<number | null>(null);
   const [parity, setParity] = useState<number | null>(null);
 
@@ -265,36 +267,36 @@ function AttentionPanel() {
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
       <span className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)]">
-        Потребує уваги:
+        {t('attentionLabel')}
       </span>
       {allClear ? (
         <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs text-green-700">
-          ✓ Все ок
+          {t('allClear')}
         </span>
       ) : (
         <>
           <AttentionPill
             href="/admin/marketplaces/disputes"
-            label="Спори"
+            label={t('pillDisputes')}
             count={disputes}
             tone="danger"
-            title="Відкриті спори клієнтів — потребують відповіді"
+            title={t('pillDisputesTitle')}
           />
           <AttentionPill
             href="/admin/marketplaces/pricing-parity"
-            label="Розбіжності цін"
+            label={t('pillParity')}
             count={parity}
             tone="warn"
-            title="Лістинги з відстайлою або несинхронізованою ціною"
+            title={t('pillParityTitle')}
           />
         </>
       )}
       <Link
         href="/admin/marketplaces/repricing"
         className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
-        title="Динамічне ціноутворення на маркетплейсах"
+        title={t('linkRepricingTitle')}
       >
-        Repricing →
+        {t('linkRepricing')}
       </Link>
     </div>
   );

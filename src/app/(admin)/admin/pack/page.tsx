@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import { formatPrice } from '@/utils/format';
@@ -37,6 +38,7 @@ interface PackOrder {
  * - Touch-friendly buttons for tablets
  */
 export default function PackPage() {
+  const t = useTranslations('admin.packPage');
   const [orders, setOrders] = useState<PackOrder[]>([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [picked, setPicked] = useState<Set<number>>(new Set());
@@ -121,24 +123,22 @@ export default function PackPage() {
       return false;
     });
     if (!item) {
-      toast.error(`Не знайдено товар з кодом "${v}"`);
+      toast.error(t('notFoundMsg', { code: v }));
       return;
     }
     if (picked.has(item.id)) {
-      toast.info(`${item.productName} вже відмічено`);
+      toast.info(t('alreadyMarked', { name: item.productName }));
       return;
     }
     // Stock guard: refuse to mark a row picked if the product is empty. The
     // operator can still override (button below), but the default flow stops
     // the box from going out with a missing item.
     if ((item.stockOnHand ?? 0) < item.quantity) {
-      toast.error(
-        `Недостатньо на складі: потрібно ${item.quantity}, є ${item.stockOnHand ?? 0}. Підтвердіть вручну.`,
-      );
+      toast.error(t('insufficientStock', { need: item.quantity, have: item.stockOnHand ?? 0 }));
       return;
     }
     setPicked((s) => new Set(s).add(item.id));
-    toast.success(`✓ ${item.productName}`);
+    toast.success(t('scanOk', { name: item.productName }));
   };
 
   // Manual override for the stock check (e.g. operator knows there's an
@@ -174,25 +174,23 @@ export default function PackPage() {
         refocus();
       }
     } else {
-      toast.error(res.error || 'Не вдалося завершити');
+      toast.error(res.error || t('completeFailed'));
       refocus();
     }
   };
 
-  const handleMarkPacked = () => updateStatus('packed', 'Зібрано', 'упаковано');
+  const handleMarkPacked = () => updateStatus('packed', t('packedComment'), t('packedSuccess'));
   const handlePackComplete = () => {
     // Shipping is irreversible (decrements stock, locks tracking, fires
     // customer notification) — one stray click after picking shouldn't
     // close the order. Force an explicit confirm.
     if (!active) return;
-    const ok = window.confirm(
-      `Передати замовлення №${active.orderNumber} курʼєру? Цю дію не можна скасувати.`,
-    );
+    const ok = window.confirm(t('confirmShip', { orderNumber: active.orderNumber }));
     if (!ok) {
       refocus();
       return;
     }
-    updateStatus('shipped', 'Упаковано та передано курʼєру', 'відправлено');
+    updateStatus('shipped', t('shippedComment'), t('shippedSuccess'));
   };
 
   const handleNext = () => {
@@ -215,15 +213,13 @@ export default function PackPage() {
     return (
       <div className="mx-auto max-w-md py-16 text-center">
         <div className="text-6xl">📦</div>
-        <h1 className="mt-4 text-2xl font-bold">Все упаковано!</h1>
-        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-          Немає замовлень у статусах «Підтверджено» або «Оплачено».
-        </p>
+        <h1 className="mt-4 text-2xl font-bold">{t('allPackedTitle')}</h1>
+        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{t('allPackedHint')}</p>
         <Link
           href="/admin/orders"
           className="mt-6 inline-block rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white"
         >
-          До замовлень
+          {t('toOrders')}
         </Link>
       </div>
     );
@@ -232,9 +228,9 @@ export default function PackPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">📦 Pick & Pack</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <div className="text-sm text-[var(--color-text-secondary)]">
-          {activeIdx + 1} / {orders.length}
+          {t('counterLabel', { current: activeIdx + 1, total: orders.length })}
         </div>
       </div>
 
@@ -248,7 +244,7 @@ export default function PackPage() {
             if (e.key === 'Enter') handleScan(scanValue);
           }}
           onBlur={refocus}
-          placeholder="Скануйте штрих-код або введіть код товара…"
+          placeholder={t('scanPlaceholder')}
           className="flex-1 rounded-xl border-2 border-dashed border-[var(--color-primary)] bg-[var(--color-bg)] px-4 py-3 text-lg outline-none focus:border-solid"
           autoFocus
         />
@@ -256,8 +252,8 @@ export default function PackPage() {
           type="button"
           onClick={() => setCameraOpen(true)}
           className="shrink-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 text-2xl hover:bg-[var(--color-bg-secondary)]"
-          aria-label="Сканувати камерою"
-          title="Сканувати камерою"
+          aria-label={t('scanCameraTitle')}
+          title={t('scanCameraTitle')}
         >
           📷
         </button>
@@ -285,7 +281,9 @@ export default function PackPage() {
               {active.contactName} · {active.contactPhone}
             </p>
             {active.trackingNumber && (
-              <p className="text-sm font-semibold text-violet-700">ТТН: {active.trackingNumber}</p>
+              <p className="text-sm font-semibold text-violet-700">
+                {t('ttnPrefix')} {active.trackingNumber}
+              </p>
             )}
           </div>
           <div className="text-right">
@@ -338,7 +336,7 @@ export default function PackPage() {
                       {item.productName}
                     </p>
                     <p className="text-xs text-[var(--color-text-secondary)]">
-                      Код: {item.productCode}
+                      {t('codePrefix')} {item.productCode}
                       {item.locationCode && (
                         <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[10px] text-blue-700">
                           📦 {item.locationCode}
@@ -353,7 +351,7 @@ export default function PackPage() {
                               : 'bg-red-100 text-red-700'
                           }`}
                         >
-                          склад: {item.stockOnHand}
+                          {t('stockPrefix', { count: item.stockOnHand })}
                         </span>
                       )}
                     </p>
@@ -365,11 +363,7 @@ export default function PackPage() {
                       tabIndex={0}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (
-                          window.confirm(
-                            `Підтвердити пакування "${item.productName}" попри нестачу на складі?`,
-                          )
-                        ) {
+                        if (window.confirm(t('overrideConfirm', { name: item.productName }))) {
                           forcePick(item.id);
                         }
                       }}
@@ -377,11 +371,7 @@ export default function PackPage() {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
                           e.stopPropagation();
-                          if (
-                            window.confirm(
-                              `Підтвердити пакування "${item.productName}" попри нестачу на складі?`,
-                            )
-                          ) {
+                          if (window.confirm(t('overrideConfirm', { name: item.productName }))) {
                             forcePick(item.id);
                           }
                         }
@@ -389,7 +379,7 @@ export default function PackPage() {
                       className="ml-2 rounded border border-amber-400 px-2 py-0.5 text-xs text-amber-700 hover:bg-amber-50"
                       title="Override stock check"
                     >
-                      Все одно
+                      {t('overrideBtn')}
                     </span>
                   )}
                 </button>
@@ -404,7 +394,7 @@ export default function PackPage() {
             disabled={activeIdx === 0}
             className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-40"
           >
-            ← Попереднє
+            {t('prevBtn')}
           </button>
           <button
             type="button"
@@ -412,7 +402,7 @@ export default function PackPage() {
             disabled={activeIdx === orders.length - 1}
             className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-40"
           >
-            Наступне →
+            {t('nextBtn')}
           </button>
           <div className="flex-1" />
           <a
@@ -421,7 +411,7 @@ export default function PackPage() {
             rel="noreferrer"
             className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium hover:bg-[var(--color-bg-secondary)]"
           >
-            🖨️ Друк
+            {t('printBtn')}
           </a>
           {active.status !== 'packed' && (
             <button
@@ -429,9 +419,9 @@ export default function PackPage() {
               onClick={handleMarkPacked}
               disabled={!allPicked || isCompleting}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700 disabled:opacity-40"
-              title="Все зібрано, чекає курʼєра"
+              title={t('markPackedTitle')}
             >
-              📦 Зібрано
+              {t('markPackedBtn')}
             </button>
           )}
           <button
@@ -439,16 +429,15 @@ export default function PackPage() {
             onClick={handlePackComplete}
             disabled={!allPicked || isCompleting}
             className="rounded-lg bg-emerald-600 px-6 py-2 text-sm font-bold text-white shadow hover:bg-emerald-700 disabled:opacity-40"
-            title={allPicked ? 'Передано курʼєру' : 'Спочатку відмітьте всі товари'}
+            title={allPicked ? t('shipBtnTitleEnabled') : t('shipBtnTitleDisabled')}
           >
-            {isCompleting ? 'Зачекайте…' : '✅ Передано курʼєру'}
+            {isCompleting ? t('waiting') : t('shipBtn')}
           </button>
         </div>
       </div>
 
       <p className="mt-4 text-center text-xs text-[var(--color-text-secondary)]">
-        💡 Сканер штрих-кодів автоматично друкує код у поле вгорі і натискає Enter. Якщо сканера
-        немає — клікайте по товарам вручну.
+        {t('footerHint')}
       </p>
     </div>
   );

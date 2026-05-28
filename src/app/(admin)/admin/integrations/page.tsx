@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -39,6 +40,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function AdminIntegrationsPage() {
+  const t = useTranslations('admin.adminIntegrationsPage');
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
   const [syncs, setSyncs] = useState<SyncRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,11 +59,11 @@ export default function AdminIntegrationsPage() {
       ]);
 
       if (keysRes.success) setApiKeys(keysRes.data ?? []);
-      else toast.error(keysRes.error || 'Помилка завантаження ключів');
+      else toast.error(keysRes.error || t('loadKeysError'));
       if (syncsRes.success) setSyncs(syncsRes.data ?? []);
-      else toast.error(syncsRes.error || 'Помилка завантаження синхронізацій');
+      else toast.error(syncsRes.error || t('loadSyncsError'));
     } catch {
-      toast.error('Помилка завантаження');
+      toast.error(t('loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -85,32 +87,26 @@ export default function AdminIntegrationsPage() {
         setNewKeyName('');
         fetchData();
       } else {
-        toast.error(res.error || 'Не вдалося створити ключ');
+        toast.error(res.error || t('createKeyError'));
       }
     } catch {
-      toast.error('Не вдалося створити ключ');
+      toast.error(t('createKeyError'));
     } finally {
       setIsCreatingKey(false);
     }
   }
 
   async function handleDeactivateKey(id: number, name?: string) {
-    const ok = window.confirm(
-      `Деактивувати ключ${name ? ` «${name}»` : ''}?\n\n` +
-        `Інтеграція, яка цим ключем користується, перестане працювати ` +
-        `негайно і до повторного увімкнення. Скасування недоступне через UI ` +
-        `— потрібно буде створити новий ключ.\n\n` +
-        `Продовжити?`,
-    );
+    const ok = window.confirm(t('deactivateConfirm', { name: name ? `«${name}»` : '' }));
     if (!ok) return;
     try {
       const res = await apiClient.patch(`/api/v1/admin/integration/api-keys/${id}`, {
         isActive: false,
       });
       if (res.success) fetchData();
-      else toast.error(res.error || 'Не вдалося деактивувати ключ');
+      else toast.error(res.error || t('deactivateError'));
     } catch {
-      toast.error('Не вдалося деактивувати ключ');
+      toast.error(t('deactivateError'));
     }
   }
 
@@ -124,17 +120,15 @@ export default function AdminIntegrationsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">1C / BAS Integration</h1>
+      <h1 className="text-2xl font-bold">{t('title')}</h1>
 
       {/* API Key Management */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">API Keys</h2>
+        <h2 className="text-lg font-semibold">{t('apiKeysTitle')}</h2>
 
         {createdKey && (
           <div className="rounded-lg border border-green-300 bg-green-50 p-4">
-            <p className="mb-1 font-medium text-green-800">
-              New API key created. Copy it now — it will not be shown again:
-            </p>
+            <p className="mb-1 font-medium text-green-800">{t('newKeyAlert')}</p>
             <code className="break-all text-sm">{createdKey}</code>
             <button
               onClick={() => {
@@ -143,7 +137,7 @@ export default function AdminIntegrationsPage() {
               }}
               className="ml-3 text-sm text-green-700 underline"
             >
-              Copy & dismiss
+              {t('copyDismiss')}
             </button>
           </div>
         )}
@@ -151,13 +145,13 @@ export default function AdminIntegrationsPage() {
         <div className="flex gap-2">
           <input
             type="text"
-            placeholder="Key name (e.g. 1C Production)"
+            placeholder={t('keyNamePh')}
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
             className="flex-1 rounded border px-3 py-2 text-sm"
           />
           <Button onClick={handleCreateKey} disabled={isCreatingKey || !newKeyName.trim()}>
-            {isCreatingKey ? 'Creating...' : 'Create API Key'}
+            {isCreatingKey ? t('creating') : t('createKey')}
           </Button>
         </div>
 
@@ -165,19 +159,19 @@ export default function AdminIntegrationsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left">
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Prefix</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Last Used</th>
-                <th className="px-3 py-2">Created</th>
-                <th className="px-3 py-2">Actions</th>
+                <th className="px-3 py-2">{t('colName')}</th>
+                <th className="px-3 py-2">{t('colPrefix')}</th>
+                <th className="px-3 py-2">{t('colStatus')}</th>
+                <th className="px-3 py-2">{t('colLastUsed')}</th>
+                <th className="px-3 py-2">{t('colCreated')}</th>
+                <th className="px-3 py-2">{t('colActions')}</th>
               </tr>
             </thead>
             <tbody>
               {apiKeys.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
-                    No API keys yet
+                    {t('noKeys')}
                   </td>
                 </tr>
               )}
@@ -193,11 +187,13 @@ export default function AdminIntegrationsPage() {
                         key.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {key.isActive ? 'Active' : 'Inactive'}
+                      {key.isActive ? t('statusActive') : t('statusInactive')}
                     </span>
                   </td>
                   <td className="px-3 py-2">
-                    {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : 'Never'}
+                    {key.lastUsedAt
+                      ? new Date(key.lastUsedAt).toLocaleString()
+                      : t('lastUsedNever')}
                   </td>
                   <td className="px-3 py-2">{new Date(key.createdAt).toLocaleDateString()}</td>
                   <td className="px-3 py-2">
@@ -206,7 +202,7 @@ export default function AdminIntegrationsPage() {
                         onClick={() => handleDeactivateKey(key.id, key.name)}
                         className="text-sm text-red-600 hover:underline"
                       >
-                        Deactivate
+                        {t('deactivate')}
                       </button>
                     )}
                   </td>
@@ -219,27 +215,27 @@ export default function AdminIntegrationsPage() {
 
       {/* Sync History */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Sync History</h2>
+        <h2 className="text-lg font-semibold">{t('syncTitle')}</h2>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left">
-                <th className="px-3 py-2">ID</th>
-                <th className="px-3 py-2">Type</th>
-                <th className="px-3 py-2">Direction</th>
-                <th className="px-3 py-2">Entity</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Progress</th>
-                <th className="px-3 py-2">Started</th>
-                <th className="px-3 py-2">Completed</th>
+                <th className="px-3 py-2">{t('colId')}</th>
+                <th className="px-3 py-2">{t('colType')}</th>
+                <th className="px-3 py-2">{t('colDirection')}</th>
+                <th className="px-3 py-2">{t('colEntity')}</th>
+                <th className="px-3 py-2">{t('colStatus')}</th>
+                <th className="px-3 py-2">{t('colProgress')}</th>
+                <th className="px-3 py-2">{t('colStarted')}</th>
+                <th className="px-3 py-2">{t('colCompleted')}</th>
               </tr>
             </thead>
             <tbody>
               {syncs.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
-                    No sync history yet
+                    {t('noSyncs')}
                   </td>
                 </tr>
               )}
@@ -264,9 +260,9 @@ export default function AdminIntegrationsPage() {
                       <button
                         onClick={() => setErrorModal(sync)}
                         className="ml-1 cursor-pointer text-red-600 underline hover:text-red-700"
-                        title="Подивитися деталі помилок"
+                        title={t('failedHint')}
                       >
-                        ({sync.itemsFailed} failed)
+                        {t('failedSuffix', { count: sync.itemsFailed })}
                       </button>
                     )}
                   </td>
@@ -294,7 +290,7 @@ export default function AdminIntegrationsPage() {
           >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="font-semibold">
-                Деталі помилок (sync #{errorModal.id}, {errorModal.itemsFailed} failed)
+                {t('errorModalTitle', { id: errorModal.id, count: errorModal.itemsFailed })}
               </h3>
               <button
                 onClick={() => setErrorModal(null)}
@@ -310,9 +306,7 @@ export default function AdminIntegrationsPage() {
                   : JSON.stringify(errorModal.errorLog, null, 2)}
               </pre>
             ) : (
-              <p className="text-sm text-gray-500">
-                errorLog порожній — або помилка не записана, або очікується завершення.
-              </p>
+              <p className="text-sm text-gray-500">{t('errorLogEmpty')}</p>
             )}
           </div>
         </div>

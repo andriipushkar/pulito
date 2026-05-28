@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { withOptionalAuth } from '@/middleware/auth';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import {
   recordClientEvent,
@@ -43,6 +44,16 @@ function parseSingleEvent(payload: IncomingEvent, userId: number | null) {
 }
 
 export const POST = withOptionalAuth(async (request: NextRequest, { user }) => {
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
+  // Per-IP cap — even a single tab can record many events per session, so
+  // `api` (60/min) is the right bucket. Anonymous traffic (no userId) gets
+  // limited by IP only, which is the right axis when sessions are sticky.
+  const rl = await checkRateLimit(ip, RATE_LIMITS.api);
+  if (!rl.allowed) return errorResponse('Забагато запитів', 429);
+
   let body: unknown;
   try {
     body = await request.json();

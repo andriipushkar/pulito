@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -104,38 +105,35 @@ interface AuditResponse {
   history: HistorySnapshot[];
 }
 
-const WARNING_LABEL: Record<string, string> = {
-  title_too_short: 'title закороткий',
-  title_too_long: 'title задовгий',
-  desc_too_short: 'description закороткий',
-  desc_too_long: 'description задовгий',
-};
-
-const IMAGE_ISSUE_LABEL: Record<ImageGap['issue'], string> = {
-  no_images: 'немає зображень',
-  no_main_image: 'не позначено головне',
-  missing_alt_text: 'відсутній alt-текст',
-};
-
-const SLUG_REASON_LABEL: Record<string, string> = {
-  uppercase: 'великі літери',
-  non_ascii: 'не-ASCII (кирилиця)',
-  special_chars: 'спецсимволи',
-  too_long: 'задовгий',
-  leading_or_trailing_dash: 'крайні/подвійні дефіси',
-};
-
-const CANONICAL_PROBLEM_LABEL: Record<CanonicalIssue['problem'], string> = {
-  missing: 'відсутній canonical',
-  mismatch: 'не співпадає',
-  fetch_failed: 'не вдалось завантажити',
-};
-
 function editLinkForGap(g: { id: number; type: 'product' | 'category' }): string {
   return g.type === 'product' ? `/admin/products/${g.id}` : `/admin/categories?edit=${g.id}`;
 }
 
 export default function AdminSeoAuditPage() {
+  const t = useTranslations('admin.seoAuditPage');
+  const WARNING_LABEL: Record<string, string> = {
+    title_too_short: t('warn_title_too_short'),
+    title_too_long: t('warn_title_too_long'),
+    desc_too_short: t('warn_desc_too_short'),
+    desc_too_long: t('warn_desc_too_long'),
+  };
+  const IMAGE_ISSUE_LABEL: Record<ImageGap['issue'], string> = {
+    no_images: t('img_no_images'),
+    no_main_image: t('img_no_main_image'),
+    missing_alt_text: t('img_missing_alt_text'),
+  };
+  const SLUG_REASON_LABEL: Record<string, string> = {
+    uppercase: t('slug_uppercase'),
+    non_ascii: t('slug_non_ascii'),
+    special_chars: t('slug_special_chars'),
+    too_long: t('slug_too_long'),
+    leading_or_trailing_dash: t('slug_leading_or_trailing_dash'),
+  };
+  const CANONICAL_PROBLEM_LABEL: Record<CanonicalIssue['problem'], string> = {
+    missing: t('canon_missing'),
+    mismatch: t('canon_mismatch'),
+    fetch_failed: t('canon_fetch_failed'),
+  };
   const [report, setReport] = useState<AuditResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -148,7 +146,7 @@ export default function AdminSeoAuditPage() {
     try {
       const res = await apiClient.get<AuditResponse>('/api/v1/admin/seo/broken-links');
       if (res.success && res.data) setReport(res.data);
-      else setError(res.error || 'Помилка перевірки');
+      else setError(res.error || t('checkError'));
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -173,9 +171,9 @@ export default function AdminSeoAuditPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold">SEO-аудит</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <Button onClick={() => load(true)} isLoading={isRefreshing}>
-          Оновити
+          {t('refresh')}
         </Button>
       </div>
 
@@ -193,43 +191,43 @@ export default function AdminSeoAuditPage() {
         <div className="space-y-6">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <SummaryCard
-              title="Биті редіректи"
+              title={t('cardBrokenRedirects')}
               count={live.orphanedRedirects.length}
               color={live.orphanedRedirects.length > 0 ? 'red' : 'green'}
             />
             <SummaryCard
-              title="Ланцюги редіректів"
+              title={t('cardRedirectChains')}
               count={live.redirectChains.length}
               color={live.redirectChains.length > 0 ? 'yellow' : 'green'}
             />
             <SummaryCard
-              title="Без SEO-контенту"
+              title={t('cardNoSeo')}
               count={live.seoGapsTotal}
               color={live.seoGapsTotal > 0 ? 'yellow' : 'green'}
             />
             <SummaryCard
-              title="Дублікати title"
+              title={t('cardDuplicateTitles')}
               count={live.duplicateTitles.length}
               color={live.duplicateTitles.length > 0 ? 'yellow' : 'green'}
             />
             <SummaryCard
-              title="Проблеми із зображеннями"
+              title={t('cardImageIssues')}
               count={live.imageGapsTotal}
               color={live.imageGapsTotal > 0 ? 'yellow' : 'green'}
             />
             <SummaryCard
-              title="Тонкий контент"
+              title={t('cardThinContent')}
               count={live.thinContentTotal}
               color={live.thinContentTotal > 0 ? 'yellow' : 'green'}
             />
             <SummaryCard
-              title="Погані slug'и"
+              title={t('cardBadSlugs')}
               count={live.slugIssuesTotal}
               color={live.slugIssuesTotal > 0 ? 'yellow' : 'green'}
             />
             {report?.lastCronScan?.canonicalIssues && (
               <SummaryCard
-                title="Canonical-проблеми"
+                title={t('cardCanonical')}
                 count={report.lastCronScan.canonicalIssues.length}
                 color={report.lastCronScan.canonicalIssues.length > 0 ? 'red' : 'green'}
               />
@@ -242,20 +240,22 @@ export default function AdminSeoAuditPage() {
 
           {totalIssues === 0 && (
             <div className="flex flex-col items-center gap-2 rounded-[var(--radius)] border border-green-300 bg-green-50 px-4 py-8 text-center text-green-700">
-              <span className="text-3xl" aria-hidden="true">✅</span>
-              <p className="text-base font-semibold">Проблем не знайдено</p>
-              <p className="text-xs">Усі товари, категорії та редіректи в порядку</p>
+              <span className="text-3xl" aria-hidden="true">
+                ✅
+              </span>
+              <p className="text-base font-semibold">{t('noIssuesTitle')}</p>
+              <p className="text-xs">{t('noIssuesDesc')}</p>
             </div>
           )}
 
           {live.orphanedRedirects.length > 0 && (
-            <Section title="Биті редіректи" description="Редіректи, де цільова сторінка не існує">
+            <Section title={t('cardBrokenRedirects')} description={t('brokenRedirectsDesc')}>
               <table className="w-full text-sm">
                 <thead className="bg-[var(--color-bg-secondary)]">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium">Старий slug</th>
-                    <th className="px-4 py-2 text-left font-medium">Новий slug (не існує)</th>
-                    <th className="px-4 py-2 text-left font-medium">Тип</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thOldSlug')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thNewSlugMissing')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thType')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -272,13 +272,13 @@ export default function AdminSeoAuditPage() {
           )}
 
           {live.redirectChains.length > 0 && (
-            <Section title="Ланцюги редіректів" description="Багатоланкові 301 (Google штрафує)">
+            <Section title={t('cardRedirectChains')} description={t('redirectChainsDesc')}>
               <table className="w-full text-sm">
                 <thead className="bg-[var(--color-bg-secondary)]">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium">Шлях</th>
-                    <th className="px-4 py-2 text-left font-medium">Ланок</th>
-                    <th className="px-4 py-2 text-left font-medium">Тип</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thPath')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thHops')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thType')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -296,31 +296,34 @@ export default function AdminSeoAuditPage() {
 
           {live.seoGaps.length > 0 && (
             <Section
-              title="Без SEO-контенту"
-              description={`Товари та категорії з відсутнім або проблемним SEO. Показано ${live.seoGaps.length} з ${live.seoGapsTotal}`}
+              title={t('cardNoSeo')}
+              description={t('noSeoDesc', { shown: live.seoGaps.length, total: live.seoGapsTotal })}
             >
               <table className="w-full text-sm">
                 <thead className="bg-[var(--color-bg-secondary)]">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium">Назва</th>
-                    <th className="px-4 py-2 text-left font-medium">Тип</th>
-                    <th className="px-4 py-2 text-left font-medium">Проблеми</th>
-                    <th className="px-4 py-2 text-left font-medium">Дія</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thName')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thType')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thIssues')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thAction')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {live.seoGaps.map((g) => {
                     const issues: string[] = [];
-                    if (g.missingTitle) issues.push('немає title');
-                    else issues.push(`title: ${g.titleLength} симв`);
-                    if (g.missingDescription) issues.push('немає description');
-                    else issues.push(`desc: ${g.descLength} симв`);
+                    if (g.missingTitle) issues.push(t('noTitle'));
+                    else issues.push(t('titleChars', { n: g.titleLength }));
+                    if (g.missingDescription) issues.push(t('noDescription'));
+                    else issues.push(t('descChars', { n: g.descLength }));
                     for (const w of g.warnings) issues.push(WARNING_LABEL[w] ?? w);
                     return (
-                      <tr key={`${g.type}-${g.id}`} className="border-t border-[var(--color-border)]">
+                      <tr
+                        key={`${g.type}-${g.id}`}
+                        className="border-t border-[var(--color-border)]"
+                      >
                         <td className="px-4 py-2 text-xs">{g.name}</td>
                         <td className="px-4 py-2 text-xs">
-                          {g.type === 'product' ? 'Товар' : 'Категорія'}
+                          {g.type === 'product' ? t('typeProduct') : t('typeCategory')}
                         </td>
                         <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">
                           {issues.join(' · ')}
@@ -330,7 +333,7 @@ export default function AdminSeoAuditPage() {
                             href={editLinkForGap(g)}
                             className="text-xs text-[var(--color-primary)] hover:underline"
                           >
-                            Редагувати
+                            {t('edit')}
                           </Link>
                         </td>
                       </tr>
@@ -343,15 +346,18 @@ export default function AdminSeoAuditPage() {
 
           {live.imageGaps.length > 0 && (
             <Section
-              title="Проблеми із зображеннями"
-              description={`Товари без зображень, без головного фото або з відсутнім alt-текстом. Показано ${live.imageGaps.length} з ${live.imageGapsTotal}`}
+              title={t('cardImageIssues')}
+              description={t('imageIssuesDesc', {
+                shown: live.imageGaps.length,
+                total: live.imageGapsTotal,
+              })}
             >
               <table className="w-full text-sm">
                 <thead className="bg-[var(--color-bg-secondary)]">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium">Товар</th>
-                    <th className="px-4 py-2 text-left font-medium">Проблема</th>
-                    <th className="px-4 py-2 text-left font-medium">Дія</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thProduct')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thProblem')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thAction')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -360,14 +366,15 @@ export default function AdminSeoAuditPage() {
                       <td className="px-4 py-2 text-xs">{g.name}</td>
                       <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">
                         {IMAGE_ISSUE_LABEL[g.issue]}
-                        {g.issue === 'missing_alt_text' && ` (${g.imagesWithoutAlt} шт)`}
+                        {g.issue === 'missing_alt_text' &&
+                          ` ${t('altCount', { n: g.imagesWithoutAlt })}`}
                       </td>
                       <td className="px-4 py-2">
                         <Link
                           href={`/admin/products/${g.id}`}
                           className="text-xs text-[var(--color-primary)] hover:underline"
                         >
-                          Редагувати
+                          {t('edit')}
                         </Link>
                       </td>
                     </tr>
@@ -379,28 +386,33 @@ export default function AdminSeoAuditPage() {
 
           {live.thinContent.length > 0 && (
             <Section
-              title="Тонкий контент"
-              description={`Товари з описом коротше 200 символів. Показано ${live.thinContent.length} з ${live.thinContentTotal}`}
+              title={t('cardThinContent')}
+              description={t('thinContentDesc', {
+                shown: live.thinContent.length,
+                total: live.thinContentTotal,
+              })}
             >
               <table className="w-full text-sm">
                 <thead className="bg-[var(--color-bg-secondary)]">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium">Товар</th>
-                    <th className="px-4 py-2 text-left font-medium">Символів</th>
-                    <th className="px-4 py-2 text-left font-medium">Дія</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thProduct')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thChars')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thAction')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {live.thinContent.map((t) => (
-                    <tr key={t.id} className="border-t border-[var(--color-border)]">
-                      <td className="px-4 py-2 text-xs">{t.name}</td>
-                      <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">{t.charCount}</td>
+                  {live.thinContent.map((item) => (
+                    <tr key={item.id} className="border-t border-[var(--color-border)]">
+                      <td className="px-4 py-2 text-xs">{item.name}</td>
+                      <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">
+                        {item.charCount}
+                      </td>
                       <td className="px-4 py-2">
                         <Link
-                          href={`/admin/products/${t.id}`}
+                          href={`/admin/products/${item.id}`}
                           className="text-xs text-[var(--color-primary)] hover:underline"
                         >
-                          Редагувати
+                          {t('edit')}
                         </Link>
                       </td>
                     </tr>
@@ -412,16 +424,19 @@ export default function AdminSeoAuditPage() {
 
           {live.slugIssues.length > 0 && (
             <Section
-              title="Погані slug'и"
-              description={`URL-сегменти, що порушують норми (uppercase, кирилиця, спецсимволи, &gt;75 символів). Показано ${live.slugIssues.length} з ${live.slugIssuesTotal}`}
+              title={t('cardBadSlugs')}
+              description={t('badSlugsDesc', {
+                shown: live.slugIssues.length,
+                total: live.slugIssuesTotal,
+              })}
             >
               <table className="w-full text-sm">
                 <thead className="bg-[var(--color-bg-secondary)]">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium">Назва</th>
-                    <th className="px-4 py-2 text-left font-medium">Slug</th>
-                    <th className="px-4 py-2 text-left font-medium">Проблеми</th>
-                    <th className="px-4 py-2 text-left font-medium">Дія</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thName')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thSlug')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thIssues')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thAction')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -437,7 +452,7 @@ export default function AdminSeoAuditPage() {
                           href={editLinkForGap(s)}
                           className="text-xs text-[var(--color-primary)] hover:underline"
                         >
-                          Редагувати
+                          {t('edit')}
                         </Link>
                       </td>
                     </tr>
@@ -448,16 +463,13 @@ export default function AdminSeoAuditPage() {
           )}
 
           {live.duplicateTitles.length > 0 && (
-            <Section
-              title="Дублікати SEO Title"
-              description="Сторінки з ідентичним SEO-заголовком конкурують одна з одною в видачі"
-            >
+            <Section title={t('dupTitlesTitle')} description={t('dupTitlesDesc')}>
               <table className="w-full text-sm">
                 <thead className="bg-[var(--color-bg-secondary)]">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium">Title</th>
-                    <th className="px-4 py-2 text-left font-medium">Кількість</th>
-                    <th className="px-4 py-2 text-left font-medium">Приклади</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thTitle')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thCount')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('thExamples')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -492,18 +504,23 @@ export default function AdminSeoAuditPage() {
           {report?.lastCronScan ? (
             <>
               <Section
-                title={`Останнє повне сканування (HTTP): ${new Date(report.lastCronScan.checkedAt).toLocaleString('uk-UA')}`}
-                description={`Перевірено ${report.lastCronScan.productsSampled} товарів і ${report.lastCronScan.categoriesChecked} категорій через HEAD-запит`}
+                title={t('lastHttpScan', {
+                  date: new Date(report.lastCronScan.checkedAt).toLocaleString('uk-UA'),
+                })}
+                description={t('lastHttpScanDesc', {
+                  products: report.lastCronScan.productsSampled,
+                  categories: report.lastCronScan.categoriesChecked,
+                })}
               >
                 {report.lastCronScan.httpIssues.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-green-700">Усі URL відповіли успішно.</p>
+                  <p className="px-4 py-3 text-sm text-green-700">{t('allUrlsOk')}</p>
                 ) : (
                   <table className="w-full text-sm">
                     <thead className="bg-[var(--color-bg-secondary)]">
                       <tr>
-                        <th className="px-4 py-2 text-left font-medium">URL</th>
-                        <th className="px-4 py-2 text-left font-medium">Статус</th>
-                        <th className="px-4 py-2 text-left font-medium">Тип</th>
+                        <th className="px-4 py-2 text-left font-medium">{t('thUrl')}</th>
+                        <th className="px-4 py-2 text-left font-medium">{t('thStatus')}</th>
+                        <th className="px-4 py-2 text-left font-medium">{t('thType')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -520,18 +537,18 @@ export default function AdminSeoAuditPage() {
               </Section>
 
               <Section
-                title="Canonical URL"
-                description={`Перевірено ${report.lastCronScan.canonicalSampled} товарів через GET — порівняння <link rel="canonical"> з очікуваним URL`}
+                title={t('canonicalTitle')}
+                description={t('canonicalDesc', { n: report.lastCronScan.canonicalSampled })}
               >
                 {report.lastCronScan.canonicalIssues.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-green-700">Усі canonical коректні.</p>
+                  <p className="px-4 py-3 text-sm text-green-700">{t('allCanonicalOk')}</p>
                 ) : (
                   <table className="w-full text-sm">
                     <thead className="bg-[var(--color-bg-secondary)]">
                       <tr>
-                        <th className="px-4 py-2 text-left font-medium">URL</th>
-                        <th className="px-4 py-2 text-left font-medium">Проблема</th>
-                        <th className="px-4 py-2 text-left font-medium">Знайдено</th>
+                        <th className="px-4 py-2 text-left font-medium">{t('thUrl')}</th>
+                        <th className="px-4 py-2 text-left font-medium">{t('thProblem')}</th>
+                        <th className="px-4 py-2 text-left font-medium">{t('thFound')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -553,39 +570,48 @@ export default function AdminSeoAuditPage() {
 
               {report.lastCronScan.sitemap && (
                 <Section
-                  title="Sitemap.xml"
+                  title={t('sitemapTitle')}
                   description={
                     report.lastCronScan.sitemap.fetched
-                      ? `Знайдено ${report.lastCronScan.sitemap.totalUrls} URL, дублікатів: ${report.lastCronScan.sitemap.duplicateUrls}`
-                      : `Не вдалось завантажити sitemap.xml${report.lastCronScan.sitemap.status ? ` (HTTP ${report.lastCronScan.sitemap.status})` : ''}`
+                      ? t('sitemapFetched', {
+                          total: report.lastCronScan.sitemap.totalUrls,
+                          dupes: report.lastCronScan.sitemap.duplicateUrls,
+                        })
+                      : t('sitemapFailed', {
+                          status: report.lastCronScan.sitemap.status
+                            ? ` (HTTP ${report.lastCronScan.sitemap.status})`
+                            : '',
+                        })
                   }
                 >
                   <div className="px-4 py-3 text-xs text-[var(--color-text-secondary)]">
                     {report.lastCronScan.sitemap.fetched
                       ? report.lastCronScan.sitemap.duplicateUrls === 0
-                        ? 'Дублікатів URL не знайдено.'
-                        : `Виявлено ${report.lastCronScan.sitemap.duplicateUrls} дублікат(ів) — це знижує авторитет канонічних сторінок.`
-                      : 'Перевірте маршрут /sitemap.xml — Google може не зчитати карту сайту.'}
+                        ? t('sitemapNoDupes')
+                        : t('sitemapDupes', { dupes: report.lastCronScan.sitemap.duplicateUrls })
+                      : t('sitemapCheckRoute')}
                   </div>
                 </Section>
               )}
             </>
           ) : (
             <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-3 text-xs text-[var(--color-text-secondary)]">
-              HTTP-перевірка через cron ще не запускалась.
+              {t('cronNotRun')}
             </div>
           )}
         </div>
       ) : (
         !error && (
           <div className="flex flex-col items-center gap-2 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-12 text-center text-[var(--color-text-secondary)]">
-            <span className="text-3xl" aria-hidden="true">🔗</span>
-            <p className="text-sm font-medium">Не вдалося завантажити аудит</p>
+            <span className="text-3xl" aria-hidden="true">
+              🔗
+            </span>
+            <p className="text-sm font-medium">{t('loadAuditFailed')}</p>
             <button
               onClick={() => load(true)}
               className="text-xs text-[var(--color-primary)] hover:underline"
             >
-              Спробувати ще раз
+              {t('tryAgain')}
             </button>
           </div>
         )
@@ -595,28 +621,31 @@ export default function AdminSeoAuditPage() {
 }
 
 function HistoryTrend({ history }: { history: HistorySnapshot[] }) {
+  const t = useTranslations('admin.seoAuditPage');
   const latest = history[history.length - 1];
   const previous = history[history.length - 2];
   if (!latest || !previous) return null;
 
   const metrics: { key: string; label: string }[] = [
-    { key: 'orphanedRedirects', label: 'Биті редіректи' },
-    { key: 'redirectChains', label: 'Ланцюги' },
-    { key: 'seoGaps', label: 'SEO-gap' },
-    { key: 'duplicateTitles', label: 'Дублікати' },
-    { key: 'imageGaps', label: 'Зображення' },
-    { key: 'thinContent', label: 'Тонкий контент' },
-    { key: 'slugIssues', label: "Slug'и" },
-    { key: 'httpIssues', label: 'HTTP' },
-    { key: 'canonicalIssues', label: 'Canonical' },
+    { key: 'orphanedRedirects', label: t('mOrphanedRedirects') },
+    { key: 'redirectChains', label: t('mRedirectChains') },
+    { key: 'seoGaps', label: t('mSeoGaps') },
+    { key: 'duplicateTitles', label: t('mDuplicateTitles') },
+    { key: 'imageGaps', label: t('mImageGaps') },
+    { key: 'thinContent', label: t('mThinContent') },
+    { key: 'slugIssues', label: t('mSlugIssues') },
+    { key: 'httpIssues', label: t('mHttpIssues') },
+    { key: 'canonicalIssues', label: t('mCanonicalIssues') },
   ];
 
   return (
     <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-      <h3 className="mb-1 font-semibold">Динаміка</h3>
+      <h3 className="mb-1 font-semibold">{t('trendTitle')}</h3>
       <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-        Порівняння з попереднім запуском ({new Date(previous.checkedAt).toLocaleString('uk-UA')}). Усього збережено{' '}
-        {history.length} знімків.
+        {t('trendDesc', {
+          date: new Date(previous.checkedAt).toLocaleString('uk-UA'),
+          count: history.length,
+        })}
       </p>
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {metrics.map((m) => {

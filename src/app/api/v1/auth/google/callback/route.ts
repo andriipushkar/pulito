@@ -9,12 +9,22 @@ import { loginWithGoogle } from '@/services/auth';
 import { parseTtlToSeconds } from '@/services/token';
 import { serializeRefreshTokenCookie } from '@/utils/cookies';
 import { getClientIp, getDeviceInfo } from '@/utils/request';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
 import { logAudit } from '@/services/audit';
 
 export async function GET(request: NextRequest) {
   try {
+    const ipAddrEarly = getClientIp(request);
+    // Per-IP rate-limit on the callback. Google sends a single redirect per
+    // user flow, so 10/min/IP is generous for legit traffic and blocks an
+    // attacker spraying garbage codes / states.
+    const rl = await checkRateLimit(ipAddrEarly, RATE_LIMITS.auth);
+    if (!rl.allowed) {
+      return NextResponse.redirect(`${env.APP_URL}/auth/login?error=rate_limited`);
+    }
+
     const code = request.nextUrl.searchParams.get('code');
     const error = request.nextUrl.searchParams.get('error');
     const state = request.nextUrl.searchParams.get('state');

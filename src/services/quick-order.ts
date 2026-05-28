@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 export class QuickOrderError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'QuickOrderError';
@@ -38,10 +38,14 @@ export function parseQuickOrderInput(input: string): QuickOrderLine[] {
     const parts = line.trim().split(/[\t;,\s]+/);
     if (parts.length < 2) continue;
 
-    const code = parts[0].trim();
+    // Truncate to the catalog's max code length — product codes are <64 chars
+    // here, so anything longer is junk that would only bloat the IN() clause.
+    const code = parts[0].trim().slice(0, 64);
     const quantity = parseInt(parts[parts.length - 1], 10);
 
-    if (code && !isNaN(quantity) && quantity > 0) {
+    // Cap quantity at 100k — a real wholesale line maxes out far below this,
+    // and the cap stops malicious lines from triggering downstream overflow.
+    if (code && !isNaN(quantity) && quantity > 0 && quantity <= 100_000) {
       result.push({ code, quantity });
     }
   }

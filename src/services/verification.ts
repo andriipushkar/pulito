@@ -7,12 +7,20 @@ import { AuthError } from './auth-errors';
 
 const VERIFY_PREFIX = 'verify:';
 const RESET_PREFIX = 'reset:';
+const RESET_ACTIVE_PREFIX = 'reset:active:';
+const RESET_EMAIL_LOCK_PREFIX = 'reset:lock:email:';
 const VERIFY_TTL = 86400; // 24 hours
 const RESET_TTL = 3600; // 1 hour
+const RESET_EMAIL_LOCK_TTL = 900; // 15 minutes
+const RESET_EMAIL_LOCK_MAX = 3;
 const SALT_ROUNDS = 10;
 
 function generateToken(): string {
   return crypto.randomBytes(32).toString('hex');
+}
+
+function hashResetToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 // ─── Email Verification ─────────────────────
@@ -57,14 +65,42 @@ export async function requestPasswordReset(email: string): Promise<void> {
   // Always return success to prevent email enumeration
   if (!user) return;
 
+  // Per-email rate limit — stops an attacker rotating IPs to spam reset emails
+  // (mail-bomb the inbox + flood Redis with live tokens). IP-level limiter is
+  // enforced separately at the route layer.
+  const lockKey = `${RESET_EMAIL_LOCK_PREFIX}${user.id}`;
+  const count = await redis.incr(lockKey);
+  if (count === 1) {
+    await redis.expire(lockKey, RESET_EMAIL_LOCK_TTL);
+  }
+  if (count > RESET_EMAIL_LOCK_MAX) {
+    // Silently drop — we already returned 200 to the caller for enumeration
+    // protection; the user (or attacker) gets no signal that the limit hit.
+    return;
+  }
+
+  // Invalidate any prior active reset token for this user so a leaked old
+  // token can't outlive the new one. We track the active token-hash in a
+  // per-user key.
+  const activeKey = `${RESET_ACTIVE_PREFIX}${user.id}`;
+  const priorHash = await redis.get(activeKey);
+  if (priorHash) {
+    await redis.del(`${RESET_PREFIX}${priorHash}`);
+  }
+
   const token = generateToken();
-  await redis.setex(`${RESET_PREFIX}${token}`, RESET_TTL, String(user.id));
+  const tokenHash = hashResetToken(token);
+  // Store under the hash, never the raw token — if Redis is compromised the
+  // attacker can't directly use the stored keys to reset accounts.
+  await redis.setex(`${RESET_PREFIX}${tokenHash}`, RESET_TTL, String(user.id));
+  await redis.setex(activeKey, RESET_TTL, tokenHash);
 
   await sendPasswordResetEmail(user.email, token);
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<number> {
-  const userId = await redis.get(`${RESET_PREFIX}${token}`);
+  const tokenHash = hashResetToken(token);
+  const userId = await redis.get(`${RESET_PREFIX}${tokenHash}`);
   if (!userId) {
     throw new AuthError('Невалідне або прострочене посилання відновлення', 400);
   }
@@ -77,8 +113,9 @@ export async function resetPassword(token: string, newPassword: string): Promise
     data: { passwordHash },
   });
 
-  // Invalidate token
-  await redis.del(`${RESET_PREFIX}${token}`);
+  // Invalidate token + active-token marker
+  await redis.del(`${RESET_PREFIX}${tokenHash}`);
+  await redis.del(`${RESET_ACTIVE_PREFIX}${numericUserId}`);
 
   // Revoke all refresh tokens for this user (force re-login)
   await prisma.refreshToken.updateMany({

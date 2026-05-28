@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -19,110 +20,6 @@ interface PaymentProvider {
   fields: { key: string; label: string; placeholder: string; sensitive?: boolean }[];
 }
 
-const PROVIDERS: PaymentProvider[] = [
-  {
-    key: 'liqpay',
-    name: 'LiqPay',
-    icon: '💳',
-    description: 'Оплата картою Visa/Mastercard через LiqPay (ПриватБанк)',
-    enabledKey: 'payment_liqpay_enabled',
-    testable: true,
-    webhookPath: '/api/webhooks/liqpay',
-    fields: [
-      {
-        key: 'payment_liqpay_public_key',
-        label: 'Public Key',
-        placeholder: 'sandbox_i00000000000',
-      },
-      {
-        key: 'payment_liqpay_private_key',
-        label: 'Private Key',
-        placeholder: 'sandbox_0000000000000000000000',
-        sensitive: true,
-      },
-      { key: 'payment_liqpay_sandbox', label: 'Sandbox режим (true/false)', placeholder: 'true' },
-    ],
-  },
-  {
-    key: 'monobank',
-    name: 'Monobank',
-    icon: '🏦',
-    description: 'Оплата через Monobank Acquiring (прямий еквайринг)',
-    enabledKey: 'payment_monobank_enabled',
-    testable: true,
-    webhookPath: '/api/webhooks/monobank',
-    fields: [
-      {
-        key: 'payment_monobank_token',
-        label: 'API Token',
-        placeholder: 'uXxxxxXXXXxxxxxXXXXX',
-        sensitive: true,
-      },
-    ],
-  },
-  {
-    key: 'wayforpay',
-    name: 'WayForPay',
-    icon: '🔐',
-    description: 'Оплата через WayForPay (Visa/Mastercard/Apple Pay/Google Pay)',
-    enabledKey: 'payment_wayforpay_enabled',
-    testable: true,
-    webhookPath: '/api/webhooks/wayforpay',
-    fields: [
-      {
-        key: 'payment_wayforpay_merchant_account',
-        label: 'Merchant Account',
-        placeholder: 'your_merchant_account',
-      },
-      {
-        key: 'payment_wayforpay_secret_key',
-        label: 'Secret Key',
-        placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-        sensitive: true,
-      },
-    ],
-  },
-];
-
-const OFFLINE_METHODS: PaymentProvider[] = [
-  {
-    key: 'cod',
-    name: 'Накладений платіж',
-    icon: '📦',
-    description: 'Оплата при отриманні товару (Нова Пошта, Укрпошта)',
-    enabledKey: 'payment_cod_enabled',
-    fields: [],
-  },
-  {
-    key: 'bank_transfer',
-    name: 'Банківський переказ',
-    icon: '🏛️',
-    description: 'Оплата за реквізитами на розрахунковий рахунок',
-    enabledKey: 'payment_bank_transfer_enabled',
-    fields: [
-      {
-        key: 'payment_bank_transfer_details',
-        label: 'Реквізити для оплати',
-        placeholder: 'IBAN, банк, отримувач...',
-      },
-    ],
-  },
-  {
-    key: 'card_prepay',
-    name: 'Передоплата на картку',
-    icon: '💰',
-    description: 'Переказ на картку ФОП',
-    enabledKey: 'payment_card_prepay_enabled',
-    fields: [
-      {
-        key: 'payment_card_prepay_details',
-        label: 'Номер картки та деталі',
-        placeholder: '5375 4141 XXXX XXXX (ПриватБанк)',
-      },
-    ],
-  },
-];
-
 interface TestResult {
   success: boolean;
   name?: string;
@@ -130,6 +27,115 @@ interface TestResult {
 }
 
 export default function PaymentSettingsPage() {
+  const t = useTranslations('admin.paymentSettingsPage');
+  const PROVIDERS: PaymentProvider[] = useMemo(
+    () => [
+      {
+        key: 'liqpay',
+        name: 'LiqPay',
+        icon: '💳',
+        description: t('liqpayDesc'),
+        enabledKey: 'payment_liqpay_enabled',
+        testable: true,
+        webhookPath: '/api/webhooks/liqpay',
+        fields: [
+          {
+            key: 'payment_liqpay_public_key',
+            label: 'Public Key',
+            placeholder: 'sandbox_i00000000000',
+          },
+          {
+            key: 'payment_liqpay_private_key',
+            label: 'Private Key',
+            placeholder: 'sandbox_0000000000000000000000',
+            sensitive: true,
+          },
+          { key: 'payment_liqpay_sandbox', label: t('liqpaySandboxField'), placeholder: 'true' },
+        ],
+      },
+      {
+        key: 'monobank',
+        name: 'Monobank',
+        icon: '🏦',
+        description: t('monobankDesc'),
+        enabledKey: 'payment_monobank_enabled',
+        testable: true,
+        webhookPath: '/api/webhooks/monobank',
+        fields: [
+          {
+            key: 'payment_monobank_token',
+            label: t('monobankToken'),
+            placeholder: 'uXxxxxXXXXxxxxxXXXXX',
+            sensitive: true,
+          },
+        ],
+      },
+      {
+        key: 'wayforpay',
+        name: 'WayForPay',
+        icon: '🔐',
+        description: t('wayforpayDesc'),
+        enabledKey: 'payment_wayforpay_enabled',
+        testable: true,
+        webhookPath: '/api/webhooks/wayforpay',
+        fields: [
+          {
+            key: 'payment_wayforpay_merchant_account',
+            label: t('wfpMerchant'),
+            placeholder: 'your_merchant_account',
+          },
+          {
+            key: 'payment_wayforpay_secret_key',
+            label: t('wfpSecret'),
+            placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            sensitive: true,
+          },
+        ],
+      },
+    ],
+    [t],
+  );
+  const OFFLINE_METHODS: PaymentProvider[] = useMemo(
+    () => [
+      {
+        key: 'cod',
+        name: t('codName'),
+        icon: '📦',
+        description: t('codDesc'),
+        enabledKey: 'payment_cod_enabled',
+        fields: [],
+      },
+      {
+        key: 'bank_transfer',
+        name: t('bankName'),
+        icon: '🏛️',
+        description: t('bankDesc'),
+        enabledKey: 'payment_bank_transfer_enabled',
+        fields: [
+          {
+            key: 'payment_bank_transfer_details',
+            label: t('bankDetails'),
+            placeholder: t('bankDetailsPh'),
+          },
+        ],
+      },
+      {
+        key: 'card_prepay',
+        name: t('cardPrepayName'),
+        icon: '💰',
+        description: t('cardPrepayDesc'),
+        enabledKey: 'payment_card_prepay_enabled',
+        fields: [
+          {
+            key: 'payment_card_prepay_details',
+            label: t('cardPrepayDetails'),
+            placeholder: t('cardPrepayDetailsPh'),
+          },
+        ],
+      },
+    ],
+    [t],
+  );
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -176,23 +182,19 @@ export default function PaymentSettingsPage() {
       : settings;
     const res = await apiClient.put('/api/v1/admin/payment-settings', payload);
     if (res.success) {
-      toast.success('Налаштування платежів збережено');
+      toast.success(t('savedToast'));
       await loadSettings();
     } else if (res.statusCode === 422 && res.error?.includes('__confirmClearSensitive')) {
       // The server detected sensitive credentials being cleared. Ask the user
       // explicitly — accidental "Save" with an empty key field has historically
       // silently disabled providers.
-      const ok = window.confirm(
-        `${res.error}\n\n` +
-          `OK — стерти креденшли і вимкнути провайдера.\n` +
-          `Cancel — скасувати і повернутись до форми.`,
-      );
+      const ok = window.confirm(t('confirmClearSensitive', { error: res.error }));
       if (ok) {
         setIsSaving(false);
         return handleSave(true);
       }
     } else {
-      toast.error(res.error || 'Помилка збереження');
+      toast.error(res.error || t('saveError'));
     }
     setIsSaving(false);
   };
@@ -218,7 +220,7 @@ export default function PaymentSettingsPage() {
     setTestResults((prev) => ({
       ...prev,
       [provider.key]:
-        res.success && res.data ? res.data : { success: false, error: 'Помилка запиту' },
+        res.success && res.data ? res.data : { success: false, error: t('requestError') },
     }));
     setTesting((prev) => ({ ...prev, [provider.key]: false }));
   };
@@ -302,14 +304,14 @@ export default function PaymentSettingsPage() {
         {provider.webhookPath && (
           <div className="mt-3 rounded-lg bg-[var(--color-bg-secondary)] px-3 py-2">
             <p className="mb-1 text-[10px] font-medium uppercase text-[var(--color-text-secondary)]">
-              Webhook URL
+              {t('webhookUrl')}
             </p>
             <code className="block break-all text-xs text-[var(--color-primary)]">
               {appUrl}
               {provider.webhookPath}
             </code>
             <p className="mt-1 text-[10px] text-[var(--color-text-secondary)]">
-              Вкажіть цей URL у кабінеті {provider.name}
+              {t('webhookHint', { name: provider.name })}
             </p>
           </div>
         )}
@@ -321,7 +323,9 @@ export default function PaymentSettingsPage() {
               result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
             }`}
           >
-            {result.success ? `✅ ${result.name}` : `❌ ${result.error}`}
+            {result.success
+              ? t('testSuccess', { name: result.name ?? '' })
+              : t('testFailed', { error: result.error ?? '' })}
           </div>
         )}
 
@@ -334,7 +338,7 @@ export default function PaymentSettingsPage() {
               onClick={() => handleTest(provider)}
               disabled={testing[provider.key]}
             >
-              {testing[provider.key] ? 'Перевірка...' : "Перевірити з'єднання"}
+              {testing[provider.key] ? t('testing') : t('testConnection')}
             </Button>
           )}
           {isEnabled && (
@@ -348,7 +352,7 @@ export default function PaymentSettingsPage() {
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
-              Увімкнено
+              {t('enabledBadge')}
             </span>
           )}
         </div>
@@ -360,22 +364,20 @@ export default function PaymentSettingsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">Платіжні системи</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Налаштуйте способи оплати для вашого магазину
-          </p>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         <Button
           onClick={() => setConfirmSave(true)}
           isLoading={isSaving}
           disabled={dirty.size === 0}
         >
-          Зберегти
+          {t('save')}
         </Button>
       </div>
 
       <h3 className="mb-3 text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-        Онлайн оплата
+        {t('onlineSection')}
       </h3>
       <div className="mb-6 grid gap-4 lg:grid-cols-2">{PROVIDERS.map(renderProvider)}</div>
 
@@ -384,13 +386,8 @@ export default function PaymentSettingsPage() {
         <div className="mb-3 flex items-start gap-3">
           <span className="text-2xl">⚡</span>
           <div className="flex-1">
-            <h3 className="font-semibold">Apple Pay та Google Pay</h3>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Швидка оплата в один клік. Маршрутизується через WayForPay (пріоритет) або LiqPay —
-              достатньо мати один з них налаштованим. У кабінеті провайдера треба окремо активувати
-              Apple Pay merchant ID + перевірити доменне підтвердження (
-              <code>/.well-known/apple-developer-merchantid-domain-association</code>).
-            </p>
+            <h3 className="font-semibold">{t('applePayTitle')}</h3>
+            <p className="text-xs text-[var(--color-text-secondary)]">{t('applePayDesc')}</p>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -447,11 +444,8 @@ export default function PaymentSettingsPage() {
           <div className="flex items-center gap-3">
             <span className="text-2xl">📅</span>
             <div>
-              <h3 className="font-semibold">ПриватБанк — Оплата частинами</h3>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                Розстрочка від ПриватБанку через LiqPay (paytypes=paypart). Потребує налаштованого
-                LiqPay вище.
-              </p>
+              <h3 className="font-semibold">{t('paypartTitle')}</h3>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('paypartDesc')}</p>
             </div>
           </div>
           <button
@@ -471,7 +465,7 @@ export default function PaymentSettingsPage() {
         </div>
         <div className="max-w-xs">
           <Input
-            label="Кількість місяців розстрочки (2–24)"
+            label={t('paypartMonths')}
             type="number"
             min={2}
             max={24}
@@ -479,9 +473,7 @@ export default function PaymentSettingsPage() {
             onChange={(e) => updateField('payment_liqpay_paypart_count', e.target.value)}
             placeholder="3"
           />
-          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-            Зазвичай 3 або 6. Комісію за розстрочку платить мерчант.
-          </p>
+          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{t('paypartHint')}</p>
         </div>
       </div>
 
@@ -491,7 +483,7 @@ export default function PaymentSettingsPage() {
           <span className="text-xl">🧪</span>
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-amber-800">LiqPay Sandbox-режим</h4>
+              <h4 className="text-sm font-semibold text-amber-800">{t('sandboxTitle')}</h4>
               <button
                 onClick={() => toggleEnabled('payment_liqpay_sandbox')}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
@@ -507,10 +499,7 @@ export default function PaymentSettingsPage() {
                 />
               </button>
             </div>
-            <p className="mt-1 text-xs text-amber-700">
-              Якщо увімкнено — оплати йдуть через тестовий процесинг (`sandbox=1`). Гроші не
-              списуються. Перед launch виключи!
-            </p>
+            <p className="mt-1 text-xs text-amber-700">{t('sandboxHint')}</p>
           </div>
         </div>
       </div>
@@ -520,28 +509,24 @@ export default function PaymentSettingsPage() {
         <div className="flex items-center gap-3 mb-3">
           <span className="text-2xl">🔒</span>
           <div>
-            <h3 className="font-semibold">Мінімальна сума для онлайн оплати</h3>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Замовлення нижче цієї суми не зможуть оплатити онлайн
-            </p>
+            <h3 className="font-semibold">{t('minOnlineTitle')}</h3>
+            <p className="text-xs text-[var(--color-text-secondary)]">{t('minOnlineDesc')}</p>
           </div>
         </div>
         <div className="max-w-xs">
           <Input
-            label="Мінімальна сума (грн)"
+            label={t('minOnlineLabel')}
             type="number"
             value={settings['payment_min_online_amount'] || ''}
             onChange={(e) => updateField('payment_min_online_amount', e.target.value)}
             placeholder="100"
           />
-          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-            Залиште порожнім щоб вимкнути обмеження
-          </p>
+          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{t('minOnlineHint')}</p>
         </div>
       </div>
 
       <h3 className="mb-3 text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-        Офлайн способи
+        {t('offlineSection')}
       </h3>
       <div className="grid gap-4 lg:grid-cols-2">{OFFLINE_METHODS.map(renderProvider)}</div>
 
@@ -549,9 +534,9 @@ export default function PaymentSettingsPage() {
         isOpen={confirmSave}
         onClose={() => setConfirmSave(false)}
         onConfirm={() => handleSave()}
-        title="Зберегти налаштування платежів"
-        message="Зміни вплинуть на доступні способи оплати на сайті. Продовжити?"
-        confirmText="Так, зберегти"
+        title={t('confirmTitle')}
+        message={t('confirmMsg')}
+        confirmText={t('confirmBtn')}
       />
     </div>
   );

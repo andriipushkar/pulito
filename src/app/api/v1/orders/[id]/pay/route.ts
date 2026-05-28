@@ -9,7 +9,8 @@ export const POST = withAuth(async (request: NextRequest, { user, params }) => {
   try {
     const { id } = await params!;
     const orderId = parseInt(id, 10);
-    if (isNaN(orderId)) {
+    // `isNaN(-5) === false` — guard with positive-integer check.
+    if (!Number.isFinite(orderId) || orderId <= 0 || !Number.isInteger(orderId)) {
       return errorResponse('Invalid order ID', 400);
     }
 
@@ -25,7 +26,7 @@ export const POST = withAuth(async (request: NextRequest, { user, params }) => {
     const body = await request.json();
     const parsed = initiatePaymentSchema.safeParse(body);
     if (!parsed.success) {
-      return errorResponse(parsed.error.issues[0].message, 400);
+      return errorResponse(parsed.error.issues[0].message, 422);
     }
 
     const result = await initiatePayment(orderId, parsed.data.provider);

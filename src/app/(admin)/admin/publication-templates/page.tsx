@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -47,6 +48,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function PublicationTemplatesPage() {
+  const t = useTranslations('admin.publicationTemplatesPage');
   const [items, setItems] = useState<Template[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -87,17 +89,17 @@ export default function PublicationTemplatesPage() {
     setShowForm(true);
   };
 
-  const startEdit = (t: Template) => {
-    setEditingId(t.id);
+  const startEdit = (tpl: Template) => {
+    setEditingId(tpl.id);
     setForm({
-      name: t.name,
-      description: t.description ?? '',
-      channels: t.channels,
-      titleTemplate: t.titleTemplate ?? '',
-      contentTemplate: t.contentTemplate,
-      hashtagsTemplate: t.hashtagsTemplate ?? '',
-      firstComment: t.firstComment ?? '',
-      isActive: t.isActive,
+      name: tpl.name,
+      description: tpl.description ?? '',
+      channels: tpl.channels,
+      titleTemplate: tpl.titleTemplate ?? '',
+      contentTemplate: tpl.contentTemplate,
+      hashtagsTemplate: tpl.hashtagsTemplate ?? '',
+      firstComment: tpl.firstComment ?? '',
+      isActive: tpl.isActive,
     });
     setShowForm(true);
   };
@@ -117,11 +119,11 @@ export default function PublicationTemplatesPage() {
       ? await apiClient.put(`/api/v1/admin/publication-templates/${editingId}`, payload)
       : await apiClient.post('/api/v1/admin/publication-templates', payload);
     if (res.success) {
-      toast.success(editingId ? 'Шаблон оновлено' : 'Шаблон створено');
+      toast.success(editingId ? t('savedToast') : t('createdToast'));
       setShowForm(false);
       load();
     } else {
-      toast.error(res.error || 'Помилка збереження');
+      toast.error(res.error || t('saveError'));
     }
   };
 
@@ -129,10 +131,10 @@ export default function PublicationTemplatesPage() {
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/publication-templates/${id}`);
     if (res.success) {
-      toast.success('Шаблон видалено');
+      toast.success(t('deletedToast'));
       load();
     } else {
-      toast.error(res.error || 'Помилка видалення');
+      toast.error(res.error || t('deleteError'));
     }
   };
 
@@ -146,7 +148,7 @@ export default function PublicationTemplatesPage() {
     if (res.success && res.data) {
       setPreviewResult(res.data);
     } else {
-      toast.error(res.error || "Помилка прев'ю");
+      toast.error(res.error || t('previewError'));
     }
   };
 
@@ -163,9 +165,9 @@ export default function PublicationTemplatesPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">Шаблони публікацій</h2>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Готові заготовки для постів. Підтримують плейсхолдери:{' '}
+            {t('intro')}
             <code className="rounded bg-[var(--color-bg-secondary)] px-1">
               {'{{product.name}}'}
             </code>
@@ -179,10 +181,9 @@ export default function PublicationTemplatesPage() {
             <code className="rounded bg-[var(--color-bg-secondary)] px-1">
               {'{{product.discount}}'}
             </code>
-            , тощо.
           </p>
         </div>
-        <Button onClick={startCreate}>+ Новий шаблон</Button>
+        <Button onClick={startCreate}>{t('newTemplate')}</Button>
       </div>
 
       {items.length === 0 ? (
@@ -190,15 +191,13 @@ export default function PublicationTemplatesPage() {
           <span className="text-3xl" aria-hidden="true">
             📋
           </span>
-          <p className="text-sm font-medium">Шаблонів ще немає</p>
-          <p className="max-w-md text-xs">
-            Створіть перший шаблон — і використовуйте при створенні публікацій
-          </p>
+          <p className="text-sm font-medium">{t('emptyTitle')}</p>
+          <p className="max-w-md text-xs">{t('emptyHint')}</p>
           <button
             onClick={startCreate}
             className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
           >
-            + Створити перший шаблон
+            {t('createFirst')}
           </button>
         </div>
       ) : (
@@ -206,26 +205,26 @@ export default function PublicationTemplatesPage() {
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-bg-secondary)] text-left">
               <tr>
-                <th className="px-4 py-2">Назва</th>
-                <th className="px-4 py-2">Канали</th>
-                <th className="px-4 py-2">Активний</th>
-                <th className="px-4 py-2 text-right">Дії</th>
+                <th className="px-4 py-2">{t('colName')}</th>
+                <th className="px-4 py-2">{t('colChannels')}</th>
+                <th className="px-4 py-2">{t('colActive')}</th>
+                <th className="px-4 py-2 text-right">{t('colActions')}</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((t) => (
-                <tr key={t.id} className="border-t border-[var(--color-border)]">
+              {items.map((tpl) => (
+                <tr key={tpl.id} className="border-t border-[var(--color-border)]">
                   <td className="px-4 py-2">
-                    <div className="font-medium">{t.name}</div>
-                    {t.description ? (
+                    <div className="font-medium">{tpl.name}</div>
+                    {tpl.description ? (
                       <div className="text-xs text-[var(--color-text-secondary)]">
-                        {t.description}
+                        {tpl.description}
                       </div>
                     ) : null}
                   </td>
                   <td className="px-4 py-2 text-xs">
                     <div className="flex flex-wrap gap-1">
-                      {t.channels.map((ch) => (
+                      {tpl.channels.map((ch) => (
                         <span
                           key={ch}
                           className="rounded-full bg-[var(--color-bg-secondary)] px-2 py-0.5 text-[10px] font-medium"
@@ -238,10 +237,10 @@ export default function PublicationTemplatesPage() {
                   <td className="px-4 py-2">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs ${
-                        t.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        tpl.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                       }`}
                     >
-                      {t.isActive ? 'Активний' : 'Вимкнено'}
+                      {tpl.isActive ? t('statusActive') : t('statusInactive')}
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right">
@@ -250,18 +249,18 @@ export default function PublicationTemplatesPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          setPreviewId(t.id);
+                          setPreviewId(tpl.id);
                           setPreviewProductId('');
                           setPreviewResult(null);
                         }}
                       >
-                        Прев&#39;ю
+                        {t('preview')}
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => startEdit(t)}>
-                        Редагувати
+                      <Button variant="outline" size="sm" onClick={() => startEdit(tpl)}>
+                        {t('edit')}
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(t.id)}>
-                        Видалити
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(tpl.id)}>
+                        {t('delete')}
                       </Button>
                     </div>
                   </td>
@@ -274,25 +273,23 @@ export default function PublicationTemplatesPage() {
 
       {showForm ? (
         <div className="mt-6 space-y-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="text-lg font-semibold">
-            {editingId ? 'Редагувати шаблон' : 'Новий шаблон'}
-          </h3>
+          <h3 className="text-lg font-semibold">{editingId ? t('editTitle') : t('newTitle')}</h3>
 
           <Input
-            label="Назва *"
+            label={t('nameLabel')}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Товар дня"
+            placeholder={t('namePh')}
           />
 
           <Input
-            label="Опис"
+            label={t('descLabel')}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
 
           <div>
-            <p className="mb-2 text-sm font-medium">Канали *</p>
+            <p className="mb-2 text-sm font-medium">{t('channelsLabel')}</p>
             <div className="flex flex-wrap gap-2">
               {ALL_CHANNELS.map((ch) => (
                 <label
@@ -316,32 +313,32 @@ export default function PublicationTemplatesPage() {
           </div>
 
           <Input
-            label="Заголовок (опціонально)"
+            label={t('titleLabel')}
             value={form.titleTemplate}
             onChange={(e) => setForm({ ...form, titleTemplate: e.target.value })}
-            placeholder="🔥 {{product.name}} зі знижкою!"
+            placeholder={t('titlePh')}
           />
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Контент *</label>
+            <label className="mb-1 block text-sm font-medium">{t('contentLabel')}</label>
             <textarea
               className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
               rows={6}
               value={form.contentTemplate}
               onChange={(e) => setForm({ ...form, contentTemplate: e.target.value })}
-              placeholder="Спеціальна пропозиція: {{product.name}} тільки за {{product.price}} (–{{product.discount}}). Замовити: {{product.url}}"
+              placeholder={t('contentPh')}
             />
           </div>
 
           <Input
-            label="Хештеги"
+            label={t('hashtagsLabel')}
             value={form.hashtagsTemplate}
             onChange={(e) => setForm({ ...form, hashtagsTemplate: e.target.value })}
-            placeholder="#акція #pulito #{{product.code}}"
+            placeholder={t('hashtagsPh')}
           />
 
           <Input
-            label="Перший коментар (Instagram)"
+            label={t('firstCommentLabel')}
             value={form.firstComment}
             onChange={(e) => setForm({ ...form, firstComment: e.target.value })}
           />
@@ -352,13 +349,13 @@ export default function PublicationTemplatesPage() {
               checked={form.isActive}
               onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
             />
-            Активний
+            {t('activeLabel')}
           </label>
 
           <div className="flex gap-2">
-            <Button onClick={submit}>{editingId ? 'Зберегти' : 'Створити'}</Button>
+            <Button onClick={submit}>{editingId ? t('save') : t('create')}</Button>
             <Button variant="outline" onClick={() => setShowForm(false)}>
-              Скасувати
+              {t('cancel')}
             </Button>
           </div>
         </div>
@@ -366,29 +363,33 @@ export default function PublicationTemplatesPage() {
 
       {previewId !== null ? (
         <div className="mt-6 space-y-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
-          <h3 className="text-lg font-semibold">Прев&#39;ю шаблону</h3>
+          <h3 className="text-lg font-semibold">{t('previewTitle')}</h3>
           <div className="flex items-end gap-2">
             <Input
-              label="ID товару (опціонально)"
+              label={t('productIdLabel')}
               value={previewProductId}
               onChange={(e) => setPreviewProductId(e.target.value)}
-              placeholder="42"
+              placeholder={t('productIdPh')}
             />
-            <Button onClick={runPreview}>Згенерувати</Button>
+            <Button onClick={runPreview}>{t('generate')}</Button>
             <Button variant="ghost" onClick={() => setPreviewId(null)}>
-              Закрити
+              {t('close')}
             </Button>
           </div>
           {previewResult ? (
             <div className="space-y-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-              <p className="text-xs uppercase text-[var(--color-text-secondary)]">Заголовок</p>
+              <p className="text-xs uppercase text-[var(--color-text-secondary)]">
+                {t('previewTitleLabel')}
+              </p>
               <p className="font-semibold">{previewResult.title}</p>
-              <p className="mt-2 text-xs uppercase text-[var(--color-text-secondary)]">Контент</p>
+              <p className="mt-2 text-xs uppercase text-[var(--color-text-secondary)]">
+                {t('previewContentLabel')}
+              </p>
               <p className="whitespace-pre-wrap">{previewResult.content}</p>
               {previewResult.hashtags ? (
                 <>
                   <p className="mt-2 text-xs uppercase text-[var(--color-text-secondary)]">
-                    Хештеги
+                    {t('previewHashtagsLabel')}
                   </p>
                   <p className="text-[var(--color-primary)]">{previewResult.hashtags}</p>
                 </>
@@ -402,9 +403,9 @@ export default function PublicationTemplatesPage() {
         isOpen={deleteId !== null}
         onClose={() => setDeleteId(null)}
         onConfirm={() => deleteId && remove(deleteId)}
-        title="Видалити шаблон"
-        message="Видалення безповоротне. Продовжити?"
-        confirmText="Так, видалити"
+        title={t('deleteMsgTitle')}
+        message={t('deleteMsg')}
+        confirmText={t('confirmDelete')}
       />
     </div>
   );

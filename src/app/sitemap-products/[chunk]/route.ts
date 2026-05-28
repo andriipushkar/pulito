@@ -1,9 +1,11 @@
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 const PRODUCTS_PER_SITEMAP = 5000;
 const IMAGES_PER_PRODUCT = 5; // Google Image sitemap caps at 1000 per page url — 5 is plenty
+const MAX_CHUNK = 10_000; // 50M products ceiling — well above realistic catalog size
 
 function escapeXml(value: string): string {
   return value
@@ -20,10 +22,20 @@ function escapeXml(value: string): string {
  * <image:image> tags so Google Images indexes the product photos alongside
  * the product page.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ chunk: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ chunk: string }> }) {
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
+  const rl = await checkRateLimit(ip, RATE_LIMITS.publicFeed);
+  if (!rl.allowed) return new Response('Rate limited', { status: 429 });
+
   const { chunk } = await params;
   const chunkIndex = parseInt(chunk, 10);
-  if (isNaN(chunkIndex) || chunkIndex < 0) {
+  // Cap chunkIndex — without this an attacker can request /sitemap-products/9999999
+  // which translates to `skip: 50 billion`, a brutally expensive query for
+  // Postgres even when the result set is empty.
+  if (isNaN(chunkIndex) || chunkIndex < 0 || chunkIndex > MAX_CHUNK) {
     return new Response('Not found', { status: 404 });
   }
 

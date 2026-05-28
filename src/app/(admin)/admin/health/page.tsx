@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 
@@ -57,6 +58,7 @@ function formatDate(s: string) {
 }
 
 export default function HealthPage() {
+  const t = useTranslations('admin.healthPage');
   const [data, setData] = useState<HealthPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -67,10 +69,10 @@ export default function HealthPage() {
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) setData(res.data);
-        else toast.error(res.error || 'Не вдалося завантажити стан системи');
+        else toast.error(res.error || t('loadError'));
       })
       .catch(() => {
-        if (!cancelled) toast.error('Не вдалося завантажити стан системи');
+        if (!cancelled) toast.error(t('loadError'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -78,7 +80,7 @@ export default function HealthPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   if (loading) {
     return (
@@ -88,32 +90,31 @@ export default function HealthPage() {
     );
   }
 
-  if (!data) return <p>Помилка завантаження</p>;
+  if (!data) return <p>{t('errorMsg')}</p>;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold">Стан системи</h1>
+      <h1 className="text-xl font-bold">{t('title')}</h1>
 
       {/* Sentry */}
       <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
-          Топ помилок (Sentry, 24h)
+          {t('sentryTitle')}
         </h2>
         {data.sentry.length === 0 ? (
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 text-sm text-[var(--color-text-secondary)]">
-            Sentry не повертає помилок або не налаштований (SENTRY_ORG / SENTRY_PROJECT /
-            SENTRY_API_TOKEN).
+            {t('sentryEmpty')}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                  <th className="px-3 py-2 text-left font-medium">Рівень</th>
-                  <th className="px-3 py-2 text-left font-medium">Помилка</th>
-                  <th className="px-3 py-2 text-right font-medium">Випадків</th>
-                  <th className="px-3 py-2 text-right font-medium">Користувачів</th>
-                  <th className="px-3 py-2 text-left font-medium">Остання</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('colLevel')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('colError')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('colEvents')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('colUsers')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('colLast')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,7 +160,7 @@ export default function HealthPage() {
       {/* Slow queries */}
       <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
-          Повільні запити (pg_stat_statements)
+          {t('slowTitle')}
         </h2>
         {!data.slowQueries.available ? (
           <div className="rounded-[var(--radius)] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -167,17 +168,17 @@ export default function HealthPage() {
           </div>
         ) : data.slowQueries.rows.length === 0 ? (
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 text-sm text-[var(--color-text-secondary)]">
-            Немає даних
+            {t('slowEmpty')}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                  <th className="px-3 py-2 text-right font-medium">сер., мс</th>
-                  <th className="px-3 py-2 text-right font-medium">всього, мс</th>
-                  <th className="px-3 py-2 text-right font-medium">викликів</th>
-                  <th className="px-3 py-2 text-left font-medium">Запит</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('colMean')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('colTotal')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('colCalls')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('colQuery')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -206,11 +207,11 @@ export default function HealthPage() {
       {/* Deployments */}
       <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
-          Останні коміти (deploy history)
+          {t('deployTitle')}
         </h2>
         {data.deployments.length === 0 ? (
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 text-sm text-[var(--color-text-secondary)]">
-            git недоступний або це не git-checkout.
+            {t('deployEmpty')}
           </div>
         ) : (
           <ol className="space-y-2">

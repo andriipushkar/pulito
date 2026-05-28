@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server';
 import { verifyCallback } from '@/services/payment-providers/monobank';
 import { handlePaymentCallback } from '@/services/payment';
-import { checkWebhookRateLimit } from '@/utils/webhook-security';
+import { checkWebhookRateLimit, readBoundedBody } from '@/utils/webhook-security';
 import { logWebhook } from '@/services/webhook-log';
 import { logger } from '@/lib/logger';
+
+const PAYMENT_MAX_BODY = 64 * 1024;
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -14,7 +16,12 @@ export async function POST(request: NextRequest) {
       return new Response('Rate limited', { status: 429 });
     }
 
-    const body = await request.text();
+    let body: string;
+    try {
+      body = await readBoundedBody(request, PAYMENT_MAX_BODY);
+    } catch {
+      return new Response('Payload too large', { status: 413 });
+    }
     const xSign = request.headers.get('X-Sign') || '';
 
     if (!body || !xSign) {

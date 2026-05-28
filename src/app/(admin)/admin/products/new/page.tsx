@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -43,6 +44,7 @@ const EMPTY_FORM = {
 };
 
 export default function AdminProductCreatePage() {
+  const t = useTranslations('admin.productNewPage');
   const router = useRouter();
   const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -77,15 +79,15 @@ export default function AdminProductCreatePage() {
     if (typeof window !== 'undefined') localStorage.setItem('pulito.aiProvider', v);
   };
   const { errors, validateAll, clearError } = useFormValidation({
-    name: { required: "Назва обов'язкова", minLength: { value: 2, message: 'Мінімум 2 символи' } },
-    code: { required: "Код обов'язковий" },
+    name: { required: t('valName'), minLength: { value: 2, message: t('valMin2') } },
+    code: { required: t('valCode') },
     priceRetail: {
-      required: "Ціна обов'язкова",
-      min: { value: 0.01, message: 'Ціна має бути > 0' },
+      required: t('valPrice'),
+      min: { value: 0.01, message: t('valPriceMin') },
     },
-    quantity: { min: { value: 0, message: "Кількість не може бути від'ємною" } },
-    seoTitle: { maxLength: { value: 70, message: 'Максимум 70 символів' } },
-    seoDescription: { maxLength: { value: 160, message: 'Максимум 160 символів' } },
+    quantity: { min: { value: 0, message: t('valQtyMin') } },
+    seoTitle: { maxLength: { value: 70, message: t('valSeoTitle') } },
+    seoDescription: { maxLength: { value: 160, message: t('valSeoDesc') } },
   });
 
   useEffect(() => {
@@ -133,7 +135,7 @@ export default function AdminProductCreatePage() {
         const productId = res.data.id;
         // Upload staged images now that we have a product ID
         if (stagedImages.length > 0) {
-          toast.success('Товар створено. Завантажуємо фото…');
+          toast.success(t('createdUploading'));
           const fd = new FormData();
           for (const f of stagedImages) fd.append('images', f);
           fd.append('isMain', stagedImages.length === 1 ? 'true' : 'false');
@@ -141,24 +143,24 @@ export default function AdminProductCreatePage() {
           try {
             await apiClient.upload(`/api/v1/admin/products/${productId}/images`, fd);
           } catch {
-            toast.error('Товар створено, але деякі фото не завантажились');
+            toast.error(t('uploadPartialError'));
           }
         } else {
-          toast.success('Товар створено');
+          toast.success(t('created'));
         }
         router.push(`/admin/products/${productId}`);
       } else {
-        toast.error(res.error || 'Помилка створення');
+        toast.error(res.error || t('createError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsSaving(false);
     }
   };
 
   const categoryOptions = [
-    { value: '', label: 'Без категорії' },
+    { value: '', label: t('noCategory') },
     ...categories.map((c) => ({ value: String(c.id), label: c.name })),
   ];
 
@@ -169,14 +171,14 @@ export default function AdminProductCreatePage() {
           href="/admin/products"
           className="text-sm text-[var(--color-primary)] hover:underline"
         >
-          ← Товари
+          ← {t('breadcrumb')}
         </Link>
-        <h2 className="mt-1 text-xl font-bold">Новий товар</h2>
+        <h2 className="mt-1 text-xl font-bold">{t('newProduct')}</h2>
       </div>
 
       {/* Images — staged: previewed locally, uploaded after product is created */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Зображення</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('images')}</h3>
         <div className="flex flex-wrap items-start gap-3">
           {stagedImages.map((file, i) => (
             <div
@@ -189,7 +191,7 @@ export default function AdminProductCreatePage() {
                 type="button"
                 onClick={() => setStagedImages((prev) => prev.filter((_, idx) => idx !== i))}
                 className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"
-                aria-label="Видалити фото"
+                aria-label={t('deletePhoto')}
               >
                 <svg
                   className="h-3 w-3"
@@ -213,7 +215,7 @@ export default function AdminProductCreatePage() {
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            <span className="text-[10px] font-medium">Додати фото</span>
+            <span className="text-[10px] font-medium">{t('addPhoto')}</span>
             <input
               type="file"
               accept="image/*"
@@ -229,7 +231,7 @@ export default function AdminProductCreatePage() {
         </div>
         {stagedImages.length === 0 && (
           <p className="mt-2 text-[11px] text-[var(--color-text-secondary)]">
-            Фото завантажаться автоматично після створення товару
+            {t('photoAutoUpload')}
           </p>
         )}
         <label className="mt-3 flex items-center gap-2 text-sm">
@@ -240,9 +242,9 @@ export default function AdminProductCreatePage() {
             className="accent-[var(--color-primary)]"
           />
           <span>
-            Автоматично видалити фон при завантаженні
+            {t('removeBgLabel')}
             <span className="ml-1 text-xs text-[var(--color-text-secondary)]">
-              (товар буде розміщено на фоні сайту)
+              {t('removeBgHint')}
             </span>
           </span>
         </label>
@@ -250,10 +252,10 @@ export default function AdminProductCreatePage() {
 
       {/* Main info */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Основна інформація</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('mainInfo')}</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
-            label="Назва *"
+            label={t('nameLabel')}
             value={form.name}
             onChange={(e) => {
               updateField('name', e.target.value);
@@ -262,7 +264,7 @@ export default function AdminProductCreatePage() {
             error={errors.name}
           />
           <Input
-            label="Код *"
+            label={t('codeLabel')}
             value={form.code}
             onChange={(e) => {
               updateField('code', e.target.value);
@@ -288,10 +290,9 @@ export default function AdminProductCreatePage() {
                 }>('/api/v1/admin/products/lookup-barcode', { barcode });
                 if (!res.success || !res.data) return;
                 if (res.data.source === 'local' && res.data.existing) {
-                  toast.error(
-                    `Товар із цим штрихкодом уже існує: «${res.data.existing.name}». Відкрийте його замість створення дубля.`,
-                    { duration: 6000 },
-                  );
+                  toast.error(t('barcodeExists', { name: res.data.existing.name }), {
+                    duration: 6000,
+                  });
                   return;
                 }
                 if (res.data.source === 'open_food_facts' && res.data.data) {
@@ -302,11 +303,9 @@ export default function AdminProductCreatePage() {
                     name: prev.name || d.name || prev.name,
                     code: prev.code || barcode,
                   }));
-                  toast.success(
-                    `Знайдено в Open Food Facts${d.brand ? ` (${d.brand})` : ''}. Перевірте поля.`,
-                  );
+                  toast.success(t('foundOFF', { brand: d.brand ? ` (${d.brand})` : '' }));
                 } else {
-                  toast(`Штрихкод збережено. Не знайдено в довіднику — заповніть вручну.`);
+                  toast(t('barcodeSavedManual'));
                 }
               } catch {
                 // ignore — server-side error already logs
@@ -314,7 +313,7 @@ export default function AdminProductCreatePage() {
             }}
           />
           <div>
-            <label className="mb-1 block text-sm font-medium">Категорія</label>
+            <label className="mb-1 block text-sm font-medium">{t('categoryLabel')}</label>
             <Select
               options={categoryOptions}
               value={form.categoryId}
@@ -326,10 +325,10 @@ export default function AdminProductCreatePage() {
 
       {/* Prices & Stock */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Ціни та наявність</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('pricesStock')}</h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Input
-            label="Роздрібна ціна *"
+            label={t('priceRetail')}
             type="number"
             min="0"
             step="0.01"
@@ -341,7 +340,7 @@ export default function AdminProductCreatePage() {
             error={errors.priceRetail}
           />
           <Input
-            label="Ціна: Дрібний опт"
+            label={t('priceWholesale')}
             type="number"
             min="0"
             step="0.01"
@@ -349,7 +348,7 @@ export default function AdminProductCreatePage() {
             onChange={(e) => updateField('priceWholesale', e.target.value)}
           />
           <Input
-            label="Ціна: Середній опт"
+            label={t('priceWholesale2')}
             type="number"
             min="0"
             step="0.01"
@@ -357,7 +356,7 @@ export default function AdminProductCreatePage() {
             onChange={(e) => updateField('priceWholesale2', e.target.value)}
           />
           <Input
-            label="Ціна: Великий опт"
+            label={t('priceWholesale3')}
             type="number"
             min="0"
             step="0.01"
@@ -365,7 +364,7 @@ export default function AdminProductCreatePage() {
             onChange={(e) => updateField('priceWholesale3', e.target.value)}
           />
           <Input
-            label="Кількість *"
+            label={t('quantity')}
             type="number"
             min="0"
             value={form.quantity}
@@ -376,7 +375,7 @@ export default function AdminProductCreatePage() {
             error={errors.quantity}
           />
           <Input
-            label="Сортування"
+            label={t('sortOrder')}
             type="number"
             value={form.sortOrder}
             onChange={(e) => updateField('sortOrder', e.target.value)}
@@ -391,7 +390,7 @@ export default function AdminProductCreatePage() {
               onChange={(e) => updateField('isActive', e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
-            Активний
+            {t('active')}
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -400,13 +399,13 @@ export default function AdminProductCreatePage() {
               onChange={(e) => updateField('isPromo', e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
-            Акційний
+            {t('promo')}
           </label>
         </div>
         {form.isPromo && (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Акція з</label>
+              <label className="mb-1 block text-sm font-medium">{t('promoFrom')}</label>
               <input
                 type="datetime-local"
                 value={form.promoStartDate}
@@ -415,7 +414,7 @@ export default function AdminProductCreatePage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Акція по</label>
+              <label className="mb-1 block text-sm font-medium">{t('promoTo')}</label>
               <input
                 type="datetime-local"
                 value={form.promoEndDate}
@@ -435,25 +434,25 @@ export default function AdminProductCreatePage() {
       {/* Description */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">Опис</h3>
+          <h3 className="text-sm font-semibold">{t('description')}</h3>
           <div className="flex items-center gap-2">
             <select
               value={aiProvider}
               onChange={(e) => updateAiProvider(e.target.value as 'claude' | 'gemini' | 'rules')}
               disabled={isGenerating}
               className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-              title="Виберіть джерело генерації"
+              title={t('aiSourceTitle')}
             >
-              <option value="claude">Claude (дорого, найкраща якість)</option>
-              <option value="gemini">Gemini (дешево)</option>
-              <option value="rules">Без AI (шаблон)</option>
+              <option value="claude">{t('aiClaude')}</option>
+              <option value="gemini">{t('aiGemini')}</option>
+              <option value="rules">{t('aiRules')}</option>
             </select>
             <button
               type="button"
               disabled={isGenerating || !form.name.trim()}
               onClick={async () => {
                 if (!form.name.trim()) {
-                  toast.error('Спочатку введіть назву товару');
+                  toast.error(t('enterNameFirst'));
                   return;
                 }
                 setIsGenerating(true);
@@ -472,19 +471,17 @@ export default function AdminProductCreatePage() {
                     provider: aiProvider,
                   });
                   if (!res.success || !res.data) {
-                    toast.error(res.error || 'Не вдалося згенерувати');
+                    toast.error(res.error || t('generateFailed'));
                     return;
                   }
                   const conflicts: string[] = [];
-                  if (form.seoTitle.trim()) conflicts.push('SEO Title');
-                  if (form.seoDescription.trim()) conflicts.push('SEO Description');
-                  if (form.description.trim()) conflicts.push('Короткий опис');
-                  if (form.descriptionHtml.trim()) conflicts.push('Повний опис');
+                  if (form.seoTitle.trim()) conflicts.push(t('conflictSeoTitle'));
+                  if (form.seoDescription.trim()) conflicts.push(t('conflictSeoDesc'));
+                  if (form.description.trim()) conflicts.push(t('conflictShort'));
+                  if (form.descriptionHtml.trim()) conflicts.push(t('conflictFull'));
                   if (
                     conflicts.length > 0 &&
-                    !window.confirm(
-                      `Замінити заповнені поля?\n\n${conflicts.join(', ')}\n\nOK — замінити, Cancel — лишити як є.`,
-                    )
+                    !window.confirm(t('replaceConfirm', { fields: conflicts.join(', ') }))
                   ) {
                     setForm((prev) => ({
                       ...prev,
@@ -493,7 +490,7 @@ export default function AdminProductCreatePage() {
                       description: prev.description || res.data!.shortDescription,
                       descriptionHtml: prev.descriptionHtml || res.data!.fullDescription,
                     }));
-                    toast.success('Заповнено лише порожні поля');
+                    toast.success(t('filledEmptyOnly'));
                     return;
                   }
                   setForm((prev) => ({
@@ -503,57 +500,51 @@ export default function AdminProductCreatePage() {
                     description: res.data!.shortDescription,
                     descriptionHtml: res.data!.fullDescription,
                   }));
-                  toast.success('Згенеровано — перевірте поля');
+                  toast.success(t('generated'));
                 } catch (err) {
                   console.error('[AI generate-preview]', err);
-                  toast.error('Помилка мережі');
+                  toast.error(t('networkError'));
                 } finally {
                   setIsGenerating(false);
                 }
               }}
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
-              title={
-                !form.name.trim()
-                  ? 'Спочатку введіть назву товару'
-                  : 'Згенерувати SEO-опис на основі назви, бренду, категорії'
-              }
+              title={!form.name.trim() ? t('enterNameFirst') : t('generateBtnTitle')}
             >
               {isGenerating ? (
                 <>
                   <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Генеруємо…
+                  {t('generating')}
                 </>
               ) : (
-                <>✨ Згенерувати</>
+                <>✨ {t('generate')}</>
               )}
             </button>
           </div>
         </div>
         <div className="mb-3">
-          <label className="mb-1 block text-sm font-medium">Короткий опис</label>
+          <label className="mb-1 block text-sm font-medium">{t('shortDescLabel')}</label>
           <textarea
             value={form.description}
             onChange={(e) => updateField('description', e.target.value)}
             rows={2}
-            placeholder="Короткий опис для карток і пошуку (до 200 символів)"
+            placeholder={t('shortDescPh')}
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
           />
         </div>
-        <label className="mb-1 block text-sm font-medium">Повний опис</label>
+        <label className="mb-1 block text-sm font-medium">{t('fullDescLabel')}</label>
         <WysiwygEditor
           value={form.descriptionHtml}
           onChange={(html) => updateField('descriptionHtml', html)}
-          placeholder="Розгорнутий опис товару..."
+          placeholder={t('fullDescPh')}
         />
       </div>
 
       {/* Specifications — structured key/value pairs */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Характеристики</h3>
-          <span className="text-[11px] text-[var(--color-text-secondary)]">
-            Об&apos;єм, склад, торгова марка, інструкція тощо
-          </span>
+          <h3 className="text-sm font-semibold">{t('specifications')}</h3>
+          <span className="text-[11px] text-[var(--color-text-secondary)]">{t('specsHint')}</span>
         </div>
         <SpecsEditor
           value={form.specifications}
@@ -563,11 +554,11 @@ export default function AdminProductCreatePage() {
 
       {/* SEO */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">SEO</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('seo')}</h3>
         <div className="space-y-4">
           <div>
             <Input
-              label="SEO Title"
+              label={t('seoTitleLabel')}
               value={form.seoTitle}
               onChange={(e) => {
                 updateField('seoTitle', e.target.value);
@@ -580,7 +571,7 @@ export default function AdminProductCreatePage() {
             </p>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">SEO Description</label>
+            <label className="mb-1 block text-sm font-medium">{t('seoDescLabel')}</label>
             <textarea
               value={form.seoDescription}
               onChange={(e) => {
@@ -602,10 +593,10 @@ export default function AdminProductCreatePage() {
 
       <div className="flex gap-3">
         <Button onClick={handleSave} isLoading={isSaving}>
-          Створити товар
+          {t('createProduct')}
         </Button>
         <Button variant="outline" onClick={() => router.push('/admin/products')}>
-          Скасувати
+          {t('cancel')}
         </Button>
       </div>
     </div>

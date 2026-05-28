@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import Button from '@/components/ui/Button';
@@ -35,6 +36,7 @@ interface UploadResponse {
 }
 
 export default function AdminBrandsPage() {
+  const t = useTranslations('admin.brandsListPage');
   const [brands, setBrands] = useState<AdminBrand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -83,11 +85,11 @@ export default function AdminBrandsPage() {
       .get<AdminBrand[]>('/api/v1/admin/brands?includeHidden=true')
       .then((res) => {
         if (res.success && res.data) setBrands(res.data);
-        else toast.error(res.error || 'Не вдалося завантажити торгових марок');
+        else toast.error(res.error || t('loadError'));
       })
-      .catch(() => toast.error('Помилка мережі'))
+      .catch(() => toast.error(t('networkError')))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadBrands();
@@ -138,28 +140,28 @@ export default function AdminBrandsPage() {
         version: current?.version,
       });
       if (res.success) {
-        toast.success('Торгової марки оновлено');
+        toast.success(t('updated'));
         setEditingId(null);
         setEditSnapshot(null);
         loadBrands();
       } else if (res.statusCode === 409) {
-        toast.error(res.error || 'Торгової марки змінено іншим адміністратором', {
+        toast.error(res.error || t('conflictError'), {
           duration: 12000,
           action: {
-            label: 'Оновити з сервера',
+            label: t('refreshAction'),
             onClick: () => {
               loadBrands();
               setEditingId(null);
               setEditSnapshot(null);
-              toast.success('Оновлено — відкрийте знову і повторіть редагування');
+              toast.success(t('refreshedRetry'));
             },
           },
         });
       } else {
-        toast.error(res.error || 'Не вдалося оновити');
+        toast.error(res.error || t('updateError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -168,7 +170,7 @@ export default function AdminBrandsPage() {
   const handleCreate = async () => {
     const name = createForm.name.trim();
     if (!name) {
-      toast.error('Введіть назву торгової марки');
+      toast.error(t('enterName'));
       return;
     }
     setIsCreating(true);
@@ -178,15 +180,15 @@ export default function AdminBrandsPage() {
         slug: createForm.slug.trim() || undefined,
       });
       if (res.success) {
-        toast.success('Торгової марки створено');
+        toast.success(t('created'));
         setShowCreate(false);
         setCreateForm({ name: '', slug: '' });
         loadBrands();
       } else {
-        toast.error(res.error || 'Не вдалося створити');
+        toast.error(res.error || t('createError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsCreating(false);
     }
@@ -200,13 +202,13 @@ export default function AdminBrandsPage() {
     try {
       const res = await apiClient.delete<{ message?: string }>(`/api/v1/admin/brands/${id}`);
       if (res.success) {
-        toast.success(res.data?.message || 'Торгової марки видалено');
+        toast.success(res.data?.message || t('deleted'));
         loadBrands();
       } else {
-        toast.error(res.error || 'Не вдалося видалити');
+        toast.error(res.error || t('deleteError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsDeleting(null);
     }
@@ -221,12 +223,12 @@ export default function AdminBrandsPage() {
       const res = await apiClient.upload<UploadResponse>('/api/v1/admin/upload', formData);
       if (res.success && res.data) {
         setEditForm((prev) => ({ ...prev, logoPath: res.data!.path }));
-        toast.success('Логотип завантажено');
+        toast.success(t('logoUploaded'));
       } else {
-        toast.error(res.error || 'Не вдалося завантажити логотип');
+        toast.error(res.error || t('logoUploadError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsUploading(false);
       if (logoInputRef.current) logoInputRef.current.value = '';
@@ -257,30 +259,30 @@ export default function AdminBrandsPage() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold">
-          Торгові марки{' '}
+          {t('title')}{' '}
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({brands.length})
           </span>
         </h2>
         <div className="flex gap-2">
           <Input
-            placeholder="Пошук..."
+            placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-56"
           />
           <Button onClick={() => setShowCreate(!showCreate)}>
-            {showCreate ? 'Скасувати' : '+ Створити'}
+            {showCreate ? t('cancel') : t('create')}
           </Button>
         </div>
       </div>
 
       {showCreate && (
         <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="mb-3 text-sm font-semibold">Новий торгова марка</p>
+          <p className="mb-3 text-sm font-semibold">{t('newBrand')}</p>
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium">Назва *</label>
+              <label className="mb-1 block text-xs font-medium">{t('nameLabel')}</label>
               <Input
                 value={createForm.name}
                 onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
@@ -289,16 +291,16 @@ export default function AdminBrandsPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium">Slug (auto)</label>
+              <label className="mb-1 block text-xs font-medium">{t('slugAuto')}</label>
               <Input
                 value={createForm.slug}
                 onChange={(e) => setCreateForm({ ...createForm, slug: e.target.value })}
-                placeholder="auto-generated"
+                placeholder={t('slugAutoPh')}
                 className="w-48"
               />
             </div>
             <Button onClick={handleCreate} isLoading={isCreating}>
-              Створити
+              {t('createBtn')}
             </Button>
           </div>
         </div>
@@ -308,13 +310,13 @@ export default function AdminBrandsPage() {
         <table className="w-full text-sm">
           <thead className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
             <tr>
-              <th className="px-4 py-3 text-left font-medium">Логотип</th>
-              <th className="px-4 py-3 text-left font-medium">Назва</th>
-              <th className="px-4 py-3 text-left font-medium">Slug</th>
-              <th className="px-4 py-3 text-center font-medium">Товарів</th>
-              <th className="px-4 py-3 text-center font-medium">Видимий</th>
-              <th className="px-4 py-3 text-center font-medium">Порядок</th>
-              <th className="px-4 py-3 text-right font-medium">Дії</th>
+              <th className="px-4 py-3 text-left font-medium">{t('thLogo')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('thName')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('thSlug')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('thProducts')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('thVisible')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('thOrder')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('thActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -348,7 +350,7 @@ export default function AdminBrandsPage() {
                           ? 'bg-gray-100 text-gray-500'
                           : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:underline'
                       }`}
-                      title={`Переглянути ${b._count.products} товарів`}
+                      title={t('viewProductsTitle', { count: b._count.products })}
                     >
                       {b._count.products}
                     </a>
@@ -360,7 +362,7 @@ export default function AdminBrandsPage() {
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${b.isVisible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                   >
-                    {b.isVisible ? 'Так' : 'Ні'}
+                    {b.isVisible ? t('yes') : t('no')}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center text-[var(--color-text-secondary)]">
@@ -373,12 +375,12 @@ export default function AdminBrandsPage() {
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
-                      title="Переглянути на сайті"
+                      title={t('viewOnSite')}
                     >
                       ↗
                     </a>
                     <Button variant="outline" size="sm" onClick={() => handleEdit(b)}>
-                      Редагувати
+                      {t('edit')}
                     </Button>
                     <Button
                       variant="danger"
@@ -386,7 +388,7 @@ export default function AdminBrandsPage() {
                       onClick={() => setConfirmDelete({ id: b.id, name: b.name })}
                       isLoading={isDeleting === b.id}
                     >
-                      Видалити
+                      {t('delete')}
                     </Button>
                   </div>
                 </td>
@@ -400,21 +402,21 @@ export default function AdminBrandsPage() {
                       🏭
                     </span>
                     <p className="text-sm font-medium">
-                      {search ? 'Торгових марок не знайдено' : 'Торгових марок ще немає'}
+                      {search ? t('emptySearch') : t('emptyNone')}
                     </p>
                     {search ? (
                       <button
                         onClick={() => setSearch('')}
                         className="text-xs text-[var(--color-primary)] hover:underline"
                       >
-                        Скинути пошук
+                        {t('resetSearch')}
                       </button>
                     ) : (
                       <button
                         onClick={() => setShowCreate(true)}
                         className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
                       >
-                        + Створити торгової марки
+                        {t('createFirst')}
                       </button>
                     )}
                   </div>
@@ -434,33 +436,33 @@ export default function AdminBrandsPage() {
           }}
         >
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[var(--radius)] bg-[var(--color-bg)] p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Редагувати торгової марки</h3>
+            <h3 className="mb-4 text-lg font-semibold">{t('editTitle')}</h3>
             <div className="space-y-4">
               <Input
-                label="Назва *"
+                label={t('nameLabel')}
                 value={editForm.name}
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
               />
               <Input
-                label="Slug"
+                label={t('slugLabel')}
                 value={editForm.slug}
                 onChange={(e) => setEditForm({ ...editForm, slug: e.target.value })}
-                placeholder="auto-generated from name"
+                placeholder={t('slugPh')}
               />
               <div>
-                <label className="mb-1 block text-sm font-medium">Опис</label>
+                <label className="mb-1 block text-sm font-medium">{t('descLabel')}</label>
                 <textarea
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   rows={3}
                   className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-                  placeholder="Коротка інформація про торгової марки (показується на /brand/[slug])"
+                  placeholder={t('descPh')}
                 />
               </div>
 
               {/* Logo upload */}
               <div>
-                <label className="mb-1 block text-sm font-medium">Логотип</label>
+                <label className="mb-1 block text-sm font-medium">{t('logoLabel')}</label>
                 <div className="flex items-center gap-3">
                   <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
                     {editForm.logoPath ? (
@@ -473,7 +475,7 @@ export default function AdminBrandsPage() {
                       />
                     ) : (
                       <span className="flex h-full items-center justify-center text-xs text-[var(--color-text-secondary)]">
-                        нема
+                        {t('noLogo')}
                       </span>
                     )}
                   </div>
@@ -495,7 +497,7 @@ export default function AdminBrandsPage() {
                       onClick={() => logoInputRef.current?.click()}
                       isLoading={isUploading}
                     >
-                      {editForm.logoPath ? 'Замінити' : 'Завантажити'}
+                      {editForm.logoPath ? t('replace') : t('upload')}
                     </Button>
                     {editForm.logoPath && (
                       <button
@@ -503,7 +505,7 @@ export default function AdminBrandsPage() {
                         onClick={() => setEditForm((prev) => ({ ...prev, logoPath: '' }))}
                         className="text-xs text-[var(--color-danger)] hover:underline"
                       >
-                        Видалити
+                        {t('delete')}
                       </button>
                     )}
                   </div>
@@ -512,28 +514,28 @@ export default function AdminBrandsPage() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input
-                  label="Веб-сайт торгової марки"
+                  label={t('websiteLabel')}
                   type="url"
                   value={editForm.website}
                   onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
                   placeholder="https://brand-website.com"
                 />
                 <Input
-                  label="Країна походження"
+                  label={t('countryLabel')}
                   value={editForm.country}
                   onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
-                  placeholder="Україна"
+                  placeholder={t('countryPh')}
                 />
               </div>
 
               <div className="rounded-md border border-[var(--color-border)] p-3">
                 <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                  SEO
+                  {t('seo')}
                 </p>
                 <div className="space-y-3">
                   <div>
                     <Input
-                      label="SEO Title"
+                      label={t('seoTitleLabel')}
                       value={editForm.seoTitle}
                       onChange={(e) => setEditForm({ ...editForm, seoTitle: e.target.value })}
                       maxLength={70}
@@ -543,7 +545,7 @@ export default function AdminBrandsPage() {
                     </p>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium">SEO Description</label>
+                    <label className="mb-1 block text-sm font-medium">{t('seoDescLabel')}</label>
                     <textarea
                       value={editForm.seoDescription}
                       onChange={(e) => setEditForm({ ...editForm, seoDescription: e.target.value })}
@@ -563,7 +565,7 @@ export default function AdminBrandsPage() {
                   <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                     EN
                   </span>
-                  Англійський переклад (опційно)
+                  {t('enTranslation')}
                 </summary>
                 <div className="mt-3 space-y-3">
                   <Input
@@ -601,7 +603,7 @@ export default function AdminBrandsPage() {
 
               <div className="flex gap-4">
                 <Input
-                  label="Порядок"
+                  label={t('orderLabel')}
                   type="number"
                   value={String(editForm.sortOrder)}
                   onChange={(e) =>
@@ -616,17 +618,17 @@ export default function AdminBrandsPage() {
                     onChange={(e) => setEditForm({ ...editForm, isVisible: e.target.checked })}
                     className="accent-[var(--color-primary)]"
                   />
-                  Показувати на сайті
+                  {t('showOnSite')}
                 </label>
               </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
               <Button variant="outline" onClick={closeEdit}>
-                Скасувати
+                {t('cancel')}
               </Button>
               <Button onClick={handleSave} isLoading={isSaving}>
-                Зберегти
+                {t('save')}
               </Button>
             </div>
           </div>
@@ -636,7 +638,7 @@ export default function AdminBrandsPage() {
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between text-sm">
           <span className="text-[var(--color-text-secondary)]">
-            Сторінка {currentPage} з {totalPages} · {filtered.length} торгових марок
+            {t('pageInfo', { current: currentPage, total: totalPages, count: filtered.length })}
           </span>
           <div className="flex gap-1">
             <Button
@@ -645,7 +647,7 @@ export default function AdminBrandsPage() {
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
             >
-              ← Назад
+              {t('prev')}
             </Button>
             <Button
               variant="outline"
@@ -653,7 +655,7 @@ export default function AdminBrandsPage() {
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
             >
-              Вперед →
+              {t('next')}
             </Button>
           </div>
         </div>
@@ -664,9 +666,9 @@ export default function AdminBrandsPage() {
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDelete}
         variant="danger"
-        title="Видалення торгової марки"
-        message={`Видалити "${confirmDelete?.name}"? Якщо у торгової марки є товари — бренд просто відв'яжеться від них; інакше буде стертий.`}
-        confirmText="Так, видалити"
+        title={t('deleteTitle')}
+        message={t('deleteMsg', { name: confirmDelete?.name ?? '' })}
+        confirmText={t('deleteConfirm')}
       />
     </div>
   );

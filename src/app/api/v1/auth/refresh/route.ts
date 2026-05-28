@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { refreshTokens } from '@/services/auth';
 import { parseTtlToSeconds, hashToken } from '@/services/token';
 import { AuthError } from '@/services/auth-errors';
+import { checkRateLimit, RATE_LIMITS, RateLimitError } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { getAllRefreshTokensFromCookies, serializeRefreshTokenCookie } from '@/utils/cookies';
 import { getClientIp, getDeviceInfo } from '@/utils/request';
@@ -10,6 +11,16 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
+    const ipAddress = getClientIp(request);
+
+    // Rate-limit per IP — prevents a stuck client (or stolen token) from
+    // hammering the rotation endpoint. The reuse-detection inside
+    // refreshTokens() still nukes the family when a revoked token appears.
+    const rl = await checkRateLimit(ipAddress, RATE_LIMITS.auth);
+    if (!rl.allowed) {
+      throw new RateLimitError('Забагато спроб оновлення сесії.', 429, rl.retryAfter);
+    }
+
     const cookieHeader = request.headers.get('cookie');
     const candidates = getAllRefreshTokensFromCookies(cookieHeader);
 
@@ -40,7 +51,6 @@ export async function POST(request: NextRequest) {
     // refreshTokens() can produce the user-facing error consistently.
     if (!refreshToken) refreshToken = candidates[candidates.length - 1];
 
-    const ipAddress = getClientIp(request);
     const deviceInfo = getDeviceInfo(request);
 
     const { user, tokens } = await refreshTokens(refreshToken, ipAddress, deviceInfo);
@@ -56,6 +66,11 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      const res = errorResponse(error.message, error.statusCode);
+      if (error.retryAfter) res.headers.set('Retry-After', String(error.retryAfter));
+      return res;
+    }
     if (error instanceof AuthError) {
       return errorResponse(error.message, error.statusCode);
     }

@@ -25,7 +25,10 @@ export function verifyViberSignature(body: string, signature: string): boolean {
   // the bypass so local testing without a real Viber app keeps working.
   if (!AUTH_TOKEN) return process.env.NODE_ENV !== 'production';
   const hash = crypto.createHmac('sha256', AUTH_TOKEN).update(body).digest('hex');
-  return hash === signature;
+  // Constant-time compare — plain `===` early-exits on first byte mismatch,
+  // letting a timing side-channel reveal valid signatures.
+  if (typeof signature !== 'string' || signature.length !== hash.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(hash, 'utf-8'), Buffer.from(signature, 'utf-8'));
 }
 
 /**

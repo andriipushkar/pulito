@@ -211,7 +211,8 @@ export async function verifyCallback(
   }
   const expectedSignature = createSignature(data, privateKey);
 
-  if (signature !== expectedSignature) {
+  const { safeEqual } = await import('@/utils/webhook-security');
+  if (!safeEqual(signature, expectedSignature)) {
     throw new LiqPayError('Invalid LiqPay signature', 403);
   }
 

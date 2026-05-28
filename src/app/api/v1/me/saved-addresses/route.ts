@@ -1,8 +1,9 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
-import { successResponse, errorResponse } from '@/utils/api-response';
+import { errorResponse } from '@/utils/api-response';
 import { getCheckoutConfig } from '@/services/checkout-config';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 interface SavedAddress {
   deliveryMethod: string;
@@ -20,6 +21,9 @@ interface SavedAddress {
  */
 export const GET = withAuth(async (_request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.api);
+    if (!rl.allowed) return errorResponse('Забагато запитів', 429);
+
     const [orders, config] = await Promise.all([
       prisma.order.findMany({
         where: { userId: user.id, deliveryCity: { not: null } },
@@ -58,7 +62,10 @@ export const GET = withAuth(async (_request: NextRequest, { user }) => {
       if (unique.length >= 5) break;
     }
 
-    return successResponse(unique);
+    return NextResponse.json(
+      { success: true, data: unique },
+      { headers: { 'Cache-Control': 'private, max-age=60, must-revalidate' } },
+    );
   } catch {
     return errorResponse('Помилка завантаження адрес', 500);
   }

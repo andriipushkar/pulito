@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
@@ -70,6 +71,7 @@ const EMPTY_FORM: Form = {
 export default function AdminBundleEditPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useTranslations('admin.bundleEditPage');
   const isNew = id === 'new';
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSaving, setIsSaving] = useState(false);
@@ -128,7 +130,7 @@ export default function AdminBundleEditPage() {
           };
           const loadedItems: BundleItem[] = (d.items || []).map((i) => ({
             productId: i.productId,
-            productName: i.product?.name || `Товар #${i.productId}`,
+            productName: i.product?.name || t('productPrefix', { id: i.productId }),
             productCode: i.product?.code,
             quantity: i.quantity,
           }));
@@ -136,10 +138,11 @@ export default function AdminBundleEditPage() {
           setItems(loadedItems);
           setSnapshot({ form: loadedForm, items: loadedItems });
         } else {
-          toast.error(res.error || 'Не вдалося завантажити набір');
+          toast.error(res.error || t('loadError'));
         }
       })
       .finally(() => setIsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isNew]);
 
   useEffect(() => {
@@ -163,7 +166,7 @@ export default function AdminBundleEditPage() {
 
   const addProduct = (product: ProductOption) => {
     if (items.some((i) => i.productId === product.id)) {
-      toast.error('Товар вже додано');
+      toast.error(t('alreadyAddedToast'));
       return;
     }
     const qty = Math.max(1, Number(newQuantity) || 1);
@@ -195,14 +198,14 @@ export default function AdminBundleEditPage() {
   };
 
   const validate = (): string | null => {
-    if (!form.name.trim()) return 'Вкажіть назву набору';
+    if (!form.name.trim()) return t('validateName');
     if (form.discountPercent < 0 || form.discountPercent > 100) {
-      return 'Знижка має бути в межах 0–100%';
+      return t('validateDiscount');
     }
     if (form.fixedPrice && Number(form.fixedPrice) < 0) {
-      return "Фіксована ціна не може бути від'ємною";
+      return t('validateFixedPrice');
     }
-    if (items.length === 0) return 'Додайте хоча б один товар у набір';
+    if (items.length === 0) return t('validateItems');
     return null;
   };
 
@@ -231,14 +234,14 @@ export default function AdminBundleEditPage() {
         : await apiClient.patch(`/api/v1/admin/bundles/${id}`, payload);
 
       if (res.success) {
-        toast.success(isNew ? 'Набір створено' : 'Збережено');
+        toast.success(isNew ? t('createdToast') : t('savedToast'));
         setSnapshot({ form, items });
         if (isNew) router.push('/admin/bundles');
       } else {
-        toast.error(res.error || 'Помилка збереження');
+        toast.error(res.error || t('saveError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -250,15 +253,15 @@ export default function AdminBundleEditPage() {
     try {
       const res = await apiClient.delete(`/api/v1/admin/bundles/${id}`);
       if (res.success) {
-        toast.success('Набір видалено');
+        toast.success(t('deletedToast'));
         // Skip the dirty-check on the way out — the resource no longer exists.
         setSnapshot({ form, items });
         router.push('/admin/bundles');
       } else {
-        toast.error(res.error || 'Помилка видалення');
+        toast.error(res.error || t('deleteError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsDeleting(false);
     }
@@ -283,33 +286,33 @@ export default function AdminBundleEditPage() {
             onClick={goBack}
             className="text-sm text-[var(--color-primary)] hover:underline"
           >
-            ← Набори
+            {t('back')}
           </button>
-          <h2 className="mt-1 text-xl font-bold">{isNew ? 'Новий набір' : form.name}</h2>
+          <h2 className="mt-1 text-xl font-bold">{isNew ? t('newBundle') : form.name}</h2>
         </div>
         <div className="flex gap-2">
           {!isNew && (
             <Button variant="danger" onClick={() => setConfirmDelete(true)} isLoading={isDeleting}>
-              Видалити
+              {t('delete')}
             </Button>
           )}
           <Button onClick={handleSave} isLoading={isSaving}>
-            Зберегти
+            {t('save')}
           </Button>
         </div>
       </div>
 
       <div className="space-y-6">
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">Основне</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('basicSection')}</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
-              label="Назва *"
+              label={t('nameLabel')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
             <div>
-              <label className="mb-1 block text-sm font-medium">Тип</label>
+              <label className="mb-1 block text-sm font-medium">{t('typeLabel')}</label>
               <select
                 value={form.bundleType}
                 onChange={(e) =>
@@ -317,12 +320,12 @@ export default function AdminBundleEditPage() {
                 }
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
               >
-                <option value="curated">Готовий набір</option>
-                <option value="custom">Довільний набір</option>
+                <option value="curated">{t('typeCurated')}</option>
+                <option value="custom">{t('typeCustom')}</option>
               </select>
             </div>
             <Input
-              label="Знижка (%)"
+              label={t('discountLabel')}
               type="number"
               min="0"
               max="100"
@@ -330,14 +333,14 @@ export default function AdminBundleEditPage() {
               onChange={(e) => setForm({ ...form, discountPercent: Number(e.target.value) })}
             />
             <Input
-              label="Фіксована ціна (грн)"
+              label={t('fixedPriceLabel')}
               value={form.fixedPrice}
               onChange={(e) => setForm({ ...form, fixedPrice: e.target.value })}
-              placeholder="Залишити пустим для знижки"
+              placeholder={t('fixedPricePh')}
             />
           </div>
           <div className="mt-4">
-            <label className="mb-1 block text-sm font-medium">Опис</label>
+            <label className="mb-1 block text-sm font-medium">{t('descriptionLabel')}</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -353,7 +356,7 @@ export default function AdminBundleEditPage() {
                 onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
                 className="accent-[var(--color-primary)]"
               />
-              Активний
+              {t('activeLabel')}
             </label>
           </div>
 
@@ -362,16 +365,16 @@ export default function AdminBundleEditPage() {
               <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                 EN
               </span>
-              Англійський переклад (опційно)
+              {t('enSection')}
             </summary>
             <div className="mt-3 space-y-3">
               <Input
-                label="Name (EN)"
+                label={t('nameEnLabel')}
                 value={form.nameEn}
                 onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
               />
               <div>
-                <label className="mb-1 block text-sm font-medium">Description (EN)</label>
+                <label className="mb-1 block text-sm font-medium">{t('descEnLabel')}</label>
                 <textarea
                   value={form.descriptionEn}
                   onChange={(e) => setForm({ ...form, descriptionEn: e.target.value })}
@@ -384,25 +387,25 @@ export default function AdminBundleEditPage() {
         </div>
 
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">Товари в наборі</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('itemsSection')}</h3>
 
           <div className="mb-4 flex flex-wrap items-end gap-3">
             <div className="relative w-full max-w-sm">
-              <label className="mb-1 block text-sm font-medium">Додати товар</label>
+              <label className="mb-1 block text-sm font-medium">{t('addProduct')}</label>
               <Input
                 value={productQuery}
                 onChange={(e) => setProductQuery(e.target.value)}
-                placeholder="Пошук за назвою або кодом…"
+                placeholder={t('productSearchPh')}
               />
               {productQuery.length >= 2 && (
                 <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-60 overflow-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
                   {searchingProducts ? (
                     <div className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                      Пошук…
+                      {t('searching')}
                     </div>
                   ) : productResults.length === 0 ? (
                     <div className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                      Нічого не знайдено
+                      {t('nothingFound')}
                     </div>
                   ) : (
                     productResults.map((p) => {
@@ -421,7 +424,7 @@ export default function AdminBundleEditPage() {
                           <span className="flex-1 truncate">{p.name}</span>
                           {alreadyAdded && (
                             <span className="text-[10px] text-[var(--color-text-secondary)]">
-                              вже у наборі
+                              {t('alreadyAdded')}
                             </span>
                           )}
                         </button>
@@ -432,7 +435,7 @@ export default function AdminBundleEditPage() {
               )}
             </div>
             <Input
-              label="Кількість"
+              label={t('quantityLabel')}
               type="number"
               min="1"
               value={newQuantity}
@@ -446,10 +449,10 @@ export default function AdminBundleEditPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                    <th className="px-4 py-2 text-left font-medium">Код</th>
-                    <th className="px-4 py-2 text-left font-medium">Назва</th>
-                    <th className="px-4 py-2 text-right font-medium">Кількість</th>
-                    <th className="px-4 py-2 text-right font-medium">Дії</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('colCode')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('colName')}</th>
+                    <th className="px-4 py-2 text-right font-medium">{t('colQuantity')}</th>
+                    <th className="px-4 py-2 text-right font-medium">{t('colActions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -484,7 +487,7 @@ export default function AdminBundleEditPage() {
                           onClick={() => removeItem(item.productId)}
                           className="text-xs text-[var(--color-danger)] hover:underline"
                         >
-                          Видалити
+                          {t('removeItem')}
                         </button>
                       </td>
                     </tr>
@@ -494,7 +497,7 @@ export default function AdminBundleEditPage() {
             </div>
           ) : (
             <p className="py-4 text-center text-sm text-[var(--color-text-secondary)]">
-              Товарів не додано
+              {t('noItems')}
             </p>
           )}
         </div>
@@ -505,9 +508,9 @@ export default function AdminBundleEditPage() {
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDelete}
         variant="danger"
-        title="Видалення набору"
-        message={`Видалити набір "${form.name}"? Дія незворотна.`}
-        confirmText="Так, видалити"
+        title={t('deleteTitle')}
+        message={t('deleteMsg', { name: form.name })}
+        confirmText={t('deleteConfirm')}
       />
     </div>
   );

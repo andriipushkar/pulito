@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -10,14 +11,6 @@ import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import { useDebounce } from '@/hooks/useDebounce';
 import { SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
 import { Check, Close } from '@/components/icons';
-
-const BADGE_TYPES = [
-  { value: 'promo', label: 'Акція' },
-  { value: 'new_arrival', label: 'Новинка' },
-  { value: 'hit', label: 'Хіт' },
-  { value: 'eco', label: 'Еко' },
-  { value: 'custom', label: 'Інший' },
-];
 
 interface Badge {
   id: number;
@@ -44,6 +37,14 @@ interface ProductOption {
 }
 
 export default function AdminBadgesPage() {
+  const t = useTranslations('admin.badgesPage');
+  const BADGE_TYPES = [
+    { value: 'promo', label: t('typePromo') },
+    { value: 'new_arrival', label: t('typeNewArrival') },
+    { value: 'hit', label: t('typeHit') },
+    { value: 'eco', label: t('typeEco') },
+    { value: 'custom', label: t('typeCustom') },
+  ];
   const [badges, setBadges] = useState<Badge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -92,9 +93,9 @@ export default function AdminBadgesPage() {
       .get<Badge[]>('/api/v1/admin/badges')
       .then((res) => {
         if (res.success && res.data) setBadges(res.data);
-        else toast.error(res.error || 'Помилка завантаження бейджів');
+        else toast.error(res.error || t('loadError'));
       })
-      .catch(() => toast.error('Помилка завантаження бейджів'))
+      .catch(() => toast.error(t('loadError')))
       .finally(() => setIsLoading(false));
   };
 
@@ -126,7 +127,7 @@ export default function AdminBadgesPage() {
   const handleCreate = async () => {
     const productId = pickedProduct?.id || Number(form.productId);
     if (!productId || Number.isNaN(productId)) {
-      toast.error('Оберіть товар');
+      toast.error(t('selectProduct'));
       return;
     }
     const res = await apiClient.post('/api/v1/admin/badges', {
@@ -137,7 +138,7 @@ export default function AdminBadgesPage() {
       priority: form.priority,
     });
     if (res.success) {
-      toast.success('Бейдж створено');
+      toast.success(t('createdToast'));
       setShowForm(false);
       setForm({
         productId: '',
@@ -150,7 +151,7 @@ export default function AdminBadgesPage() {
       setProductQuery('');
       loadBadges();
     } else {
-      toast.error(res.error || 'Помилка створення');
+      toast.error(res.error || t('createError'));
     }
   };
 
@@ -171,16 +172,16 @@ export default function AdminBadgesPage() {
       customColor: editForm.customColor,
       priority: editForm.priority,
     });
-    if (res.success) toast.success('Бейдж оновлено');
-    else toast.error(res.error || 'Помилка');
+    if (res.success) toast.success(t('updatedToast'));
+    else toast.error(res.error || t('errorGeneric'));
     setEditingId(null);
     loadBadges();
   };
 
   const toggleActive = async (id: number, isActive: boolean) => {
     const res = await apiClient.put(`/api/v1/admin/badges/${id}`, { isActive: !isActive });
-    if (res.success) toast.success(isActive ? 'Бейдж вимкнено' : 'Бейдж увімкнено');
-    else toast.error(res.error || 'Помилка оновлення');
+    if (res.success) toast.success(isActive ? t('disabledToast') : t('enabledToast'));
+    else toast.error(res.error || t('updateError'));
     loadBadges();
   };
 
@@ -193,11 +194,11 @@ export default function AdminBadgesPage() {
     const id = deleteId;
     const res = await apiClient.delete(`/api/v1/admin/badges/${id}`);
     if (res.success) {
-      toast.success('Бейдж видалено');
+      toast.success(t('deletedToast'));
       setDeleteId(null);
       loadBadges();
     } else {
-      toast.error(res.error || 'Помилка видалення');
+      toast.error(res.error || t('deleteError'));
     }
   };
 
@@ -211,20 +212,20 @@ export default function AdminBadgesPage() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold">
-          Бейджі товарів{' '}
+          {t('title')}{' '}
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({badges.length})
           </span>
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            placeholder="Пошук за товаром, кодом або типом…"
+            placeholder={t('searchPh')}
             value={listSearch}
             onChange={(e) => setListSearch(e.target.value)}
             className="w-72"
           />
           <Button onClick={() => setShowForm(!showForm)}>
-            {showForm ? 'Скасувати' : '+ Додати бейдж'}
+            {showForm ? t('cancel') : t('addBadge')}
           </Button>
         </div>
       </div>
@@ -232,7 +233,7 @@ export default function AdminBadgesPage() {
       {showForm && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <div className="mb-4">
-            <label className="mb-1 block text-sm font-medium">Товар</label>
+            <label className="mb-1 block text-sm font-medium">{t('productLabel')}</label>
             {pickedProduct ? (
               <div className="flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-sm">
                 <span className="font-mono text-xs text-[var(--color-text-secondary)]">
@@ -247,7 +248,7 @@ export default function AdminBadgesPage() {
                   }}
                   className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
                 >
-                  ✕ Змінити
+                  {t('changeBtn')}
                 </button>
               </div>
             ) : (
@@ -255,17 +256,17 @@ export default function AdminBadgesPage() {
                 <Input
                   value={productQuery}
                   onChange={(e) => setProductQuery(e.target.value)}
-                  placeholder="Пошук за назвою або кодом…"
+                  placeholder={t('productSearchPh')}
                 />
                 {productQuery.length >= 2 && (
                   <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-60 overflow-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
                     {searchingProducts ? (
                       <div className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                        Пошук…
+                        {t('searching')}
                       </div>
                     ) : productResults.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                        Нічого не знайдено
+                        {t('nothingFound')}
                       </div>
                     ) : (
                       productResults.map((p) => (
@@ -293,7 +294,7 @@ export default function AdminBadgesPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Тип бейджа</label>
+              <label className="mb-1 block text-sm font-medium">{t('typeLabel')}</label>
               <select
                 value={form.badgeType}
                 onChange={(e) => setForm({ ...form, badgeType: e.target.value })}
@@ -307,7 +308,7 @@ export default function AdminBadgesPage() {
               </select>
             </div>
             <Input
-              label="Пріоритет"
+              label={t('priorityLabel')}
               type="number"
               value={String(form.priority)}
               onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
@@ -316,12 +317,12 @@ export default function AdminBadgesPage() {
           {form.badgeType === 'custom' && (
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <Input
-                label="Текст бейджа"
+                label={t('textLabel')}
                 value={form.customText}
                 onChange={(e) => setForm({ ...form, customText: e.target.value })}
               />
               <div>
-                <label className="mb-1 block text-sm font-medium">Колір</label>
+                <label className="mb-1 block text-sm font-medium">{t('colorLabel')}</label>
                 <input
                   type="color"
                   value={form.customColor}
@@ -332,7 +333,7 @@ export default function AdminBadgesPage() {
             </div>
           )}
           <div className="mt-4 flex justify-end">
-            <Button onClick={handleCreate}>Створити</Button>
+            <Button onClick={handleCreate}>{t('create')}</Button>
           </div>
         </div>
       )}
@@ -349,7 +350,7 @@ export default function AdminBadgesPage() {
                   className={`grid gap-3 ${editForm.badgeType === 'custom' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}
                 >
                   <div>
-                    <label className="mb-1 block text-xs font-medium">Тип</label>
+                    <label className="mb-1 block text-xs font-medium">{t('typeShortLabel')}</label>
                     <select
                       value={editForm.badgeType}
                       onChange={(e) => setEditForm({ ...editForm, badgeType: e.target.value })}
@@ -363,7 +364,7 @@ export default function AdminBadgesPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium">Пріоритет</label>
+                    <label className="mb-1 block text-xs font-medium">{t('priorityLabel')}</label>
                     <input
                       type="number"
                       value={editForm.priority}
@@ -375,7 +376,7 @@ export default function AdminBadgesPage() {
                   </div>
                   {editForm.badgeType === 'custom' && (
                     <div>
-                      <label className="mb-1 block text-xs font-medium">Колір</label>
+                      <label className="mb-1 block text-xs font-medium">{t('colorLabel')}</label>
                       <input
                         type="color"
                         value={editForm.customColor}
@@ -387,7 +388,7 @@ export default function AdminBadgesPage() {
                 </div>
                 {editForm.badgeType === 'custom' && (
                   <input
-                    placeholder="Текст бейджа"
+                    placeholder={t('textLabel')}
                     value={editForm.customText}
                     onChange={(e) => setEditForm({ ...editForm, customText: e.target.value })}
                     className="w-full rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
@@ -395,14 +396,14 @@ export default function AdminBadgesPage() {
                 )}
                 <div className="flex justify-end gap-2">
                   <button
-                    aria-label="Скасувати редагування"
+                    aria-label={t('cancelEditAria')}
                     onClick={() => setEditingId(null)}
                     className="rounded-[var(--radius)] border border-[var(--color-border)] p-1.5"
                   >
                     <Close size={16} />
                   </button>
                   <button
-                    aria-label="Зберегти зміни"
+                    aria-label={t('saveEditAria')}
                     onClick={() => saveEdit(b.id)}
                     className="rounded-[var(--radius)] bg-[var(--color-primary)] p-1.5 text-white"
                   >
@@ -421,25 +422,25 @@ export default function AdminBadgesPage() {
                 <span className="flex-1 text-sm">{b.product.name}</span>
                 <span className="text-xs text-[var(--color-text-secondary)]">{b.product.code}</span>
                 <span className="text-xs text-[var(--color-text-secondary)]">
-                  Пріоритет: {b.priority}
+                  {t('priorityPrefix', { value: b.priority })}
                 </span>
                 <button
                   onClick={() => startEdit(b)}
                   className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
                 >
-                  Редагувати
+                  {t('edit')}
                 </button>
                 <button
                   onClick={() => toggleActive(b.id, b.isActive)}
                   className={`rounded-full px-3 py-1 text-xs ${b.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                 >
-                  {b.isActive ? 'Активний' : 'Вимкнено'}
+                  {b.isActive ? t('statusActive') : t('statusInactive')}
                 </button>
                 <button
                   onClick={() => handleDelete(b.id)}
                   className="text-xs text-red-500 hover:text-red-700"
                 >
-                  Видалити
+                  {t('delete')}
                 </button>
               </div>
             )}
@@ -447,7 +448,7 @@ export default function AdminBadgesPage() {
         ))}
         {filteredBadges.length === 0 && badges.length > 0 && (
           <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-8 text-center text-sm text-[var(--color-text-secondary)]">
-            За запитом «{listSearch}» нічого не знайдено
+            {t('emptySearch', { query: listSearch })}
           </div>
         )}
         {badges.length === 0 && (
@@ -455,15 +456,13 @@ export default function AdminBadgesPage() {
             <span className="text-3xl" aria-hidden="true">
               🏷️
             </span>
-            <p className="text-sm font-medium">Бейджів ще немає</p>
-            <p className="max-w-md text-xs">
-              Бейджі привертають увагу до товару — «Акція», «Новинка», «Хіт» або власний текст
-            </p>
+            <p className="text-sm font-medium">{t('emptyTitle')}</p>
+            <p className="max-w-md text-xs">{t('emptyHint')}</p>
             <button
               onClick={() => setShowForm(true)}
               className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
             >
-              + Додати перший бейдж
+              {t('addFirst')}
             </button>
           </div>
         )}
@@ -474,13 +473,19 @@ export default function AdminBadgesPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={executeDelete}
         variant="danger"
-        title="Видалення бейджа"
+        title={t('deleteTitle')}
         message={
           deleteTarget
-            ? `Видалити бейдж «${deleteTarget.customText || (BADGE_TYPES.find((t) => t.value === deleteTarget.badgeType)?.label ?? deleteTarget.badgeType)}» для товару «${deleteTarget.product.name}»?`
-            : 'Видалити бейдж?'
+            ? t('deleteMsg', {
+                badge:
+                  deleteTarget.customText ||
+                  (BADGE_TYPES.find((bt) => bt.value === deleteTarget.badgeType)?.label ??
+                    deleteTarget.badgeType),
+                product: deleteTarget.product.name,
+              })
+            : t('deleteMsgGeneric')
         }
-        confirmText="Так, видалити"
+        confirmText={t('deleteConfirm')}
       />
     </div>
   );

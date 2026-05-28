@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -19,24 +20,42 @@ interface Theme {
   activatedAt: string | null;
 }
 
-const COLOR_VARS = [
-  { key: '--color-primary', label: 'Основний' },
-  { key: '--color-primary-light', label: 'Основний (світлий)' },
-  { key: '--color-primary-dark', label: 'Основний (темний)' },
-  { key: '--color-secondary', label: 'Вторинний' },
-  { key: '--color-accent', label: 'Акцент' },
-  { key: '--color-danger', label: 'Небезпека' },
-  { key: '--color-bg', label: 'Фон' },
-  { key: '--color-bg-secondary', label: 'Фон вторинний' },
-  { key: '--color-text', label: 'Текст' },
-  { key: '--color-text-secondary', label: 'Текст вторинний' },
-  { key: '--color-border', label: 'Бордер' },
-  { key: '--color-cta', label: 'CTA кнопка' },
-  { key: '--color-in-stock', label: 'В наявності' },
-  { key: '--color-out-of-stock', label: 'Немає в наявності' },
-];
+const COLOR_VAR_KEYS = [
+  '--color-primary',
+  '--color-primary-light',
+  '--color-primary-dark',
+  '--color-secondary',
+  '--color-accent',
+  '--color-danger',
+  '--color-bg',
+  '--color-bg-secondary',
+  '--color-text',
+  '--color-text-secondary',
+  '--color-border',
+  '--color-cta',
+  '--color-in-stock',
+  '--color-out-of-stock',
+] as const;
+
+const COLOR_LABEL_KEYS: Record<string, string> = {
+  '--color-primary': 'colorPrimary',
+  '--color-primary-light': 'colorPrimaryLight',
+  '--color-primary-dark': 'colorPrimaryDark',
+  '--color-secondary': 'colorSecondary',
+  '--color-accent': 'colorAccent',
+  '--color-danger': 'colorDanger',
+  '--color-bg': 'colorBg',
+  '--color-bg-secondary': 'colorBgSecondary',
+  '--color-text': 'colorText',
+  '--color-text-secondary': 'colorTextSecondary',
+  '--color-border': 'colorBorder',
+  '--color-cta': 'colorCta',
+  '--color-in-stock': 'colorInStock',
+  '--color-out-of-stock': 'colorOutOfStock',
+};
 
 function ThemePreview({ colors }: { colors: Record<string, string> }) {
+  const t = useTranslations('admin.adminThemesPage');
   const style = Object.entries(colors).reduce(
     (acc, [k, v]) => {
       acc[k as string] = v;
@@ -65,7 +84,7 @@ function ThemePreview({ colors }: { colors: Record<string, string> }) {
             className="rounded px-3 py-1 text-xs text-white"
             style={{ backgroundColor: colors['--color-primary'] || '#2563eb' }}
           >
-            Каталог
+            {t('catalog')}
           </span>
           <span
             className="rounded px-3 py-1 text-xs"
@@ -75,14 +94,14 @@ function ThemePreview({ colors }: { colors: Record<string, string> }) {
               borderColor: colors['--color-border'] || '#e5e7eb',
             }}
           >
-            Акції
+            {t('promos')}
           </span>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        {['Товар 1', 'Товар 2', 'Товар 3'].map((name) => (
+        {[1, 2, 3].map((n) => (
           <div
-            key={name}
+            key={n}
             className="rounded-lg p-2"
             style={{
               backgroundColor: colors['--color-bg-secondary'] || '#f9fafb',
@@ -98,10 +117,10 @@ function ThemePreview({ colors }: { colors: Record<string, string> }) {
               className="text-xs font-medium"
               style={{ color: colors['--color-text'] || '#111827' }}
             >
-              {name}
+              {t('previewProduct')} {n}
             </p>
             <p className="text-xs" style={{ color: colors['--color-text-secondary'] || '#6b7280' }}>
-              Код: A001
+              {t('previewCode')} A001
             </p>
             <div className="mt-1 flex items-center justify-between">
               <span
@@ -114,7 +133,7 @@ function ThemePreview({ colors }: { colors: Record<string, string> }) {
                 className="text-[10px]"
                 style={{ color: colors['--color-in-stock'] || '#16a34a' }}
               >
-                В наявності
+                {t('previewInStock')}
               </span>
             </div>
           </div>
@@ -125,13 +144,13 @@ function ThemePreview({ colors }: { colors: Record<string, string> }) {
           className="rounded px-4 py-1.5 text-xs font-medium text-white"
           style={{ backgroundColor: colors['--color-primary'] || '#2563eb' }}
         >
-          Кнопка CTA
+          {t('ctaBtn')}
         </button>
         <button
           className="rounded px-4 py-1.5 text-xs font-medium text-white"
           style={{ backgroundColor: colors['--color-danger'] || '#dc2626' }}
         >
-          Небезпека
+          {t('dangerBtn')}
         </button>
       </div>
     </div>
@@ -139,6 +158,7 @@ function ThemePreview({ colors }: { colors: Record<string, string> }) {
 }
 
 export default function AdminThemesPage() {
+  const t = useTranslations('admin.adminThemesPage');
   const [themes, setThemes] = useState<Theme[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -163,8 +183,8 @@ export default function AdminThemesPage() {
   const activateTheme = async (id: number) => {
     setActivateId(null);
     const res = await apiClient.put(`/api/v1/admin/themes/${id}/activate`, {});
-    if (res.success) toast.success('Тему активовано');
-    else toast.error(res.error || 'Помилка активації');
+    if (res.success) toast.success(t('activatedToast'));
+    else toast.error(res.error || t('activateError'));
     loadThemes();
   };
 
@@ -178,8 +198,8 @@ export default function AdminThemesPage() {
     const res = await apiClient.put(`/api/v1/admin/themes/${editingId}`, {
       customSettings: colors,
     });
-    if (res.success) toast.success('Кольори збережено');
-    else toast.error(res.error || 'Помилка збереження');
+    if (res.success) toast.success(t('savedColorsToast'));
+    else toast.error(res.error || t('saveError'));
     setEditingId(null);
     loadThemes();
   };
@@ -188,7 +208,7 @@ export default function AdminThemesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.name.endsWith('.zip')) {
-      toast.error('Будь ласка, завантажте ZIP-файл');
+      toast.error(t('validateZip'));
       return;
     }
 
@@ -209,14 +229,14 @@ export default function AdminThemesPage() {
         headers,
       });
       if (res.ok) {
-        toast.success('Тему успішно завантажено');
+        toast.success(t('uploadedToast'));
         loadThemes();
       } else {
         const data = await res.json().catch(() => null);
-        toast.error(data?.message || 'Помилка завантаження теми');
+        toast.error(data?.message || t('uploadError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -234,9 +254,9 @@ export default function AdminThemesPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Теми оформлення</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <label className="cursor-pointer rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-primary-dark)]">
-          {isUploading ? 'Завантаження...' : 'Завантажити ZIP'}
+          {isUploading ? t('uploading') : t('uploadZip')}
           <input
             type="file"
             accept=".zip"
@@ -248,60 +268,62 @@ export default function AdminThemesPage() {
       </div>
 
       <div className="space-y-4">
-        {themes.map((t) => (
+        {themes.map((theme) => (
           <div
-            key={t.id}
+            key={theme.id}
             className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium">{t.displayName}</p>
+                <p className="font-medium">{theme.displayName}</p>
                 <p className="text-xs text-[var(--color-text-secondary)]">
-                  {t.description || t.folderName} {t.version ? `v${t.version}` : ''}
+                  {theme.description || theme.folderName} {theme.version ? `v${theme.version}` : ''}
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => startEdit(t)}>
-                  Кольори
+                <Button variant="outline" size="sm" onClick={() => startEdit(theme)}>
+                  {t('colors')}
                 </Button>
-                {!t.isActive ? (
-                  <Button size="sm" onClick={() => setActivateId(t.id)}>
-                    Активувати
+                {!theme.isActive ? (
+                  <Button size="sm" onClick={() => setActivateId(theme.id)}>
+                    {t('activate')}
                   </Button>
                 ) : (
                   <span className="rounded-full bg-green-100 px-3 py-1 text-xs text-green-700">
-                    Активна
+                    {t('activeBadge')}
                   </span>
                 )}
               </div>
             </div>
 
-            {editingId === t.id && (
+            {editingId === theme.id && (
               <div className="mt-4 border-t border-[var(--color-border)] pt-4">
                 <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                  {COLOR_VARS.map((cv) => (
-                    <div key={cv.key} className="flex items-center gap-2">
+                  {COLOR_VAR_KEYS.map((cvKey) => (
+                    <div key={cvKey} className="flex items-center gap-2">
                       <input
                         type="color"
-                        value={colors[cv.key] || '#000000'}
+                        value={colors[cvKey] || '#000000'}
                         onChange={(e) =>
-                          setColors((prev) => ({ ...prev, [cv.key]: e.target.value }))
+                          setColors((prev) => ({ ...prev, [cvKey]: e.target.value }))
                         }
                         className="h-8 w-8 rounded border"
                       />
-                      <span className="text-xs">{cv.label}</span>
+                      <span className="text-xs">
+                        {t(COLOR_LABEL_KEYS[cvKey] as 'colorPrimary')}
+                      </span>
                     </div>
                   ))}
                 </div>
                 <div className="mt-4 flex gap-2">
                   <Button size="sm" onClick={saveColors}>
-                    Зберегти
+                    {t('save')}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setShowPreview((v) => !v)}>
-                    {showPreview ? "Сховати прев'ю" : "Прев'ю"}
+                    {showPreview ? t('hidePreview') : t('preview')}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
-                    Скасувати
+                    {t('cancel')}
                   </Button>
                 </div>
                 {showPreview && <ThemePreview colors={colors} />}
@@ -312,11 +334,11 @@ export default function AdminThemesPage() {
 
         {themes.length === 0 && (
           <div className="flex flex-col items-center gap-3 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-12 text-center text-[var(--color-text-secondary)]">
-            <span className="text-3xl" aria-hidden="true">🎨</span>
-            <p className="text-sm font-medium">Тем не знайдено</p>
-            <p className="max-w-md text-xs">
-              Завантажте ZIP-архів з темою, або поверніться до базової теми, перезапустивши seed
-            </p>
+            <span className="text-3xl" aria-hidden="true">
+              🎨
+            </span>
+            <p className="text-sm font-medium">{t('emptyTitle')}</p>
+            <p className="max-w-md text-xs">{t('emptyHint')}</p>
           </div>
         )}
       </div>
@@ -325,9 +347,9 @@ export default function AdminThemesPage() {
         isOpen={activateId !== null}
         onClose={() => setActivateId(null)}
         onConfirm={() => activateId && activateTheme(activateId)}
-        title="Активувати тему"
-        message="Зміна теми вплине на зовнішній вигляд сайту для всіх відвідувачів. Продовжити?"
-        confirmText="Так, активувати"
+        title={t('confirmActivateTitle')}
+        message={t('confirmActivateMsg')}
+        confirmText={t('confirmActivateBtn')}
       />
     </div>
   );

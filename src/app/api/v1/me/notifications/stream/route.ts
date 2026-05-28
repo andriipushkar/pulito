@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
+import { redis } from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const SSE_PER_USER_CAP = 5;
+const SSE_COUNTER_TTL = 600; // 10 min — auto-heals stale counts if decrement is lost
 
 /**
  * SSE stream of unread-notification count for the logged-in user.
@@ -14,6 +18,26 @@ export const runtime = 'nodejs';
  * Stops when the client disconnects (AbortSignal).
  */
 export const GET = withAuth(async (request: NextRequest, { user }) => {
+  // Per-user concurrency cap — without this a user (or attacker with a valid
+  // token) can open dozens of tabs, each spawning a 5s DB-count tick. Cap at
+  // SSE_PER_USER_CAP concurrent streams; rely on a Redis counter that we
+  // increment on connect and decrement on disconnect (with TTL fallback so a
+  // crashed worker's slot eventually heals).
+  const counterKey = `sse:notif:${user.id}`;
+  let slotAcquired = false;
+  try {
+    const current = await redis.incr(counterKey);
+    if (current === 1) await redis.expire(counterKey, SSE_COUNTER_TTL);
+    if (current > SSE_PER_USER_CAP) {
+      await redis.decr(counterKey);
+      return NextResponse.json({ error: "Забагато активних з'єднань" }, { status: 429 });
+    }
+    slotAcquired = true;
+  } catch {
+    // Redis down — let the connection through (graceful degradation).
+    slotAcquired = false;
+  }
+
   const encoder = new TextEncoder();
   let lastCount = -1;
 
@@ -42,6 +66,9 @@ export const GET = withAuth(async (request: NextRequest, { user }) => {
       const interval = setInterval(tick, 5000);
       const abort = () => {
         clearInterval(interval);
+        if (slotAcquired) {
+          redis.decr(counterKey).catch(() => {});
+        }
         try {
           controller.close();
         } catch {
@@ -52,8 +79,6 @@ export const GET = withAuth(async (request: NextRequest, { user }) => {
     },
   });
 
-  // NextResponse wraps a Response — the headers below are SSE-required and
-  // X-Accel-Buffering disables nginx response buffering (we want stream).
   return new NextResponse(stream, {
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',

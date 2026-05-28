@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -31,6 +32,7 @@ interface TransferItemInput {
 
 export default function NewTransferPage() {
   const router = useRouter();
+  const t = useTranslations('admin.warehouseTransferNewPage');
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [fromId, setFromId] = useState<number | null>(null);
   const [toId, setToId] = useState<number | null>(null);
@@ -55,9 +57,9 @@ export default function NewTransferPage() {
     if (!debouncedSearch || debouncedSearch.length < 2) return;
     let cancelled = false;
     apiClient
-      .get<{ items: ProductSuggestion[] }>(
-        `/api/v1/admin/products?search=${encodeURIComponent(debouncedSearch)}&limit=10`,
-      )
+      .get<{
+        items: ProductSuggestion[];
+      }>(`/api/v1/admin/products?search=${encodeURIComponent(debouncedSearch)}&limit=10`)
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data?.items) setSuggestions(res.data.items);
@@ -67,8 +69,7 @@ export default function NewTransferPage() {
     };
   }, [debouncedSearch]);
 
-  const visibleSuggestions =
-    !debouncedSearch || debouncedSearch.length < 2 ? [] : suggestions;
+  const visibleSuggestions = !debouncedSearch || debouncedSearch.length < 2 ? [] : suggestions;
 
   const addItem = (p: ProductSuggestion) => {
     if (items.some((it) => it.productId === p.id)) return;
@@ -81,9 +82,7 @@ export default function NewTransferPage() {
   };
 
   const updateItemQty = (productId: number, quantity: number) => {
-    setItems((prev) =>
-      prev.map((it) => (it.productId === productId ? { ...it, quantity } : it)),
-    );
+    setItems((prev) => prev.map((it) => (it.productId === productId ? { ...it, quantity } : it)));
   };
 
   const removeItem = (productId: number) => {
@@ -93,11 +92,11 @@ export default function NewTransferPage() {
   const submit = async () => {
     setError(null);
     if (!fromId || !toId || fromId === toId) {
-      setError('Оберіть різні склади відправника та одержувача');
+      setError(t('errSameWarehouse'));
       return;
     }
     if (items.length === 0) {
-      setError('Додайте хоча б один товар');
+      setError(t('errNoItems'));
       return;
     }
     setSubmitting(true);
@@ -111,7 +110,7 @@ export default function NewTransferPage() {
     if (res.success && res.data) {
       router.push(`/admin/warehouse-transfers/${res.data.id}`);
     } else {
-      setError(res.error || 'Помилка створення');
+      setError(res.error || t('errCreate'));
     }
   };
 
@@ -121,10 +120,10 @@ export default function NewTransferPage() {
         href="/admin/warehouse-transfers"
         className="text-sm text-[var(--color-primary)] hover:underline"
       >
-        &larr; До списку
+        {t('backToList')}
       </Link>
 
-      <h1 className="mt-4 mb-5 text-xl font-bold">Новий документ переміщення</h1>
+      <h1 className="mt-4 mb-5 text-xl font-bold">{t('title')}</h1>
 
       {error && (
         <div className="mb-4 rounded-[var(--radius)] bg-red-50 p-3 text-sm text-[var(--color-danger)]">
@@ -135,14 +134,14 @@ export default function NewTransferPage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-            Звідки *
+            {t('fromLabel')}
           </label>
           <select
             value={fromId ?? ''}
             onChange={(e) => setFromId(e.target.value ? Number(e.target.value) : null)}
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
           >
-            <option value="">— Оберіть склад —</option>
+            <option value="">{t('selectWarehouse')}</option>
             {warehouses.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name} ({w.city})
@@ -152,14 +151,14 @@ export default function NewTransferPage() {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-            Куди *
+            {t('toLabel')}
           </label>
           <select
             value={toId ?? ''}
             onChange={(e) => setToId(e.target.value ? Number(e.target.value) : null)}
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
           >
-            <option value="">— Оберіть склад —</option>
+            <option value="">{t('selectWarehouse')}</option>
             {warehouses
               .filter((w) => w.id !== fromId)
               .map((w) => (
@@ -173,13 +172,13 @@ export default function NewTransferPage() {
 
       <div className="mt-5">
         <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-          Додати товар (пошук за назвою/артикулом)
+          {t('addProduct')}
         </label>
         <div className="relative">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Почніть вводити..."
+            placeholder={t('searchPlaceholder')}
           />
           {visibleSuggestions.length > 0 && (
             <div className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
@@ -197,7 +196,7 @@ export default function NewTransferPage() {
                     {s.name}
                   </span>
                   <span className="text-xs text-[var(--color-text-secondary)]">
-                    залишок: {s.quantity}
+                    {t('stockLabel', { count: s.quantity })}
                   </span>
                 </button>
               ))}
@@ -211,8 +210,8 @@ export default function NewTransferPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[var(--color-bg-secondary)]">
-                <th className="px-3 py-2 text-left font-medium">Товар</th>
-                <th className="px-3 py-2 text-right font-medium">Кількість</th>
+                <th className="px-3 py-2 text-left font-medium">{t('colProduct')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('colQty')}</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -242,7 +241,7 @@ export default function NewTransferPage() {
                       onClick={() => removeItem(item.productId)}
                       className="text-xs text-[var(--color-danger)] hover:underline"
                     >
-                      Прибрати
+                      {t('remove')}
                     </button>
                   </td>
                 </tr>
@@ -254,12 +253,12 @@ export default function NewTransferPage() {
 
       <div className="mt-5">
         <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-          Коментар
+          {t('commentLabel')}
         </label>
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Додатковий опис документа..."
+          placeholder={t('commentPlaceholder')}
           rows={3}
           className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         />
@@ -267,10 +266,10 @@ export default function NewTransferPage() {
 
       <div className="mt-6 flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/admin/warehouse-transfers')}>
-          Скасувати
+          {t('cancel')}
         </Button>
         <Button onClick={submit} isLoading={submitting}>
-          Створити чернетку
+          {t('createDraft')}
         </Button>
       </div>
     </div>

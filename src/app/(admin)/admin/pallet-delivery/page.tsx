@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -26,6 +27,7 @@ interface PalletConfig {
 }
 
 export default function AdminPalletDeliveryPage() {
+  const t = useTranslations('admin.palletDeliveryPage');
   const [config, setConfig] = useState<PalletConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -46,22 +48,25 @@ export default function AdminPalletDeliveryPage() {
     setIsSaving(true);
     const res = await apiClient.put('/api/v1/admin/settings/pallet-delivery', config);
     setIsSaving(false);
-    if (res.success) toast.success('Налаштування доставки збережено');
-    else toast.error(res.error || 'Помилка збереження');
-  }, [config]);
+    if (res.success) toast.success(t('savedToast'));
+    else toast.error(res.error || t('saveError'));
+  }, [config, t]);
 
   const updateField = useCallback((field: keyof PalletConfig, value: unknown) => {
-    setConfig((prev) => prev ? { ...prev, [field]: value } : prev);
+    setConfig((prev) => (prev ? { ...prev, [field]: value } : prev));
   }, []);
 
-  const updateRegion = useCallback((index: number, field: keyof PalletRegion, value: string | number) => {
-    setConfig((prev) => {
-      if (!prev) return prev;
-      const regions = [...prev.regions];
-      regions[index] = { ...regions[index], [field]: value };
-      return { ...prev, regions };
-    });
-  }, []);
+  const updateRegion = useCallback(
+    (index: number, field: keyof PalletRegion, value: string | number) => {
+      setConfig((prev) => {
+        if (!prev) return prev;
+        const regions = [...prev.regions];
+        regions[index] = { ...regions[index], [field]: value };
+        return { ...prev, regions };
+      });
+    },
+    [],
+  );
 
   const addRegion = useCallback(() => {
     setConfig((prev) => {
@@ -86,19 +91,21 @@ export default function AdminPalletDeliveryPage() {
   }
 
   if (!config) {
-    return <p className="py-8 text-center text-[var(--color-text-secondary)]">Не вдалося завантажити конфігурацію</p>;
+    return <p className="py-8 text-center text-[var(--color-text-secondary)]">{t('loadError')}</p>;
   }
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Палетна доставка</h1>
-        <Button onClick={() => setConfirmSave(true)} isLoading={isSaving}>Зберегти конфіг</Button>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <Button onClick={() => setConfirmSave(true)} isLoading={isSaving}>
+          {t('save')}
+        </Button>
       </div>
 
       <PalletListSection />
 
-      <h2 className="mb-3 text-lg font-semibold">Налаштування тарифу</h2>
+      <h2 className="mb-3 text-lg font-semibold">{t('tariffSettings')}</h2>
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
         <div className="mb-4 flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm">
@@ -108,43 +115,43 @@ export default function AdminPalletDeliveryPage() {
               onChange={(e) => updateField('enabled', e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
-            Увімкнено
+            {t('enabled')}
           </label>
         </div>
 
         <div className="mb-6 grid gap-4 md:grid-cols-3">
           <Input
-            label="Мін. вага (кг)"
+            label={t('minWeight')}
             type="number"
             value={String(config.minWeightKg)}
             onChange={(e) => updateField('minWeightKg', Number(e.target.value))}
           />
           <Input
-            label="Макс. вага (кг)"
+            label={t('maxWeight')}
             type="number"
             value={String(config.maxWeightKg)}
             onChange={(e) => updateField('maxWeightKg', Number(e.target.value))}
           />
           <Input
-            label="Базова ціна (грн)"
+            label={t('basePrice')}
             type="number"
             value={String(config.basePrice)}
             onChange={(e) => updateField('basePrice', Number(e.target.value))}
           />
           <Input
-            label="Ціна за кг (грн)"
+            label={t('pricePerKg')}
             type="number"
             value={String(config.pricePerKg)}
             onChange={(e) => updateField('pricePerKg', Number(e.target.value))}
           />
           <Input
-            label="Безкоштовно від (грн)"
+            label={t('freeFrom')}
             type="number"
             value={String(config.freeDeliveryThreshold)}
             onChange={(e) => updateField('freeDeliveryThreshold', Number(e.target.value))}
           />
           <Input
-            label="Орієнтовний термін"
+            label={t('estimatedDays')}
             value={config.estimatedDays}
             onChange={(e) => updateField('estimatedDays', e.target.value)}
           />
@@ -152,45 +159,43 @@ export default function AdminPalletDeliveryPage() {
 
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Регіони</h3>
+            <h3 className="text-sm font-semibold">{t('regions')}</h3>
             <button
               type="button"
               onClick={addRegion}
               className="text-xs text-[var(--color-primary)] hover:underline"
             >
-              + Додати регіон
+              {t('addRegion')}
             </button>
           </div>
-          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-            Множник застосовується до базової ціни для конкретного регіону (1.0 — без націнки, 1.5 — +50%, 0.9 — −10%).
-          </p>
+          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">{t('regionsHint')}</p>
           <div className="space-y-2">
             {config.regions.map((region, i) => (
               <div key={i} className="flex items-center gap-2">
                 <Input
                   value={region.name}
                   onChange={(e) => updateRegion(i, 'name', e.target.value)}
-                  placeholder="Назва регіону"
+                  placeholder={t('regionName')}
                 />
                 <Input
                   type="number"
                   step="0.1"
                   value={String(region.multiplier)}
                   onChange={(e) => updateRegion(i, 'multiplier', Number(e.target.value))}
-                  placeholder="Множник"
+                  placeholder={t('multiplier')}
                 />
                 <button
                   type="button"
                   onClick={() => removeRegion(i)}
                   className="shrink-0 text-xs text-[var(--color-danger)] hover:underline"
                 >
-                  Видалити
+                  {t('delete')}
                 </button>
               </div>
             ))}
             {config.regions.length === 0 && (
               <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-6 text-center text-xs text-[var(--color-text-secondary)]">
-                Регіонів не задано — буде застосована базова ціна для всіх адрес.
+                {t('noRegions')}
               </div>
             )}
           </div>
@@ -201,9 +206,9 @@ export default function AdminPalletDeliveryPage() {
         isOpen={confirmSave}
         onClose={() => setConfirmSave(false)}
         onConfirm={handleSave}
-        title="Зберегти налаштування доставки"
-        message="Зміни набудуть чинності відразу для всіх замовлень. Продовжити?"
-        confirmText="Так, зберегти"
+        title={t('confirmSaveTitle')}
+        message={t('confirmSaveMsg')}
+        confirmText={t('confirmSaveYes')}
       />
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ import OutOfStockAlert from '@/components/admin/OutOfStockAlert';
 import { ALLOWED_ORDER_TRANSITIONS, TTN_PATTERN } from '@/config/admin-constants';
 
 export default function AdminOrderDetailPage() {
+  const t = useTranslations('admin.ordersDetail');
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -48,6 +50,7 @@ export default function AdminOrderDetailPage() {
   const [sendPhotoMessage, setSendPhotoMessage] = useState('');
   const [isSendingPhoto, setIsSendingPhoto] = useState(false);
   const [sendPhotoResult, setSendPhotoResult] = useState('');
+  const [sendPhotoOk, setSendPhotoOk] = useState(false);
   const [managerComment, setManagerComment] = useState('');
   const [isSavingComment, setIsSavingComment] = useState(false);
   const [managers, setManagers] = useState<{ id: number; fullName: string }[]>([]);
@@ -145,15 +148,17 @@ export default function AdminOrderDetailPage() {
         comment: comment || undefined,
       });
       if (res.success) {
-        toast.success(`Статус змінено на "${ORDER_STATUS_LABELS[newStatus as OrderStatus]}"`);
+        toast.success(
+          t('statusChanged', { status: ORDER_STATUS_LABELS[newStatus as OrderStatus] }),
+        );
         await reloadOrder();
         setNewStatus('');
         setComment('');
       } else {
-        toast.error(res.error || 'Помилка оновлення');
+        toast.error(res.error || t('updateError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsUpdating(false);
     }
@@ -165,9 +170,9 @@ export default function AdminOrderDetailPage() {
       comment: managerComment,
     });
     if (res.success) {
-      toast.success('Коментар збережено');
+      toast.success(t('commentSaved'));
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
     setIsSavingComment(false);
   };
@@ -176,7 +181,7 @@ export default function AdminOrderDetailPage() {
     if (!ttnInput.trim()) return;
     // Validate TTN format
     if (!TTN_PATTERN.test(ttnInput.trim())) {
-      setTtnError('ТТН має містити рівно 14 цифр');
+      setTtnError(t('ttnInvalid'));
       return;
     }
     setTtnError('');
@@ -185,11 +190,11 @@ export default function AdminOrderDetailPage() {
       trackingNumber: ttnInput.trim(),
     });
     if (res.success) {
-      toast.success('ТТН збережено');
+      toast.success(t('ttnSaved'));
       setIsEditingTtn(false);
       await reloadOrder();
     } else {
-      toast.error(res.error || 'Помилка збереження ТТН');
+      toast.error(res.error || t('ttnError'));
     }
     setIsSavingTtn(false);
   };
@@ -199,9 +204,9 @@ export default function AdminOrderDetailPage() {
     if (res.success) {
       const data = res.data as { invoicePdfUrl: string };
       window.open(data.invoicePdfUrl, '_blank');
-      toast.success('Рахунок створено');
+      toast.success(t('invoiceCreated'));
     } else {
-      toast.error(res.error || 'Помилка створення рахунку');
+      toast.error(res.error || t('invoiceError'));
     }
   };
 
@@ -210,9 +215,9 @@ export default function AdminOrderDetailPage() {
     if (res.success) {
       const data = res.data as { pdfUrl: string };
       window.open(data.pdfUrl, '_blank');
-      toast.success('Видаткову накладну створено');
+      toast.success(t('deliveryNoteCreated'));
     } else {
-      toast.error(res.error || 'Помилка створення накладної');
+      toast.error(res.error || t('deliveryNoteError'));
     }
   };
 
@@ -220,6 +225,7 @@ export default function AdminOrderDetailPage() {
     if (!sendPhotoItem) return;
     setIsSendingPhoto(true);
     setSendPhotoResult('');
+    setSendPhotoOk(false);
     try {
       const res = await apiClient.post(`/api/v1/admin/orders/${id}/send-product-photo`, {
         productId: sendPhotoItem.productId,
@@ -227,17 +233,19 @@ export default function AdminOrderDetailPage() {
       });
       if (res.success) {
         const data = res.data as { channels: string };
-        setSendPhotoResult(`Фото відправлено (${data.channels})`);
+        setSendPhotoOk(true);
+        setSendPhotoResult(t('photoSent', { channels: data.channels }));
         setTimeout(() => {
           setSendPhotoItem(null);
           setSendPhotoMessage('');
           setSendPhotoResult('');
+          setSendPhotoOk(false);
         }, 2000);
       } else {
-        setSendPhotoResult(res.error || 'Помилка відправки');
+        setSendPhotoResult(res.error || t('photoError'));
       }
     } catch {
-      setSendPhotoResult('Помилка мережі');
+      setSendPhotoResult(t('networkError'));
     } finally {
       setIsSendingPhoto(false);
     }
@@ -254,9 +262,9 @@ export default function AdminOrderDetailPage() {
   if (!order) {
     return (
       <div className="text-center">
-        <p className="text-[var(--color-text-secondary)]">Замовлення не знайдено</p>
+        <p className="text-[var(--color-text-secondary)]">{t('notFound')}</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/admin/orders')}>
-          До списку
+          {t('toList')}
         </Button>
       </div>
     );
@@ -277,7 +285,7 @@ export default function AdminOrderDetailPage() {
             href="/admin/orders"
             className="text-sm text-[var(--color-primary)] hover:underline"
           >
-            &larr; Замовлення
+            &larr; {t('back')}
           </Link>
           <div className="mt-1 flex items-center gap-3">
             <h2 className="text-xl font-bold">#{order.orderNumber}</h2>
@@ -289,7 +297,7 @@ export default function AdminOrderDetailPage() {
             </span>
             {order.clientType === 'wholesale' && (
               <span className="rounded bg-[var(--color-primary)]/10 px-2 py-0.5 text-xs font-bold text-[var(--color-primary)]">
-                ОПТ
+                {t('wholesale')}
               </span>
             )}
           </div>
@@ -310,15 +318,15 @@ export default function AdminOrderDetailPage() {
             size="sm"
             variant={packMode ? 'primary' : 'outline'}
             onClick={togglePackMode}
-            title="Сховати все крім товарів та адреси доставки — для пакування"
+            title={t('packModeTitle')}
           >
-            {packMode ? '📦 Pack-mode ON' : '📦 Pack-mode'}
+            {packMode ? t('packModeOn') : t('packMode')}
           </Button>
           <Button size="sm" variant="outline" onClick={handleCreateInvoice}>
-            Рахунок
+            {t('invoice')}
           </Button>
           <Button size="sm" variant="outline" onClick={handleCreateDeliveryNote}>
-            Видаткова
+            {t('deliveryNote')}
           </Button>
           <Button
             size="sm"
@@ -340,7 +348,7 @@ export default function AdminOrderDetailPage() {
                 d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"
               />
             </svg>
-            Друкувати
+            {t('print')}
           </Button>
         </div>
       </div>
@@ -355,11 +363,11 @@ export default function AdminOrderDetailPage() {
       {/* Status update */}
       {allowedStatuses.length > 0 && !packMode && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4 print:hidden">
-          <h3 className="mb-3 text-sm font-semibold">Змінити статус</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('changeStatus')}</h3>
           <div className="flex flex-wrap gap-3">
             <Select
               options={[
-                { value: '', label: 'Оберіть статус' },
+                { value: '', label: t('selectStatus') },
                 ...allowedStatuses.map((s) => ({
                   value: s,
                   label: ORDER_STATUS_LABELS[s as OrderStatus],
@@ -370,7 +378,7 @@ export default function AdminOrderDetailPage() {
               className="w-48"
             />
             <Input
-              placeholder="Коментар (необов&#39;язково)"
+              placeholder={t('commentPlaceholder')}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               className="flex-1"
@@ -380,7 +388,7 @@ export default function AdminOrderDetailPage() {
               isLoading={isUpdating}
               disabled={!newStatus}
             >
-              Оновити
+              {t('update')}
             </Button>
           </div>
         </div>
@@ -389,11 +397,11 @@ export default function AdminOrderDetailPage() {
       {/* Manager assignment */}
       {!packMode && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">Відповідальний менеджер</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('manager')}</h3>
           <div className="flex items-center gap-3">
             <Select
               options={[
-                { value: '', label: 'Не призначено' },
+                { value: '', label: t('noManager') },
                 ...managers.map((m) => ({ value: String(m.id), label: m.fullName })),
               ]}
               value={selectedManager}
@@ -413,15 +421,15 @@ export default function AdminOrderDetailPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Client */}
-        <InfoCard title="Клієнт">
+        <InfoCard title={t('client')}>
           <div className="flex items-center gap-1">
             <p className="font-medium">{order.contactName}</p>
-            {order.contactName && <CopyButton value={order.contactName} label="ім'я" />}
+            {order.contactName && <CopyButton value={order.contactName} label={t('labelName')} />}
           </div>
           {order.contactPhone && (
             <div className="flex flex-wrap items-center gap-1">
               <QuickContact phone={order.contactPhone} email={order.contactEmail} />
-              <CopyButton value={order.contactPhone} label="телефон" />
+              <CopyButton value={order.contactPhone} label={t('labelPhone')} />
               <SmsTemplates
                 phone={order.contactPhone}
                 variables={{
@@ -438,7 +446,7 @@ export default function AdminOrderDetailPage() {
               <a
                 href={`mailto:${order.contactEmail}`}
                 className="hover:text-[var(--color-primary)]"
-                title="Написати"
+                title={t('writeEmail')}
               >
                 {order.contactEmail}
               </a>
@@ -450,19 +458,20 @@ export default function AdminOrderDetailPage() {
               href={`/admin/users/${order.user.id}`}
               className="mt-2 inline-block text-xs text-[var(--color-primary)] hover:underline"
             >
-              Профіль клієнта &rarr;
+              {t('clientProfile')}
             </Link>
           )}
           {customerHistory && customerHistory.totalOrders > 0 && (
             <div className="mt-2 rounded-md bg-[var(--color-bg-secondary)] px-2 py-1.5 text-xs">
               <p className="font-medium">
-                📈 Клієнт зробив {customerHistory.totalOrders}{' '}
-                {customerHistory.totalOrders === 1 ? 'замовлення' : 'замовлень'} на{' '}
-                {formatPrice(customerHistory.totalSpent)}
+                {t(customerHistory.totalOrders === 1 ? 'clientHistoryOne' : 'clientHistoryMany', {
+                  count: customerHistory.totalOrders,
+                  sum: formatPrice(customerHistory.totalSpent),
+                })}
               </p>
               {customerHistory.lastOrderDate && (
                 <p className="text-[var(--color-text-secondary)]">
-                  Останнє:{' '}
+                  {t('lastOrder')}{' '}
                   {customerHistory.lastOrderId ? (
                     <Link
                       href={`/admin/orders/${customerHistory.lastOrderId}`}
@@ -485,7 +494,7 @@ export default function AdminOrderDetailPage() {
           )}
           {customerHistory && customerHistory.totalOrders === 0 && (
             <p className="mt-2 rounded-md bg-emerald-50 px-2 py-1.5 text-xs font-medium text-emerald-800">
-              🆕 Перше замовлення цього клієнта
+              {t('firstOrder')}
             </p>
           )}
           {!packMode && (
@@ -496,7 +505,7 @@ export default function AdminOrderDetailPage() {
         </InfoCard>
 
         {/* Delivery + TTN */}
-        <InfoCard title="Доставка">
+        <InfoCard title={t('delivery')}>
           <p className="font-medium">{DELIVERY_METHOD_LABELS[order.deliveryMethod]}</p>
           {order.deliveryCity && <p>{order.deliveryCity}</p>}
           {order.deliveryAddress && (
@@ -504,7 +513,7 @@ export default function AdminOrderDetailPage() {
               <p className="flex-1">{order.deliveryAddress}</p>
               <CopyButton
                 value={[order.deliveryCity, order.deliveryAddress].filter(Boolean).join(', ')}
-                label="адресу"
+                label={t('labelAddress')}
               />
             </div>
           )}
@@ -516,11 +525,13 @@ export default function AdminOrderDetailPage() {
               };
               return (
                 <div className="mt-2 rounded bg-blue-50 p-2 text-xs">
-                  <p className="font-semibold text-blue-700">📦 Палетна доставка</p>
+                  <p className="font-semibold text-blue-700">{t('palletTitle')}</p>
                   {o.palletWeightKg && (
-                    <p className="text-blue-900">Вага: {Number(o.palletWeightKg)} кг</p>
+                    <p className="text-blue-900">{t('weight', { kg: Number(o.palletWeightKg) })}</p>
                   )}
-                  {o.palletRegion && <p className="text-blue-900">Регіон: {o.palletRegion}</p>}
+                  {o.palletRegion && (
+                    <p className="text-blue-900">{t('region', { name: o.palletRegion })}</p>
+                  )}
                 </div>
               );
             })()}
@@ -530,21 +541,21 @@ export default function AdminOrderDetailPage() {
             <div className="mt-2">
               <div className="flex items-center gap-2">
                 <p className="rounded bg-violet-50 px-2 py-1 text-sm font-semibold text-violet-700">
-                  TTH: {order.trackingNumber}
+                  {t('ttnLabel')} {order.trackingNumber}
                 </p>
-                <CopyButton value={order.trackingNumber} label="ТТН" />
+                <CopyButton value={order.trackingNumber} label={t('labelTtn')} />
                 <button
                   onClick={() => setIsEditingTtn(true)}
                   className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:underline"
                 >
-                  Змінити
+                  {t('change')}
                 </button>
               </div>
             </div>
           ) : (
             <div className="mt-2">
               <p className="mb-1 text-xs text-[var(--color-text-secondary)]">
-                {order.trackingNumber ? 'Змінити ТТН:' : 'Додати ТТН:'}
+                {order.trackingNumber ? t('changeTtn') : t('addTtn')}
               </p>
               <div className="flex gap-1.5">
                 <input
@@ -580,7 +591,7 @@ export default function AdminOrderDetailPage() {
                   onClick={() => setShowCreateTtnForm(true)}
                   className="mt-1.5 text-xs text-[var(--color-primary)] hover:underline"
                 >
-                  Або створити через API Нової Пошти
+                  {t('createTtnViaApi')}
                 </button>
               )}
             </div>
@@ -588,7 +599,7 @@ export default function AdminOrderDetailPage() {
         </InfoCard>
 
         {/* Payment */}
-        <InfoCard title="Оплата">
+        <InfoCard title={t('payment')}>
           <p className="font-medium">{PAYMENT_METHOD_LABELS[order.paymentMethod]}</p>
           <p
             className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -641,28 +652,28 @@ export default function AdminOrderDetailPage() {
                 <line x1="16" y1="13" x2="8" y2="13" />
                 <line x1="16" y1="17" x2="8" y2="17" />
               </svg>
-              Електронний чек
+              {t('emailReceipt')}
             </a>
           )}
           <div className="mt-2 space-y-0.5 text-sm">
             <div className="flex justify-between">
-              <span className="text-[var(--color-text-secondary)]">Товари:</span>
+              <span className="text-[var(--color-text-secondary)]">{t('itemsCost')}</span>
               <span>{formatPrice(itemsSubtotal)}</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between">
-                <span className="text-[var(--color-text-secondary)]">Знижка:</span>
+                <span className="text-[var(--color-text-secondary)]">{t('discount')}</span>
                 <span className="text-green-600">-{formatPrice(discount)}</span>
               </div>
             )}
             {deliveryCost > 0 && (
               <div className="flex justify-between">
-                <span className="text-[var(--color-text-secondary)]">Доставка:</span>
+                <span className="text-[var(--color-text-secondary)]">{t('deliveryCost')}</span>
                 <span>{formatPrice(deliveryCost)}</span>
               </div>
             )}
             <div className="flex justify-between border-t border-[var(--color-border)] pt-1 font-bold">
-              <span>Всього:</span>
+              <span>{t('total')}</span>
               <span>{formatPrice(orderTotal)}</span>
             </div>
           </div>
@@ -673,7 +684,7 @@ export default function AdminOrderDetailPage() {
       {order.comment && (
         <div className="mt-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <p className="mb-1 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-            Коментар покупця
+            {t('buyerComment')}
           </p>
           <p className="text-sm">{order.comment}</p>
         </div>
@@ -697,10 +708,10 @@ export default function AdminOrderDetailPage() {
                   d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
                 />
               </svg>
-              Внутрішня нотатка
+              {t('internalNote')}
             </p>
             <span className="text-[10px] text-[var(--color-text-secondary)]">
-              {isSavingComment ? 'Збереження…' : 'Видно тільки команді'}
+              {isSavingComment ? t('saving') : t('teamOnly')}
             </span>
           </div>
           <textarea
@@ -710,7 +721,7 @@ export default function AdminOrderDetailPage() {
               // Auto-save when user leaves the field
               if (!isSavingComment) handleSaveComment();
             }}
-            placeholder="Додайте нотатку для команди (зберігається автоматично при втраті фокусу)…"
+            placeholder={t('notePlaceholder')}
             rows={3}
             maxLength={1000}
             className="w-full resize-y rounded-[var(--radius)] border border-amber-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
@@ -723,7 +734,7 @@ export default function AdminOrderDetailPage() {
               disabled={isSavingComment}
               className="font-semibold text-amber-700 hover:underline disabled:opacity-50"
             >
-              Зберегти зараз
+              {t('saveNow')}
             </button>
           </div>
         </div>
@@ -745,10 +756,12 @@ export default function AdminOrderDetailPage() {
       {/* Items */}
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
         <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
-          <h3 className="text-sm font-semibold">Товари ({order.items.length})</h3>
+          <h3 className="text-sm font-semibold">
+            {t('itemsTitle', { count: order.items.length })}
+          </h3>
           {['new_order', 'processing', 'confirmed'].includes(order.status) && (
             <Button size="sm" variant="outline" onClick={() => setIsEditingItems(true)}>
-              Редагувати
+              {t('edit')}
             </Button>
           )}
         </div>
@@ -770,7 +783,7 @@ export default function AdminOrderDetailPage() {
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-[10px] text-[var(--color-text-secondary)]">
-                  Фото
+                  {t('photoPlaceholder')}
                 </div>
               )}
             </div>
@@ -781,7 +794,7 @@ export default function AdminOrderDetailPage() {
                   {item.productCode}
                   {item.isPromo && (
                     <span className="ml-1.5 rounded bg-orange-100 px-1 py-0.5 text-[10px] font-medium text-orange-600">
-                      Акція
+                      {t('promo')}
                     </span>
                   )}
                 </p>
@@ -809,7 +822,10 @@ export default function AdminOrderDetailPage() {
                   return (
                     <span
                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${tone}`}
-                      title={`Собівартість: ${costNum.toFixed(2)} ₴ · маржа на одиниці: ${(price - costNum).toFixed(2)} ₴`}
+                      title={t('unitCostMargin', {
+                        cost: costNum.toFixed(2),
+                        margin: (price - costNum).toFixed(2),
+                      })}
                     >
                       {marginPct.toFixed(1)}%
                     </span>
@@ -818,11 +834,7 @@ export default function AdminOrderDetailPage() {
                 <span className="min-w-[80px] font-bold">{formatPrice(Number(item.subtotal))}</span>
                 <button
                   type="button"
-                  title={
-                    item.productId
-                      ? 'Надіслати фото клієнту'
-                      : 'Товар видалено — фото надіслати неможливо'
-                  }
+                  title={item.productId ? t('sendPhotoTitle') : t('sendPhotoDisabled')}
                   disabled={!item.productId}
                   onClick={() => {
                     if (!item.productId) return;
@@ -832,6 +844,7 @@ export default function AdminOrderDetailPage() {
                     });
                     setSendPhotoMessage('');
                     setSendPhotoResult('');
+                    setSendPhotoOk(false);
                   }}
                   className="rounded p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-secondary)]"
                 >
@@ -864,7 +877,7 @@ export default function AdminOrderDetailPage() {
       <Modal
         isOpen={isEditingItems}
         onClose={() => setIsEditingItems(false)}
-        title="Редагувати товари"
+        title={t('editItemsTitle')}
         size="lg"
       >
         <OrderItemsEditor
@@ -882,7 +895,7 @@ export default function AdminOrderDetailPage() {
       <Modal
         isOpen={showCreateTtnForm}
         onClose={() => setShowCreateTtnForm(false)}
-        title="Створити ТТН через Нову Пошту"
+        title={t('createTtnTitle')}
         size="lg"
       >
         <CreateTTNForm
@@ -894,7 +907,7 @@ export default function AdminOrderDetailPage() {
           orderAmount={orderTotal}
           onCreated={async (trackingNumber) => {
             setShowCreateTtnForm(false);
-            toast.success(`ТТН створено: ${trackingNumber}`);
+            toast.success(t('ttnCreated', { ttn: trackingNumber }));
             await reloadOrder();
           }}
           onCancel={() => setShowCreateTtnForm(false)}
@@ -907,9 +920,11 @@ export default function AdminOrderDetailPage() {
         onClose={() => setConfirmStatusChange(false)}
         onConfirm={handleStatusUpdate}
         variant="warning"
-        title="Змінити статус замовлення"
-        message={`Змінити статус на "${ORDER_STATUS_LABELS[newStatus as OrderStatus] || newStatus}"?`}
-        confirmText="Так, змінити"
+        title={t('confirmStatusTitle')}
+        message={t('confirmStatusMsg', {
+          status: ORDER_STATUS_LABELS[newStatus as OrderStatus] || newStatus,
+        })}
+        confirmText={t('yesChange')}
         isLoading={isUpdating}
       />
 
@@ -928,43 +943,35 @@ export default function AdminOrderDetailPage() {
             assignedManagerId: val ? Number(val) : null,
           });
           if (res.success) {
-            toast.success(val ? 'Менеджера призначено' : 'Менеджера знято');
+            toast.success(val ? t('managerAssigned') : t('managerUnassigned'));
           } else {
             setSelectedManager(previous);
-            toast.error(res.error || 'Помилка');
+            toast.error(res.error || t('errorGeneric'));
           }
         }}
-        title="Зміна менеджера"
-        message={
-          confirmManagerChange
-            ? `Призначити менеджера для цього замовлення?`
-            : 'Зняти призначення менеджера?'
-        }
-        confirmText="Так"
+        title={t('managerChangeTitle')}
+        message={confirmManagerChange ? t('managerAssignMsg') : t('managerUnassignMsg')}
+        confirmText={t('yes')}
       />
 
       {/* Send photo modal */}
       <Modal
         isOpen={!!sendPhotoItem}
         onClose={() => setSendPhotoItem(null)}
-        title="Надіслати фото клієнту"
+        title={t('sendPhotoTitle')}
       >
         {sendPhotoItem && (
           <div className="space-y-4">
-            <p className="text-sm">
-              Надіслати фото <b>{sendPhotoItem.productName}</b> клієнту через Telegram/Viber?
-            </p>
+            <p className="text-sm">{t('sendPhotoPrompt', { name: sendPhotoItem.productName })}</p>
             <Input
-              placeholder="Повідомлення (необов'язково)"
+              placeholder={t('messagePlaceholder')}
               value={sendPhotoMessage}
               onChange={(e) => setSendPhotoMessage(e.target.value)}
             />
             {sendPhotoResult && (
               <p
                 className={`text-sm ${
-                  sendPhotoResult.startsWith('Фото')
-                    ? 'text-green-600'
-                    : 'text-[var(--color-danger)]'
+                  sendPhotoOk ? 'text-green-600' : 'text-[var(--color-danger)]'
                 }`}
               >
                 {sendPhotoResult}
@@ -972,10 +979,10 @@ export default function AdminOrderDetailPage() {
             )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setSendPhotoItem(null)}>
-                Скасувати
+                {t('cancel')}
               </Button>
               <Button onClick={handleSendPhoto} isLoading={isSendingPhoto}>
-                Надіслати
+                {t('send')}
               </Button>
             </div>
           </div>

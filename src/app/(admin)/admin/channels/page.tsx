@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 
@@ -27,6 +28,7 @@ interface RecentPub {
 }
 
 export default function AdminChannelsPage() {
+  const t = useTranslations('admin.channelsPage');
   const [stats, setStats] = useState<ChannelStat[]>([]);
   const [publications, setPublications] = useState<RecentPub[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,12 +41,12 @@ export default function AdminChannelsPage() {
           setStats(res.data.stats);
           setPublications(res.data.recentPublications);
         } else {
-          toast.error('Не вдалося завантажити статистику каналів');
+          toast.error(t('loadError'));
         }
       })
-      .catch(() => toast.error('Помилка мережі'))
+      .catch(() => toast.error(t('networkError')))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [t]);
 
   if (isLoading) {
     return (
@@ -61,12 +63,12 @@ export default function AdminChannelsPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Статистика каналів</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <Link
           href="/admin/publications"
           className="text-sm text-[var(--color-primary)] hover:underline"
         >
-          До публікацій →
+          {t('toPublications')}
         </Link>
       </div>
 
@@ -82,29 +84,29 @@ export default function AdminChannelsPage() {
               {stat ? (
                 <div className="space-y-1 text-sm">
                   <p>
-                    Підписники: <strong>{stat.subscribersCount}</strong>
+                    {t('subscribers')} <strong>{stat.subscribersCount}</strong>
                   </p>
                   <p className="text-xs text-[var(--color-text-secondary)]">
-                    Нових: <span className="text-green-600">+{stat.newSubscribers}</span>
+                    {t('new')} <span className="text-green-600">+{stat.newSubscribers}</span>
                     {' · '}
-                    Відписки:{' '}
+                    {t('unsubscribes')}{' '}
                     <span className="text-[var(--color-danger)]">-{stat.unsubscribes}</span>
                   </p>
                   {stat.messagesCount > 0 && (
                     <p className="text-xs text-[var(--color-text-secondary)]">
-                      Повідомлень: {stat.messagesCount}
+                      {t('messages')} {stat.messagesCount}
                     </p>
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-[var(--color-text-secondary)]">Немає даних</p>
+                <p className="text-xs text-[var(--color-text-secondary)]">{t('noData')}</p>
               )}
             </div>
           );
         })}
       </div>
 
-      <h3 className="mb-4 text-lg font-semibold">Останні публікації</h3>
+      <h3 className="mb-4 text-lg font-semibold">{t('recentPublications')}</h3>
       <div className="space-y-2">
         {publications.map((pub) => (
           <Link
@@ -135,12 +137,12 @@ export default function AdminChannelsPage() {
             <span className="text-3xl" aria-hidden="true">
               📡
             </span>
-            <p className="text-sm font-medium">Публікацій ще немає</p>
+            <p className="text-sm font-medium">{t('noPublications')}</p>
             <Link
               href="/admin/publications"
               className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
             >
-              + Створити публікацію
+              {t('createPublication')}
             </Link>
           </div>
         )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -27,6 +28,7 @@ interface UserOption {
 }
 
 export default function AdminLoyaltyPage() {
+  const t = useTranslations('admin.adminLoyaltyPage');
   const [levels, setLevels] = useState<LoyaltyLevel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -121,22 +123,22 @@ export default function AdminLoyaltyPage() {
     setIsSaving(true);
     const res = await apiClient.put('/api/v1/admin/loyalty/settings', { levels });
     setIsSaving(false);
-    if (res.success) toast.success('Рівні лояльності збережено');
-    else toast.error(res.error || 'Помилка збереження');
+    if (res.success) toast.success(t('savedToast'));
+    else toast.error(res.error || t('saveError'));
   };
 
   const handleAdjust = async () => {
     if (!pickedUser) {
-      toast.error('Оберіть користувача');
+      toast.error(t('selectUser'));
       return;
     }
     if (!adjustPoints || !adjustDesc) {
-      toast.error('Заповніть всі поля');
+      toast.error(t('fillAll'));
       return;
     }
     const pts = parseInt(adjustPoints);
     if (isNaN(pts) || pts <= 0) {
-      toast.error('Кількість балів має бути більше 0');
+      toast.error(t('pointsMustBePositive'));
       return;
     }
     const res = await apiClient.post('/api/v1/admin/loyalty/adjust', {
@@ -150,13 +152,14 @@ export default function AdminLoyaltyPage() {
       setUserQuery('');
       setAdjustPoints('');
       setAdjustDesc('');
+      const name = pickedUser.fullName || pickedUser.email;
       toast.success(
         adjustType === 'manual_add'
-          ? `Нараховано ${pts} балів для ${pickedUser.fullName || pickedUser.email}`
-          : `Списано ${pts} балів у ${pickedUser.fullName || pickedUser.email}`,
+          ? t('addedToast', { points: pts, name })
+          : t('deductedToast', { points: pts, name }),
       );
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
@@ -190,21 +193,21 @@ export default function AdminLoyaltyPage() {
 
   return (
     <div>
-      <h2 className="mb-6 text-xl font-bold">Програма лояльності</h2>
+      <h2 className="mb-6 text-xl font-bold">{t('title')}</h2>
 
       <LoyaltyStatsPanel />
 
       {/* Levels configuration */}
       <div className="mb-8">
-        <h3 className="mb-4 text-lg font-semibold">Рівні</h3>
+        <h3 className="mb-4 text-lg font-semibold">{t('levelsTitle')}</h3>
         <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)]">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-bg-secondary)]">
               <tr>
-                <th className="px-3 py-2 text-left">Назва</th>
-                <th className="px-3 py-2 text-right">Мін. витрати (₴)</th>
-                <th className="px-3 py-2 text-right">Множник балів</th>
-                <th className="px-3 py-2 text-right">Знижка (%)</th>
+                <th className="px-3 py-2 text-left">{t('colName')}</th>
+                <th className="px-3 py-2 text-right">{t('colMinSpent')}</th>
+                <th className="px-3 py-2 text-right">{t('colMultiplier')}</th>
+                <th className="px-3 py-2 text-right">{t('colDiscount')}</th>
                 <th className="w-12 px-3 py-2"></th>
               </tr>
             </thead>
@@ -247,8 +250,8 @@ export default function AdminLoyaltyPage() {
                     <button
                       type="button"
                       onClick={() => setDeleteLevelIndex(i)}
-                      title="Видалити рівень"
-                      aria-label={`Видалити рівень ${level.name || i + 1}`}
+                      title={t('deleteLevelTitleAttr')}
+                      aria-label={t('deleteLevelAria', { name: level.name || `${i + 1}` })}
                       className="rounded p-1 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)]"
                     >
                       ✕
@@ -261,7 +264,7 @@ export default function AdminLoyaltyPage() {
         </div>
         <div className="mt-3 flex gap-2">
           <Button onClick={() => setConfirmSaveLevels(true)} isLoading={isSaving}>
-            Зберегти рівні
+            {t('saveLevels')}
           </Button>
           <Button
             onClick={() =>
@@ -277,18 +280,18 @@ export default function AdminLoyaltyPage() {
               ])
             }
           >
-            + Додати рівень
+            {t('addLevel')}
           </Button>
         </div>
       </div>
 
       {/* Manual points adjust */}
       <div>
-        <h3 className="mb-4 text-lg font-semibold">Ручне управління балами</h3>
+        <h3 className="mb-4 text-lg font-semibold">{t('manualTitle')}</h3>
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           {/* User picker — spans full width */}
           <div className="mb-3">
-            <label className="mb-1 block text-sm font-medium">Користувач</label>
+            <label className="mb-1 block text-sm font-medium">{t('userLabel')}</label>
             {pickedUser ? (
               <div className="flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-sm">
                 <span className="font-mono text-xs text-[var(--color-text-secondary)]">
@@ -308,7 +311,7 @@ export default function AdminLoyaltyPage() {
                   }}
                   className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
                 >
-                  ✕ Змінити
+                  {t('changeBtn')}
                 </button>
               </div>
             ) : (
@@ -316,17 +319,17 @@ export default function AdminLoyaltyPage() {
                 <Input
                   value={userQuery}
                   onChange={(e) => setUserQuery(e.target.value)}
-                  placeholder="Пошук за email, ім'ям, телефоном…"
+                  placeholder={t('searchPh')}
                 />
                 {userQuery.length >= 2 && (
                   <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-60 overflow-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
                     {searchingUsers ? (
                       <div className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                        Пошук…
+                        {t('searching')}
                       </div>
                     ) : userResults.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                        Нічого не знайдено
+                        {t('nothingFound')}
                       </div>
                     ) : (
                       userResults.map((u) => (
@@ -355,33 +358,33 @@ export default function AdminLoyaltyPage() {
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Тип</label>
+              <label className="mb-1 block text-sm font-medium">{t('typeLabel')}</label>
               <select
                 value={adjustType}
                 onChange={(e) => setAdjustType(e.target.value as 'manual_add' | 'manual_deduct')}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
               >
-                <option value="manual_add">Нарахувати</option>
-                <option value="manual_deduct">Списати</option>
+                <option value="manual_add">{t('typeAdd')}</option>
+                <option value="manual_deduct">{t('typeDeduct')}</option>
               </select>
             </div>
             <Input
-              label="Кількість балів"
+              label={t('pointsLabel')}
               type="number"
               value={adjustPoints}
               onChange={(e) => setAdjustPoints(e.target.value)}
             />
             <Input
-              label="Опис"
+              label={t('descLabel')}
               value={adjustDesc}
               onChange={(e) => setAdjustDesc(e.target.value)}
-              placeholder="Бонус від адміністратора"
+              placeholder={t('descPh')}
             />
           </div>
         </div>
         <div className="mt-3">
           <Button onClick={handleAdjust} disabled={!pickedUser || !adjustPoints || !adjustDesc}>
-            Застосувати
+            {t('apply')}
           </Button>
         </div>
       </div>
@@ -390,9 +393,9 @@ export default function AdminLoyaltyPage() {
         isOpen={confirmSaveLevels}
         onClose={() => setConfirmSaveLevels(false)}
         onConfirm={handleSaveLevels}
-        title="Зберегти рівні лояльності"
-        message="Зміни в рівнях лояльності набудуть чинності для всіх користувачів. Продовжити?"
-        confirmText="Так, зберегти"
+        title={t('confirmSaveTitle')}
+        message={t('confirmSaveMsg')}
+        confirmText={t('confirmSaveBtn')}
       />
 
       <ConfirmDialog
@@ -400,13 +403,15 @@ export default function AdminLoyaltyPage() {
         onClose={() => setDeleteLevelIndex(null)}
         onConfirm={handleDeleteLevel}
         variant="danger"
-        title="Видалити рівень"
+        title={t('confirmDeleteTitle')}
         message={
           deleteLevelIndex !== null
-            ? `Видалити рівень "${levels[deleteLevelIndex]?.name || `№${deleteLevelIndex + 1}`}"? Після збереження користувачі на цьому рівні переходитимуть на сусідній.`
+            ? t('confirmDeleteMsg', {
+                name: levels[deleteLevelIndex]?.name || `№${deleteLevelIndex + 1}`,
+              })
             : ''
         }
-        confirmText="Так, видалити"
+        confirmText={t('confirmDeleteBtn')}
       />
     </div>
   );

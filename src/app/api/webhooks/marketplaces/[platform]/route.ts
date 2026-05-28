@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual, createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
+import { redis } from '@/lib/redis';
 import { getChannelConfig, type MarketplaceConfig } from '@/services/channel-config';
 import { isMarketplacePlatform, type MarketplacePlatform } from '@/services/marketplace-health';
 import {
@@ -10,6 +11,10 @@ import {
 } from '@/services/marketplace-sync';
 import { syncMarketplaceMessages } from '@/services/marketplace-messages-sync';
 import { logger } from '@/lib/logger';
+import { checkWebhookRateLimit, readBoundedBody } from '@/utils/webhook-security';
+
+const MARKETPLACE_MAX_BODY = 256 * 1024;
+const DEDUP_TTL = 86_400;
 
 // Generic webhook receiver for marketplaces. Each marketplace has a different
 // payload shape and signature scheme — we route by platform and use a stored
@@ -63,9 +68,25 @@ function sigAlgo(platform: MarketplacePlatform): 'sha1' | 'sha256' {
 // ── Event normalization ──
 
 type WebhookEvent =
-  | { type: 'order.created' | 'order.updated'; orderId: string; status?: string; raw: Record<string, unknown> }
-  | { type: 'return.created' | 'return.updated'; returnId: string; orderId?: string; status?: string; raw: Record<string, unknown> }
-  | { type: 'listing.approved' | 'listing.rejected'; externalId: string; reason?: string; raw: Record<string, unknown> }
+  | {
+      type: 'order.created' | 'order.updated';
+      orderId: string;
+      status?: string;
+      raw: Record<string, unknown>;
+    }
+  | {
+      type: 'return.created' | 'return.updated';
+      returnId: string;
+      orderId?: string;
+      status?: string;
+      raw: Record<string, unknown>;
+    }
+  | {
+      type: 'listing.approved' | 'listing.rejected';
+      externalId: string;
+      reason?: string;
+      raw: Record<string, unknown>;
+    }
   | { type: 'message.received'; messageId: string; raw: Record<string, unknown> }
   | { type: 'unknown'; raw: Record<string, unknown> };
 
@@ -74,24 +95,50 @@ function parseEvent(platform: MarketplacePlatform, body: Record<string, unknown>
   // Rozetka format: { event_type: "order_created", data: { ... } }
   // Prom format: { event: "orders.new", payload: { ... } }
   // Epicentr format: { type: "...", payload: { ... } } (assumed)
-  const eventName = String(
-    body.event || body.event_type || body.type || '',
-  ).toLowerCase();
+  const eventName = String(body.event || body.event_type || body.type || '').toLowerCase();
   const data = (body.data || body.payload || body) as Record<string, unknown>;
 
   if (eventName.includes('order') && (eventName.includes('creat') || eventName.includes('.new'))) {
-    return { type: 'order.created', orderId: String(data.id || data.order_id || ''), status: data.status ? String(data.status) : undefined, raw: body };
+    return {
+      type: 'order.created',
+      orderId: String(data.id || data.order_id || ''),
+      status: data.status ? String(data.status) : undefined,
+      raw: body,
+    };
   }
-  if (eventName.includes('order') && (eventName.includes('status') || eventName.includes('updat'))) {
-    return { type: 'order.updated', orderId: String(data.id || data.order_id || ''), status: data.status ? String(data.status) : undefined, raw: body };
+  if (
+    eventName.includes('order') &&
+    (eventName.includes('status') || eventName.includes('updat'))
+  ) {
+    return {
+      type: 'order.updated',
+      orderId: String(data.id || data.order_id || ''),
+      status: data.status ? String(data.status) : undefined,
+      raw: body,
+    };
   }
   if (eventName.includes('return') && eventName.includes('creat')) {
-    return { type: 'return.created', returnId: String(data.id || ''), orderId: data.order_id ? String(data.order_id) : undefined, status: data.status ? String(data.status) : undefined, raw: body };
+    return {
+      type: 'return.created',
+      returnId: String(data.id || ''),
+      orderId: data.order_id ? String(data.order_id) : undefined,
+      status: data.status ? String(data.status) : undefined,
+      raw: body,
+    };
   }
   if (eventName.includes('return')) {
-    return { type: 'return.updated', returnId: String(data.id || ''), orderId: data.order_id ? String(data.order_id) : undefined, status: data.status ? String(data.status) : undefined, raw: body };
+    return {
+      type: 'return.updated',
+      returnId: String(data.id || ''),
+      orderId: data.order_id ? String(data.order_id) : undefined,
+      status: data.status ? String(data.status) : undefined,
+      raw: body,
+    };
   }
-  if (eventName.includes('advert') && (eventName.includes('approv') || eventName.includes('status'))) {
+  if (
+    eventName.includes('advert') &&
+    (eventName.includes('approv') || eventName.includes('status'))
+  ) {
     const status = String(data.status || '');
     const externalId = String(data.id || data.advert_id || '');
     return {
@@ -160,7 +207,8 @@ async function handleListingEvent(
     where: { channel: platform, externalId: event.externalId },
     data: {
       status: event.type === 'listing.approved' ? 'published' : 'failed',
-      errorMessage: event.type === 'listing.rejected' ? event.reason || 'Відхилено маркетплейсом' : null,
+      errorMessage:
+        event.type === 'listing.rejected' ? event.reason || 'Відхилено маркетплейсом' : null,
     },
   });
 }
@@ -245,7 +293,10 @@ async function handleMessageEvent(
     try {
       const { sendPushToAdmins } = await import('@/services/push');
       const platformLabels: Record<string, string> = {
-        olx: 'OLX', rozetka: 'Rozetka', prom: 'Prom.ua', epicentrk: 'Epicentr K',
+        olx: 'OLX',
+        rozetka: 'Rozetka',
+        prom: 'Prom.ua',
+        epicentrk: 'Epicentr K',
       };
       await sendPushToAdmins({
         title: `💬 Нове повідомлення на ${platformLabels[platform] || platform}`,
@@ -274,7 +325,9 @@ async function logWebhook(
       data: {
         source,
         event,
-        payload: payload as unknown as Parameters<typeof prisma.webhookLog.create>[0]['data']['payload'],
+        payload: payload as unknown as Parameters<
+          typeof prisma.webhookLog.create
+        >[0]['data']['payload'],
         statusCode,
         durationMs,
         error,
@@ -288,16 +341,49 @@ async function logWebhook(
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ platform: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ platform: string }> },
+) {
   const startedAt = Date.now();
   const { platform: rawPlatform } = await params;
   if (!isMarketplacePlatform(rawPlatform)) {
-    await logWebhook(rawPlatform, 'unknown', {}, 404, Date.now() - startedAt, 'Unknown marketplace');
+    await logWebhook(
+      rawPlatform,
+      'unknown',
+      {},
+      404,
+      Date.now() - startedAt,
+      'Unknown marketplace',
+    );
     return NextResponse.json({ error: 'Unknown marketplace' }, { status: 404 });
   }
   const platform = rawPlatform as MarketplacePlatform;
 
-  const rawBody = await req.text();
+  // Per-platform/IP rate-limit. Marketplaces send from stable IP pools, so the
+  // existing 100/min cap covers their real volume while blocking a stolen
+  // webhookSecret from being used at flood scale.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const allowed = await checkWebhookRateLimit(`mp:${platform}`, ip);
+  if (!allowed) {
+    return NextResponse.json({ error: 'Rate limited' }, { status: 429 });
+  }
+
+  let rawBody: string;
+  try {
+    rawBody = await readBoundedBody(req, MARKETPLACE_MAX_BODY);
+  } catch {
+    await logWebhook(
+      platform,
+      'payload_too_large',
+      {},
+      413,
+      Date.now() - startedAt,
+      'Body exceeds 256KB',
+    );
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+  }
+
   const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
 
   // Signature is mandatory in production. An unconfigured webhookSecret used
@@ -307,14 +393,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pla
   if (!webhookSecret) {
     if (process.env.NODE_ENV === 'production') {
       logger.warn('[Webhook] missing webhookSecret', { platform });
-      await logWebhook(platform, 'no_secret', {}, 503, Date.now() - startedAt, 'Webhook secret not configured');
+      await logWebhook(
+        platform,
+        'no_secret',
+        {},
+        503,
+        Date.now() - startedAt,
+        'Webhook secret not configured',
+      );
       return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 503 });
     }
   } else {
     const signature = extractSignature(req, platform);
     if (!verifySignature(rawBody, signature, webhookSecret, sigAlgo(platform))) {
       logger.warn('[Webhook] signature verification failed', { platform });
-      await logWebhook(platform, 'signature_fail', { signature }, 401, Date.now() - startedAt, 'Invalid signature');
+      await logWebhook(
+        platform,
+        'signature_fail',
+        { signature },
+        401,
+        Date.now() - startedAt,
+        'Invalid signature',
+      );
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
   }
@@ -323,11 +423,72 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pla
   try {
     body = JSON.parse(rawBody) as Record<string, unknown>;
   } catch {
-    await logWebhook(platform, 'invalid_json', rawBody.slice(0, 1000), 400, Date.now() - startedAt, 'Invalid JSON');
+    await logWebhook(
+      platform,
+      'invalid_json',
+      rawBody.slice(0, 1000),
+      400,
+      Date.now() - startedAt,
+      'Invalid JSON',
+    );
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
   const event = parseEvent(platform, body);
+
+  // Idempotency: dedupe by event-type + the marketplace's own ID for the
+  // entity. Without this, a marketplace retry (timeout-driven) re-runs
+  // importOrders / sendPush which would spam admins. TTL 24h matches the
+  // longest known marketplace retry window.
+  const eventKey = (() => {
+    switch (event.type) {
+      case 'order.created':
+      case 'order.updated':
+        return event.orderId;
+      case 'return.created':
+      case 'return.updated':
+        return event.returnId;
+      case 'listing.approved':
+      case 'listing.rejected':
+        return event.externalId;
+      case 'message.received':
+        return event.messageId;
+      default:
+        return null;
+    }
+  })();
+  if (eventKey) {
+    const dedupeKey = `mp:dedupe:${platform}:${event.type}:${eventKey}`;
+    try {
+      const set = await redis.set(dedupeKey, '1', 'EX', DEDUP_TTL, 'NX');
+      if (set !== 'OK') {
+        await logWebhook(
+          platform,
+          `${event.type}:duplicate`,
+          body,
+          200,
+          Date.now() - startedAt,
+          null,
+        );
+        return NextResponse.json({ ok: true, deduped: true, event: event.type });
+      }
+    } catch {
+      // Redis down — skip dedup rather than blocking legitimate events.
+    }
+  } else if (event.type === 'unknown') {
+    // For unknown events, hash the body so a flood of the same unknown
+    // payload doesn't re-trigger the no-op handler over and over.
+    const hash = createHash('sha256').update(rawBody).digest('hex').slice(0, 32);
+    const dedupeKey = `mp:dedupe:${platform}:unknown:${hash}`;
+    try {
+      const set = await redis.set(dedupeKey, '1', 'EX', DEDUP_TTL, 'NX');
+      if (set !== 'OK') {
+        return NextResponse.json({ ok: true, deduped: true, event: 'unknown' });
+      }
+    } catch {
+      // Redis down — proceed.
+    }
+  }
 
   try {
     if (event.type === 'order.created' || event.type === 'order.updated') {

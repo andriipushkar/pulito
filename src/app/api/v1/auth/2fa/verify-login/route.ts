@@ -8,10 +8,14 @@ import { serializeRefreshTokenCookie } from '@/utils/cookies';
 import { getClientIp, getDeviceInfo } from '@/utils/request';
 import { env } from '@/config/env';
 import { logAudit } from '@/services/audit';
+import { logger } from '@/lib/logger';
 
 const verifyLoginSchema = z.object({
-  tempToken: z.string().min(1, "Токен обов'язковий"),
-  code: z.string().min(1, "Код обов'язковий"),
+  tempToken: z.string().min(1, "Токен обов'язковий").max(2048),
+  // TOTP = 6 digits; backup code = 8 hex (see services/totp.ts hashBackupCode).
+  // Pinning the format stops oversize / weird-character submissions from
+  // reaching the verify path.
+  code: z.string().regex(/^(\d{6}|[a-fA-F0-9]{8})$/, 'Невалідний формат коду'),
 });
 
 /**
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
         deviceInfo,
       );
     } catch (error) {
-      console.warn('[2fa/verify-login] failed', {
+      logger.warn('[2fa/verify-login] failed', {
         codeLen: parsed.data.code.length,
         ip: ipAddress,
         tempTokenTail: parsed.data.tempToken.slice(-12),

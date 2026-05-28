@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withOptionalAuth } from '@/middleware/auth';
 import { generatePricelist, PricelistError } from '@/services/pricelist';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { errorResponse } from '@/utils/api-response';
 import { prisma } from '@/lib/prisma';
 
 export const GET = withOptionalAuth(async (request: NextRequest, { user }) => {
   try {
+    // PDF generation is heavy (Chromium spawn + product join). Apply
+    // adminPdfExport (50/day) per user when authenticated, fall back to a
+    // per-IP cap for anonymous retail callers — either axis stops a stuck
+    // loop or scraper exhausting disk space overnight.
+    const rlKey = user ? `user:${user.id}` : `ip:${getRequestIp(request)}`;
+    const rl = await checkRateLimit(rlKey, RATE_LIMITS.adminPdfExport);
+    if (!rl.allowed) return errorResponse('Денний ліміт прайс-листа вичерпано', 429);
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 
@@ -68,3 +77,11 @@ export const GET = withOptionalAuth(async (request: NextRequest, { user }) => {
     return errorResponse('Помилка генерації прайс-листа', 500);
   }
 });
+
+function getRequestIp(request: NextRequest): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown'
+  );
+}

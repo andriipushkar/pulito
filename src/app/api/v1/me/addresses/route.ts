@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { withAuth } from '@/middleware/auth';
 import { getUserAddresses, createAddress } from '@/services/delivery-address';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { successResponse, privateResponse, errorResponse } from '@/utils/api-response';
 
 // Per-field length caps: pre-fix code only capped `label`. Realistic
@@ -28,6 +29,9 @@ export const GET = withAuth(async (_request: NextRequest, { user }) => {
 
 export const POST = withAuth(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.cart);
+    if (!rl.allowed) return errorResponse('Забагато запитів', 429);
+
     const body = await request.json();
     const parsed = createAddressSchema.safeParse(body);
     if (!parsed.success) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/types/order';
@@ -12,28 +13,13 @@ import { formatDateTime } from '@/utils/format';
 import Spinner from '@/components/ui/Spinner';
 import Pagination from '@/components/ui/Pagination';
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Всі статуси' },
-  ...Object.entries(ORDER_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
-];
-
-const BULK_ACTIONS = [
-  { value: '', label: 'Масова дія...' },
-  { value: 'processing', label: 'Статус: В обробці' },
-  { value: 'confirmed', label: 'Статус: Підтверджено' },
-  { value: 'packed', label: 'Статус: Упаковано' },
-  { value: 'shipped', label: 'Статус: Відправлено' },
-  { value: 'completed', label: 'Статус: Завершено' },
-  { value: 'cancelled', label: 'Статус: Скасовано' },
-  { value: 'export_csv', label: 'Експорт CSV' },
-  { value: 'print_labels', label: 'Друк етикеток (HTML)' },
-  { value: 'print_labels_pdf', label: 'Друк етикеток (PDF)' },
-];
-
 export default function AdminOrdersBulkPage() {
+  const t = useTranslations('admin.ordersBulk');
   return (
     <Suspense
-      fallback={<div className="p-6 text-sm text-[var(--color-text-secondary)]">Завантаження…</div>}
+      fallback={
+        <div className="p-6 text-sm text-[var(--color-text-secondary)]">{t('loading')}</div>
+      }
     >
       <AdminOrdersBulkPageInner />
     </Suspense>
@@ -41,8 +27,27 @@ export default function AdminOrdersBulkPage() {
 }
 
 function AdminOrdersBulkPageInner() {
+  const t = useTranslations('admin.ordersBulk');
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  const STATUS_OPTIONS = [
+    { value: '', label: t('allStatuses') },
+    ...Object.entries(ORDER_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
+  ];
+
+  const BULK_ACTIONS = [
+    { value: '', label: t('actionPlaceholder') },
+    { value: 'processing', label: t('actionStatusProcessing') },
+    { value: 'confirmed', label: t('actionStatusConfirmed') },
+    { value: 'packed', label: t('actionStatusPacked') },
+    { value: 'shipped', label: t('actionStatusShipped') },
+    { value: 'completed', label: t('actionStatusCompleted') },
+    { value: 'cancelled', label: t('actionStatusCancelled') },
+    { value: 'export_csv', label: t('actionExportCsv') },
+    { value: 'print_labels', label: t('actionPrintLabelsHtml') },
+    { value: 'print_labels_pdf', label: t('actionPrintLabelsPdf') },
+  ];
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,7 +116,7 @@ function AdminOrdersBulkPageInner() {
         });
         if (res.success && res.data?.url) {
           window.open(res.data.url, '_blank');
-          setMessage({ type: 'success', text: `Експортовано ${ids.length} замовлень` });
+          setMessage({ type: 'success', text: t('exportSuccess', { count: ids.length }) });
         }
       } else if (bulkAction === 'print_labels' || bulkAction === 'print_labels_pdf') {
         const ids = Array.from(selected);
@@ -121,7 +126,7 @@ function AdminOrdersBulkPageInner() {
         });
         if (res.success && res.data?.url) {
           window.open(res.data.url, '_blank');
-          setMessage({ type: 'success', text: `Створено етикетки для ${ids.length} замовлень` });
+          setMessage({ type: 'success', text: t('labelsSuccess', { count: ids.length }) });
         }
       } else {
         // Status update — use the bulk endpoint so all updates run server-side
@@ -139,7 +144,7 @@ function AdminOrdersBulkPageInner() {
         const successCount = res.success && res.data ? res.data.ok.length : 0;
         setMessage({
           type: successCount === ids.length ? 'success' : 'error',
-          text: `Оновлено ${successCount} з ${ids.length} замовлень`,
+          text: t('statusUpdate', { success: successCount, total: ids.length }),
         });
         // Reload
         const params = new URLSearchParams({ page: String(page), limit: String(limit) });
@@ -151,7 +156,7 @@ function AdminOrdersBulkPageInner() {
         }
       }
     } catch {
-      setMessage({ type: 'error', text: 'Помилка виконання дії' });
+      setMessage({ type: 'error', text: t('actionError') });
     } finally {
       setIsProcessing(false);
       setBulkAction('');
@@ -165,12 +170,12 @@ function AdminOrdersBulkPageInner() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold">Масові дії</h2>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
           <Link
             href="/admin/orders"
             className="text-sm text-[var(--color-primary)] hover:underline"
           >
-            ← Звичайний режим
+            {t('backToNormal')}
           </Link>
         </div>
         <Select
@@ -192,7 +197,7 @@ function AdminOrdersBulkPageInner() {
       {/* Bulk action bar */}
       <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
         <span className="text-sm text-[var(--color-text-secondary)]">
-          Обрано: <strong>{selected.size}</strong>
+          {t('selected')} <strong>{selected.size}</strong>
         </span>
         <Select
           options={BULK_ACTIONS}
@@ -206,7 +211,7 @@ function AdminOrdersBulkPageInner() {
           isLoading={isProcessing}
           disabled={!bulkAction || selected.size === 0}
         >
-          Виконати
+          {t('execute')}
         </Button>
       </div>
 
@@ -228,10 +233,10 @@ function AdminOrdersBulkPageInner() {
                       className="accent-[var(--color-primary)]"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left font-medium">Номер</th>
-                  <th className="px-4 py-3 text-left font-medium">Дата</th>
-                  <th className="px-4 py-3 text-left font-medium">Статус</th>
-                  <th className="px-4 py-3 text-right font-medium">Сума</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('colNumber')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('colDate')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('colStatus')}</th>
+                  <th className="px-4 py-3 text-right font-medium">{t('colAmount')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -280,7 +285,7 @@ function AdminOrdersBulkPageInner() {
                       colSpan={5}
                       className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                     >
-                      Замовлень не знайдено
+                      {t('noOrders')}
                     </td>
                   </tr>
                 )}

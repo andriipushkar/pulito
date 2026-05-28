@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -25,6 +26,7 @@ const MARKETPLACES = [
 ];
 
 export default function MarketplaceAuditPage() {
+  const t = useTranslations('admin.marketplaceAuditPage');
   const [logs, setLogs] = useState<WebhookLogRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -91,12 +93,10 @@ export default function MarketplaceAuditPage() {
           href="/admin/marketplaces"
           className="text-sm text-[var(--color-primary)] hover:underline"
         >
-          ← Маркетплейси
+          {t('backToMarketplaces')}
         </Link>
-        <h2 className="mt-1 text-xl font-bold">Журнал webhook-подій</h2>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Останні запити, що прийшли від маркетплейсів. Зберігаються 30 днів.
-        </p>
+        <h2 className="mt-1 text-xl font-bold">{t('title')}</h2>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -108,7 +108,7 @@ export default function MarketplaceAuditPage() {
           }}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
-          <option value="">Всі маркетплейси</option>
+          <option value="">{t('allMarketplaces')}</option>
           {MARKETPLACES.map((m) => (
             <option key={m.key} value={m.key}>
               {m.icon} {m.name}
@@ -123,7 +123,7 @@ export default function MarketplaceAuditPage() {
           }}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
-          <option value="">Всі типи подій</option>
+          <option value="">{t('allEventTypes')}</option>
           <option value="order.created">order.created</option>
           <option value="order.updated">order.updated</option>
           <option value="return.created">return.created</option>
@@ -141,9 +141,9 @@ export default function MarketplaceAuditPage() {
           }}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
-          <option value="">Всі статуси</option>
-          <option value="ok">Успішні</option>
-          <option value="error">З помилками</option>
+          <option value="">{t('allStatuses')}</option>
+          <option value="ok">{t('statusOk')}</option>
+          <option value="error">{t('statusError')}</option>
         </select>
         <select
           value={filterSince}
@@ -153,12 +153,14 @@ export default function MarketplaceAuditPage() {
           }}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
-          <option value="">Весь період</option>
-          <option value="1d">Останні 24 год</option>
-          <option value="7d">7 днів</option>
-          <option value="30d">30 днів</option>
+          <option value="">{t('allTime')}</option>
+          <option value="1d">{t('since1d')}</option>
+          <option value="7d">{t('since7d')}</option>
+          <option value="30d">{t('since30d')}</option>
         </select>
-        <span className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</span>
+        <span className="text-xs text-[var(--color-text-secondary)]">
+          {t('totalLabel', { count: total })}
+        </span>
       </div>
 
       {isLoading ? (
@@ -167,7 +169,7 @@ export default function MarketplaceAuditPage() {
         </div>
       ) : logs.length === 0 ? (
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-12 text-center text-[var(--color-text-secondary)]">
-          Подій не зафіксовано
+          {t('empty')}
         </div>
       ) : (
         <div className="space-y-1">
@@ -197,7 +199,7 @@ export default function MarketplaceAuditPage() {
                     onClick={() => toggleExpand(log.id)}
                     className="ml-auto text-xs text-[var(--color-text-secondary)] hover:underline"
                   >
-                    {isExpanded ? 'Згорнути' : 'Payload'}
+                    {isExpanded ? t('collapse') : t('payload')}
                   </button>
                 </div>
                 {isExpanded && log.payload != null && (
@@ -219,7 +221,7 @@ export default function MarketplaceAuditPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
           >
-            Назад
+            {t('prev')}
           </Button>
           <span className="px-2 py-1 text-sm text-[var(--color-text-secondary)]">{page}</span>
           <Button
@@ -228,7 +230,7 @@ export default function MarketplaceAuditPage() {
             onClick={() => setPage((p) => p + 1)}
             disabled={logs.length < 50}
           >
-            Далі
+            {t('next')}
           </Button>
         </div>
       )}

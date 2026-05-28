@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import { USER_ROLE_LABELS, WHOLESALE_STATUS_LABELS, WHOLESALE_GROUP_LABELS } from '@/types/user';
 import type { UserListItem, UserRole, WholesaleStatus, WholesaleGroup } from '@/types/user';
@@ -18,39 +19,40 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { Search } from '@/components/icons';
 import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from '@/config/admin-constants';
 
-const ROLE_OPTIONS = [
-  { value: '', label: 'Всі ролі' },
-  ...Object.entries(USER_ROLE_LABELS).map(([v, l]) => ({ value: v, label: l })),
-];
-
-const WHOLESALE_OPTIONS = [
-  { value: '', label: 'Всі статуси' },
-  { value: 'pending', label: 'Очікує підтвердження' },
-  { value: 'approved', label: 'Підтверджено' },
-  { value: 'rejected', label: 'Відхилено' },
-];
-
-const WHOLESALE_GROUP_OPTIONS = [
-  { value: '', label: 'Всі групи' },
-  ...Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => ({ value: v, label: l })),
-];
-
-const BLOCKED_OPTIONS = [
-  { value: '', label: 'Усі' },
-  { value: 'false', label: 'Активні' },
-  { value: 'true', label: 'Заблоковані' },
-];
-
-const SORT_OPTIONS = [
-  { value: 'createdAt:desc', label: 'Найновіші' },
-  { value: 'createdAt:asc', label: 'Найстаріші' },
-  { value: 'fullName:asc', label: "Ім'я (А-Я)" },
-  { value: 'fullName:desc', label: "Ім'я (Я-А)" },
-  { value: 'orders:desc', label: 'Замовлень (більше)' },
-  { value: 'orders:asc', label: 'Замовлень (менше)' },
-];
-
 export default function AdminUsersPage() {
+  const t = useTranslations('admin.usersListPage');
+  const ROLE_OPTIONS = [
+    { value: '', label: t('allRoles') },
+    ...Object.entries(USER_ROLE_LABELS).map(([v, l]) => ({ value: v, label: l })),
+  ];
+
+  const WHOLESALE_OPTIONS = [
+    { value: '', label: t('allStatuses') },
+    { value: 'pending', label: t('wsPending') },
+    { value: 'approved', label: t('wsApproved') },
+    { value: 'rejected', label: t('wsRejected') },
+  ];
+
+  const WHOLESALE_GROUP_OPTIONS = [
+    { value: '', label: t('allGroups') },
+    ...Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => ({ value: v, label: l })),
+  ];
+
+  const BLOCKED_OPTIONS = [
+    { value: '', label: t('blockedAll') },
+    { value: 'false', label: t('blockedActive') },
+    { value: 'true', label: t('blockedBlocked') },
+  ];
+
+  const SORT_OPTIONS = [
+    { value: 'createdAt:desc', label: t('sortNewest') },
+    { value: 'createdAt:asc', label: t('sortOldest') },
+    { value: 'fullName:asc', label: t('sortNameAsc') },
+    { value: 'fullName:desc', label: t('sortNameDesc') },
+    { value: 'orders:desc', label: t('sortOrdersDesc') },
+    { value: 'orders:asc', label: t('sortOrdersAsc') },
+  ];
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const [users, setUsers] = useState<UserListItem[]>([]);
@@ -74,12 +76,7 @@ export default function AdminUsersPage() {
 
   const handleBulkApprove = async (group: number) => {
     if (bulkSelectedIds.size === 0) return;
-    if (
-      !window.confirm(
-        `Затвердити ${bulkSelectedIds.size} гуртових заявок у групу ${group}? Дію не можна скасувати скопом.`,
-      )
-    )
-      return;
+    if (!window.confirm(t('bulkConfirm', { count: bulkSelectedIds.size, group }))) return;
     setIsBulkApproving(true);
     const ids = Array.from(bulkSelectedIds);
     const results = await Promise.allSettled(
@@ -90,12 +87,10 @@ export default function AdminUsersPage() {
         }),
       ),
     );
-    const ok = results.filter(
-      (r) => r.status === 'fulfilled' && r.value.success,
-    ).length;
+    const ok = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
     const failed = ids.length - ok;
-    if (ok > 0) toast.success(`Затверджено ${ok} заявок у групу ${group}`);
-    if (failed > 0) toast.error(`Не вдалося затвердити ${failed} заявок`);
+    if (ok > 0) toast.success(t('bulkApproved', { count: ok, group }));
+    if (failed > 0) toast.error(t('bulkFailed', { count: failed }));
     setBulkSelectedIds(new Set());
     setIsBulkApproving(false);
     loadUsers();
@@ -157,10 +152,10 @@ export default function AdminUsersPage() {
           setUsers(res.data);
           setTotal(res.pagination?.total || 0);
         } else {
-          toast.error('Не вдалося завантажити користувачів');
+          toast.error(t('loadError'));
         }
       })
-      .catch(() => toast.error('Помилка мережі'))
+      .catch(() => toast.error(t('networkError')))
       .finally(() => setIsLoading(false));
   }, [
     page,
@@ -174,6 +169,7 @@ export default function AdminUsersPage() {
     search,
     sortBy,
     sortOrder,
+    t,
   ]);
 
   useEffect(() => {
@@ -206,21 +202,21 @@ export default function AdminUsersPage() {
       if (res.success) {
         toast.success(
           confirmAction.action === 'approve'
-            ? `Гуртовий доступ надано для ${confirmAction.userName}`
-            : `Заявку відхилено для ${confirmAction.userName}`,
+            ? t('wholesaleApproved', { name: confirmAction.userName })
+            : t('wholesaleRejected', { name: confirmAction.userName }),
         );
         loadUsers();
       } else if (res.statusCode === 409) {
         // Race-conflict: another admin processed the same request.
-        toast.error('Запит уже опрацьовано іншим адміністратором — оновлюю список', {
+        toast.error(t('raceConflict'), {
           duration: 6000,
         });
         loadUsers();
       } else {
-        toast.error(res.error || 'Помилка');
+        toast.error(res.error || t('error'));
       }
     } catch {
-      toast.error('Помилка мережі — спробуйте ще раз');
+      toast.error(t('networkRetry'));
     } finally {
       setConfirmAction(null);
       setIsConfirming(false);
@@ -248,7 +244,7 @@ export default function AdminUsersPage() {
       });
 
       if (!res.ok) {
-        toast.error('Помилка експорту');
+        toast.error(t('exportError'));
         return;
       }
 
@@ -266,9 +262,9 @@ export default function AdminUsersPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success('Експорт завершено');
+      toast.success(t('exportDone'));
     } catch {
-      toast.error('Помилка експорту');
+      toast.error(t('exportError'));
     }
   };
 
@@ -278,16 +274,16 @@ export default function AdminUsersPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-xl font-bold">Користувачі</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowFilters(!showFilters)}>
-            {showFilters ? 'Сховати фільтри' : 'Фільтри'}
+            {showFilters ? t('hideFilters') : t('filters')}
             {hasFilters && !showFilters && (
               <span className="ml-1 inline-block h-2 w-2 rounded-full bg-[var(--color-primary)]" />
             )}
           </Button>
           <Button size="sm" variant="outline" onClick={handleExport}>
-            Експорт
+            {t('export')}
           </Button>
         </div>
       </div>
@@ -299,7 +295,7 @@ export default function AdminUsersPage() {
       {bulkSelectedIds.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 px-3 py-2 text-sm">
           <span>
-            Обрано: <strong>{bulkSelectedIds.size}</strong> для bulk-затвердження
+            {t('bulkSelectedPre')} <strong>{bulkSelectedIds.size}</strong> {t('bulkSelectedPost')}
           </span>
           {Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => (
             <Button
@@ -309,7 +305,7 @@ export default function AdminUsersPage() {
               onClick={() => handleBulkApprove(Number(v))}
               disabled={isBulkApproving}
             >
-              ✓ У групу {l}
+              {t('bulkToGroup', { label: l })}
             </Button>
           ))}
           <Button
@@ -318,7 +314,7 @@ export default function AdminUsersPage() {
             onClick={() => setBulkSelectedIds(new Set())}
             disabled={isBulkApproving}
           >
-            Скинути
+            {t('reset')}
           </Button>
         </div>
       )}
@@ -334,7 +330,7 @@ export default function AdminUsersPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Email, ім'я, телефон, компанія..."
+            placeholder={t('searchPlaceholder')}
             className="w-64 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm"
           />
         </div>
@@ -349,7 +345,7 @@ export default function AdminUsersPage() {
             onClick={() => router.push('/admin/users')}
             className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:underline"
           >
-            Скинути фільтри
+            {t('resetFilters')}
           </button>
         )}
       </div>
@@ -359,7 +355,7 @@ export default function AdminUsersPage() {
         <div className="mb-4 flex flex-wrap items-end gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Роль
+              {t('roleLabel')}
             </label>
             <Select
               options={ROLE_OPTIONS}
@@ -370,7 +366,7 @@ export default function AdminUsersPage() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Гуртовий статус
+              {t('wholesaleStatusLabel')}
             </label>
             <Select
               options={WHOLESALE_OPTIONS}
@@ -381,7 +377,7 @@ export default function AdminUsersPage() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Гуртова група
+              {t('wholesaleGroupLabel')}
             </label>
             <Select
               options={WHOLESALE_GROUP_OPTIONS}
@@ -392,7 +388,7 @@ export default function AdminUsersPage() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Доступ
+              {t('accessLabel')}
             </label>
             <Select
               options={BLOCKED_OPTIONS}
@@ -403,7 +399,7 @@ export default function AdminUsersPage() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Зареєстрований від
+              {t('registeredFrom')}
             </label>
             <input
               type="date"
@@ -414,7 +410,7 @@ export default function AdminUsersPage() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Зареєстрований до
+              {t('registeredTo')}
             </label>
             <input
               type="date"
@@ -434,13 +430,13 @@ export default function AdminUsersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                  <th className="px-4 py-3 text-left font-medium">Користувач</th>
-                  <th className="px-4 py-3 text-left font-medium">Роль</th>
-                  <th className="px-4 py-3 text-left font-medium">Опт</th>
-                  <th className="px-4 py-3 text-center font-medium">Група</th>
-                  <th className="px-4 py-3 text-center font-medium">Замовлень</th>
-                  <th className="px-4 py-3 text-left font-medium">Дата</th>
-                  <th className="px-4 py-3 text-right font-medium">Дії</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('thUser')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('thRole')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('thWholesale')}</th>
+                  <th className="px-4 py-3 text-center font-medium">{t('thGroup')}</th>
+                  <th className="px-4 py-3 text-center font-medium">{t('thOrders')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('thDate')}</th>
+                  <th className="px-4 py-3 text-right font-medium">{t('thActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -459,7 +455,7 @@ export default function AdminUsersPage() {
                         </Link>
                         {u.isBlocked && (
                           <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
-                            Заблоковано
+                            {t('blocked')}
                           </span>
                         )}
                       </div>
@@ -521,7 +517,7 @@ export default function AdminUsersPage() {
                               });
                             }}
                             className="mr-1 accent-[var(--color-primary)]"
-                            aria-label={`Обрати ${u.fullName} для bulk-approve`}
+                            aria-label={t('selectForApprove', { name: u.fullName })}
                           />
                           <select
                             className="rounded border border-[var(--color-border)] bg-white px-1.5 py-1 text-xs"
@@ -532,7 +528,7 @@ export default function AdminUsersPage() {
                                 [u.id]: Number(e.target.value),
                               }))
                             }
-                            aria-label={`Гуртова група для ${u.fullName}`}
+                            aria-label={t('groupForUser', { name: u.fullName })}
                           >
                             {Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => (
                               <option key={v} value={v}>
@@ -551,7 +547,7 @@ export default function AdminUsersPage() {
                               })
                             }
                           >
-                            Так
+                            {t('yes')}
                           </Button>
                           <Button
                             size="sm"
@@ -564,7 +560,7 @@ export default function AdminUsersPage() {
                               })
                             }
                           >
-                            Ні
+                            {t('no')}
                           </Button>
                         </div>
                       )}
@@ -578,16 +574,16 @@ export default function AdminUsersPage() {
                         <span className="text-3xl" aria-hidden="true">
                           👥
                         </span>
-                        <p className="text-sm font-medium">Користувачів не знайдено</p>
+                        <p className="text-sm font-medium">{t('emptyTitle')}</p>
                         {hasFilters ? (
                           <button
                             onClick={() => router.push('/admin/users')}
                             className="text-xs text-[var(--color-primary)] hover:underline"
                           >
-                            Скинути всі фільтри
+                            {t('resetAllFilters')}
                           </button>
                         ) : (
-                          <p className="text-xs">Тут з&apos;являться зареєстровані користувачі</p>
+                          <p className="text-xs">{t('emptyHint')}</p>
                         )}
                       </div>
                     </td>
@@ -599,7 +595,7 @@ export default function AdminUsersPage() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
-              <p className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('total', { total })}</p>
               <PageSizeSelector value={limit} onChange={handlePageSizeChange} />
             </div>
             {total > limit && (
@@ -621,14 +617,16 @@ export default function AdminUsersPage() {
         isLoading={isConfirming}
         variant={confirmAction?.action === 'reject' ? 'danger' : 'default'}
         title={
-          confirmAction?.action === 'approve' ? 'Підтвердити гуртовий доступ' : 'Відхилити заявку'
+          confirmAction?.action === 'approve' ? t('confirmApproveTitle') : t('confirmRejectTitle')
         }
         message={
           confirmAction?.action === 'approve'
-            ? `Надати гуртовий доступ користувачу "${confirmAction?.userName}"?`
-            : `Відхилити заявку на гуртовий доступ від "${confirmAction?.userName}"?`
+            ? t('confirmApproveMsg', { name: confirmAction?.userName ?? '' })
+            : t('confirmRejectMsg', { name: confirmAction?.userName ?? '' })
         }
-        confirmText={confirmAction?.action === 'approve' ? 'Так, підтвердити' : 'Так, відхилити'}
+        confirmText={
+          confirmAction?.action === 'approve' ? t('confirmApproveBtn') : t('confirmRejectBtn')
+        }
       />
     </div>
   );

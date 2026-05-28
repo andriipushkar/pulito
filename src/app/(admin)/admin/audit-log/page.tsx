@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -18,42 +19,6 @@ interface AuditEntry {
   createdAt: string;
   user: { fullName: string | null; email: string } | null;
 }
-
-const ACTION_OPTIONS = [
-  { value: '', label: 'Всі типи' },
-  { value: 'login', label: 'Вхід' },
-  { value: 'logout', label: 'Вихід' },
-  { value: 'order_status_change', label: 'Зміна статусу' },
-  { value: 'import', label: 'Імпорт' },
-  { value: 'role_change', label: 'Зміна ролі' },
-  { value: 'publication_create', label: 'Публікація' },
-  { value: 'theme_change', label: 'Зміна теми' },
-  { value: 'page_edit', label: 'Редагування сторінки' },
-  { value: 'data_delete', label: 'Видалення' },
-  { value: 'user_block', label: 'Блокування' },
-  { value: 'user_unblock', label: 'Розблокування' },
-  { value: 'user_edit', label: 'Редагування користувача' },
-  { value: 'password_reset', label: 'Скидання пароля' },
-  { value: 'wholesale_approve', label: 'Схвалення гуртівника' },
-  { value: 'wholesale_reject', label: 'Відхилення гуртівника' },
-];
-
-const ENTITY_OPTIONS = [
-  { value: '', label: "Всі об'єкти" },
-  { value: 'order', label: 'Замовлення' },
-  { value: 'product', label: 'Товар' },
-  { value: 'user', label: 'Користувач' },
-  { value: 'category', label: 'Категорія' },
-  { value: 'page', label: 'Сторінка' },
-  { value: 'blog_post', label: 'Стаття блогу' },
-  { value: 'blog_category', label: 'Категорія блогу' },
-  { value: 'banner', label: 'Банер' },
-  { value: 'brand', label: 'Торгова марка' },
-  { value: 'theme', label: 'Тема' },
-  { value: 'wholesale_rule', label: 'Гуртове правило' },
-  { value: 'settings', label: 'Налаштування' },
-  { value: 'product_bulk', label: 'Масова дія з товарами' },
-];
 
 // Critical actions get red, sensitive ones amber, everything else neutral.
 // Color is the only place we encode severity — keep labels uniform.
@@ -92,6 +57,7 @@ function UserPicker({
   label: string;
   onChange: (id: number | null, label: string) => void;
 }) {
+  const t = useTranslations('admin.auditLogPage');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserOption[]>([]);
   const [open, setOpen] = useState(false);
@@ -131,7 +97,7 @@ function UserPicker({
   if (value !== null) {
     return (
       <div>
-        <label className="mb-1 block text-xs font-medium">Користувач</label>
+        <label className="mb-1 block text-xs font-medium">{t('userLabel')}</label>
         <div className="flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1.5 text-sm">
           <span className="truncate">{label}</span>
           <button
@@ -142,7 +108,7 @@ function UserPicker({
               setResults([]);
             }}
             className="ml-auto text-xs text-[var(--color-danger)] hover:underline"
-            title="Скинути"
+            title={t('resetTitle')}
           >
             ✕
           </button>
@@ -153,19 +119,21 @@ function UserPicker({
 
   return (
     <div className="relative">
-      <label className="mb-1 block text-xs font-medium">Користувач</label>
+      <label className="mb-1 block text-xs font-medium">{t('userLabel')}</label>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => visibleResults.length && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Пошук за ім'ям або email..."
+        placeholder={t('userSearchPh')}
         className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
       />
       {open && (visibleResults.length > 0 || loading) && (
         <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
           {loading && (
-            <li className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">Пошук...</li>
+            <li className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+              {t('userSearching')}
+            </li>
           )}
           {visibleResults.map((u) => {
             const display = u.fullName ? `${u.fullName} (${u.email})` : u.email;
@@ -193,6 +161,41 @@ function UserPicker({
 }
 
 export default function AdminAuditLogPage() {
+  const t = useTranslations('admin.auditLogPage');
+  const ACTION_OPTIONS = [
+    { value: '', label: t('actionAll') },
+    { value: 'login', label: t('actionLogin') },
+    { value: 'logout', label: t('actionLogout') },
+    { value: 'order_status_change', label: t('actionOrderStatus') },
+    { value: 'import', label: t('actionImport') },
+    { value: 'role_change', label: t('actionRoleChange') },
+    { value: 'publication_create', label: t('actionPublication') },
+    { value: 'theme_change', label: t('actionThemeChange') },
+    { value: 'page_edit', label: t('actionPageEdit') },
+    { value: 'data_delete', label: t('actionDataDelete') },
+    { value: 'user_block', label: t('actionUserBlock') },
+    { value: 'user_unblock', label: t('actionUserUnblock') },
+    { value: 'user_edit', label: t('actionUserEdit') },
+    { value: 'password_reset', label: t('actionPasswordReset') },
+    { value: 'wholesale_approve', label: t('actionWholesaleApprove') },
+    { value: 'wholesale_reject', label: t('actionWholesaleReject') },
+  ];
+  const ENTITY_OPTIONS = [
+    { value: '', label: t('entityAll') },
+    { value: 'order', label: t('entityOrder') },
+    { value: 'product', label: t('entityProduct') },
+    { value: 'user', label: t('entityUser') },
+    { value: 'category', label: t('entityCategory') },
+    { value: 'page', label: t('entityPage') },
+    { value: 'blog_post', label: t('entityBlogPost') },
+    { value: 'blog_category', label: t('entityBlogCategory') },
+    { value: 'banner', label: t('entityBanner') },
+    { value: 'brand', label: t('entityBrand') },
+    { value: 'theme', label: t('entityTheme') },
+    { value: 'wholesale_rule', label: t('entityWholesaleRule') },
+    { value: 'settings', label: t('entitySettings') },
+    { value: 'product_bulk', label: t('entityProductBulk') },
+  ];
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -239,11 +242,11 @@ export default function AdminAuditLogPage() {
           setLogs(res.data);
           setTotal(res.pagination?.total ?? 0);
         } else {
-          toast.error(res.error || 'Помилка завантаження журналу');
+          toast.error(res.error || t('loadError'));
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка завантаження журналу');
+        if (!cancelled) toast.error(t('loadError'));
       })
       .finally(() => {
         if (!cancelled) setCompletedKey(requestKey);
@@ -292,14 +295,14 @@ export default function AdminAuditLogPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold">Журнал дій</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowFilters(!showFilters)}>
-            {showFilters ? 'Сховати фільтри' : 'Фільтри'}
+            {showFilters ? t('hideFilters') : t('filters')}
             {hasActiveFilters ? ' *' : ''}
           </Button>
           <Button size="sm" variant="outline" onClick={exportCsv}>
-            Експорт CSV
+            {t('exportCsv')}
           </Button>
         </div>
       </div>
@@ -308,13 +311,13 @@ export default function AdminAuditLogPage() {
         <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-              Швидкий вибір:
+              {t('quickSelect')}
             </span>
             {[
-              { label: 'Сьогодні', from: todayIso(), to: todayIso() },
-              { label: '7 днів', from: isoDaysAgo(6), to: todayIso() },
-              { label: '30 днів', from: isoDaysAgo(29), to: todayIso() },
-              { label: '90 днів', from: isoDaysAgo(89), to: todayIso() },
+              { label: t('today'), from: todayIso(), to: todayIso() },
+              { label: t('days7'), from: isoDaysAgo(6), to: todayIso() },
+              { label: t('days30'), from: isoDaysAgo(29), to: todayIso() },
+              { label: t('days90'), from: isoDaysAgo(89), to: todayIso() },
             ].map((preset) => (
               <button
                 key={preset.label}
@@ -332,7 +335,7 @@ export default function AdminAuditLogPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div>
-              <label className="mb-1 block text-xs font-medium">Тип дії</label>
+              <label className="mb-1 block text-xs font-medium">{t('actionTypeLabel')}</label>
               <select
                 value={actionFilter}
                 onChange={(e) => {
@@ -349,7 +352,7 @@ export default function AdminAuditLogPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium">Тип об&apos;єкта</label>
+              <label className="mb-1 block text-xs font-medium">{t('entityTypeLabel')}</label>
               <select
                 value={entityFilter}
                 onChange={(e) => {
@@ -366,7 +369,7 @@ export default function AdminAuditLogPage() {
               </select>
             </div>
             <Input
-              label="Дата з"
+              label={t('dateFromLabel')}
               type="date"
               value={dateFrom}
               onChange={(e) => {
@@ -375,7 +378,7 @@ export default function AdminAuditLogPage() {
               }}
             />
             <Input
-              label="Дата по"
+              label={t('dateToLabel')}
               type="date"
               value={dateTo}
               onChange={(e) => {
@@ -384,13 +387,13 @@ export default function AdminAuditLogPage() {
               }}
             />
             <Input
-              label="IP адреса"
+              label={t('ipLabel')}
               value={ipSearch}
               onChange={(e) => {
                 setIpSearch(e.target.value);
                 setPage(1);
               }}
-              placeholder="Пошук по IP..."
+              placeholder={t('ipPh')}
             />
             <UserPicker
               value={userIdFilter}
@@ -407,7 +410,7 @@ export default function AdminAuditLogPage() {
               onClick={resetFilters}
               className="mt-3 text-xs text-[var(--color-primary)] hover:underline"
             >
-              Скинути фільтри
+              {t('resetFilters')}
             </button>
           )}
         </div>
@@ -417,7 +420,7 @@ export default function AdminAuditLogPage() {
         const columns: AdminTableColumn<AuditEntry>[] = [
           {
             key: 'date',
-            header: 'Дата',
+            header: t('colDate'),
             render: (log) => (
               <span className="text-xs whitespace-nowrap">
                 {new Date(log.createdAt).toLocaleString('uk-UA')}
@@ -426,14 +429,16 @@ export default function AdminAuditLogPage() {
           },
           {
             key: 'user',
-            header: 'Користувач',
+            header: t('colUser'),
             render: (log) => (
-              <span className="text-xs">{log.user?.fullName || log.user?.email || 'Система'}</span>
+              <span className="text-xs">
+                {log.user?.fullName || log.user?.email || t('system')}
+              </span>
             ),
           },
           {
             key: 'action',
-            header: 'Дія',
+            header: t('colAction'),
             render: (log) => (
               <span
                 className={`rounded px-1.5 py-0.5 text-xs font-medium ${
@@ -446,7 +451,7 @@ export default function AdminAuditLogPage() {
           },
           {
             key: 'entity',
-            header: "Об'єкт",
+            header: t('colEntity'),
             render: (log) => (
               <span className="text-xs">
                 {log.entityType ? `${log.entityType} #${log.entityId}` : '—'}
@@ -456,7 +461,7 @@ export default function AdminAuditLogPage() {
           },
           {
             key: 'ip',
-            header: 'IP',
+            header: t('colIp'),
             render: (log) => (
               <span className="text-xs text-[var(--color-text-secondary)]">
                 {log.ipAddress || '—'}
@@ -466,7 +471,7 @@ export default function AdminAuditLogPage() {
           },
           {
             key: 'details',
-            header: 'Деталі',
+            header: t('colDetails'),
             render: (log) => {
               const detailsStr = log.details ? JSON.stringify(log.details) : '';
               const isExpanded = expandedRows.has(log.id);
@@ -479,7 +484,7 @@ export default function AdminAuditLogPage() {
                     toggleRow(log.id);
                   }}
                   className="text-left text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
-                  title={isExpanded ? 'Згорнути' : 'Розгорнути'}
+                  title={isExpanded ? t('collapse') : t('expand')}
                 >
                   <span className="truncate block max-w-[180px]">{detailsStr}</span>
                 </button>
@@ -501,14 +506,14 @@ export default function AdminAuditLogPage() {
                     📋
                   </span>
                   <p className="text-sm font-medium">
-                    {hasActiveFilters ? 'За цими фільтрами записів не знайдено' : 'Журнал порожній'}
+                    {hasActiveFilters ? t('emptyFiltered') : t('emptyAll')}
                   </p>
                   {hasActiveFilters && (
                     <button
                       onClick={resetFilters}
                       className="text-xs text-[var(--color-primary)] hover:underline"
                     >
-                      Скинути всі фільтри
+                      {t('resetAll')}
                     </button>
                   )}
                 </div>
@@ -536,7 +541,7 @@ export default function AdminAuditLogPage() {
                       className="rounded-[var(--radius)] border border-[var(--color-border)]/40 bg-[var(--color-bg-secondary)]/60 px-4 py-3"
                     >
                       <p className="mb-1 text-xs font-medium text-[var(--color-text-secondary)]">
-                        Деталі #{l.id}
+                        {t('detailsPrefix', { id: l.id })}
                       </p>
                       <AuditDiff details={l.details} />
                     </div>

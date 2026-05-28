@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { formatPrice } from '@/utils/format';
 import Button from '@/components/ui/Button';
@@ -29,13 +30,13 @@ interface Referral {
   convertedAt: string | null;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  registered: 'Зареєстровано',
-  first_order: 'Перше замовлення',
-  bonus_granted: 'Бонус нараховано',
-};
-
 export default function AdminReferralsPage() {
+  const t = useTranslations('admin.adminReferralsPage');
+  const STATUS_LABELS: Record<string, string> = {
+    registered: t('statusRegistered'),
+    first_order: t('statusFirstOrder'),
+    bonus_granted: t('statusBonusGranted'),
+  };
   const [items, setItems] = useState<Referral[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -77,7 +78,7 @@ export default function AdminReferralsPage() {
     if (!bonusModal || !bonusValue) return;
     const numValue = parseFloat(bonusValue);
     if (isNaN(numValue) || numValue <= 0) {
-      toast.error('Введіть коректну суму бонусу');
+      toast.error(t('invalidAmount'));
       return;
     }
 
@@ -88,16 +89,16 @@ export default function AdminReferralsPage() {
         bonusValue: numValue,
       });
       if (res.success) {
-        toast.success(`Бонус ${numValue} грн нараховано для ${bonusModal.name}`);
+        toast.success(t('grantedToast', { amount: numValue, name: bonusModal.name }));
         setBonusModal(null);
         setBonusValue('');
         fetchData();
         fetchStats();
       } else {
-        toast.error(res.error || 'Помилка нарахування бонусу');
+        toast.error(res.error || t('grantError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsGranting(false);
     }
@@ -106,16 +107,24 @@ export default function AdminReferralsPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Реферали <span className="text-base font-normal text-[var(--color-text-secondary)]">({total})</span></h2>
+        <h2 className="text-xl font-bold">
+          {t('title')}{' '}
+          <span className="text-base font-normal text-[var(--color-text-secondary)]">
+            ({total})
+          </span>
+        </h2>
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
         >
-          <option value="">Усі статуси</option>
-          <option value="registered">Зареєстровано</option>
-          <option value="first_order">Перше замовлення</option>
-          <option value="bonus_granted">Бонус нараховано</option>
+          <option value="">{t('statusAll')}</option>
+          <option value="registered">{t('statusRegistered')}</option>
+          <option value="first_order">{t('statusFirstOrder')}</option>
+          <option value="bonus_granted">{t('statusBonusGranted')}</option>
         </select>
       </div>
 
@@ -123,31 +132,46 @@ export default function AdminReferralsPage() {
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <button
             type="button"
-            onClick={() => { setStatusFilter('registered'); setPage(1); }}
+            onClick={() => {
+              setStatusFilter('registered');
+              setPage(1);
+            }}
             className={`rounded-xl bg-blue-50 px-4 py-3 text-left transition-all hover:shadow-md ${statusFilter === 'registered' ? 'ring-2 ring-blue-400' : ''}`}
           >
             <p className="text-2xl font-bold text-blue-600">{stats.registered}</p>
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Зареєстровано</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {t('statRegistered')}
+            </p>
           </button>
           <button
             type="button"
-            onClick={() => { setStatusFilter('first_order'); setPage(1); }}
+            onClick={() => {
+              setStatusFilter('first_order');
+              setPage(1);
+            }}
             className={`rounded-xl bg-violet-50 px-4 py-3 text-left transition-all hover:shadow-md ${statusFilter === 'first_order' ? 'ring-2 ring-violet-400' : ''}`}
           >
             <p className="text-2xl font-bold text-violet-600">{stats.firstOrder}</p>
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Перше замовлення</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {t('statFirstOrder')}
+            </p>
           </button>
           <button
             type="button"
-            onClick={() => { setStatusFilter('bonus_granted'); setPage(1); }}
+            onClick={() => {
+              setStatusFilter('bonus_granted');
+              setPage(1);
+            }}
             className={`rounded-xl bg-emerald-50 px-4 py-3 text-left transition-all hover:shadow-md ${statusFilter === 'bonus_granted' ? 'ring-2 ring-emerald-400' : ''}`}
           >
             <p className="text-2xl font-bold text-emerald-600">{stats.bonusGranted}</p>
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Бонус нараховано</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {t('statBonusGranted')}
+            </p>
           </button>
           <div className="rounded-xl bg-amber-50 px-4 py-3">
             <p className="text-2xl font-bold text-amber-600">{formatPrice(stats.bonusPaid)}</p>
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Сума виплат</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{t('statPayouts')}</p>
           </div>
         </div>
       )}
@@ -160,44 +184,62 @@ export default function AdminReferralsPage() {
             <table className="w-full text-sm">
               <thead className="bg-[var(--color-bg-secondary)]">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium">Реферер</th>
-                  <th className="px-4 py-2 text-left font-medium">Запрошений</th>
-                  <th className="px-4 py-2 text-left font-medium">Код</th>
-                  <th className="px-4 py-2 text-left font-medium">Статус</th>
-                  <th className="px-4 py-2 text-right font-medium">Бонус</th>
-                  <th className="px-4 py-2 text-left font-medium">Дата</th>
-                  <th className="px-4 py-2 text-right font-medium">Дії</th>
+                  <th className="px-4 py-2 text-left font-medium">{t('colReferrer')}</th>
+                  <th className="px-4 py-2 text-left font-medium">{t('colReferred')}</th>
+                  <th className="px-4 py-2 text-left font-medium">{t('colCode')}</th>
+                  <th className="px-4 py-2 text-left font-medium">{t('colStatus')}</th>
+                  <th className="px-4 py-2 text-right font-medium">{t('colBonus')}</th>
+                  <th className="px-4 py-2 text-left font-medium">{t('colDate')}</th>
+                  <th className="px-4 py-2 text-right font-medium">{t('colActions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr key={item.id} className="border-t border-[var(--color-border)] transition-colors hover:bg-[var(--color-bg-secondary)]">
-                    <td className="px-4 py-2 text-xs">{item.referrer.fullName || item.referrer.email}</td>
-                    <td className="px-4 py-2 text-xs">{item.referred.fullName || item.referred.email}</td>
+                  <tr
+                    key={item.id}
+                    className="border-t border-[var(--color-border)] transition-colors hover:bg-[var(--color-bg-secondary)]"
+                  >
+                    <td className="px-4 py-2 text-xs">
+                      {item.referrer.fullName || item.referrer.email}
+                    </td>
+                    <td className="px-4 py-2 text-xs">
+                      {item.referred.fullName || item.referred.email}
+                    </td>
                     <td className="px-4 py-2 text-xs font-mono">{item.referralCode}</td>
                     <td className="px-4 py-2">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        item.status === 'bonus_granted' ? 'bg-green-100 text-green-700' :
-                        item.status === 'first_order' ? 'bg-blue-100 text-blue-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          item.status === 'bonus_granted'
+                            ? 'bg-green-100 text-green-700'
+                            : item.status === 'first_order'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
                         {STATUS_LABELS[item.status] || item.status}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right text-xs">
-                      {item.bonusValue ? `${Number(item.bonusValue).toFixed(0)} грн` : '—'}
+                      {item.bonusValue
+                        ? `${Number(item.bonusValue).toFixed(0)} ${t('uahSuffix')}`
+                        : '—'}
                     </td>
-                    <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">{new Date(item.createdAt).toLocaleDateString('uk-UA')}</td>
+                    <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">
+                      {new Date(item.createdAt).toLocaleDateString('uk-UA')}
+                    </td>
                     <td className="px-4 py-2 text-right">
                       {item.status !== 'bonus_granted' && (
                         <button
                           onClick={() => {
-                            setBonusModal({ id: item.id, name: item.referrer.fullName || item.referrer.email });
+                            setBonusModal({
+                              id: item.id,
+                              name: item.referrer.fullName || item.referrer.email,
+                            });
                             setBonusValue('');
                           }}
                           className="text-xs text-[var(--color-primary)] hover:underline"
                         >
-                          Нарахувати бонус
+                          {t('grantBonus')}
                         </button>
                       )}
                     </td>
@@ -207,21 +249,24 @@ export default function AdminReferralsPage() {
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
-                        <span className="text-3xl" aria-hidden="true">🔗</span>
+                        <span className="text-3xl" aria-hidden="true">
+                          🔗
+                        </span>
                         <p className="text-sm font-medium">
-                          {statusFilter ? 'Рефералів з цим статусом не знайдено' : 'Рефералів ще немає'}
+                          {statusFilter ? t('emptyFiltered') : t('emptyAll')}
                         </p>
                         {statusFilter ? (
                           <button
-                            onClick={() => { setStatusFilter(''); setPage(1); }}
+                            onClick={() => {
+                              setStatusFilter('');
+                              setPage(1);
+                            }}
                             className="text-xs text-[var(--color-primary)] hover:underline"
                           >
-                            Скинути фільтр
+                            {t('resetFilter')}
                           </button>
                         ) : (
-                          <p className="max-w-md text-xs">
-                            Реферали з&apos;являться, коли клієнти запросять друзів через свій реферальний код
-                          </p>
+                          <p className="max-w-md text-xs">{t('emptyHint')}</p>
                         )}
                       </div>
                     </td>
@@ -233,9 +278,23 @@ export default function AdminReferralsPage() {
 
           {total > 20 && (
             <div className="mt-4 flex justify-center gap-2">
-              <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Назад</Button>
-              <span className="px-3 py-2 text-sm text-[var(--color-text-secondary)]">Сторінка {page} з {Math.ceil(total / 20)}</span>
-              <Button variant="outline" onClick={() => setPage((p) => p + 1)} disabled={items.length < 20}>Далі</Button>
+              <Button
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                {t('prev')}
+              </Button>
+              <span className="px-3 py-2 text-sm text-[var(--color-text-secondary)]">
+                {t('pageLabel', { page, total: Math.ceil(total / 20) })}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={items.length < 20}
+              >
+                {t('next')}
+              </Button>
             </div>
           )}
         </>
@@ -245,16 +304,16 @@ export default function AdminReferralsPage() {
       <Modal
         isOpen={!!bonusModal}
         onClose={() => setBonusModal(null)}
-        title="Нарахувати бонус"
+        title={t('modalTitle')}
         size="sm"
       >
         {bonusModal && (
           <div className="space-y-4 p-4">
             <p className="text-sm">
-              Нарахувати бонус для <strong>{bonusModal.name}</strong>
+              {t('modalIntro')} <strong>{bonusModal.name}</strong>
             </p>
             <Input
-              label="Сума бонусу (грн)"
+              label={t('bonusAmountLabel')}
               type="number"
               value={bonusValue}
               onChange={(e) => setBonusValue(e.target.value)}
@@ -263,10 +322,10 @@ export default function AdminReferralsPage() {
             />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setBonusModal(null)}>
-                Скасувати
+                {t('cancel')}
               </Button>
               <Button onClick={handleGrantBonus} isLoading={isGranting} disabled={!bonusValue}>
-                Нарахувати
+                {t('grant')}
               </Button>
             </div>
           </div>

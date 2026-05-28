@@ -7,7 +7,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 vi.mock('@/lib/redis', () => ({
-  redis: { get: vi.fn(), setex: vi.fn(), del: vi.fn() },
+  redis: { get: vi.fn(), setex: vi.fn(), del: vi.fn(), incr: vi.fn(), expire: vi.fn() },
 }));
 vi.mock('./email', () => ({
   sendVerificationEmail: vi.fn(),
@@ -33,6 +33,8 @@ const refreshTokenUpdateMany = prisma.refreshToken.updateMany as ReturnType<type
 const redisGet = redis.get as ReturnType<typeof vi.fn>;
 const redisSetex = redis.setex as ReturnType<typeof vi.fn>;
 const redisDel = redis.del as ReturnType<typeof vi.fn>;
+const redisIncr = redis.incr as ReturnType<typeof vi.fn>;
+const redisExpire = redis.expire as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -60,11 +62,7 @@ describe('sendEmailVerification', () => {
 
     await sendEmailVerification(1);
 
-    expect(redisSetex).toHaveBeenCalledWith(
-      expect.stringContaining('verify:'),
-      86400,
-      '1',
-    );
+    expect(redisSetex).toHaveBeenCalledWith(expect.stringContaining('verify:'), 86400, '1');
     expect(sendVerificationEmail).toHaveBeenCalledWith('a@b.com', expect.any(String));
   });
 });
@@ -105,16 +103,31 @@ describe('requestPasswordReset', () => {
   it('sends email for found user', async () => {
     userFindUnique.mockResolvedValue({ id: 5, email: 'user@example.com' });
     redisSetex.mockResolvedValue('OK');
+    redisIncr.mockResolvedValue(1);
+    redisExpire.mockResolvedValue(1);
+    redisGet.mockResolvedValue(null);
     (sendPasswordResetEmail as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
     await requestPasswordReset('user@example.com');
 
+    // Reset key is `reset:<sha256(token)>`, not raw token. Just assert the
+    // prefix shape — the hash is deterministic but generated per-call.
     expect(redisSetex).toHaveBeenCalledWith(
-      expect.stringContaining('reset:'),
+      expect.stringMatching(/^reset:[a-f0-9]{64}$/),
       3600,
       '5',
     );
     expect(sendPasswordResetEmail).toHaveBeenCalledWith('user@example.com', expect.any(String));
+  });
+
+  it('drops requests past the per-email cap silently', async () => {
+    userFindUnique.mockResolvedValue({ id: 5, email: 'user@example.com' });
+    redisIncr.mockResolvedValue(4); // exceeds RESET_EMAIL_LOCK_MAX (3)
+
+    await requestPasswordReset('user@example.com');
+
+    expect(redisSetex).not.toHaveBeenCalled();
+    expect(sendPasswordResetEmail).not.toHaveBeenCalled();
   });
 });
 
@@ -125,13 +138,14 @@ describe('resetPassword', () => {
     redisDel.mockResolvedValue(1);
     refreshTokenUpdateMany.mockResolvedValue({ count: 2 });
 
-    await resetPassword('reset-token', 'newPass123');
+    // 64-hex token, sha256 of 'a'.repeat(64) — irrelevant, mock returns '10'
+    await resetPassword('a'.repeat(64), 'newPass123');
 
     expect(userUpdate).toHaveBeenCalledWith({
       where: { id: 10 },
       data: { passwordHash: 'hashed_password' },
     });
-    expect(redisDel).toHaveBeenCalledWith('reset:reset-token');
+    expect(redisDel).toHaveBeenCalledWith(expect.stringMatching(/^reset:[a-f0-9]{64}$/));
     expect(refreshTokenUpdateMany).toHaveBeenCalledWith({
       where: { userId: 10, revokedAt: null },
       data: { revokedAt: expect.any(Date) },

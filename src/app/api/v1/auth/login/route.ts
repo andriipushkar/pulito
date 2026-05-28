@@ -3,7 +3,12 @@ import { loginSchema } from '@/validators/auth';
 import { loginUser } from '@/services/auth';
 import { parseTtlToSeconds } from '@/services/token';
 import { AuthError } from '@/services/auth-errors';
-import { checkLoginRateLimit, recordFailedLogin, clearLoginAttempts, RateLimitError } from '@/services/rate-limit';
+import {
+  checkLoginRateLimit,
+  recordFailedLogin,
+  clearLoginAttempts,
+  RateLimitError,
+} from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { serializeRefreshTokenCookie } from '@/utils/cookies';
 import { getClientIp, getDeviceInfo } from '@/utils/request';
@@ -48,6 +53,21 @@ export const POST = createApiHandler(RATE_LIMITS.auth, async function POST(reque
           details: { success: false, email: parsed.data.email, method: 'password' },
           ipAddress,
         });
+      } else if (error instanceof AuthError && error.statusCode === 403) {
+        // isBlocked rejection — durable audit so we can trace recurring attempts
+        // against blocked accounts (signal that the credential leaked).
+        await logAudit({
+          userId: null,
+          actionType: 'login',
+          entityType: 'user',
+          details: {
+            success: false,
+            email: parsed.data.email,
+            method: 'password',
+            reason: 'blocked',
+          },
+          ipAddress,
+        });
       }
       throw error;
     }
@@ -55,8 +75,22 @@ export const POST = createApiHandler(RATE_LIMITS.auth, async function POST(reque
     // Successful login — clear rate limit
     await clearLoginAttempts(ipAddress, parsed.data.email);
 
-    // If 2FA is required, return temp token without setting cookies
+    // If 2FA is required, return temp token without setting cookies.
+    // Audit the password-correct + 2FA-pending state so we can spot
+    // partial-credential breaches separately from full logins.
     if (result.requiresTwoFactor) {
+      await logAudit({
+        userId: null,
+        actionType: 'login',
+        entityType: 'user',
+        details: {
+          success: true,
+          email: parsed.data.email,
+          method: 'password',
+          stage: '2fa_required',
+        },
+        ipAddress,
+      });
       return successResponse({ requiresTwoFactor: true, tempToken: result.tempToken });
     }
 
@@ -71,7 +105,10 @@ export const POST = createApiHandler(RATE_LIMITS.auth, async function POST(reque
     });
     const refreshTtl = parseTtlToSeconds(env.JWT_REFRESH_TTL);
     const response = successResponse({ user, accessToken: tokens.accessToken });
-    response.headers.set('Set-Cookie', serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl));
+    response.headers.set(
+      'Set-Cookie',
+      serializeRefreshTokenCookie(tokens.refreshToken, refreshTtl),
+    );
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('Pragma', 'no-cache');
 

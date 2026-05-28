@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -27,6 +28,7 @@ interface WelcomeMessage {
 }
 
 export default function AdminBotSettingsPage() {
+  const t = useTranslations('admin.adminBotSettingsPage');
   const [replies, setReplies] = useState<AutoReply[]>([]);
   const [welcomes, setWelcomes] = useState<WelcomeMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,31 +57,34 @@ export default function AdminBotSettingsPage() {
       if (r1.success && r1.data) setReplies(r1.data);
       if (r2.success && r2.data) setWelcomes(r2.data);
     } catch {
-      toast.error('Помилка завантаження налаштувань ботів');
+      toast.error(t('loadError'));
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const [isSavingReply, setIsSavingReply] = useState(false);
   const addReply = async () => {
     if (isSavingReply) return;
     if (!newReply.responseText.trim()) {
-      toast.error('Введіть текст відповіді');
+      toast.error(t('validateResponse'));
       return;
     }
     setIsSavingReply(true);
     try {
       const res = await apiClient.post('/api/v1/admin/bot-replies', newReply);
       if (res.success) {
-        toast.success('Авто-відповідь додано');
+        toast.success(t('addedReply'));
         setShowReplyForm(false);
         setNewReply({ triggerText: '', responseText: '', platform: 'all' });
         loadData();
       } else {
-        toast.error(res.error || 'Помилка додавання');
+        toast.error(res.error || t('addError'));
       }
     } finally {
       setIsSavingReply(false);
@@ -92,10 +97,10 @@ export default function AdminBotSettingsPage() {
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/bot-replies/${id}`);
     if (res.success) {
-      toast.success('Авто-відповідь видалено');
+      toast.success(t('deletedReply'));
       loadData();
     } else {
-      toast.error('Помилка видалення');
+      toast.error(t('deleteError'));
     }
   };
 
@@ -107,15 +112,15 @@ export default function AdminBotSettingsPage() {
       setReplies((prev) =>
         prev.map((r) => (r.id === reply.id ? { ...r, isActive: !r.isActive } : r)),
       );
-      toast.success(reply.isActive ? 'Авто-відповідь вимкнено' : 'Авто-відповідь увімкнено');
+      toast.success(reply.isActive ? t('replyDisabled') : t('replyEnabled'));
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
   const createWelcome = async () => {
     if (!welcomeForm.messageText.trim()) {
-      toast.error('Введіть текст привітання');
+      toast.error(t('validateWelcome'));
       return;
     }
     setIsSavingWelcome(true);
@@ -127,12 +132,12 @@ export default function AdminBotSettingsPage() {
     });
     setIsSavingWelcome(false);
     if (res.success) {
-      toast.success('Привітання створено');
+      toast.success(t('welcomeCreated'));
       setShowWelcomeForm(false);
       setWelcomeForm({ platform: 'telegram', messageText: '', variant: 'A' });
       loadData();
     } else {
-      toast.error(res.error || 'Помилка створення');
+      toast.error(res.error || t('createError'));
     }
   };
 
@@ -144,7 +149,7 @@ export default function AdminBotSettingsPage() {
   const saveWelcomeEdit = async () => {
     if (editingWelcomeId === null) return;
     if (!editingWelcomeText.trim()) {
-      toast.error('Текст не може бути порожнім');
+      toast.error(t('validateNotEmpty'));
       return;
     }
     setIsSavingWelcome(true);
@@ -154,14 +159,16 @@ export default function AdminBotSettingsPage() {
     });
     setIsSavingWelcome(false);
     if (res.success) {
-      toast.success('Привітання оновлено');
+      toast.success(t('welcomeUpdated'));
       setWelcomes((prev) =>
-        prev.map((w) => (w.id === editingWelcomeId ? { ...w, messageText: editingWelcomeText } : w)),
+        prev.map((w) =>
+          w.id === editingWelcomeId ? { ...w, messageText: editingWelcomeText } : w,
+        ),
       );
       setEditingWelcomeId(null);
       setEditingWelcomeText('');
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
@@ -171,10 +178,10 @@ export default function AdminBotSettingsPage() {
     setDeleteWelcomeId(null);
     const res = await apiClient.delete(`/api/v1/admin/bot-welcome?id=${id}`);
     if (res.success) {
-      toast.success('Привітання видалено');
+      toast.success(t('welcomeDeleted'));
       loadData();
     } else {
-      toast.error(res.error || 'Помилка видалення');
+      toast.error(res.error || t('deleteError'));
     }
   };
 
@@ -187,26 +194,30 @@ export default function AdminBotSettingsPage() {
       setWelcomes((prev) =>
         prev.map((w) => (w.id === welcome.id ? { ...w, isActive: !w.isActive } : w)),
       );
-      toast.success(welcome.isActive ? 'Привітання вимкнено' : 'Привітання увімкнено');
+      toast.success(welcome.isActive ? t('welcomeDisabled') : t('welcomeEnabled'));
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
     <div>
-      <h2 className="mb-6 text-xl font-bold">Налаштування ботів</h2>
+      <h2 className="mb-6 text-xl font-bold">{t('title')}</h2>
 
       {/* Welcome Messages */}
       <div className="mb-8">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Привітальні повідомлення</h3>
+          <h3 className="text-lg font-semibold">{t('welcomeTitle')}</h3>
           <Button size="sm" onClick={() => setShowWelcomeForm(!showWelcomeForm)}>
-            {showWelcomeForm ? 'Скасувати' : '+ Додати'}
+            {showWelcomeForm ? t('cancel') : t('add')}
           </Button>
         </div>
 
@@ -214,7 +225,7 @@ export default function AdminBotSettingsPage() {
           <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <label className="mb-1 block text-sm font-medium">Платформа</label>
+                <label className="mb-1 block text-sm font-medium">{t('platformLabel')}</label>
                 <select
                   value={welcomeForm.platform}
                   onChange={(e) => setWelcomeForm((f) => ({ ...f, platform: e.target.value }))}
@@ -225,25 +236,25 @@ export default function AdminBotSettingsPage() {
                 </select>
               </div>
               <Input
-                label="Варіант (A/B-тест)"
+                label={t('variantLabel')}
                 value={welcomeForm.variant}
                 onChange={(e) => setWelcomeForm((f) => ({ ...f, variant: e.target.value }))}
-                placeholder="A"
+                placeholder={t('variantPh')}
               />
             </div>
             <div className="mt-3">
-              <label className="mb-1 block text-sm font-medium">Текст привітання</label>
+              <label className="mb-1 block text-sm font-medium">{t('messageLabel')}</label>
               <textarea
                 value={welcomeForm.messageText}
                 onChange={(e) => setWelcomeForm((f) => ({ ...f, messageText: e.target.value }))}
                 rows={4}
-                placeholder="Вітаємо в нашому магазині! Скористайтеся командами…"
+                placeholder={t('messagePh')}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
               />
             </div>
             <div className="mt-3 flex justify-end">
               <Button size="sm" onClick={createWelcome} isLoading={isSavingWelcome}>
-                Створити
+                {t('create')}
               </Button>
             </div>
           </div>
@@ -251,19 +262,26 @@ export default function AdminBotSettingsPage() {
 
         <div className="space-y-2">
           {welcomes.map((w) => (
-            <div key={w.id} className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+            <div
+              key={w.id}
+              className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3"
+            >
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="mr-2 rounded bg-[var(--color-primary-50)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]">{w.platform}</span>
-                  <span className="text-xs text-[var(--color-text-secondary)]">Варіант {w.variant}</span>
+                  <span className="mr-2 rounded bg-[var(--color-primary-50)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]">
+                    {w.platform}
+                  </span>
+                  <span className="text-xs text-[var(--color-text-secondary)]">
+                    {t('variantPrefix', { variant: w.variant })}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleWelcomeActive(w)}
                     className={`rounded-full px-2 py-0.5 text-xs transition-colors ${w.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                    title="Натисніть, щоб змінити статус"
+                    title={t('toggleTitle')}
                   >
-                    {w.isActive ? 'Активний' : 'Вимкнено'}
+                    {w.isActive ? t('statusActiveMale') : t('statusInactive')}
                   </button>
                   {editingWelcomeId !== w.id && (
                     <>
@@ -271,13 +289,13 @@ export default function AdminBotSettingsPage() {
                         onClick={() => startEditWelcome(w)}
                         className="text-xs text-[var(--color-primary)] hover:underline"
                       >
-                        Редагувати
+                        {t('edit')}
                       </button>
                       <button
                         onClick={() => setDeleteWelcomeId(w.id)}
                         className="text-xs text-[var(--color-danger)] hover:underline"
                       >
-                        Видалити
+                        {t('delete')}
                       </button>
                     </>
                   )}
@@ -300,10 +318,10 @@ export default function AdminBotSettingsPage() {
                         setEditingWelcomeText('');
                       }}
                     >
-                      Скасувати
+                      {t('cancel')}
                     </Button>
                     <Button size="sm" onClick={saveWelcomeEdit} isLoading={isSavingWelcome}>
-                      Зберегти
+                      {t('save')}
                     </Button>
                   </div>
                 </div>
@@ -314,13 +332,15 @@ export default function AdminBotSettingsPage() {
           ))}
           {welcomes.length === 0 && (
             <div className="flex flex-col items-center gap-2 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-8 text-center text-[var(--color-text-secondary)]">
-              <span className="text-2xl" aria-hidden="true">👋</span>
-              <p className="text-sm">Привітальних повідомлень ще немає</p>
+              <span className="text-2xl" aria-hidden="true">
+                👋
+              </span>
+              <p className="text-sm">{t('emptyWelcomes')}</p>
               <button
                 onClick={() => setShowWelcomeForm(true)}
                 className="text-xs text-[var(--color-primary)] hover:underline"
               >
-                + Створити перше
+                {t('createFirstWelcome')}
               </button>
             </div>
           )}
@@ -330,64 +350,90 @@ export default function AdminBotSettingsPage() {
       {/* Auto Replies */}
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Авто-відповіді</h3>
+          <h3 className="text-lg font-semibold">{t('repliesTitle')}</h3>
           <Button size="sm" onClick={() => setShowReplyForm(!showReplyForm)}>
-            {showReplyForm ? 'Скасувати' : '+ Додати'}
+            {showReplyForm ? t('cancel') : t('add')}
           </Button>
         </div>
 
         {showReplyForm && (
           <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <div className="grid gap-3 md:grid-cols-3">
-              <Input label="Ключове слово" value={newReply.triggerText} onChange={(e) => setNewReply({ ...newReply, triggerText: e.target.value })} />
-              <Input label="Відповідь *" value={newReply.responseText} onChange={(e) => setNewReply({ ...newReply, responseText: e.target.value })} />
+              <Input
+                label={t('triggerLabel')}
+                value={newReply.triggerText}
+                onChange={(e) => setNewReply({ ...newReply, triggerText: e.target.value })}
+              />
+              <Input
+                label={t('responseLabel')}
+                value={newReply.responseText}
+                onChange={(e) => setNewReply({ ...newReply, responseText: e.target.value })}
+              />
               <div>
-                <label className="mb-1 block text-sm font-medium">Платформа</label>
+                <label className="mb-1 block text-sm font-medium">{t('platformLabel')}</label>
                 <select
                   value={newReply.platform}
                   onChange={(e) => setNewReply({ ...newReply, platform: e.target.value })}
                   className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
                 >
-                  <option value="all">Всі</option>
+                  <option value="all">{t('platformAll')}</option>
                   <option value="telegram">Telegram</option>
                   <option value="viber">Viber</option>
                 </select>
               </div>
             </div>
             <div className="mt-3 flex justify-end">
-              <Button size="sm" onClick={addReply} isLoading={isSavingReply}>Зберегти</Button>
+              <Button size="sm" onClick={addReply} isLoading={isSavingReply}>
+                {t('save')}
+              </Button>
             </div>
           </div>
         )}
 
         <div className="space-y-2">
           {replies.map((r) => (
-            <div key={r.id} className="flex items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 transition-colors hover:bg-[var(--color-bg-secondary)]">
+            <div
+              key={r.id}
+              className="flex items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 transition-colors hover:bg-[var(--color-bg-secondary)]"
+            >
               {r.triggerText ? (
-                <code className="rounded bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs">{r.triggerText}</code>
+                <code className="rounded bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs">
+                  {r.triggerText}
+                </code>
               ) : (
-                <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">будь-який текст</span>
+                <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                  {t('anyText')}
+                </span>
               )}
-              <span className="flex-1 truncate text-sm" title={r.responseText}>{r.responseText}</span>
+              <span className="flex-1 truncate text-sm" title={r.responseText}>
+                {r.responseText}
+              </span>
               <span className="text-xs text-[var(--color-text-secondary)]">{r.platform}</span>
               <button
                 onClick={() => toggleReplyActive(r)}
                 className={`rounded-full px-2 py-0.5 text-xs transition-colors ${r.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
               >
-                {r.isActive ? 'Активна' : 'Вимкнено'}
+                {r.isActive ? t('statusActiveFemale') : t('statusInactive')}
               </button>
-              <button onClick={() => setDeleteId(r.id)} className="text-xs text-[var(--color-danger)] hover:underline">Видалити</button>
+              <button
+                onClick={() => setDeleteId(r.id)}
+                className="text-xs text-[var(--color-danger)] hover:underline"
+              >
+                {t('delete')}
+              </button>
             </div>
           ))}
           {replies.length === 0 && (
             <div className="flex flex-col items-center gap-2 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-8 text-center text-[var(--color-text-secondary)]">
-              <span className="text-2xl" aria-hidden="true">🤖</span>
-              <p className="text-sm">Авто-відповідей ще немає</p>
+              <span className="text-2xl" aria-hidden="true">
+                🤖
+              </span>
+              <p className="text-sm">{t('emptyReplies')}</p>
               <button
                 onClick={() => setShowReplyForm(true)}
                 className="text-xs text-[var(--color-primary)] hover:underline"
               >
-                + Додати першу
+                {t('createFirstReply')}
               </button>
             </div>
           )}
@@ -399,7 +445,7 @@ export default function AdminBotSettingsPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={executeDelete}
         variant="danger"
-        message="Видалити цю авто-відповідь?"
+        message={t('deleteReplyMsg')}
       />
 
       <ConfirmDialog
@@ -407,9 +453,9 @@ export default function AdminBotSettingsPage() {
         onClose={() => setDeleteWelcomeId(null)}
         onConfirm={executeDeleteWelcome}
         variant="danger"
-        title="Видалення привітання"
-        message="Видалити це привітальне повідомлення?"
-        confirmText="Так, видалити"
+        title={t('deleteWelcomeTitle')}
+        message={t('deleteWelcomeMsg')}
+        confirmText={t('deleteWelcomeConfirm')}
       />
     </div>
   );

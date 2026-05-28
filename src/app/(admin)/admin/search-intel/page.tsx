@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -25,6 +26,7 @@ interface InsightsResponse {
 }
 
 export default function SearchIntelPage() {
+  const t = useTranslations('admin.searchIntelPage');
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
@@ -54,10 +56,10 @@ export default function SearchIntelPage() {
       if (res.success && res.data) {
         setInsights(res.data);
       } else {
-        toast.error(res.error || 'Не вдалося згенерувати');
+        toast.error(res.error || t('generateError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsGenerating(false);
     }
@@ -74,16 +76,14 @@ export default function SearchIntelPage() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold">Аналіз пошуку клієнтів</h2>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Що люди шукають на сайті, особливо без результатів — це втрачені продажі.
-        </p>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       {/* AI Insights */}
       <div className="mb-6 rounded-2xl border border-[var(--color-border)] bg-gradient-to-br from-[var(--color-primary)]/5 to-transparent p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold">AI-рекомендації</h3>
+          <h3 className="font-semibold">{t('aiRecommendations')}</h3>
           <div className="flex items-center gap-2">
             <select
               value={provider}
@@ -91,9 +91,9 @@ export default function SearchIntelPage() {
               disabled={isGenerating}
               className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
             >
-              <option value="gemini">Gemini</option>
-              <option value="claude">Claude</option>
-              <option value="rules">Без AI</option>
+              <option value="gemini">{t('providerGemini')}</option>
+              <option value="claude">{t('providerClaude')}</option>
+              <option value="rules">{t('providerRules')}</option>
             </select>
             <Button
               variant="outline"
@@ -102,17 +102,14 @@ export default function SearchIntelPage() {
               isLoading={isGenerating}
               disabled={!stats || stats.zeroResult.length === 0}
             >
-              ✨ Згенерувати
+              {t('generate')}
             </Button>
           </div>
         </div>
         {insights ? (
           <p className="whitespace-pre-line text-sm leading-relaxed">{insights.text}</p>
         ) : (
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            Натисніть «Згенерувати» — AI проаналізує запити без результатів і запропонує конкретні
-            дії (додати товар, синонім, категорію).
-          </p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{t('generateHint')}</p>
         )}
       </div>
 
@@ -121,17 +118,17 @@ export default function SearchIntelPage() {
         {/* Zero-result */}
         <div className="rounded-2xl border border-red-200 bg-red-50/30">
           <div className="border-b border-red-200 p-4">
-            <h3 className="font-semibold text-red-900">⚠ Без результатів</h3>
+            <h3 className="font-semibold text-red-900">{t('zeroResultsTitle')}</h3>
             <p className="mt-0.5 text-xs text-red-700">
-              {stats?.zeroResult.length || 0} запитів — клієнти шукали, але не знайшли
+              {t('zeroResultsSubtitle', { count: stats?.zeroResult.length || 0 })}
             </p>
           </div>
           {stats && stats.zeroResult.length > 0 ? (
             <table className="w-full text-sm">
               <thead className="bg-red-100/50 text-xs text-red-800">
                 <tr>
-                  <th className="px-3 py-2 text-left">Запит</th>
-                  <th className="px-3 py-2 text-right">Шукали</th>
+                  <th className="px-3 py-2 text-left">{t('colQuery')}</th>
+                  <th className="px-3 py-2 text-right">{t('colSearches')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -145,7 +142,7 @@ export default function SearchIntelPage() {
             </table>
           ) : (
             <p className="p-4 text-center text-sm text-[var(--color-text-secondary)]">
-              Поки немає запитів без результатів. Це добре!
+              {t('zeroResultsEmpty')}
             </p>
           )}
         </div>
@@ -153,18 +150,18 @@ export default function SearchIntelPage() {
         {/* All top */}
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)]">
           <div className="border-b border-[var(--color-border)] p-4">
-            <h3 className="font-semibold">Топ-запити (загалом)</h3>
+            <h3 className="font-semibold">{t('topQueriesTitle')}</h3>
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-              {stats?.top.length || 0} найпопулярніших
+              {t('topQueriesSubtitle', { count: stats?.top.length || 0 })}
             </p>
           </div>
           {stats && stats.top.length > 0 ? (
             <table className="w-full text-sm">
               <thead className="bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
                 <tr>
-                  <th className="px-3 py-2 text-left">Запит</th>
-                  <th className="px-3 py-2 text-right">Шукали</th>
-                  <th className="px-3 py-2 text-right">Результатів</th>
+                  <th className="px-3 py-2 text-left">{t('colQuery')}</th>
+                  <th className="px-3 py-2 text-right">{t('colSearches')}</th>
+                  <th className="px-3 py-2 text-right">{t('colResults')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -187,7 +184,7 @@ export default function SearchIntelPage() {
             </table>
           ) : (
             <p className="p-4 text-center text-sm text-[var(--color-text-secondary)]">
-              Поки немає даних — потрібно почекати, поки люди пошукають.
+              {t('topQueriesEmpty')}
             </p>
           )}
         </div>

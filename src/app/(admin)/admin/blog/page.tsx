@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -20,6 +21,7 @@ interface BlogPost {
 }
 
 export default function AdminBlogPage() {
+  const t = useTranslations('admin.adminBlogPage');
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -37,10 +39,10 @@ export default function AdminBlogPage() {
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) setPosts(res.data);
-        else toast.error(res.error || 'Помилка завантаження статей');
+        else toast.error(res.error || t('loadError'));
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка завантаження статей');
+        if (!cancelled) toast.error(t('loadError'));
       })
       .finally(() => {
         if (!cancelled) setCompletedToken(reloadToken);
@@ -48,22 +50,22 @@ export default function AdminBlogPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadToken, showArchived]);
+  }, [reloadToken, showArchived, t]);
 
   const handleDelete = async () => {
     if (deleteId === null) return;
     const id = deleteId;
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/blog/${id}`);
-    if (res.success) toast.success('Статтю видалено');
-    else toast.error(res.error || 'Помилка видалення');
+    if (res.success) toast.success(t('deletedToast'));
+    else toast.error(res.error || t('deleteError'));
     loadPosts();
   };
 
   const handleRestore = async (id: number) => {
     const res = await apiClient.post(`/api/v1/admin/blog/${id}/restore`);
-    if (res.success) toast.success('Статтю відновлено (залишається чернеткою)');
-    else toast.error(res.error || 'Не вдалося відновити');
+    if (res.success) toast.success(t('restoredToast'));
+    else toast.error(res.error || t('restoreError'));
     loadPosts();
   };
 
@@ -74,7 +76,7 @@ export default function AdminBlogPage() {
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold">Блог</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs">
             <input
@@ -83,16 +85,16 @@ export default function AdminBlogPage() {
               onChange={(e) => setShowArchived(e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
-            Показати архівні
+            {t('showArchived')}
           </label>
           <Link href="/admin/blog/categories">
-            <Button variant="outline">Категорії</Button>
+            <Button variant="outline">{t('categories')}</Button>
           </Link>
           <Link href="/admin/blog/comments">
-            <Button variant="outline">💬 Коментарі</Button>
+            <Button variant="outline">{t('comments')}</Button>
           </Link>
           <Link href="/admin/blog/new">
-            <Button>+ Нова стаття</Button>
+            <Button>{t('newPost')}</Button>
           </Link>
         </div>
       </div>
@@ -101,12 +103,12 @@ export default function AdminBlogPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-              <th className="px-4 py-3 text-left font-medium">Заголовок</th>
-              <th className="px-4 py-3 text-left font-medium">Категорія</th>
-              <th className="px-4 py-3 text-center font-medium">Статус</th>
-              <th className="px-4 py-3 text-right font-medium">Перегляди</th>
-              <th className="px-4 py-3 text-left font-medium">Дата</th>
-              <th className="px-4 py-3 text-right font-medium">Дії</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colTitle')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colCategory')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('colStatus')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colViews')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colDate')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -130,7 +132,7 @@ export default function AdminBlogPage() {
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${post.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                   >
-                    {post.status === 'published' ? 'Опубліковано' : 'Чернетка'}
+                    {post.status === 'published' ? t('statusPublished') : t('statusDraft')}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">
@@ -144,13 +146,13 @@ export default function AdminBlogPage() {
                     {post.deletedAt ? (
                       <>
                         <span className="text-xs text-[var(--color-text-secondary)]">
-                          🗑 архівовано
+                          {t('archivedLabel')}
                         </span>
                         <button
                           onClick={() => handleRestore(post.id)}
                           className="text-xs text-emerald-600 hover:underline"
                         >
-                          ↻ Відновити
+                          {t('restore')}
                         </button>
                       </>
                     ) : (
@@ -159,13 +161,13 @@ export default function AdminBlogPage() {
                           href={`/admin/blog/${post.id}`}
                           className="text-xs text-[var(--color-primary)] hover:underline"
                         >
-                          Редагувати
+                          {t('edit')}
                         </Link>
                         <button
                           onClick={() => setDeleteId(post.id)}
                           className="text-xs text-[var(--color-danger)] hover:underline"
                         >
-                          Видалити
+                          {t('delete')}
                         </button>
                       </>
                     )}
@@ -178,12 +180,12 @@ export default function AdminBlogPage() {
                 <td colSpan={6} className="px-4 py-12 text-center">
                   <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
                     <span className="text-3xl">📝</span>
-                    <p className="text-sm font-medium">Статей ще немає</p>
+                    <p className="text-sm font-medium">{t('emptyTitle')}</p>
                     <Link
                       href="/admin/blog/new"
                       className="text-xs text-[var(--color-primary)] hover:underline"
                     >
-                      + Створити першу статтю
+                      {t('createFirst')}
                     </Link>
                   </div>
                 </td>
@@ -198,7 +200,7 @@ export default function AdminBlogPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
         variant="danger"
-        message="Видалити статтю?"
+        message={t('confirmDelete')}
       />
     </div>
   );

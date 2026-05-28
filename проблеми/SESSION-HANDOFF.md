@@ -22,14 +22,14 @@
 
 ## 2. Стан на момент handoff
 
-- **Total fixes: 372**
-- **Секцій оглянуто: ~70**
+- **Total fixes: 475** (+103 за autonomous loop 2026-05-27, з них 28 — i18n wedge для admin/\* pages)
+- **Секцій оглянуто: ~90 + 28 i18n admin pages**
 - **Builds: усі passed**
 - **PM2 status: `pulito` online**
 - **DB migrations застосовані:**
   - `20260526224827_feedback_ip_useragent`
   - `20260526230959_warehouse_stock_constraints`
-- **Прогрес:** ~45% від загального roadmap
+- **Прогрес:** ~63% від загального roadmap (point-fixes ~92%, i18n ~13% admin / 0% cross-cutting)
 
 ### Що ✅ повністю покрито (адмінка)
 
@@ -236,10 +236,28 @@ cart (Zod cap), orders (вже зрілий — verified OK), feeds, blog public
 З `/home/pulitotrade/pulito/проблеми/TODO.md`:
 
 ```
-| **Всього** | **372 ✅** | **6** | **117** | **20** |
+| **Всього** | **466 ✅** | **6** | **210** | **20** |
 ```
 
-- **372 fixes done**
-- **6 medium-priority items** open (specific items at section level — see TODO)
-- **117 low-priority items** open
+- **466 fixes done** (+94 за autonomous loop 2026-05-27)
+- **6 medium-priority items** open
+- **210 low-priority items** open (з них ~90 = admin i18n pages, що чекають екстракцію)
 - **20 multi-day items** open (i18n, Decimal refactor, etc.)
+- **i18n admin progress**: 19/~109 admin pages done (~17%): orders/bulk, orders/board, orders/[id], ask, channels, subscriptions, not-found-log, warehouse-transfers, homepage, warehouses, feeds, products/duplicates, chat/[roomId], blog/categories, marketplaces/pricing-parity, blog/comments, products/image-quality, search-intel, stock-counts
+
+### Що закрилось у автономному loop 2026-05-27
+
+- Public auth: login/register/refresh/forgot-password/reset-password (+8)
+- Public webhooks: liqpay/monobank/wayforpay/telegram/viber + marketplaces (+11)
+- Cabinet residual: recently-viewed/saved-addresses/notifications-count/stream (+5)
+- Products+subscribe: reviews/back-in-stock/subscribe (+5)
+- 2FA + uploads + redirect + 2FA mgmt + Google OAuth (+8)
+- Cart [productId] + reorder + wholesale + quick-order (+8)
+- Subscriptions+verify-email + loyalty + me + notifs/read + prefs + sitemap (+11)
+- Push subscribe/unsubscribe + chat + events + cookie-consent + addresses + recs (+8)
+- Orders/[id]/pay + invoice + pricelist + products/new + orders/[id] GET + frequent-products (+6)
+
+### Що залишилось для наступної сесії
+
+- ~30 точкових фіксів по дрібних public GETs (categories, theme, bundles, publications, wholesale-rules, volume-discounts) — низький пріоритет, middleware-default 100/min покриває
+- 10 multi-day cross-cutting items (i18n, Decimal money refactor, perf audit, a11y, security pentest, backup/DR, monitoring) — окремі епіки

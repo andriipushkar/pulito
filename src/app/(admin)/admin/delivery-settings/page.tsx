@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -26,104 +27,107 @@ interface TestResult {
   error?: string;
 }
 
-const PROVIDERS: DeliveryProvider[] = [
-  {
-    key: 'nova_poshta',
-    name: 'Нова Пошта',
-    icon: '🔴',
-    description: "Доставка по Україні через Нову Пошту (відділення / кур'єр)",
-    enabledKey: 'delivery_nova_poshta_enabled',
-    testable: true,
-    costKey: 'delivery_nova_poshta_fixed_cost',
-    fields: [
-      {
-        key: 'delivery_nova_poshta_api_key',
-        label: 'API Key',
-        placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-        sensitive: true,
-        hint: 'Ключ з особистого кабінету developers.novaposhta.ua',
-      },
-      {
-        key: 'delivery_nova_poshta_sender_ref',
-        label: 'Sender Ref (UUID відправника)',
-        placeholder: '00000000-0000-0000-0000-000000000000',
-        hint: 'Ідентифікатор контактної особи відправника',
-      },
-      {
-        key: 'delivery_nova_poshta_sender_city_ref',
-        label: 'City Ref (UUID міста)',
-        placeholder: '00000000-0000-0000-0000-000000000000',
-        hint: 'Ідентифікатор міста відправника',
-      },
-      {
-        key: 'delivery_nova_poshta_sender_warehouse_ref',
-        label: 'Warehouse Ref (UUID відділення)',
-        placeholder: '00000000-0000-0000-0000-000000000000',
-        hint: 'Ідентифікатор відділення відправника',
-      },
-      {
-        key: 'delivery_nova_poshta_sender_phone',
-        label: 'Телефон відправника',
-        placeholder: '+380501234567',
-      },
-    ],
-  },
-  {
-    key: 'ukrposhta',
-    name: 'Укрпошта',
-    icon: '🟡',
-    description: 'Доставка через Укрпошту (стандартна / Укрпошта Експрес)',
-    enabledKey: 'delivery_ukrposhta_enabled',
-    testable: true,
-    costKey: 'delivery_ukrposhta_fixed_cost',
-    fields: [
-      {
-        key: 'delivery_ukrposhta_bearer_token',
-        label: 'Bearer Token',
-        placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-        sensitive: true,
-        hint: 'Токен з кабінету API Укрпошти',
-      },
-      {
-        key: 'delivery_ukrposhta_sender_name',
-        label: 'ПІБ відправника',
-        placeholder: 'Іванов Іван Іванович',
-      },
-      {
-        key: 'delivery_ukrposhta_sender_phone',
-        label: 'Телефон відправника',
-        placeholder: '+380501234567',
-      },
-      {
-        key: 'delivery_ukrposhta_sender_address',
-        label: 'Адреса відправника',
-        placeholder: 'м. Київ, вул. Хрещатик, 1',
-      },
-    ],
-  },
-  {
-    key: 'pickup',
-    name: 'Самовивіз',
-    icon: '📍',
-    description: 'Клієнт забирає замовлення самостійно з вашого пункту видачі',
-    enabledKey: 'delivery_pickup_enabled',
-    fields: [
-      {
-        key: 'delivery_pickup_address',
-        label: 'Адреса пункту видачі',
-        placeholder: 'м. Київ, вул. Прикладна, 10, оф. 5',
-      },
-      {
-        key: 'delivery_pickup_hours',
-        label: 'Графік роботи',
-        placeholder: 'Пн-Пт: 9:00-18:00, Сб: 10:00-15:00',
-      },
-      { key: 'delivery_pickup_phone', label: 'Контактний телефон', placeholder: '+380501234567' },
-    ],
-  },
-];
-
 export default function DeliverySettingsPage() {
+  const t = useTranslations('admin.deliverySettingsPage');
+  const PROVIDERS: DeliveryProvider[] = useMemo(
+    () => [
+      {
+        key: 'nova_poshta',
+        name: t('novaName'),
+        icon: '🔴',
+        description: t('novaDesc'),
+        enabledKey: 'delivery_nova_poshta_enabled',
+        testable: true,
+        costKey: 'delivery_nova_poshta_fixed_cost',
+        fields: [
+          {
+            key: 'delivery_nova_poshta_api_key',
+            label: t('novaApiKey'),
+            placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            sensitive: true,
+            hint: t('novaApiKeyHint'),
+          },
+          {
+            key: 'delivery_nova_poshta_sender_ref',
+            label: t('novaSenderRef'),
+            placeholder: '00000000-0000-0000-0000-000000000000',
+            hint: t('novaSenderRefHint'),
+          },
+          {
+            key: 'delivery_nova_poshta_sender_city_ref',
+            label: t('novaCityRef'),
+            placeholder: '00000000-0000-0000-0000-000000000000',
+            hint: t('novaCityRefHint'),
+          },
+          {
+            key: 'delivery_nova_poshta_sender_warehouse_ref',
+            label: t('novaWarehouseRef'),
+            placeholder: '00000000-0000-0000-0000-000000000000',
+            hint: t('novaWarehouseRefHint'),
+          },
+          {
+            key: 'delivery_nova_poshta_sender_phone',
+            label: t('senderPhone'),
+            placeholder: '+380501234567',
+          },
+        ],
+      },
+      {
+        key: 'ukrposhta',
+        name: t('ukrName'),
+        icon: '🟡',
+        description: t('ukrDesc'),
+        enabledKey: 'delivery_ukrposhta_enabled',
+        testable: true,
+        costKey: 'delivery_ukrposhta_fixed_cost',
+        fields: [
+          {
+            key: 'delivery_ukrposhta_bearer_token',
+            label: t('ukrBearerToken'),
+            placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+            sensitive: true,
+            hint: t('ukrBearerTokenHint'),
+          },
+          {
+            key: 'delivery_ukrposhta_sender_name',
+            label: t('ukrSenderName'),
+            placeholder: t('ukrSenderNamePh'),
+          },
+          {
+            key: 'delivery_ukrposhta_sender_phone',
+            label: t('senderPhone'),
+            placeholder: '+380501234567',
+          },
+          {
+            key: 'delivery_ukrposhta_sender_address',
+            label: t('ukrSenderAddress'),
+            placeholder: t('ukrSenderAddressPh'),
+          },
+        ],
+      },
+      {
+        key: 'pickup',
+        name: t('pickupName'),
+        icon: '📍',
+        description: t('pickupDesc'),
+        enabledKey: 'delivery_pickup_enabled',
+        fields: [
+          {
+            key: 'delivery_pickup_address',
+            label: t('pickupAddress'),
+            placeholder: t('pickupAddressPh'),
+          },
+          {
+            key: 'delivery_pickup_hours',
+            label: t('pickupHours'),
+            placeholder: t('pickupHoursPh'),
+          },
+          { key: 'delivery_pickup_phone', label: t('pickupPhone'), placeholder: '+380501234567' },
+        ],
+      },
+    ],
+    [t],
+  );
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -171,20 +175,16 @@ export default function DeliverySettingsPage() {
       : settings;
     const res = await apiClient.put('/api/v1/admin/delivery-settings', payload);
     if (res.success) {
-      toast.success('Налаштування доставки збережено');
+      toast.success(t('savedToast'));
       await loadSettings();
     } else if (res.statusCode === 422 && res.error?.includes('__confirmClearSensitive')) {
-      const ok = window.confirm(
-        `${res.error}\n\n` +
-          `OK — стерти ключ і вимкнути провайдера доставки.\n` +
-          `Cancel — скасувати і повернутись до форми.`,
-      );
+      const ok = window.confirm(t('confirmClearSensitive', { error: res.error }));
       if (ok) {
         setIsSaving(false);
         return handleSave(true);
       }
     } else {
-      toast.error(res.error || 'Помилка збереження');
+      toast.error(res.error || t('saveError'));
     }
     setIsSaving(false);
   };
@@ -206,7 +206,7 @@ export default function DeliverySettingsPage() {
     setTestResults((prev) => ({
       ...prev,
       [provider.key]:
-        res.success && res.data ? res.data : { success: false, error: 'Помилка запиту' },
+        res.success && res.data ? res.data : { success: false, error: t('requestError') },
     }));
     setTesting((prev) => ({ ...prev, [provider.key]: false }));
   };
@@ -222,17 +222,15 @@ export default function DeliverySettingsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">Служби доставки</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Налаштуйте способи доставки для вашого магазину
-          </p>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         <Button
           onClick={() => setConfirmSave(true)}
           isLoading={isSaving}
           disabled={dirty.size === 0}
         >
-          Зберегти
+          {t('save')}
         </Button>
       </div>
 
@@ -241,23 +239,19 @@ export default function DeliverySettingsPage() {
         <div className="flex items-center gap-3 mb-3">
           <span className="text-2xl">🚛</span>
           <div>
-            <h3 className="font-semibold">Безкоштовна доставка</h3>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Мінімальна сума замовлення для безкоштовної доставки
-            </p>
+            <h3 className="font-semibold">{t('freeShippingTitle')}</h3>
+            <p className="text-xs text-[var(--color-text-secondary)]">{t('freeShippingHint')}</p>
           </div>
         </div>
         <div className="max-w-xs">
           <Input
-            label="Поріг (грн)"
+            label={t('thresholdLabel')}
             type="number"
             value={settings['delivery_free_shipping_threshold'] || ''}
             onChange={(e) => updateField('delivery_free_shipping_threshold', e.target.value)}
             placeholder="2000"
           />
-          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-            Залиште порожнім щоб вимкнути
-          </p>
+          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{t('emptyToDisable')}</p>
         </div>
       </div>
 
@@ -342,14 +336,14 @@ export default function DeliverySettingsPage() {
               {provider.costKey && (
                 <div className="mt-3 max-w-xs">
                   <Input
-                    label="Фіксована вартість доставки (грн)"
+                    label={t('fixedCostLabel')}
                     type="number"
                     value={settings[provider.costKey] || ''}
                     onChange={(e) => updateField(provider.costKey!, e.target.value)}
-                    placeholder="Розраховується автоматично"
+                    placeholder={t('fixedCostPh')}
                   />
                   <p className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">
-                    Залиште порожнім для автоматичного розрахунку через API
+                    {t('fixedCostHint')}
                   </p>
                 </div>
               )}
@@ -361,7 +355,9 @@ export default function DeliverySettingsPage() {
                     result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
                   }`}
                 >
-                  {result.success ? `✅ ${result.name}` : `❌ ${result.error}`}
+                  {result.success
+                    ? t('testSuccess', { name: result.name ?? '' })
+                    : t('testFailed', { error: result.error ?? '' })}
                 </div>
               )}
 
@@ -374,7 +370,7 @@ export default function DeliverySettingsPage() {
                     onClick={() => handleTest(provider)}
                     disabled={testing[provider.key]}
                   >
-                    {testing[provider.key] ? 'Перевірка...' : "Перевірити з'єднання"}
+                    {testing[provider.key] ? t('testing') : t('testConnection')}
                   </Button>
                 )}
                 {isEnabled && (
@@ -392,7 +388,7 @@ export default function DeliverySettingsPage() {
                         d="M4.5 12.75l6 6 9-13.5"
                       />
                     </svg>
-                    Увімкнено
+                    {t('enabledBadge')}
                   </span>
                 )}
               </div>
@@ -407,19 +403,15 @@ export default function DeliverySettingsPage() {
           <div className="flex items-center gap-3">
             <span className="text-2xl">📦</span>
             <div>
-              <h3 className="font-semibold">Палетна доставка</h3>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                Доставка великих замовлень палетами — <strong>окремий конфіг</strong> (свої тарифи,
-                ваговий клас, мін.сума). API ключ Нової Пошти переписується з цього розділу, але всі
-                інші параметри окремі — налаштовуйте обидві сторінки.
-              </p>
+              <h3 className="font-semibold">{t('palletTitle')}</h3>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('palletDesc')}</p>
             </div>
           </div>
           <Link
             href="/admin/pallet-delivery"
             className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--color-bg-secondary)]"
           >
-            Налаштувати
+            {t('configure')}
           </Link>
         </div>
       </div>
@@ -428,9 +420,9 @@ export default function DeliverySettingsPage() {
         isOpen={confirmSave}
         onClose={() => setConfirmSave(false)}
         onConfirm={() => handleSave()}
-        title="Зберегти налаштування доставки"
-        message="Зміни вплинуть на доступні способи доставки на сайті. Продовжити?"
-        confirmText="Так, зберегти"
+        title={t('confirmTitle')}
+        message={t('confirmMsg')}
+        confirmText={t('confirmBtn')}
       />
     </div>
   );

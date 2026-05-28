@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -16,6 +17,7 @@ interface DomainInfo {
 }
 
 export default function AdminDomainsPage() {
+  const t = useTranslations('admin.domainsPage');
   const [info, setInfo] = useState<DomainInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [newDomain, setNewDomain] = useState('');
@@ -46,7 +48,7 @@ export default function AdminDomainsPage() {
 
   const handleInitiate = async () => {
     if (!newDomain.trim()) {
-      toast.error('Введіть домен');
+      toast.error(t('validateDomain'));
       return;
     }
     setIsSubmitting(true);
@@ -55,27 +57,26 @@ export default function AdminDomainsPage() {
     });
     setIsSubmitting(false);
     if (res.success) {
-      toast.success('Верифікацію ініційовано');
+      toast.success(t('initiatedToast'));
       setNewDomain('');
       await fetchDomainInfo();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
   const handleVerify = async () => {
     if (!info?.domain) return;
     setIsVerifying(true);
-    const res = await apiClient.post<{ verified: boolean }>(
-      '/api/v1/admin/domains/verify',
-      { domain: info.domain }
-    );
+    const res = await apiClient.post<{ verified: boolean }>('/api/v1/admin/domains/verify', {
+      domain: info.domain,
+    });
     setIsVerifying(false);
     if (res.success && res.data?.verified) {
-      toast.success('Домен верифіковано!');
+      toast.success(t('verifiedToast'));
       await fetchDomainInfo();
     } else {
-      toast.error('DNS-запис не знайдено. Переконайтеся, що TXT-запис додано.');
+      toast.error(t('dnsNotFound'));
     }
   };
 
@@ -84,10 +85,10 @@ export default function AdminDomainsPage() {
     setConfirmRemove(false);
     const res = await apiClient.delete(`/api/v1/admin/domains/${info.domain}`);
     if (res.success) {
-      toast.success('Домен видалено');
+      toast.success(t('removedToast'));
       await fetchDomainInfo();
     } else {
-      toast.error('Помилка видалення');
+      toast.error(t('removeError'));
     }
   };
 
@@ -100,10 +101,10 @@ export default function AdminDomainsPage() {
   }
 
   const statusLabel = !info?.domain
-    ? 'Не налаштовано'
+    ? t('statusNotConfigured')
     : info.verified
-      ? 'Верифіковано'
-      : 'Очікує верифікації';
+      ? t('statusVerified')
+      : t('statusPending');
 
   const statusColor = !info?.domain
     ? 'text-[var(--color-text-secondary)]'
@@ -114,19 +115,19 @@ export default function AdminDomainsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold">Власний домен</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
       </div>
 
       {/* Current status */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
-        <h3 className="mb-3 text-lg font-semibold">Поточний статус</h3>
+        <h3 className="mb-3 text-lg font-semibold">{t('currentStatus')}</h3>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-[var(--color-text-secondary)]">Статус:</span>
+          <span className="text-sm text-[var(--color-text-secondary)]">{t('statusLabel')}</span>
           <span className={`text-sm font-medium ${statusColor}`}>{statusLabel}</span>
         </div>
         {info?.domain && (
           <div className="mt-2 flex items-center gap-3">
-            <span className="text-sm text-[var(--color-text-secondary)]">Домен:</span>
+            <span className="text-sm text-[var(--color-text-secondary)]">{t('domainLabel')}</span>
             <span className="text-sm font-medium">{info.domain}</span>
           </div>
         )}
@@ -135,35 +136,31 @@ export default function AdminDomainsPage() {
       {/* Verification instructions */}
       {info?.domain && !info.verified && info.verificationToken && (
         <div className="mb-6 rounded-[var(--radius)] border border-yellow-300 bg-yellow-50 p-6 dark:border-yellow-700 dark:bg-yellow-900/20">
-          <h3 className="mb-3 text-lg font-semibold">Інструкції з верифікації</h3>
-          <p className="mb-3 text-sm text-[var(--color-text-secondary)]">
-            Додайте TXT-запис до DNS-налаштувань вашого домену:
-          </p>
+          <h3 className="mb-3 text-lg font-semibold">{t('verifyInstructions')}</h3>
+          <p className="mb-3 text-sm text-[var(--color-text-secondary)]">{t('verifyHint')}</p>
           <div className="mb-3 space-y-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <div>
-              <span className="text-xs text-[var(--color-text-secondary)]">Ім&apos;я запису:</span>
+              <span className="text-xs text-[var(--color-text-secondary)]">{t('recordName')}</span>
               <code className="ml-2 rounded bg-[var(--color-bg-secondary)] px-2 py-0.5 text-sm">
                 {info.txtRecordName}
               </code>
             </div>
             <div>
-              <span className="text-xs text-[var(--color-text-secondary)]">Тип:</span>
+              <span className="text-xs text-[var(--color-text-secondary)]">{t('recordType')}</span>
               <code className="ml-2 rounded bg-[var(--color-bg-secondary)] px-2 py-0.5 text-sm">
                 TXT
               </code>
             </div>
             <div>
-              <span className="text-xs text-[var(--color-text-secondary)]">Значення:</span>
+              <span className="text-xs text-[var(--color-text-secondary)]">{t('recordValue')}</span>
               <code className="ml-2 rounded bg-[var(--color-bg-secondary)] px-2 py-0.5 text-sm">
                 {info.verificationToken}
               </code>
             </div>
           </div>
-          <p className="mb-4 text-xs text-[var(--color-text-secondary)]">
-            Після додавання запису зачекайте кілька хвилин для поширення DNS і натисніть кнопку нижче.
-          </p>
+          <p className="mb-4 text-xs text-[var(--color-text-secondary)]">{t('verifyAfterHint')}</p>
           <Button onClick={handleVerify} isLoading={isVerifying}>
-            Перевірити DNS
+            {t('verifyButton')}
           </Button>
         </div>
       )}
@@ -171,18 +168,18 @@ export default function AdminDomainsPage() {
       {/* Add domain form */}
       {!info?.domain && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
-          <h3 className="mb-3 text-lg font-semibold">Додати домен</h3>
+          <h3 className="mb-3 text-lg font-semibold">{t('addDomain')}</h3>
           <div className="flex items-end gap-3">
             <div className="flex-1">
               <Input
-                label="Домен"
+                label={t('domainInputLabel')}
                 value={newDomain}
                 onChange={(e) => setNewDomain(e.target.value)}
-                placeholder="shop.example.com"
+                placeholder={t('domainPlaceholder')}
               />
             </div>
             <Button onClick={handleInitiate} isLoading={isSubmitting}>
-              Додати
+              {t('add')}
             </Button>
           </div>
         </div>
@@ -191,15 +188,13 @@ export default function AdminDomainsPage() {
       {/* Remove domain */}
       {info?.domain && (
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
-          <h3 className="mb-3 text-lg font-semibold">Видалити домен</h3>
-          <p className="mb-3 text-sm text-[var(--color-text-secondary)]">
-            Видалення домену зробить магазин доступним лише за стандартною адресою.
-          </p>
+          <h3 className="mb-3 text-lg font-semibold">{t('removeDomain')}</h3>
+          <p className="mb-3 text-sm text-[var(--color-text-secondary)]">{t('removeHint')}</p>
           <Button
             onClick={() => setConfirmRemove(true)}
             className="bg-[var(--color-danger)] text-white hover:opacity-90"
           >
-            Видалити домен
+            {t('removeButton')}
           </Button>
         </div>
       )}
@@ -208,9 +203,9 @@ export default function AdminDomainsPage() {
         isOpen={confirmRemove}
         onClose={() => setConfirmRemove(false)}
         onConfirm={handleRemove}
-        title="Видалити домен"
-        message="Ви впевнені, що хочете видалити прив'язку домену? Це не можна скасувати."
-        confirmText="Так, видалити"
+        title={t('removeDomain')}
+        message={t('confirmRemoveMsg')}
+        confirmText={t('confirmRemoveYes')}
       />
     </div>
   );

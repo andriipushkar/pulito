@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
@@ -46,17 +46,28 @@ export async function registerUser(data: {
   const { generateReferralCode } = await import('./referral');
   const userReferralCode = generateReferralCode();
 
-  const user = await prisma.user.create({
-    data: {
-      email: data.email,
-      passwordHash,
-      fullName: data.fullName,
-      phone: data.phone,
-      referralCode: userReferralCode,
-      companyName: data.companyName || undefined,
-      edrpou: data.edrpou || undefined,
-    },
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        email: data.email,
+        passwordHash,
+        fullName: data.fullName,
+        phone: data.phone,
+        referralCode: userReferralCode,
+        companyName: data.companyName || undefined,
+        edrpou: data.edrpou || undefined,
+      },
+    });
+  } catch (err) {
+    // Race: two parallel registrations for the same email both passed the
+    // existence check, both tried to create. Translate the unique-constraint
+    // violation into the same 409 the existence check would have produced.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      throw new AuthError('Користувач з таким email вже існує', 409);
+    }
+    throw err;
+  }
 
   const tokens = await createTokenPair(user.id, user.email, user.role);
 
@@ -114,9 +125,10 @@ export async function registerUser(data: {
  * @param data - Дані для входу (email, пароль, IP-адреса, інформація про пристрій)
  * @returns Об'єкт з даними користувача та парою токенів
  */
-const LOGIN_ATTEMPTS_PREFIX = 'login_attempts:';
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_TTL = 900;
+// Pre-computed bcrypt hash of a random string — used for the user-not-found
+// dummy compare so login response time is identical whether the email exists
+// or not. Generated once at module load (bcrypt with 10 rounds = ~80ms cost).
+const DUMMY_BCRYPT_HASH = bcrypt.hashSync('$dummy$' + randomBytes(16).toString('hex'), 10);
 
 type LoginResult =
   | { requiresTwoFactor: false; user: AuthUser; tokens: TokenPair }
@@ -128,32 +140,24 @@ export async function loginUser(data: {
   ipAddress?: string;
   deviceInfo?: string;
 }): Promise<LoginResult> {
-  const attemptsKey = `${LOGIN_ATTEMPTS_PREFIX}${data.email}`;
-
-  const attempts = await redis.get(attemptsKey);
-  if (attempts && parseInt(attempts, 10) >= MAX_LOGIN_ATTEMPTS) {
-    throw new AuthError('Акаунт тимчасово заблоковано. Спробуйте через 15 хвилин.', 429);
-  }
-
   const user = await prisma.user.findUnique({ where: { email: data.email } });
+
   if (!user || !user.passwordHash) {
-    await redis.incr(attemptsKey);
-    await redis.expire(attemptsKey, LOCKOUT_TTL);
+    // Run bcrypt against a dummy hash to equalise response time with the
+    // real-user path. Without this, attackers can enumerate registered emails
+    // by measuring response latency.
+    await bcrypt.compare(data.password, DUMMY_BCRYPT_HASH);
     throw new AuthError('Невірний email або пароль', 401);
   }
 
   const valid = await bcrypt.compare(data.password, user.passwordHash);
   if (!valid) {
-    await redis.incr(attemptsKey);
-    await redis.expire(attemptsKey, LOCKOUT_TTL);
     throw new AuthError('Невірний email або пароль', 401);
   }
 
   if (user.isBlocked) {
     throw new AuthError('Ваш акаунт заблоковано. Зверніться до підтримки.', 403);
   }
-
-  await redis.del(attemptsKey);
 
   // If 2FA is enabled, return a short-lived temp token instead of full credentials
   if (user.twoFactorEnabled && user.twoFactorSecret) {

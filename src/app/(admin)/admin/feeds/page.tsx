@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { Check, Copy } from '@/components/icons';
 
 interface FeedDef {
@@ -44,6 +45,7 @@ const FEEDS: FeedDef[] = [
 ];
 
 export default function AdminFeedsPage() {
+  const t = useTranslations('admin.feedsPage');
   const [origin, setOrigin] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<string, number | null>>({});
@@ -59,9 +61,9 @@ export default function AdminFeedsPage() {
       const text = await res.text();
       const matches = text.match(/<item/gi) || text.match(/<item>/gi) || [];
       setCounts((s) => ({ ...s, [key]: matches.length }));
-      toast.success(`${key}: знайдено ${matches.length} позицій`);
+      toast.success(t('pingSuccess', { key, count: matches.length }));
     } catch {
-      toast.error('Не вдалося отримати фід');
+      toast.error(t('fetchError'));
       setCounts((s) => ({ ...s, [key]: -1 }));
     }
   }
@@ -72,18 +74,15 @@ export default function AdminFeedsPage() {
       setCopied(key);
       setTimeout(() => setCopied(null), 1500);
     } catch {
-      toast.error('Не вдалось скопіювати');
+      toast.error(t('copyError'));
     }
   }
 
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold">Прайс-фіди (XML)</h1>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Автоматичні фіди товарів для агрегаторів і рекламних платформ. Оновлюються щоразу при
-          запиті, кешуються 30 хв. Включаються тільки активні товари з наявністю та фото.
-        </p>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -103,7 +102,7 @@ export default function AdminFeedsPage() {
                   rel="noopener noreferrer"
                   className="text-xs text-[var(--color-primary)] hover:underline"
                 >
-                  Кабінет ↗
+                  {t('cabinet')}
                 </a>
               </div>
               <p className="text-sm text-[var(--color-text-secondary)]">{f.description}</p>
@@ -112,7 +111,7 @@ export default function AdminFeedsPage() {
                 <button
                   onClick={() => copy(url, f.key)}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded hover:bg-[var(--color-bg)]"
-                  aria-label="Скопіювати URL"
+                  aria-label={t('copyUrl')}
                 >
                   {copied === f.key ? <Check size={14} /> : <Copy size={14} />}
                 </button>
@@ -123,7 +122,7 @@ export default function AdminFeedsPage() {
                   onClick={() => ping(f.key, f.path)}
                   className="rounded border border-[var(--color-border)] px-3 py-1.5 text-xs hover:bg-[var(--color-bg-secondary)]"
                 >
-                  Перевірити
+                  {t('check')}
                 </button>
                 <a
                   href={f.path}
@@ -131,11 +130,11 @@ export default function AdminFeedsPage() {
                   rel="noopener noreferrer"
                   className="rounded border border-[var(--color-border)] px-3 py-1.5 text-xs hover:bg-[var(--color-bg-secondary)]"
                 >
-                  Відкрити
+                  {t('open')}
                 </a>
                 {typeof count === 'number' && (
                   <span className="self-center text-xs text-[var(--color-text-secondary)]">
-                    {count >= 0 ? `${count} товарів` : 'помилка'}
+                    {count >= 0 ? t('itemsFound', { count }) : t('errorLabel')}
                   </span>
                 )}
               </div>
@@ -145,20 +144,18 @@ export default function AdminFeedsPage() {
       </div>
 
       <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 text-sm">
-        <h2 className="mb-2 font-semibold">Як підключити</h2>
+        <h2 className="mb-2 font-semibold">{t('howToConnect')}</h2>
         <ol className="list-decimal space-y-1 pl-5 text-[var(--color-text-secondary)]">
-          <li>Скопіюйте URL потрібного фіда вище.</li>
-          <li>У кабінеті агрегатора/платформи додайте «Запланований фід» з цим URL.</li>
+          <li>{t('stepCopy')}</li>
+          <li>{t('stepAdd')}</li>
+          <li>{t('stepInterval')}</li>
           <li>
-            Інтервал оновлення — 30–60 хвилин, цього достатньо для синхронізації цін і залишків.
-          </li>
-          <li>
-            Фіди публічні (без авторизації). Якщо потрібна авторизація — додайте API key через
+            {t('stepAuth')}
             <Link
               href="/admin/integrations"
               className="ml-1 text-[var(--color-primary)] hover:underline"
             >
-              API & Інтеграції
+              {t('integrationsLink')}
             </Link>
             .
           </li>

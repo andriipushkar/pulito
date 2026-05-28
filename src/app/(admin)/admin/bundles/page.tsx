@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -22,16 +23,16 @@ interface Bundle {
 
 type SortKey = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'discount_desc' | 'discount_asc';
 
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'newest', label: 'Нові спочатку' },
-  { value: 'oldest', label: 'Старі спочатку' },
-  { value: 'name_asc', label: 'Назва А-Я' },
-  { value: 'name_desc', label: 'Назва Я-А' },
-  { value: 'discount_desc', label: 'Знижка: більша' },
-  { value: 'discount_asc', label: 'Знижка: менша' },
-];
-
 export default function AdminBundlesPage() {
+  const t = useTranslations('admin.adminBundlesPage');
+  const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+    { value: 'newest', label: t('sortNewest') },
+    { value: 'oldest', label: t('sortOldest') },
+    { value: 'name_asc', label: t('sortNameAsc') },
+    { value: 'name_desc', label: t('sortNameDesc') },
+    { value: 'discount_desc', label: t('sortDiscountDesc') },
+    { value: 'discount_asc', label: t('sortDiscountAsc') },
+  ];
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortKey>('newest');
@@ -63,10 +64,10 @@ export default function AdminBundlesPage() {
   const toggleActive = async (id: number, isActive: boolean) => {
     try {
       const res = await apiClient.patch(`/api/v1/admin/bundles/${id}`, { isActive: !isActive });
-      if (res.success) toast.success(isActive ? 'Набір вимкнено' : 'Набір увімкнено');
-      else toast.error(res.error || 'Помилка');
+      if (res.success) toast.success(isActive ? t('disabledToast') : t('enabledToast'));
+      else toast.error(res.error || t('errorGeneric'));
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       loadBundles();
     }
@@ -78,10 +79,10 @@ export default function AdminBundlesPage() {
     setDeleteId(null);
     try {
       const res = await apiClient.delete(`/api/v1/admin/bundles/${id}`);
-      if (res.success) toast.success('Набір видалено');
-      else toast.error(res.error || 'Помилка видалення');
+      if (res.success) toast.success(t('deletedToast'));
+      else toast.error(res.error || t('deleteError'));
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       loadBundles();
     }
@@ -89,9 +90,7 @@ export default function AdminBundlesPage() {
 
   const filteredBundles = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const filtered = q
-      ? bundles.filter((b) => b.name.toLowerCase().includes(q))
-      : bundles;
+    const filtered = q ? bundles.filter((b) => b.name.toLowerCase().includes(q)) : bundles;
     const sorted = [...filtered];
     switch (sort) {
       case 'oldest':
@@ -124,14 +123,14 @@ export default function AdminBundlesPage() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold">
-          Набори товарів{' '}
+          {t('title')}{' '}
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({bundles.length})
           </span>
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            placeholder="Пошук за назвою…"
+            placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-56"
@@ -143,7 +142,7 @@ export default function AdminBundlesPage() {
             className="w-44"
           />
           <Link href="/admin/bundles/new">
-            <Button>+ Створити набір</Button>
+            <Button>{t('create')}</Button>
           </Link>
         </div>
       </div>
@@ -152,42 +151,58 @@ export default function AdminBundlesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-              <th className="px-4 py-3 text-left font-medium">Назва</th>
-              <th className="px-4 py-3 text-left font-medium">Тип</th>
-              <th className="px-4 py-3 text-right font-medium">Товарів</th>
-              <th className="px-4 py-3 text-right font-medium">Знижка</th>
-              <th className="px-4 py-3 text-center font-medium">Статус</th>
-              <th className="px-4 py-3 text-right font-medium">Дії</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colName')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colType')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colItems')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colDiscount')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('colStatus')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colActions')}</th>
             </tr>
           </thead>
           <tbody>
             {filteredBundles.map((b) => (
-              <tr key={b.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]">
+              <tr
+                key={b.id}
+                className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-secondary)]"
+              >
                 <td className="px-4 py-3">
-                  <Link href={`/admin/bundles/${b.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
+                  <Link
+                    href={`/admin/bundles/${b.id}`}
+                    className="font-medium text-[var(--color-primary)] hover:underline"
+                  >
                     {b.name}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                  {b.bundleType === 'curated' ? 'Готовий' : 'Довільний'}
+                  {b.bundleType === 'curated' ? t('typeCurated') : t('typeCustom')}
                 </td>
-                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">{b.items?.length ?? 0}</td>
-                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">{Number(b.discountPercent)}%</td>
+                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">
+                  {b.items?.length ?? 0}
+                </td>
+                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">
+                  {Number(b.discountPercent)}%
+                </td>
                 <td className="px-4 py-3 text-center">
                   <button
                     onClick={() => toggleActive(b.id, b.isActive)}
                     className={`rounded-full px-2 py-0.5 text-xs ${b.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                   >
-                    {b.isActive ? 'Активний' : 'Вимкнено'}
+                    {b.isActive ? t('statusActive') : t('statusInactive')}
                   </button>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
-                    <Link href={`/admin/bundles/${b.id}`} className="text-xs text-[var(--color-primary)] hover:underline">
-                      Редагувати
+                    <Link
+                      href={`/admin/bundles/${b.id}`}
+                      className="text-xs text-[var(--color-primary)] hover:underline"
+                    >
+                      {t('edit')}
                     </Link>
-                    <button onClick={() => setDeleteId(b.id)} className="text-xs text-[var(--color-danger)] hover:underline">
-                      Видалити
+                    <button
+                      onClick={() => setDeleteId(b.id)}
+                      className="text-xs text-[var(--color-danger)] hover:underline"
+                    >
+                      {t('delete')}
                     </button>
                   </div>
                 </td>
@@ -202,25 +217,23 @@ export default function AdminBundlesPage() {
                     </span>
                     {search ? (
                       <>
-                        <p className="text-sm font-medium">За запитом нічого не знайдено</p>
+                        <p className="text-sm font-medium">{t('emptySearch')}</p>
                         <button
                           onClick={() => setSearch('')}
                           className="text-xs text-[var(--color-primary)] hover:underline"
                         >
-                          Скинути пошук
+                          {t('resetSearch')}
                         </button>
                       </>
                     ) : (
                       <>
-                        <p className="text-sm font-medium">Наборів ще немає</p>
-                        <p className="max-w-md text-xs">
-                          Згрупуйте кілька товарів в один набір зі знижкою або фіксованою ціною
-                        </p>
+                        <p className="text-sm font-medium">{t('emptyAll')}</p>
+                        <p className="max-w-md text-xs">{t('emptyHint')}</p>
                         <Link
                           href="/admin/bundles/new"
                           className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
                         >
-                          + Створити перший набір
+                          {t('createFirst')}
                         </Link>
                       </>
                     )}
@@ -237,13 +250,9 @@ export default function AdminBundlesPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
         variant="danger"
-        title="Видалення набору"
-        message={
-          deleteTarget
-            ? `Видалити набір "${deleteTarget.name}"? Дія незворотна.`
-            : 'Видалити набір? Дія незворотна.'
-        }
-        confirmText="Так, видалити"
+        title={t('deleteTitle')}
+        message={deleteTarget ? t('deleteMsg', { name: deleteTarget.name }) : t('deleteMsgGeneric')}
+        confirmText={t('confirmDelete')}
       />
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -74,8 +75,7 @@ function escapeCsvCell(value: string | number | undefined | null): string {
   return text;
 }
 
-function buildErrorsCsv(errors: ImportRowError[]): string {
-  const header = 'Рядок;Код;Поле;Повідомлення';
+function buildErrorsCsv(errors: ImportRowError[], header: string): string {
   const rows = errors.map((e) => [e.row, e.code, e.field, e.message].map(escapeCsvCell).join(';'));
   // BOM so Excel opens UTF-8 correctly
   return '﻿' + [header, ...rows].join('\n');
@@ -94,6 +94,7 @@ function downloadCsv(filename: string, csv: string): void {
 }
 
 export default function AdminImportPage() {
+  const t = useTranslations('admin.importPage');
   const [logs, setLogs] = useState<ImportLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -129,10 +130,10 @@ export default function AdminImportPage() {
       if (res.success && res.data) {
         setLogs(res.data);
       } else if (!res.success) {
-        toast.error(res.error || 'Не вдалося завантажити історію імпортів');
+        toast.error(res.error || t('loadLogsError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsLoading(false);
     }
@@ -145,7 +146,7 @@ export default function AdminImportPage() {
 
   const handleProductFile = async (file: File) => {
     if (!isAcceptedSheet(file.name)) {
-      setUploadMessage({ type: 'error', text: 'Підтримуються формати: .xlsx, .xls, .csv, .xml, .yml' });
+      setUploadMessage({ type: 'error', text: t('formatsSupported') });
       return;
     }
 
@@ -171,10 +172,10 @@ export default function AdminImportPage() {
       if (data.success && data.data) {
         setPreview(data.data);
       } else {
-        setUploadMessage({ type: 'error', text: data.error || 'Не вдалося прочитати файл' });
+        setUploadMessage({ type: 'error', text: data.error || t('readFileError') });
       }
     } catch {
-      setUploadMessage({ type: 'error', text: 'Помилка читання файлу' });
+      setUploadMessage({ type: 'error', text: t('fileReadError') });
     }
   };
 
@@ -223,7 +224,7 @@ export default function AdminImportPage() {
       headers,
     });
     if (!res.ok) {
-      setUploadMessage({ type: 'error', text: 'Не вдалося завантажити шаблон товарів' });
+      setUploadMessage({ type: 'error', text: t('templateProductError') });
       return;
     }
     const blob = await res.blob();
@@ -297,14 +298,16 @@ export default function AdminImportPage() {
         const d = data.data;
         const errorCount = d?.errors?.length ?? 0;
         const summary = d
-          ? `створено: ${d.created ?? 0}, оновлено: ${d.updated ?? 0}, пропущено: ${d.skipped ?? 0}${
-              errorCount > 0 ? `, помилок: ${errorCount}` : ''
-            }`
-          : '0 товарів';
-        const prefix = dryRun ? 'Симуляція (БД не змінено)' : 'Імпорт завершено';
+          ? t('summaryBase', {
+              created: d.created ?? 0,
+              updated: d.updated ?? 0,
+              skipped: d.skipped ?? 0,
+            }) + (errorCount > 0 ? t('summaryErrorsSuffix', { errors: errorCount }) : '')
+          : t('summaryZero');
+        const prefix = dryRun ? t('prefixDryRun') : t('prefixDone');
         setUploadMessage({
           type: errorCount > 0 ? 'error' : 'success',
-          text: `${prefix} — ${summary}`,
+          text: t('resultLine', { prefix, summary }),
         });
         setLastErrors(d?.errors ?? []);
         if (!dryRun) {
@@ -313,11 +316,11 @@ export default function AdminImportPage() {
           loadLogs();
         }
       } else {
-        setUploadMessage({ type: 'error', text: data.error || 'Помилка імпорту' });
+        setUploadMessage({ type: 'error', text: data.error || t('importError') });
         setLastErrors([]);
       }
     } catch {
-      setUploadMessage({ type: 'error', text: 'Помилка завантаження файлу' });
+      setUploadMessage({ type: 'error', text: t('uploadFileError') });
     } finally {
       setIsUploading(false);
       setIsProcessing(false);
@@ -325,11 +328,9 @@ export default function AdminImportPage() {
     }
   };
 
-  const handleImageZipUpload = async (
-    fileOrEvent: File | React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleImageZipUpload = async (fileOrEvent: File | React.ChangeEvent<HTMLInputElement>) => {
     const file =
-      fileOrEvent instanceof File ? fileOrEvent : fileOrEvent.target.files?.[0] ?? null;
+      fileOrEvent instanceof File ? fileOrEvent : (fileOrEvent.target.files?.[0] ?? null);
     if (!file) return;
 
     setIsUploading(true);
@@ -378,13 +379,13 @@ export default function AdminImportPage() {
       if (data.success) {
         setUploadMessage({
           type: 'success',
-          text: `Завантажено ${data.data?.processedCount || 0} зображень`,
+          text: t('imagesUploaded', { count: data.data?.processedCount || 0 }),
         });
       } else {
-        setUploadMessage({ type: 'error', text: data.error || 'Помилка завантаження зображень' });
+        setUploadMessage({ type: 'error', text: data.error || t('imagesError') });
       }
     } catch {
-      setUploadMessage({ type: 'error', text: 'Помилка завантаження' });
+      setUploadMessage({ type: 'error', text: t('uploadError') });
     } finally {
       setIsUploading(false);
       setIsProcessing(false);
@@ -405,15 +406,13 @@ export default function AdminImportPage() {
     if (lastErrors.length === 0) return;
     downloadCsv(
       `import-errors-${new Date().toISOString().slice(0, 10)}.csv`,
-      buildErrorsCsv(lastErrors),
+      buildErrorsCsv(lastErrors, t('csvErrorHeader')),
     );
   };
 
   const handleRollback = async (log: ImportLog) => {
-    const counts = `~${log.createdCount} нових товарів і ~${log.updatedCount} оновлених цін`;
-    if (!confirm(
-      `Скасувати імпорт "${log.filename}"?\n\nБуде:\n• Soft-видалено ${counts}\n• Повернуто старі ціни з PriceHistory\n\nКіл-ть, описи, фото — НЕ скасовуються (їх немає в історії).\nЦю дію неможливо повторно скасувати.`,
-    )) return;
+    const counts = t('rollbackCounts', { created: log.createdCount, updated: log.updatedCount });
+    if (!confirm(t('rollbackConfirm', { filename: log.filename, counts }))) return;
 
     setRollbackingId(log.id);
     try {
@@ -422,14 +421,17 @@ export default function AdminImportPage() {
       );
       if (res.success && res.data) {
         toast.success(
-          `Скасовано: ${res.data.softDeletedCount} товарів видалено, ${res.data.pricesRevertedCount} цін повернуто`,
+          t('rollbackDone', {
+            deleted: res.data.softDeletedCount,
+            reverted: res.data.pricesRevertedCount,
+          }),
         );
         loadLogs();
       } else {
-        toast.error(res.error || 'Не вдалося скасувати імпорт');
+        toast.error(res.error || t('rollbackError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setRollbackingId(null);
     }
@@ -444,7 +446,7 @@ export default function AdminImportPage() {
       );
       const errors = res.data?.errorsJson ?? [];
       if (errors.length === 0) return;
-      downloadCsv(`import-errors-${log.id}.csv`, buildErrorsCsv(errors));
+      downloadCsv(`import-errors-${log.id}.csv`, buildErrorsCsv(errors, t('csvErrorHeader')));
     } finally {
       setDownloadingLogId(null);
     }
@@ -461,7 +463,7 @@ export default function AdminImportPage() {
 
   const handlePriceFile = async (file: File) => {
     if (!isAcceptedSheet(file.name)) {
-      setUploadMessage({ type: 'error', text: 'Підтримуються формати: .xlsx, .xls, .csv, .xml, .yml' });
+      setUploadMessage({ type: 'error', text: t('formatsSupported') });
       return;
     }
 
@@ -488,11 +490,11 @@ export default function AdminImportPage() {
       if (data.success && data.data) {
         setPricePreview(data.data);
       } else {
-        setUploadMessage({ type: 'error', text: data.error || 'Не вдалося прочитати файл' });
+        setUploadMessage({ type: 'error', text: data.error || t('readFileError') });
         setPricePreviewFile(null);
       }
     } catch {
-      setUploadMessage({ type: 'error', text: 'Помилка читання файлу' });
+      setUploadMessage({ type: 'error', text: t('fileReadError') });
       setPricePreviewFile(null);
     } finally {
       setIsPricePreviewing(false);
@@ -547,18 +549,20 @@ export default function AdminImportPage() {
         const errorCount = d?.errors?.length ?? 0;
         setUploadMessage({
           type: errorCount > 0 ? 'error' : 'success',
-          text: `Ціни оновлено — оновлено: ${d.updated ?? 0}, пропущено: ${d.skipped ?? 0}${errorCount > 0 ? `, помилок: ${errorCount}` : ''}`,
+          text:
+            t('pricesUpdated', { updated: d.updated ?? 0, skipped: d.skipped ?? 0 }) +
+            (errorCount > 0 ? t('summaryErrorsSuffix', { errors: errorCount }) : ''),
         });
         setLastErrors(d?.errors ?? []);
         setPricePreview(null);
         setPricePreviewFile(null);
         loadLogs();
       } else {
-        setUploadMessage({ type: 'error', text: data.error || 'Помилка імпорту' });
+        setUploadMessage({ type: 'error', text: data.error || t('importError') });
         setLastErrors([]);
       }
     } catch {
-      setUploadMessage({ type: 'error', text: 'Помилка завантаження файлу' });
+      setUploadMessage({ type: 'error', text: t('uploadFileError') });
     } finally {
       setIsUploading(false);
       setIsProcessing(false);
@@ -581,7 +585,7 @@ export default function AdminImportPage() {
       headers,
     });
     if (!res.ok) {
-      setUploadMessage({ type: 'error', text: 'Не вдалося завантажити шаблон цін' });
+      setUploadMessage({ type: 'error', text: t('templatePriceError') });
       return;
     }
     const blob = await res.blob();
@@ -596,7 +600,9 @@ export default function AdminImportPage() {
   };
 
   const fmtPrice = (v: number | null) =>
-    v === null ? '—' : v.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    v === null
+      ? '—'
+      : v.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const pctDelta = (oldV: number | null, newV: number | null) => {
     if (oldV === null || newV === null || oldV === 0) return null;
@@ -605,7 +611,7 @@ export default function AdminImportPage() {
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-bold">Імпорт товарів</h2>
+      <h2 className="mb-4 text-xl font-bold">{t('title')}</h2>
 
       {/* Upload section */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -619,15 +625,13 @@ export default function AdminImportPage() {
               : 'border-[var(--color-border)]'
           }`}
         >
-          <h3 className="mb-3 text-sm font-semibold">Повний прайс-лист</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('fullPricelist')}</h3>
           <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
-            Створює та оновлює товари. Колонки: код, <strong>штрихкод</strong> (EAN/UPC), назва,
-            категорія, ціни, опис, SEO. Підтримує формат постачальника (без коду — категорії з
-            рядків-роздільників). Штрихкод використовується для дедуплікації між форматами.
+            {t('fullPricelistDesc1')}
+            <strong>{t('barcodeWord')}</strong>
+            {t('fullPricelistDesc2')}
           </p>
-          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-            Перетягніть файл сюди або
-          </p>
+          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">{t('dragHere')}</p>
           <div className="flex flex-wrap items-center gap-2">
             <label className="inline-block">
               <input
@@ -639,7 +643,7 @@ export default function AdminImportPage() {
                 className="hidden"
               />
               <span className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-primary-dark)]">
-                {isUploading ? 'Завантаження...' : 'Обрати файл'}
+                {isUploading ? t('uploading') : t('chooseFile')}
               </span>
             </label>
             <button
@@ -648,7 +652,7 @@ export default function AdminImportPage() {
               disabled={isUploading}
               className="inline-flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
             >
-              Шаблон (xlsx)
+              {t('templateXlsx')}
             </button>
           </div>
         </div>
@@ -662,18 +666,17 @@ export default function AdminImportPage() {
           }`}
         >
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            Швидке оновлення цін
+            {t('quickPriceUpdate')}
             <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-              Рекомендовано
+              {t('recommended')}
             </span>
           </h3>
           <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
-            Файл з колонками <code>Код</code> + ціни. Оновлюються тільки ціни існуючих товарів — без
-            створення нових. Перед застосуванням покажемо diff (старі → нові).
+            {t('quickPriceDesc1')}
+            <code>{t('codeWord')}</code>
+            {t('quickPriceDesc2')}
           </p>
-          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-            Перетягніть файл сюди або
-          </p>
+          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">{t('dragHere')}</p>
           <div className="flex flex-wrap items-center gap-2">
             <label className="inline-block">
               <input
@@ -685,7 +688,7 @@ export default function AdminImportPage() {
                 className="hidden"
               />
               <span className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--radius)] bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700">
-                {isPricePreviewing ? 'Аналіз...' : 'Обрати файл'}
+                {isPricePreviewing ? t('analyzing') : t('chooseFile')}
               </span>
             </label>
             <button
@@ -694,7 +697,7 @@ export default function AdminImportPage() {
               disabled={isUploading}
               className="inline-flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
             >
-              Шаблон (xlsx)
+              {t('templateXlsx')}
             </button>
           </div>
         </div>
@@ -709,15 +712,15 @@ export default function AdminImportPage() {
               : 'border-[var(--color-border)]'
           }`}
         >
-          <h3 className="mb-3 text-sm font-semibold">Завантажити зображення</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('uploadImages')}</h3>
           <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
-            Одне зображення або ZIP-архів. Назва файлу = код товару (наприклад{' '}
-            <code>ABC123.jpg</code>) або штрихкод EAN/UPC з 8–14 цифр (наприклад{' '}
-            <code>4820001234567.jpg</code>). Існуючі фото товару замінюються.
+            {t('uploadImagesDesc1')}
+            <code>ABC123.jpg</code>
+            {t('uploadImagesDesc2')}
+            <code>4820001234567.jpg</code>
+            {t('uploadImagesDesc3')}
           </p>
-          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-            Перетягніть файл сюди або
-          </p>
+          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">{t('dragHere')}</p>
           <label className="inline-block">
             <input
               ref={imageInputRef}
@@ -728,7 +731,7 @@ export default function AdminImportPage() {
               className="hidden"
             />
             <span className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--color-bg-secondary)]">
-              Обрати файл
+              {t('chooseFile')}
             </span>
           </label>
         </div>
@@ -741,8 +744,8 @@ export default function AdminImportPage() {
           <div className="mb-1 flex justify-between text-xs text-[var(--color-text-secondary)]">
             <span>
               {isProcessing
-                ? 'Обробка на сервері…'
-                : `Завантаження файлу — ${uploadProgress}%`}
+                ? t('processingServer')
+                : t('uploadingFile', { percent: uploadProgress })}
             </span>
             {!isProcessing && <span>{uploadProgress}%</span>}
           </div>
@@ -769,20 +772,20 @@ export default function AdminImportPage() {
         <div className="mb-6 rounded-[var(--radius)] border border-red-200 bg-red-50/40 p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[var(--color-danger)]">
-              Знайдено {lastErrors.length} помилок у файлі
+              {t('errorsFoundInFile', { count: lastErrors.length })}
             </h3>
             <Button size="sm" variant="outline" onClick={downloadLastErrorsCsv}>
-              Завантажити CSV
+              {t('downloadCsv')}
             </Button>
           </div>
           <div className="max-h-60 overflow-auto rounded border border-red-200 bg-white">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-red-50 text-red-700">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">Рядок</th>
-                  <th className="px-3 py-2 text-left font-medium">Код</th>
-                  <th className="px-3 py-2 text-left font-medium">Поле</th>
-                  <th className="px-3 py-2 text-left font-medium">Помилка</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('thRow')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('thCode')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('thField')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('thError')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -801,7 +804,7 @@ export default function AdminImportPage() {
           </div>
           {lastErrors.length > 100 && (
             <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-              Показано перші 100 з {lastErrors.length}. Завантажте CSV для повного списку.
+              {t('shownFirst100', { total: lastErrors.length })}
             </p>
           )}
         </div>
@@ -813,36 +816,38 @@ export default function AdminImportPage() {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold">
-                Diff цін
+                {t('priceDiff')}
                 <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                  Тільки ціни
+                  {t('onlyPrices')}
                 </span>
               </h3>
               <p className="text-xs text-[var(--color-text-secondary)]">
-                {pricePreviewFile?.name} — {pricePreview.totalRows} рядків · нові товари не
-                створюються
+                {t('priceDiffInfo', {
+                  filename: pricePreviewFile?.name ?? '',
+                  rows: pricePreview.totalRows,
+                })}
               </p>
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={handlePriceUpload} isLoading={isUploading}>
-                Застосувати оновлення
+                {t('applyUpdate')}
               </Button>
               <Button size="sm" variant="outline" onClick={cancelPricePreview}>
-                Скасувати
+                {t('cancel')}
               </Button>
             </div>
           </div>
 
           <div className="mb-3 flex flex-wrap gap-2 text-xs">
             <span className="rounded-full bg-green-100 px-2 py-1 font-medium text-green-700">
-              Зміняться: {pricePreview.changedCount}
+              {t('willChange', { count: pricePreview.changedCount })}
             </span>
             <span className="rounded-full bg-gray-100 px-2 py-1 font-medium text-gray-700">
-              Без змін: {pricePreview.unchangedCount}
+              {t('unchangedCount', { count: pricePreview.unchangedCount })}
             </span>
             {pricePreview.missingCount > 0 && (
               <span className="rounded-full bg-red-100 px-2 py-1 font-medium text-red-700">
-                Не знайдено: {pricePreview.missingCount}
+                {t('notFoundCount', { count: pricePreview.missingCount })}
               </span>
             )}
           </div>
@@ -851,13 +856,13 @@ export default function AdminImportPage() {
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-[var(--color-bg-secondary)]">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">Код</th>
-                  <th className="px-3 py-2 text-left font-medium">Назва</th>
-                  <th className="px-3 py-2 text-right font-medium">Роздріб</th>
-                  <th className="px-3 py-2 text-right font-medium">Опт</th>
-                  <th className="px-3 py-2 text-right font-medium">Опт 2</th>
-                  <th className="px-3 py-2 text-right font-medium">Опт 3</th>
-                  <th className="px-3 py-2 text-center font-medium">Δ %</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('thCode')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('thName')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('thRetail')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('thWholesale')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('thWholesale2')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('thWholesale3')}</th>
+                  <th className="px-3 py-2 text-center font-medium">{t('thDelta')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -877,7 +882,7 @@ export default function AdminImportPage() {
                       <td className="px-3 py-1.5 font-mono">{d.code}</td>
                       <td className="px-3 py-1.5 text-[var(--color-text-secondary)]">
                         {d.status === 'missing' ? (
-                          <span className="text-red-600">не знайдено</span>
+                          <span className="text-red-600">{t('notFoundCell')}</span>
                         ) : (
                           d.name
                         )}
@@ -900,9 +905,7 @@ export default function AdminImportPage() {
                                 <span className="text-[var(--color-text-secondary)] line-through">
                                   {fmtPrice(oldV)}
                                 </span>{' '}
-                                <span className="font-medium text-green-700">
-                                  {fmtPrice(newV)}
-                                </span>
+                                <span className="font-medium text-green-700">{fmtPrice(newV)}</span>
                               </span>
                             ) : (
                               <span className="text-[var(--color-text-secondary)]">
@@ -930,7 +933,10 @@ export default function AdminImportPage() {
           </div>
           {pricePreview.totalRows > pricePreview.sample.length && (
             <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-              Показано перші {pricePreview.sample.length} з {pricePreview.totalRows} рядків
+              {t('shownFirstN', {
+                shown: pricePreview.sample.length,
+                total: pricePreview.totalRows,
+              })}
             </p>
           )}
         </div>
@@ -942,16 +948,16 @@ export default function AdminImportPage() {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold">
-                Попередній перегляд
+                {t('previewTitle')}
                 {preview.format === 'supplier' && (
                   <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                    Формат постачальника
+                    {t('supplierFormat')}
                   </span>
                 )}
               </h3>
               <p className="text-xs text-[var(--color-text-secondary)]">
-                {previewFile?.name} — {preview.totalRows} рядків
-                {preview.format === 'supplier' && ' (категорії з рядків-роздільників)'}
+                {t('previewInfo', { filename: previewFile?.name ?? '', rows: preview.totalRows })}
+                {preview.format === 'supplier' && t('supplierSuffix')}
               </p>
             </div>
             <div className="flex gap-2">
@@ -960,15 +966,15 @@ export default function AdminImportPage() {
                 variant="outline"
                 onClick={() => handleUpload({ dryRun: true })}
                 isLoading={isUploading}
-                title="Симуляція: пройти валідацію + порахувати скільки створити/оновити, БЕЗ запису в БД"
+                title={t('dryRunTitle')}
               >
-                Перевірити (dry-run)
+                {t('checkDryRun')}
               </Button>
               <Button size="sm" onClick={() => handleUpload()} isLoading={isUploading}>
-                Імпортувати
+                {t('import')}
               </Button>
               <Button size="sm" variant="outline" onClick={cancelPreview}>
-                Скасувати
+                {t('cancel')}
               </Button>
             </div>
           </div>
@@ -998,7 +1004,7 @@ export default function AdminImportPage() {
           </div>
           {preview.rows.length > 10 && (
             <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-              Показано перші 10 з {preview.totalRows} рядків
+              {t('shownFirst10', { total: preview.totalRows })}
             </p>
           )}
         </div>
@@ -1008,7 +1014,7 @@ export default function AdminImportPage() {
       <SupplierChannelsSection />
 
       {/* History */}
-      <h3 className="mb-3 text-sm font-semibold">Історія імпортів</h3>
+      <h3 className="mb-3 text-sm font-semibold">{t('historyTitle')}</h3>
 
       {isLoading ? (
         <div className="flex justify-center py-8">
@@ -1019,14 +1025,14 @@ export default function AdminImportPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                <th className="px-4 py-3 text-left font-medium">Файл</th>
-                <th className="px-4 py-3 text-center font-medium">Рядків</th>
-                <th className="px-4 py-3 text-center font-medium">Створено</th>
-                <th className="px-4 py-3 text-center font-medium">Оновлено</th>
-                <th className="px-4 py-3 text-center font-medium">Помилки</th>
-                <th className="px-4 py-3 text-center font-medium">Статус</th>
-                <th className="px-4 py-3 text-left font-medium">Дата</th>
-                <th className="px-4 py-3 text-center font-medium">Дії</th>
+                <th className="px-4 py-3 text-left font-medium">{t('thFile')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('thRows')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('thCreated')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('thUpdated')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('thErrors')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('thStatus')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('thDate')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('thActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1050,10 +1056,10 @@ export default function AdminImportPage() {
                       }`}
                     >
                       {log.status.startsWith('completed')
-                        ? 'Завершено'
+                        ? t('statusCompleted')
                         : log.status.startsWith('failed')
-                          ? 'Помилка'
-                          : 'В процесі'}
+                          ? t('statusFailed')
+                          : t('statusInProgress')}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">
@@ -1068,7 +1074,7 @@ export default function AdminImportPage() {
                           disabled={downloadingLogId === log.id}
                           className="text-xs text-[var(--color-primary)] underline disabled:opacity-50"
                         >
-                          {downloadingLogId === log.id ? '…' : 'CSV помилок'}
+                          {downloadingLogId === log.id ? '…' : t('csvErrors')}
                         </button>
                       )}
                       {log.status.startsWith('completed') && !log.rollbackedAt && (
@@ -1076,18 +1082,22 @@ export default function AdminImportPage() {
                           type="button"
                           onClick={() => handleRollback(log)}
                           disabled={rollbackingId === log.id}
-                          title="Скасувати імпорт: повернути старі ціни, видалити нові товари"
+                          title={t('rollbackTitle')}
                           className="text-xs text-[var(--color-danger)] underline disabled:opacity-50"
                         >
-                          {rollbackingId === log.id ? '…' : 'Скасувати'}
+                          {rollbackingId === log.id ? '…' : t('rollback')}
                         </button>
                       )}
                       {log.rollbackedAt && (
                         <span className="text-xs text-[var(--color-text-secondary)]">
-                          скасовано
+                          {t('rolledBack')}
                         </span>
                       )}
-                      {log.errorCount === 0 && log.status.startsWith('completed') && !log.rollbackedAt ? null : null}
+                      {log.errorCount === 0 &&
+                      log.status.startsWith('completed') &&
+                      !log.rollbackedAt
+                        ? null
+                        : null}
                     </div>
                   </td>
                 </tr>
@@ -1099,10 +1109,8 @@ export default function AdminImportPage() {
                       <span className="text-3xl" aria-hidden="true">
                         📥
                       </span>
-                      <p className="text-sm font-medium">Імпортів ще не було</p>
-                      <p className="text-xs">
-                        Завантажте перший прайс-лист — історія імпортів буде тут
-                      </p>
+                      <p className="text-sm font-medium">{t('emptyTitle')}</p>
+                      <p className="text-xs">{t('emptyDesc')}</p>
                     </div>
                   </td>
                 </tr>

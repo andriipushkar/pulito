@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -30,6 +31,7 @@ interface StaticPage {
 export default function AdminPageEditPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useTranslations('admin.adminPageEditPage');
   const [page, setPage] = useState<StaticPage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -97,12 +99,12 @@ export default function AdminPageEditPage() {
         parentId: form.parentId === '' ? null : Number(form.parentId),
       });
       if (res.success) {
-        setMessage({ type: 'success', text: 'Збережено!' });
+        setMessage({ type: 'success', text: t('saved') });
       } else {
-        setMessage({ type: 'error', text: res.error || 'Помилка збереження' });
+        setMessage({ type: 'error', text: res.error || t('saveError') });
       }
     } catch {
-      setMessage({ type: 'error', text: 'Помилка мережі' });
+      setMessage({ type: 'error', text: t('networkError') });
     } finally {
       setIsSaving(false);
     }
@@ -119,9 +121,9 @@ export default function AdminPageEditPage() {
   if (!page) {
     return (
       <div className="text-center">
-        <p className="text-[var(--color-text-secondary)]">Сторінку не знайдено</p>
+        <p className="text-[var(--color-text-secondary)]">{t('notFound')}</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/admin/pages')}>
-          До списку
+          {t('backToList')}
         </Button>
       </div>
     );
@@ -132,12 +134,12 @@ export default function AdminPageEditPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <Link href="/admin/pages" className="text-sm text-[var(--color-primary)] hover:underline">
-            ← Сторінки
+            {t('backArrow')}
           </Link>
           <h2 className="mt-1 text-xl font-bold">{page.title}</h2>
         </div>
         <Button onClick={handleSave} isLoading={isSaving}>
-          Зберегти
+          {t('save')}
         </Button>
       </div>
 
@@ -156,11 +158,11 @@ export default function AdminPageEditPage() {
         seoSlug={form.slug}
         preview={
           <article className="prose prose-sm max-w-none">
-            <h1>{form.title || '(без заголовка)'}</h1>
+            <h1>{form.title || t('noTitle')}</h1>
             {form.content ? (
               <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(form.content) }} />
             ) : (
-              <p className="italic text-[var(--color-text-secondary)]">(порожній вміст)</p>
+              <p className="italic text-[var(--color-text-secondary)]">{t('emptyContent')}</p>
             )}
           </article>
         }
@@ -169,12 +171,12 @@ export default function AdminPageEditPage() {
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
-                label="Заголовок *"
+                label={t('titleLabel')}
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
               />
               <Input
-                label="Slug *"
+                label={t('slugLabel')}
                 value={form.slug}
                 onChange={(e) => setForm({ ...form, slug: e.target.value })}
               />
@@ -187,23 +189,23 @@ export default function AdminPageEditPage() {
                   onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
                   className="accent-[var(--color-primary)]"
                 />
-                Опубліковано
+                {t('published')}
               </label>
               <Input
-                label="Порядок"
+                label={t('orderLabel')}
                 type="number"
                 value={String(form.sortOrder)}
                 onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
                 className="w-24"
               />
               <div>
-                <label className="mb-1 block text-sm font-medium">Батьківська сторінка</label>
+                <label className="mb-1 block text-sm font-medium">{t('parentLabel')}</label>
                 <select
                   value={form.parentId}
                   onChange={(e) => setForm({ ...form, parentId: e.target.value })}
                   className="h-10 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
                 >
-                  <option value="">— Без батька (корінь) —</option>
+                  <option value="">{t('noParent')}</option>
                   {allPages.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.title}
@@ -211,31 +213,31 @@ export default function AdminPageEditPage() {
                   ))}
                 </select>
                 <p className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">
-                  Макс. 1 рівень вкладеності
+                  {t('parentHint')}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-            <h3 className="mb-3 text-sm font-semibold">Вміст</h3>
+            <h3 className="mb-3 text-sm font-semibold">{t('content')}</h3>
             <WysiwygEditor
               value={form.content}
               onChange={(html) => setForm({ ...form, content: html })}
-              placeholder="Введіть вміст сторінки..."
+              placeholder={t('contentPh')}
             />
           </div>
 
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-            <h3 className="mb-3 text-sm font-semibold">SEO</h3>
+            <h3 className="mb-3 text-sm font-semibold">{t('seo')}</h3>
             <div className="space-y-4">
               <Input
-                label="Meta Title"
+                label={t('metaTitle')}
                 value={form.seoTitle}
                 onChange={(e) => setForm({ ...form, seoTitle: e.target.value })}
               />
               <div>
-                <label className="mb-1 block text-sm font-medium">Meta Description</label>
+                <label className="mb-1 block text-sm font-medium">{t('metaDesc')}</label>
                 <textarea
                   value={form.seoDescription}
                   onChange={(e) => setForm({ ...form, seoDescription: e.target.value })}
@@ -251,29 +253,29 @@ export default function AdminPageEditPage() {
               <span className="rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                 EN
               </span>
-              Англійський переклад (опційно)
+              {t('enSection')}
             </h3>
             <div className="space-y-4">
               <Input
-                label="Title (EN)"
+                label={t('titleEn')}
                 value={form.titleEn}
                 onChange={(e) => setForm({ ...form, titleEn: e.target.value })}
               />
               <div>
-                <label className="mb-1 block text-sm font-medium">Content (EN)</label>
+                <label className="mb-1 block text-sm font-medium">{t('contentEn')}</label>
                 <WysiwygEditor
                   value={form.contentEn}
                   onChange={(html) => setForm({ ...form, contentEn: html })}
-                  placeholder="English version of the page..."
+                  placeholder={t('contentEnPh')}
                 />
               </div>
               <Input
-                label="Meta Title (EN)"
+                label={t('metaTitleEn')}
                 value={form.seoTitleEn}
                 onChange={(e) => setForm({ ...form, seoTitleEn: e.target.value })}
               />
               <div>
-                <label className="mb-1 block text-sm font-medium">Meta Description (EN)</label>
+                <label className="mb-1 block text-sm font-medium">{t('metaDescEn')}</label>
                 <textarea
                   value={form.seoDescriptionEn}
                   onChange={(e) => setForm({ ...form, seoDescriptionEn: e.target.value })}

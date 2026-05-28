@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import Button from '@/components/ui/Button';
@@ -22,6 +23,7 @@ interface AdminPage {
 
 export default function AdminPagesPage() {
   const router = useRouter();
+  const t = useTranslations('admin.adminPagesPage');
   const [pages, setPages] = useState<AdminPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -37,10 +39,11 @@ export default function AdminPagesPage() {
       .get<AdminPage[]>('/api/v1/admin/pages')
       .then((res) => {
         if (res.success && res.data) setPages(res.data);
-        else toast.error('Не вдалося завантажити сторінки');
+        else toast.error(t('loadError'));
       })
-      .catch(() => toast.error('Помилка мережі'))
+      .catch(() => toast.error(t('networkError')))
       .finally(() => setIsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -50,24 +53,24 @@ export default function AdminPagesPage() {
   const handleCreate = async () => {
     const title = createForm.title.trim();
     if (title.length < 2) {
-      toast.error('Заголовок мінімум 2 символи');
+      toast.error(t('validateTitle'));
       return;
     }
     setIsCreating(true);
     try {
       const res = await apiClient.post<AdminPage>('/api/v1/admin/pages', {
         title,
-        content: '<p>Нова сторінка</p>',
+        content: t('newPageContent'),
         ...(createForm.slug.trim() ? { slug: createForm.slug.trim() } : {}),
       });
       if (res.success && res.data) {
-        toast.success('Сторінку створено — переходимо до редагування');
+        toast.success(t('createdToast'));
         router.push(`/admin/pages/${res.data.id}`);
       } else {
-        toast.error(res.error || 'Не вдалося створити сторінку');
+        toast.error(res.error || t('createError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsCreating(false);
     }
@@ -80,14 +83,14 @@ export default function AdminPagesPage() {
     try {
       const res = await apiClient.delete(`/api/v1/admin/pages/${id}`);
       if (res.success) {
-        toast.success('Сторінку видалено');
+        toast.success(t('deletedToast'));
         setConfirmDelete(null);
         load();
       } else {
-        toast.error(res.error || 'Не вдалося видалити');
+        toast.error(res.error || t('deleteError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsDeleting(false);
     }
@@ -98,10 +101,10 @@ export default function AdminPagesPage() {
       isPublished: !p.isPublished,
     });
     if (res.success) {
-      toast.success(p.isPublished ? 'Сторінку приховано' : 'Сторінку опубліковано');
+      toast.success(p.isPublished ? t('hiddenToast') : t('publishedToast'));
       load();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
@@ -124,48 +127,48 @@ export default function AdminPagesPage() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold">
-          Статичні сторінки{' '}
+          {t('title')}{' '}
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({pages.length})
           </span>
         </h2>
         <div className="flex gap-2">
           <Input
-            placeholder="Пошук..."
+            placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-56"
           />
           <Button onClick={() => setShowCreate(!showCreate)}>
-            {showCreate ? 'Скасувати' : '+ Створити сторінку'}
+            {showCreate ? t('cancel') : t('createBtn')}
           </Button>
         </div>
       </div>
 
       {showCreate && (
         <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="mb-3 text-sm font-semibold">Нова сторінка</p>
+          <p className="mb-3 text-sm font-semibold">{t('newPage')}</p>
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium">Заголовок *</label>
+              <label className="mb-1 block text-xs font-medium">{t('titleLabel')}</label>
               <Input
                 value={createForm.title}
                 onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-                placeholder="Доставка та оплата"
+                placeholder={t('titlePh')}
                 className="w-64"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium">Slug (авто)</label>
+              <label className="mb-1 block text-xs font-medium">{t('slugLabel')}</label>
               <Input
                 value={createForm.slug}
                 onChange={(e) => setCreateForm({ ...createForm, slug: e.target.value })}
-                placeholder="auto-from-title"
+                placeholder={t('slugPh')}
                 className="w-48"
               />
             </div>
             <Button onClick={handleCreate} isLoading={isCreating}>
-              Створити та редагувати
+              {t('createAndEdit')}
             </Button>
           </div>
         </div>
@@ -175,11 +178,11 @@ export default function AdminPagesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-              <th className="px-4 py-3 text-left font-medium">Заголовок</th>
-              <th className="px-4 py-3 text-left font-medium">Slug</th>
-              <th className="px-4 py-3 text-center font-medium">Статус</th>
-              <th className="px-4 py-3 text-left font-medium">Оновлено</th>
-              <th className="px-4 py-3 text-right font-medium">Дії</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colTitle')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colSlug')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('colStatus')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colUpdated')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -198,9 +201,9 @@ export default function AdminPagesPage() {
                         ? 'bg-green-100 text-green-700 hover:bg-green-200'
                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                     }`}
-                    title="Натисніть щоб змінити статус публікації"
+                    title={t('togglePublishTitle')}
                   >
-                    {p.isPublished ? 'Опубліковано' : 'Чернетка'}
+                    {p.isPublished ? t('statusPublished') : t('statusDraft')}
                   </button>
                 </td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">
@@ -214,22 +217,22 @@ export default function AdminPagesPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:underline"
-                        title="Відкрити на сайті"
+                        title={t('viewTitle')}
                       >
-                        Переглянути ↗
+                        {t('view')}
                       </a>
                     )}
                     <Link
                       href={`/admin/pages/${p.id}`}
                       className="text-xs text-[var(--color-primary)] hover:underline"
                     >
-                      Редагувати
+                      {t('edit')}
                     </Link>
                     <button
                       onClick={() => setConfirmDelete(p)}
                       className="text-xs text-[var(--color-danger)] hover:underline"
                     >
-                      Видалити
+                      {t('delete')}
                     </button>
                   </div>
                 </td>
@@ -243,21 +246,21 @@ export default function AdminPagesPage() {
                       📄
                     </span>
                     <p className="text-sm font-medium">
-                      {search ? 'Сторінок не знайдено' : 'Статичних сторінок ще немає'}
+                      {search ? t('emptySearch') : t('emptyAll')}
                     </p>
                     {search ? (
                       <button
                         onClick={() => setSearch('')}
                         className="text-xs text-[var(--color-primary)] hover:underline"
                       >
-                        Скинути пошук
+                        {t('resetSearch')}
                       </button>
                     ) : (
                       <button
                         onClick={() => setShowCreate(true)}
                         className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
                       >
-                        + Створити першу сторінку
+                        {t('createFirst')}
                       </button>
                     )}
                   </div>
@@ -273,9 +276,9 @@ export default function AdminPagesPage() {
         onClose={() => !isDeleting && setConfirmDelete(null)}
         onConfirm={handleDelete}
         variant="danger"
-        title="Видалити сторінку"
-        message={`Видалити "${confirmDelete?.title}"? Цю дію не можна скасувати.`}
-        confirmText="Так, видалити"
+        title={t('deleteTitle')}
+        message={confirmDelete ? t('deleteMsg', { title: confirmDelete.title }) : ''}
+        confirmText={t('confirmDelete')}
         isLoading={isDeleting}
       />
     </div>

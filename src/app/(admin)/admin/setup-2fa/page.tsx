@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/useAuth';
 import Button from '@/components/ui/Button';
@@ -9,6 +10,7 @@ import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 
 export default function SecurityPage() {
+  const t = useTranslations('admin.setup2faPage');
   const { user, isLoading, refreshAuth } = useAuth();
   const [step, setStep] = useState<'idle' | 'setup' | 'verify' | 'done'>('idle');
   const [secret, setSecret] = useState('');
@@ -34,7 +36,7 @@ export default function SecurityPage() {
 
   const handleDisable = async () => {
     if (disableCode.length !== 6) {
-      toast.error('Код має містити 6 цифр');
+      toast.error(t('codeMustBe6'));
       return;
     }
     setIsProcessing(true);
@@ -42,12 +44,12 @@ export default function SecurityPage() {
       code: disableCode,
     });
     if (res.success) {
-      toast.success('2FA вимкнено');
+      toast.success(t('disabledToast'));
       setDisableMode(false);
       setDisableCode('');
       await refreshAuth();
     } else {
-      toast.error(res.error || 'Невірний код');
+      toast.error(res.error || t('invalidCode'));
     }
     setIsProcessing(false);
   };
@@ -63,14 +65,14 @@ export default function SecurityPage() {
       setQrDataUrl(res.data.qrDataUrl);
       setStep('setup');
     } else {
-      toast.error(res.error || 'Помилка налаштування');
+      toast.error(res.error || t('setupError'));
     }
     setIsProcessing(false);
   };
 
   const handleVerify = async () => {
     if (code.length !== 6) {
-      toast.error('Код має містити 6 цифр');
+      toast.error(t('codeMustBe6'));
       return;
     }
     setIsProcessing(true);
@@ -84,9 +86,9 @@ export default function SecurityPage() {
       // Without this, AuthProvider's user.twoFactorEnabled stays false and the
       // admin layout's 2FA guard keeps redirecting the user back to setup.
       await refreshAuth();
-      toast.success('2FA успішно увімкнено!');
+      toast.success(t('enabledToast'));
     } else {
-      toast.error(res.error || 'Невірний код');
+      toast.error(res.error || t('invalidCode'));
     }
     setIsProcessing(false);
   };
@@ -105,13 +107,13 @@ export default function SecurityPage() {
         <Spinner size="lg" />
       </div>
     );
-  if (!user) return <div className="py-12 text-center">Будь ласка, увійдіть в акаунт</div>;
+  if (!user) return <div className="py-12 text-center">{t('loginRequired')}</div>;
 
   const is2faEnabled = user.twoFactorEnabled;
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-bold">Безпека акаунту</h1>
+      <h1 className="mb-6 text-2xl font-bold">{t('title')}</h1>
 
       {/* 2FA Section */}
       <div className="mb-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
@@ -134,28 +136,23 @@ export default function SecurityPage() {
             </svg>
           </div>
           <div>
-            <h2 className="text-lg font-semibold">Двофакторна автентифікація (2FA)</h2>
+            <h2 className="text-lg font-semibold">{t('twoFaTitle')}</h2>
             <p className="text-sm text-[var(--color-text-secondary)]">
-              {is2faEnabled
-                ? 'Увімкнено — ваш акаунт захищено'
-                : 'Вимкнено — рекомендуємо увімкнути'}
+              {is2faEnabled ? t('enabledHint') : t('disabledHint')}
             </p>
           </div>
           {is2faEnabled && (
             <span className="ml-auto rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
-              Активна
+              {t('activeBadge')}
             </span>
           )}
         </div>
 
         {step === 'idle' && !is2faEnabled && (
           <div>
-            <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
-              Двофакторна автентифікація додає додатковий рівень захисту. При вході потрібно буде
-              ввести 6-значний код з додатку Google Authenticator або Authy.
-            </p>
+            <p className="mb-4 text-sm text-[var(--color-text-secondary)]">{t('introHint')}</p>
             <Button onClick={handleSetup} isLoading={isProcessing}>
-              Увімкнути 2FA
+              {t('enableBtn')}
             </Button>
           </div>
         )}
@@ -163,17 +160,13 @@ export default function SecurityPage() {
         {step === 'setup' && (
           <div>
             <div className="mb-4 rounded-lg bg-[var(--color-bg-secondary)] p-4">
-              <p className="mb-3 text-sm font-medium">
-                1. Відскануйте QR-код у додатку Google Authenticator:
-              </p>
+              <p className="mb-3 text-sm font-medium">{t('step1')}</p>
               <div className="mb-3 flex justify-center rounded-lg bg-white p-4">
                 {/* QR code via Google Charts API */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrDataUrl} alt="QR код для 2FA" width={250} height={250} />
+                <img src={qrDataUrl} alt={t('qrAlt')} width={250} height={250} />
               </div>
-              <p className="mb-1 text-xs text-[var(--color-text-secondary)]">
-                Або введіть секрет вручну:
-              </p>
+              <p className="mb-1 text-xs text-[var(--color-text-secondary)]">{t('manualSecret')}</p>
               <div className="flex items-center gap-2">
                 <code className="block flex-1 break-all rounded bg-gray-100 px-3 py-2 text-xs font-mono">
                   {showSecret ? secret : '•'.repeat(Math.max(secret.length, 16))}
@@ -182,30 +175,30 @@ export default function SecurityPage() {
                   type="button"
                   onClick={() => setShowSecret((s) => !s)}
                   className="shrink-0 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
-                  aria-label={showSecret ? 'Сховати секрет' : 'Показати секрет'}
+                  aria-label={showSecret ? t('hideSecret') : t('showSecret')}
                 >
-                  {showSecret ? 'Сховати' : 'Показати'}
+                  {showSecret ? t('hide') : t('show')}
                 </button>
                 <button
                   type="button"
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(secret);
-                      toast.success('Секрет скопійовано');
+                      toast.success(t('secretCopied'));
                     } catch {
-                      toast.error('Не вдалося скопіювати');
+                      toast.error(t('copyError'));
                     }
                   }}
                   className="shrink-0 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
-                  aria-label="Скопіювати секрет"
+                  aria-label={t('copySecretAria')}
                 >
-                  Копіювати
+                  {t('copy')}
                 </button>
               </div>
             </div>
 
             <div className="mb-4">
-              <p className="mb-2 text-sm font-medium">2. Введіть 6-значний код з додатку:</p>
+              <p className="mb-2 text-sm font-medium">{t('step2')}</p>
               <div className="flex gap-2">
                 <Input
                   value={code}
@@ -219,7 +212,7 @@ export default function SecurityPage() {
                   isLoading={isProcessing}
                   disabled={code.length !== 6}
                 >
-                  Підтвердити
+                  {t('confirm')}
                 </Button>
               </div>
             </div>
@@ -229,18 +222,13 @@ export default function SecurityPage() {
         {step === 'done' && (
           <div>
             <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4">
-              <p className="mb-1 text-sm font-semibold text-green-800">2FA успішно увімкнено!</p>
-              <p className="text-xs text-green-700">
-                Тепер при кожному вході потрібно буде вводити код з додатку.
-              </p>
+              <p className="mb-1 text-sm font-semibold text-green-800">{t('doneTitle')}</p>
+              <p className="text-xs text-green-700">{t('doneHint')}</p>
             </div>
 
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <p className="mb-2 text-sm font-semibold text-amber-800">Збережіть резервні коди!</p>
-              <p className="mb-3 text-xs text-amber-700">
-                Ці коди можна використати для входу якщо ви втратите доступ до телефону. Кожен код
-                одноразовий.
-              </p>
+              <p className="mb-2 text-sm font-semibold text-amber-800">{t('backupTitle')}</p>
+              <p className="mb-3 text-xs text-amber-700">{t('backupHint')}</p>
               <div className="grid grid-cols-2 gap-1">
                 {backupCodes.map((bc, i) => (
                   <code
@@ -257,10 +245,10 @@ export default function SecurityPage() {
                 className="mt-3"
                 onClick={() => {
                   navigator.clipboard.writeText(backupCodes.join('\n'));
-                  toast.success('Коди скопійовано');
+                  toast.success(t('codesCopied'));
                 }}
               >
-                Скопіювати коди
+                {t('copyCodes')}
               </Button>
             </div>
           </div>
@@ -268,21 +256,16 @@ export default function SecurityPage() {
 
         {is2faEnabled && step === 'idle' && !disableMode && (
           <div className="space-y-4">
-            <p className="text-sm text-green-700">
-              Ваш акаунт захищено двофакторною автентифікацією. При вході вам потрібно вводити код з
-              Google Authenticator.
-            </p>
+            <p className="text-sm text-green-700">{t('enabledStatus')}</p>
             <Button variant="outline" onClick={() => setDisableMode(true)}>
-              Вимкнути 2FA
+              {t('disableBtn')}
             </Button>
           </div>
         )}
 
         {is2faEnabled && disableMode && (
           <div>
-            <p className="mb-3 text-sm text-[var(--color-text-secondary)]">
-              Введіть 6-значний код з додатку, щоб підтвердити вимкнення 2FA.
-            </p>
+            <p className="mb-3 text-sm text-[var(--color-text-secondary)]">{t('disableHint')}</p>
             <div className="flex gap-2">
               <Input
                 value={disableCode}
@@ -296,7 +279,7 @@ export default function SecurityPage() {
                 isLoading={isProcessing}
                 disabled={disableCode.length !== 6}
               >
-                Вимкнути
+                {t('disable')}
               </Button>
               <Button
                 variant="outline"
@@ -305,7 +288,7 @@ export default function SecurityPage() {
                   setDisableCode('');
                 }}
               >
-                Скасувати
+                {t('cancel')}
               </Button>
             </div>
           </div>
@@ -315,10 +298,10 @@ export default function SecurityPage() {
       {/* Login History */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Історія входів</h2>
+          <h2 className="text-lg font-semibold">{t('historyTitle')}</h2>
           {!historyLoaded && (
             <Button variant="outline" size="sm" onClick={loadHistory}>
-              Завантажити
+              {t('loadHistory')}
             </Button>
           )}
         </div>
@@ -336,7 +319,10 @@ export default function SecurityPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">
-                      {entry.browser || 'Невідомий'} на {entry.os || 'Невідомо'}
+                      {t('browserOn', {
+                        browser: entry.browser || t('unknownBrowser'),
+                        os: entry.os || t('unknownOs'),
+                      })}
                     </p>
                     <p className="text-xs text-[var(--color-text-secondary)]">
                       IP: {entry.ipAddress || '—'} ·{' '}
@@ -351,14 +337,12 @@ export default function SecurityPage() {
               <span className="text-2xl" aria-hidden="true">
                 🔒
               </span>
-              <p className="text-sm font-medium">Підозрілої активності не виявлено</p>
-              <p className="text-xs">Поки що немає інших входів у ваш акаунт</p>
+              <p className="text-sm font-medium">{t('noActivity')}</p>
+              <p className="text-xs">{t('noActivityHint')}</p>
             </div>
           )
         ) : (
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            Натисніть «Завантажити» щоб побачити останні входи у ваш акаунт
-          </p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{t('loadHistoryHint')}</p>
         )}
       </div>
     </div>

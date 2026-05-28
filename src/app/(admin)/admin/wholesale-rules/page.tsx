@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { formatPrice } from '@/utils/format';
 import Button from '@/components/ui/Button';
@@ -20,29 +21,27 @@ interface WholesaleRule {
   createdAt: string;
 }
 
-const RULE_TYPE_LABELS: Record<string, string> = {
-  min_order_amount: 'Мін. сума замовлення',
-  min_quantity: 'Мін. кількість товару',
-  multiplicity: 'Кратність замовлення',
-};
-
-const RULE_TYPE_OPTIONS = Object.entries(RULE_TYPE_LABELS).map(([v, l]) => ({
-  value: v,
-  label: l,
-}));
-
 const RULE_TYPE_UNIT: Record<string, 'currency' | 'count'> = {
   min_order_amount: 'currency',
   min_quantity: 'count',
   multiplicity: 'count',
 };
 
-function formatRuleValue(ruleType: string, value: number): string {
-  if (RULE_TYPE_UNIT[ruleType] === 'currency') return formatPrice(value);
-  return `${value} шт`;
-}
-
 export default function AdminWholesaleRulesPage() {
+  const t = useTranslations('admin.wholesaleRulesPage');
+  const RULE_TYPE_LABELS: Record<string, string> = {
+    min_order_amount: t('typeMinAmount'),
+    min_quantity: t('typeMinQty'),
+    multiplicity: t('typeMultiplicity'),
+  };
+  const RULE_TYPE_OPTIONS = Object.entries(RULE_TYPE_LABELS).map(([v, l]) => ({
+    value: v,
+    label: l,
+  }));
+  const formatRuleValue = (ruleType: string, value: number): string => {
+    if (RULE_TYPE_UNIT[ruleType] === 'currency') return formatPrice(value);
+    return `${value} ${t('qtyUnit')}`;
+  };
   const [rules, setRules] = useState<WholesaleRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -62,9 +61,9 @@ export default function AdminWholesaleRulesPage() {
       .get<WholesaleRule[]>('/api/v1/admin/wholesale-rules')
       .then((res) => {
         if (res.success && res.data) setRules(res.data);
-        else toast.error('Не вдалося завантажити правила');
+        else toast.error(t('loadError'));
       })
-      .catch(() => toast.error('Помилка мережі'))
+      .catch(() => toast.error(t('networkError')))
       .finally(() => setIsLoading(false));
   };
 
@@ -104,14 +103,14 @@ export default function AdminWholesaleRulesPage() {
         : await apiClient.post('/api/v1/admin/wholesale-rules', payload);
 
       if (res.success) {
-        toast.success(editingId ? 'Правило оновлено' : 'Правило створено');
+        toast.success(editingId ? t('savedToast') : t('createdToast'));
         resetForm();
         loadRules();
       } else {
-        toast.error(res.error || 'Помилка збереження');
+        toast.error(res.error || t('saveError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -127,9 +126,9 @@ export default function AdminWholesaleRulesPage() {
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/wholesale-rules/${id}`);
     if (res.success) {
-      toast.success('Правило видалено');
+      toast.success(t('deletedToast'));
     } else {
-      toast.error('Помилка видалення');
+      toast.error(t('deleteError'));
     }
     loadRules();
   };
@@ -138,33 +137,31 @@ export default function AdminWholesaleRulesPage() {
     const res = await apiClient.put(`/api/v1/admin/wholesale-rules/${rule.id}`, {
       isActive: !rule.isActive,
     });
-    if (res.success) toast.success(rule.isActive ? 'Правило вимкнено' : 'Правило увімкнено');
+    if (res.success) toast.success(rule.isActive ? t('disabledToast') : t('enabledToast'));
     loadRules();
   };
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Гуртові правила</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <Button
           onClick={() => {
             resetForm();
             setShowForm(true);
           }}
         >
-          Додати правило
+          {t('add')}
         </Button>
       </div>
 
       {showForm && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">
-            {editingId ? 'Редагувати' : 'Нове правило'}
-          </h3>
+          <h3 className="mb-3 text-sm font-semibold">{editingId ? t('edit') : t('newRule')}</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-                Тип правила
+                {t('ruleType')}
               </label>
               <Select
                 options={RULE_TYPE_OPTIONS}
@@ -173,18 +170,18 @@ export default function AdminWholesaleRulesPage() {
               />
             </div>
             <Input
-              label="ID товару (опціонально)"
+              label={t('productIdLabel')}
               type="number"
               value={form.productId}
               onChange={(e) => setForm({ ...form, productId: e.target.value })}
-              placeholder="Для всіх товарів"
+              placeholder={t('productIdPh')}
             />
             <Input
-              label="Значення *"
+              label={t('valueLabel')}
               type="number"
               value={form.value}
               onChange={(e) => setForm({ ...form, value: e.target.value })}
-              placeholder="0.00"
+              placeholder={t('valuePh')}
             />
             <div className="flex items-end gap-2">
               <label className="flex items-center gap-2 text-sm">
@@ -194,16 +191,16 @@ export default function AdminWholesaleRulesPage() {
                   onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
                   className="accent-[var(--color-primary)]"
                 />
-                Активне
+                {t('active')}
               </label>
             </div>
           </div>
           <div className="mt-4 flex gap-2">
             <Button onClick={handleSave} isLoading={isSaving} disabled={!form.value}>
-              {editingId ? 'Зберегти' : 'Створити'}
+              {editingId ? t('save') : t('create')}
             </Button>
             <Button variant="outline" onClick={resetForm}>
-              Скасувати
+              {t('cancel')}
             </Button>
           </div>
         </div>
@@ -216,11 +213,11 @@ export default function AdminWholesaleRulesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                <th className="px-4 py-3 text-left font-medium">Тип</th>
-                <th className="px-4 py-3 text-left font-medium">Товар</th>
-                <th className="px-4 py-3 text-right font-medium">Значення</th>
-                <th className="px-4 py-3 text-center font-medium">Статус</th>
-                <th className="px-4 py-3 text-right font-medium">Дії</th>
+                <th className="px-4 py-3 text-left font-medium">{t('colType')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('colProduct')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('colValue')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('colStatus')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -231,7 +228,9 @@ export default function AdminWholesaleRulesPage() {
                 >
                   <td className="px-4 py-3">{RULE_TYPE_LABELS[rule.ruleType]}</td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                    {rule.product ? `${rule.product.name} (${rule.product.code})` : 'Всі товари'}
+                    {rule.product
+                      ? `${rule.product.name} (${rule.product.code})`
+                      : t('allProducts')}
                   </td>
                   <td className="px-4 py-3 text-right font-semibold">
                     {formatRuleValue(rule.ruleType, Number(rule.value))}
@@ -241,7 +240,7 @@ export default function AdminWholesaleRulesPage() {
                       onClick={() => handleToggle(rule)}
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${rule.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                     >
-                      {rule.isActive ? 'Активне' : 'Вимкнене'}
+                      {rule.isActive ? t('statusActive') : t('statusInactive')}
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -249,13 +248,13 @@ export default function AdminWholesaleRulesPage() {
                       onClick={() => handleEdit(rule)}
                       className="mr-2 text-xs text-[var(--color-primary)] hover:underline"
                     >
-                      Редагувати
+                      {t('edit')}
                     </button>
                     <button
                       onClick={() => handleDelete(rule.id)}
                       className="text-xs text-[var(--color-danger)] hover:underline"
                     >
-                      Видалити
+                      {t('delete')}
                     </button>
                   </td>
                 </tr>
@@ -267,11 +266,8 @@ export default function AdminWholesaleRulesPage() {
                       <span className="text-3xl" aria-hidden="true">
                         📦
                       </span>
-                      <p className="text-sm font-medium">Гуртових правил ще немає</p>
-                      <p className="max-w-md text-xs">
-                        Правила застосовуються тільки для гуртівників: мінімальна сума замовлення,
-                        мінімальна кількість товару, кратність
-                      </p>
+                      <p className="text-sm font-medium">{t('emptyTitle')}</p>
+                      <p className="max-w-md text-xs">{t('emptyHint')}</p>
                       <button
                         onClick={() => {
                           resetForm();
@@ -279,7 +275,7 @@ export default function AdminWholesaleRulesPage() {
                         }}
                         className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
                       >
-                        + Додати перше правило
+                        {t('addFirst')}
                       </button>
                     </div>
                   </td>
@@ -295,7 +291,7 @@ export default function AdminWholesaleRulesPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={executeDelete}
         variant="danger"
-        message="Видалити це правило?"
+        message={t('deleteMsg')}
       />
     </div>
   );

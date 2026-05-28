@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server';
 import { verifyCallback, createCallbackResponse } from '@/services/payment-providers/wayforpay';
 import { handlePaymentCallback } from '@/services/payment';
-import { checkWebhookRateLimit } from '@/utils/webhook-security';
+import { checkWebhookRateLimit, readBoundedBody } from '@/utils/webhook-security';
 import { logWebhook } from '@/services/webhook-log';
 import { logger } from '@/lib/logger';
+
+const PAYMENT_MAX_BODY = 64 * 1024;
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -14,7 +16,16 @@ export async function POST(request: NextRequest) {
       return new Response('Rate limited', { status: 429 });
     }
 
-    const body = await request.json();
+    let body: ReturnType<typeof JSON.parse>;
+    try {
+      const raw = await readBoundedBody(request, PAYMENT_MAX_BODY);
+      body = JSON.parse(raw);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'PAYLOAD_TOO_LARGE') {
+        return new Response('Payload too large', { status: 413 });
+      }
+      return new Response('Invalid JSON', { status: 400 });
+    }
 
     if (!body || !body.merchantSignature) {
       logWebhook({

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -39,6 +40,7 @@ interface BlogCategory {
 export default function AdminBlogEditPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useTranslations('admin.adminBlogEditPage');
   const isNew = id === 'new';
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSaving, setIsSaving] = useState(false);
@@ -69,14 +71,15 @@ export default function AdminBlogEditPage() {
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) setCategories(res.data);
-        else toast.error(res.error || 'Помилка завантаження категорій');
+        else toast.error(res.error || t('loadCatsError'));
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка завантаження категорій');
+        if (!cancelled) toast.error(t('loadCatsError'));
       });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -106,11 +109,11 @@ export default function AdminBlogEditPage() {
             isPublished: d.isPublished,
           });
         } else {
-          toast.error(res.error || 'Не вдалося завантажити статтю');
+          toast.error(res.error || t('loadPostError'));
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('Не вдалося завантажити статтю');
+        if (!cancelled) toast.error(t('loadPostError'));
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -152,14 +155,14 @@ export default function AdminBlogEditPage() {
         : await apiClient.patch(`/api/v1/admin/blog/${id}`, payload);
 
       if (res.success) {
-        toast.success(isNew ? 'Статтю створено' : 'Збережено');
+        toast.success(isNew ? t('createdToast') : t('savedToast'));
         if (isNew) router.push('/admin/blog');
-        else setMessage({ type: 'success', text: 'Збережено!' });
+        else setMessage({ type: 'success', text: t('saved') });
       } else {
-        setMessage({ type: 'error', text: res.error || 'Помилка збереження' });
+        setMessage({ type: 'error', text: res.error || t('saveError') });
       }
     } catch {
-      setMessage({ type: 'error', text: 'Помилка мережі' });
+      setMessage({ type: 'error', text: t('networkError') });
     } finally {
       setIsSaving(false);
     }
@@ -178,12 +181,12 @@ export default function AdminBlogEditPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <Link href="/admin/blog" className="text-sm text-[var(--color-primary)] hover:underline">
-            ← Блог
+            {t('backArrow')}
           </Link>
-          <h2 className="mt-1 text-xl font-bold">{isNew ? 'Нова стаття' : form.title}</h2>
+          <h2 className="mt-1 text-xl font-bold">{isNew ? t('newPost') : form.title}</h2>
         </div>
         <Button onClick={handleSave} isLoading={isSaving}>
-          Зберегти
+          {t('save')}
         </Button>
       </div>
 
@@ -198,26 +201,26 @@ export default function AdminBlogEditPage() {
 
       <div className="space-y-6">
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">Основне</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('basicSection')}</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
-              label="Заголовок *"
+              label={t('titleLabel')}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
             <Input
-              label="Slug *"
+              label={t('slugLabel')}
               value={form.slug}
               onChange={(e) => setForm({ ...form, slug: e.target.value })}
             />
             <div>
-              <label className="mb-1 block text-sm font-medium">Категорія</label>
+              <label className="mb-1 block text-sm font-medium">{t('categoryLabel')}</label>
               <select
                 value={form.categoryId}
                 onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
               >
-                <option value="">Без категорії</option>
+                <option value="">{t('noCategory')}</option>
                 {categories.map((c) => (
                   <option key={c.id} value={String(c.id)}>
                     {c.name}
@@ -226,18 +229,18 @@ export default function AdminBlogEditPage() {
               </select>
             </div>
             <Input
-              label="Теги (через кому)"
+              label={t('tagsLabel')}
               value={form.tags}
               onChange={(e) => setForm({ ...form, tags: e.target.value })}
-              placeholder="тег1, тег2, тег3"
+              placeholder={t('tagsPh')}
             />
           </div>
           <div className="mt-4">
             <Input
-              label="URL обкладинки"
+              label={t('coverLabel')}
               value={form.coverImage}
               onChange={(e) => setForm({ ...form, coverImage: e.target.value })}
-              placeholder="https://..."
+              placeholder={t('coverPh')}
             />
           </div>
           <div className="mt-4">
@@ -248,41 +251,41 @@ export default function AdminBlogEditPage() {
                 onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
                 className="accent-[var(--color-primary)]"
               />
-              Опубліковано
+              {t('published')}
             </label>
           </div>
         </div>
 
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">Короткий опис</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('excerptSection')}</h3>
           <textarea
             value={form.excerpt}
             onChange={(e) => setForm({ ...form, excerpt: e.target.value })}
             rows={3}
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-            placeholder="Короткий опис для списку та SEO..."
+            placeholder={t('excerptPh')}
           />
         </div>
 
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">Вміст</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('contentSection')}</h3>
           <WysiwygEditor
             value={form.content}
             onChange={(html) => setForm({ ...form, content: html })}
-            placeholder="Вміст статті..."
+            placeholder={t('contentPh')}
           />
         </div>
 
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">SEO</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('seoSection')}</h3>
           <div className="space-y-4">
             <Input
-              label="Meta Title"
+              label={t('metaTitle')}
               value={form.seoTitle}
               onChange={(e) => setForm({ ...form, seoTitle: e.target.value })}
             />
             <div>
-              <label className="mb-1 block text-sm font-medium">Meta Description</label>
+              <label className="mb-1 block text-sm font-medium">{t('metaDesc')}</label>
               <textarea
                 value={form.seoDescription}
                 onChange={(e) => setForm({ ...form, seoDescription: e.target.value })}
@@ -298,19 +301,17 @@ export default function AdminBlogEditPage() {
             <span className="rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
               EN
             </span>
-            Англійський переклад (опційно)
+            {t('enSection')}
           </h3>
-          <p className="mb-4 text-xs text-[var(--color-text-secondary)]">
-            Залиште порожнім — на /en/blog покаже українську версію як фолбек.
-          </p>
+          <p className="mb-4 text-xs text-[var(--color-text-secondary)]">{t('enHint')}</p>
           <div className="space-y-4">
             <Input
-              label="Title (EN)"
+              label={t('titleEn')}
               value={form.titleEn}
               onChange={(e) => setForm({ ...form, titleEn: e.target.value })}
             />
             <div>
-              <label className="mb-1 block text-sm font-medium">Excerpt (EN)</label>
+              <label className="mb-1 block text-sm font-medium">{t('excerptEn')}</label>
               <textarea
                 value={form.excerptEn}
                 onChange={(e) => setForm({ ...form, excerptEn: e.target.value })}
@@ -319,20 +320,20 @@ export default function AdminBlogEditPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Content (EN)</label>
+              <label className="mb-1 block text-sm font-medium">{t('contentEn')}</label>
               <WysiwygEditor
                 value={form.contentEn}
                 onChange={(html) => setForm({ ...form, contentEn: html })}
-                placeholder="English version of the article..."
+                placeholder={t('contentEnPh')}
               />
             </div>
             <Input
-              label="Meta Title (EN)"
+              label={t('metaTitleEn')}
               value={form.seoTitleEn}
               onChange={(e) => setForm({ ...form, seoTitleEn: e.target.value })}
             />
             <div>
-              <label className="mb-1 block text-sm font-medium">Meta Description (EN)</label>
+              <label className="mb-1 block text-sm font-medium">{t('metaDescEn')}</label>
               <textarea
                 value={form.seoDescriptionEn}
                 onChange={(e) => setForm({ ...form, seoDescriptionEn: e.target.value })}

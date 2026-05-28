@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Select from '@/components/ui/Select';
 import Pagination from '@/components/ui/Pagination';
@@ -23,14 +24,6 @@ interface ChatRoomItem {
   _count: { messages: number };
 }
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Всі статуси' },
-  { value: 'open', label: 'Відкриті' },
-  { value: 'assigned', label: 'В роботі' },
-  { value: 'resolved', label: 'Вирішені' },
-  { value: 'closed', label: 'Закриті' },
-];
-
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-blue-100 text-blue-700',
   assigned: 'bg-amber-100 text-amber-700',
@@ -38,14 +31,21 @@ const STATUS_COLORS: Record<string, string> = {
   closed: 'bg-gray-100 text-gray-500',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  open: 'Відкритий',
-  assigned: 'В роботі',
-  resolved: 'Вирішено',
-  closed: 'Закрито',
-};
-
 export default function AdminChatPage() {
+  const t = useTranslations('admin.adminChatPage');
+  const STATUS_OPTIONS = [
+    { value: '', label: t('statusAll') },
+    { value: 'open', label: t('statusOpen') },
+    { value: 'assigned', label: t('statusAssigned') },
+    { value: 'resolved', label: t('statusResolved') },
+    { value: 'closed', label: t('statusClosed') },
+  ];
+  const STATUS_LABELS: Record<string, string> = {
+    open: t('labelOpen'),
+    assigned: t('labelAssigned'),
+    resolved: t('labelResolved'),
+    closed: t('labelClosed'),
+  };
   const searchParams = useSearchParams();
   const router = useRouter();
   const [rooms, setRooms] = useState<ChatRoomItem[]>([]);
@@ -76,11 +76,11 @@ export default function AdminChatPage() {
           setRooms(res.data);
           setTotal(res.pagination?.total || 0);
         } else {
-          toast.error('Не вдалося завантажити чати');
+          toast.error(t('loadError'));
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка мережі');
+        if (!cancelled) toast.error(t('networkError'));
       })
       .finally(() => {
         if (!cancelled) setCompletedToken(reloadToken);
@@ -88,7 +88,7 @@ export default function AdminChatPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, limit, status, reloadToken]);
+  }, [page, limit, status, reloadToken, t]);
 
   // Auto-refresh every 10 seconds
   useEffect(() => {
@@ -124,7 +124,7 @@ export default function AdminChatPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-xl font-bold">Чати підтримки</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
       </div>
 
       <div className="mb-3 flex flex-wrap items-end gap-3">
@@ -144,13 +144,13 @@ export default function AdminChatPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                  <th className="px-3 py-3 text-left font-medium">ID</th>
-                  <th className="px-3 py-3 text-left font-medium">Клієнт</th>
-                  <th className="px-3 py-3 text-left font-medium">Тема</th>
-                  <th className="px-3 py-3 text-left font-medium">Статус</th>
-                  <th className="px-3 py-3 text-left font-medium">Агент</th>
-                  <th className="px-3 py-3 text-left font-medium">Останнє повідомлення</th>
-                  <th className="px-3 py-3 text-center font-medium">Непрочитані</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('colId')}</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('colClient')}</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('colTopic')}</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('colStatus')}</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('colAgent')}</th>
+                  <th className="px-3 py-3 text-left font-medium">{t('colLastMessage')}</th>
+                  <th className="px-3 py-3 text-center font-medium">{t('colUnread')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,8 +212,8 @@ export default function AdminChatPage() {
                     <td colSpan={7} className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center gap-2 text-[var(--color-text-secondary)]">
                         <span className="text-3xl">💬</span>
-                        <p className="text-sm font-medium">Чатів ще немає</p>
-                        <p className="text-xs">Клієнти розпочнуть діалог через чат на сайті</p>
+                        <p className="text-sm font-medium">{t('emptyTitle')}</p>
+                        <p className="text-xs">{t('emptyHint')}</p>
                       </div>
                     </td>
                   </tr>
@@ -224,7 +224,9 @@ export default function AdminChatPage() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
-              <p className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                {t('totalLabel', { count: total })}
+              </p>
               <PageSizeSelector value={limit} onChange={handlePageSizeChange} />
             </div>
             {total > limit && (

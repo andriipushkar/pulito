@@ -3,6 +3,7 @@
 import { useEffect, useState, use, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -30,13 +31,10 @@ interface StockCountDetail {
   items: StockCountItem[];
 }
 
-export default function StockCountDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function StockCountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const t = useTranslations('admin.stockCountDetailPage');
   const [count, setCount] = useState<StockCountDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -70,24 +68,23 @@ export default function StockCountDetailPage({
       toast.success(`✓ ${code} → ${scanQty}`);
       load();
     } else {
-      toast.error(res.error || 'Помилка сканування');
+      toast.error(res.error || t('scanError'));
     }
     setTimeout(() => scanRef.current?.focus(), 30);
   };
 
   const complete = async () => {
-    if (!confirm('Закрити інвентаризацію та оновити залишки на складі?')) return;
+    if (!confirm(t('confirmComplete'))) return;
     setBusy(true);
-    const res = await apiClient.put<StockCountDetail>(
-      `/api/v1/admin/stock-counts/${id}`,
-      { action: 'complete' },
-    );
+    const res = await apiClient.put<StockCountDetail>(`/api/v1/admin/stock-counts/${id}`, {
+      action: 'complete',
+    });
     setBusy(false);
     if (res.success && res.data) {
       setCount(res.data);
-      toast.success('Інвентаризацію завершено');
+      toast.success(t('completedToast'));
     } else {
-      setError(res.error || 'Помилка');
+      setError(res.error || t('errorGeneric'));
     }
   };
 
@@ -102,18 +99,16 @@ export default function StockCountDetailPage({
   if (!count) {
     return (
       <div>
-        <p>Не знайдено</p>
+        <p>{t('notFound')}</p>
         <Button variant="outline" onClick={() => router.push('/admin/stock-counts')}>
-          До списку
+          {t('backToList')}
         </Button>
       </div>
     );
   }
 
   const counted = count.items.filter((i) => i.countedQty !== null).length;
-  const withVariance = count.items.filter(
-    (i) => i.variance !== null && i.variance !== 0,
-  ).length;
+  const withVariance = count.items.filter((i) => i.variance !== null && i.variance !== 0).length;
 
   const filtered =
     filter === 'all'
@@ -130,25 +125,24 @@ export default function StockCountDetailPage({
         href="/admin/stock-counts"
         className="text-sm text-[var(--color-primary)] hover:underline"
       >
-        &larr; До списку
+        {t('backArrow')}
       </Link>
 
       <div className="mt-4 mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-mono text-xl font-bold">{count.reference}</h1>
           <p className="text-sm text-[var(--color-text-secondary)]">
-            {count.warehouse.name} ·{' '}
-            {new Date(count.startedAt).toLocaleString('uk-UA')}
+            {count.warehouse.name} · {new Date(count.startedAt).toLocaleString('uk-UA')}
           </p>
         </div>
         {count.status === 'in_progress' && (
           <Button onClick={complete} isLoading={busy} disabled={counted === 0}>
-            Завершити інвентаризацію
+            {t('completeBtn')}
           </Button>
         )}
         {count.status === 'completed' && (
           <span className="rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-            Закрито
+            {t('closedBadge')}
           </span>
         )}
       </div>
@@ -164,7 +158,7 @@ export default function StockCountDetailPage({
           <div className="flex flex-wrap items-end gap-2">
             <div className="flex-1">
               <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-                Код товару
+                {t('codeLabel')}
               </label>
               <input
                 ref={scanRef}
@@ -174,13 +168,13 @@ export default function StockCountDetailPage({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleScan(scanValue);
                 }}
-                placeholder="Скануйте або введіть артикул…"
+                placeholder={t('scanPh')}
                 className="w-full rounded-[var(--radius)] border-2 border-dashed border-[var(--color-primary)] bg-[var(--color-bg)] px-3 py-2 text-base outline-none focus:border-solid"
               />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-                Кількість
+                {t('qtyLabel')}
               </label>
               <input
                 type="number"
@@ -194,7 +188,7 @@ export default function StockCountDetailPage({
               type="button"
               onClick={() => setCameraOpen(true)}
               className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-2xl hover:bg-[var(--color-bg-secondary)]"
-              title="Сканувати камерою"
+              title={t('scanCamera')}
             >
               📷
             </button>
@@ -211,22 +205,22 @@ export default function StockCountDetailPage({
         <FilterPill
           active={filter === 'all'}
           onClick={() => setFilter('all')}
-          label={`Усі (${count.items.length})`}
+          label={t('filterAll', { count: count.items.length })}
         />
         <FilterPill
           active={filter === 'counted'}
           onClick={() => setFilter('counted')}
-          label={`Підраховано (${counted})`}
+          label={t('filterCounted', { count: counted })}
         />
         <FilterPill
           active={filter === 'pending'}
           onClick={() => setFilter('pending')}
-          label={`Очікують (${count.items.length - counted})`}
+          label={t('filterPending', { count: count.items.length - counted })}
         />
         <FilterPill
           active={filter === 'variance'}
           onClick={() => setFilter('variance')}
-          label={`Розбіжності (${withVariance})`}
+          label={t('filterVariance', { count: withVariance })}
         />
       </div>
 
@@ -234,11 +228,11 @@ export default function StockCountDetailPage({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-              <th className="px-3 py-2 text-left font-medium">Артикул</th>
-              <th className="px-3 py-2 text-left font-medium">Товар</th>
-              <th className="px-3 py-2 text-right font-medium">Очікувано</th>
-              <th className="px-3 py-2 text-right font-medium">Підраховано</th>
-              <th className="px-3 py-2 text-right font-medium">Розбіжність</th>
+              <th className="px-3 py-2 text-left font-medium">{t('colArticle')}</th>
+              <th className="px-3 py-2 text-left font-medium">{t('colProduct')}</th>
+              <th className="px-3 py-2 text-right font-medium">{t('colExpected')}</th>
+              <th className="px-3 py-2 text-right font-medium">{t('colCounted')}</th>
+              <th className="px-3 py-2 text-right font-medium">{t('colVariance')}</th>
             </tr>
           </thead>
           <tbody>

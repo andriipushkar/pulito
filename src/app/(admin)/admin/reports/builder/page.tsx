@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
@@ -9,20 +10,6 @@ import { formatPrice } from '@/utils/format';
 
 type Dimension = 'status' | 'clientType' | 'deliveryMethod' | 'paymentMethod' | 'monthYear';
 type Metric = 'orderCount' | 'totalRevenue' | 'avgCheck';
-
-const DIM_LABELS: Record<Dimension, string> = {
-  status: 'Статус',
-  clientType: 'Тип клієнта',
-  deliveryMethod: 'Доставка',
-  paymentMethod: 'Оплата',
-  monthYear: 'Місяць / рік',
-};
-
-const METRIC_LABELS: Record<Metric, string> = {
-  orderCount: 'Кількість',
-  totalRevenue: 'Виручка',
-  avgCheck: 'Середній чек',
-};
 
 interface ReportRow {
   dimension: string;
@@ -32,6 +19,19 @@ interface ReportRow {
 }
 
 export default function ReportBuilderPage() {
+  const t = useTranslations('admin.reportBuilderPage');
+  const DIM_LABELS: Record<Dimension, string> = {
+    status: t('dimStatus'),
+    clientType: t('dimClientType'),
+    deliveryMethod: t('dimDeliveryMethod'),
+    paymentMethod: t('dimPaymentMethod'),
+    monthYear: t('dimMonthYear'),
+  };
+  const METRIC_LABELS: Record<Metric, string> = {
+    orderCount: t('metricOrderCount'),
+    totalRevenue: t('metricTotalRevenue'),
+    avgCheck: t('metricAvgCheck'),
+  };
   const [dimension, setDimension] = useState<Dimension>('status');
   const [metrics, setMetrics] = useState<Set<Metric>>(new Set(['orderCount', 'totalRevenue']));
   const [dateFrom, setDateFrom] = useState('');
@@ -50,30 +50,27 @@ export default function ReportBuilderPage() {
 
   const run = async () => {
     if (metrics.size === 0) {
-      toast.error('Оберіть хоча б одну метрику');
+      toast.error(t('selectMetricError'));
       return;
     }
     setIsLoading(true);
-    const res = await apiClient.post<{ rows: ReportRow[] }>(
-      '/api/v1/admin/reports/builder',
-      {
-        dimension,
-        metrics: Array.from(metrics),
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-      },
-    );
+    const res = await apiClient.post<{ rows: ReportRow[] }>('/api/v1/admin/reports/builder', {
+      dimension,
+      metrics: Array.from(metrics),
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    });
     setIsLoading(false);
     if (res.success && res.data) {
       setRows(res.data.rows);
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
   const exportCsv = () => {
     const cols = ['dimension', ...Array.from(metrics)];
-    const header = ['Розріз', ...Array.from(metrics).map((m) => METRIC_LABELS[m])];
+    const header = [t('csvDimension'), ...Array.from(metrics).map((m) => METRIC_LABELS[m])];
     const body = rows.map((r) =>
       cols.map((c) => {
         const v = (r as unknown as Record<string, unknown>)[c];
@@ -94,17 +91,14 @@ export default function ReportBuilderPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">Конструктор звітів</h1>
-        <p className="text-xs text-[var(--color-text-secondary)]">
-          Виберіть розріз і метрики — побачите згруповану таблицю. Експортуйте у CSV для
-          Excel/Google Sheets.
-        </p>
+        <h1 className="text-xl font-bold">{t('title')}</h1>
+        <p className="text-xs text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       <div className="grid gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">
-            Розріз
+            {t('dimensionLabel')}
           </label>
           <Select
             value={dimension}
@@ -114,7 +108,7 @@ export default function ReportBuilderPage() {
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">
-            Дата від
+            {t('dateFromLabel')}
           </label>
           <input
             type="date"
@@ -125,7 +119,7 @@ export default function ReportBuilderPage() {
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">
-            Дата по
+            {t('dateToLabel')}
           </label>
           <input
             type="date"
@@ -136,7 +130,7 @@ export default function ReportBuilderPage() {
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">
-            Метрики
+            {t('metricsLabel')}
           </label>
           <div className="flex flex-wrap gap-2">
             {(Object.entries(METRIC_LABELS) as [Metric, string][]).map(([m, l]) => (
@@ -158,11 +152,11 @@ export default function ReportBuilderPage() {
 
       <div className="flex gap-2">
         <Button onClick={run} disabled={isLoading}>
-          {isLoading ? 'Обчислення…' : 'Запустити'}
+          {isLoading ? t('runComputing') : t('run')}
         </Button>
         {rows.length > 0 && (
           <Button variant="outline" onClick={exportCsv}>
-            📥 Експорт CSV
+            {t('exportCsv')}
           </Button>
         )}
       </div>

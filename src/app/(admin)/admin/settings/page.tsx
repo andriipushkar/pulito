@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -47,187 +48,180 @@ type FieldDef = {
   validate?: (v: string) => string | null;
   type?: 'text' | 'checkbox';
 };
-const SECTIONS: { key: SectionKey; label: string; fields: FieldDef[] }[] = [
-  {
-    key: 'general',
-    label: 'Загальні',
-    fields: [
-      {
-        key: 'site_name',
-        label: 'Назва сайту',
-        hint: 'Відображається у заголовку браузера та листах',
-      },
-      {
-        key: 'site_phone',
-        label: 'Телефон',
-        hint: 'Формат: +380XXXXXXXXX',
-        validate: (v) =>
-          v && !PHONE_UA_PATTERN.test(v) ? 'Невірний формат. Використовуйте +380XXXXXXXXX' : null,
-      },
-      {
-        key: 'site_email',
-        label: 'Email',
-        hint: 'Основний email для листів від клієнтів',
-        validate: (v) => (v && !v.includes('@') ? 'Невірний формат email' : null),
-      },
-      { key: 'site_address', label: 'Адреса', hint: 'Фізична адреса для контактної сторінки' },
-      { key: 'working_hours', label: 'Графік роботи', hint: 'Наприклад: Пн-Пт 9:00-18:00' },
-      {
-        key: 'company_description',
-        label: 'Опис компанії',
-        hint: 'Коротко про магазин — для футера, Open Graph, JSON-LD та PDF-документів',
-      },
-      {
-        key: 'free_delivery_threshold',
-        label: 'Поріг безкоштовної доставки (грн)',
-        hint: 'Сума замовлення, від якої доставка безкоштовна. Відображається у TopBar.',
-        validate: (v) => (v && !/^\d+$/.test(v) ? 'Має бути цілим числом у гривнях' : null),
-      },
-    ],
-  },
-  {
-    key: 'company',
-    label: 'Юридична інформація',
-    fields: [
-      { key: 'company_legal_name', label: 'Юридична назва', hint: 'Повна назва ФОП або ТОВ' },
-      {
-        key: 'company_edrpou',
-        label: 'ЄДРПОУ',
-        hint: '8-значний код з ЄДР',
-        validate: (v) => (v && !EDRPOU_PATTERN.test(v) ? 'ЄДРПОУ має містити рівно 8 цифр' : null),
-      },
-      {
-        key: 'company_ipn',
-        label: 'ІПН',
-        hint: '10- або 12-значний податковий номер',
-        validate: (v) => (v && !IPN_PATTERN.test(v) ? 'ІПН має містити 10 або 12 цифр' : null),
-      },
-      {
-        key: 'company_iban',
-        label: 'IBAN',
-        hint: 'UA + 27 цифр — банківський рахунок для оплат',
-        validate: (v) =>
-          v && !IBAN_UA_PATTERN.test(v) ? 'IBAN має починатися з UA та містити 29 символів' : null,
-      },
-      { key: 'company_bank', label: 'Банк', hint: 'Назва банку для реквізитів в рахунках' },
-      { key: 'company_legal_address', label: 'Юридична адреса' },
-    ],
-  },
-  {
-    key: 'social',
-    label: 'Соціальні мережі',
-    fields: [
-      {
-        key: 'social_telegram',
-        label: 'Telegram канал',
-        hint: 'Посилання виду https://t.me/channel',
-      },
-      { key: 'social_viber', label: 'Viber спільнота', hint: 'Повне посилання на спільноту Viber' },
-      {
-        key: 'social_facebook',
-        label: 'Facebook URL',
-        hint: 'Повне посилання на сторінку Facebook',
-      },
-      {
-        key: 'social_instagram',
-        label: 'Instagram URL',
-        hint: 'Повне посилання на профіль Instagram',
-      },
-      { key: 'social_tiktok', label: 'TikTok URL', hint: 'Повне посилання на профіль TikTok' },
-    ],
-  },
-  {
-    key: 'display',
-    label: 'Відображення',
-    fields: [
-      {
-        key: 'hide_all_quantity',
-        label: 'Приховувати кількість товарів для всіх позицій',
-        hint: 'Якщо увімкнено — на сайті показується тільки «В наявності» / «Немає», без точної цифри. Перебиває per-product галочку.',
-        type: 'checkbox',
-      },
-    ],
-  },
-  {
-    key: 'analytics',
-    label: 'SEO та аналітика',
-    fields: [
-      {
-        key: 'default_seo_title',
-        label: 'SEO Title (за замовч.)',
-        hint: 'Заголовок для сторінок без власного SEO-title (до 70 символів)',
-      },
-      {
-        key: 'default_seo_description',
-        label: 'SEO Description (за замовч.)',
-        hint: 'Мета-опис за замовчуванням (до 160 символів)',
-      },
-      {
-        key: 'google_analytics_id',
-        label: 'Google Analytics ID',
-        hint: 'Формат: G-XXXXXXXXXX або UA-XXXXXXXX-X',
-        validate: (v) =>
-          v && !/^(G-[A-Z0-9]+|UA-\d+-\d+)$/.test(v) ? 'Невірний формат GA ID' : null,
-      },
-      {
-        key: 'facebook_pixel_id',
-        label: 'Facebook Pixel ID',
-        hint: 'Числовий ID з кабінету Meta Ads',
-        validate: (v) => (v && !/^\d+$/.test(v) ? 'Pixel ID має бути числом' : null),
-      },
-      {
-        key: 'pinterest_tag_id',
-        label: 'Pinterest Tag ID',
-        hint: 'ID з Pinterest Business → Conversions → Pinterest Tag (13-значне число)',
-        validate: (v) => (v && !/^\d{10,20}$/.test(v) ? 'Tag ID має бути числом 10-20 цифр' : null),
-      },
-      {
-        key: 'pinterest_domain_verify',
-        label: 'Pinterest Domain Verify',
-        hint: 'Значення з meta-тега <meta name="p:domain_verify"> у Pinterest Business → Claim domain',
-        validate: (v) => (v && !/^[a-f0-9]{32}$/i.test(v) ? 'Має бути 32 hex-символи' : null),
-      },
-    ],
-  },
-  {
-    key: 'loyalty',
-    label: 'Лояльність / Реферали',
-    fields: [
-      {
-        key: 'loyalty_welcome_bonus',
-        label: 'Вітальний бонус (балів)',
-        hint: 'Нараховується одразу при реєстрації будь-якого нового користувача. 0 — вимкнено. 1 бал = 1 ₴ знижки.',
-        validate: (v) => (v && !/^\d+$/.test(v) ? 'Має бути цілим числом (0 — вимкнено)' : null),
-      },
-      {
-        key: 'referral_referrer_bonus',
-        label: 'Бонус рефереру (балів)',
-        hint: 'Скільки балів отримує запрошуючий, коли друг зробить перше замовлення. 0 — вимкнено.',
-        validate: (v) => (v && !/^\d+$/.test(v) ? 'Має бути цілим числом (0 — вимкнено)' : null),
-      },
-      {
-        key: 'referral_referee_bonus',
-        label: 'Бонус новачку за реферал (балів)',
-        hint: 'Додаткові бали для нового користувача, який зареєструвався за чужим реф-кодом — нараховуються при першому замовленні. 0 — вимкнено.',
-        validate: (v) => (v && !/^\d+$/.test(v) ? 'Має бути цілим числом (0 — вимкнено)' : null),
-      },
-      {
-        key: 'loyalty_max_redemption_percent',
-        label: 'Макс. % замовлення, оплачуваний балами',
-        hint: 'Скільки % суми замовлення (товари + доставка) клієнт може оплатити балами. 50 — половина, 100 — все. 0 — без обмеження.',
-        validate: (v) => {
-          if (!v) return null;
-          if (!/^\d+$/.test(v)) return 'Має бути цілим числом 0-100';
-          const n = Number(v);
-          if (n < 0 || n > 100) return 'Діапазон 0-100';
-          return null;
-        },
-      },
-    ],
-  },
-];
-
 export default function AdminSettingsPage() {
+  const t = useTranslations('admin.settingsPage');
+  const SECTIONS: { key: SectionKey; label: string; fields: FieldDef[] }[] = useMemo(
+    () => [
+      {
+        key: 'general',
+        label: t('sec_general'),
+        fields: [
+          { key: 'site_name', label: t('f_site_name'), hint: t('h_site_name') },
+          {
+            key: 'site_phone',
+            label: t('f_site_phone'),
+            hint: t('h_site_phone'),
+            validate: (v) => (v && !PHONE_UA_PATTERN.test(v) ? t('v_phone') : null),
+          },
+          {
+            key: 'site_email',
+            label: t('f_site_email'),
+            hint: t('h_site_email'),
+            validate: (v) => (v && !v.includes('@') ? t('v_email') : null),
+          },
+          { key: 'site_address', label: t('f_site_address'), hint: t('h_site_address') },
+          { key: 'working_hours', label: t('f_working_hours'), hint: t('h_working_hours') },
+          {
+            key: 'company_description',
+            label: t('f_company_description'),
+            hint: t('h_company_description'),
+          },
+          {
+            key: 'free_delivery_threshold',
+            label: t('f_free_delivery_threshold'),
+            hint: t('h_free_delivery_threshold'),
+            validate: (v) => (v && !/^\d+$/.test(v) ? t('v_integer_uah') : null),
+          },
+        ],
+      },
+      {
+        key: 'company',
+        label: t('sec_company'),
+        fields: [
+          {
+            key: 'company_legal_name',
+            label: t('f_company_legal_name'),
+            hint: t('h_company_legal_name'),
+          },
+          {
+            key: 'company_edrpou',
+            label: t('f_company_edrpou'),
+            hint: t('h_company_edrpou'),
+            validate: (v) => (v && !EDRPOU_PATTERN.test(v) ? t('v_edrpou') : null),
+          },
+          {
+            key: 'company_ipn',
+            label: t('f_company_ipn'),
+            hint: t('h_company_ipn'),
+            validate: (v) => (v && !IPN_PATTERN.test(v) ? t('v_ipn') : null),
+          },
+          {
+            key: 'company_iban',
+            label: t('f_company_iban'),
+            hint: t('h_company_iban'),
+            validate: (v) => (v && !IBAN_UA_PATTERN.test(v) ? t('v_iban') : null),
+          },
+          { key: 'company_bank', label: t('f_company_bank'), hint: t('h_company_bank') },
+          { key: 'company_legal_address', label: t('f_company_legal_address') },
+        ],
+      },
+      {
+        key: 'social',
+        label: t('sec_social'),
+        fields: [
+          { key: 'social_telegram', label: t('f_social_telegram'), hint: t('h_social_telegram') },
+          { key: 'social_viber', label: t('f_social_viber'), hint: t('h_social_viber') },
+          { key: 'social_facebook', label: t('f_social_facebook'), hint: t('h_social_facebook') },
+          {
+            key: 'social_instagram',
+            label: t('f_social_instagram'),
+            hint: t('h_social_instagram'),
+          },
+          { key: 'social_tiktok', label: t('f_social_tiktok'), hint: t('h_social_tiktok') },
+        ],
+      },
+      {
+        key: 'display',
+        label: t('sec_display'),
+        fields: [
+          {
+            key: 'hide_all_quantity',
+            label: t('f_hide_all_quantity'),
+            hint: t('h_hide_all_quantity'),
+            type: 'checkbox',
+          },
+        ],
+      },
+      {
+        key: 'analytics',
+        label: t('sec_analytics'),
+        fields: [
+          {
+            key: 'default_seo_title',
+            label: t('f_default_seo_title'),
+            hint: t('h_default_seo_title'),
+          },
+          {
+            key: 'default_seo_description',
+            label: t('f_default_seo_description'),
+            hint: t('h_default_seo_description'),
+          },
+          {
+            key: 'google_analytics_id',
+            label: t('f_google_analytics_id'),
+            hint: t('h_google_analytics_id'),
+            validate: (v) => (v && !/^(G-[A-Z0-9]+|UA-\d+-\d+)$/.test(v) ? t('v_ga') : null),
+          },
+          {
+            key: 'facebook_pixel_id',
+            label: t('f_facebook_pixel_id'),
+            hint: t('h_facebook_pixel_id'),
+            validate: (v) => (v && !/^\d+$/.test(v) ? t('v_pixel') : null),
+          },
+          {
+            key: 'pinterest_tag_id',
+            label: t('f_pinterest_tag_id'),
+            hint: t('h_pinterest_tag_id'),
+            validate: (v) => (v && !/^\d{10,20}$/.test(v) ? t('v_pinterest_tag') : null),
+          },
+          {
+            key: 'pinterest_domain_verify',
+            label: t('f_pinterest_domain_verify'),
+            hint: t('h_pinterest_domain_verify'),
+            validate: (v) => (v && !/^[a-f0-9]{32}$/i.test(v) ? t('v_pinterest_domain') : null),
+          },
+        ],
+      },
+      {
+        key: 'loyalty',
+        label: t('sec_loyalty'),
+        fields: [
+          {
+            key: 'loyalty_welcome_bonus',
+            label: t('f_loyalty_welcome_bonus'),
+            hint: t('h_loyalty_welcome_bonus'),
+            validate: (v) => (v && !/^\d+$/.test(v) ? t('v_integer_off') : null),
+          },
+          {
+            key: 'referral_referrer_bonus',
+            label: t('f_referral_referrer_bonus'),
+            hint: t('h_referral_referrer_bonus'),
+            validate: (v) => (v && !/^\d+$/.test(v) ? t('v_integer_off') : null),
+          },
+          {
+            key: 'referral_referee_bonus',
+            label: t('f_referral_referee_bonus'),
+            hint: t('h_referral_referee_bonus'),
+            validate: (v) => (v && !/^\d+$/.test(v) ? t('v_integer_off') : null),
+          },
+          {
+            key: 'loyalty_max_redemption_percent',
+            label: t('f_loyalty_max_redemption_percent'),
+            hint: t('h_loyalty_max_redemption_percent'),
+            validate: (v) => {
+              if (!v) return null;
+              if (!/^\d+$/.test(v)) return t('v_int_0_100');
+              const n = Number(v);
+              if (n < 0 || n > 100) return t('v_range_0_100');
+              return null;
+            },
+          },
+        ],
+      },
+    ],
+    [t],
+  );
+
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -260,7 +254,7 @@ export default function AdminSettingsPage() {
 
   const handleSaveClick = () => {
     if (!validateFields()) {
-      toast.error('Виправте помилки перед збереженням');
+      toast.error(t('fixErrors'));
       return;
     }
     setConfirmSave(true);
@@ -276,9 +270,9 @@ export default function AdminSettingsPage() {
       // значення замість того, щоб ввести оператора в оману.
       const fresh = await apiClient.get<Record<string, string>>('/api/v1/admin/settings');
       if (fresh.success && fresh.data) setSettings(fresh.data);
-      toast.success('Налаштування збережено');
+      toast.success(t('saved'));
     } else {
-      toast.error(res.error || 'Помилка збереження');
+      toast.error(res.error || t('saveError'));
     }
     setIsSaving(false);
   };
@@ -294,10 +288,10 @@ export default function AdminSettingsPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Налаштування сайту</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         {activeSection !== 'delivery' && activeSection !== 'ai' && (
           <Button onClick={handleSaveClick} isLoading={isSaving}>
-            Зберегти
+            {t('save')}
           </Button>
         )}
       </div>
@@ -320,7 +314,7 @@ export default function AdminSettingsPage() {
           onClick={() => setActiveSection('delivery')}
           className={`rounded-[var(--radius)] px-4 py-2 text-sm font-medium transition-colors ${activeSection === 'delivery' ? 'bg-[var(--color-bg)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}`}
         >
-          Палетна доставка
+          {t('tabPallet')}
         </button>
         <button
           onClick={() => {
@@ -329,7 +323,7 @@ export default function AdminSettingsPage() {
           }}
           className={`rounded-[var(--radius)] px-4 py-2 text-sm font-medium transition-colors ${activeSection === 'ai' ? 'bg-[var(--color-bg)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}`}
         >
-          AI (Claude / Gemini)
+          {t('tabAi')}
         </button>
       </div>
 
@@ -402,15 +396,16 @@ export default function AdminSettingsPage() {
         isOpen={confirmSave}
         onClose={() => setConfirmSave(false)}
         onConfirm={handleSaveConfirm}
-        title="Зберегти налаштування"
-        message="Ви впевнені, що хочете зберегти зміни в налаштуваннях сайту? Зміни набудуть чинності відразу."
-        confirmText="Так, зберегти"
+        title={t('confirmTitle')}
+        message={t('confirmMsg')}
+        confirmText={t('confirmBtn')}
       />
     </div>
   );
 }
 
 function PalletDeliverySettings() {
+  const t = useTranslations('admin.settingsPage');
   const [config, setConfig] = useState<PalletConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -432,11 +427,11 @@ function PalletDeliverySettings() {
     const res = await apiClient.put('/api/v1/admin/settings/pallet-delivery', config);
     setIsSaving(false);
     if (res.success) {
-      toast.success('Налаштування палетної доставки збережено');
+      toast.success(t('palletSaved'));
     } else {
-      toast.error('Помилка збереження');
+      toast.error(t('saveError'));
     }
-  }, [config]);
+  }, [config, t]);
 
   const updateField = useCallback((field: keyof PalletConfig, value: unknown) => {
     setConfig((prev) => (prev ? { ...prev, [field]: value } : prev));
@@ -477,9 +472,9 @@ function PalletDeliverySettings() {
   return (
     <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Палетна доставка</h3>
+        <h3 className="text-lg font-semibold">{t('palletTitle')}</h3>
         <Button onClick={() => setConfirmSave(true)} isLoading={isSaving}>
-          Зберегти
+          {t('save')}
         </Button>
       </div>
 
@@ -491,43 +486,43 @@ function PalletDeliverySettings() {
             onChange={(e) => updateField('enabled', e.target.checked)}
             className="accent-[var(--color-primary)]"
           />
-          Увімкнено
+          {t('enabled')}
         </label>
       </div>
 
       <div className="mb-6 grid gap-4 md:grid-cols-3">
         <Input
-          label="Мін. вага (кг)"
+          label={t('minWeight')}
           type="number"
           value={String(config.minWeightKg)}
           onChange={(e) => updateField('minWeightKg', Number(e.target.value))}
         />
         <Input
-          label="Макс. вага (кг)"
+          label={t('maxWeight')}
           type="number"
           value={String(config.maxWeightKg)}
           onChange={(e) => updateField('maxWeightKg', Number(e.target.value))}
         />
         <Input
-          label="Базова ціна (грн)"
+          label={t('basePrice')}
           type="number"
           value={String(config.basePrice)}
           onChange={(e) => updateField('basePrice', Number(e.target.value))}
         />
         <Input
-          label="Ціна за кг (грн)"
+          label={t('pricePerKg')}
           type="number"
           value={String(config.pricePerKg)}
           onChange={(e) => updateField('pricePerKg', Number(e.target.value))}
         />
         <Input
-          label="Безкоштовно від (грн)"
+          label={t('freeFrom')}
           type="number"
           value={String(config.freeDeliveryThreshold)}
           onChange={(e) => updateField('freeDeliveryThreshold', Number(e.target.value))}
         />
         <Input
-          label="Орієнтовний термін"
+          label={t('estimatedDays')}
           value={config.estimatedDays}
           onChange={(e) => updateField('estimatedDays', e.target.value)}
         />
@@ -535,13 +530,13 @@ function PalletDeliverySettings() {
 
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <h4 className="text-sm font-semibold">Регіони</h4>
+          <h4 className="text-sm font-semibold">{t('regions')}</h4>
           <button
             type="button"
             onClick={addRegion}
             className="text-xs text-[var(--color-primary)] hover:underline"
           >
-            + Додати регіон
+            {t('addRegion')}
           </button>
         </div>
         <div className="space-y-2">
@@ -550,20 +545,20 @@ function PalletDeliverySettings() {
               <Input
                 value={region.name}
                 onChange={(e) => updateRegion(i, 'name', e.target.value)}
-                placeholder="Назва регіону"
+                placeholder={t('regionNamePh')}
               />
               <Input
                 type="number"
                 value={String(region.multiplier)}
                 onChange={(e) => updateRegion(i, 'multiplier', Number(e.target.value))}
-                placeholder="Множник"
+                placeholder={t('multiplierPh')}
               />
               <button
                 type="button"
                 onClick={() => removeRegion(i)}
                 className="shrink-0 text-xs text-[var(--color-danger)] hover:underline"
               >
-                Видалити
+                {t('delete')}
               </button>
             </div>
           ))}
@@ -574,9 +569,9 @@ function PalletDeliverySettings() {
         isOpen={confirmSave}
         onClose={() => setConfirmSave(false)}
         onConfirm={handleSaveConfirm}
-        title="Зберегти налаштування доставки"
-        message="Зміни в налаштуваннях палетної доставки набудуть чинності відразу."
-        confirmText="Так, зберегти"
+        title={t('palletConfirmTitle')}
+        message={t('palletConfirmMsg')}
+        confirmText={t('confirmBtn')}
       />
     </div>
   );
@@ -585,16 +580,27 @@ function PalletDeliverySettings() {
 // Google retired Gemini 1.5 models in late 2025 — keep this list to the
 // currently-available ones. If a deprecated value is read from DB we coerce
 // it back to the default on form load.
-const GEMINI_MODELS: { value: string; label: string }[] = [
-  { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash (рекомендована)' },
-  { value: 'gemini-2.5-flash-lite', label: 'gemini-2.5-flash-lite (найдешевша)' },
-  { value: 'gemini-2.5-pro', label: 'gemini-2.5-pro (якість)' },
-  { value: 'gemini-2.0-flash', label: 'gemini-2.0-flash' },
-  { value: 'gemini-2.0-flash-lite', label: 'gemini-2.0-flash-lite' },
-];
+const GEMINI_MODEL_VALUES = [
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-pro',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+] as const;
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
 function AISettings() {
+  const t = useTranslations('admin.settingsPage');
+  const GEMINI_MODELS: { value: string; label: string }[] = useMemo(
+    () => [
+      { value: 'gemini-2.5-flash', label: t('gemini_25_flash') },
+      { value: 'gemini-2.5-flash-lite', label: t('gemini_25_flash_lite') },
+      { value: 'gemini-2.5-pro', label: t('gemini_25_pro') },
+      { value: 'gemini-2.0-flash', label: t('gemini_20_flash') },
+      { value: 'gemini-2.0-flash-lite', label: t('gemini_20_flash_lite') },
+    ],
+    [t],
+  );
   const [form, setForm] = useState({
     anthropic_api_key: '',
     gemini_api_key: '',
@@ -611,7 +617,7 @@ function AISettings() {
       .then((res) => {
         if (res.success && res.data) {
           const saved = res.data.gemini_model || DEFAULT_GEMINI_MODEL;
-          const isValid = GEMINI_MODELS.some((m) => m.value === saved);
+          const isValid = (GEMINI_MODEL_VALUES as readonly string[]).includes(saved);
           setForm({
             anthropic_api_key: res.data.anthropic_api_key || '',
             gemini_api_key: res.data.gemini_api_key || '',
@@ -635,9 +641,9 @@ function AISettings() {
           gemini_model: fresh.data.gemini_model || 'gemini-1.5-flash',
         });
       }
-      toast.success('Налаштування AI збережено');
+      toast.success(t('aiSaved'));
     } else {
-      toast.error(res.error || 'Помилка збереження');
+      toast.error(res.error || t('saveError'));
     }
     setIsSaving(false);
   };
@@ -654,12 +660,12 @@ function AISettings() {
       }
       const res = await apiClient.post<{ ok: boolean }>('/api/v1/admin/settings/test-ai', payload);
       if (res.success) {
-        toast.success(`${provider === 'claude' ? 'Claude' : 'Gemini'} — підключення працює ✓`);
+        toast.success(t('testOk', { provider: provider === 'claude' ? 'Claude' : 'Gemini' }));
       } else {
-        toast.error(res.error || 'Підключення не вдалося');
+        toast.error(res.error || t('testFailed'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setTesting(null);
     }
@@ -676,27 +682,22 @@ function AISettings() {
   return (
     <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-semibold">AI — генерація описів і SEO</h3>
+        <h3 className="text-lg font-semibold">{t('aiTitle')}</h3>
         <Button onClick={() => setConfirmSave(true)} isLoading={isSaving}>
-          Зберегти
+          {t('save')}
         </Button>
       </div>
 
-      <p className="mb-4 text-xs text-[var(--color-text-secondary)]">
-        Ключі зберігаються в БД і мають пріоритет над відповідними змінними середовища
-        (ANTHROPIC_API_KEY / GEMINI_API_KEY). Якщо поле порожнє — береться значення з .env.
-        Збережені ключі маскуються (••••XXXX) при наступному завантаженні; залиште маску, щоб не
-        змінювати ключ.
-      </p>
+      <p className="mb-4 text-xs text-[var(--color-text-secondary)]">{t('aiKeysHint')}</p>
 
       <div className="space-y-5">
         {/* Claude */}
         <div className="rounded-md border border-[var(--color-border)] p-4">
           <div className="mb-2 flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold">Claude (Anthropic)</p>
+              <p className="text-sm font-semibold">{t('claudeTitle')}</p>
               <p className="text-xs text-[var(--color-text-secondary)]">
-                Найкраща якість, ~$0.02 за генерацію. Отримати ключ:{' '}
+                {t('claudeHintBefore')}
                 <a
                   href="https://console.anthropic.com"
                   target="_blank"
@@ -714,7 +715,7 @@ function AISettings() {
               isLoading={testing === 'claude'}
               disabled={testing !== null}
             >
-              Перевірити
+              {t('test')}
             </Button>
           </div>
           <Input
@@ -731,9 +732,9 @@ function AISettings() {
         <div className="rounded-md border border-[var(--color-border)] p-4">
           <div className="mb-2 flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold">Gemini (Google)</p>
+              <p className="text-sm font-semibold">{t('geminiTitle')}</p>
               <p className="text-xs text-[var(--color-text-secondary)]">
-                Дешева альтернатива (~$0.0005 на gemini-1.5-flash). Отримати ключ:{' '}
+                {t('geminiHintBefore')}
                 <a
                   href="https://aistudio.google.com/apikey"
                   target="_blank"
@@ -751,7 +752,7 @@ function AISettings() {
               isLoading={testing === 'gemini'}
               disabled={testing !== null}
             >
-              Перевірити
+              {t('test')}
             </Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
@@ -764,7 +765,7 @@ function AISettings() {
               autoComplete="off"
             />
             <div>
-              <label className="mb-1 block text-sm font-medium">Модель</label>
+              <label className="mb-1 block text-sm font-medium">{t('modelLabel')}</label>
               <select
                 value={form.gemini_model}
                 onChange={(e) => setForm({ ...form, gemini_model: e.target.value })}
@@ -785,9 +786,9 @@ function AISettings() {
         isOpen={confirmSave}
         onClose={() => setConfirmSave(false)}
         onConfirm={handleSave}
-        title="Зберегти налаштування AI"
-        message="Зміни набудуть чинності відразу. Якщо ви залишили маску (••••), збережений ключ не зміниться."
-        confirmText="Так, зберегти"
+        title={t('aiConfirmTitle')}
+        message={t('aiConfirmMsg')}
+        confirmText={t('confirmBtn')}
       />
     </div>
   );

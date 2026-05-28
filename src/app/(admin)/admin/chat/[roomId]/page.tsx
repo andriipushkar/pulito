@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import ChatMessageList from '@/components/chat/ChatMessageList';
 import ChatInput from '@/components/chat/ChatInput';
@@ -26,13 +27,6 @@ interface RoomDetail {
   createdAt: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  open: 'Відкритий',
-  assigned: 'В роботі',
-  resolved: 'Вирішено',
-  closed: 'Закрито',
-};
-
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-blue-100 text-blue-700',
   assigned: 'bg-amber-100 text-amber-700',
@@ -41,6 +35,13 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function AdminChatRoomPage() {
+  const t = useTranslations('admin.chatRoom');
+  const STATUS_LABELS: Record<string, string> = {
+    open: t('statusOpen'),
+    assigned: t('statusAssigned'),
+    resolved: t('statusResolved'),
+    closed: t('statusClosed'),
+  };
   const { roomId } = useParams<{ roomId: string }>();
   const router = useRouter();
   const [room, setRoom] = useState<RoomDetail | null>(null);
@@ -59,9 +60,9 @@ export default function AdminChatRoomPage() {
           setMessages(data.messages);
         }
       })
-      .catch(() => toast.error('Помилка завантаження'))
+      .catch(() => toast.error(t('loadError')))
       .finally(() => setIsLoading(false));
-  }, [roomId]);
+  }, [roomId, t]);
 
   useEffect(() => {
     loadRoom();
@@ -78,13 +79,13 @@ export default function AdminChatRoomPage() {
         if (res.success) {
           loadRoom();
         } else {
-          toast.error(res.error || 'Помилка');
+          toast.error(res.error || t('errorGeneric'));
         }
       } finally {
         setIsSending(false);
       }
     },
-    [roomId, isSending, loadRoom]
+    [roomId, isSending, loadRoom, t],
   );
 
   const handleAction = async (action: 'assign' | 'resolve' | 'close') => {
@@ -93,14 +94,14 @@ export default function AdminChatRoomPage() {
       const res = await apiClient.patch(`/api/v1/admin/chat/${roomId}`, { action });
       if (res.success) {
         const labels: Record<string, string> = {
-          assign: 'Чат призначено',
-          resolve: 'Чат вирішено',
-          close: 'Чат закрито',
+          assign: t('assignedToast'),
+          resolve: t('resolvedToast'),
+          close: t('closedToast'),
         };
         toast.success(labels[action]);
         loadRoom();
       } else {
-        toast.error(res.error || 'Помилка');
+        toast.error(res.error || t('errorGeneric'));
       }
     } finally {
       setIsUpdating(false);
@@ -117,9 +118,7 @@ export default function AdminChatRoomPage() {
 
   if (!room) {
     return (
-      <div className="py-12 text-center text-[var(--color-text-secondary)]">
-        Чат не знайдено
-      </div>
+      <div className="py-12 text-center text-[var(--color-text-secondary)]">{t('notFound')}</div>
     );
   }
 
@@ -132,37 +131,68 @@ export default function AdminChatRoomPage() {
             onClick={() => router.push('/admin/chat')}
             className="rounded p-1 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-primary)]"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="m15 18-6-6 6-6" />
             </svg>
           </button>
           <div>
             <h2 className="text-lg font-bold">
-              Чат #{room.id}
-              {room.subject && <span className="ml-2 font-normal text-[var(--color-text-secondary)]">- {room.subject}</span>}
+              {t('chatNumber', { id: room.id })}
+              {room.subject && (
+                <span className="ml-2 font-normal text-[var(--color-text-secondary)]">
+                  - {room.subject}
+                </span>
+              )}
             </h2>
             <p className="text-xs text-[var(--color-text-secondary)]">
               {room.user.fullName} ({room.user.email})
             </p>
           </div>
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[room.status] || ''}`}>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[room.status] || ''}`}
+          >
             {STATUS_LABELS[room.status] || room.status}
           </span>
         </div>
         <div className="flex gap-2">
           {room.status === 'open' && (
-            <Button size="sm" variant="outline" onClick={() => handleAction('assign')} disabled={isUpdating}>
-              Взяти в роботу
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAction('assign')}
+              disabled={isUpdating}
+            >
+              {t('assign')}
             </Button>
           )}
           {(room.status === 'open' || room.status === 'assigned') && (
-            <Button size="sm" variant="outline" onClick={() => handleAction('resolve')} disabled={isUpdating}>
-              Вирішено
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAction('resolve')}
+              disabled={isUpdating}
+            >
+              {t('resolve')}
             </Button>
           )}
           {room.status !== 'closed' && (
-            <Button size="sm" variant="outline" onClick={() => handleAction('close')} disabled={isUpdating}>
-              Закрити
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAction('close')}
+              disabled={isUpdating}
+            >
+              {t('close')}
             </Button>
           )}
         </div>
@@ -171,7 +201,7 @@ export default function AdminChatRoomPage() {
       {/* Agent info */}
       {room.assignedAgent && (
         <p className="mb-2 text-xs text-[var(--color-text-secondary)]">
-          Агент: {room.assignedAgent.fullName}
+          {t('agentLabel')} {room.assignedAgent.fullName}
         </p>
       )}
 
@@ -181,7 +211,7 @@ export default function AdminChatRoomPage() {
         <ChatInput
           onSend={handleSend}
           disabled={room.status === 'closed' || isSending}
-          placeholder={room.status === 'closed' ? 'Чат закрито' : 'Відповідь агента...'}
+          placeholder={room.status === 'closed' ? t('inputClosed') : t('inputPlaceholder')}
         />
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -13,6 +14,7 @@ interface HomepageBlock {
 }
 
 export default function AdminHomepagePage() {
+  const t = useTranslations('admin.homepageBlocks');
   const [blocks, setBlocks] = useState<HomepageBlock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -28,7 +30,9 @@ export default function AdminHomepagePage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  useEffect(() => { loadBlocks(); }, [loadBlocks]);
+  useEffect(() => {
+    loadBlocks();
+  }, [loadBlocks]);
 
   // Warn user if they try to leave with unsaved changes
   useEffect(() => {
@@ -70,30 +74,32 @@ export default function AdminHomepagePage() {
     try {
       const res = await apiClient.put('/api/v1/admin/homepage-blocks', blocks);
       if (res.success) {
-        toast.success('Блоки збережено');
+        toast.success(t('savedToast'));
         setHasChanges(false);
       } else {
-        toast.error(res.error || 'Помилка збереження');
+        toast.error(res.error || t('saveError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsSaving(false);
     }
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold">Блоки головної сторінки</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Перетягуйте блоки за іконку <span className="font-mono">⠿</span> для зміни порядку. Вимикайте непотрібні.
-          </p>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         <div className="flex items-center gap-2">
           <a
@@ -102,10 +108,10 @@ export default function AdminHomepagePage() {
             rel="noopener noreferrer"
             className="text-sm text-[var(--color-primary)] hover:underline"
           >
-            Переглянути головну ↗
+            {t('viewHome')}
           </a>
           <Button onClick={saveBlocks} disabled={!hasChanges || isSaving}>
-            {isSaving ? 'Збереження...' : 'Зберегти'}
+            {isSaving ? t('saving') : t('save')}
           </Button>
         </div>
       </div>
@@ -116,7 +122,10 @@ export default function AdminHomepagePage() {
             key={block.key}
             draggable
             onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={(e) => { e.preventDefault(); setDragOverIndex(index); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOverIndex(index);
+            }}
             onDragLeave={() => setDragOverIndex(null)}
             onDrop={(e) => handleDrop(e, index)}
             className={`flex items-center gap-4 rounded-[var(--radius)] border p-4 transition-colors ${
@@ -125,7 +134,7 @@ export default function AdminHomepagePage() {
                 : 'border-[var(--color-border)] bg-[var(--color-bg)]'
             } ${!block.enabled ? 'opacity-50' : ''}`}
           >
-            <span className="cursor-grab text-[var(--color-text-secondary)]" title="Перетягнути">
+            <span className="cursor-grab text-[var(--color-text-secondary)]" title={t('drag')}>
               ⠿
             </span>
 
@@ -133,9 +142,7 @@ export default function AdminHomepagePage() {
               {index + 1}
             </span>
 
-            <span className="flex-1 text-sm font-medium">
-              {block.label}
-            </span>
+            <span className="flex-1 text-sm font-medium">{block.label}</span>
 
             <button
               onClick={() => toggleBlock(index)}
@@ -145,7 +152,7 @@ export default function AdminHomepagePage() {
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
               }`}
             >
-              {block.enabled ? 'Увімкнено' : 'Вимкнено'}
+              {block.enabled ? t('enabled') : t('disabled')}
             </button>
           </div>
         ))}
@@ -154,10 +161,10 @@ export default function AdminHomepagePage() {
       {hasChanges && (
         <div className="sticky bottom-4 mt-6 flex items-center justify-between rounded-[var(--radius)] border border-amber-300 bg-amber-50 px-4 py-3 shadow-lg">
           <p className="text-sm text-amber-800">
-            <strong>Є незбережені зміни</strong> — не забудьте зберегти.
+            <strong>{t('unsavedChanges')}</strong> {t('unsavedTail')}
           </p>
           <Button onClick={saveBlocks} disabled={isSaving} size="sm">
-            {isSaving ? 'Збереження…' : 'Зберегти'}
+            {isSaving ? t('saving') : t('save')}
           </Button>
         </div>
       )}

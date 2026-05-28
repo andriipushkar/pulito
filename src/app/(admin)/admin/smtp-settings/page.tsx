@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -15,6 +16,7 @@ interface TestResult {
 }
 
 export default function SmtpSettingsPage() {
+  const t = useTranslations('admin.smtpSettingsPage');
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,17 +58,17 @@ export default function SmtpSettingsPage() {
     setIsSaving(true);
     const res = await apiClient.put('/api/v1/admin/smtp-settings', settings);
     if (res.success) {
-      toast.success('SMTP налаштування збережено');
+      toast.success(t('savedToast'));
       await loadSettings();
     } else {
-      toast.error(res.error || 'Помилка збереження');
+      toast.error(res.error || t('saveError'));
     }
     setIsSaving(false);
   };
 
   const handleTest = async () => {
     if (testEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(testEmail)) {
-      toast.error('Невірний формат email для тесту');
+      toast.error(t('invalidEmail'));
       return;
     }
     setTesting(true);
@@ -83,7 +85,9 @@ export default function SmtpSettingsPage() {
       },
       testEmail: testEmail || undefined,
     });
-    setTestResult(res.success && res.data ? res.data : { success: false, error: 'Помилка запиту' });
+    setTestResult(
+      res.success && res.data ? res.data : { success: false, error: t('requestError') },
+    );
     setTesting(false);
   };
 
@@ -98,17 +102,15 @@ export default function SmtpSettingsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">Email / SMTP</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Налаштування поштового сервера для відправки листів
-          </p>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         <Button
           onClick={() => setConfirmSave(true)}
           isLoading={isSaving}
           disabled={dirty.size === 0}
         >
-          Зберегти
+          {t('save')}
         </Button>
       </div>
 
@@ -116,36 +118,34 @@ export default function SmtpSettingsPage() {
         <div className="mb-6 flex items-center gap-3">
           <span className="text-2xl">📧</span>
           <div>
-            <h3 className="font-semibold">SMTP сервер</h3>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Gmail, SendGrid, Mailgun, або будь-який SMTP сервер
-            </p>
+            <h3 className="font-semibold">{t('smtpServer')}</h3>
+            <p className="text-xs text-[var(--color-text-secondary)]">{t('smtpHint')}</p>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <Input
-            label="SMTP Host"
+            label={t('hostLabel')}
             value={settings.smtp_host || ''}
             onChange={(e) => updateField('smtp_host', e.target.value)}
             placeholder="smtp.gmail.com"
           />
           <Input
-            label="SMTP Port"
+            label={t('portLabel')}
             type="number"
             value={settings.smtp_port || ''}
             onChange={(e) => updateField('smtp_port', e.target.value)}
             placeholder="587"
           />
           <Input
-            label="Ім'я користувача (логін)"
+            label={t('userLabel')}
             value={settings.smtp_user || ''}
             onChange={(e) => updateField('smtp_user', e.target.value)}
             placeholder="your@gmail.com"
           />
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-              Пароль
+              {t('passLabel')}
             </label>
             <div className="relative">
               <Input
@@ -162,18 +162,16 @@ export default function SmtpSettingsPage() {
                 {showPass ? '🙈' : '👁️'}
               </button>
             </div>
-            <p className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">
-              Для Gmail використовуйте App Password
-            </p>
+            <p className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">{t('passHint')}</p>
           </div>
           <Input
-            label="Email відправника (From)"
+            label={t('fromLabel')}
             value={settings.smtp_from || ''}
             onChange={(e) => updateField('smtp_from', e.target.value)}
             placeholder="noreply@pulito.trade"
           />
           <Input
-            label="Ім'я відправника"
+            label={t('fromNameLabel')}
             value={settings.smtp_from_name || ''}
             onChange={(e) => updateField('smtp_from_name', e.target.value)}
             placeholder="Pulito Trade"
@@ -186,18 +184,18 @@ export default function SmtpSettingsPage() {
                 onChange={(e) => updateField('smtp_secure', e.target.checked ? 'true' : 'false')}
                 className="accent-[var(--color-primary)]"
               />
-              SSL/TLS (порт 465)
+              {t('secureLabel')}
             </label>
           </div>
         </div>
 
         {/* Test connection */}
         <div className="mt-6 border-t border-[var(--color-border)] pt-4">
-          <h4 className="mb-3 text-sm font-semibold">Перевірити з&apos;єднання</h4>
+          <h4 className="mb-3 text-sm font-semibold">{t('testConnection')}</h4>
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1">
               <Input
-                label="Email для тестового листа (опціонально)"
+                label={t('testEmailLabel')}
                 value={testEmail}
                 onChange={(e) => setTestEmail(e.target.value)}
                 placeholder="test@example.com"
@@ -208,11 +206,7 @@ export default function SmtpSettingsPage() {
               onClick={handleTest}
               disabled={testing || !settings.smtp_host}
             >
-              {testing
-                ? 'Перевірка...'
-                : testEmail
-                  ? 'Надіслати тестовий лист'
-                  : "Перевірити з'єднання"}
+              {testing ? t('testing') : testEmail ? t('sendTestEmail') : t('testConnection')}
             </Button>
           </div>
           {testResult && (
@@ -232,15 +226,13 @@ export default function SmtpSettingsPage() {
         <div className="mb-4 flex items-center gap-3">
           <span className="text-2xl">📎</span>
           <div>
-            <h3 className="font-semibold">Ліміт файлів</h3>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Максимальний розмір файлів для завантаження
-            </p>
+            <h3 className="font-semibold">{t('fileLimitTitle')}</h3>
+            <p className="text-xs text-[var(--color-text-secondary)]">{t('fileLimitHint')}</p>
           </div>
         </div>
         <div className="max-w-xs">
           <Input
-            label="Максимальний розмір (МБ)"
+            label={t('fileSizeLabel')}
             type="number"
             value={settings.max_file_size_mb || ''}
             onChange={(e) => updateField('max_file_size_mb', e.target.value)}
@@ -253,9 +245,9 @@ export default function SmtpSettingsPage() {
         isOpen={confirmSave}
         onClose={() => setConfirmSave(false)}
         onConfirm={handleSave}
-        title="Зберегти SMTP налаштування"
-        message="Зміни вплинуть на відправку всіх email-листів з сайту. Продовжити?"
-        confirmText="Так, зберегти"
+        title={t('confirmTitle')}
+        message={t('confirmMsg')}
+        confirmText={t('confirmYes')}
       />
     </div>
   );

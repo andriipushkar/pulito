@@ -2,11 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { matchIntent, MAX_QUERY_LENGTH } from '@/services/nl-router';
 
-const EXAMPLE_GROUPS: { title: string; icon: string; items: string[] }[] = [
+// Example queries stay in Ukrainian: matchIntent() pattern-matches UA
+// keywords, so the strings serve double duty as both UI labels and NL input.
+// If/when the NL router learns other languages, translate these.
+const EXAMPLE_GROUPS: { titleKey: string; icon: string; items: string[] }[] = [
   {
-    title: 'Замовлення',
+    titleKey: 'groupOrders',
     icon: '📦',
     items: [
       'Замовлення сьогодні',
@@ -16,18 +20,19 @@ const EXAMPLE_GROUPS: { title: string; icon: string; items: string[] }[] = [
     ],
   },
   {
-    title: 'Товари',
+    titleKey: 'groupProducts',
     icon: '🛍️',
     items: ['Товари без фото', 'Низькі залишки', 'Товари немає в наявності', 'Топ-10 за продажами'],
   },
   {
-    title: 'Клієнти',
+    titleKey: 'groupClients',
     icon: '👥',
     items: ['Клієнти з Києва', 'Гуртові запити', 'Нові клієнти за тиждень'],
   },
 ];
 
 export default function AskPage() {
+  const t = useTranslations('admin.ask');
   const router = useRouter();
   const [q, setQ] = useState('');
   const [understood, setUnderstood] = useState<string | null>(null);
@@ -37,7 +42,7 @@ export default function AskPage() {
     if (navigating) return;
     const intent = matchIntent(q);
     if (!intent) {
-      setUnderstood('Не зрозумів запит. Спробуйте з прикладів нижче.');
+      setUnderstood(t('notUnderstood'));
       return;
     }
     setUnderstood(`→ ${intent.label}`);
@@ -48,11 +53,8 @@ export default function AskPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="text-xl font-bold">🤖 Запитайте адмінку</h1>
-        <p className="text-xs text-[var(--color-text-secondary)]">
-          Опишіть, що шукаєте, природньою мовою. Я перенесу вас на потрібну сторінку з готовими
-          фільтрами.
-        </p>
+        <h1 className="text-xl font-bold">{t('title')}</h1>
+        <p className="text-xs text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
@@ -67,7 +69,7 @@ export default function AskPage() {
           onKeyDown={(e) => {
             if (e.key === 'Enter') submit();
           }}
-          placeholder="Наприклад: «замовлення сьогодні» або «товари без фото»"
+          placeholder={t('placeholder')}
           className="w-full rounded-lg border-2 border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 text-base outline-none focus:border-[var(--color-primary)]"
         />
         <button
@@ -75,7 +77,7 @@ export default function AskPage() {
           disabled={navigating}
           className="mt-3 w-full rounded-lg bg-[var(--color-primary)] py-2.5 font-semibold text-white disabled:opacity-50"
         >
-          {navigating ? 'Переходжу…' : 'Зрозумій і перейди →'}
+          {navigating ? t('submitting') : t('submit')}
         </button>
         {understood && (
           <p role="alert" aria-live="polite" className="mt-3 text-sm text-[var(--color-primary)]">
@@ -86,16 +88,16 @@ export default function AskPage() {
 
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
-          Спробуйте один з прикладів:
+          {t('tryExamples')}
         </p>
         {EXAMPLE_GROUPS.map((group) => (
           <div
-            key={group.title}
+            key={group.titleKey}
             className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4"
           >
             <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--color-text)]">
               <span>{group.icon}</span>
-              {group.title}
+              {t(group.titleKey as 'groupOrders' | 'groupProducts' | 'groupClients')}
             </p>
             <div className="flex flex-wrap gap-2">
               {group.items.map((ex) => (
@@ -122,10 +124,7 @@ export default function AskPage() {
         ))}
       </div>
 
-      <p className="text-center text-[10px] text-[var(--color-text-secondary)]">
-        💡 Поки що це NL-маршрутизатор за ключовими словами. Інтеграція з LLM (Claude/GPT) — у
-        бекалзі.
-      </p>
+      <p className="text-center text-[10px] text-[var(--color-text-secondary)]">{t('nlNotice')}</p>
     </div>
   );
 }

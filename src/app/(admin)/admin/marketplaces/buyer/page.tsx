@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -21,7 +22,13 @@ interface OrderRow {
   trackingNumber: string | null;
   itemsCount: number;
   items: { productName: string; quantity: number; priceAtOrder: number }[];
-  returns: { id: number; status: string; reason: string | null; refundAmount: number | null; createdAt: string }[];
+  returns: {
+    id: number;
+    status: string;
+    reason: string | null;
+    refundAmount: number | null;
+    createdAt: string;
+  }[];
 }
 
 interface MessageRow {
@@ -58,6 +65,7 @@ const PLATFORM_ICON: Record<string, string> = {
 };
 
 export default function MarketplaceBuyerPage() {
+  const t = useTranslations('admin.marketplaceBuyerPage');
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [data, setData] = useState<BuyerData | null>(null);
@@ -65,7 +73,7 @@ export default function MarketplaceBuyerPage() {
 
   const handleSearch = async () => {
     if (!phone.trim() && !name.trim()) {
-      toast.error('Введіть телефон або ім\'я');
+      toast.error(t('validateError'));
       return;
     }
     setLoading(true);
@@ -77,16 +85,20 @@ export default function MarketplaceBuyerPage() {
     if (res.success && res.data) {
       setData(res.data);
     } else {
-      toast.error(res.error || 'Помилка пошуку');
+      toast.error(res.error || t('searchError'));
       setData(null);
     }
     setLoading(false);
   };
 
-  const formatMoney = (n: number) => `${n.toFixed(2)} грн`;
+  const formatMoney = (n: number) => `${n.toFixed(2)} ${t('moneySuffix')}`;
   const formatDate = (s: string | null) =>
     s
-      ? new Date(s).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      ? new Date(s).toLocaleDateString('uk-UA', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
       : '—';
 
   return (
@@ -96,18 +108,17 @@ export default function MarketplaceBuyerPage() {
           href="/admin/marketplaces"
           className="text-sm text-[var(--color-primary)] hover:underline"
         >
-          ← Маркетплейси
+          {t('backToMarketplaces')}
         </Link>
-        <h2 className="mt-1 text-xl font-bold">Картка покупця</h2>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Шукайте покупця за телефоном або іменем — побачите всі замовлення, повідомлення та
-          повернення в одному місці.
-        </p>
+        <h2 className="mt-1 text-xl font-bold">{t('title')}</h2>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <label className="flex-1 min-w-[200px]">
-          <span className="mb-1 block text-xs text-[var(--color-text-secondary)]">Телефон</span>
+          <span className="mb-1 block text-xs text-[var(--color-text-secondary)]">
+            {t('phoneLabel')}
+          </span>
           <Input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -115,7 +126,9 @@ export default function MarketplaceBuyerPage() {
           />
         </label>
         <label className="flex-1 min-w-[200px]">
-          <span className="mb-1 block text-xs text-[var(--color-text-secondary)]">Ім&apos;я</span>
+          <span className="mb-1 block text-xs text-[var(--color-text-secondary)]">
+            {t('nameLabel')}
+          </span>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -123,7 +136,7 @@ export default function MarketplaceBuyerPage() {
           />
         </label>
         <Button onClick={handleSearch} isLoading={loading}>
-          Знайти
+          {t('search')}
         </Button>
       </div>
 
@@ -137,19 +150,24 @@ export default function MarketplaceBuyerPage() {
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-              <p className="text-xs text-[var(--color-text-secondary)]">Замовлень</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('statsOrders')}</p>
               <p className="mt-1 text-2xl font-bold">{data.stats.ordersCount}</p>
               <p className="text-[10px] text-[var(--color-text-secondary)]">
-                ✓ {data.stats.completedOrders} · ✕ {data.stats.cancelledOrders}
+                {t('statsOrdersBreakdown', {
+                  completed: data.stats.completedOrders,
+                  cancelled: data.stats.cancelledOrders,
+                })}
               </p>
             </div>
             <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-              <p className="text-xs text-[var(--color-text-secondary)]">Сума</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('statsTotal')}</p>
               <p className="mt-1 text-2xl font-bold">{formatMoney(data.stats.totalSpent)}</p>
-              <p className="text-[10px] text-[var(--color-text-secondary)]">без скасованих</p>
+              <p className="text-[10px] text-[var(--color-text-secondary)]">
+                {t('statsTotalHint')}
+              </p>
             </div>
             <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-              <p className="text-xs text-[var(--color-text-secondary)]">Повернень</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('statsReturns')}</p>
               <p
                 className={`mt-1 text-2xl font-bold ${data.stats.returnsCount > 0 ? 'text-amber-600' : ''}`}
               >
@@ -157,26 +175,27 @@ export default function MarketplaceBuyerPage() {
               </p>
             </div>
             <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-              <p className="text-xs text-[var(--color-text-secondary)]">Повідомлень</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('statsMessages')}</p>
               <p className="mt-1 text-2xl font-bold">{data.messages.length}</p>
               <p className="text-[10px] text-[var(--color-text-secondary)]">
-                непрочитаних: <strong>{data.stats.unreadMessages}</strong>
+                {t('statsUnreadPrefix')}
+                <strong>{data.stats.unreadMessages}</strong>
               </p>
             </div>
           </div>
 
           <div className="text-xs text-[var(--color-text-secondary)]">
-            Перше замовлення: <strong>{formatDate(data.stats.firstOrderAt)}</strong> · Останнє:{' '}
-            <strong>{formatDate(data.stats.lastOrderAt)}</strong>
+            {t('firstOrder')} <strong>{formatDate(data.stats.firstOrderAt)}</strong> ·{' '}
+            {t('lastOrder')} <strong>{formatDate(data.stats.lastOrderAt)}</strong>
           </div>
 
           <div>
             <h3 className="mb-2 text-base font-semibold">
-              Замовлення ({data.orders.length})
+              {t('ordersSection', { count: data.orders.length })}
             </h3>
             {data.orders.length === 0 ? (
               <p className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-8 text-center text-sm text-[var(--color-text-secondary)]">
-                Замовлень не знайдено
+                {t('ordersEmpty')}
               </p>
             ) : (
               <div className="space-y-2">
@@ -193,7 +212,7 @@ export default function MarketplaceBuyerPage() {
                       </span>
                       {o.trackingNumber && (
                         <span className="text-[10px] text-[var(--color-text-secondary)]">
-                          TTN: {o.trackingNumber}
+                          {t('ttnLabel')} {o.trackingNumber}
                         </span>
                       )}
                       <span className="ml-auto font-semibold">{formatMoney(o.totalAmount)}</span>
@@ -202,7 +221,7 @@ export default function MarketplaceBuyerPage() {
                       </span>
                     </div>
                     <div className="text-xs text-[var(--color-text-secondary)]">
-                      {o.contactName} · {o.contactPhone} · {o.itemsCount} од.
+                      {o.contactName} · {o.contactPhone} · {o.itemsCount} {t('itemsSuffix')}
                     </div>
                     <ul className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
                       {o.items.slice(0, 3).map((i, idx) => (
@@ -210,12 +229,16 @@ export default function MarketplaceBuyerPage() {
                           • {i.productName} × {i.quantity}
                         </li>
                       ))}
-                      {o.items.length > 3 && <li>...та ще {o.items.length - 3}</li>}
+                      {o.items.length > 3 && (
+                        <li>{t('moreItems', { count: o.items.length - 3 })}</li>
+                      )}
                     </ul>
                     {o.returns.length > 0 && (
                       <div className="mt-2 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
-                        Повернень: {o.returns.length} (
-                        {o.returns.map((r) => r.status).join(', ')})
+                        {t('returnsLine', {
+                          count: o.returns.length,
+                          statuses: o.returns.map((r) => r.status).join(', '),
+                        })}
                       </div>
                     )}
                   </div>
@@ -226,13 +249,11 @@ export default function MarketplaceBuyerPage() {
 
           <div>
             <h3 className="mb-2 text-base font-semibold">
-              Повідомлення ({data.messages.length})
+              {t('messagesSection', { count: data.messages.length })}
             </h3>
             {data.messages.length === 0 ? (
               <p className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] py-8 text-center text-sm text-[var(--color-text-secondary)]">
-                {name
-                  ? 'Повідомлень не знайдено'
-                  : 'Введіть ім\'я для пошуку повідомлень (телефон в повідомленнях не зберігається)'}
+                {name ? t('messagesEmpty') : t('messagesEmptyNoName')}
               </p>
             ) : (
               <div className="space-y-2">
@@ -250,11 +271,11 @@ export default function MarketplaceBuyerPage() {
                       <strong>{m.buyerName}</strong>
                       {!m.isRead && (
                         <span className="rounded bg-[var(--color-primary)] px-1 py-0.5 text-[9px] text-white">
-                          Нове
+                          {t('newBadge')}
                         </span>
                       )}
                       {m.firstRespondedAt && (
-                        <span className="text-[10px] text-green-600">✓ відповіли</span>
+                        <span className="text-[10px] text-green-600">{t('respondedBadge')}</span>
                       )}
                       <span className="ml-auto">{formatDate(m.receivedAt)}</span>
                     </div>

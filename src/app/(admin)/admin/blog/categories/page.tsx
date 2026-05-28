@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -17,6 +18,7 @@ interface BlogCategory {
 }
 
 export default function AdminBlogCategoriesPage() {
+  const t = useTranslations('admin.blogCategoriesPage');
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', slug: '', nameEn: '' });
@@ -53,12 +55,12 @@ export default function AdminBlogCategoriesPage() {
     if (nameEn) payload.nameEn = nameEn;
     const res = await apiClient.post('/api/v1/admin/blog/categories', payload);
     if (res.success) {
-      toast.success('Категорію створено');
+      toast.success(t('createdToast'));
       setShowForm(false);
       setForm({ name: '', slug: '', nameEn: '' });
       loadCategories();
     } else {
-      toast.error(res.error || 'Помилка створення');
+      toast.error(res.error || t('createError'));
     }
   };
 
@@ -67,8 +69,8 @@ export default function AdminBlogCategoriesPage() {
     const id = deleteId;
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/blog/categories/${id}`);
-    if (res.success) toast.success('Категорію видалено');
-    else toast.error(res.error || 'Помилка видалення');
+    if (res.success) toast.success(t('deletedToast'));
+    else toast.error(res.error || t('deleteError'));
     loadCategories();
   };
 
@@ -81,12 +83,12 @@ export default function AdminBlogCategoriesPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <Link href="/admin/blog" className="text-sm text-[var(--color-primary)] hover:underline">
-            ← Блог
+            {t('backToBlog')}
           </Link>
-          <h2 className="mt-1 text-xl font-bold">Категорії блогу</h2>
+          <h2 className="mt-1 text-xl font-bold">{t('title')}</h2>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Скасувати' : '+ Додати категорію'}
+          {showForm ? t('cancel') : t('addCategory')}
         </Button>
       </div>
 
@@ -96,22 +98,22 @@ export default function AdminBlogCategoriesPage() {
             <Input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Назва категорії"
+              placeholder={t('namePlaceholder')}
               className="w-56"
             />
             <Input
               value={form.slug}
               onChange={(e) => setForm({ ...form, slug: e.target.value })}
-              placeholder="Slug (автоматично)"
+              placeholder={t('slugPlaceholder')}
               className="w-44"
             />
             <Input
               value={form.nameEn}
               onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
-              placeholder="Name (EN, опційно)"
+              placeholder={t('nameEnPlaceholder')}
               className="w-56"
             />
-            <Button onClick={handleCreate}>Створити</Button>
+            <Button onClick={handleCreate}>{t('create')}</Button>
           </div>
         </div>
       )}
@@ -120,10 +122,10 @@ export default function AdminBlogCategoriesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-              <th className="px-4 py-3 text-left font-medium">Назва</th>
-              <th className="px-4 py-3 text-left font-medium">Slug</th>
-              <th className="px-4 py-3 text-right font-medium">Статей</th>
-              <th className="px-4 py-3 text-right font-medium">Дії</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colName')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colSlug')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colPosts')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -142,7 +144,7 @@ export default function AdminBlogCategoriesPage() {
                     onClick={() => setDeleteId(cat.id)}
                     className="text-xs text-[var(--color-danger)] hover:underline"
                   >
-                    Видалити
+                    {t('delete')}
                   </button>
                 </td>
               </tr>
@@ -153,7 +155,7 @@ export default function AdminBlogCategoriesPage() {
                   colSpan={4}
                   className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                 >
-                  Категорій немає
+                  {t('empty')}
                 </td>
               </tr>
             )}
@@ -166,7 +168,7 @@ export default function AdminBlogCategoriesPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
         variant="danger"
-        message="Видалити категорію блогу?"
+        message={t('confirmDelete')}
       />
     </div>
   );

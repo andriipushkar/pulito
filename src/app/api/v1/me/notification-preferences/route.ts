@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { successResponse, privateResponse, errorResponse } from '@/utils/api-response';
 
 const prefsSchema = z.object({
@@ -46,6 +47,9 @@ export const GET = withAuth(async (_request: NextRequest, { user }) => {
 
 export const PUT = withAuth(async (request: NextRequest, { user }) => {
   try {
+    const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.cart);
+    if (!rl.allowed) return errorResponse('Забагато запитів', 429);
+
     const body = await request.json();
     const parsed = prefsSchema.safeParse(body);
     if (!parsed.success) {

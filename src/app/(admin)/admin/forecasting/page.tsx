@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 
@@ -18,34 +19,42 @@ interface ForecastEntry {
   urgency: 'critical' | 'soon' | 'ok' | 'over-stock' | 'no-sales';
 }
 
-const URGENCY_META: Record<
-  ForecastEntry['urgency'],
-  { label: string; color: string; rowBg: string }
-> = {
+const URGENCY_COLORS: Record<ForecastEntry['urgency'], { color: string; rowBg: string }> = {
   critical: {
-    label: 'Терміново',
     color: 'bg-red-100 text-red-700 border-red-200',
     rowBg: 'bg-red-50/40',
   },
   soon: {
-    label: 'Скоро',
     color: 'bg-amber-100 text-amber-700 border-amber-200',
     rowBg: 'bg-amber-50/30',
   },
-  ok: { label: 'У нормі', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', rowBg: '' },
+  ok: { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', rowBg: '' },
   'over-stock': {
-    label: 'Надлишок',
     color: 'bg-blue-100 text-blue-700 border-blue-200',
     rowBg: '',
   },
   'no-sales': {
-    label: 'Без продажів',
     color: 'bg-gray-100 text-gray-600 border-gray-200',
     rowBg: '',
   },
 };
 
 export default function ForecastingPage() {
+  const t = useTranslations('admin.forecastingPage');
+  const URGENCY_LABELS: Record<ForecastEntry['urgency'], string> = {
+    critical: t('urgencyCritical'),
+    soon: t('urgencySoon'),
+    ok: t('urgencyOk'),
+    'over-stock': t('urgencyOverStock'),
+    'no-sales': t('urgencyNoSales'),
+  };
+  const FILTER_LABELS: Record<ForecastEntry['urgency'], (count: number) => string> = {
+    critical: (count) => t('filterCritical', { count }),
+    soon: (count) => t('filterSoon', { count }),
+    ok: (count) => t('filterOk', { count }),
+    'over-stock': (count) => t('filterOverStock', { count }),
+    'no-sales': (count) => t('filterNoSales', { count }),
+  };
   const [data, setData] = useState<ForecastEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [leadTime, setLeadTime] = useState(14);
@@ -64,9 +73,9 @@ export default function ForecastingPage() {
         `/api/v1/admin/forecasting?${qs.toString()}`,
       );
       if (res.success && res.data) setData(res.data);
-      else toast.error(res.error || 'Не вдалося завантажити прогноз');
+      else toast.error(res.error || t('loadError'));
     } catch {
-      toast.error('Не вдалося завантажити прогноз');
+      toast.error(t('loadError'));
     } finally {
       setLoading(false);
     }
@@ -90,26 +99,20 @@ export default function ForecastingPage() {
   return (
     <div>
       <div className="mb-5">
-        <h1 className="text-xl font-bold">Прогноз попиту</h1>
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          На основі продажів за останні 90 днів. Замовте товари до того, як вони закінчаться.
-        </p>
+        <h1 className="text-xl font-bold">{t('title')}</h1>
+        <p className="text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       <div className="mb-5 flex flex-wrap items-end gap-3">
-        <NumberField
-          label="Час доставки (днів)"
-          value={leadTime}
-          onChange={setLeadTime}
-        />
-        <NumberField label="Запас (днів)" value={buffer} onChange={setBuffer} />
+        <NumberField label={t('leadTimeLabel')} value={leadTime} onChange={setLeadTime} />
+        <NumberField label={t('bufferLabel')} value={buffer} onChange={setBuffer} />
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={movingOnly}
             onChange={(e) => setMovingOnly(e.target.checked)}
           />
-          Тільки з продажами за 90 днів
+          {t('movingOnly')}
         </label>
       </div>
 
@@ -117,17 +120,16 @@ export default function ForecastingPage() {
         <FilterPill
           active={filter === 'all'}
           onClick={() => setFilter('all')}
-          label={`Усі (${data.length})`}
+          label={t('filterAll', { count: data.length })}
         />
         {(['critical', 'soon', 'ok', 'over-stock', 'no-sales'] as const).map((key) => {
-          const meta = URGENCY_META[key];
           return (
             <FilterPill
               key={key}
               active={filter === key}
               onClick={() => setFilter(key)}
-              label={`${meta.label} (${counts[key]})`}
-              className={meta.color}
+              label={FILTER_LABELS[key](counts[key])}
+              className={URGENCY_COLORS[key].color}
             />
           );
         })}
@@ -142,19 +144,19 @@ export default function ForecastingPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                <th className="px-3 py-3 text-left font-medium">Артикул</th>
-                <th className="px-3 py-3 text-left font-medium">Товар</th>
-                <th className="px-3 py-3 text-right font-medium">Залишок</th>
-                <th className="px-3 py-3 text-right font-medium">Продано 90д</th>
-                <th className="px-3 py-3 text-right font-medium">сер./день</th>
-                <th className="px-3 py-3 text-right font-medium">Днів до OOS</th>
-                <th className="px-3 py-3 text-center font-medium">Статус</th>
-                <th className="px-3 py-3 text-right font-medium">Замовити</th>
+                <th className="px-3 py-3 text-left font-medium">{t('colArticle')}</th>
+                <th className="px-3 py-3 text-left font-medium">{t('colProduct')}</th>
+                <th className="px-3 py-3 text-right font-medium">{t('colStock')}</th>
+                <th className="px-3 py-3 text-right font-medium">{t('colSold90d')}</th>
+                <th className="px-3 py-3 text-right font-medium">{t('colAvgDay')}</th>
+                <th className="px-3 py-3 text-right font-medium">{t('colDaysOOS')}</th>
+                <th className="px-3 py-3 text-center font-medium">{t('colStatus')}</th>
+                <th className="px-3 py-3 text-right font-medium">{t('colOrder')}</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((e) => {
-                const meta = URGENCY_META[e.urgency];
+                const meta = URGENCY_COLORS[e.urgency];
                 return (
                   <tr
                     key={e.productId}
@@ -181,7 +183,7 @@ export default function ForecastingPage() {
                       <span
                         className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${meta.color}`}
                       >
-                        {meta.label}
+                        {URGENCY_LABELS[e.urgency]}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right font-bold tabular-nums">
@@ -194,7 +196,7 @@ export default function ForecastingPage() {
           </table>
           {filtered.length === 0 && (
             <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-              Немає даних з обраним фільтром
+              {t('noData')}
             </p>
           )}
         </div>
@@ -244,7 +246,8 @@ function FilterPill({
       className={`rounded-full border px-3 py-1 font-medium transition-colors ${
         active
           ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
-          : className ?? 'border-[var(--color-border)] bg-[var(--color-bg)] hover:border-[var(--color-primary)]'
+          : (className ??
+            'border-[var(--color-border)] bg-[var(--color-bg)] hover:border-[var(--color-primary)]')
       }`}
     >
       {label}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiClient, setAccessToken } from '@/lib/api-client';
 import {
   USER_ROLE_LABELS,
@@ -60,6 +61,7 @@ type Tab =
   | 'security';
 
 export default function AdminUserDetailPage() {
+  const t = useTranslations('admin.userDetailPage');
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [user, setUser] = useState<UserDetail | null>(null);
@@ -287,9 +289,9 @@ export default function AdminUserDetailPage() {
     const res = await apiClient.put(`/api/v1/admin/users/${id}`, body);
     if (res.success) {
       await reloadUser();
-      showResult('success', 'Роль змінено');
+      showResult('success', t('roleChanged'));
     } else {
-      showResult('error', res.error || 'Помилка');
+      showResult('error', res.error || t('error'));
     }
     setIsUpdating(false);
   };
@@ -306,11 +308,11 @@ export default function AdminUserDetailPage() {
       showResult(
         'success',
         newGroup
-          ? `Групу змінено на "${WHOLESALE_GROUP_LABELS[newGroup as 1 | 2 | 3]}"`
-          : 'Групу знято',
+          ? t('groupChangedTo', { group: WHOLESALE_GROUP_LABELS[newGroup as 1 | 2 | 3] })
+          : t('groupRemoved'),
       );
     } else {
-      showResult('error', res.error || 'Помилка');
+      showResult('error', res.error || t('error'));
     }
     setIsUpdatingGroup(false);
   };
@@ -337,9 +339,9 @@ export default function AdminUserDetailPage() {
     if (res.success) {
       await reloadUser();
       setIsEditing(false);
-      showResult('success', 'Профіль оновлено');
+      showResult('success', t('profileUpdated'));
     } else {
-      showResult('error', res.error || 'Помилка збереження');
+      showResult('error', res.error || t('saveError'));
     }
   };
 
@@ -353,9 +355,9 @@ export default function AdminUserDetailPage() {
       await reloadUser();
       setShowBlockModal(false);
       setBlockReason('');
-      showResult('success', 'Користувача заблоковано');
+      showResult('success', t('userBlocked'));
     } else {
-      showResult('error', res.error || 'Помилка');
+      showResult('error', res.error || t('error'));
     }
   };
 
@@ -363,9 +365,9 @@ export default function AdminUserDetailPage() {
     const res = await apiClient.put(`/api/v1/admin/users/${id}`, { action: 'unblock' });
     if (res.success) {
       await reloadUser();
-      showResult('success', 'Користувача розблоковано');
+      showResult('success', t('userUnblocked'));
     } else {
-      showResult('error', res.error || 'Помилка');
+      showResult('error', res.error || t('error'));
     }
   };
 
@@ -379,9 +381,9 @@ export default function AdminUserDetailPage() {
     );
     if (res.success && res.data) {
       setTempPassword(res.data.tempPassword);
-      showResult('success', 'Пароль скинуто');
+      showResult('success', t('passwordReset'));
     } else {
-      showResult('error', res.error || 'Помилка');
+      showResult('error', res.error || t('error'));
     }
   };
 
@@ -393,9 +395,9 @@ export default function AdminUserDetailPage() {
       note: adminNote,
     });
     if (res.success) {
-      showResult('success', 'Нотатку збережено');
+      showResult('success', t('noteSaved'));
     } else {
-      showResult('error', res.error || 'Помилка');
+      showResult('error', res.error || t('error'));
     }
     setIsSavingNote(false);
   };
@@ -405,9 +407,9 @@ export default function AdminUserDetailPage() {
     const res = await apiClient.put(`/api/v1/admin/users/${id}`, { action: 'verifyEmail' });
     if (res.success) {
       await reloadUser();
-      showResult('success', 'Email верифіковано');
+      showResult('success', t('emailVerified'));
     } else {
-      showResult('error', res.error || 'Помилка');
+      showResult('error', res.error || t('error'));
     }
   };
 
@@ -420,7 +422,7 @@ export default function AdminUserDetailPage() {
 
   const handleSendMessage = async () => {
     if (!messageText.trim() || messageChannels.length === 0) {
-      showResult('error', 'Вкажіть повідомлення та хоча б один канал');
+      showResult('error', t('enterMessageChannel'));
       return;
     }
     setIsSendingMessage(true);
@@ -435,9 +437,9 @@ export default function AdminUserDetailPage() {
       setMessageText('');
       setMessageSubject('');
       setMessageChannels(['email']);
-      showResult('success', 'Повідомлення надіслано');
+      showResult('success', t('messageSent'));
     } else {
-      showResult('error', res.error || 'Помилка надсилання');
+      showResult('error', res.error || t('sendError'));
     }
     setIsSendingMessage(false);
   };
@@ -453,22 +455,22 @@ export default function AdminUserDetailPage() {
       a.download = `user-${id}-export.json`;
       a.click();
       URL.revokeObjectURL(url);
-      showResult('success', 'Дані експортовано');
+      showResult('success', t('dataExported'));
     } else {
-      showResult('error', 'Помилка експорту');
+      showResult('error', t('exportError'));
     }
   };
 
   // Delete account
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'ВИДАЛИТИ') return;
+    if (deleteConfirm !== t('deleteKeyword')) return;
     setIsDeleting(true);
     const res = await apiClient.put(`/api/v1/admin/users/${id}`, { action: 'deleteAccount' });
     if (res.success) {
-      showResult('success', 'Акаунт видалено');
+      showResult('success', t('accountDeleted'));
       router.push('/admin/users');
     } else {
-      showResult('error', res.error || 'Помилка видалення');
+      showResult('error', res.error || t('deleteError'));
     }
     setIsDeleting(false);
   };
@@ -502,30 +504,30 @@ export default function AdminUserDetailPage() {
   if (!user) {
     return (
       <div className="text-center">
-        <p className="text-[var(--color-text-secondary)]">Користувача не знайдено</p>
+        <p className="text-[var(--color-text-secondary)]">{t('notFound')}</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/admin/users')}>
-          До списку
+          {t('toList')}
         </Button>
       </div>
     );
   }
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'info', label: 'Інформація' },
-    { key: 'timeline', label: 'Активність' },
-    { key: 'orders', label: 'Замовлення' },
-    { key: 'wishlist', label: 'Список бажань' },
-    { key: 'recent', label: 'Перегляди' },
-    { key: 'addresses', label: 'Адреси' },
-    { key: 'security', label: '🔒 Безпека' },
-    { key: 'audit', label: 'Лог дій' },
+    { key: 'info', label: t('tabInfo') },
+    { key: 'timeline', label: t('tabTimeline') },
+    { key: 'orders', label: t('tabOrders') },
+    { key: 'wishlist', label: t('tabWishlist') },
+    { key: 'recent', label: t('tabRecent') },
+    { key: 'addresses', label: t('tabAddresses') },
+    { key: 'security', label: t('tabSecurity') },
+    { key: 'audit', label: t('tabAudit') },
   ];
 
   return (
     <div>
       {/* Header */}
       <Link href="/admin/users" className="text-sm text-[var(--color-primary)] hover:underline">
-        &larr; Користувачі
+        &larr; {t('breadcrumb')}
       </Link>
 
       <div className="mt-4 mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -534,7 +536,7 @@ export default function AdminUserDetailPage() {
             <h2 className="text-xl font-bold">{user.fullName}</h2>
             {user.isBlocked && (
               <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
-                Заблоковано
+                {t('blocked')}
               </span>
             )}
           </div>
@@ -554,28 +556,28 @@ export default function AdminUserDetailPage() {
             isLoading={isUpdating}
             disabled={selectedRole === roleSelectValue(user.role, user.wholesaleGroup)}
           >
-            Зберегти
+            {t('save')}
           </Button>
           <Button size="sm" variant="outline" onClick={openEditModal}>
-            Редагувати
+            {t('edit')}
           </Button>
           {user.isBlocked ? (
             <Button size="sm" variant="outline" onClick={handleUnblock}>
-              Розблокувати
+              {t('unblock')}
             </Button>
           ) : (
             <Button size="sm" variant="danger" onClick={() => setShowBlockModal(true)}>
-              Заблокувати
+              {t('block')}
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => setShowResetModal(true)}>
-            Скинути пароль
+            {t('resetPassword')}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setShowMessageModal(true)}>
-            Повідомлення
+            {t('message')}
           </Button>
           <Button size="sm" variant="outline" onClick={handleExportData}>
-            Експорт
+            {t('export')}
           </Button>
           <Button
             size="sm"
@@ -589,12 +591,7 @@ export default function AdminUserDetailPage() {
                 (user as { fullName?: string; email?: string } | null)?.fullName ||
                 (user as { email?: string } | null)?.email ||
                 `#${id}`;
-              const ok = window.confirm(
-                `Увійти як «${targetLabel}»?\n\n` +
-                  `Ваша сесія тимчасово переключиться на цього користувача — ` +
-                  `усі дії на сайті виконуватимуться від його імені і будуть записані в audit-log.\n\n` +
-                  `Поверніться у Адмін → Користувачі → Stop impersonation, щоб вийти.`,
-              );
+              const ok = window.confirm(t('impersonateConfirm', { name: targetLabel }));
               if (!ok) return;
               const res = await apiClient.post<{ accessToken: string }>(
                 `/api/v1/admin/users/${id}/impersonate`,
@@ -604,11 +601,11 @@ export default function AdminUserDetailPage() {
                 setAccessToken(res.data.accessToken);
                 router.push('/');
               } else {
-                showResult('error', res.error || 'Не вдалося імперсонувати');
+                showResult('error', res.error || t('impersonateFailed'));
               }
             }}
           >
-            Увійти як
+            {t('impersonate')}
           </Button>
         </div>
       </div>
@@ -626,31 +623,31 @@ export default function AdminUserDetailPage() {
         <>
           <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <StatCard
-              label="Всього замовлень"
+              label={t('statTotalOrders')}
               value={stats.totalOrders}
               color="text-blue-600"
               bg="bg-blue-50"
             />
             <StatCard
-              label="Виконаних"
+              label={t('statCompleted')}
               value={stats.completedOrders}
               color="text-emerald-600"
               bg="bg-emerald-50"
             />
             <StatCard
-              label="Сума покупок"
+              label={t('statPurchases')}
               value={`${stats.totalPurchases.toFixed(0)} \u20B4`}
               color="text-violet-600"
               bg="bg-violet-50"
             />
             <StatCard
-              label="Середній чек"
+              label={t('statAvgCheck')}
               value={`${stats.avgCheck.toFixed(0)} \u20B4`}
               color="text-amber-600"
               bg="bg-amber-50"
             />
             <StatCard
-              label="LTV прогноз 12 міс"
+              label={t('statLtv')}
               value={
                 stats.predictedLtv12mo !== undefined
                   ? `${stats.predictedLtv12mo.toFixed(0)} ₴`
@@ -660,13 +657,13 @@ export default function AdminUserDetailPage() {
               bg="bg-pink-50"
             />
             <StatCard
-              label="Останнє замовлення"
+              label={t('statLastOrder')}
               value={
                 stats.lastOrderDate
                   ? stats.daysSinceLastOrder !== null && stats.daysSinceLastOrder !== undefined
-                    ? `${stats.daysSinceLastOrder} д тому`
+                    ? t('daysAgo', { days: stats.daysSinceLastOrder })
                     : formatDate(stats.lastOrderDate)
-                  : 'Немає'
+                  : t('none')
               }
               color="text-gray-600"
               bg="bg-gray-50"
@@ -675,7 +672,7 @@ export default function AdminUserDetailPage() {
           {stats.segments && stats.segments.length > 0 && (
             <div className="mb-5 flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                Сегмент:
+                {t('segment')}
               </span>
               {stats.segments.map((seg) => {
                 const meta = SEGMENT_LABELS[seg] ?? {
@@ -717,48 +714,48 @@ export default function AdminUserDetailPage() {
       {activeTab === 'info' && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <InfoCard title="Основні дані">
-              <Row label="Роль" value={USER_ROLE_LABELS[user.role]} />
-              <Row label="Телефон" value={user.phone || '—'} />
+            <InfoCard title={t('cardMain')}>
+              <Row label={t('rowRole')} value={USER_ROLE_LABELS[user.role]} />
+              <Row label={t('rowPhone')} value={user.phone || '—'} />
               <div className="flex items-center justify-between text-sm">
-                <span className="text-[var(--color-text-secondary)]">Верифікований</span>
+                <span className="text-[var(--color-text-secondary)]">{t('verified')}</span>
                 <span className="flex items-center gap-2 font-medium">
                   {user.isVerified ? (
-                    'Так'
+                    t('yes')
                   ) : (
                     <>
-                      <span className="text-amber-600">Ні</span>
+                      <span className="text-amber-600">{t('no')}</span>
                       <button
                         onClick={handleVerifyEmail}
                         className="rounded bg-[var(--color-primary)] px-2 py-0.5 text-xs text-white hover:opacity-90"
                       >
-                        Верифікувати
+                        {t('verify')}
                       </button>
                     </>
                   )}
                 </span>
               </div>
-              <Row label="Замовлень" value={String(user._count.orders)} />
-              <Row label="Зареєстрований" value={formatDate(user.createdAt as string)} />
+              <Row label={t('rowOrders')} value={String(user._count.orders)} />
+              <Row label={t('rowRegistered')} value={formatDate(user.createdAt as string)} />
               {user.isBlocked && user.blockedAt && (
                 <>
-                  <Row label="Заблоковано" value={formatDate(user.blockedAt)} />
-                  {user.blockedReason && <Row label="Причина" value={user.blockedReason} />}
+                  <Row label={t('rowBlocked')} value={formatDate(user.blockedAt)} />
+                  {user.blockedReason && <Row label={t('rowReason')} value={user.blockedReason} />}
                 </>
               )}
             </InfoCard>
 
-            <InfoCard title="Гуртовий статус">
-              <Row label="Статус" value={WHOLESALE_STATUS_LABELS[user.wholesaleStatus]} />
+            <InfoCard title={t('cardWholesale')}>
+              <Row label={t('rowStatus')} value={WHOLESALE_STATUS_LABELS[user.wholesaleStatus]} />
               <div className="flex items-center justify-between text-sm">
-                <span className="text-[var(--color-text-secondary)]">Гуртова група</span>
+                <span className="text-[var(--color-text-secondary)]">{t('wholesaleGroup')}</span>
                 <div className="flex items-center gap-1.5">
                   <select
                     value={selectedGroup}
                     onChange={(e) => setSelectedGroup(e.target.value)}
                     className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
                   >
-                    <option value="">Без групи</option>
+                    <option value="">{t('noGroup')}</option>
                     {Object.entries(WHOLESALE_GROUP_LABELS).map(([v, l]) => (
                       <option key={v} value={v}>
                         {l}
@@ -774,33 +771,36 @@ export default function AdminUserDetailPage() {
                     }
                     className="rounded bg-[var(--color-primary)] px-2 py-1 text-xs text-white hover:opacity-90 disabled:opacity-40"
                   >
-                    {isUpdatingGroup ? '...' : 'Зберегти'}
+                    {isUpdatingGroup ? '...' : t('save')}
                   </button>
                 </div>
               </div>
-              <Row label="Дата запиту" value={formatDate(user.wholesaleRequestDate as string)} />
-              <Row label="Дата підтвердження" value={formatDate(user.wholesaleApprovedDate)} />
-              <Row label="Очікуваний обсяг" value={user.wholesaleMonthlyVol || '—'} />
+              <Row
+                label={t('rowRequestDate')}
+                value={formatDate(user.wholesaleRequestDate as string)}
+              />
+              <Row label={t('rowApprovedDate')} value={formatDate(user.wholesaleApprovedDate)} />
+              <Row label={t('rowExpectedVol')} value={user.wholesaleMonthlyVol || '—'} />
               {user.assignedManager && (
-                <Row label="Менеджер" value={user.assignedManager.fullName} />
+                <Row label={t('rowManager')} value={user.assignedManager.fullName} />
               )}
             </InfoCard>
 
             {(user.companyName || user.edrpou) && (
-              <InfoCard title="Дані компанії">
-                <Row label="Компанія" value={user.companyName || '—'} />
-                <Row label="ЄДРПОУ" value={user.edrpou || '—'} />
-                <Row label="Адреса" value={user.legalAddress || '—'} />
-                <Row label="IBAN" value={user.bankIban || '—'} />
-                <Row label="Банк" value={user.bankName || '—'} />
-                <Row label="Форма" value={user.ownershipType || '—'} />
+              <InfoCard title={t('cardCompany')}>
+                <Row label={t('rowCompany')} value={user.companyName || '—'} />
+                <Row label={t('rowEdrpou')} value={user.edrpou || '—'} />
+                <Row label={t('rowAddress')} value={user.legalAddress || '—'} />
+                <Row label={t('rowIban')} value={user.bankIban || '—'} />
+                <Row label={t('rowBank')} value={user.bankName || '—'} />
+                <Row label={t('rowOwnership')} value={user.ownershipType || '—'} />
                 <Row
-                  label="Податки"
+                  label={t('rowTaxes')}
                   value={
                     user.taxSystem === 'with_vat'
-                      ? 'З ПДВ'
+                      ? t('taxWithVat')
                       : user.taxSystem === 'without_vat'
-                        ? 'Без ПДВ'
+                        ? t('taxWithoutVat')
                         : '—'
                   }
                 />
@@ -811,30 +811,30 @@ export default function AdminUserDetailPage() {
           {/* Admin note */}
           <div className="mt-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-              Нотатка менеджера
+              {t('managerNote')}
             </p>
             <div className="flex gap-2">
               <textarea
                 value={adminNote}
                 onChange={(e) => setAdminNote(e.target.value)}
-                placeholder="Внутрішній коментар (видно тільки менеджерам)..."
+                placeholder={t('notePlaceholder')}
                 rows={2}
                 className="flex-1 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
               />
               <Button size="sm" variant="outline" onClick={handleSaveNote} isLoading={isSavingNote}>
-                Зберегти
+                {t('save')}
               </Button>
             </div>
           </div>
 
           {/* Danger zone */}
           <div className="mt-4 rounded-[var(--radius)] border border-red-200 bg-red-50 p-4">
-            <p className="mb-2 text-xs font-semibold uppercase text-red-600">Небезпечна зона</p>
+            <p className="mb-2 text-xs font-semibold uppercase text-red-600">{t('dangerZone')}</p>
             <p className="mb-3 text-sm text-[var(--color-text-secondary)]">
-              Видалення акаунту анонімізує всі дані користувача та є незворотною дією.
+              {t('deleteAccountWarn')}
             </p>
             <Button size="sm" variant="danger" onClick={() => setShowDeleteModal(true)}>
-              Видалити акаунт
+              {t('deleteAccount')}
             </Button>
           </div>
         </>
@@ -849,19 +849,19 @@ export default function AdminUserDetailPage() {
             </div>
           ) : orders.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-              Замовлень немає
+              {t('noOrders')}
             </p>
           ) : (
             <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                    <th className="px-4 py-3 text-left font-medium">Замовлення</th>
-                    <th className="px-4 py-3 text-left font-medium">Статус</th>
-                    <th className="px-4 py-3 text-left font-medium">Оплата</th>
-                    <th className="px-4 py-3 text-center font-medium">Товарів</th>
-                    <th className="px-4 py-3 text-right font-medium">Сума</th>
-                    <th className="px-4 py-3 text-left font-medium">Дата</th>
+                    <th className="px-4 py-3 text-left font-medium">{t('thOrder')}</th>
+                    <th className="px-4 py-3 text-left font-medium">{t('thStatus')}</th>
+                    <th className="px-4 py-3 text-left font-medium">{t('thPayment')}</th>
+                    <th className="px-4 py-3 text-center font-medium">{t('thItems')}</th>
+                    <th className="px-4 py-3 text-right font-medium">{t('thAmount')}</th>
+                    <th className="px-4 py-3 text-left font-medium">{t('thDate')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -924,7 +924,7 @@ export default function AdminUserDetailPage() {
             </div>
           ) : wishlist.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-              Список бажань порожній
+              {t('wishlistEmpty')}
             </p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -943,7 +943,7 @@ export default function AdminUserDetailPage() {
                     />
                   ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
-                      Фото
+                      {t('photo')}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
@@ -960,10 +960,10 @@ export default function AdminUserDetailPage() {
                       <span
                         className={`text-xs ${item.product.inStock ? 'text-green-600' : 'text-red-500'}`}
                       >
-                        {item.product.inStock ? 'В наявності' : 'Немає'}
+                        {item.product.inStock ? t('inStock') : t('outStock')}
                       </span>
                       <span className="text-[10px] text-[var(--color-text-secondary)]">
-                        Додано: {formatDate(item.createdAt)}
+                        {t('added', { date: formatDate(item.createdAt) })}
                       </span>
                     </div>
                   </div>
@@ -983,7 +983,7 @@ export default function AdminUserDetailPage() {
             </div>
           ) : recentlyViewed.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-              Немає переглянутих товарів
+              {t('noRecent')}
             </p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -1002,7 +1002,7 @@ export default function AdminUserDetailPage() {
                     />
                   ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
-                      Фото
+                      {t('photo')}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
@@ -1016,7 +1016,7 @@ export default function AdminUserDetailPage() {
                       {item.product.price.toFixed(2)} &#8372;
                     </p>
                     <p className="mt-1 text-[10px] text-[var(--color-text-secondary)]">
-                      Переглянуто: {formatDateTime(item.viewedAt)}
+                      {t('viewed', { date: formatDateTime(item.viewedAt) })}
                     </p>
                   </div>
                 </div>
@@ -1035,7 +1035,7 @@ export default function AdminUserDetailPage() {
             </div>
           ) : addresses.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-              Адреси відсутні
+              {t('noAddresses')}
             </p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1048,7 +1048,7 @@ export default function AdminUserDetailPage() {
                     {addr.label && <span className="text-sm font-medium">{addr.label}</span>}
                     {addr.isDefault && (
                       <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-                        За замовчуванням
+                        {t('defaultAddr')}
                       </span>
                     )}
                   </div>
@@ -1056,15 +1056,15 @@ export default function AdminUserDetailPage() {
                   <p className="text-sm text-[var(--color-text-secondary)]">
                     {[
                       addr.street,
-                      addr.building && `буд. ${addr.building}`,
-                      addr.apartment && `кв. ${addr.apartment}`,
+                      addr.building && t('building', { n: addr.building }),
+                      addr.apartment && t('apartment', { n: addr.apartment }),
                     ]
                       .filter(Boolean)
                       .join(', ') || '—'}
                   </p>
                   {addr.postalCode && (
                     <p className="text-xs text-[var(--color-text-secondary)]">
-                      Індекс: {addr.postalCode}
+                      {t('postalIndex', { code: addr.postalCode })}
                     </p>
                   )}
                 </div>
@@ -1083,7 +1083,7 @@ export default function AdminUserDetailPage() {
             </div>
           ) : timeline.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-              Активність відсутня
+              {t('noTimeline')}
             </p>
           ) : (
             <ol className="relative space-y-3 border-l border-[var(--color-border)] pl-6">
@@ -1095,10 +1095,10 @@ export default function AdminUserDetailPage() {
                   event: 'bg-emerald-500',
                 };
                 const kindLabel: Record<typeof entry.kind, string> = {
-                  order: 'Замовлення',
-                  review: 'Відгук',
-                  audit: 'Лог',
-                  event: 'Подія',
+                  order: t('kindOrder'),
+                  review: t('kindReview'),
+                  audit: t('kindAudit'),
+                  event: t('kindEvent'),
                 };
                 return (
                   <li key={entry.id} className="relative">
@@ -1151,7 +1151,7 @@ export default function AdminUserDetailPage() {
             </div>
           ) : auditLog.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-              Записів немає
+              {t('noAuditRecords')}
             </p>
           ) : (
             <div className="space-y-2">
@@ -1172,7 +1172,7 @@ export default function AdminUserDetailPage() {
                     </div>
                     {entry.user && (
                       <p className="text-xs text-[var(--color-text-secondary)]">
-                        Виконав: {entry.user.fullName}
+                        {t('performedBy', { name: entry.user.fullName })}
                       </p>
                     )}
                     {entry.details && typeof entry.details === 'object' && (
@@ -1186,9 +1186,9 @@ export default function AdminUserDetailPage() {
                     {entry.ipAddress && (
                       <p
                         className="font-mono text-[10px] text-[var(--color-text-secondary)]"
-                        title="IP замасковано для приватності — повний адрес у БД"
+                        title={t('ipMaskedTitle')}
                       >
-                        IP: {maskIpDisplay(entry.ipAddress)}
+                        {t('ipLabel', { ip: maskIpDisplay(entry.ipAddress) })}
                       </p>
                     )}
                   </div>
@@ -1200,11 +1200,11 @@ export default function AdminUserDetailPage() {
       )}
 
       {/* Edit profile modal */}
-      <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} title="Редагувати профіль">
+      <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} title={t('editProfile')}>
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-              Ім&apos;я
+              {t('fldName')}
             </label>
             <Input
               value={editForm.fullName}
@@ -1213,7 +1213,7 @@ export default function AdminUserDetailPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-              Email
+              {t('fldEmail')}
             </label>
             <Input
               value={editForm.email}
@@ -1222,7 +1222,7 @@ export default function AdminUserDetailPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-              Телефон
+              {t('fldPhone')}
             </label>
             <Input
               value={editForm.phone}
@@ -1231,7 +1231,7 @@ export default function AdminUserDetailPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-              Компанія
+              {t('fldCompany')}
             </label>
             <Input
               value={editForm.companyName}
@@ -1240,7 +1240,7 @@ export default function AdminUserDetailPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-              ЄДРПОУ
+              {t('fldEdrpou')}
             </label>
             <Input
               value={editForm.edrpou}
@@ -1249,7 +1249,7 @@ export default function AdminUserDetailPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-              Юридична адреса
+              {t('fldLegalAddress')}
             </label>
             <Input
               value={editForm.legalAddress}
@@ -1258,9 +1258,9 @@ export default function AdminUserDetailPage() {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setIsEditing(false)}>
-              Скасувати
+              {t('cancel')}
             </Button>
-            <Button onClick={handleSaveProfile}>Зберегти</Button>
+            <Button onClick={handleSaveProfile}>{t('save')}</Button>
           </div>
         </div>
       </Modal>
@@ -1269,23 +1269,25 @@ export default function AdminUserDetailPage() {
       <Modal
         isOpen={showBlockModal}
         onClose={() => setShowBlockModal(false)}
-        title="Заблокувати користувача"
+        title={t('blockTitle')}
       >
         <div className="space-y-3">
           <p className="text-sm">
-            Заблокувати <b>{user.fullName}</b>? Всі сесії будуть завершені.
+            {t('blockMsgPre')}
+            <b>{user.fullName}</b>
+            {t('blockMsgPost')}
           </p>
           <Input
-            placeholder="Причина блокування (необов'язково)"
+            placeholder={t('blockReasonPh')}
             value={blockReason}
             onChange={(e) => setBlockReason(e.target.value)}
           />
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowBlockModal(false)}>
-              Скасувати
+              {t('cancel')}
             </Button>
             <Button variant="danger" onClick={handleBlock}>
-              Заблокувати
+              {t('block')}
             </Button>
           </div>
         </div>
@@ -1298,25 +1300,26 @@ export default function AdminUserDetailPage() {
           setShowResetModal(false);
           setTempPassword('');
         }}
-        title="Скидання пароля"
+        title={t('resetTitle')}
       >
         <div className="space-y-3">
           {!tempPassword ? (
             <>
               <p className="text-sm">
-                Скинути пароль для <b>{user.fullName}</b> ({user.email})? Буде згенеровано
-                тимчасовий пароль. Всі сесії будуть завершені.
+                {t('resetMsgPre')}
+                <b>{user.fullName}</b>
+                {t('resetMsgPost', { email: user.email })}
               </p>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowResetModal(false)}>
-                  Скасувати
+                  {t('cancel')}
                 </Button>
-                <Button onClick={handleResetPassword}>Скинути</Button>
+                <Button onClick={handleResetPassword}>{t('reset')}</Button>
               </div>
             </>
           ) : (
             <>
-              <p className="text-sm">Новий тимчасовий пароль:</p>
+              <p className="text-sm">{t('newTempPassword')}</p>
               <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-3">
                 <code className="flex-1 text-lg font-bold tracking-wider">{tempPassword}</code>
                 <Button
@@ -1324,15 +1327,13 @@ export default function AdminUserDetailPage() {
                   variant="outline"
                   onClick={() => {
                     navigator.clipboard.writeText(tempPassword);
-                    showResult('success', 'Скопійовано');
+                    showResult('success', t('copied'));
                   }}
                 >
-                  Копіювати
+                  {t('copy')}
                 </Button>
               </div>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                Передайте цей пароль клієнту. Він зможе змінити його в особистому кабінеті.
-              </p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('passToClient')}</p>
               <div className="flex justify-end">
                 <Button
                   onClick={() => {
@@ -1340,7 +1341,7 @@ export default function AdminUserDetailPage() {
                     setTempPassword('');
                   }}
                 >
-                  Закрити
+                  {t('close')}
                 </Button>
               </div>
             </>
@@ -1352,15 +1353,16 @@ export default function AdminUserDetailPage() {
       <Modal
         isOpen={showMessageModal}
         onClose={() => setShowMessageModal(false)}
-        title="Надіслати повідомлення"
+        title={t('sendMessageTitle')}
       >
         <div className="space-y-3">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            Надіслати повідомлення для <b>{user.fullName}</b>
+            {t('sendMessageToPre')}
+            <b>{user.fullName}</b>
           </p>
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-              Канали
+              {t('channels')}
             </label>
             <div className="flex gap-3">
               {[
@@ -1383,37 +1385,37 @@ export default function AdminUserDetailPage() {
           {messageChannels.includes('email') && (
             <div>
               <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-                Тема (для email)
+                {t('subjectEmail')}
               </label>
               <Input
                 value={messageSubject}
                 onChange={(e) => setMessageSubject(e.target.value)}
-                placeholder="Тема листа"
+                placeholder={t('subjectPh')}
               />
             </div>
           )}
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
-              Повідомлення
+              {t('messageLabel')}
             </label>
             <textarea
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
-              placeholder="Текст повідомлення..."
+              placeholder={t('messagePh')}
               rows={4}
               className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
             />
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowMessageModal(false)}>
-              Скасувати
+              {t('cancel')}
             </Button>
             <Button
               onClick={handleSendMessage}
               isLoading={isSendingMessage}
               disabled={!messageText.trim() || messageChannels.length === 0}
             >
-              Надіслати
+              {t('send')}
             </Button>
           </div>
         </div>
@@ -1426,24 +1428,26 @@ export default function AdminUserDetailPage() {
           setShowDeleteModal(false);
           setDeleteConfirm('');
         }}
-        title="Видалення акаунту"
+        title={t('deleteTitle')}
       >
         <div className="space-y-3">
           <div className="rounded bg-red-50 p-3 text-sm text-red-700">
-            <b>Увага!</b> Ця дія незворотна. Всі персональні дані користувача будуть анонімізовані,
-            замовлення збережуться без прив&apos;язки до особи.
+            <b>{t('warnLabel')}</b>
+            {t('deleteWarnText')}
           </div>
           <p className="text-sm">
-            Для підтвердження видалення акаунту <b>{user.fullName}</b> ({user.email}) введіть{' '}
+            {t('deleteConfirmPre')}
+            <b>{user.fullName}</b>
+            {t('deleteConfirmMid', { email: user.email })}
             <code className="rounded bg-[var(--color-bg-secondary)] px-1.5 py-0.5 font-bold">
-              ВИДАЛИТИ
+              {t('deleteKeyword')}
             </code>
             :
           </p>
           <Input
             value={deleteConfirm}
             onChange={(e) => setDeleteConfirm(e.target.value)}
-            placeholder="Введіть ВИДАЛИТИ"
+            placeholder={t('deleteKeywordPh', { keyword: t('deleteKeyword') })}
           />
           <div className="flex justify-end gap-2">
             <Button
@@ -1453,15 +1457,15 @@ export default function AdminUserDetailPage() {
                 setDeleteConfirm('');
               }}
             >
-              Скасувати
+              {t('cancel')}
             </Button>
             <Button
               variant="danger"
               onClick={handleDeleteAccount}
               isLoading={isDeleting}
-              disabled={deleteConfirm !== 'ВИДАЛИТИ'}
+              disabled={deleteConfirm !== t('deleteKeyword')}
             >
-              Видалити назавжди
+              {t('deleteForever')}
             </Button>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -29,6 +30,7 @@ interface UsageSummary {
 }
 
 export default function AdminPlansPage() {
+  const t = useTranslations('admin.billingPlansPage');
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [current, setCurrent] = useState<CurrentBillingSummary | null>(null);
@@ -47,14 +49,14 @@ export default function AdminPlansPage() {
       .then(([plansRes, billingRes]) => {
         if (cancelled) return;
         if (plansRes.success && plansRes.data) setPlans(plansRes.data);
-        else toast.error(plansRes.error || 'Помилка завантаження планів');
+        else toast.error(plansRes.error || t('loadPlansError'));
         if (billingRes.success && billingRes.data) {
           setCurrent(billingRes.data.billing);
           setUsage(billingRes.data.usage);
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка завантаження');
+        if (!cancelled) toast.error(t('loadError'));
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -62,6 +64,7 @@ export default function AdminPlansPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSelectPlan = async (planId: number) => {
@@ -79,28 +82,20 @@ export default function AdminPlansPage() {
         const lines: string[] = [];
         if (productsOverflow) {
           lines.push(
-            `Товарів зараз: ${usage.products.used}, ліміт нового плану: ${target.maxProducts}. ` +
-              `Зайві товари залишаться, але нові додавати буде заборонено до приведення у відповідність.`,
+            t('overflowProducts', { used: usage.products.used, limit: target.maxProducts }),
           );
         }
         if (ordersOverflow) {
-          lines.push(
-            `Замовлень за період: ${usage.orders.used}, ліміт нового плану: ${target.maxOrders}. ` +
-              `Заборониться приймати нові замовлення на цьому періоді.`,
-          );
+          lines.push(t('overflowOrders', { used: usage.orders.used, limit: target.maxOrders }));
         }
         const ok = window.confirm(
-          `Зміна плану на «${target.name}» — увага:\n\n${lines.join('\n\n')}\n\nПродовжити?`,
+          t('overflowConfirm', { name: target.name, details: lines.join('\n\n') }),
         );
         if (!ok) return;
       } else if (current && current.planId !== planId) {
         // Не-overflow downgrade теж варто підтвердити, бо biller часто
         // спишеться full month за новий план — proration не імплементовано.
-        const ok = window.confirm(
-          `Підтвердити зміну плану з «${current.plan.name}» на «${target.name}»?\n\n` +
-            `Цикл оплати скинеться на сьогодні і ви будете виставлені за повний місяць ` +
-            `нового плану (proration наразі не імплементовано).`,
-        );
+        const ok = window.confirm(t('confirmChange', { from: current.plan.name, to: target.name }));
         if (!ok) return;
       }
     }
@@ -109,13 +104,13 @@ export default function AdminPlansPage() {
     try {
       const res = await apiClient.post('/api/v1/admin/billing/change-plan', { planId });
       if (res.success) {
-        toast.success('План змінено');
+        toast.success(t('planChanged'));
         router.push('/admin/billing');
       } else {
-        toast.error(res.error || 'Помилка зміни плану');
+        toast.error(res.error || t('changeError'));
       }
     } catch {
-      toast.error('Помилка зміни плану');
+      toast.error(t('changeError'));
     } finally {
       setChangingPlanId(null);
     }
@@ -132,14 +127,12 @@ export default function AdminPlansPage() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold">Тарифні плани</h2>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Оберіть план, що найкраще підходить для вашого бізнесу.
-        </p>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       {plans.length === 0 ? (
-        <p className="text-[var(--color-text-secondary)]">Плани ще не налаштовано.</p>
+        <p className="text-[var(--color-text-secondary)]">{t('emptyPlans')}</p>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => (
@@ -151,21 +144,24 @@ export default function AdminPlansPage() {
 
               <div className="mb-4">
                 <span className="text-2xl font-bold">{plan.priceMonthly}</span>
-                <span className="text-sm text-[var(--color-text-secondary)]"> грн/міс</span>
+                <span className="text-sm text-[var(--color-text-secondary)]">
+                  {' '}
+                  {t('priceMonthly')}
+                </span>
               </div>
 
               <div className="mb-4 text-sm text-[var(--color-text-secondary)]">
-                або {plan.priceYearly} грн/рік
+                {t('priceYearly', { price: plan.priceYearly })}
               </div>
 
               <div className="mb-6 flex-1 space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="text-green-500">&#10003;</span>
-                  <span>До {plan.maxProducts} товарів</span>
+                  <span>{t('featureProducts', { count: plan.maxProducts })}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-green-500">&#10003;</span>
-                  <span>До {plan.maxOrders} замовлень/міс</span>
+                  <span>{t('featureOrders', { count: plan.maxOrders })}</span>
                 </div>
                 {plan.features &&
                   typeof plan.features === 'object' &&
@@ -196,7 +192,7 @@ export default function AdminPlansPage() {
                 isLoading={changingPlanId === plan.id}
                 className="w-full"
               >
-                Обрати план
+                {t('selectPlan')}
               </Button>
             </div>
           ))}

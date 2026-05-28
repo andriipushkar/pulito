@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -151,6 +152,7 @@ const EMPTY_PRODUCT_FORM: ProductFormState = {
 };
 
 export default function AdminProductDetailPage() {
+  const t = useTranslations('admin.productEditPage');
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [product, setProduct] = useState<ProductDetail | null>(null);
@@ -203,15 +205,15 @@ export default function AdminProductDetailPage() {
       .catch(() => {});
   }, []);
   const { errors, validateAll, clearError, onBlurField } = useFormValidation({
-    name: { required: "Назва обов'язкова", minLength: { value: 2, message: 'Мінімум 2 символи' } },
-    code: { required: "Код обов'язковий" },
+    name: { required: t('valName'), minLength: { value: 2, message: t('valMin2') } },
+    code: { required: t('valCode') },
     priceRetail: {
-      required: "Ціна обов'язкова",
-      min: { value: 0.01, message: 'Ціна має бути > 0' },
+      required: t('valPrice'),
+      min: { value: 0.01, message: t('valPriceMin') },
     },
-    quantity: { min: { value: 0, message: "Кількість не може бути від'ємною" } },
-    seoTitle: { maxLength: { value: 70, message: 'Максимум 70 символів' } },
-    seoDescription: { maxLength: { value: 160, message: 'Максимум 160 символів' } },
+    quantity: { min: { value: 0, message: t('valQtyMin') } },
+    seoTitle: { maxLength: { value: 70, message: t('valSeoTitle') } },
+    seoDescription: { maxLength: { value: 160, message: t('valSeoDesc') } },
   });
 
   useEffect(() => {
@@ -345,33 +347,32 @@ export default function AdminProductDetailPage() {
       };
       const res = await apiClient.put<ProductDetail>(`/api/v1/admin/products/${id}`, payload);
       if (res.success && res.data) {
-        toast.success('Збережено!');
+        toast.success(t('saved'));
         // Sync the local product (so `product.version` advances) and clear
         // the dirty snapshot.
         setProduct(res.data);
         setSavedFormSnapshot(JSON.stringify(form));
       } else if (res.statusCode === 409) {
         // Optimistic-lock conflict. Offer to refresh from server so the admin
-        // doesn't lose unsaved input — they can copy fields from the toast
-        // before clicking "Оновити", or override after refresh.
-        toast.error(res.error || 'Товар був змінений іншим адміністратором', {
+        // doesn't lose unsaved input.
+        toast.error(res.error || t('conflictError'), {
           duration: 12000,
           action: {
-            label: 'Оновити з сервера',
+            label: t('refreshAction'),
             onClick: async () => {
               const updated = await apiClient.get<ProductDetail>(`/api/v1/admin/products/${id}`);
               if (updated.success && updated.data) {
                 setProduct(updated.data);
-                toast.success('Оновлено. Поверніть свої правки і збережіть знову.');
+                toast.success(t('refreshedRetry'));
               }
             },
           },
         });
       } else {
-        toast.error(res.error || 'Помилка збереження');
+        toast.error(res.error || t('saveError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -381,7 +382,7 @@ export default function AdminProductDetailPage() {
    * before overwriting non-empty fields so the manager doesn't lose edits. */
   const handleAiGenerate = async () => {
     if (!form.name.trim()) {
-      toast.error('Спершу введіть назву товару');
+      toast.error(t('enterNameFirst'));
       return;
     }
     const hasExisting =
@@ -389,7 +390,7 @@ export default function AdminProductDetailPage() {
       form.description.trim() ||
       form.seoTitle.trim() ||
       form.seoDescription.trim();
-    if (hasExisting && !window.confirm('Замінити існуючий опис/SEO?')) return;
+    if (hasExisting && !window.confirm(t('replaceConfirmSimple'))) return;
     if (aiInFlight.current) return;
     aiInFlight.current = true;
 
@@ -416,12 +417,12 @@ export default function AdminProductDetailPage() {
           seoTitle: res.data!.seoTitle,
           seoDescription: res.data!.seoDescription,
         }));
-        toast.success(`AI згенерував опис (${aiProvider})`);
+        toast.success(t('aiGenerated', { provider: aiProvider }));
       } else {
-        toast.error(res.error || 'AI генерація не вдалась');
+        toast.error(res.error || t('aiFailed'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       aiInFlight.current = false;
       setIsGenerating(false);
@@ -447,12 +448,12 @@ export default function AdminProductDetailPage() {
       if (result?.success) {
         const updated = await apiClient.get<ProductDetail>(`/api/v1/admin/products/${id}`);
         if (updated.success && updated.data) setProduct(updated.data);
-        toast.success('Зображення завантажено');
+        toast.success(t('imagesUploaded'));
       } else {
-        toast.error(result?.error || 'Не вдалося завантажити зображення');
+        toast.error(result?.error || t('imageUploadError'));
       }
     } catch {
-      toast.error('Помилка мережі при завантаженні');
+      toast.error(t('networkUploadError'));
     }
   };
 
@@ -464,12 +465,12 @@ export default function AdminProductDetailPage() {
       const res = await apiClient.delete(`/api/v1/admin/products/${id}/images/${imageId}`);
       if (res.success && product) {
         setProduct({ ...product, images: product.images.filter((img) => img.id !== imageId) });
-        toast.success('Зображення видалено');
+        toast.success(t('imageDeleted'));
       } else {
-        toast.error(res.error || 'Не вдалося видалити зображення');
+        toast.error(res.error || t('imageDeleteError'));
       }
     } catch {
-      toast.error('Помилка мережі при видаленні зображення');
+      toast.error(t('networkDeleteImageError'));
     }
   };
 
@@ -479,13 +480,13 @@ export default function AdminProductDetailPage() {
     try {
       const res = await apiClient.delete(`/api/v1/admin/products/${id}`);
       if (res.success) {
-        toast.success('Товар видалено');
+        toast.success(t('productDeleted'));
         router.push('/admin/products');
       } else {
-        toast.error(res.error || 'Не вдалося видалити товар');
+        toast.error(res.error || t('deleteProductError'));
       }
     } catch {
-      toast.error('Помилка видалення');
+      toast.error(t('deleteError'));
     } finally {
       setIsDeleting(false);
     }
@@ -502,9 +503,9 @@ export default function AdminProductDetailPage() {
   if (!product) {
     return (
       <div className="text-center">
-        <p className="text-[var(--color-text-secondary)]">Товар не знайдено</p>
+        <p className="text-[var(--color-text-secondary)]">{t('notFound')}</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/admin/products')}>
-          До списку
+          {t('toList')}
         </Button>
       </div>
     );
@@ -517,14 +518,14 @@ export default function AdminProductDetailPage() {
           href="/admin/products"
           className="text-sm text-[var(--color-primary)] hover:underline"
         >
-          ← Товари
+          ← {t('breadcrumb')}
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <h2 className="text-xl font-bold">{product.name}</h2>
           {isDirty && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-              Незбережені зміни
+              {t('unsavedChanges')}
             </span>
           )}
           <a
@@ -532,19 +533,19 @@ export default function AdminProductDetailPage() {
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
-            title="Переглянути на сайті"
+            title={t('viewOnSiteTitle')}
           >
-            ↗ На сайті
+            ↗ {t('onSite')}
           </a>
         </div>
         <p className="text-sm text-[var(--color-text-secondary)]">
-          ID: {product.id} | Код: {product.code}
+          {t('idCodeLine', { id: product.id, code: product.code })}
         </p>
       </div>
 
       {/* Images */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Зображення</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('images')}</h3>
         <ProductImagesManager
           productId={id}
           images={product.images}
@@ -562,9 +563,9 @@ export default function AdminProductDetailPage() {
               className="accent-[var(--color-primary)]"
             />
             <span>
-              Автоматично видалити фон при завантаженні
+              {t('removeBgLabel')}
               <span className="ml-1 text-xs text-[var(--color-text-secondary)]">
-                (товар автоматично розмішується на фоні сайту)
+                {t('removeBgHint')}
               </span>
             </span>
           </label>
@@ -574,10 +575,10 @@ export default function AdminProductDetailPage() {
 
       {/* Main info */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Основна інформація</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('mainInfo')}</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
-            label="Назва *"
+            label={t('nameLabel')}
             value={form.name}
             onChange={(e) => {
               updateField('name', e.target.value);
@@ -587,7 +588,7 @@ export default function AdminProductDetailPage() {
             error={errors.name}
           />
           <Input
-            label="Код *"
+            label={t('codeLabel')}
             value={form.code}
             onChange={(e) => {
               updateField('code', e.target.value);
@@ -599,29 +600,27 @@ export default function AdminProductDetailPage() {
           <BarcodeInput value={form.barcode} onChange={(v) => updateField('barcode', v)} />
           <div>
             <Input
-              label="Slug (URL)"
+              label={t('slugLabel')}
               value={form.slug}
               onChange={(e) => updateField('slug', e.target.value)}
-              placeholder="auto-generated from name"
+              placeholder={t('slugPh')}
             />
             <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
               pulito.trade/product/<strong>{form.slug || '...'}</strong>
               {product && product.slug && form.slug !== product.slug && (
-                <span className="ml-1 font-medium text-amber-600">
-                  ⚠️ Зміна URL поверне 404 на старій адресі
-                </span>
+                <span className="ml-1 font-medium text-amber-600">{t('slugChangeWarn')}</span>
               )}
             </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-[var(--color-text)]">
-              Категорія
+              {t('categoryLabel')}
             </label>
             <Select
               value={form.categoryId}
               onChange={(e) => updateField('categoryId', e.target.value)}
               options={[
-                { value: '', label: '— Без категорії —' },
+                { value: '', label: t('noCategoryOption') },
                 ...categories.map((c) => ({
                   value: String(c.id),
                   label: c.parentId ? `↳ ${c.name}` : c.name,
@@ -629,9 +628,7 @@ export default function AdminProductDetailPage() {
               ]}
             />
             {!form.categoryId && (
-              <p className="mt-1 text-[11px] text-amber-600">
-                ⚠️ Товар без категорії не з&apos;явиться в каталозі на сайті
-              </p>
+              <p className="mt-1 text-[11px] text-amber-600">{t('noCategoryWarn')}</p>
             )}
           </div>
         </div>
@@ -639,10 +636,10 @@ export default function AdminProductDetailPage() {
 
       {/* Prices & Stock */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Ціни та наявність</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('pricesStock')}</h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Input
-            label="Роздрібна ціна *"
+            label={t('priceRetail')}
             type="number"
             min="0"
             step="0.01"
@@ -656,7 +653,7 @@ export default function AdminProductDetailPage() {
           />
           <div>
             <Input
-              label="Стара ціна"
+              label={t('oldPrice')}
               type="number"
               min="0"
               step="0.01"
@@ -664,11 +661,11 @@ export default function AdminProductDetailPage() {
               onChange={(e) => updateField('priceRetailOld', e.target.value)}
             />
             <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
-              Заповніть, щоб показати знижку −% на товарі
+              {t('oldPriceHint')}
             </p>
           </div>
           <Input
-            label="Ціна: Дрібний опт"
+            label={t('priceWholesale')}
             type="number"
             min="0"
             step="0.01"
@@ -676,7 +673,7 @@ export default function AdminProductDetailPage() {
             onChange={(e) => updateField('priceWholesale', e.target.value)}
           />
           <Input
-            label="Ціна: Середній опт"
+            label={t('priceWholesale2')}
             type="number"
             min="0"
             step="0.01"
@@ -684,7 +681,7 @@ export default function AdminProductDetailPage() {
             onChange={(e) => updateField('priceWholesale2', e.target.value)}
           />
           <Input
-            label="Ціна: Великий опт"
+            label={t('priceWholesale3')}
             type="number"
             min="0"
             step="0.01"
@@ -693,7 +690,7 @@ export default function AdminProductDetailPage() {
           />
           <div>
             <Input
-              label="Кількість *"
+              label={t('quantity')}
               type="number"
               min="0"
               value={form.quantity}
@@ -714,19 +711,19 @@ export default function AdminProductDetailPage() {
                 checked={form.hideQuantity}
                 onChange={(e) => updateField('hideQuantity', e.target.checked)}
               />
-              Приховувати кількість на сайті (показувати тільки «В наявності»)
+              {t('hideQtyLabel')}
             </label>
           </div>
           <div>
             <Input
-              label="Сортування"
+              label={t('sortOrder')}
               type="number"
               value={form.sortOrder}
               onChange={(e) => updateField('sortOrder', e.target.value)}
               placeholder="0"
             />
             <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
-              Менше число — вище в списку каталогу
+              {t('sortOrderHint')}
             </p>
           </div>
         </div>
@@ -738,7 +735,7 @@ export default function AdminProductDetailPage() {
               onChange={(e) => updateField('isActive', e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
-            Активний
+            {t('active')}
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -747,13 +744,13 @@ export default function AdminProductDetailPage() {
               onChange={(e) => updateField('isPromo', e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
-            Акційний
+            {t('promo')}
           </label>
         </div>
         {form.isPromo && (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Акція з</label>
+              <label className="mb-1 block text-sm font-medium">{t('promoFrom')}</label>
               <input
                 type="datetime-local"
                 value={form.promoStartDate}
@@ -762,7 +759,7 @@ export default function AdminProductDetailPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Акція по</label>
+              <label className="mb-1 block text-sm font-medium">{t('promoTo')}</label>
               <input
                 type="datetime-local"
                 value={form.promoEndDate}
@@ -782,18 +779,18 @@ export default function AdminProductDetailPage() {
       {/* Description */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Опис</h3>
+          <h3 className="text-sm font-semibold">{t('description')}</h3>
           <div className="flex items-center gap-2">
             <select
               value={aiProvider}
               onChange={(e) => updateAiProvider(e.target.value as 'claude' | 'gemini' | 'rules')}
               disabled={isGenerating}
               className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-              title="Виберіть джерело генерації"
+              title={t('aiSourceTitle')}
             >
-              <option value="claude">Claude (дорого, найкраща якість)</option>
-              <option value="gemini">Gemini (дешево)</option>
-              <option value="rules">Без AI (шаблон)</option>
+              <option value="claude">{t('aiClaude')}</option>
+              <option value="gemini">{t('aiGemini')}</option>
+              <option value="rules">{t('aiRules')}</option>
             </select>
             <button
               type="button"
@@ -810,20 +807,18 @@ export default function AdminProductDetailPage() {
                     fullDescription: string;
                   }>(`/api/v1/admin/products/${id}/ai-generate`, { provider: aiProvider });
                   if (!res.success || !res.data) {
-                    toast.error(res.error || 'Не вдалося згенерувати');
+                    toast.error(res.error || t('generateFailed'));
                     return;
                   }
                   // Detect which fields already have content — ask before overwriting
                   const conflicts: string[] = [];
-                  if (form.seoTitle.trim()) conflicts.push('SEO Title');
-                  if (form.seoDescription.trim()) conflicts.push('SEO Description');
-                  if (form.description.trim()) conflicts.push('Короткий опис');
-                  if (form.descriptionHtml.trim()) conflicts.push('Повний опис');
+                  if (form.seoTitle.trim()) conflicts.push(t('conflictSeoTitle'));
+                  if (form.seoDescription.trim()) conflicts.push(t('conflictSeoDesc'));
+                  if (form.description.trim()) conflicts.push(t('conflictShort'));
+                  if (form.descriptionHtml.trim()) conflicts.push(t('conflictFull'));
                   if (
                     conflicts.length > 0 &&
-                    !window.confirm(
-                      `Замінити вже заповнені поля?\n\n${conflicts.join(', ')}\n\nOK — замінити, Cancel — лишити як є.`,
-                    )
+                    !window.confirm(t('replaceConfirm', { fields: conflicts.join(', ') }))
                   ) {
                     // User refused — only fill empty fields
                     setForm((prev) => ({
@@ -833,7 +828,7 @@ export default function AdminProductDetailPage() {
                       description: prev.description || res.data!.shortDescription,
                       descriptionHtml: prev.descriptionHtml || res.data!.fullDescription,
                     }));
-                    toast.success('Заповнено лише порожні поля');
+                    toast.success(t('filledEmptyOnly'));
                     return;
                   }
                   setForm((prev) => ({
@@ -843,25 +838,25 @@ export default function AdminProductDetailPage() {
                     description: res.data!.shortDescription,
                     descriptionHtml: res.data!.fullDescription,
                   }));
-                  toast.success('Згенеровано — перевірте поля Опис і SEO');
+                  toast.success(t('generatedCheck'));
                 } catch (err) {
                   console.error('[AI generate]', err);
-                  toast.error('Помилка мережі');
+                  toast.error(t('networkError'));
                 } finally {
                   aiInFlight.current = false;
                   setIsGenerating(false);
                 }
               }}
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
-              title="Згенерувати SEO-опис на основі назви, бренду, категорії"
+              title={t('generateBtnTitle')}
             >
               {isGenerating ? (
                 <>
                   <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Генеруємо…
+                  {t('generating')}
                 </>
               ) : (
-                <>✨ Згенерувати</>
+                <>✨ {t('generate')}</>
               )}
             </button>
           </div>
@@ -869,17 +864,15 @@ export default function AdminProductDetailPage() {
         <WysiwygEditor
           value={form.descriptionHtml}
           onChange={(html) => updateField('descriptionHtml', html)}
-          placeholder="Введіть опис товару..."
+          placeholder={t('descPh')}
         />
       </div>
 
       {/* Specifications — structured key/value pairs */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Характеристики</h3>
-          <span className="text-[11px] text-[var(--color-text-secondary)]">
-            Об&apos;єм, склад, торгова марка, інструкція тощо
-          </span>
+          <h3 className="text-sm font-semibold">{t('specifications')}</h3>
+          <span className="text-[11px] text-[var(--color-text-secondary)]">{t('specsHint')}</span>
         </div>
         <SpecsEditor
           value={form.specifications}
@@ -905,42 +898,42 @@ export default function AdminProductDetailPage() {
       {/* Physical parameters — weight, dimensions, cost-of-goods */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Фізичні параметри</h3>
+          <h3 className="text-sm font-semibold">{t('physicalParams')}</h3>
           <span className="text-[11px] text-[var(--color-text-secondary)]">
-            Використовується для TTN Нової Пошти та розрахунку маржі
+            {t('physicalParamsHint')}
           </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Input
-            label="Вага (г)"
+            label={t('weight')}
             type="number"
             value={form.weightGrams}
             onChange={(e) => updateField('weightGrams', e.target.value)}
             placeholder="300"
           />
           <Input
-            label="Довжина (мм)"
+            label={t('length')}
             type="number"
             value={form.lengthMm}
             onChange={(e) => updateField('lengthMm', e.target.value)}
             placeholder="200"
           />
           <Input
-            label="Ширина (мм)"
+            label={t('width')}
             type="number"
             value={form.widthMm}
             onChange={(e) => updateField('widthMm', e.target.value)}
             placeholder="150"
           />
           <Input
-            label="Висота (мм)"
+            label={t('height')}
             type="number"
             value={form.heightMm}
             onChange={(e) => updateField('heightMm', e.target.value)}
             placeholder="100"
           />
           <Input
-            label="Собівартість (₴)"
+            label={t('costLabel')}
             type="number"
             step="0.01"
             value={form.cost}
@@ -950,7 +943,7 @@ export default function AdminProductDetailPage() {
         </div>
         {form.cost && form.priceRetail && Number(form.cost) > 0 && Number(form.priceRetail) > 0 && (
           <p className="mt-3 text-xs text-[var(--color-text-secondary)]">
-            Маржа:{' '}
+            {t('marginLabel')}{' '}
             <strong
               className={
                 ((Number(form.priceRetail) - Number(form.cost)) / Number(form.priceRetail)) * 100 <
@@ -968,7 +961,9 @@ export default function AdminProductDetailPage() {
               ) / 10}
               %
             </strong>{' '}
-            ({(Number(form.priceRetail) - Number(form.cost)).toFixed(2)} ₴ з одиниці)
+            {t('marginPerUnit', {
+              amount: (Number(form.priceRetail) - Number(form.cost)).toFixed(2),
+            })}
           </p>
         )}
       </div>
@@ -976,23 +971,21 @@ export default function AdminProductDetailPage() {
       {/* SEO */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">SEO</h3>
+          <h3 className="text-sm font-semibold">{t('seo')}</h3>
           <button
             type="button"
             onClick={handleAiGenerate}
             disabled={isGenerating || !form.name.trim()}
             className="inline-flex items-center gap-1 rounded border border-[var(--color-primary)] bg-[var(--color-primary)]/10 px-3 py-1 text-xs font-medium text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)]/20 disabled:opacity-50"
-            title={
-              !form.name.trim() ? 'Введіть назву товару спершу' : 'Згенерувати опис та SEO через AI'
-            }
+            title={!form.name.trim() ? t('seoGenTitleNoName') : t('seoGenTitle')}
           >
-            {isGenerating ? '⏳ Генерую...' : '✨ Згенерувати AI'}
+            {isGenerating ? t('generatingShort') : t('generateAi')}
           </button>
         </div>
         <div className="space-y-4">
           <div>
             <Input
-              label="SEO Title"
+              label={t('seoTitleLabel')}
               value={form.seoTitle}
               onChange={(e) => {
                 updateField('seoTitle', e.target.value);
@@ -1005,7 +998,7 @@ export default function AdminProductDetailPage() {
             </p>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">SEO Description</label>
+            <label className="mb-1 block text-sm font-medium">{t('seoDescLabel')}</label>
             <textarea
               value={form.seoDescription}
               onChange={(e) => {
@@ -1031,11 +1024,9 @@ export default function AdminProductDetailPage() {
           <span className="rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
             EN
           </span>
-          Англійський переклад (опційно)
+          {t('enTranslation')}
         </h3>
-        <p className="mb-4 text-xs text-[var(--color-text-secondary)]">
-          Залиште порожнім — на /en/ покаже українську версію як фолбек.
-        </p>
+        <p className="mb-4 text-xs text-[var(--color-text-secondary)]">{t('enFallbackHint')}</p>
         <div className="space-y-4">
           <Input
             label="Name (EN)"
@@ -1092,16 +1083,14 @@ export default function AdminProductDetailPage() {
 
       <div className="flex gap-3">
         <Button onClick={handleSave} isLoading={isSaving}>
-          Зберегти зміни
+          {t('saveChanges')}
         </Button>
         <Button
           variant="outline"
           onClick={() => {
-            const title = encodeURIComponent(`Новинка: ${product.name}`);
+            const title = encodeURIComponent(t('publishTitle', { name: product.name }));
             const price = Number(product.priceRetail).toFixed(0);
-            const content = encodeURIComponent(
-              `${product.name}\n\nЦіна: ${price} грн\nЗамовляйте прямо зараз!`,
-            );
+            const content = encodeURIComponent(t('publishContent', { name: product.name, price }));
             const image = encodeURIComponent(product.imagePath || '');
             guardDirty(() =>
               router.push(
@@ -1110,10 +1099,10 @@ export default function AdminProductDetailPage() {
             );
           }}
         >
-          Опублікувати в соцмережі
+          {t('publishSocial')}
         </Button>
         <Button variant="outline" onClick={() => guardDirty(() => router.push('/admin/products'))}>
-          Скасувати
+          {t('cancel')}
         </Button>
         <div className="ml-auto">
           <button
@@ -1122,7 +1111,7 @@ export default function AdminProductDetailPage() {
             disabled={isDeleting}
             className="rounded-[var(--radius)] border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:border-red-400 hover:bg-red-50 disabled:opacity-50"
           >
-            {isDeleting ? 'Видалення…' : 'Видалити товар'}
+            {isDeleting ? t('deleting') : t('deleteProduct')}
           </button>
         </div>
       </div>
@@ -1132,7 +1121,7 @@ export default function AdminProductDetailPage() {
         onClose={() => setDeleteImageId(null)}
         onConfirm={executeDeleteImage}
         variant="danger"
-        message="Видалити зображення?"
+        message={t('deleteImageConfirm')}
       />
 
       <ConfirmDialog
@@ -1140,9 +1129,9 @@ export default function AdminProductDetailPage() {
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDeleteProduct}
         variant="danger"
-        title="Видалення товару"
-        message={`Ви впевнені, що хочете видалити "${product.name}"? Товар буде деактивовано та позначено як видалений.`}
-        confirmText="Так, видалити"
+        title={t('deleteProductTitle')}
+        message={t('deleteProductMsg', { name: product.name })}
+        confirmText={t('deleteConfirmBtn')}
       />
     </div>
   );
@@ -1168,6 +1157,7 @@ const MARKETPLACE_LABELS: Record<string, { name: string; icon: string }> = {
 };
 
 function ProductMarketplacesSection({ productId }: { productId: number }) {
+  const t = useTranslations('admin.productEditPage');
   const [rows, setRows] = useState<ProductMarketplaceRow[]>([]);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [confirmUnpublish, setConfirmUnpublish] = useState<string | null>(null);
@@ -1197,10 +1187,10 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
       channel,
     });
     if (res.success) {
-      toast.success(`Опубліковано на ${MARKETPLACE_LABELS[channel]?.name || channel}`);
+      toast.success(t('publishedOn', { name: MARKETPLACE_LABELS[channel]?.name || channel }));
       load();
     } else {
-      toast.error(res.error || 'Не вдалося опублікувати');
+      toast.error(res.error || t('publishFailed'));
     }
     setBusy((prev) => ({ ...prev, [channel]: false }));
   };
@@ -1212,10 +1202,10 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
       excluded,
     });
     if (res.success) {
-      toast.success(excluded ? 'Виключено' : 'Дозволено');
+      toast.success(excluded ? t('excludedToast') : t('allowedToast'));
       load();
     } else {
-      toast.error(res.error || 'Не вдалося оновити');
+      toast.error(res.error || t('updateFailed'));
     }
     setBusy((prev) => ({ ...prev, [channel]: false }));
   };
@@ -1230,13 +1220,13 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
         `/api/v1/admin/products/${productId}/marketplaces?channel=${encodeURIComponent(channel)}`,
       );
       if (res.success) {
-        toast.success('Знято з продажу');
+        toast.success(t('removedFromSale'));
         load();
       } else {
-        toast.error(res.error || 'Не вдалося зняти');
+        toast.error(res.error || t('removeFailed'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setBusy((prev) => ({ ...prev, [channel]: false }));
     }
@@ -1245,12 +1235,12 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
   return (
     <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Маркетплейси</h3>
+        <h3 className="text-sm font-semibold">{t('marketplaces')}</h3>
         <Link
           href="/admin/marketplaces"
           className="text-xs text-[var(--color-primary)] hover:underline"
         >
-          Налаштування →
+          {t('mpSettings')}
         </Link>
       </div>
 
@@ -1274,15 +1264,15 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
                 <span className="font-medium">{label.name}</span>
                 {!row.configured ? (
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                    Не налашт.
+                    {t('notConfigured')}
                   </span>
                 ) : isPublished ? (
                   <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                    ✓ Опубліковано
+                    {t('publishedBadge')}
                   </span>
                 ) : isFailed ? (
                   <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
-                    ✗ Помилка
+                    {t('failedBadge')}
                   </span>
                 ) : (
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
@@ -1296,7 +1286,7 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
                     rel="noopener noreferrer"
                     className="text-xs text-[var(--color-primary)] hover:underline"
                   >
-                    Переглянути ↗
+                    {t('viewLink')}
                   </a>
                 )}
                 {row.errorMessage && (
@@ -1310,7 +1300,7 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
                 <div className="ml-auto flex items-center gap-1.5">
                   {row.excluded && (
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                      Виключено
+                      {t('excludedBadge')}
                     </span>
                   )}
                   {!row.configured ? (
@@ -1318,20 +1308,16 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
                       href="/admin/marketplaces"
                       className="rounded-md bg-[var(--color-primary)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20"
                     >
-                      Налаштувати →
+                      {t('configure')}
                     </Link>
                   ) : (
                     <button
                       onClick={() => toggleExclusion(row.channel, !row.excluded)}
                       disabled={busy[row.channel]}
                       className="text-xs text-[var(--color-text-secondary)] hover:underline disabled:opacity-50"
-                      title={
-                        row.excluded
-                          ? 'Дозволити публікацію на цьому маркетплейсі'
-                          : 'Виключити з цього маркетплейсу (не публікувати в bulk/sync)'
-                      }
+                      title={row.excluded ? t('allowTitle') : t('excludeTitle')}
                     >
-                      {row.excluded ? 'Дозволити' : 'Виключити'}
+                      {row.excluded ? t('allowAction') : t('excludeAction')}
                     </button>
                   )}
                   {row.configured && !isPublished && !row.excluded && (
@@ -1342,7 +1328,7 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
                       disabled={busy[row.channel]}
                       onClick={() => handlePublish(row.channel)}
                     >
-                      Опублікувати
+                      {t('publishAction')}
                     </Button>
                   )}
                   {isPublished && (
@@ -1353,7 +1339,7 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
                       disabled={busy[row.channel]}
                       onClick={() => setConfirmUnpublish(row.channel)}
                     >
-                      Зняти
+                      {t('unpublishAction')}
                     </Button>
                   )}
                 </div>
@@ -1368,19 +1354,22 @@ function ProductMarketplacesSection({ productId }: { productId: number }) {
         onClose={() => setConfirmUnpublish(null)}
         onConfirm={executeUnpublish}
         variant="warning"
-        title="Зняття з маркетплейсу"
+        title={t('unpublishTitle')}
         message={
           confirmUnpublish
-            ? `Зняти товар з ${MARKETPLACE_LABELS[confirmUnpublish]?.name || confirmUnpublish}?`
+            ? t('unpublishMsg', {
+                name: MARKETPLACE_LABELS[confirmUnpublish]?.name || confirmUnpublish,
+              })
             : ''
         }
-        confirmText="Так, зняти"
+        confirmText={t('unpublishConfirm')}
       />
     </div>
   );
 }
 
 function PriceHistorySection({ productId }: { productId: number }) {
+  const t = useTranslations('admin.productEditPage');
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -1423,7 +1412,7 @@ function PriceHistorySection({ productId }: { productId: number }) {
         onClick={() => (isOpen ? setIsOpen(false) : handleOpen())}
         className="flex w-full items-center justify-between text-sm font-semibold"
       >
-        <span>Історія цін</span>
+        <span>{t('priceHistory')}</span>
         <span className="text-[var(--color-text-secondary)]">{isOpen ? '▲' : '▼'}</span>
       </button>
 
@@ -1434,17 +1423,17 @@ function PriceHistorySection({ productId }: { productId: number }) {
               <Spinner size="sm" />
             </div>
           ) : history.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-secondary)]">Змін цін не зафіксовано</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">{t('noPriceChanges')}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-[var(--color-bg-secondary)]">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">Дата</th>
-                    <th className="px-3 py-2 text-right font-medium">Роздріб (було)</th>
-                    <th className="px-3 py-2 text-right font-medium">Роздріб (стало)</th>
-                    <th className="px-3 py-2 text-right font-medium">Опт (було)</th>
-                    <th className="px-3 py-2 text-right font-medium">Опт (стало)</th>
+                    <th className="px-3 py-2 text-left font-medium">{t('phDate')}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t('phRetailOld')}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t('phRetailNew')}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t('phWholesaleOld')}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t('phWholesaleNew')}</th>
                   </tr>
                 </thead>
                 <tbody>

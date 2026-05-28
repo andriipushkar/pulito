@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -21,22 +22,6 @@ interface MarketplaceReturn {
   order: { id: number; orderNumber: string } | null;
 }
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Всі статуси' },
-  { value: 'pending', label: 'Очікує' },
-  { value: 'approved', label: 'Підтверджено' },
-  { value: 'rejected', label: 'Відхилено' },
-  { value: 'completed', label: 'Завершено' },
-];
-
-const PLATFORM_OPTIONS = [
-  { value: '', label: 'Всі маркетплейси' },
-  { value: 'olx', label: 'OLX' },
-  { value: 'rozetka', label: 'Rozetka' },
-  { value: 'prom', label: 'Prom.ua' },
-  { value: 'epicentrk', label: 'Epicentr K' },
-];
-
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   approved: 'bg-green-100 text-green-800',
@@ -44,14 +29,28 @@ const STATUS_COLORS: Record<string, string> = {
   completed: 'bg-blue-100 text-blue-800',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Очікує',
-  approved: 'Підтверджено',
-  rejected: 'Відхилено',
-  completed: 'Завершено',
-};
-
 export default function MarketplaceReturnsPage() {
+  const t = useTranslations('admin.marketplaceReturnsPage');
+  const STATUS_OPTIONS = [
+    { value: '', label: t('statusAll') },
+    { value: 'pending', label: t('statusPending') },
+    { value: 'approved', label: t('statusApproved') },
+    { value: 'rejected', label: t('statusRejected') },
+    { value: 'completed', label: t('statusCompleted') },
+  ];
+  const PLATFORM_OPTIONS = [
+    { value: '', label: t('platformAll') },
+    { value: 'olx', label: 'OLX' },
+    { value: 'rozetka', label: 'Rozetka' },
+    { value: 'prom', label: 'Prom.ua' },
+    { value: 'epicentrk', label: 'Epicentr K' },
+  ];
+  const STATUS_LABELS: Record<string, string> = {
+    pending: t('statusPending'),
+    approved: t('statusApproved'),
+    rejected: t('statusRejected'),
+    completed: t('statusCompleted'),
+  };
   const [returns, setReturns] = useState<MarketplaceReturn[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<number | null>(null);
@@ -84,10 +83,11 @@ export default function MarketplaceReturnsPage() {
         }
       }
     } catch {
-      toast.error('Помилка завантаження повернень');
+      toast.error(t('loadError'));
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, statusFilter, platformFilter]);
 
   useEffect(() => {
@@ -102,9 +102,7 @@ export default function MarketplaceReturnsPage() {
     if (newStatus === 'completed') {
       const ret = returns.find((r) => r.id === id);
       if (ret?.order) {
-        restockProducts = window.confirm(
-          'Повернути товари з цього замовлення на склад? Це збільшить локальний залишок і запушить його на всі маркетплейси.',
-        );
+        restockProducts = window.confirm(t('restockConfirm'));
       }
     }
 
@@ -118,19 +116,21 @@ export default function MarketplaceReturnsPage() {
         restockProducts,
       });
       if (res.success) {
-        const parts: string[] = ['Статус оновлено'];
-        if (res.data?.restocked) parts.push(`склад: +${res.data.restocked} позицій`);
+        const parts: string[] = [t('statusUpdated')];
+        if (res.data?.restocked) parts.push(t('stockSummary', { count: res.data.restocked }));
         if (res.data?.pushWarning) {
-          toast.info(`${parts.join(' · ')}. Маркетплейс: ${res.data.pushWarning}`);
+          toast.info(
+            t('marketplaceWarn', { prefix: parts.join(' · '), warning: res.data.pushWarning }),
+          );
         } else {
           toast.success(parts.join(' · '));
         }
         fetchReturns();
       } else {
-        toast.error('Помилка оновлення статусу');
+        toast.error(t('updateError'));
       }
     } catch {
-      toast.error('Помилка оновлення статусу');
+      toast.error(t('updateError'));
     } finally {
       setUpdating(null);
     }
@@ -143,13 +143,13 @@ export default function MarketplaceReturnsPage() {
         '/api/v1/admin/marketplaces/returns',
       );
       if (res.success && res.data) {
-        toast.success(`Синхронізовано: +${res.data.synced} нових`);
+        toast.success(t('syncedToast', { count: res.data.synced }));
         fetchReturns();
       } else {
-        toast.error(res.error || 'Помилка синхронізації');
+        toast.error(res.error || t('syncError'));
       }
     } catch {
-      toast.error('Помилка синхронізації');
+      toast.error(t('syncError'));
     } finally {
       setSyncing(false);
     }
@@ -157,7 +157,17 @@ export default function MarketplaceReturnsPage() {
 
   const handleExportCsv = () => {
     const rows = [
-      ['id', 'platform', 'externalReturnId', 'orderNumber', 'reason', 'status', 'quantity', 'refundAmount', 'createdAt'],
+      [
+        'id',
+        'platform',
+        'externalReturnId',
+        'orderNumber',
+        'reason',
+        'status',
+        'quantity',
+        'refundAmount',
+        'createdAt',
+      ],
       ...returns.map((r) => [
         String(r.id),
         r.connection.platform,
@@ -192,14 +202,19 @@ export default function MarketplaceReturnsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Повернення з маркетплейсів</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">Всього: {total}</span>
+          <span className="text-sm text-gray-500">{t('totalLabel', { count: total })}</span>
           <Button size="sm" variant="outline" onClick={handleSync} isLoading={syncing}>
-            ↻ Синхронізувати
+            {t('sync')}
           </Button>
-          <Button size="sm" variant="outline" onClick={handleExportCsv} disabled={returns.length === 0}>
-            ⬇ CSV
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExportCsv}
+            disabled={returns.length === 0}
+          >
+            {t('csv')}
           </Button>
         </div>
       </div>
@@ -249,38 +264,38 @@ export default function MarketplaceReturnsPage() {
       {loading ? (
         <AdminTableSkeleton rows={5} columns={9} />
       ) : returns.length === 0 ? (
-        <div className="py-12 text-center text-gray-500">Повернень не знайдено</div>
+        <div className="py-12 text-center text-gray-500">{t('noReturns')}</div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200">
           <table className="min-w-full divide-y divide-gray-200" data-testid="returns-table">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  ID
+                  {t('colId')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Маркетплейс
+                  {t('colMarketplace')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Зовнішній ID
+                  {t('colExternalId')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Замовлення
+                  {t('colOrder')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Причина
+                  {t('colReason')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Статус
+                  {t('colStatus')}
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
-                  Сума
+                  {t('colAmount')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Дата
+                  {t('colDate')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Дії
+                  {t('colActions')}
                 </th>
               </tr>
             </thead>
@@ -325,14 +340,14 @@ export default function MarketplaceReturnsPage() {
                               variant="success"
                               onClick={() => handleStatusUpdate(ret.id, 'approved')}
                             >
-                              Підтвердити
+                              {t('approveBtn')}
                             </Button>
                             <Button
                               size="xs"
                               variant="danger"
                               onClick={() => handleStatusUpdate(ret.id, 'rejected')}
                             >
-                              Відхилити
+                              {t('rejectBtn')}
                             </Button>
                           </>
                         )}
@@ -342,7 +357,7 @@ export default function MarketplaceReturnsPage() {
                             variant="primary"
                             onClick={() => handleStatusUpdate(ret.id, 'completed')}
                           >
-                            Завершити
+                            {t('completeBtn')}
                           </Button>
                         )}
                       </div>
@@ -364,7 +379,7 @@ export default function MarketplaceReturnsPage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
-            Попередня
+            {t('prev')}
           </Button>
           <span className="text-sm text-gray-600">
             {page} / {totalPages}
@@ -375,7 +390,7 @@ export default function MarketplaceReturnsPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            Наступна
+            {t('next')}
           </Button>
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -25,22 +26,21 @@ interface EditForm {
   altTemplate: string;
 }
 
-const SAMPLE_VALUES: Record<string, string> = {
-  '{name}': 'Гель для прання Clean Pro',
-  '{code}': 'CP-001',
-  '{category}': 'Засоби для прання',
-  '{price}': '189.00',
-};
-
-function previewTemplate(template: string): string {
-  let result = template;
-  for (const [key, value] of Object.entries(SAMPLE_VALUES)) {
-    result = result.replaceAll(key, value);
-  }
-  return result;
-}
-
 export default function AdminSeoTemplatesPage() {
+  const t = useTranslations('admin.seoTemplatesPage');
+  const SAMPLE_VALUES: Record<string, string> = {
+    '{name}': t('sampleName'),
+    '{code}': t('sampleCode'),
+    '{category}': t('sampleCategory'),
+    '{price}': t('samplePrice'),
+  };
+  const previewTemplate = (template: string): string => {
+    let result = template;
+    for (const [key, value] of Object.entries(SAMPLE_VALUES)) {
+      result = result.replaceAll(key, value);
+    }
+    return result;
+  };
   const [templates, setTemplates] = useState<SeoTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -79,7 +79,7 @@ export default function AdminSeoTemplatesPage() {
   const handleCreate = async () => {
     const res = await apiClient.post('/api/v1/admin/seo-templates', form);
     if (res.success) {
-      toast.success('Шаблон створено');
+      toast.success(t('createdToast'));
       setShowForm(false);
       setForm({
         entityType: 'product',
@@ -89,7 +89,7 @@ export default function AdminSeoTemplatesPage() {
       });
       loadTemplates();
     } else {
-      toast.error(res.error || 'Помилка створення');
+      toast.error(res.error || t('createError'));
     }
   };
 
@@ -103,9 +103,9 @@ export default function AdminSeoTemplatesPage() {
       );
       if (res.success && res.data) {
         setGenResult(res.data);
-        toast.success(`Оновлено ${res.data.updated} з ${res.data.total} товарів`);
+        toast.success(t('genSummary', { updated: res.data.updated, total: res.data.total }));
       } else {
-        toast.error('Помилка генерації');
+        toast.error(t('genError'));
       }
     } finally {
       setIsGenerating(false);
@@ -118,25 +118,25 @@ export default function AdminSeoTemplatesPage() {
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/seo-templates/${id}`);
     if (res.success) {
-      toast.success('Шаблон видалено');
+      toast.success(t('deletedToast'));
       loadTemplates();
-    } else toast.error('Помилка видалення');
+    } else toast.error(t('deleteError'));
   };
 
-  const startEdit = (t: SeoTemplate) => {
-    setEditingId(t.id);
+  const startEdit = (tpl: SeoTemplate) => {
+    setEditingId(tpl.id);
     setEditForm({
-      entityType: t.entityType,
-      titleTemplate: t.titleTemplate,
-      descriptionTemplate: t.descriptionTemplate,
-      altTemplate: t.altTemplate || '',
+      entityType: tpl.entityType,
+      titleTemplate: tpl.titleTemplate,
+      descriptionTemplate: tpl.descriptionTemplate,
+      altTemplate: tpl.altTemplate || '',
     });
   };
 
   const saveEdit = async (id: number) => {
     const res = await apiClient.put(`/api/v1/admin/seo-templates/${id}`, editForm);
-    if (res.success) toast.success('Шаблон оновлено');
-    else toast.error(res.error || 'Помилка');
+    if (res.success) toast.success(t('updatedToast'));
+    else toast.error(res.error || t('errorGeneric'));
     setEditingId(null);
     loadTemplates();
   };
@@ -152,103 +152,99 @@ export default function AdminSeoTemplatesPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold">SEO-шаблони</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <div className="flex gap-2">
           <Button
             variant="outline"
             onClick={() => setConfirmGenerate(true)}
             isLoading={isGenerating}
             disabled={templates.length === 0}
-            title={
-              templates.length === 0
-                ? 'Створіть хоча б один шаблон'
-                : 'Застосувати шаблони до всіх товарів без власного SEO'
-            }
+            title={templates.length === 0 ? t('bulkGenTitleNone') : t('bulkGenTitle')}
           >
-            Масова генерація
+            {t('bulkGen')}
           </Button>
           <Button onClick={() => setShowForm(!showForm)}>
-            {showForm ? 'Скасувати' : '+ Створити'}
+            {showForm ? t('cancel') : t('create')}
           </Button>
         </div>
       </div>
 
       {genResult && (
         <div className="mb-4 rounded-[var(--radius)] bg-green-50 px-4 py-2 text-sm text-green-700">
-          Оновлено {genResult.updated} з {genResult.total} товарів
+          {t('genSummary', { updated: genResult.updated, total: genResult.total })}
         </div>
       )}
 
       <p className="mb-4 text-xs text-[var(--color-text-secondary)]">
-        Змінні: {'{name}'}, {'{code}'}, {'{category}'}, {'{price}'}
+        {t('varsHint', { vars: '{name}, {code}, {category}, {price}' })}
       </p>
 
       {showForm && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Тип</label>
+              <label className="mb-1 block text-sm font-medium">{t('typeLabel')}</label>
               <select
                 value={form.entityType}
                 onChange={(e) => setForm({ ...form, entityType: e.target.value })}
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
               >
-                <option value="product">Товар</option>
-                <option value="category">Категорія</option>
-                <option value="page">Сторінка</option>
+                <option value="product">{t('typeProduct')}</option>
+                <option value="category">{t('typeCategory')}</option>
+                <option value="page">{t('typePage')}</option>
               </select>
             </div>
             <Input
-              label="Title шаблон"
+              label={t('titleTpl')}
               value={form.titleTemplate}
               onChange={(e) => setForm({ ...form, titleTemplate: e.target.value })}
             />
             <Input
-              label="Description шаблон"
+              label={t('descriptionTpl')}
               value={form.descriptionTemplate}
               onChange={(e) => setForm({ ...form, descriptionTemplate: e.target.value })}
             />
             <Input
-              label="Alt шаблон"
+              label={t('altTpl')}
               value={form.altTemplate}
               onChange={(e) => setForm({ ...form, altTemplate: e.target.value })}
             />
           </div>
           <div className="mt-4 flex justify-end">
-            <Button onClick={handleCreate}>Зберегти</Button>
+            <Button onClick={handleCreate}>{t('save')}</Button>
           </div>
         </div>
       )}
 
       <div className="space-y-2">
-        {templates.map((t) => (
+        {templates.map((tpl) => (
           <div
-            key={t.id}
+            key={tpl.id}
             className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3"
           >
-            {editingId === t.id ? (
+            {editingId === tpl.id ? (
               <div className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-medium">Тип</label>
+                    <label className="mb-1 block text-xs font-medium">{t('typeLabel')}</label>
                     <select
                       value={editForm.entityType}
                       onChange={(e) => setEditForm({ ...editForm, entityType: e.target.value })}
                       className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
                     >
-                      <option value="product">Товар</option>
-                      <option value="category">Категорія</option>
-                      <option value="page">Сторінка</option>
+                      <option value="product">{t('typeProduct')}</option>
+                      <option value="category">{t('typeCategory')}</option>
+                      <option value="page">{t('typePage')}</option>
                     </select>
                   </div>
                   <input
-                    placeholder="Title шаблон"
+                    placeholder={t('titleTpl')}
                     value={editForm.titleTemplate}
                     onChange={(e) => setEditForm({ ...editForm, titleTemplate: e.target.value })}
                     className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                   />
                   <input
-                    placeholder="Description шаблон"
+                    placeholder={t('descriptionTpl')}
                     value={editForm.descriptionTemplate}
                     onChange={(e) =>
                       setEditForm({ ...editForm, descriptionTemplate: e.target.value })
@@ -256,7 +252,7 @@ export default function AdminSeoTemplatesPage() {
                     className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
                   />
                   <input
-                    placeholder="Alt шаблон"
+                    placeholder={t('altTpl')}
                     value={editForm.altTemplate}
                     onChange={(e) => setEditForm({ ...editForm, altTemplate: e.target.value })}
                     className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
@@ -264,15 +260,15 @@ export default function AdminSeoTemplatesPage() {
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
-                    aria-label="Скасувати редагування"
+                    aria-label={t('cancelEditAria')}
                     onClick={() => setEditingId(null)}
                     className="rounded-[var(--radius)] border border-[var(--color-border)] p-1.5"
                   >
                     <Close size={16} />
                   </button>
                   <button
-                    aria-label="Зберегти шаблон"
-                    onClick={() => saveEdit(t.id)}
+                    aria-label={t('saveAria')}
+                    onClick={() => saveEdit(tpl.id)}
                     className="rounded-[var(--radius)] bg-[var(--color-primary)] p-1.5 text-white"
                   >
                     <Check size={16} />
@@ -283,53 +279,55 @@ export default function AdminSeoTemplatesPage() {
               <>
                 <div className="flex items-center justify-between">
                   <span className="rounded bg-[var(--color-primary-50)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]">
-                    {t.entityType}
+                    {tpl.entityType}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setPreviewId(previewId === t.id ? null : t.id)}
+                      onClick={() => setPreviewId(previewId === tpl.id ? null : tpl.id)}
                       className="rounded-[var(--radius)] border border-[var(--color-border)] p-1 hover:bg-[var(--color-bg-secondary)]"
-                      title="Попередній перегляд"
+                      title={t('previewTitle')}
                     >
                       <Eye size={14} />
                     </button>
                     <button
-                      onClick={() => startEdit(t)}
+                      onClick={() => startEdit(tpl)}
                       className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
                     >
-                      Редагувати
+                      {t('edit')}
                     </button>
                     <button
-                      onClick={() => setDeleteId(t.id)}
+                      onClick={() => setDeleteId(tpl.id)}
                       className="text-xs text-[var(--color-danger)] hover:underline"
                     >
-                      Видалити
+                      {t('delete')}
                     </button>
                   </div>
                 </div>
                 <p className="mt-2 text-sm">
-                  <strong>Title:</strong> {t.titleTemplate}
+                  <strong>{t('titleColon')}</strong> {tpl.titleTemplate}
                 </p>
                 <p className="text-sm">
-                  <strong>Description:</strong> {t.descriptionTemplate}
+                  <strong>{t('descColon')}</strong> {tpl.descriptionTemplate}
                 </p>
-                {t.altTemplate && (
+                {tpl.altTemplate && (
                   <p className="text-sm">
-                    <strong>Alt:</strong> {t.altTemplate}
+                    <strong>{t('altColon')}</strong> {tpl.altTemplate}
                   </p>
                 )}
 
-                {previewId === t.id && (
+                {previewId === tpl.id && (
                   <div className="mt-3 rounded-[var(--radius)] bg-[var(--color-bg-secondary)] p-3">
                     <p className="mb-1 text-xs font-semibold text-[var(--color-text-secondary)]">
-                      Попередній перегляд:
+                      {t('preview')}
                     </p>
-                    <p className="text-sm text-blue-700">{previewTemplate(t.titleTemplate)}</p>
+                    <p className="text-sm text-blue-700">{previewTemplate(tpl.titleTemplate)}</p>
                     <p className="text-xs text-green-700">
-                      {previewTemplate(t.descriptionTemplate)}
+                      {previewTemplate(tpl.descriptionTemplate)}
                     </p>
-                    {t.altTemplate && (
-                      <p className="text-xs text-gray-500">Alt: {previewTemplate(t.altTemplate)}</p>
+                    {tpl.altTemplate && (
+                      <p className="text-xs text-gray-500">
+                        {t('altColon')} {previewTemplate(tpl.altTemplate)}
+                      </p>
                     )}
                   </div>
                 )}
@@ -342,16 +340,13 @@ export default function AdminSeoTemplatesPage() {
             <span className="text-3xl" aria-hidden="true">
               🔍
             </span>
-            <p className="text-sm font-medium">SEO-шаблонів ще немає</p>
-            <p className="max-w-md text-xs">
-              Шаблони генерують meta-title і description автоматично для товарів, категорій і
-              сторінок без власного SEO.
-            </p>
+            <p className="text-sm font-medium">{t('emptyTitle')}</p>
+            <p className="max-w-md text-xs">{t('emptyHint')}</p>
             <button
               onClick={() => setShowForm(true)}
               className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
             >
-              + Створити перший шаблон
+              {t('createFirst')}
             </button>
           </div>
         )}
@@ -362,16 +357,16 @@ export default function AdminSeoTemplatesPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={executeDelete}
         variant="danger"
-        message="Видалити цей SEO-шаблон?"
+        message={t('deleteMsg')}
       />
 
       <ConfirmDialog
         isOpen={confirmGenerate}
         onClose={() => setConfirmGenerate(false)}
         onConfirm={handleBulkGenerate}
-        title="Масова генерація SEO"
-        message="Згенерувати meta-title і description за шаблонами для всіх товарів без власного SEO? Існуючі SEO-поля не зачіпаються."
-        confirmText="Так, згенерувати"
+        title={t('confirmGenTitle')}
+        message={t('confirmGenMsg')}
+        confirmText={t('confirmGenBtn')}
         isLoading={isGenerating}
       />
     </div>

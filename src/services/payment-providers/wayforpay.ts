@@ -204,7 +204,8 @@ export async function verifyCallback(body: WayForPayCallbackData): Promise<Payme
   ];
   const expectedSignature = createSignature(signatureData, secretKey);
 
-  if (body.merchantSignature !== expectedSignature) {
+  const { safeEqual } = await import('@/utils/webhook-security');
+  if (!safeEqual(body.merchantSignature, expectedSignature)) {
     throw new WayForPayError('Invalid WayForPay signature', 403);
   }
 

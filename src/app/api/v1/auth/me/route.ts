@@ -7,6 +7,7 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { passwordSchema } from '@/validators/auth';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
+import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 export const GET = withAuth(async (_request, { user }) => {
   const fullUser = await getUserById(user.id);
@@ -41,6 +42,9 @@ const passwordChangeSchema = z.object({
 const SALT_ROUNDS = 10;
 
 export const PUT = withAuth(async (request, { user }) => {
+  const rl = await checkRateLimit(`user:${user.id}`, RATE_LIMITS.sensitive);
+  if (!rl.allowed) return errorResponse('Забагато змін профілю. Спробуйте пізніше.', 429);
+
   let body: unknown;
   try {
     body = await request.json();
@@ -58,7 +62,7 @@ export const PUT = withAuth(async (request, { user }) => {
   if (wantsPasswordChange) {
     const parsed = passwordChangeSchema.safeParse(payload);
     if (!parsed.success) {
-      return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 400);
+      return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
 
     const dbUser = await prisma.user.findUnique({
@@ -90,7 +94,7 @@ export const PUT = withAuth(async (request, { user }) => {
 
   const parsed = profileSchema.safeParse(payload);
   if (!parsed.success) {
-    return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 400);
+    return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
   }
 
   const data: { fullName?: string; phone?: string | null } = {};

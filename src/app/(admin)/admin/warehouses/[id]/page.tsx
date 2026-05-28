@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -28,6 +29,7 @@ interface WarehouseData {
 
 export default function AdminWarehouseDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const t = useTranslations('admin.warehouseDetailPage');
   const [warehouse, setWarehouse] = useState<WarehouseData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updateForm, setUpdateForm] = useState({ productId: '', quantity: '' });
@@ -57,7 +59,7 @@ export default function AdminWarehouseDetailPage() {
     const pid = Number(updateForm.productId);
     const qty = Number(updateForm.quantity);
     if (!pid || isNaN(qty)) {
-      toast.error('Вкажіть ID товару та кількість');
+      toast.error(t('validateError'));
       return;
     }
     setIsUpdating(true);
@@ -67,11 +69,11 @@ export default function AdminWarehouseDetailPage() {
     });
     setIsUpdating(false);
     if (res.success) {
-      toast.success('Залишок оновлено');
+      toast.success(t('updatedToast'));
       setUpdateForm({ productId: '', quantity: '' });
       loadWarehouse();
     } else {
-      toast.error(res.error || 'Помилка оновлення');
+      toast.error(res.error || t('updateError'));
     }
   };
 
@@ -86,12 +88,12 @@ export default function AdminWarehouseDetailPage() {
   if (!warehouse) {
     return (
       <div className="text-center">
-        <p className="text-[var(--color-text-secondary)]">Склад не знайдено</p>
+        <p className="text-[var(--color-text-secondary)]">{t('notFound')}</p>
         <Link
           href="/admin/warehouses"
           className="mt-4 inline-block text-sm text-[var(--color-primary)] hover:underline"
         >
-          До списку складів
+          {t('backToList')}
         </Link>
       </div>
     );
@@ -104,28 +106,28 @@ export default function AdminWarehouseDetailPage() {
           href="/admin/warehouses"
           className="text-sm text-[var(--color-primary)] hover:underline"
         >
-          ← Склади
+          {t('backArrow')}
         </Link>
         <h2 className="mt-1 text-xl font-bold">
           {warehouse.name}
           {warehouse.isDefault && (
             <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-sm font-normal text-blue-700">
-              Основний
+              {t('defaultBadge')}
             </span>
           )}
         </h2>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Код: {warehouse.code} | Місто: {warehouse.city || '—'}
+          {t('infoLine', { code: warehouse.code, city: warehouse.city || '—' })}
         </p>
       </div>
 
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Оновити залишок</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('updateStock')}</h3>
         <div className="flex flex-wrap gap-3">
           <Input
             value={updateForm.productId}
             onChange={(e) => setUpdateForm({ ...updateForm, productId: e.target.value })}
-            placeholder="ID товару"
+            placeholder={t('productIdPh')}
             className="w-32"
           />
           <Input
@@ -133,11 +135,11 @@ export default function AdminWarehouseDetailPage() {
             min={0}
             value={updateForm.quantity}
             onChange={(e) => setUpdateForm({ ...updateForm, quantity: e.target.value })}
-            placeholder="Кількість"
+            placeholder={t('quantityPh')}
             className="w-32"
           />
           <Button onClick={handleUpdateStock} isLoading={isUpdating}>
-            Оновити
+            {t('update')}
           </Button>
         </div>
       </div>
@@ -146,11 +148,11 @@ export default function AdminWarehouseDetailPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-              <th className="px-4 py-3 text-left font-medium">Товар</th>
-              <th className="px-4 py-3 text-left font-medium">Код</th>
-              <th className="px-4 py-3 text-right font-medium">Кількість</th>
-              <th className="px-4 py-3 text-right font-medium">Зарезервовано</th>
-              <th className="px-4 py-3 text-right font-medium">Доступно</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colProduct')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('colCode')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colQty')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colReserved')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('colAvailable')}</th>
             </tr>
           </thead>
           <tbody>
@@ -184,7 +186,7 @@ export default function AdminWarehouseDetailPage() {
                   colSpan={5}
                   className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                 >
-                  На складі немає товарів
+                  {t('empty')}
                 </td>
               </tr>
             )}

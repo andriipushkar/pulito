@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -24,12 +25,6 @@ interface Coupon {
   createdAt: string;
 }
 
-const TYPE_LABELS: Record<Coupon['type'], string> = {
-  percent: 'Відсоток',
-  fixed_amount: 'Фіксована знижка',
-  free_delivery: 'Безкоштовна доставка',
-};
-
 const TYPE_COLORS: Record<Coupon['type'], string> = {
   percent: 'bg-blue-100 text-blue-700',
   fixed_amount: 'bg-emerald-100 text-emerald-700',
@@ -45,13 +40,18 @@ function formatDate(iso: string | null): string {
   });
 }
 
-function formatValue(c: Coupon): string {
-  if (c.type === 'percent') return `${c.value}%`;
-  if (c.type === 'fixed_amount') return `${c.value} ₴`;
-  return 'Безкоштовна';
-}
-
 export default function CouponsAdminPage() {
+  const t = useTranslations('admin.couponsPage');
+  const TYPE_LABELS: Record<Coupon['type'], string> = {
+    percent: t('typePercent'),
+    fixed_amount: t('typeFixed'),
+    free_delivery: t('typeFreeDelivery'),
+  };
+  const formatValue = (c: Coupon): string => {
+    if (c.type === 'percent') return `${c.value}%`;
+    if (c.type === 'fixed_amount') return `${c.value} ₴`;
+    return t('freeDeliveryValue');
+  };
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showExpired, setShowExpired] = useState(false);
@@ -74,11 +74,8 @@ export default function CouponsAdminPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold">Промокоди</h2>
-          <p className="text-xs text-[var(--color-text-secondary)]">
-            Створюйте знижки за кодом для клієнтів. Введений у кошику код застосовується на ту ж
-            сесію.
-          </p>
+          <h2 className="text-xl font-bold">{t('title')}</h2>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2 text-xs">
@@ -88,10 +85,10 @@ export default function CouponsAdminPage() {
               onChange={(e) => setShowExpired(e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
-            Показати неактивні
+            {t('showInactive')}
           </label>
           <Button size="sm" onClick={() => setShowCreate(true)}>
-            + Створити промокод
+            {t('createBtn')}
           </Button>
         </div>
       </div>
@@ -117,9 +114,9 @@ export default function CouponsAdminPage() {
               🎟️
             </span>
           </div>
-          <p className="mb-1 text-sm font-semibold text-[var(--color-text)]">Промокодів немає</p>
+          <p className="mb-1 text-sm font-semibold text-[var(--color-text)]">{t('emptyTitle')}</p>
           <p className="mx-auto mb-4 max-w-xs text-xs text-[var(--color-text-secondary)]">
-            Створіть перший промокод щоб залучати клієнтів і піднімати конверсію
+            {t('emptyHint')}
           </p>
         </div>
       ) : (
@@ -127,12 +124,12 @@ export default function CouponsAdminPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
               <tr>
-                <th className="px-4 py-2.5 text-left">Код</th>
-                <th className="px-4 py-2.5 text-left">Тип</th>
-                <th className="px-4 py-2.5 text-right">Значення</th>
-                <th className="px-4 py-2.5 text-right">Використано</th>
-                <th className="px-4 py-2.5 text-left">Дійсний до</th>
-                <th className="px-4 py-2.5 text-center">Активний</th>
+                <th className="px-4 py-2.5 text-left">{t('colCode')}</th>
+                <th className="px-4 py-2.5 text-left">{t('colType')}</th>
+                <th className="px-4 py-2.5 text-right">{t('colValue')}</th>
+                <th className="px-4 py-2.5 text-right">{t('colUsed')}</th>
+                <th className="px-4 py-2.5 text-left">{t('colValidUntil')}</th>
+                <th className="px-4 py-2.5 text-center">{t('colActive')}</th>
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
@@ -170,12 +167,12 @@ export default function CouponsAdminPage() {
                     {c.isActive ? (
                       <span
                         className="inline-flex h-2 w-2 rounded-full bg-emerald-500"
-                        aria-label="Активний"
+                        aria-label={t('ariaActive')}
                       />
                     ) : (
                       <span
                         className="inline-flex h-2 w-2 rounded-full bg-gray-300"
-                        aria-label="Неактивний"
+                        aria-label={t('ariaInactive')}
                       />
                     )}
                   </td>
@@ -193,6 +190,7 @@ export default function CouponsAdminPage() {
 }
 
 function CouponToggle({ coupon, onToggled }: { coupon: Coupon; onToggled: () => void }) {
+  const t = useTranslations('admin.couponsPage');
   const [busy, setBusy] = useState(false);
   return (
     <button
@@ -205,15 +203,15 @@ function CouponToggle({ coupon, onToggled }: { coupon: Coupon; onToggled: () => 
         });
         setBusy(false);
         if (res.success) {
-          toast.success(coupon.isActive ? 'Деактивовано' : 'Активовано');
+          toast.success(coupon.isActive ? t('deactivatedToast') : t('activatedToast'));
           onToggled();
         } else {
-          toast.error(res.error || 'Помилка');
+          toast.error(res.error || t('errorGeneric'));
         }
       }}
       className="text-xs font-medium text-[var(--color-primary)] hover:underline disabled:opacity-50"
     >
-      {coupon.isActive ? 'Деактивувати' : 'Активувати'}
+      {coupon.isActive ? t('deactivateBtn') : t('activateBtn')}
     </button>
   );
 }
@@ -225,6 +223,7 @@ function CouponCreateForm({
   onCancel: () => void;
   onCreated: () => void;
 }) {
+  const t = useTranslations('admin.couponsPage');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<Coupon['type']>('percent');
@@ -252,21 +251,21 @@ function CouponCreateForm({
 
   const handleSubmit = async () => {
     if (!code.trim()) {
-      toast.error('Введіть код промокоду');
+      toast.error(t('validateCode'));
       return;
     }
     if (type !== 'free_delivery' && !value.trim()) {
-      toast.error('Введіть значення знижки');
+      toast.error(t('validateValue'));
       return;
     }
     const numValue = type === 'free_delivery' ? 0 : Number(value);
     if (type !== 'free_delivery') {
       if (!Number.isFinite(numValue) || numValue <= 0) {
-        toast.error('Значення має бути більше 0');
+        toast.error(t('validateValuePositive'));
         return;
       }
       if (type === 'percent' && numValue > 100) {
-        toast.error('Відсоток не може перевищувати 100');
+        toast.error(t('validatePercent100'));
         return;
       }
     }
@@ -274,11 +273,11 @@ function CouponCreateForm({
     if (validUntil) {
       const d = new Date(validUntil);
       if (Number.isNaN(d.getTime())) {
-        toast.error('Невірний формат дати');
+        toast.error(t('validateDateFormat'));
         return;
       }
       if (d <= new Date()) {
-        toast.error('Дата завершення має бути в майбутньому');
+        toast.error(t('validateDateFuture'));
         return;
       }
       validUntilIso = d.toISOString();
@@ -304,42 +303,42 @@ function CouponCreateForm({
     });
     setBusy(false);
     if (res.success) {
-      toast.success('Промокод створено');
+      toast.success(t('createdToast'));
       onCreated();
     } else {
-      toast.error(res.error || 'Помилка створення');
+      toast.error(res.error || t('createError'));
     }
   };
 
   return (
     <div className="mb-6 rounded-2xl border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 p-5">
-      <h3 className="mb-4 text-sm font-bold">Новий промокод</h3>
+      <h3 className="mb-4 text-sm font-bold">{t('newTitle')}</h3>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium">Код *</label>
+          <label className="mb-1 block text-xs font-medium">{t('codeLabel')}</label>
           <Input
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))}
-            placeholder="SUMMER25"
+            placeholder={t('codePh')}
             className="font-mono uppercase"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium">Тип *</label>
+          <label className="mb-1 block text-xs font-medium">{t('typeLabel')}</label>
           <Select
             value={type}
             onChange={(e) => setType(e.target.value as Coupon['type'])}
             options={[
-              { value: 'percent', label: 'Відсоток (%)' },
-              { value: 'fixed_amount', label: 'Фіксована сума (₴)' },
-              { value: 'free_delivery', label: 'Безкоштовна доставка' },
+              { value: 'percent', label: t('typeOptPercent') },
+              { value: 'fixed_amount', label: t('typeOptFixed') },
+              { value: 'free_delivery', label: t('typeOptFreeDelivery') },
             ]}
           />
         </div>
         {type !== 'free_delivery' && (
           <div>
             <label className="mb-1 block text-xs font-medium">
-              Значення * {type === 'percent' ? '(%)' : '(₴)'}
+              {type === 'percent' ? t('valueLabelPercent') : t('valueLabelFixed')}
             </label>
             <Input
               type="number"
@@ -350,7 +349,7 @@ function CouponCreateForm({
           </div>
         )}
         <div>
-          <label className="mb-1 block text-xs font-medium">Мін. сума замовлення (₴)</label>
+          <label className="mb-1 block text-xs font-medium">{t('minOrderLabel')}</label>
           <Input
             type="number"
             value={minOrderAmount}
@@ -360,7 +359,7 @@ function CouponCreateForm({
         </div>
         {type === 'percent' && (
           <div>
-            <label className="mb-1 block text-xs font-medium">Макс. знижка (₴)</label>
+            <label className="mb-1 block text-xs font-medium">{t('maxDiscountLabel')}</label>
             <Input
               type="number"
               value={maxDiscount}
@@ -370,7 +369,7 @@ function CouponCreateForm({
           </div>
         )}
         <div>
-          <label className="mb-1 block text-xs font-medium">Ліміт використань</label>
+          <label className="mb-1 block text-xs font-medium">{t('usageLimitLabel')}</label>
           <Input
             type="number"
             value={usageLimit}
@@ -379,42 +378,40 @@ function CouponCreateForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium">Дійсний до</label>
+          <label className="mb-1 block text-xs font-medium">{t('validUntilLabel')}</label>
           <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
         </div>
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-medium">Опис (видно клієнту)</label>
+          <label className="mb-1 block text-xs font-medium">{t('descriptionLabel')}</label>
           <Input
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Літня знижка 25% на все"
+            placeholder={t('descriptionPh')}
           />
         </div>
 
         {/* Product/category restrictions */}
         <div className="sm:col-span-2 rounded-md border border-[var(--color-border)] p-3">
           <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-            Обмеження
+            {t('restrictionsTitle')}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium">
-                Дозволені категорії (ID через кому, пусто = всі)
+                {t('allowedCategoriesLabel')}
               </label>
               <Input
                 value={applicableCategoryIds}
                 onChange={(e) => setApplicableCategoryIds(e.target.value)}
-                placeholder="5, 12, 18"
+                placeholder={t('allowedCategoriesPh')}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium">
-                Виключені товари (ID через кому)
-              </label>
+              <label className="mb-1 block text-xs font-medium">{t('excludedProductsLabel')}</label>
               <Input
                 value={excludedProductIds}
                 onChange={(e) => setExcludedProductIds(e.target.value)}
-                placeholder="42, 87"
+                placeholder={t('excludedProductsPh')}
               />
             </div>
           </div>
@@ -423,7 +420,7 @@ function CouponCreateForm({
         {/* Stacking */}
         <div className="sm:col-span-2 rounded-md border border-[var(--color-border)] p-3">
           <p className="mb-2 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-            Поєднання з іншими знижками
+            {t('stackTitle')}
           </p>
           <div className="flex flex-wrap gap-3 text-sm">
             <label className="flex items-center gap-1.5">
@@ -433,7 +430,7 @@ function CouponCreateForm({
                 onChange={(e) => setStackVolume(e.target.checked)}
                 className="accent-[var(--color-primary)]"
               />
-              Знижка за обсяг
+              {t('stackVolume')}
             </label>
             <label className="flex items-center gap-1.5">
               <input
@@ -442,7 +439,7 @@ function CouponCreateForm({
                 onChange={(e) => setStackPersonal(e.target.checked)}
                 className="accent-[var(--color-primary)]"
               />
-              Персональна ціна
+              {t('stackPersonal')}
             </label>
             <label className="flex items-center gap-1.5">
               <input
@@ -451,20 +448,18 @@ function CouponCreateForm({
                 onChange={(e) => setStackLoyalty(e.target.checked)}
                 className="accent-[var(--color-primary)]"
               />
-              Бали лояльності
+              {t('stackLoyalty')}
             </label>
           </div>
-          <p className="mt-1 text-[10px] text-[var(--color-text-secondary)]">
-            Якщо нічого не обрано — промокод не комбінується з іншими знижками
-          </p>
+          <p className="mt-1 text-[10px] text-[var(--color-text-secondary)]">{t('stackHint')}</p>
         </div>
       </div>
       <div className="mt-4 flex gap-2">
         <Button onClick={handleSubmit} isLoading={busy}>
-          Створити
+          {t('create')}
         </Button>
         <Button variant="outline" onClick={onCancel}>
-          Скасувати
+          {t('cancel')}
         </Button>
       </div>
     </div>

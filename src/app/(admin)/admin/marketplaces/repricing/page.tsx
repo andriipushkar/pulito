@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -41,15 +42,6 @@ const MARKETPLACES = [
 ] as const;
 type PlatformKey = (typeof MARKETPLACES)[number]['key'];
 
-const CONDITION_LABEL: Record<ConditionType, string> = {
-  always: 'Завжди',
-  stock_below: 'Залишок менше',
-  stock_above: 'Залишок більше',
-  date_between: 'Між датами',
-  category_in: 'У категоріях',
-  product_in: 'Для товарів',
-};
-
 function newRule(): RepricingRule {
   return {
     id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -61,6 +53,15 @@ function newRule(): RepricingRule {
 }
 
 export default function MarketplaceRepricingPage() {
+  const t = useTranslations('admin.marketplaceRepricingPage');
+  const CONDITION_LABEL: Record<ConditionType, string> = {
+    always: t('condAlways'),
+    stock_below: t('condStockBelow'),
+    stock_above: t('condStockAbove'),
+    date_between: t('condDateBetween'),
+    category_in: t('condCategoryIn'),
+    product_in: t('condProductIn'),
+  };
   const [rulesByPlatform, setRules] = useState<Record<PlatformKey, RepricingRule[]>>({
     olx: [],
     rozetka: [],
@@ -84,7 +85,12 @@ export default function MarketplaceRepricingPage() {
     )
       .then((results) => {
         if (cancelled) return;
-        const next: Record<PlatformKey, RepricingRule[]> = { olx: [], rozetka: [], prom: [], epicentrk: [] };
+        const next: Record<PlatformKey, RepricingRule[]> = {
+          olx: [],
+          rozetka: [],
+          prom: [],
+          epicentrk: [],
+        };
         MARKETPLACES.forEach((m, i) => {
           const r = results[i];
           if (r.success && Array.isArray(r.data)) next[m.key] = r.data;
@@ -143,10 +149,12 @@ export default function MarketplaceRepricingPage() {
       rules: rulesByPlatform[active],
     });
     if (res.success) {
-      toast.success(`${MARKETPLACES.find((m) => m.key === active)?.name}: збережено`);
+      toast.success(
+        t('savedToast', { name: MARKETPLACES.find((m) => m.key === active)?.name ?? '' }),
+      );
       refresh();
     } else {
-      toast.error(res.error || 'Помилка збереження');
+      toast.error(res.error || t('saveError'));
     }
     setSaving(false);
   };
@@ -168,13 +176,10 @@ export default function MarketplaceRepricingPage() {
           href="/admin/marketplaces"
           className="text-sm text-[var(--color-primary)] hover:underline"
         >
-          ← Маркетплейси
+          {t('backArrow')}
         </Link>
-        <h2 className="mt-1 text-xl font-bold">Правила автозміни ціни (repricing)</h2>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Правила оцінюються зверху вниз — спрацьовує перше що підходить. Стекуються поверх базової
-          націнки з налаштувань маркетплейсу. Діапазон: ±50%.
-        </p>
+        <h2 className="mt-1 text-xl font-bold">{t('title')}</h2>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       <div className="mb-4 flex gap-2 border-b border-[var(--color-border)]">
@@ -202,11 +207,8 @@ export default function MarketplaceRepricingPage() {
       <div className="space-y-3">
         {rules.length === 0 && (
           <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-12 text-center text-[var(--color-text-secondary)]">
-            <p className="text-lg">Правил ще немає</p>
-            <p className="mt-1 text-sm">
-              Додайте перше правило — наприклад «При залишку &lt; 5 знизити ціну на 10%, щоб
-              швидше продати».
-            </p>
+            <p className="text-lg">{t('emptyTitle')}</p>
+            <p className="mt-1 text-sm">{t('emptyHint')}</p>
           </div>
         )}
 
@@ -214,27 +216,31 @@ export default function MarketplaceRepricingPage() {
           <div
             key={rule.id}
             className={`rounded-[var(--radius)] border p-4 ${
-              rule.enabled ? 'border-[var(--color-border)] bg-[var(--color-bg)]' : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)] opacity-60'
+              rule.enabled
+                ? 'border-[var(--color-border)] bg-[var(--color-bg)]'
+                : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)] opacity-60'
             }`}
           >
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-xs font-mono text-[var(--color-text-secondary)]">#{idx + 1}</span>
+              <span className="text-xs font-mono text-[var(--color-text-secondary)]">
+                #{idx + 1}
+              </span>
               <input
                 type="checkbox"
                 checked={rule.enabled}
                 onChange={(e) => updateRule(idx, { enabled: e.target.checked })}
-                title="Увімкнено / вимкнено"
+                title={t('enableTitle')}
               />
               <Input
                 value={rule.name}
                 onChange={(e) => updateRule(idx, { name: e.target.value })}
-                placeholder="Назва правила (для адміна)"
+                placeholder={t('namePh')}
                 className="flex-1"
               />
               <button
                 onClick={() => moveRule(idx, -1)}
                 disabled={idx === 0}
-                title="Вгору"
+                title={t('moveUp')}
                 className="rounded border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)] disabled:opacity-30"
               >
                 ↑
@@ -242,14 +248,14 @@ export default function MarketplaceRepricingPage() {
               <button
                 onClick={() => moveRule(idx, 1)}
                 disabled={idx === rules.length - 1}
-                title="Вниз"
+                title={t('moveDown')}
                 className="rounded border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)] disabled:opacity-30"
               >
                 ↓
               </button>
               <button
                 onClick={() => removeRule(idx)}
-                title="Видалити"
+                title={t('remove')}
                 className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
               >
                 ✕
@@ -258,12 +264,10 @@ export default function MarketplaceRepricingPage() {
 
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <label className="flex items-center gap-2">
-                <span>Умова:</span>
+                <span>{t('conditionLabel')}</span>
                 <select
                   value={rule.condition.type}
-                  onChange={(e) =>
-                    updateCondition(idx, { type: e.target.value as ConditionType })
-                  }
+                  onChange={(e) => updateCondition(idx, { type: e.target.value as ConditionType })}
                   className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1"
                 >
                   {(Object.keys(CONDITION_LABEL) as ConditionType[]).map((t) => (
@@ -276,7 +280,7 @@ export default function MarketplaceRepricingPage() {
 
               {(rule.condition.type === 'stock_below' || rule.condition.type === 'stock_above') && (
                 <label className="flex items-center gap-2">
-                  <span>Кількість:</span>
+                  <span>{t('qtyLabel')}</span>
                   <Input
                     type="number"
                     value={String(rule.condition.value ?? '')}
@@ -289,7 +293,7 @@ export default function MarketplaceRepricingPage() {
               {rule.condition.type === 'date_between' && (
                 <>
                   <label className="flex items-center gap-2">
-                    <span>З:</span>
+                    <span>{t('fromLabel')}</span>
                     <Input
                       type="date"
                       value={rule.condition.from || ''}
@@ -298,7 +302,7 @@ export default function MarketplaceRepricingPage() {
                     />
                   </label>
                   <label className="flex items-center gap-2">
-                    <span>До:</span>
+                    <span>{t('toLabel')}</span>
                     <Input
                       type="date"
                       value={rule.condition.to || ''}
@@ -311,7 +315,7 @@ export default function MarketplaceRepricingPage() {
 
               {rule.condition.type === 'category_in' && (
                 <label className="flex items-center gap-2">
-                  <span>ID категорій (через кому):</span>
+                  <span>{t('categoryIdsLabel')}</span>
                   <Input
                     value={(rule.condition.categoryIds || []).join(',')}
                     onChange={(e) =>
@@ -329,7 +333,7 @@ export default function MarketplaceRepricingPage() {
 
               {rule.condition.type === 'product_in' && (
                 <label className="flex items-center gap-2">
-                  <span>ID товарів (через кому):</span>
+                  <span>{t('productIdsLabel')}</span>
                   <Input
                     value={(rule.condition.productIds || []).join(',')}
                     onChange={(e) =>
@@ -346,7 +350,7 @@ export default function MarketplaceRepricingPage() {
               )}
 
               <label className="flex items-center gap-2">
-                <span>Націнка %:</span>
+                <span>{t('markupLabel')}</span>
                 <Input
                   type="number"
                   step="0.1"
@@ -356,7 +360,9 @@ export default function MarketplaceRepricingPage() {
                   onChange={(e) => updateRule(idx, { markupPercent: Number(e.target.value) })}
                   className="w-24"
                 />
-                <span className="text-xs text-[var(--color-text-secondary)]">±50</span>
+                <span className="text-xs text-[var(--color-text-secondary)]">
+                  {t('markupHint')}
+                </span>
               </label>
             </div>
           </div>
@@ -365,10 +371,10 @@ export default function MarketplaceRepricingPage() {
 
       <div className="mt-4 flex gap-2">
         <Button onClick={addRule} variant="outline">
-          + Додати правило
+          {t('addRule')}
         </Button>
         <Button onClick={handleSave} isLoading={saving}>
-          Зберегти ({MARKETPLACES.find((m) => m.key === active)?.name})
+          {t('saveBtn', { name: MARKETPLACES.find((m) => m.key === active)?.name ?? '' })}
         </Button>
       </div>
     </div>

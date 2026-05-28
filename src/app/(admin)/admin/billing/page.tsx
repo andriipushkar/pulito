@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -42,25 +43,24 @@ interface Invoice {
   createdAt: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  trial: 'Пробний період',
-  active: 'Активний',
-  past_due: 'Прострочено',
-  cancelled: 'Скасовано',
-};
-
-const INVOICE_STATUS_LABELS: Record<string, string> = {
-  draft: 'Чернетка',
-  sent: 'Надіслано',
-  paid: 'Оплачено',
-  overdue: 'Прострочено',
-};
-
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('uk-UA');
 }
 
 export default function AdminBillingPage() {
+  const t = useTranslations('admin.adminBillingPage');
+  const STATUS_LABELS: Record<string, string> = {
+    trial: t('statusTrial'),
+    active: t('statusActive'),
+    past_due: t('statusPastDue'),
+    cancelled: t('statusCancelled'),
+  };
+  const INVOICE_STATUS_LABELS: Record<string, string> = {
+    draft: t('invoiceDraft'),
+    sent: t('invoiceSent'),
+    paid: t('invoicePaid'),
+    overdue: t('invoiceOverdue'),
+  };
   const [billing, setBilling] = useState<Billing | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -80,7 +80,7 @@ export default function AdminBillingPage() {
           setBilling(billingRes.data.billing);
           setUsage(billingRes.data.usage);
         } else {
-          toast.error(billingRes.error || 'Помилка завантаження даних біллінгу');
+          toast.error(billingRes.error || t('billingLoadError'));
         }
         if (invoicesRes.success && invoicesRes.data) {
           // New paginated shape — fall back gracefully for the brief moment
@@ -90,11 +90,11 @@ export default function AdminBillingPage() {
             | Invoice[];
           setInvoices(Array.isArray(data) ? data : data.invoices);
         } else {
-          toast.error(invoicesRes.error || 'Помилка завантаження інвойсів');
+          toast.error(invoicesRes.error || t('invoicesLoadError'));
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка завантаження даних біллінгу');
+        if (!cancelled) toast.error(t('billingLoadError'));
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -102,6 +102,7 @@ export default function AdminBillingPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (isLoading) {
@@ -115,7 +116,7 @@ export default function AdminBillingPage() {
   if (!billing) {
     return (
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 text-center">
-        <p className="text-[var(--color-text-secondary)]">Біллінг ще не налаштовано.</p>
+        <p className="text-[var(--color-text-secondary)]">{t('noBilling')}</p>
       </div>
     );
   }
@@ -123,30 +124,32 @@ export default function AdminBillingPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Біллінг</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <Link href="/admin/billing/plans">
-          <Button>Змінити план</Button>
+          <Button>{t('changePlan')}</Button>
         </Link>
       </div>
 
       {/* Current plan info */}
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
-        <h3 className="mb-3 text-lg font-semibold">Поточний план</h3>
+        <h3 className="mb-3 text-lg font-semibold">{t('currentPlan')}</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <span className="text-xs text-[var(--color-text-secondary)]">План</span>
+            <span className="text-xs text-[var(--color-text-secondary)]">{t('planLabel')}</span>
             <p className="text-sm font-medium">{billing.plan.name}</p>
           </div>
           <div>
-            <span className="text-xs text-[var(--color-text-secondary)]">Ціна</span>
-            <p className="text-sm font-medium">{billing.plan.priceMonthly} грн/міс</p>
+            <span className="text-xs text-[var(--color-text-secondary)]">{t('priceLabel')}</span>
+            <p className="text-sm font-medium">
+              {t('priceValue', { price: billing.plan.priceMonthly })}
+            </p>
           </div>
           <div>
-            <span className="text-xs text-[var(--color-text-secondary)]">Статус</span>
+            <span className="text-xs text-[var(--color-text-secondary)]">{t('statusLabel')}</span>
             <p className="text-sm font-medium">{STATUS_LABELS[billing.status] || billing.status}</p>
           </div>
           <div>
-            <span className="text-xs text-[var(--color-text-secondary)]">Період</span>
+            <span className="text-xs text-[var(--color-text-secondary)]">{t('periodLabel')}</span>
             <p className="text-sm font-medium">
               {formatDate(billing.currentPeriodStart)} — {formatDate(billing.currentPeriodEnd)}
             </p>
@@ -154,7 +157,7 @@ export default function AdminBillingPage() {
         </div>
         {billing.trialEndsAt && billing.status === 'trial' && (
           <p className="mt-3 text-sm text-yellow-600">
-            Пробний період закінчується: {formatDate(billing.trialEndsAt)}
+            {t('trialEnds', { date: formatDate(billing.trialEndsAt) })}
           </p>
         )}
       </div>
@@ -162,30 +165,36 @@ export default function AdminBillingPage() {
       {/* Usage meters */}
       {usage && (
         <div className="mb-6 grid gap-4 sm:grid-cols-2">
-          <UsageMeter label="Товари" used={usage.products.used} max={usage.products.max} />
-          <UsageMeter
-            label="Замовлення (за період)"
-            used={usage.orders.used}
-            max={usage.orders.max}
-          />
+          <UsageMeter label={t('products')} used={usage.products.used} max={usage.products.max} />
+          <UsageMeter label={t('ordersPeriod')} used={usage.orders.used} max={usage.orders.max} />
         </div>
       )}
 
       {/* Invoice history */}
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
-        <h3 className="mb-3 text-lg font-semibold">Історія рахунків</h3>
+        <h3 className="mb-3 text-lg font-semibold">{t('invoiceHistory')}</h3>
         {invoices.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-secondary)]">Рахунків поки немає.</p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{t('invoiceEmpty')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)]">
-                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">Дата</th>
-                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">Період</th>
-                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">Сума</th>
-                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">Статус</th>
-                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">PDF</th>
+                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">
+                    {t('colDate')}
+                  </th>
+                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">
+                    {t('colPeriod')}
+                  </th>
+                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">
+                    {t('colAmount')}
+                  </th>
+                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">
+                    {t('colStatus')}
+                  </th>
+                  <th className="pb-2 font-medium text-[var(--color-text-secondary)]">
+                    {t('colPdf')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -224,12 +233,12 @@ export default function AdminBillingPage() {
                             if (res.success && res.data?.pdfUrl) {
                               window.open(res.data.pdfUrl, '_blank', 'noopener,noreferrer');
                             } else {
-                              toast.error(res.error || 'PDF недоступний');
+                              toast.error(res.error || t('pdfUnavailable'));
                             }
                           }}
                           className="text-[var(--color-primary)] hover:underline"
                         >
-                          Завантажити
+                          {t('download')}
                         </button>
                       ) : (
                         <span className="text-[var(--color-text-secondary)]">—</span>

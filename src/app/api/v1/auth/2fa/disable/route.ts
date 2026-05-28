@@ -7,7 +7,10 @@ import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
 
 const disableSchema = z.object({
-  code: z.string().min(1, "Код обов'язковий"),
+  // Match the setup-verify schema — TOTP is strictly 6 digits. Tighter than
+  // `min(1)` so oversize/garbage submissions get a 422 before reaching the
+  // TOTP verifier.
+  code: z.string().regex(/^\d{6}$/, 'Код має бути 6 цифр'),
 });
 
 /**

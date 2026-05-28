@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -48,6 +49,7 @@ const EMPTY_MAPPINGS: Record<PlatformKey, CategoryMapping> = {
 };
 
 export default function MarketplaceCategoriesPage() {
+  const t = useTranslations('admin.marketplaceCategoriesPage');
   const [categories, setCategories] = useState<Category[]>([]);
   const [mappings, setMappings] = useState<Record<PlatformKey, CategoryMapping>>(EMPTY_MAPPINGS);
   const [coverage, setCoverage] = useState<Record<PlatformKey, CategoryCoverage | undefined>>({
@@ -78,7 +80,12 @@ export default function MarketplaceCategoriesPage() {
       if (cancelled) return;
       if (catsRes.success && catsRes.data) setCategories(catsRes.data);
 
-      const next: Record<PlatformKey, CategoryMapping> = { olx: {}, rozetka: {}, prom: {}, epicentrk: {} };
+      const next: Record<PlatformKey, CategoryMapping> = {
+        olx: {},
+        rozetka: {},
+        prom: {},
+        epicentrk: {},
+      };
       MARKETPLACES.forEach((m, i) => {
         const r = mapResults[i];
         if (r.success && r.data) next[m.key] = r.data;
@@ -127,17 +134,21 @@ export default function MarketplaceCategoriesPage() {
       mappings[platform],
     );
     if (res.success) {
-      toast.success(`${MARKETPLACES.find((m) => m.key === platform)?.name}: збережено`);
+      toast.success(
+        t('savedToast', { name: MARKETPLACES.find((m) => m.key === platform)?.name ?? '' }),
+      );
       setReloadToken((n) => n + 1);
     } else {
-      toast.error(res.error || 'Помилка збереження');
+      toast.error(res.error || t('saveError'));
     }
     setSavingFor(null);
   };
 
   const handleCopyFrom = async (from: PlatformKey) => {
     if (from === activePlatform) return;
-    if (!confirm(`Скопіювати mapping з ${MARKETPLACES.find((m) => m.key === from)?.name} в ${MARKETPLACES.find((m) => m.key === activePlatform)?.name}? Існуючі записи не перезаписуються.`)) {
+    const fromName = MARKETPLACES.find((m) => m.key === from)?.name ?? '';
+    const toName = MARKETPLACES.find((m) => m.key === activePlatform)?.name ?? '';
+    if (!confirm(t('copyConfirm', { from: fromName, to: toName }))) {
       return;
     }
     setCopyingTo(activePlatform);
@@ -146,10 +157,10 @@ export default function MarketplaceCategoriesPage() {
       { from, to: activePlatform, overwrite: false },
     );
     if (res.success && res.data) {
-      toast.success(`Скопійовано ${res.data.copied} записів (всього: ${res.data.total})`);
+      toast.success(t('copiedToast', { copied: res.data.copied, total: res.data.total }));
       setReloadToken((n) => n + 1);
     } else {
-      toast.error(res.error || 'Помилка копіювання');
+      toast.error(res.error || t('copyError'));
     }
     setCopyingTo(null);
   };
@@ -192,20 +203,19 @@ export default function MarketplaceCategoriesPage() {
           href="/admin/marketplaces"
           className="text-sm text-[var(--color-primary)] hover:underline"
         >
-          ← Маркетплейси
+          {t('backArrow')}
         </Link>
-        <h2 className="mt-1 text-xl font-bold">Mapping категорій</h2>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Зіставте локальні категорії з ID категорій на маркетплейсах. Товари без mapping публікуються в дефолтну категорію — це часто причина відхилення лістингів.
-        </p>
+        <h2 className="mt-1 text-xl font-bold">{t('title')}</h2>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         {MARKETPLACES.map((m) => {
           const cov = coverage[m.key];
-          const pct = cov && cov.totalActiveProducts > 0
-            ? Math.round((cov.productsWithMapping / cov.totalActiveProducts) * 100)
-            : 0;
+          const pct =
+            cov && cov.totalActiveProducts > 0
+              ? Math.round((cov.productsWithMapping / cov.totalActiveProducts) * 100)
+              : 0;
           return (
             <button
               key={m.key}
@@ -223,10 +233,20 @@ export default function MarketplaceCategoriesPage() {
               {cov && (
                 <div className="mt-2 space-y-1 text-[11px] text-[var(--color-text-secondary)]">
                   <div>
-                    Покриття: <strong className={pct >= 80 ? 'text-green-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600'}>{pct}%</strong>
+                    {t('coverageLabel')}{' '}
+                    <strong
+                      className={
+                        pct >= 80 ? 'text-green-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600'
+                      }
+                    >
+                      {pct}%
+                    </strong>
                   </div>
                   <div>
-                    {cov.productsWithMapping} / {cov.totalActiveProducts} товарів
+                    {t('productsCount', {
+                      mapped: cov.productsWithMapping,
+                      total: cov.totalActiveProducts,
+                    })}
                   </div>
                   <div className="h-1 overflow-hidden rounded-full bg-[var(--color-bg-secondary)]">
                     <div
@@ -243,15 +263,11 @@ export default function MarketplaceCategoriesPage() {
 
       {activeCoverage && activeCoverage.productsWithoutMapping > 0 && (
         <div className="mb-4 rounded-[var(--radius)] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          ⚠ <strong>{activeCoverage.productsWithoutMapping}</strong> активних товарів зі
-          <strong> {activeCoverage.unmappedCategoryIds.length}</strong> категорій не мають mapping
-          на {MARKETPLACES.find((m) => m.key === activePlatform)?.name} — вони впадуть у дефолтну
-          категорію (можуть бути відхилені маркетплейсом).{' '}
-          <button
-            onClick={() => setShowOnlyUnmapped(true)}
-            className="font-semibold underline"
-          >
-            Показати тільки немапнуті
+          ⚠ <strong>{activeCoverage.productsWithoutMapping}</strong> ·{' '}
+          <strong>{activeCoverage.unmappedCategoryIds.length}</strong> ·{' '}
+          {MARKETPLACES.find((m) => m.key === activePlatform)?.name}.{' '}
+          <button onClick={() => setShowOnlyUnmapped(true)} className="font-semibold underline">
+            {t('showUnmapped')}
           </button>
         </div>
       )}
@@ -264,7 +280,7 @@ export default function MarketplaceCategoriesPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Пошук категорії..."
+            placeholder={t('searchPh')}
             className="w-56"
           />
           <label className="flex items-center gap-1.5 text-xs">
@@ -274,7 +290,7 @@ export default function MarketplaceCategoriesPage() {
               onChange={(e) => setShowOnlyUnmapped(e.target.checked)}
               className="accent-[var(--color-primary)]"
             />
-            Тільки немапнуті з товарами
+            {t('onlyUnmapped')}
           </label>
           <div className="ml-auto flex items-center gap-2">
             <select
@@ -287,7 +303,7 @@ export default function MarketplaceCategoriesPage() {
               className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
             >
               <option value="" disabled>
-                Скопіювати з…
+                {t('copyFrom')}
               </option>
               {MARKETPLACES.filter((m) => m.key !== activePlatform).map((m) => (
                 <option key={m.key} value={m.key}>
@@ -300,7 +316,7 @@ export default function MarketplaceCategoriesPage() {
               isLoading={savingFor === activePlatform}
               onClick={() => handleSave(activePlatform)}
             >
-              Зберегти
+              {t('save')}
             </Button>
           </div>
         </div>
@@ -309,9 +325,9 @@ export default function MarketplaceCategoriesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-left text-xs text-[var(--color-text-secondary)]">
-                <th className="px-2 py-2">Локальна категорія</th>
-                <th className="px-2 py-2">ID на маркетплейсі</th>
-                <th className="px-2 py-2">Назва (опц., для довідки)</th>
+                <th className="px-2 py-2">{t('colLocal')}</th>
+                <th className="px-2 py-2">{t('colExternalId')}</th>
+                <th className="px-2 py-2">{t('colExternalName')}</th>
               </tr>
             </thead>
             <tbody>
@@ -329,16 +345,13 @@ export default function MarketplaceCategoriesPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm">{renderCategoryName(cat)}</span>
                         {isUnmappedWithProducts && (
-                          <span
-                            className="text-[10px] text-amber-700"
-                            title="Є активні товари без mapping — впадуть у дефолтну"
-                          >
+                          <span className="text-[10px] text-amber-700" title={t('warnIconTitle')}>
                             ⚠
                           </span>
                         )}
                       </div>
                       <div className="text-[10px] text-[var(--color-text-secondary)]">
-                        ID: {cat.id}
+                        {t('idLabel')} {cat.id}
                       </div>
                     </td>
                     <td className="px-2 py-2 align-top">
@@ -347,7 +360,7 @@ export default function MarketplaceCategoriesPage() {
                         onChange={(e) =>
                           updateEntry(activePlatform, cat.id, { externalId: e.target.value })
                         }
-                        placeholder="напр. 1430"
+                        placeholder={t('externalIdPh')}
                         className="w-32"
                       />
                     </td>
@@ -357,7 +370,7 @@ export default function MarketplaceCategoriesPage() {
                         onChange={(e) =>
                           updateEntry(activePlatform, cat.id, { externalName: e.target.value })
                         }
-                        placeholder="Побутова хімія"
+                        placeholder={t('externalNamePh')}
                         className="w-64"
                       />
                     </td>
@@ -368,17 +381,12 @@ export default function MarketplaceCategoriesPage() {
           </table>
           {filteredCategories.length === 0 && (
             <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-              {search || showOnlyUnmapped
-                ? 'Нічого не знайдено за фільтром'
-                : 'Немає категорій'}
+              {search || showOnlyUnmapped ? t('noneByFilter') : t('noCategories')}
             </p>
           )}
         </div>
 
-        <p className="mt-3 text-[10px] text-[var(--color-text-secondary)]">
-          Залиште поле порожнім, щоб не мапити цю категорію. Натисніть «Зберегти», щоб
-          застосувати зміни.
-        </p>
+        <p className="mt-3 text-[10px] text-[var(--color-text-secondary)]">{t('hint')}</p>
       </div>
     </div>
   );

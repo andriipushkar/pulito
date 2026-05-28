@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -28,6 +29,7 @@ const PLATFORM_ICON: Record<string, string> = {
 };
 
 export default function PickListPage() {
+  const t = useTranslations('admin.pickListPage');
   const [data, setData] = useState<PickListData | null>(null);
   const [loading, setLoading] = useState(true);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -43,7 +45,7 @@ export default function PickListPage() {
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) setData(res.data);
-        else toast.error(res.error || 'Не вдалося завантажити');
+        else toast.error(res.error || t('loadError'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -51,7 +53,7 @@ export default function PickListPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadToken]);
+  }, [reloadToken, t]);
 
   const toggle = (code: string) => {
     setChecked((prev) => {
@@ -124,21 +126,30 @@ export default function PickListPage() {
             href="/admin/marketplaces"
             className="text-sm text-[var(--color-primary)] hover:underline"
           >
-            ← Маркетплейси
+            {t('backToMarketplaces')}
           </Link>
-          <h2 className="mt-1 text-xl font-bold">Pick-list (збирання замовлень)</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Список всіх товарів, які треба зібрати по непідтвердженим замовленням з усіх
-            маркетплейсів. Відмічайте позиції під час збирання.
-          </p>
+          <h2 className="mt-1 text-xl font-bold">{t('title')}</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('intro')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={refresh}>↻ Оновити</Button>
-          <Button size="sm" variant="outline" onClick={handleExportCsv} disabled={data.rows.length === 0}>
-            ⬇ CSV
+          <Button size="sm" variant="outline" onClick={refresh}>
+            {t('refresh')}
           </Button>
-          <Button size="sm" variant="outline" onClick={handlePrint} disabled={data.rows.length === 0}>
-            🖨 Друк
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExportCsv}
+            disabled={data.rows.length === 0}
+          >
+            {t('csv')}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handlePrint}
+            disabled={data.rows.length === 0}
+          >
+            {t('print')}
           </Button>
         </div>
       </div>
@@ -146,31 +157,30 @@ export default function PickListPage() {
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <div className="mb-3 flex flex-wrap items-center gap-4 text-sm">
           <div>
-            <span className="text-[var(--color-text-secondary)]">SKU: </span>
+            <span className="text-[var(--color-text-secondary)]">{t('skuLabel')}</span>
             <strong>{data.totalProducts}</strong>
           </div>
           <div>
-            <span className="text-[var(--color-text-secondary)]">Всього одиниць: </span>
+            <span className="text-[var(--color-text-secondary)]">{t('totalUnitsLabel')}</span>
             <strong>{data.totalItems}</strong>
           </div>
           <div className="ml-auto text-[var(--color-text-secondary)]">
-            Зібрано: <strong>{pickedCount}</strong> SKU / <strong>{pickedQuantity}</strong> од
+            {t('pickedLabel')} <strong>{pickedCount}</strong> {t('skuPart')}{' '}
+            <strong>{pickedQuantity}</strong> {t('unitsPart')}
           </div>
         </div>
 
         {data.rows.length === 0 ? (
-          <p className="py-12 text-center text-[var(--color-text-secondary)]">
-            Немає замовлень для збирання
-          </p>
+          <p className="py-12 text-center text-[var(--color-text-secondary)]">{t('empty')}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-left text-xs text-[var(--color-text-secondary)]">
                 <th className="w-8 px-2 py-2"></th>
-                <th className="px-2 py-2">Артикул</th>
-                <th className="px-2 py-2">Товар</th>
-                <th className="px-2 py-2 text-right">Кількість</th>
-                <th className="px-2 py-2">Замовлення</th>
+                <th className="px-2 py-2">{t('colArticle')}</th>
+                <th className="px-2 py-2">{t('colProduct')}</th>
+                <th className="px-2 py-2 text-right">{t('colQty')}</th>
+                <th className="px-2 py-2">{t('colOrders')}</th>
               </tr>
             </thead>
             <tbody>
@@ -193,7 +203,9 @@ export default function PickListPage() {
                     </td>
                     <td className="px-2 py-2 align-top font-mono text-xs">{row.productCode}</td>
                     <td className="px-2 py-2 align-top">{row.productName}</td>
-                    <td className="px-2 py-2 text-right align-top font-bold">{row.totalQuantity}</td>
+                    <td className="px-2 py-2 text-right align-top font-bold">
+                      {row.totalQuantity}
+                    </td>
                     <td className="px-2 py-2 align-top">
                       <div className="flex flex-wrap gap-1 text-[10px]">
                         {row.orders.map((o, i) => (

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -21,6 +22,7 @@ interface FaqCategory {
 const EMPTY = { name: '', slug: '', description: '', sortOrder: 0, isPublished: true };
 
 export default function FaqCategoriesAdminPage() {
+  const t = useTranslations('admin.faqCategoriesPage');
   const [cats, setCats] = useState<FaqCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
@@ -55,7 +57,7 @@ export default function FaqCategoriesAdminPage() {
 
   const save = async () => {
     if (!form.name.trim()) {
-      toast.error('Назва обовʼязкова');
+      toast.error(t('nameRequired'));
       return;
     }
     const payload = {
@@ -70,27 +72,22 @@ export default function FaqCategoriesAdminPage() {
         ? await apiClient.post('/api/v1/admin/faq-categories', payload)
         : await apiClient.put(`/api/v1/admin/faq-categories/${editingId}`, payload);
     if (res.success) {
-      toast.success(editingId === 'new' ? 'Категорію створено' : 'Збережено');
+      toast.success(editingId === 'new' ? t('createdToast') : t('savedToast'));
       setEditingId(null);
       load();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
   const remove = async (c: FaqCategory) => {
-    if (
-      !window.confirm(
-        `Видалити категорію "${c.name}"? Питання, що належали до неї, лишаться, але втратять прив'язку.`,
-      )
-    )
-      return;
+    if (!window.confirm(t('confirmDelete', { name: c.name }))) return;
     const res = await apiClient.delete(`/api/v1/admin/faq-categories/${c.id}`);
     if (res.success) {
-      toast.success('Видалено');
+      toast.success(t('deletedToast'));
       load();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('errorGeneric'));
     }
   };
 
@@ -99,49 +96,47 @@ export default function FaqCategoriesAdminPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link href="/admin/faq" className="text-sm text-[var(--color-primary)] hover:underline">
-            ← До FAQ
+            {t('backToFaq')}
           </Link>
-          <h1 className="mt-1 text-2xl font-bold">Категорії FAQ</h1>
+          <h1 className="mt-1 text-2xl font-bold">{t('title')}</h1>
         </div>
-        <Button onClick={startCreate}>+ Нова категорія</Button>
+        <Button onClick={startCreate}>{t('newCategory')}</Button>
       </div>
 
-      {isLoading && <p className="text-sm text-[var(--color-text-secondary)]">Завантаження…</p>}
+      {isLoading && <p className="text-sm text-[var(--color-text-secondary)]">{t('loading')}</p>}
 
       {!isLoading && cats.length === 0 && editingId === null && (
         <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] p-8 text-center">
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            Категорій ще немає. Створи першу, щоб структурувати FAQ.
-          </p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{t('empty')}</p>
         </div>
       )}
 
       {editingId !== null && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-primary)] bg-[var(--color-bg)] p-4">
           <h3 className="mb-3 text-sm font-semibold">
-            {editingId === 'new' ? 'Нова категорія' : `Категорія #${editingId}`}
+            {editingId === 'new' ? t('newSection') : t('editingSection', { id: editingId })}
           </h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
-              label="Назва"
+              label={t('nameLabel')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Доставка"
+              placeholder={t('namePlaceholder')}
             />
             <Input
-              label="Slug (auto)"
+              label={t('slugLabel')}
               value={form.slug}
               onChange={(e) => setForm({ ...form, slug: e.target.value })}
-              placeholder="dostavka"
+              placeholder={t('slugPlaceholder')}
             />
             <Input
-              label="Опис"
+              label={t('descriptionLabel')}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Питання про доставку Новою Поштою"
+              placeholder={t('descriptionPlaceholder')}
             />
             <Input
-              label="Порядок"
+              label={t('sortOrderLabel')}
               type="number"
               value={String(form.sortOrder)}
               onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
@@ -155,14 +150,14 @@ export default function FaqCategoriesAdminPage() {
               onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
               className="accent-[var(--color-primary)]"
             />
-            Опубліковано
+            {t('isPublished')}
           </label>
           <div className="mt-3 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
-              Скасувати
+              {t('cancel')}
             </Button>
             <Button size="sm" onClick={save}>
-              Зберегти
+              {t('save')}
             </Button>
           </div>
         </div>
@@ -173,12 +168,12 @@ export default function FaqCategoriesAdminPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
               <tr>
-                <th className="px-4 py-3 text-left">Назва</th>
-                <th className="px-4 py-3 text-left">Slug</th>
-                <th className="px-4 py-3 text-center">Питань</th>
-                <th className="px-4 py-3 text-center">Опубл.</th>
-                <th className="px-4 py-3 text-center">Порядок</th>
-                <th className="px-4 py-3 text-right">Дії</th>
+                <th className="px-4 py-3 text-left">{t('colName')}</th>
+                <th className="px-4 py-3 text-left">{t('colSlug')}</th>
+                <th className="px-4 py-3 text-center">{t('colQuestions')}</th>
+                <th className="px-4 py-3 text-center">{t('colPublished')}</th>
+                <th className="px-4 py-3 text-center">{t('colSort')}</th>
+                <th className="px-4 py-3 text-right">{t('colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -197,17 +192,17 @@ export default function FaqCategoriesAdminPage() {
                         c.isPublished ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                       }`}
                     >
-                      {c.isPublished ? 'Так' : 'Ні'}
+                      {c.isPublished ? t('yes') : t('no')}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">{c.sortOrder}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => startEdit(c)}>
-                        Редагувати
+                        {t('edit')}
                       </Button>
                       <Button size="sm" variant="danger" onClick={() => remove(c)}>
-                        Видалити
+                        {t('delete')}
                       </Button>
                     </div>
                   </td>

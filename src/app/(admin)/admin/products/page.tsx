@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -50,62 +51,6 @@ interface BrandOption {
   name: string;
 }
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Всі статуси' },
-  { value: 'true', label: 'Активні' },
-  { value: 'false', label: 'Вимкнені' },
-];
-
-const STOCK_OPTIONS = [
-  { value: '', label: 'Весь залишок' },
-  { value: 'out', label: 'Немає (0)' },
-  { value: 'low', label: 'Мало (1-5)' },
-  { value: 'in', label: 'В наявності (>5)' },
-];
-
-const SORT_OPTIONS = [
-  { value: 'id_desc', label: 'Нові спочатку' },
-  { value: 'id_asc', label: 'Старі спочатку' },
-  { value: 'name_asc', label: 'Назва А-Я' },
-  { value: 'name_desc', label: 'Назва Я-А' },
-  { value: 'price_asc', label: 'Ціна: дешеві' },
-  { value: 'price_desc', label: 'Ціна: дорогі' },
-  { value: 'quantity_asc', label: 'Залишок: мало' },
-  { value: 'quantity_desc', label: 'Залишок: багато' },
-  { value: 'sales_desc', label: 'За продажами' },
-  { value: 'sort_order_asc', label: 'Порядок (зростання)' },
-  { value: 'sort_order_desc', label: 'Порядок (спадання)' },
-  { value: 'category_asc', label: 'Категорія А-Я' },
-  { value: 'category_desc', label: 'Категорія Я-А' },
-];
-
-const BULK_ACTIONS = [
-  { value: '', label: 'Масова дія...' },
-  { value: 'activate', label: 'Активувати' },
-  { value: 'deactivate', label: 'Деактивувати' },
-  { value: 'delete', label: 'Видалити' },
-  { value: 'change_category', label: 'Змінити категорію' },
-  { value: 'change_brand', label: 'Змінити торгової марки' },
-  { value: 'change_price', label: 'Змінити ціни…' },
-  { value: 'export', label: 'Експорт обраних (XLSX)' },
-  { value: 'labels', label: '🏷 Друк етикеток (PDF)' },
-];
-
-const PRICE_TARGET_OPTIONS = [
-  { value: 'retail', label: 'Роздріб' },
-  { value: 'wholesale', label: 'Дрібний опт' },
-  { value: 'wholesale2', label: 'Середній опт' },
-  { value: 'wholesale3', label: 'Великий опт' },
-  { value: 'all', label: 'Усі ціни' },
-];
-
-const PRICE_MODE_OPTIONS = [
-  { value: 'percent', label: '± % від поточної' },
-  { value: 'add', label: '± грн від поточної' },
-  { value: 'fixed', label: 'Встановити фіксовану' },
-  { value: 'round', label: 'Округлити до кратного' },
-];
-
 // Next.js requires components that call useSearchParams() to live inside a
 // Suspense boundary. Without this wrapper the build emits a warning and the
 // page de-opts to fully dynamic rendering even when it doesn't need to.
@@ -118,6 +63,75 @@ export default function AdminProductsPage() {
 }
 
 function AdminProductsPageInner() {
+  const t = useTranslations('admin.productsListPage');
+  const STATUS_OPTIONS = useMemo(
+    () => [
+      { value: '', label: t('statusAll') },
+      { value: 'true', label: t('statusActive') },
+      { value: 'false', label: t('statusDisabled') },
+    ],
+    [t],
+  );
+  const STOCK_OPTIONS = useMemo(
+    () => [
+      { value: '', label: t('stockAll') },
+      { value: 'out', label: t('stockOut') },
+      { value: 'low', label: t('stockLow') },
+      { value: 'in', label: t('stockIn') },
+    ],
+    [t],
+  );
+  const SORT_OPTIONS = useMemo(
+    () => [
+      { value: 'id_desc', label: t('sortNewest') },
+      { value: 'id_asc', label: t('sortOldest') },
+      { value: 'name_asc', label: t('sortNameAsc') },
+      { value: 'name_desc', label: t('sortNameDesc') },
+      { value: 'price_asc', label: t('sortPriceAsc') },
+      { value: 'price_desc', label: t('sortPriceDesc') },
+      { value: 'quantity_asc', label: t('sortQtyAsc') },
+      { value: 'quantity_desc', label: t('sortQtyDesc') },
+      { value: 'sales_desc', label: t('sortSales') },
+      { value: 'sort_order_asc', label: t('sortOrderAsc') },
+      { value: 'sort_order_desc', label: t('sortOrderDesc') },
+      { value: 'category_asc', label: t('sortCatAsc') },
+      { value: 'category_desc', label: t('sortCatDesc') },
+    ],
+    [t],
+  );
+  const BULK_ACTIONS = useMemo(
+    () => [
+      { value: '', label: t('bulkPlaceholder') },
+      { value: 'activate', label: t('bulkActivate') },
+      { value: 'deactivate', label: t('bulkDeactivate') },
+      { value: 'delete', label: t('bulkDelete') },
+      { value: 'change_category', label: t('bulkChangeCategory') },
+      { value: 'change_brand', label: t('bulkChangeBrand') },
+      { value: 'change_price', label: t('bulkChangePrice') },
+      { value: 'export', label: t('bulkExport') },
+      { value: 'labels', label: t('bulkLabels') },
+    ],
+    [t],
+  );
+  const PRICE_TARGET_OPTIONS = useMemo(
+    () => [
+      { value: 'retail', label: t('ptRetail') },
+      { value: 'wholesale', label: t('ptWholesale') },
+      { value: 'wholesale2', label: t('ptWholesale2') },
+      { value: 'wholesale3', label: t('ptWholesale3') },
+      { value: 'all', label: t('ptAll') },
+    ],
+    [t],
+  );
+  const PRICE_MODE_OPTIONS = useMemo(
+    () => [
+      { value: 'percent', label: t('pmPercent') },
+      { value: 'add', label: t('pmAdd') },
+      { value: 'fixed', label: t('pmFixed') },
+      { value: 'round', label: t('pmRound') },
+    ],
+    [t],
+  );
   const searchParams = useSearchParams();
   const router = useRouter();
   const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -226,11 +240,11 @@ function AdminProductsPageInner() {
           setTotal(res.pagination?.total || 0);
           setSelected(new Set());
         } else {
-          toast.error(res.error || 'Не вдалося завантажити товари');
+          toast.error(res.error || t('loadError'));
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('Помилка мережі');
+        if (!cancelled) toast.error(t('networkError'));
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -238,7 +252,7 @@ function AdminProductsPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [buildProductsQuery, reloadToken]);
+  }, [buildProductsQuery, reloadToken, t]);
 
   const [isReindexing, setIsReindexing] = useState(false);
   const [confirmReindex, setConfirmReindex] = useState(false);
@@ -248,12 +262,12 @@ function AdminProductsPageInner() {
     try {
       const res = await apiClient.post<{ indexed: number }>('/api/v1/admin/typesense/reindex');
       if (res.success && res.data) {
-        toast.success(`Проіндексовано ${res.data.indexed} товарів`);
+        toast.success(t('reindexed', { count: res.data.indexed }));
       } else {
-        toast.error(res.error || 'Помилка індексації');
+        toast.error(res.error || t('reindexError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsReindexing(false);
     }
@@ -323,7 +337,7 @@ function AdminProductsPageInner() {
 
       if (bulkAction === 'change_brand') {
         if (bulkBrandId === '') {
-          toast.error('Оберіть торгової марки (або «Без торгової марки»)');
+          toast.error(t('selectBrand'));
           setIsProcessing(false);
           return;
         }
@@ -334,15 +348,15 @@ function AdminProductsPageInner() {
           brandId: brandIdPayload,
         });
         if (res.success) {
-          toast.success(`Торгової марки змінено для ${ids.length} товарів`);
+          toast.success(t('brandChanged', { count: ids.length }));
           setBulkBrandId('');
           loadProducts();
         } else {
-          toast.error(res.error || 'Помилка');
+          toast.error(res.error || t('error'));
         }
       } else if (bulkAction === 'change_category') {
         if (!bulkCategoryId) {
-          toast.error('Оберіть категорію');
+          toast.error(t('selectCategory'));
           setIsProcessing(false);
           return;
         }
@@ -352,16 +366,16 @@ function AdminProductsPageInner() {
           categoryId: Number(bulkCategoryId),
         });
         if (res.success) {
-          toast.success(`Категорію змінено для ${ids.length} товарів`);
+          toast.success(t('categoryChanged', { count: ids.length }));
           setBulkCategoryId('');
           loadProducts();
         } else {
-          toast.error(res.error || 'Помилка');
+          toast.error(res.error || t('error'));
         }
       } else if (bulkAction === 'change_price') {
         const valNum = bulkPriceMode === 'round' ? undefined : Number(bulkPriceValue);
         if (bulkPriceMode !== 'round' && (bulkPriceValue === '' || Number.isNaN(valNum))) {
-          toast.error('Вкажіть число');
+          toast.error(t('enterNumber'));
           setIsProcessing(false);
           return;
         }
@@ -378,13 +392,15 @@ function AdminProductsPageInner() {
         );
         if (res.success && res.data) {
           toast.success(
-            `Ціни оновлено: ${res.data.updated} товарів` +
-              (res.data.skipped > 0 ? `, без змін: ${res.data.skipped}` : ''),
+            t('pricesUpdated', { updated: res.data.updated }) +
+              (res.data.skipped > 0
+                ? t('pricesUpdatedSkipped', { skipped: res.data.skipped })
+                : ''),
           );
           setBulkPriceValue('');
           loadProducts();
         } else {
-          toast.error(res.error || 'Помилка зміни цін');
+          toast.error(res.error || t('priceChangeError'));
         }
       } else if (bulkAction === 'export') {
         const res = await apiClient.post<{ url: string }>('/api/v1/admin/products/bulk', {
@@ -393,12 +409,12 @@ function AdminProductsPageInner() {
         });
         if (res.success && res.data?.url) {
           window.open(res.data.url, '_blank');
-          toast.success(`Експортовано ${ids.length} товарів`);
+          toast.success(t('exported', { count: ids.length }));
         } else {
-          toast.error(res.error || 'Помилка експорту');
+          toast.error(res.error || t('exportError'));
         }
       } else if (bulkAction === 'labels') {
-        const raw = window.prompt('Скільки копій кожної етикетки?', '1');
+        const raw = window.prompt(t('labelsCopiesPrompt'), '1');
         if (raw === null) return;
         const copies = Math.max(1, Math.min(100, parseInt(raw, 10) || 1));
         try {
@@ -408,8 +424,8 @@ function AdminProductsPageInner() {
             body: JSON.stringify({ productIds: ids, copiesEach: copies }),
           });
           if (!resp.ok) {
-            const errBody = await resp.json().catch(() => ({ error: 'Помилка' }));
-            toast.error(errBody.error || `Помилка ${resp.status}`);
+            const errBody = await resp.json().catch(() => ({ error: t('error') }));
+            toast.error(errBody.error || t('errorWithStatus', { status: resp.status }));
             return;
           }
           const skipped = Number(resp.headers.get('X-Skipped') || '0');
@@ -418,11 +434,11 @@ function AdminProductsPageInner() {
           const url = URL.createObjectURL(blob);
           window.open(url, '_blank');
           toast.success(
-            `Згенеровано ${printed} етикеток` +
-              (skipped > 0 ? `, пропущено ${skipped} (без штрихкоду)` : ''),
+            t('labelsGenerated', { printed }) +
+              (skipped > 0 ? t('labelsSkipped', { skipped }) : ''),
           );
         } catch (err) {
-          toast.error(`Помилка: ${String(err)}`);
+          toast.error(t('errorWith', { err: String(err) }));
         }
       } else if (bulkAction === 'delete') {
         const res = await apiClient.post('/api/v1/admin/products/bulk', {
@@ -430,10 +446,10 @@ function AdminProductsPageInner() {
           productIds: ids,
         });
         if (res.success) {
-          toast.success(`Видалено ${ids.length} товарів`);
+          toast.success(t('deletedN', { count: ids.length }));
           loadProducts();
         } else {
-          toast.error(res.error || 'Помилка');
+          toast.error(res.error || t('error'));
         }
       } else {
         const res = await apiClient.post('/api/v1/admin/products/bulk', {
@@ -441,14 +457,14 @@ function AdminProductsPageInner() {
           productIds: ids,
         });
         if (res.success) {
-          toast.success(`Оновлено ${ids.length} товарів`);
+          toast.success(t('updatedN', { count: ids.length }));
           loadProducts();
         } else {
-          toast.error(res.error || 'Помилка');
+          toast.error(res.error || t('error'));
         }
       }
     } catch {
-      toast.error('Помилка виконання');
+      toast.error(t('execError'));
     } finally {
       bulkInFlight.current = false;
       setIsProcessing(false);
@@ -476,10 +492,10 @@ function AdminProductsPageInner() {
       });
       if (res.success && res.data?.url) {
         window.open(res.data.url, '_blank');
-        toast.success('Експорт готовий');
+        toast.success(t('exportReady'));
       }
     } catch {
-      toast.error('Помилка експорту');
+      toast.error(t('exportError'));
     } finally {
       setIsProcessing(false);
     }
@@ -514,12 +530,10 @@ function AdminProductsPageInner() {
       if (refreshed.success && refreshed.data) {
         setProducts((prev) => prev.map((p) => (p.id === product.id ? refreshed.data! : p)));
       }
-      toast.error(
-        'Цей товар було змінено в іншій вкладці — оновлено. Перевірте і збережіть знову.',
-      );
+      toast.error(t('conflictReload'));
       return false;
     }
-    toast.error(res.error || 'Помилка');
+    toast.error(res.error || t('error'));
     return false;
   };
 
@@ -533,7 +547,7 @@ function AdminProductsPageInner() {
       });
       return;
     }
-    await commitInlineField(product, 'priceRetail', next, 'Ціна оновлена');
+    await commitInlineField(product, 'priceRetail', next, t('priceUpdated'));
     setPendingPrice((prev) => {
       const copy = { ...prev };
       delete copy[product.id];
@@ -551,7 +565,7 @@ function AdminProductsPageInner() {
       });
       return;
     }
-    await commitInlineField(product, 'quantity', next, 'Залишок оновлено');
+    await commitInlineField(product, 'quantity', next, t('qtyUpdated'));
     setPendingQty((prev) => {
       const copy = { ...prev };
       delete copy[product.id];
@@ -569,7 +583,7 @@ function AdminProductsPageInner() {
       });
       return;
     }
-    await commitInlineField(product, 'sortOrder', next, 'Порядок оновлено');
+    await commitInlineField(product, 'sortOrder', next, t('sortUpdated'));
     setPendingSortOrder((prev) => {
       const copy = { ...prev };
       delete copy[product.id];
@@ -583,13 +597,13 @@ function AdminProductsPageInner() {
         `/api/v1/admin/products/${product.id}/duplicate`,
       );
       if (res.success && res.data) {
-        toast.success(`Створено копію: ${res.data.code}`);
+        toast.success(t('copyCreated', { code: res.data.code }));
         router.push(`/admin/products/${res.data.id}`);
       } else {
-        toast.error(res.error || 'Не вдалося дублювати товар');
+        toast.error(res.error || t('duplicateError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     }
   };
 
@@ -603,13 +617,13 @@ function AdminProductsPageInner() {
         `/api/v1/admin/products/${product.id}`,
       );
       if (res.success) {
-        toast.success(res.data?.message || 'Товар видалено');
+        toast.success(res.data?.message || t('productDeleted'));
         loadProducts();
       } else {
-        toast.error(res.error || 'Не вдалося видалити товар');
+        toast.error(res.error || t('deleteError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsDeletingRow(false);
     }
@@ -627,7 +641,7 @@ function AdminProductsPageInner() {
   ).length;
 
   const categoryOptions = [
-    { value: '', label: 'Всі категорії' },
+    { value: '', label: t('allCategories') },
     ...categories.map((c) => ({ value: String(c.id), label: c.name })),
   ];
 
@@ -637,23 +651,24 @@ function AdminProductsPageInner() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-xl font-bold">
-          Товари{' '}
+          {t('title')}{' '}
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({total})
           </span>
         </h2>
         <div className="flex flex-wrap gap-2">
           <Input
-            placeholder="Пошук за назвою або кодом..."
+            placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-64"
           />
           <Link href="/admin/products/new">
-            <Button size="sm">+ Створити товар</Button>
+            <Button size="sm">{t('createProduct')}</Button>
           </Link>
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
-            Фільтри{activeFilters > 0 ? ` (${activeFilters})` : ''}
+            {t('filters')}
+            {activeFilters > 0 ? ` (${activeFilters})` : ''}
           </Button>
           <ProductsMoreMenu
             onExport={handleExportAll}
@@ -675,7 +690,7 @@ function AdminProductsPageInner() {
       {showFilters && (
         <div className="mb-4 grid gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs font-medium">Категорія</label>
+            <label className="mb-1 block text-xs font-medium">{t('categoryLabel')}</label>
             <Select
               options={categoryOptions}
               value={searchParams.get('categoryId') || ''}
@@ -683,11 +698,11 @@ function AdminProductsPageInner() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium">Торгова марка</label>
+            <label className="mb-1 block text-xs font-medium">{t('brandLabel')}</label>
             <Select
               options={[
-                { value: '', label: 'Усі торгові марки' },
-                { value: 'null', label: '— Без торгової марки —' },
+                { value: '', label: t('allBrands') },
+                { value: 'null', label: t('noBrandOption') },
                 ...brands.map((b) => ({ value: String(b.id), label: b.name })),
               ]}
               value={searchParams.get('brandId') || ''}
@@ -695,7 +710,7 @@ function AdminProductsPageInner() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium">Статус</label>
+            <label className="mb-1 block text-xs font-medium">{t('statusLabel')}</label>
             <Select
               options={STATUS_OPTIONS}
               value={searchParams.get('isActive') || ''}
@@ -703,7 +718,7 @@ function AdminProductsPageInner() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium">Залишок</label>
+            <label className="mb-1 block text-xs font-medium">{t('stockLabel')}</label>
             <Select
               options={STOCK_OPTIONS}
               value={searchParams.get('stock') || ''}
@@ -711,7 +726,7 @@ function AdminProductsPageInner() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium">Сортування</label>
+            <label className="mb-1 block text-xs font-medium">{t('sortLabel')}</label>
             <Select
               options={SORT_OPTIONS}
               value={searchParams.get('sort') || 'id_desc'}
@@ -726,7 +741,7 @@ function AdminProductsPageInner() {
                 onChange={(e) => updateFilter('missingBarcode', e.target.checked ? '1' : '')}
                 className="accent-[var(--color-primary)]"
               />
-              Тільки без штрихкоду
+              {t('onlyMissingBarcode')}
             </label>
           </div>
         </div>
@@ -736,13 +751,10 @@ function AdminProductsPageInner() {
       {selected.size > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
           <span className="text-sm text-[var(--color-text-secondary)]">
-            Обрано <strong>{selected.size}</strong> на цій сторінці
+            {t('selectedPre')} <strong>{selected.size}</strong> {t('selectedPost')}
             {total > products.length && (
-              <span
-                className="ml-2 text-xs text-amber-700"
-                title="Bulk-дії застосовуються тільки до вибраних на ЦІЙ сторінці. Щоб охопити більше — змініть розмір сторінки або зробіть кілька проходів."
-              >
-                ⚠ (з {total} загальних — інші сторінки не зачіпаються)
+              <span className="ml-2 text-xs text-amber-700" title={t('bulkScopeTitle')}>
+                {t('bulkScopeWarn', { total })}
               </span>
             )}
           </span>
@@ -758,7 +770,7 @@ function AdminProductsPageInner() {
               onChange={(e) => setBulkCategoryId(e.target.value)}
               className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
             >
-              <option value="">Оберіть категорію...</option>
+              <option value="">{t('selectCategoryPlaceholder')}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -772,8 +784,8 @@ function AdminProductsPageInner() {
               onChange={(e) => setBulkBrandId(e.target.value)}
               className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
             >
-              <option value="">Оберіть торгової марки...</option>
-              <option value="0">— Без торгової марки —</option>
+              <option value="">{t('selectBrandPlaceholder')}</option>
+              <option value="0">{t('noBrandOption')}</option>
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -787,7 +799,7 @@ function AdminProductsPageInner() {
                 value={bulkPriceTarget}
                 onChange={(e) => setBulkPriceTarget(e.target.value)}
                 className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
-                aria-label="Тип ціни"
+                aria-label={t('priceTypeAria')}
               >
                 {PRICE_TARGET_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -799,7 +811,7 @@ function AdminProductsPageInner() {
                 value={bulkPriceMode}
                 onChange={(e) => setBulkPriceMode(e.target.value)}
                 className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
-                aria-label="Спосіб оновлення"
+                aria-label={t('priceModeAria')}
               >
                 {PRICE_MODE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -812,13 +824,13 @@ function AdminProductsPageInner() {
                   value={bulkPriceRound}
                   onChange={(e) => setBulkPriceRound(e.target.value)}
                   className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
-                  aria-label="Крок округлення"
+                  aria-label={t('roundStepAria')}
                 >
-                  <option value="1">до 1 грн</option>
-                  <option value="5">до 5 грн</option>
-                  <option value="10">до 10 грн</option>
-                  <option value="50">до 50 грн</option>
-                  <option value="100">до 100 грн</option>
+                  <option value="1">{t('roundTo1')}</option>
+                  <option value="5">{t('roundTo5')}</option>
+                  <option value="10">{t('roundTo10')}</option>
+                  <option value="50">{t('roundTo50')}</option>
+                  <option value="100">{t('roundTo100')}</option>
                 </select>
               ) : (
                 <input
@@ -828,13 +840,13 @@ function AdminProductsPageInner() {
                   onChange={(e) => setBulkPriceValue(e.target.value)}
                   placeholder={
                     bulkPriceMode === 'percent'
-                      ? '+10 або -5'
+                      ? t('pricePercentPh')
                       : bulkPriceMode === 'add'
-                        ? '+5 або -3'
-                        : '100'
+                        ? t('priceAddPh')
+                        : t('priceFixedPh')
                   }
                   className="w-28 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
-                  aria-label="Значення"
+                  aria-label={t('valueAria')}
                 />
               )}
             </>
@@ -845,7 +857,7 @@ function AdminProductsPageInner() {
             isLoading={isProcessing}
             disabled={!bulkAction || selected.size === 0}
           >
-            Виконати
+            {t('execute')}
           </Button>
         </div>
       )}
@@ -866,24 +878,26 @@ function AdminProductsPageInner() {
                       className="accent-[var(--color-primary)]"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left font-medium">Товар</th>
-                  <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Код</th>
-                  <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
-                    Категорія
+                  <th className="px-4 py-3 text-left font-medium">{t('thProduct')}</th>
+                  <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+                    {t('thCode')}
                   </th>
                   <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
-                    Торгова марка
+                    {t('thCategory')}
                   </th>
-                  <th className="px-4 py-3 text-right font-medium">Ціна</th>
-                  <th className="px-4 py-3 text-center font-medium">Залишок</th>
+                  <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
+                    {t('thBrand')}
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium">{t('thPrice')}</th>
+                  <th className="px-4 py-3 text-center font-medium">{t('thStock')}</th>
                   <th className="hidden px-4 py-3 text-center font-medium xl:table-cell">
-                    Продажі
+                    {t('thSales')}
                   </th>
-                  <th className="px-4 py-3 text-center font-medium">Статус</th>
+                  <th className="px-4 py-3 text-center font-medium">{t('thStatus')}</th>
                   <th className="hidden px-4 py-3 text-center font-medium xl:table-cell">
-                    Порядок
+                    {t('thOrder')}
                   </th>
-                  <th className="px-4 py-3 text-right font-medium">Дії</th>
+                  <th className="px-4 py-3 text-right font-medium">{t('thActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -930,7 +944,7 @@ function AdminProductsPageInner() {
                       {p.barcode && (
                         <div
                           className="mt-0.5 font-mono text-[10px] leading-tight text-[var(--color-text-tertiary)]"
-                          title="Штрихкод (EAN/UPC)"
+                          title={t('barcodeTitle')}
                         >
                           {p.barcode}
                         </div>
@@ -955,7 +969,7 @@ function AdminProductsPageInner() {
                           if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
                         }}
                         className="no-spinner w-24 rounded-md border border-transparent bg-transparent px-2 py-1 text-right text-sm hover:border-[var(--color-border)] focus:border-[var(--color-primary)] focus:bg-[var(--color-bg)] focus:outline-none"
-                        aria-label={`Ціна ${p.name}`}
+                        aria-label={t('priceAria', { name: p.name })}
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -976,7 +990,7 @@ function AdminProductsPageInner() {
                               ? 'text-amber-600'
                               : ''
                         }`}
-                        aria-label={`Залишок ${p.name}`}
+                        aria-label={t('qtyAria', { name: p.name })}
                       />
                     </td>
                     <td className="hidden px-4 py-3 text-center text-[var(--color-text-secondary)] xl:table-cell">
@@ -986,11 +1000,11 @@ function AdminProductsPageInner() {
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs ${p.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                       >
-                        {p.isActive ? 'Активний' : 'Вимкнено'}
+                        {p.isActive ? t('statusActiveBadge') : t('statusDisabledBadge')}
                       </span>
                       {p.isPromo && (
                         <span className="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
-                          Акція
+                          {t('promoBadge')}
                         </span>
                       )}
                     </td>
@@ -1006,7 +1020,7 @@ function AdminProductsPageInner() {
                           if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
                         }}
                         className="no-spinner w-16 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-center text-xs focus:border-[var(--color-primary)] focus:outline-none"
-                        aria-label={`Порядок для ${p.name}`}
+                        aria-label={t('sortAria', { name: p.name })}
                       />
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -1014,8 +1028,8 @@ function AdminProductsPageInner() {
                         href={`/product/${p.slug}`}
                         target="_blank"
                         rel="noreferrer"
-                        aria-label={`Переглянути ${p.name} на сайті`}
-                        title="Переглянути на сайті"
+                        aria-label={t('viewOnSiteAria', { name: p.name })}
+                        title={t('viewOnSiteTitle')}
                         className="mr-1 inline-block rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
                       >
                         ↗
@@ -1023,8 +1037,8 @@ function AdminProductsPageInner() {
                       <button
                         type="button"
                         onClick={() => setQuickEditId(p.id)}
-                        aria-label={`Швидке редагування ${p.name}`}
-                        title="Швидке редагування"
+                        aria-label={t('quickEditAria', { name: p.name })}
+                        title={t('quickEditTitle')}
                         className="mr-1 rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
                       >
                         ✏️
@@ -1032,8 +1046,8 @@ function AdminProductsPageInner() {
                       <button
                         type="button"
                         onClick={() => handleDuplicate(p)}
-                        aria-label={`Дублювати ${p.name}`}
-                        title="Дублювати товар"
+                        aria-label={t('duplicateAria', { name: p.name })}
+                        title={t('duplicateTitle')}
                         className="mr-1 rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
                       >
                         ⎘
@@ -1042,8 +1056,8 @@ function AdminProductsPageInner() {
                         type="button"
                         onClick={() => setRowDelete(p)}
                         disabled={isDeletingRow}
-                        aria-label={`Видалити ${p.name}`}
-                        title="Видалити"
+                        aria-label={t('deleteAria', { name: p.name })}
+                        title={t('deleteTitle')}
                         className="rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <svg
@@ -1074,12 +1088,12 @@ function AdminProductsPageInner() {
                         <span className="text-3xl" aria-hidden="true">
                           🛒
                         </span>
-                        <p className="text-sm font-medium">Товарів не знайдено</p>
+                        <p className="text-sm font-medium">{t('emptyTitle')}</p>
                         <Link
                           href="/admin/products/new"
                           className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-dark)]"
                         >
-                          + Створити перший товар
+                          {t('createFirst')}
                         </Link>
                       </div>
                     </td>
@@ -1091,7 +1105,7 @@ function AdminProductsPageInner() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
-              <p className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('total', { total })}</p>
               <PageSizeSelector value={limit} onChange={handlePageSizeChange} />
             </div>
             {total > limit && (
@@ -1113,14 +1127,14 @@ function AdminProductsPageInner() {
         variant={bulkAction === 'delete' ? 'danger' : 'warning'}
         title={
           bulkAction === 'delete'
-            ? 'Видалення товарів'
+            ? t('confirmDeleteTitle')
             : bulkAction === 'change_price'
-              ? 'Зміна цін'
-              : 'Підтвердження масової дії'
+              ? t('confirmPriceTitle')
+              : t('confirmBulkTitle')
         }
         message={
           bulkAction === 'delete'
-            ? `Видалити ${selected.size} товарів? Ті, що мають замовлення, залишаться як видалені для збереження історії; решта буде стерта повністю.`
+            ? t('confirmDeleteMsg', { count: selected.size })
             : bulkAction === 'change_price'
               ? (() => {
                   const targetLabel =
@@ -1131,10 +1145,10 @@ function AdminProductsPageInner() {
                     bulkPriceMode;
                   const valueLabel =
                     bulkPriceMode === 'round'
-                      ? `${bulkPriceRound} грн`
+                      ? t('valGrn', { v: bulkPriceRound })
                       : bulkPriceMode === 'percent'
-                        ? `${bulkPriceValue}%`
-                        : `${bulkPriceValue} грн`;
+                        ? t('valPct', { v: bulkPriceValue })
+                        : t('valGrn', { v: bulkPriceValue });
 
                   // Preview: compute the same transform the server will apply
                   // for the first 3 currently-visible selected products. Lets
@@ -1153,18 +1167,35 @@ function AdminProductsPageInner() {
                       else if (bulkPriceMode === 'round' && roundStep > 0)
                         next = Math.round(current / roundStep) * roundStep;
                       next = Math.max(0, Math.round(next * 100) / 100);
-                      return `  • ${p.code} «${p.name}»: ${current.toFixed(2)} → ${next.toFixed(2)} ₴`;
+                      return t('sampleLine', {
+                        code: p.code,
+                        name: p.name,
+                        from: current.toFixed(2),
+                        to: next.toFixed(2),
+                      });
                     });
                   const preview =
                     samples.length > 0
-                      ? `\n\nПриклад:\n${samples.join('\n')}${selected.size > 3 ? `\n  …та ще ${selected.size - 3} товарів` : ''}`
+                      ? t('pricePreviewExample', {
+                          samples:
+                            samples.join('\n') +
+                            (selected.size > 3
+                              ? t('priceMoreSamples', { count: selected.size - 3 })
+                              : ''),
+                        })
                       : '';
 
-                  return `Застосувати "${modeLabel}" (${valueLabel}) до ціни «${targetLabel}» для ${selected.size} товарів? Дію не можна скасувати.${preview}`;
+                  return t('confirmPriceMsg', {
+                    mode: modeLabel,
+                    value: valueLabel,
+                    target: targetLabel,
+                    count: selected.size,
+                    preview,
+                  });
                 })()
-              : `Ви впевнені, що хочете виконати "${bulkActionLabel}" для ${selected.size} товарів?`
+              : t('confirmBulkMsg', { action: bulkActionLabel, count: selected.size })
         }
-        confirmText={bulkAction === 'delete' ? 'Так, видалити' : 'Так, виконати'}
+        confirmText={bulkAction === 'delete' ? t('confirmDeleteBtn') : t('confirmExecuteBtn')}
       />
 
       {/* Confirm dialog for per-row delete */}
@@ -1173,9 +1204,9 @@ function AdminProductsPageInner() {
         onClose={() => setRowDelete(null)}
         onConfirm={handleRowDelete}
         variant="danger"
-        title="Видалення товару"
-        message={`Видалити "${rowDelete?.name}"? Якщо товар має замовлення, він залишиться в системі як видалений (інакше буде стертий повністю).`}
-        confirmText="Так, видалити"
+        title={t('rowDeleteTitle')}
+        message={t('rowDeleteMsg', { name: rowDelete?.name ?? '' })}
+        confirmText={t('confirmDeleteBtn')}
       />
 
       {/* Confirm dialog for reindex */}
@@ -1184,9 +1215,9 @@ function AdminProductsPageInner() {
         onClose={() => setConfirmReindex(false)}
         onConfirm={handleReindex}
         variant="warning"
-        title="Перебудувати пошуковий індекс"
-        message="Це перевідіндексує всі товари в Typesense. Може зайняти кілька хвилин — пошук тимчасово може бути неповним."
-        confirmText="Так, перебудувати"
+        title={t('reindexTitle')}
+        message={t('reindexMsg')}
+        confirmText={t('reindexConfirm')}
         isLoading={isReindexing}
       />
 
@@ -1200,8 +1231,8 @@ function AdminProductsPageInner() {
       <button
         onClick={() => setHelpOpen(true)}
         className="fixed bottom-4 right-4 z-10 rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs text-[var(--color-text-secondary)] shadow-lg hover:text-[var(--color-primary)]"
-        title="Гарячі клавіші (?)"
-        aria-label="Гарячі клавіші"
+        title={t('shortcutsTitle')}
+        aria-label={t('shortcutsAria')}
       >
         <kbd className="font-mono">?</kbd>
       </button>
@@ -1222,6 +1253,7 @@ function ProductsMoreMenu({
   isProcessing: boolean;
   isReindexing: boolean;
 }) {
+  const t = useTranslations('admin.productsListPage');
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -1229,9 +1261,9 @@ function ProductsMoreMenu({
         variant="outline"
         size="sm"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Більше дій"
+        aria-label={t('moreActions')}
       >
-        Більше ▾
+        {t('more')}
       </Button>
       {open && (
         <div
@@ -1247,7 +1279,7 @@ function ProductsMoreMenu({
             }}
             className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
           >
-            📥 Експорт XLSX (з фільтрами)
+            {t('exportXlsxFiltered')}
           </button>
           <button
             type="button"
@@ -1257,7 +1289,7 @@ function ProductsMoreMenu({
             }}
             className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--color-bg-secondary)]"
           >
-            📦 Експорт повний (усі поля)
+            {t('exportFull')}
           </button>
           <div className="border-t border-[var(--color-border)]" />
           <button
@@ -1268,9 +1300,9 @@ function ProductsMoreMenu({
               setOpen(false);
             }}
             className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
-            title="Перебудувати пошуковий індекс Typesense"
+            title={t('reindexMenuTitle')}
           >
-            🔄 Реіндекс пошуку
+            {t('reindexSearch')}
           </button>
         </div>
       )}
