@@ -161,7 +161,7 @@ export default function PricingParityPage() {
                         rel="noopener noreferrer"
                         className="text-xs text-[var(--color-primary)] hover:underline"
                       >
-                        Відкрити ↗
+                        {t('openLink')}
                       </a>
                     )}
                   </td>

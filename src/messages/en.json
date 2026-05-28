@@ -446,6 +446,12 @@
       "confirmDelete": "Delete warehouse?"
     },
     "feedsPage": {
+      "hotline_desc": "Ukrainian product and price aggregator. Attached in the Hotline seller cabinet.",
+      "hotline_useCase": "Hotline pulls the feed every 30 min and updates prices/availability on the aggregator.",
+      "google_desc": "RSS 2.0 standard + g:namespace for Google Shopping. Includes g:google_product_category and g:shipping.",
+      "google_useCase": "In Merchant Center → Products → Feeds → Scheduled fetch → URL.",
+      "facebook_desc": "Same format as Google Merchant — Meta Commerce Manager compatible. Used for Dynamic Ads on IG/FB.",
+      "facebook_useCase": "Commerce Manager → Catalog → Data source → Scheduled feed.",
       "title": "Price feeds (XML)",
       "intro": "Automatic product feeds for aggregators and ad platforms. Generated on request, cached for 30 min. Only active in-stock products with photos.",
       "cabinet": "Dashboard ↗",
@@ -521,6 +527,7 @@
       "confirmDelete": "Delete blog category?"
     },
     "pricingParity": {
+      "openLink": "Open ↗",
       "backToMarketplaces": "← Marketplaces",
       "title": "Pricing Parity",
       "intro": "Listings where the marketplace price may differ from the site (sync errors or stale).",
@@ -3803,6 +3810,7 @@
       "reindexMenuTitle": "Rebuild the Typesense search index"
     },
     "importPage": {
+      "timeout": "Request timed out",
       "csvErrorHeader": "Row;Code;Field;Message",
       "loadLogsError": "Failed to load import history",
       "networkError": "Network error",
@@ -4527,6 +4535,7 @@
       "cancel": "Cancel"
     },
     "faqPage": {
+      "englishTranslation": "English translation (optional)",
       "title": "FAQ",
       "categories": "Categories",
       "addQuestion": "Add question",
@@ -4967,6 +4976,8 @@
       "footerHint": "💡 Barcode scanner auto-types the code into the field above and presses Enter. Without a scanner — click items manually."
     },
     "volumeDiscountsPage": {
+      "active": "Active",
+      "inactive": "Disabled",
       "title": "Volume discounts",
       "add": "Add discount",
       "edit": "Edit",
@@ -5360,6 +5371,7 @@
       "confirmDelete": "Yes, delete"
     },
     "adminTenantsPage": {
+      "plan": "Plan",
       "title": "Tenants (SaaS)",
       "cancel": "Cancel",
       "createBtn": "+ Create tenant",
@@ -5584,6 +5596,9 @@
       "noActivityHint": "No other logins to your account yet"
     },
     "emailTemplatesPage": {
+      "testSent": "Test email sent to {email}",
+      "sendError": "Send error",
+      "sendTest": "Send test",
       "title": "Email templates",
       "back": "← Back to list",
       "editing": "Editing:",
@@ -6123,6 +6138,7 @@
       "uahSuffix": "UAH"
     },
     "marketplaceBuyerPage": {
+      "namePlaceholder": "John Smith",
       "backToMarketplaces": "← Marketplaces",
       "title": "Buyer card",
       "intro": "Search a buyer by phone or name — see all orders, messages and returns in one place.",

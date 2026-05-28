@@ -283,7 +283,7 @@ export default function AdminImportPage() {
         });
 
         xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-        xhr.addEventListener('timeout', () => reject(new Error('Час очікування вийшов')));
+        xhr.addEventListener('timeout', () => reject(new Error(t('timeout'))));
         xhr.open('POST', `/api/v1/admin/import/products${dryRun ? '?dryRun=1' : ''}`);
         xhr.withCredentials = true;
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -367,7 +367,7 @@ export default function AdminImportPage() {
           }
         });
         xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-        xhr.addEventListener('timeout', () => reject(new Error('Час очікування вийшов')));
+        xhr.addEventListener('timeout', () => reject(new Error(t('timeout'))));
         xhr.open('POST', '/api/v1/admin/import/images');
         xhr.withCredentials = true;
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -534,7 +534,7 @@ export default function AdminImportPage() {
             }
           });
           xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-          xhr.addEventListener('timeout', () => reject(new Error('Час очікування вийшов')));
+          xhr.addEventListener('timeout', () => reject(new Error(t('timeout'))));
           xhr.open('POST', '/api/v1/admin/import/prices');
           xhr.withCredentials = true;
           xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');

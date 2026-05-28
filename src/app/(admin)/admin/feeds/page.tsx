@@ -19,27 +19,25 @@ const FEEDS: FeedDef[] = [
   {
     key: 'hotline',
     name: 'Hotline.ua',
-    description: 'Український агрегатор товарів і цін. Прикріплюється у кабінеті продавця Hotline.',
+    description: 'hotline_desc',
     path: '/api/v1/feeds/hotline.xml',
-    useCase: 'Hotline тягне фід раз на 30 хв і оновлює ціни/наявність на агрегаторі.',
+    useCase: 'hotline_useCase',
     docsUrl: 'https://hotline.ua/dashboard/',
   },
   {
     key: 'google',
     name: 'Google Merchant Center',
-    description:
-      'Стандарт RSS 2.0 + g:namespace для Google Shopping. Включає g:google_product_category та g:shipping.',
+    description: 'google_desc',
     path: '/feed/google-shopping',
-    useCase: 'У Merchant Center → Продукти → Фіди → Запланований отримання → URL.',
+    useCase: 'google_useCase',
     docsUrl: 'https://merchants.google.com/mc/feeds',
   },
   {
     key: 'facebook',
     name: 'Facebook / Meta Catalog',
-    description:
-      'Той самий формат, що Google Merchant — Meta Commerce Manager сумісний. Використовується для Dynamic Ads у IG/FB.',
+    description: 'facebook_desc',
     path: '/feed/google-shopping',
-    useCase: 'Commerce Manager → Каталог → Джерело даних → Запланований фід.',
+    useCase: 'facebook_useCase',
     docsUrl: 'https://business.facebook.com/commerce/',
   },
 ];
@@ -105,7 +103,7 @@ export default function AdminFeedsPage() {
                   {t('cabinet')}
                 </a>
               </div>
-              <p className="text-sm text-[var(--color-text-secondary)]">{f.description}</p>
+              <p className="text-sm text-[var(--color-text-secondary)]">{t(f.description)}</p>
               <div className="flex items-center gap-2 rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-2 text-xs">
                 <code className="flex-1 break-all">{url}</code>
                 <button
@@ -116,7 +114,7 @@ export default function AdminFeedsPage() {
                   {copied === f.key ? <Check size={14} /> : <Copy size={14} />}
                 </button>
               </div>
-              <p className="text-xs text-[var(--color-text-secondary)]">{f.useCase}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t(f.useCase)}</p>
               <div className="mt-auto flex gap-2">
                 <button
                   onClick={() => ping(f.key, f.path)}

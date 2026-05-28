@@ -297,7 +297,7 @@ export default function AdminTenantsPage() {
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-xs font-medium">План</label>
+                          <label className="mb-1 block text-xs font-medium">{t('plan')}</label>
                           <select
                             value={editForm.plan}
                             onChange={(e) => setEditForm({ ...editForm, plan: e.target.value })}

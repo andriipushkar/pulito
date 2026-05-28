@@ -400,7 +400,7 @@ export default function AdminVolumeDiscountsPage() {
                       onClick={() => handleToggle(d)}
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${d.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                     >
-                      {d.isActive ? 'Активна' : 'Вимкнена'}
+                      {d.isActive ? t('active') : t('inactive')}
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">

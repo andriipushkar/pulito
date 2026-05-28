@@ -446,6 +446,12 @@
       "confirmDelete": "Stergeti depozitul?"
     },
     "feedsPage": {
+      "hotline_desc": "Agregator ucrainean de produse și prețuri. Se atașează în cabinetul vânzătorului Hotline.",
+      "hotline_useCase": "Hotline preia feedul o dată la 30 min și actualizează prețurile/disponibilitatea pe agregator.",
+      "google_desc": "Standard RSS 2.0 + g:namespace pentru Google Shopping. Include g:google_product_category și g:shipping.",
+      "google_useCase": "În Merchant Center → Produse → Feeduri → Preluare programată → URL.",
+      "facebook_desc": "Același format ca Google Merchant — compatibil cu Meta Commerce Manager. Folosit pentru Dynamic Ads pe IG/FB.",
+      "facebook_useCase": "Commerce Manager → Catalog → Sursă de date → Feed programat.",
       "title": "Feed-uri preturi (XML)",
       "intro": "Feed-uri automate de produse pentru agregatori si platforme de reclama. Generate la cerere, cache 30 min. Doar produse active in stoc cu poze.",
       "cabinet": "Panou ↗",
@@ -521,6 +527,7 @@
       "confirmDelete": "Stergeti categoria de blog?"
     },
     "pricingParity": {
+      "openLink": "Deschide ↗",
       "backToMarketplaces": "← Marketplace-uri",
       "title": "Pricing Parity",
       "intro": "Listing-uri unde pretul de pe marketplace poate diferi de site (erori sync sau invechite).",
@@ -3803,6 +3810,7 @@
       "reindexMenuTitle": "Reconstruieste indexul de cautare Typesense"
     },
     "importPage": {
+      "timeout": "Timpul de așteptare a expirat",
       "csvErrorHeader": "Rand;Cod;Camp;Mesaj",
       "loadLogsError": "Nu s-a putut incarca istoricul importurilor",
       "networkError": "Eroare de retea",
@@ -4527,6 +4535,7 @@
       "cancel": "Anuleaza"
     },
     "faqPage": {
+      "englishTranslation": "Traducere în engleză (opțional)",
       "title": "FAQ",
       "categories": "Categorii",
       "addQuestion": "Adauga intrebare",
@@ -4967,6 +4976,8 @@
       "footerHint": "💡 Scanerul de coduri de bare tasteaza automat codul si apasa Enter. Fara scaner — apasa pe produse manual."
     },
     "volumeDiscountsPage": {
+      "active": "Activă",
+      "inactive": "Dezactivată",
       "title": "Reduceri pe volum",
       "add": "Adauga reducere",
       "edit": "Editeaza",
@@ -5360,6 +5371,7 @@
       "confirmDelete": "Da, sterge"
     },
     "adminTenantsPage": {
+      "plan": "Plan",
       "title": "Tenanti (SaaS)",
       "cancel": "Anuleaza",
       "createBtn": "+ Creeaza tenant",
@@ -5584,6 +5596,9 @@
       "noActivityHint": "Inca nu sunt alte conectari"
     },
     "emailTemplatesPage": {
+      "testSent": "Email de test trimis la {email}",
+      "sendError": "Eroare la trimitere",
+      "sendTest": "Trimite test",
       "title": "Sabloane email",
       "back": "← Inapoi la lista",
       "editing": "Editare:",
@@ -6123,6 +6138,7 @@
       "uahSuffix": "UAH"
     },
     "marketplaceBuyerPage": {
+      "namePlaceholder": "Ion Popescu",
       "backToMarketplaces": "← Marketplace-uri",
       "title": "Fisa cumparator",
       "intro": "Cauta un cumparator dupa telefon sau nume — vezi toate comenzile, mesajele si returnarile intr-un singur loc.",

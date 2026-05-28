@@ -446,6 +446,12 @@
       "confirmDelete": "Usunac magazyn?"
     },
     "feedsPage": {
+      "hotline_desc": "Ukraiński agregator produktów i cen. Podpinany w panelu sprzedawcy Hotline.",
+      "hotline_useCase": "Hotline pobiera feed co 30 min i aktualizuje ceny/dostępność na agregatorze.",
+      "google_desc": "Standard RSS 2.0 + g:namespace dla Google Shopping. Zawiera g:google_product_category i g:shipping.",
+      "google_useCase": "W Merchant Center → Produkty → Feedy → Zaplanowane pobieranie → URL.",
+      "facebook_desc": "Ten sam format co Google Merchant — kompatybilny z Meta Commerce Manager. Używany do Dynamic Ads na IG/FB.",
+      "facebook_useCase": "Commerce Manager → Katalog → Źródło danych → Zaplanowany feed.",
       "title": "Feedy cenowe (XML)",
       "intro": "Automatyczne feedy produktow dla agregatorow i platform reklamowych. Aktualizowane przy zapytaniu, cache 30 min. Tylko aktywne produkty z dostepnoscia i zdjeciem.",
       "cabinet": "Panel ↗",
@@ -521,6 +527,7 @@
       "confirmDelete": "Usunac kategorie bloga?"
     },
     "pricingParity": {
+      "openLink": "Otwórz ↗",
       "backToMarketplaces": "← Marketplace'y",
       "title": "Pricing Parity",
       "intro": "Listingi gdzie cena na marketplace moze sie roznic od strony (bledy sync lub stare).",
@@ -3803,6 +3810,7 @@
       "reindexMenuTitle": "Przebuduj indeks wyszukiwania Typesense"
     },
     "importPage": {
+      "timeout": "Przekroczono czas oczekiwania",
       "csvErrorHeader": "Wiersz;Kod;Pole;Komunikat",
       "loadLogsError": "Nie udalo sie zaladowac historii importow",
       "networkError": "Blad sieci",
@@ -4527,6 +4535,7 @@
       "cancel": "Anuluj"
     },
     "faqPage": {
+      "englishTranslation": "Tłumaczenie angielskie (opcjonalnie)",
       "title": "FAQ",
       "categories": "Kategorie",
       "addQuestion": "Dodaj pytanie",
@@ -4967,6 +4976,8 @@
       "footerHint": "💡 Skaner kodow kreskowych automatycznie wpisuje kod do pola powyzej i wciska Enter. Bez skanera — klikaj produkty recznie."
     },
     "volumeDiscountsPage": {
+      "active": "Aktywna",
+      "inactive": "Wyłączona",
       "title": "Rabaty hurtowe",
       "add": "Dodaj rabat",
       "edit": "Edytuj",
@@ -5360,6 +5371,7 @@
       "confirmDelete": "Tak, usun"
     },
     "adminTenantsPage": {
+      "plan": "Plan",
       "title": "Tenanty (SaaS)",
       "cancel": "Anuluj",
       "createBtn": "+ Utworz tenanta",
@@ -5584,6 +5596,9 @@
       "noActivityHint": "Brak innych logowan do konta"
     },
     "emailTemplatesPage": {
+      "testSent": "Testowy e-mail wysłany na {email}",
+      "sendError": "Błąd wysyłki",
+      "sendTest": "Wyślij test",
       "title": "Szablony email",
       "back": "← Powrot do listy",
       "editing": "Edycja:",
@@ -6123,6 +6138,7 @@
       "uahSuffix": "UAH"
     },
     "marketplaceBuyerPage": {
+      "namePlaceholder": "Jan Kowalski",
       "backToMarketplaces": "← Marketplace",
       "title": "Karta kupujacego",
       "intro": "Szukaj kupujacego po telefonie lub nazwisku — zobaczysz wszystkie zamowienia, wiadomosci i zwroty w jednym miejscu.",

@@ -443,7 +443,7 @@ export default function AdminFaqPage() {
                         <span className="mr-2 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                           EN
                         </span>
-                        Англійський переклад (опційно)
+                        {t('englishTranslation')}
                       </summary>
                       <div className="mt-2 space-y-2">
                         <input

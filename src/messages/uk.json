@@ -446,6 +446,12 @@
       "confirmDelete": "Видалити склад?"
     },
     "feedsPage": {
+      "hotline_desc": "Український агрегатор товарів і цін. Прикріплюється у кабінеті продавця Hotline.",
+      "hotline_useCase": "Hotline тягне фід раз на 30 хв і оновлює ціни/наявність на агрегаторі.",
+      "google_desc": "Стандарт RSS 2.0 + g:namespace для Google Shopping. Включає g:google_product_category та g:shipping.",
+      "google_useCase": "У Merchant Center → Продукти → Фіди → Запланований отримання → URL.",
+      "facebook_desc": "Той самий формат, що Google Merchant — Meta Commerce Manager сумісний. Використовується для Dynamic Ads у IG/FB.",
+      "facebook_useCase": "Commerce Manager → Каталог → Джерело даних → Запланований фід.",
       "title": "Прайс-фіди (XML)",
       "intro": "Автоматичні фіди товарів для агрегаторів і рекламних платформ. Оновлюються щоразу при запиті, кешуються 30 хв. Включаються тільки активні товари з наявністю та фото.",
       "cabinet": "Кабінет ↗",
@@ -521,6 +527,7 @@
       "confirmDelete": "Видалити категорію блогу?"
     },
     "pricingParity": {
+      "openLink": "Відкрити ↗",
       "backToMarketplaces": "← Маркетплейси",
       "title": "Pricing Parity",
       "intro": "Listings де ціна на маркетплейсі може відрізнятись від сайту (sync помилки або застарілі).",
@@ -3803,6 +3810,7 @@
       "reindexMenuTitle": "Перебудувати пошуковий індекс Typesense"
     },
     "importPage": {
+      "timeout": "Час очікування вийшов",
       "csvErrorHeader": "Рядок;Код;Поле;Повідомлення",
       "loadLogsError": "Не вдалося завантажити історію імпортів",
       "networkError": "Помилка мережі",
@@ -4527,6 +4535,7 @@
       "cancel": "Скасувати"
     },
     "faqPage": {
+      "englishTranslation": "Англійський переклад (опційно)",
       "title": "FAQ",
       "categories": "Категорії",
       "addQuestion": "Додати питання",
@@ -4967,6 +4976,8 @@
       "footerHint": "💡 Сканер штрих-кодів автоматично друкує код у поле вгорі і натискає Enter. Якщо сканера немає — клікайте по товарам вручну."
     },
     "volumeDiscountsPage": {
+      "active": "Активна",
+      "inactive": "Вимкнена",
       "title": "Знижки за обсяг",
       "add": "Додати знижку",
       "edit": "Редагувати",
@@ -5360,6 +5371,7 @@
       "confirmDelete": "Так, видалити"
     },
     "adminTenantsPage": {
+      "plan": "План",
       "title": "Тенанти (SaaS)",
       "cancel": "Скасувати",
       "createBtn": "+ Створити тенант",
@@ -5584,6 +5596,9 @@
       "noActivityHint": "Поки що немає інших входів у ваш акаунт"
     },
     "emailTemplatesPage": {
+      "testSent": "Тестовий лист надіслано на {email}",
+      "sendError": "Помилка відправки",
+      "sendTest": "Надіслати тест",
       "title": "Email-шаблони",
       "back": "← Назад до списку",
       "editing": "Редагування:",
@@ -6123,6 +6138,7 @@
       "uahSuffix": "грн"
     },
     "marketplaceBuyerPage": {
+      "namePlaceholder": "Іван Петренко",
       "backToMarketplaces": "← Маркетплейси",
       "title": "Картка покупця",
       "intro": "Шукайте покупця за телефоном або іменем — побачите всі замовлення, повідомлення та повернення в одному місці.",

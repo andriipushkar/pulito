@@ -262,14 +262,14 @@ export default function AdminEmailTemplatesPage() {
                       bodyHtml: editBody,
                     },
                   );
-                  if (res.success) toast.success(`Тестовий лист надіслано на ${testEmail}`);
-                  else toast.error(res.error || 'Помилка відправки');
+                  if (res.success) toast.success(t('testSent', { email: testEmail }));
+                  else toast.error(res.error || t('sendError'));
                   setIsSendingTest(false);
                 }}
                 isLoading={isSendingTest}
                 disabled={!testEmail}
               >
-                Надіслати тест
+                {t('sendTest')}
               </Button>
             </div>
           </div>

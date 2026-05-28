@@ -132,7 +132,7 @@ export default function MarketplaceBuyerPage() {
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Іван Петренко"
+            placeholder={t('namePlaceholder')}
           />
         </label>
         <Button onClick={handleSearch} isLoading={loading}>
