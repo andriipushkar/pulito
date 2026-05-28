@@ -82,6 +82,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
 function AdminLayoutInner({ children }: { children: ReactNode }) {
   const { user, isLoading, logout } = useAuth();
+  const t = useTranslations('admin.adminLayout');
   const tNav = useTranslations('admin.adminNav');
   const router = useRouter();
   const pathname = usePathname();
@@ -136,9 +137,9 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     const res = await apiClient.put('/api/v1/admin/maintenance', { enabled: newState });
     if (res.success) {
       setMaintenanceMode(newState);
-      toast.success(newState ? 'Режим обслуговування увімкнено' : 'Сайт знову працює');
+      toast.success(newState ? t('maintenanceOn') : t('maintenanceOff'));
     } else {
-      toast.error('Помилка');
+      toast.error(t('error'));
     }
     setMaintenanceLoading(false);
   };
@@ -197,18 +198,17 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               />
             </svg>
           </div>
-          <h1 className="mb-2 text-2xl font-bold">Адмін-панель</h1>
+          <h1 className="mb-2 text-2xl font-bold">{t('adminPanel')}</h1>
           <p className="mb-6 text-sm text-[var(--color-text-secondary)]">
-            {user ? (
-              <>
-                Ви увійшли як{' '}
-                <span className="font-medium text-[var(--color-text)]">{user.email}</span> (роль:{' '}
-                {user.role}). Для доступу потрібна роль <span className="font-medium">admin</span>{' '}
-                або <span className="font-medium">manager</span>.
-              </>
-            ) : (
-              'Увійдіть в свій обліковий запис адміністратора для доступу до панелі управління.'
-            )}
+            {user
+              ? t.rich('loggedInAs', {
+                  role: user.role,
+                  email: () => (
+                    <span className="font-medium text-[var(--color-text)]">{user.email}</span>
+                  ),
+                  b: (c) => <span className="font-medium">{c}</span>,
+                })
+              : t('loginPrompt')}
           </p>
           <Link
             href="/auth/login?returnUrl=/admin"
@@ -227,13 +227,13 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
               />
             </svg>
-            Увійти
+            {t('login')}
           </Link>
           <Link
             href="/"
             className="mt-4 inline-block text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]"
           >
-            ← Повернутися на сайт
+            {t('backToSite')}
           </Link>
         </div>
       </div>
@@ -313,13 +313,13 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
         href="#admin-main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-[var(--radius)] focus:bg-[var(--color-primary)] focus:px-4 focus:py-2 focus:text-white focus:shadow-lg"
       >
-        Перейти до контенту
+        {t('skipToContent')}
       </a>
 
       {/* Sidebar (desktop) */}
       <aside
         className={`hidden ${sidebarWidth} shrink-0 border-r border-[var(--color-border)] bg-[var(--color-bg-secondary)] transition-all duration-200 lg:block`}
-        aria-label="Навігація адмін-панелі"
+        aria-label={t('adminNavAria')}
       >
         {sidebarForDesktop}
       </aside>
@@ -330,7 +330,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
           className="fixed inset-0 z-50 lg:hidden"
           role="dialog"
           aria-modal="true"
-          aria-label="Навігаційне меню"
+          aria-label={t('navMenuAria')}
         >
           <div
             className="absolute inset-0 bg-black/40"
@@ -339,7 +339,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
           />
           <aside
             className="relative z-10 h-full w-60 bg-[var(--color-bg)]"
-            aria-label="Навігація адмін-панелі"
+            aria-label={t('adminNavAria')}
           >
             {sidebarForMobile}
           </aside>
@@ -355,7 +355,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
           <button
             onClick={() => setSidebarOpen(true)}
             className="shrink-0 lg:hidden"
-            aria-label="Відкрити меню"
+            aria-label={t('openMenu')}
           >
             <Menu size={22} />
           </button>
@@ -421,11 +421,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                   : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]'
               }`}
-              title={
-                maintenanceMode
-                  ? 'Сайт на обслуговуванні — натисніть щоб увімкнути'
-                  : 'Увімкнути режим обслуговування'
-              }
+              title={maintenanceMode ? t('maintenanceActiveTitle') : t('maintenanceEnableTitle')}
             >
               {maintenanceMode ? (
                 <>
@@ -442,7 +438,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                       d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
                     />
                   </svg>
-                  Обслуговування
+                  {t('maintenance')}
                 </>
               ) : (
                 <svg
@@ -468,7 +464,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
               }}
               className="hidden items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-text)] lg:flex"
-              title="Швидкий перехід (Ctrl+K)"
+              title={t('quickNavTitle')}
             >
               <svg
                 className="h-3.5 w-3.5"
@@ -483,7 +479,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
                 />
               </svg>
-              <span>Перейти до...</span>
+              <span>{t('goTo')}</span>
               <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1 py-0.5 font-mono text-[10px]">
                 Ctrl+K
               </kbd>
@@ -493,7 +489,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
             <Link
               href="/admin/ask"
               className="hidden items-center gap-1.5 rounded-[var(--radius)] bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-light)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:shadow-md lg:flex"
-              title="Запитати AI"
+              title={t('askAi')}
             >
               <svg
                 className="h-3.5 w-3.5"
@@ -519,8 +515,8 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               <button
                 onClick={() => setShowNotifs(!showNotifs)}
                 className="relative rounded-[var(--radius)] p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]"
-                aria-label={connected ? 'Сповіщення (live)' : 'Сповіщення (offline)'}
-                title={connected ? 'Live підключення активне' : 'Live підключення розірвано'}
+                aria-label={connected ? t('notificationsLive') : t('notificationsOffline')}
+                title={connected ? t('liveConnected') : t('liveDisconnected')}
               >
                 <svg
                   width="20"
@@ -553,10 +549,10 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 <div className="absolute right-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg sm:w-96">
                   <div className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2">
                     <div>
-                      <p className="text-sm font-semibold">Сповіщення</p>
+                      <p className="text-sm font-semibold">{t('notifications')}</p>
                       {notifications.length > 0 && (
                         <p className="text-[10px] text-[var(--color-text-secondary)]">
-                          {notifications.length} непрочитан{notifications.length === 1 ? 'е' : 'их'}
+                          {t('unreadCount', { count: notifications.length })}
                         </p>
                       )}
                     </div>
@@ -565,7 +561,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                         onClick={dismissAll}
                         className="rounded-md bg-[var(--color-bg)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border)] hover:text-[var(--color-text)]"
                       >
-                        Прочитати все
+                        {t('markAllRead')}
                       </button>
                     )}
                   </div>
@@ -588,14 +584,14 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                           </svg>
                         </div>
                         <p className="text-xs text-[var(--color-text-secondary)]">
-                          Немає нових сповіщень
+                          {t('noNotifications')}
                         </p>
                       </div>
                     ) : (
                       (() => {
                         const groups: Record<string, typeof notifications> = {};
                         for (const n of notifications) {
-                          const key = n.type === 'new_order' ? 'Замовлення' : 'Інше';
+                          const key = n.type === 'new_order' ? t('notifOrder') : t('notifOther');
                           (groups[key] ||= []).push(n);
                         }
                         return Object.entries(groups).map(([groupName, items]) => (
@@ -623,8 +619,8 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                                 <button
                                   onClick={() => dismiss(n.id)}
                                   className="rounded p-0.5 text-[var(--color-text-secondary)] opacity-0 transition-opacity hover:bg-[var(--color-border)] hover:text-[var(--color-text)] group-hover:opacity-100"
-                                  aria-label="Прочитано"
-                                  title="Прочитано"
+                                  aria-label={t('markRead')}
+                                  title={t('markRead')}
                                 >
                                   <svg
                                     className="h-3.5 w-3.5"
@@ -653,7 +649,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
             <button
               onClick={() => setShowHelp(true)}
               className="hidden text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text)] lg:block"
-              title="Гарячі клавіші"
+              title={t('shortcuts')}
             >
               <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
                 /
@@ -679,29 +675,27 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
                 />
               </svg>
-              <p className="flex-1 text-xs font-medium text-amber-900">
-                Увімкніть двофакторну автентифікацію для захисту акаунту
-              </p>
+              <p className="flex-1 text-xs font-medium text-amber-900">{t('enable2faPrompt')}</p>
               <Link
                 href="/admin/setup-2fa"
                 className="shrink-0 rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-700"
               >
-                Увімкнути
+                {t('enable')}
               </Link>
               <button
                 type="button"
                 onClick={() => snooze2fa(24)}
                 className="shrink-0 text-[11px] font-medium text-amber-700 hover:underline"
-                title="Нагадати завтра"
+                title={t('remindTomorrow')}
               >
-                Нагадати завтра
+                {t('remindTomorrow')}
               </button>
               <button
                 type="button"
                 onClick={() => snooze2fa(24 * 30)}
                 className="shrink-0 rounded p-1 text-amber-700 hover:bg-amber-100"
-                aria-label="Сховати на місяць"
-                title="Сховати на місяць"
+                aria-label={t('hideForMonth')}
+                title={t('hideForMonth')}
               >
                 <svg
                   className="h-3.5 w-3.5"
@@ -732,24 +726,15 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   />
                 </svg>
               </div>
-              <h2 className="mb-2 text-xl font-bold text-red-800">
-                Цей розділ потребує двофакторної автентифікації
-              </h2>
-              <p className="mb-6 text-sm text-red-700">
-                Для доступу до критичних налаштувань (платежі, користувачі, журнал дій, загальні
-                налаштування) адміністратор повинен увімкнути 2FA. Це захищає акаунт від
-                несанкціонованого доступу навіть при компрометації пароля.
-              </p>
+              <h2 className="mb-2 text-xl font-bold text-red-800">{t('section2faTitle')}</h2>
+              <p className="mb-6 text-sm text-red-700">{t('section2faDesc')}</p>
               <Link
                 href="/admin/setup-2fa"
                 className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700"
               >
-                Увімкнути 2FA зараз
+                {t('enable2faNow')}
               </Link>
-              <p className="mt-4 text-xs text-red-600">
-                Зайде хвилина — додайте додаток-аутентифікатор (Google Authenticator, 1Password) і
-                ви знову матимете повний доступ.
-              </p>
+              <p className="mt-4 text-xs text-red-600">{t('enable2faHint')}</p>
             </div>
           ) : (
             <>
@@ -770,7 +755,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
           className="fixed inset-0 z-[60] flex items-center justify-center"
           role="dialog"
           aria-modal="true"
-          aria-label="Гарячі клавіші"
+          aria-label={t('shortcuts')}
         >
           <div
             className="absolute inset-0 bg-black/40"
@@ -779,11 +764,11 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
           />
           <div className="relative z-10 w-full max-w-md rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold">Гарячі клавіші</h3>
+              <h3 className="text-lg font-bold">{t('shortcuts')}</h3>
               <button
                 onClick={() => setShowHelp(false)}
                 className="text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
-                aria-label="Закрити"
+                aria-label={t('close')}
               >
                 <Close size={20} />
               </button>
@@ -803,15 +788,13 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 </div>
               ))}
               <div className="flex items-center justify-between text-sm">
-                <span>Швидкий перехід</span>
+                <span>{t('quickNav')}</span>
                 <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs font-mono">
                   Ctrl+K
                 </kbd>
               </div>
             </div>
-            <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
-              Натисніть Esc для закриття
-            </p>
+            <p className="mt-4 text-xs text-[var(--color-text-secondary)]">{t('escToClose')}</p>
           </div>
         </div>
       )}
