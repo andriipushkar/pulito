@@ -974,6 +974,30 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "errorBoundary": {
+      "title": "Щось пішло не так",
+      "unknownError": "Невідома помилка",
+      "retry": "Спробувати знову",
+      "reload": "Перезавантажити сторінку"
+    },
+    "customerLtvBadge": {
+      "firstOrder": "🆕 Перше замовлення",
+      "returningCustomer": "Постійний клієнт",
+      "prior": "попередніх",
+      "inTotal": "загалом",
+      "lastOrder": "Минуле: #{number} ({date})"
+    },
+    "quickContact": {
+      "title": "Швидко зв'язатись",
+      "call": "Подзвонити"
+    },
+    "pageSizeSelector": {
+      "show": "Показувати:",
+      "perPageAria": "Кількість на сторінці"
+    },
+    "usageMeter": {
+      "usedPercent": "{percent}% використано"
+    },
     "restockSuggestionHint": {
       "error": "Помилка",
       "suggestLink": "Пропозиція щодо поповнення →",

@@ -974,6 +974,30 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "errorBoundary": {
+      "title": "Ceva n-a mers bine",
+      "unknownError": "Eroare necunoscută",
+      "retry": "Încearcă din nou",
+      "reload": "Reîncarcă pagina"
+    },
+    "customerLtvBadge": {
+      "firstOrder": "🆕 Prima comandă",
+      "returningCustomer": "Client fidel",
+      "prior": "anterioare",
+      "inTotal": "în total",
+      "lastOrder": "Ultima: #{number} ({date})"
+    },
+    "quickContact": {
+      "title": "Contact rapid",
+      "call": "Sună"
+    },
+    "pageSizeSelector": {
+      "show": "Arată:",
+      "perPageAria": "Număr pe pagină"
+    },
+    "usageMeter": {
+      "usedPercent": "{percent}% utilizat"
+    },
     "restockSuggestionHint": {
       "error": "Eroare",
       "suggestLink": "Sugestie de reaprovizionare →",

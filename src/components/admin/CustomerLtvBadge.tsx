@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { formatPrice } from '@/utils/format';
@@ -29,6 +30,7 @@ interface CustomerLtvBadgeProps {
  * order (totalOrders === 0) so it doesn't clutter the UI.
  */
 export default function CustomerLtvBadge({ orderId, history: pre }: CustomerLtvBadgeProps) {
+  const t = useTranslations('admin.customerLtvBadge');
   const [history, setHistory] = useState<CustomerHistory | null>(pre ?? null);
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function CustomerLtvBadge({ orderId, history: pre }: CustomerLtvB
     if (history && history.totalOrders === 0) {
       return (
         <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-          🆕 Перше замовлення
+          {t('firstOrder')}
         </div>
       );
     }
@@ -81,9 +83,11 @@ export default function CustomerLtvBadge({ orderId, history: pre }: CustomerLtvB
     <div
       className={`inline-flex flex-wrap items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${colorClass}`}
     >
-      <span className="font-semibold">{isVip ? '⭐ VIP' : '🔁'} Постійний клієнт</span>
+      <span className="font-semibold">
+        {isVip ? '⭐ VIP' : '🔁'} {t('returningCustomer')}
+      </span>
       <span>
-        <strong>{history.totalOrders}</strong> попередніх · загалом{' '}
+        <strong>{history.totalOrders}</strong> {t('prior')} · {t('inTotal')}{' '}
         <strong>{formatPrice(history.totalSpent)}</strong>
       </span>
       {history.lastOrderId && history.lastOrderNumber && lastDateStr && (
@@ -91,7 +95,7 @@ export default function CustomerLtvBadge({ orderId, history: pre }: CustomerLtvB
           href={`/admin/orders/${history.lastOrderId}`}
           className="ml-1 underline decoration-dotted hover:opacity-70"
         >
-          Минуле: #{history.lastOrderNumber} ({lastDateStr})
+          {t('lastOrder', { number: history.lastOrderNumber, date: lastDateStr })}
         </Link>
       )}
     </div>

@@ -974,6 +974,30 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "errorBoundary": {
+      "title": "Something went wrong",
+      "unknownError": "Unknown error",
+      "retry": "Try again",
+      "reload": "Reload page"
+    },
+    "customerLtvBadge": {
+      "firstOrder": "🆕 First order",
+      "returningCustomer": "Returning customer",
+      "prior": "prior",
+      "inTotal": "total",
+      "lastOrder": "Last: #{number} ({date})"
+    },
+    "quickContact": {
+      "title": "Quick contact",
+      "call": "Call"
+    },
+    "pageSizeSelector": {
+      "show": "Show:",
+      "perPageAria": "Items per page"
+    },
+    "usageMeter": {
+      "usedPercent": "{percent}% used"
+    },
     "restockSuggestionHint": {
       "error": "Error",
       "suggestLink": "Restock suggestion →",

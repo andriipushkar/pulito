@@ -974,6 +974,30 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "errorBoundary": {
+      "title": "Coś poszło nie tak",
+      "unknownError": "Nieznany błąd",
+      "retry": "Spróbuj ponownie",
+      "reload": "Przeładuj stronę"
+    },
+    "customerLtvBadge": {
+      "firstOrder": "🆕 Pierwsze zamówienie",
+      "returningCustomer": "Stały klient",
+      "prior": "poprzednich",
+      "inTotal": "łącznie",
+      "lastOrder": "Ostatnie: #{number} ({date})"
+    },
+    "quickContact": {
+      "title": "Szybki kontakt",
+      "call": "Zadzwoń"
+    },
+    "pageSizeSelector": {
+      "show": "Pokaż:",
+      "perPageAria": "Liczba na stronie"
+    },
+    "usageMeter": {
+      "usedPercent": "{percent}% wykorzystano"
+    },
     "restockSuggestionHint": {
       "error": "Błąd",
       "suggestLink": "Sugestia uzupełnienia →",

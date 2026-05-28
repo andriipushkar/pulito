@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface QuickContactProps {
   phone: string | null | undefined;
@@ -26,6 +27,7 @@ function normalizePhone(raw: string): string {
  * each messenger separately.
  */
 export default function QuickContact({ phone, email, label }: QuickContactProps) {
+  const t = useTranslations('admin.quickContact');
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -57,7 +59,7 @@ export default function QuickContact({ phone, email, label }: QuickContactProps)
           setOpen((v) => !v);
         }}
         className="inline-flex items-center gap-1 rounded text-sm text-[var(--color-primary)] hover:underline"
-        title="Швидко зв'язатись"
+        title={t('title')}
       >
         📞 <span>{label ?? phone ?? email}</span>
       </button>
@@ -69,7 +71,7 @@ export default function QuickContact({ phone, email, label }: QuickContactProps)
               className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--color-bg-secondary)]"
               onClick={() => setOpen(false)}
             >
-              📞 <span>Подзвонити</span>
+              📞 <span>{t('call')}</span>
               <span className="ml-auto text-xs text-[var(--color-text-secondary)]">
                 {normalized}
               </span>
