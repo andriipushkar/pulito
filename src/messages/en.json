@@ -974,6 +974,28 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "themeToggle": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System",
+      "themeTitle": "Theme: {label} (click to change)",
+      "themeAria": "Theme: {label}",
+      "groupAria": "Color theme"
+    },
+    "sessionTimeoutBanner": {
+      "extended": "Session extended",
+      "extendFailed": "Failed to extend the session — please log in again",
+      "sessionEnded": "Session ended. Save your unfinished work and log in again.",
+      "login": "Log in",
+      "expiringSoon": "Session expires in {minutes} min. Save changes or extend the session.",
+      "extending": "Extending…",
+      "extend": "Extend"
+    },
+    "auditDiff": {
+      "colField": "Field",
+      "colBefore": "Before",
+      "colAfter": "After"
+    },
     "errorBoundary": {
       "title": "Something went wrong",
       "unknownError": "Unknown error",

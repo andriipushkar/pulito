@@ -974,6 +974,28 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "themeToggle": {
+      "light": "Jasny",
+      "dark": "Ciemny",
+      "system": "Systemowy",
+      "themeTitle": "Motyw: {label} (kliknij, aby zmienić)",
+      "themeAria": "Motyw: {label}",
+      "groupAria": "Motyw kolorystyczny"
+    },
+    "sessionTimeoutBanner": {
+      "extended": "Sesja przedłużona",
+      "extendFailed": "Nie udało się przedłużyć sesji — zaloguj się ponownie",
+      "sessionEnded": "Sesja zakończona. Zapisz niedokończoną pracę i zaloguj się ponownie.",
+      "login": "Zaloguj się",
+      "expiringSoon": "Sesja wygaśnie za {minutes} min. Zapisz zmiany lub przedłuż sesję.",
+      "extending": "Przedłużamy…",
+      "extend": "Przedłuż"
+    },
+    "auditDiff": {
+      "colField": "Pole",
+      "colBefore": "Było",
+      "colAfter": "Jest"
+    },
     "errorBoundary": {
       "title": "Coś poszło nie tak",
       "unknownError": "Nieznany błąd",

@@ -974,6 +974,28 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "themeToggle": {
+      "light": "Світла",
+      "dark": "Темна",
+      "system": "Системна",
+      "themeTitle": "Тема: {label} (натисніть для зміни)",
+      "themeAria": "Тема: {label}",
+      "groupAria": "Тема оформлення"
+    },
+    "sessionTimeoutBanner": {
+      "extended": "Сесію продовжено",
+      "extendFailed": "Не вдалося продовжити сесію — увійдіть повторно",
+      "sessionEnded": "Сесія завершена. Збережіть незавершену роботу та увійдіть знову.",
+      "login": "Увійти",
+      "expiringSoon": "Сесія закінчиться через {minutes} хв. Збережіть зміни або продовжіть сесію.",
+      "extending": "Продовжуємо…",
+      "extend": "Продовжити"
+    },
+    "auditDiff": {
+      "colField": "Поле",
+      "colBefore": "Було",
+      "colAfter": "Стало"
+    },
     "errorBoundary": {
       "title": "Щось пішло не так",
       "unknownError": "Невідома помилка",

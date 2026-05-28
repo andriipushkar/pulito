@@ -974,6 +974,28 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "themeToggle": {
+      "light": "Luminoasă",
+      "dark": "Întunecată",
+      "system": "Sistem",
+      "themeTitle": "Temă: {label} (apasă pentru schimbare)",
+      "themeAria": "Temă: {label}",
+      "groupAria": "Tema de culoare"
+    },
+    "sessionTimeoutBanner": {
+      "extended": "Sesiune prelungită",
+      "extendFailed": "Nu s-a putut prelungi sesiunea — autentifică-te din nou",
+      "sessionEnded": "Sesiune încheiată. Salvează lucrul neterminat și autentifică-te din nou.",
+      "login": "Autentificare",
+      "expiringSoon": "Sesiunea expiră în {minutes} min. Salvează modificările sau prelungește sesiunea.",
+      "extending": "Se prelungește…",
+      "extend": "Prelungește"
+    },
+    "auditDiff": {
+      "colField": "Câmp",
+      "colBefore": "Înainte",
+      "colAfter": "După"
+    },
     "errorBoundary": {
       "title": "Ceva n-a mers bine",
       "unknownError": "Eroare necunoscută",

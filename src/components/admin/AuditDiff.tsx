@@ -1,11 +1,14 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 /**
  * Renders audit-log "details" as a side-by-side diff when the payload has the
  * shape `{ field: { old: X, new: Y } }` or top-level `before`/`after` blobs.
  * Falls back to a JSON dump for anything else.
  */
 export default function AuditDiff({ details }: { details: unknown }) {
+  const t = useTranslations('admin.auditDiff');
   if (details === null || typeof details !== 'object') {
     return (
       <pre className="whitespace-pre-wrap break-words text-xs">
@@ -25,9 +28,9 @@ export default function AuditDiff({ details }: { details: unknown }) {
       <table className="w-full text-xs">
         <thead className="text-left text-[var(--color-text-secondary)]">
           <tr>
-            <th className="px-2 py-1">Поле</th>
-            <th className="px-2 py-1">Було</th>
-            <th className="px-2 py-1">Стало</th>
+            <th className="px-2 py-1">{t('colField')}</th>
+            <th className="px-2 py-1">{t('colBefore')}</th>
+            <th className="px-2 py-1">{t('colAfter')}</th>
           </tr>
         </thead>
         <tbody>
@@ -48,9 +51,9 @@ export default function AuditDiff({ details }: { details: unknown }) {
       <table className="w-full text-xs">
         <thead className="text-left text-[var(--color-text-secondary)]">
           <tr>
-            <th className="px-2 py-1">Поле</th>
-            <th className="px-2 py-1">Було</th>
-            <th className="px-2 py-1">Стало</th>
+            <th className="px-2 py-1">{t('colField')}</th>
+            <th className="px-2 py-1">{t('colBefore')}</th>
+            <th className="px-2 py-1">{t('colAfter')}</th>
           </tr>
         </thead>
         <tbody>

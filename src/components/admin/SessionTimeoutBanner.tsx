@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { getAccessToken, apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ function decodeExpClaim(token: string): number | null {
 const WARN_THRESHOLD_SECONDS = 5 * 60;
 
 export default function SessionTimeoutBanner() {
+  const t = useTranslations('admin.sessionTimeoutBanner');
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [extending, setExtending] = useState(false);
 
@@ -56,14 +58,14 @@ export default function SessionTimeoutBanner() {
     const res = await apiClient.post<{ accessToken: string }>('/api/v1/auth/refresh', {});
     setExtending(false);
     if (res.success) {
-      toast.success('Сесію продовжено');
+      toast.success(t('extended'));
       // Force re-read of the new exp claim immediately. Without this the
       // banner stays visible with the old `secondsLeft` until the next 15-s
       // tick — admin clicks "Продовжити" and nothing seems to happen.
       tick();
     } else {
       // Refresh failed — redirect to login so user does not think the session was extended.
-      toast.error('Не вдалося продовжити сесію — увійдіть повторно');
+      toast.error(t('extendFailed'));
       const returnUrl = typeof window !== 'undefined' ? window.location.pathname : '/admin';
       window.location.assign(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`);
     }
@@ -74,14 +76,12 @@ export default function SessionTimeoutBanner() {
     return (
       <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3">
         <span aria-hidden="true">🔒</span>
-        <p className="flex-1 text-sm font-medium text-red-800">
-          Сесія завершена. Збережіть незавершену роботу та увійдіть знову.
-        </p>
+        <p className="flex-1 text-sm font-medium text-red-800">{t('sessionEnded')}</p>
         <Link
           href="/auth/login?returnUrl=/admin"
           className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
         >
-          Увійти
+          {t('login')}
         </Link>
       </div>
     );
@@ -91,16 +91,14 @@ export default function SessionTimeoutBanner() {
   return (
     <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
       <span aria-hidden="true">⏱️</span>
-      <p className="flex-1 text-sm font-medium text-amber-800">
-        Сесія закінчиться через {minutes} хв. Збережіть зміни або продовжіть сесію.
-      </p>
+      <p className="flex-1 text-sm font-medium text-amber-800">{t('expiringSoon', { minutes })}</p>
       <button
         type="button"
         onClick={handleExtend}
         disabled={extending}
         className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
       >
-        {extending ? 'Продовжуємо…' : 'Продовжити'}
+        {extending ? t('extending') : t('extend')}
       </button>
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useSyncExternalStore } from 'react';
+import { useTranslations } from 'next-intl';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -36,6 +37,12 @@ const getThemeSnapshot = (): ThemeMode =>
 const getThemeServerSnapshot = (): ThemeMode => 'system';
 
 export default function ThemeToggle({ compact = false }: { compact?: boolean }) {
+  const t = useTranslations('admin.themeToggle');
+  const themeLabels: Record<ThemeMode, string> = {
+    light: t('light'),
+    dark: t('dark'),
+    system: t('system'),
+  };
   const mode = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
 
   // Apply theme post-mount (DOM side-effect, not React state).
@@ -53,13 +60,13 @@ export default function ThemeToggle({ compact = false }: { compact?: boolean }) 
     // Single-button cycle for collapsed sidebar
     const next: ThemeMode = mode === 'light' ? 'dark' : mode === 'dark' ? 'system' : 'light';
     const icon = mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️';
-    const label = mode === 'light' ? 'Світла' : mode === 'dark' ? 'Темна' : 'Системна';
+    const label = themeLabels[mode];
     return (
       <button
         type="button"
         onClick={() => handleChange(next)}
-        title={`Тема: ${label} (натисніть для зміни)`}
-        aria-label={`Тема: ${label}`}
+        title={t('themeTitle', { label })}
+        aria-label={t('themeAria', { label })}
         className="rounded-[var(--radius)] p-1.5 text-base hover:bg-[var(--color-bg-secondary)]"
       >
         {icon}
@@ -68,16 +75,16 @@ export default function ThemeToggle({ compact = false }: { compact?: boolean }) 
   }
 
   const options: { value: ThemeMode; label: string; icon: string }[] = [
-    { value: 'light', label: 'Світла', icon: '☀️' },
-    { value: 'dark', label: 'Темна', icon: '🌙' },
-    { value: 'system', label: 'Системна', icon: '🖥️' },
+    { value: 'light', label: themeLabels.light, icon: '☀️' },
+    { value: 'dark', label: themeLabels.dark, icon: '🌙' },
+    { value: 'system', label: themeLabels.system, icon: '🖥️' },
   ];
 
   return (
     <div
       className="inline-flex items-center gap-0.5 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-0.5"
       role="radiogroup"
-      aria-label="Тема оформлення"
+      aria-label={t('groupAria')}
     >
       {options.map((opt) => (
         <button
