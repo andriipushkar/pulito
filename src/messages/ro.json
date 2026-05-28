@@ -974,6 +974,28 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "brandSelector": {
+      "defaultLabel": "Marcă",
+      "enterName": "Introdu numele mărcii",
+      "created": "Marca «{name}» a fost creată",
+      "createFailed": "Nu s-a putut crea marca",
+      "networkError": "Eroare de rețea",
+      "noBrand": "Fără marcă",
+      "cancel": "Anulează",
+      "addNew": "+ Nouă",
+      "newBrandLabel": "Numele mărcii noi",
+      "placeholder": "De exemplu: Procter & Gamble",
+      "create": "Creează"
+    },
+    "marketplaceHealthAlert": {
+      "heading": "⚠️ Integrările cu marketplace necesită atenție",
+      "expired": "🔴 Expirate: <b>{platforms}</b> — listările nu se sincronizează acum",
+      "critical": "🟠 Expiră în mai puțin de 7 zile: {list}",
+      "warn": "🟡 Expiră în mai puțin de 30 de zile: {list}",
+      "platformDays": "{name} ({days}z)",
+      "updateTokens": "Reînnoiește tokenurile →",
+      "dismiss": "Ascunde pentru azi"
+    },
     "dashboardPage": {
       "widgetAnomalies": "Anomalii",
       "widgetAiSummary": "Briefing AI al zilei",

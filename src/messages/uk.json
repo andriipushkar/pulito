@@ -974,6 +974,28 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "brandSelector": {
+      "defaultLabel": "Торгова марка",
+      "enterName": "Введіть назву торгової марки",
+      "created": "Торгову марку «{name}» створено",
+      "createFailed": "Не вдалося створити торгову марку",
+      "networkError": "Помилка мережі",
+      "noBrand": "Без торгової марки",
+      "cancel": "Скасувати",
+      "addNew": "+ Новий",
+      "newBrandLabel": "Назва нової торгової марки",
+      "placeholder": "Наприклад: Procter & Gamble",
+      "create": "Створити"
+    },
+    "marketplaceHealthAlert": {
+      "heading": "⚠️ Маркетплейс інтеграції потребують уваги",
+      "expired": "🔴 Прострочено: <b>{platforms}</b> — listings зараз не синхронізуються",
+      "critical": "🟠 Закінчуються менше ніж за 7 днів: {list}",
+      "warn": "🟡 Закінчуються менше ніж за 30 днів: {list}",
+      "platformDays": "{name} ({days}д)",
+      "updateTokens": "Оновити токени →",
+      "dismiss": "Сховати на сьогодні"
+    },
     "dashboardPage": {
       "widgetAnomalies": "Аномалії",
       "widgetAiSummary": "AI брифінг дня",

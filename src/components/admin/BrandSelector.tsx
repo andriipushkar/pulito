@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Input from '@/components/ui/Input';
@@ -26,11 +27,9 @@ interface BrandSelectorProps {
  * "i need to add a new manufacturer first", and forcing them through a
  * separate /admin/brands page breaks the flow.
  */
-export default function BrandSelector({
-  value,
-  onChange,
-  label = 'Торгова марка',
-}: BrandSelectorProps) {
+export default function BrandSelector({ value, onChange, label }: BrandSelectorProps) {
+  const t = useTranslations('admin.brandSelector');
+  const resolvedLabel = label ?? t('defaultLabel');
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -54,14 +53,14 @@ export default function BrandSelector({
   const handleCreate = async () => {
     const name = newName.trim();
     if (!name) {
-      toast.error('Введіть назву торгової марки');
+      toast.error(t('enterName'));
       return;
     }
     setIsSaving(true);
     try {
       const res = await apiClient.post<Brand>('/api/v1/admin/brands', { name });
       if (res.success && res.data) {
-        toast.success(`Торгової марки "${res.data.name}" створено`);
+        toast.success(t('created', { name: res.data.name }));
         const newId = res.data.id;
         // Optimistic: append + select before reload so the UI doesn't flash.
         setBrands((prev) =>
@@ -72,23 +71,23 @@ export default function BrandSelector({
         setShowCreate(false);
         loadBrands();
       } else {
-        toast.error(res.error || 'Не вдалося створити торгової марки');
+        toast.error(res.error || t('createFailed'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     } finally {
       setIsSaving(false);
     }
   };
 
   const options = [
-    { value: '', label: 'Без торгової марки' },
+    { value: '', label: t('noBrand') },
     ...brands.map((b) => ({ value: String(b.id), label: b.name })),
   ];
 
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium">{label}</label>
+      <label className="mb-1 block text-sm font-medium">{resolvedLabel}</label>
       <div className="flex items-stretch gap-2">
         <div className="flex-1">
           <Select
@@ -99,18 +98,18 @@ export default function BrandSelector({
           />
         </div>
         <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate((v) => !v)}>
-          {showCreate ? 'Скасувати' : '+ Новий'}
+          {showCreate ? t('cancel') : t('addNew')}
         </Button>
       </div>
 
       {showCreate && (
         <div className="mt-2 flex items-end gap-2 rounded-[var(--radius)] border border-dashed border-[var(--color-border)] p-3">
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium">Назва нового торгової марки</label>
+            <label className="mb-1 block text-xs font-medium">{t('newBrandLabel')}</label>
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Наприклад: Procter &amp; Gamble"
+              placeholder={t('placeholder')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -120,7 +119,7 @@ export default function BrandSelector({
             />
           </div>
           <Button onClick={handleCreate} isLoading={isSaving} size="sm">
-            Створити
+            {t('create')}
           </Button>
         </div>
       )}

@@ -974,6 +974,28 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "brandSelector": {
+      "defaultLabel": "Marka",
+      "enterName": "Wprowadź nazwę marki",
+      "created": "Marka «{name}» została utworzona",
+      "createFailed": "Nie udało się utworzyć marki",
+      "networkError": "Błąd sieci",
+      "noBrand": "Bez marki",
+      "cancel": "Anuluj",
+      "addNew": "+ Nowa",
+      "newBrandLabel": "Nazwa nowej marki",
+      "placeholder": "Na przykład: Procter & Gamble",
+      "create": "Utwórz"
+    },
+    "marketplaceHealthAlert": {
+      "heading": "⚠️ Integracje z marketplace'ami wymagają uwagi",
+      "expired": "🔴 Wygasłe: <b>{platforms}</b> — oferty nie są teraz synchronizowane",
+      "critical": "🟠 Wygasają za mniej niż 7 dni: {list}",
+      "warn": "🟡 Wygasają za mniej niż 30 dni: {list}",
+      "platformDays": "{name} ({days}d)",
+      "updateTokens": "Odśwież tokeny →",
+      "dismiss": "Ukryj na dziś"
+    },
     "dashboardPage": {
       "widgetAnomalies": "Anomalie",
       "widgetAiSummary": "Brief AI dnia",

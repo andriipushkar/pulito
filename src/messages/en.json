@@ -974,6 +974,28 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "brandSelector": {
+      "defaultLabel": "Brand",
+      "enterName": "Enter the brand name",
+      "created": "Brand «{name}» created",
+      "createFailed": "Failed to create the brand",
+      "networkError": "Network error",
+      "noBrand": "No brand",
+      "cancel": "Cancel",
+      "addNew": "+ New",
+      "newBrandLabel": "New brand name",
+      "placeholder": "For example: Procter & Gamble",
+      "create": "Create"
+    },
+    "marketplaceHealthAlert": {
+      "heading": "⚠️ Marketplace integrations need attention",
+      "expired": "🔴 Expired: <b>{platforms}</b> — listings are not syncing right now",
+      "critical": "🟠 Expiring in under 7 days: {list}",
+      "warn": "🟡 Expiring in under 30 days: {list}",
+      "platformDays": "{name} ({days}d)",
+      "updateTokens": "Refresh tokens →",
+      "dismiss": "Hide for today"
+    },
     "dashboardPage": {
       "widgetAnomalies": "Anomalies",
       "widgetAiSummary": "AI daily briefing",

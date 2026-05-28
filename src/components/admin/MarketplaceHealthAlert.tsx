@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 
@@ -25,6 +26,7 @@ const PLATFORM_LABEL: Record<string, string> = {
  * session (localStorage) so it doesn't haunt the manager all day.
  */
 export default function MarketplaceHealthAlert() {
+  const t = useTranslations('admin.marketplaceHealthAlert');
   const [issues, setIssues] = useState<TokenExpiry[]>([]);
   const [dismissed, setDismissed] = useState(false);
 
@@ -77,44 +79,55 @@ export default function MarketplaceHealthAlert() {
       className={`mb-4 flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${tone}`}
     >
       <div className="space-y-1">
-        <p className="font-semibold">⚠️ Маркетплейс інтеграції потребують уваги</p>
+        <p className="font-semibold">{t('heading')}</p>
         {expired.length > 0 && (
           <p>
-            🔴 Прострочено:{' '}
-            <strong>
-              {expired.map((t) => PLATFORM_LABEL[t.platform] || t.platform).join(', ')}
-            </strong>{' '}
-            — listings зараз не синхронізуються
+            {t.rich('expired', {
+              platforms: expired.map((e) => PLATFORM_LABEL[e.platform] || e.platform).join(', '),
+              b: (chunks) => <strong>{chunks}</strong>,
+            })}
           </p>
         )}
         {critical.length > 0 && (
           <p>
-            🟠 Закінчуються за &lt;7 днів:{' '}
-            {critical
-              .map((t) => `${PLATFORM_LABEL[t.platform] || t.platform} (${t.daysRemaining}д)`)
-              .join(', ')}
+            {t('critical', {
+              list: critical
+                .map((e) =>
+                  t('platformDays', {
+                    name: PLATFORM_LABEL[e.platform] || e.platform,
+                    days: e.daysRemaining ?? 0,
+                  }),
+                )
+                .join(', '),
+            })}
           </p>
         )}
         {warn.length > 0 && (
           <p>
-            🟡 Закінчуються за &lt;30 днів:{' '}
-            {warn
-              .map((t) => `${PLATFORM_LABEL[t.platform] || t.platform} (${t.daysRemaining}д)`)
-              .join(', ')}
+            {t('warn', {
+              list: warn
+                .map((e) =>
+                  t('platformDays', {
+                    name: PLATFORM_LABEL[e.platform] || e.platform,
+                    days: e.daysRemaining ?? 0,
+                  }),
+                )
+                .join(', '),
+            })}
           </p>
         )}
         <Link
           href="/admin/marketplaces?tab=settings"
           className="inline-block underline decoration-dotted hover:opacity-70"
         >
-          Оновити токени →
+          {t('updateTokens')}
         </Link>
       </div>
       <button
         onClick={dismiss}
         className="rounded p-1 text-xs hover:bg-white/40"
-        aria-label="Сховати на сьогодні"
-        title="Сховати на сьогодні"
+        aria-label={t('dismiss')}
+        title={t('dismiss')}
       >
         ✕
       </button>
