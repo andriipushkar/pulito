@@ -45,8 +45,11 @@
 
 ## Решта (low-priority)
 
-- I2 (empty permissions guard) — додати валідацію
-- I4 (decimal в валідаторі) — `z.coerce.number()` → keep but document; full Decimal — окрема міграція
-- I5 (sync+rotation race) — advisory lock per key
-- I6 (HMAC на 1C webhooks) — required only якщо 1C активно інтегровано
-- I10-I12, I15-I18 — UX polish
+- ✅ **I2** (empty permissions guard) — 2026-05-29: POST `/integration/api-keys` тепер 422 якщо всі дозволи `false` (марний ключ → 403 на кожен 1C-виклик, integration silently breaks)
+- I4 (decimal в валідаторі) — `z.coerce.number()` → keep but document; full Decimal — окрема міграція (Variant C)
+- I5 (sync+rotation race) — advisory lock per key (помірна складність, відкладено)
+- I6 (HMAC на 1C webhooks) — required only якщо 1C активно інтегровано — відкладено
+- I10 — `lastUsedAt` fire-and-forget **навмисний** (await сповільнив би кожен API-виклик) — skip
+- I11/I12, I15-I18 — UX polish / cosmetic; I16 «безпечно загалом»; I18 (показ suffix) погіршив би безпеку — skip
+
+> Re-audit 2026-05-29: I4/I15 = Variant C (decimal); I5/I6 відкладені by-design; решта — низькоцінний UX. Виправлено I2.

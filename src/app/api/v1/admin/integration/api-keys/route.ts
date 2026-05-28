@@ -48,6 +48,13 @@ export const POST = withRole2fa('admin')(async (request: NextRequest, { user }) 
       PERMISSION_KEYS.map((k) => [k, Boolean(parsed.data.permissions?.[k])]),
     );
 
+    // Reject a key with zero permissions. It can't access any 1C endpoint, so
+    // pasting it into the ERP silently breaks every sync with a 403 — the admin
+    // only finds out when data stops flowing.
+    if (!Object.values(perms).some(Boolean)) {
+      return errorResponse('Виберіть хоча б один дозвіл для ключа', 422);
+    }
+
     const { rawKey, keyHash, prefix } = generateApiKey();
 
     const created = await prisma.apiKey.create({

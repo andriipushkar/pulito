@@ -108,6 +108,14 @@
 - ✅ **DS11** — Estimate cache-key normalize: `weight.toFixed(1)` + `total.toFixed(2)` — float-drift `1.1` vs `1.1000000000000001` більше не cache-miss'ить | `delivery/estimate/route.ts:54-58` |
 - ✅ **DS13** — UX hint biggerу: «**окремий конфіг** (свої тарифи, ваговий клас, мін.сума). API ключ Нової Пошти переписується з цього розділу, але всі інші параметри окремі» | `delivery-settings/page.tsx:329` |
 
+## Re-audit 2026-05-29 — verification pass
+
+Звірено код: DS1 (tracking pair-check `orderNumber`+`trackingNumber` + `RATE_LIMITS.search`), DS2 (TTN
+sentinel `PENDING_<id>_<ts>` + `updateMany WHERE trackingNumber IS NULL` → 409 + rollback), DS3
+(`__confirmClearSensitive` guard) — усі присутні. Залишок DS10 (random salt) потребує міграції ВСІХ
+encrypted secrets (payment+delivery+integrations) — окрема security-sweep, не автономно. NP-balance /
+multi-warehouse — потребують зовнішнього API / бізнес-рішення. Секцію вважаю завершеною.
+
 ## Свідомо відкладено
 
 - NP account balance API integration (потребує знайти і додати GET endpoint у NP, документація обмежена)
