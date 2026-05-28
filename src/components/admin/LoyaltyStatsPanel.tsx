@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 
@@ -34,6 +35,7 @@ const LEVEL_BADGE: Record<string, string> = {
  * Polled on mount, period selector for 7/30/90 days.
  */
 export default function LoyaltyStatsPanel() {
+  const t = useTranslations('admin.loyaltyStatsPanel');
   const [stats, setStats] = useState<LoyaltyStats | null>(null);
   const [days, setDays] = useState(30);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,10 +60,8 @@ export default function LoyaltyStatsPanel() {
     <div className="mb-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-bold">Статистика програми</h2>
-          <p className="text-xs text-[var(--color-text-secondary)]">
-            ROI бонусної програми за {days} {days === 1 ? 'день' : 'днів'}
-          </p>
+          <h2 className="text-lg font-bold">{t('title')}</h2>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('roiSubtitle', { days })}</p>
         </div>
         <div className="inline-flex overflow-hidden rounded-lg border border-[var(--color-border)] text-xs font-medium">
           {[7, 30, 90].map((d) => (
@@ -75,7 +75,7 @@ export default function LoyaltyStatsPanel() {
                   : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]'
               }`}
             >
-              {d}д
+              {t('dayBtn', { days: d })}
             </button>
           ))}
         </div>
@@ -96,44 +96,46 @@ export default function LoyaltyStatsPanel() {
         <>
           <div className="grid gap-3 sm:grid-cols-4">
             <StatBox
-              label="Видано балів"
+              label={t('earnedLabel')}
               value={stats.earned.toLocaleString('uk-UA')}
-              hint="Нараховано клієнтам"
+              hint={t('earnedHint')}
               tone="green"
             />
             <StatBox
-              label="Списано балів"
+              label={t('spentLabel')}
               value={stats.spent.toLocaleString('uk-UA')}
-              hint="Використано на знижки"
+              hint={t('spentHint')}
               tone="blue"
             />
             <StatBox
-              label="Анульовано (термін)"
+              label={t('expiredLabel')}
               value={stats.expired.toLocaleString('uk-UA')}
-              hint="Прогоріло після експірації"
+              hint={t('expiredHint')}
               tone="gray"
             />
             <StatBox
-              label="Поточна liability"
+              label={t('liabilityLabel')}
               value={stats.totalLiability.toLocaleString('uk-UA')}
-              hint={`Потенційні знижки клієнтам (~${Math.round(stats.totalLiability).toLocaleString('uk-UA')} ₴)`}
+              hint={t('liabilityHint', {
+                amount: Math.round(stats.totalLiability).toLocaleString('uk-UA'),
+              })}
               tone="orange"
             />
           </div>
 
           <div className="mt-5">
-            <h3 className="mb-2 text-sm font-semibold">Топ-власники балів</h3>
+            <h3 className="mb-2 text-sm font-semibold">{t('topHoldersTitle')}</h3>
             {stats.topHolders.length === 0 ? (
-              <p className="text-xs text-[var(--color-text-secondary)]">Поки нікого.</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t('noHolders')}</p>
             ) : (
               <div className="overflow-hidden rounded-xl border border-[var(--color-border)]">
                 <table className="w-full text-sm">
                   <thead className="bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
                     <tr>
-                      <th className="px-3 py-2 text-left">Клієнт</th>
-                      <th className="px-3 py-2 text-left">Рівень</th>
-                      <th className="px-3 py-2 text-right">Балів</th>
-                      <th className="px-3 py-2 text-right">Всього куплено (₴)</th>
+                      <th className="px-3 py-2 text-left">{t('colClient')}</th>
+                      <th className="px-3 py-2 text-left">{t('colLevel')}</th>
+                      <th className="px-3 py-2 text-right">{t('colPoints')}</th>
+                      <th className="px-3 py-2 text-right">{t('colTotalSpent')}</th>
                     </tr>
                   </thead>
                   <tbody>

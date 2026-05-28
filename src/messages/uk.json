@@ -974,6 +974,25 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "loyaltyStatsPanel": {
+      "title": "Статистика програми",
+      "roiSubtitle": "ROI бонусної програми за {days, plural, one {# день} few {# дні} many {# днів} other {# днів}}",
+      "dayBtn": "{days}д",
+      "earnedLabel": "Видано балів",
+      "earnedHint": "Нараховано клієнтам",
+      "spentLabel": "Списано балів",
+      "spentHint": "Використано на знижки",
+      "expiredLabel": "Анульовано (термін)",
+      "expiredHint": "Прогоріло після експірації",
+      "liabilityLabel": "Поточна liability",
+      "liabilityHint": "Потенційні знижки клієнтам (~{amount} ₴)",
+      "topHoldersTitle": "Топ-власники балів",
+      "noHolders": "Поки нікого.",
+      "colClient": "Клієнт",
+      "colLevel": "Рівень",
+      "colPoints": "Балів",
+      "colTotalSpent": "Всього куплено (₴)"
+    },
     "orderItemsEditor": {
       "searchError": "Помилка пошуку товарів",
       "searchNetworkError": "Помилка мережі під час пошуку",

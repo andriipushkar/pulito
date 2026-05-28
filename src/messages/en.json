@@ -974,6 +974,25 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "loyaltyStatsPanel": {
+      "title": "Program statistics",
+      "roiSubtitle": "Loyalty program ROI over {days, plural, one {# day} other {# days}}",
+      "dayBtn": "{days}d",
+      "earnedLabel": "Points issued",
+      "earnedHint": "Credited to customers",
+      "spentLabel": "Points spent",
+      "spentHint": "Used for discounts",
+      "expiredLabel": "Expired (term)",
+      "expiredHint": "Burned after expiration",
+      "liabilityLabel": "Current liability",
+      "liabilityHint": "Potential customer discounts (~{amount} ₴)",
+      "topHoldersTitle": "Top point holders",
+      "noHolders": "Nobody yet.",
+      "colClient": "Client",
+      "colLevel": "Level",
+      "colPoints": "Points",
+      "colTotalSpent": "Total purchased (₴)"
+    },
     "orderItemsEditor": {
       "searchError": "Error searching products",
       "searchNetworkError": "Network error during search",

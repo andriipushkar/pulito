@@ -974,6 +974,25 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "loyaltyStatsPanel": {
+      "title": "Statystyki programu",
+      "roiSubtitle": "ROI programu lojalnościowego za {days, plural, one {# dzień} few {# dni} many {# dni} other {# dnia}}",
+      "dayBtn": "{days}d",
+      "earnedLabel": "Wydane punkty",
+      "earnedHint": "Naliczone klientom",
+      "spentLabel": "Wykorzystane punkty",
+      "spentHint": "Użyte na zniżki",
+      "expiredLabel": "Anulowane (termin)",
+      "expiredHint": "Przepadły po wygaśnięciu",
+      "liabilityLabel": "Bieżące zobowiązanie",
+      "liabilityHint": "Potencjalne zniżki dla klientów (~{amount} ₴)",
+      "topHoldersTitle": "Najwięksi posiadacze punktów",
+      "noHolders": "Jeszcze nikt.",
+      "colClient": "Klient",
+      "colLevel": "Poziom",
+      "colPoints": "Punkty",
+      "colTotalSpent": "Łącznie kupiono (₴)"
+    },
     "orderItemsEditor": {
       "searchError": "Błąd wyszukiwania produktów",
       "searchNetworkError": "Błąd sieci podczas wyszukiwania",

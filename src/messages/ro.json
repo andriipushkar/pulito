@@ -974,6 +974,25 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "loyaltyStatsPanel": {
+      "title": "Statistici program",
+      "roiSubtitle": "ROI-ul programului de fidelitate pe {days, plural, one {# zi} few {# zile} other {# de zile}}",
+      "dayBtn": "{days}z",
+      "earnedLabel": "Puncte emise",
+      "earnedHint": "Acordate clienților",
+      "spentLabel": "Puncte cheltuite",
+      "spentHint": "Folosite pentru reduceri",
+      "expiredLabel": "Anulate (termen)",
+      "expiredHint": "Expirate după termen",
+      "liabilityLabel": "Datorie curentă",
+      "liabilityHint": "Reduceri potențiale pentru clienți (~{amount} ₴)",
+      "topHoldersTitle": "Top deținători de puncte",
+      "noHolders": "Încă nimeni.",
+      "colClient": "Client",
+      "colLevel": "Nivel",
+      "colPoints": "Puncte",
+      "colTotalSpent": "Total cumpărat (₴)"
+    },
     "orderItemsEditor": {
       "searchError": "Eroare la căutarea produselor",
       "searchNetworkError": "Eroare de rețea în timpul căutării",
