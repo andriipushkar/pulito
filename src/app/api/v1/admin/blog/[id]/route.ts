@@ -48,13 +48,34 @@ export const PATCH = withRole(
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
 
+    // Before/after diff so publish/unpublish flips (and other edits) are
+    // traceable, not just "these fields changed". Large body fields are noted
+    // as changed rather than copied into the audit row.
+    const LARGE_BLOG_FIELDS = new Set(['content', 'contentEn', 'excerpt', 'excerptEn']);
+    const prev = (await prisma.blogPost.findUnique({ where: { id: numId } })) as Record<
+      string,
+      unknown
+    > | null;
+    const changedFields = Object.keys(parsed.data);
+    const before: Record<string, string | null> = {};
+    const after: Record<string, string | null> = {};
+    for (const k of changedFields) {
+      if (LARGE_BLOG_FIELDS.has(k)) {
+        before[k] = '[змінено]';
+        after[k] = '[змінено]';
+        continue;
+      }
+      before[k] = prev ? String(prev[k] ?? '') : null;
+      after[k] = String((parsed.data as Record<string, unknown>)[k] ?? '');
+    }
+
     const post = await updatePost(numId, parsed.data);
     await logAudit({
       userId: user.id,
       actionType: 'data_update',
       entityType: 'blog_post',
       entityId: numId,
-      details: { fields: Object.keys(parsed.data) },
+      details: { fields: changedFields, before, after },
       ipAddress: getClientIp(request),
     });
     // Bust ISR cache for the blog listing + this post's detail page.
