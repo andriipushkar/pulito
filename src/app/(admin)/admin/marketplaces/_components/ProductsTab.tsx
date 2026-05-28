@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -19,6 +20,7 @@ import {
 } from '../_shared';
 
 export function ProductsTab() {
+  const t = useTranslations('admin.productsTab');
   const [products, setProducts] = useState<ProductForMarketplace[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -92,14 +94,14 @@ export function ProductsTab() {
         setProducts(res.data);
         setTotal(res.pagination?.total || 0);
       } else {
-        toast.error('Не вдалося завантажити товари');
+        toast.error(t('loadFailed'));
       }
       setProductsCompletedKey(productsRequestKey);
     });
     return () => {
       cancelled = true;
     };
-  }, [page, limit, debouncedSearch, showOnlyUnpublished, targetMarketplace, productsRequestKey]);
+  }, [page, limit, debouncedSearch, showOnlyUnpublished, targetMarketplace, productsRequestKey, t]);
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
@@ -129,7 +131,7 @@ export function ProductsTab() {
 
     if (!isConfigured) {
       toast.error(
-        `${MARKETPLACE_BY_KEY[targetMarketplace]?.name} не налаштовано. Перейдіть на вкладку "Налаштування API".`,
+        t('notConfiguredToast', { name: MARKETPLACE_BY_KEY[targetMarketplace]?.name ?? '' }),
       );
       return;
     }
@@ -159,14 +161,14 @@ export function ProductsTab() {
             id: productId,
             name: product?.name || `#${productId}`,
             status: res.success ? 'ok' : 'error',
-            error: res.success ? undefined : res.error || 'Помилка',
+            error: res.success ? undefined : res.error || t('error'),
           });
         } catch (err) {
           results.push({
             id: productId,
             name: product?.name || `#${productId}`,
             status: 'error',
-            error: err instanceof Error ? err.message : 'Помилка',
+            error: err instanceof Error ? err.message : t('error'),
           });
         }
         done++;
@@ -185,10 +187,11 @@ export function ProductsTab() {
     const mpName = MARKETPLACE_BY_KEY[targetMarketplace]?.name;
 
     if (cancelled) {
-      toast.info(`Скасовано. Встигли: ${successCount} ok, ${failCount} помилок`);
+      toast.info(t('publishCancelled', { ok: successCount, fail: failCount }));
     } else {
-      if (successCount > 0) toast.success(`Опубліковано ${successCount} товарів на ${mpName}`);
-      if (failCount > 0) toast.error(`${failCount} товарів не вдалось опублікувати`);
+      if (successCount > 0)
+        toast.success(t('publishedToast', { count: successCount, name: mpName ?? '' }));
+      if (failCount > 0) toast.error(t('publishFailedToast', { count: failCount }));
     }
 
     setIsPublishing(false);
@@ -243,12 +246,12 @@ export function ProductsTab() {
               <span className="text-sm font-semibold">{m.name}</span>
               {!m.configured && (
                 <span className="ml-auto rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">
-                  Не налашт.
+                  {t('notConfiguredBadge')}
                 </span>
               )}
             </div>
             <p className="mt-1 text-2xl font-bold">{m.published}</p>
-            <p className="text-[10px] text-[var(--color-text-secondary)]">опубліковано</p>
+            <p className="text-[10px] text-[var(--color-text-secondary)]">{t('publishedLabel')}</p>
           </div>
         ))}
       </div>
@@ -267,19 +270,19 @@ export function ProductsTab() {
               );
               if (res.success && res.data) {
                 toast.success(
-                  `Синхронізовано: ${res.data.updated} оновлено, ${res.data.failed} помилок`,
+                  t('syncResult', { updated: res.data.updated, failed: res.data.failed }),
                 );
               } else {
-                toast.error(res.error || 'Помилка синхронізації');
+                toast.error(res.error || t('syncError'));
               }
               setIsSyncing(false);
             }}
             isLoading={isSyncing}
           >
-            Синхронізувати ціни на {MARKETPLACE_BY_KEY[targetMarketplace]?.name}
+            {t('syncPrices', { name: MARKETPLACE_BY_KEY[targetMarketplace]?.name ?? '' })}
           </Button>
           <p className="text-xs text-[var(--color-text-secondary)]">
-            Оновить ціни та залишки для {publishedIds[targetMarketplace]?.size || 0} товарів
+            {t('syncHint', { count: publishedIds[targetMarketplace]?.size || 0 })}
           </p>
           <Button
             variant="outline"
@@ -290,9 +293,9 @@ export function ProductsTab() {
               const url = `/api/v1/admin/marketplaces/export?type=listings&platform=${targetMarketplace}`;
               window.location.href = url;
             }}
-            title="Експорт активних listings у Excel"
+            title={t('exportTitle')}
           >
-            📥 Експорт XLSX
+            {t('exportBtn')}
           </Button>
         </div>
       )}
@@ -315,11 +318,9 @@ export function ProductsTab() {
           </svg>
           <div>
             <p className="text-sm font-medium text-amber-800">
-              {MARKETPLACE_BY_KEY[targetMarketplace]?.name} не налаштовано
+              {t('notConfiguredTitle', { name: MARKETPLACE_BY_KEY[targetMarketplace]?.name ?? '' })}
             </p>
-            <p className="text-xs text-amber-600">
-              Перейдіть на вкладку &quot;Налаштування API&quot; щоб додати API ключі
-            </p>
+            <p className="text-xs text-amber-600">{t('notConfiguredHint')}</p>
           </div>
         </div>
       )}
@@ -332,14 +333,14 @@ export function ProductsTab() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          placeholder="Пошук товару..."
+          placeholder={t('searchPlaceholder')}
           className="w-64"
         />
         <select
           value={targetMarketplace}
           onChange={(e) => setTargetMarketplace(e.target.value)}
           disabled={isPublishing}
-          title={isPublishing ? 'Не можна змінювати маркетплейс під час публікації' : undefined}
+          title={isPublishing ? t('mpLockedTitle') : undefined}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
           {MARKETPLACES.map((m) => (
@@ -353,7 +354,7 @@ export function ProductsTab() {
           disabled={selected.size === 0 || isPublishing || !isConfigured}
           isLoading={isPublishing}
         >
-          Опублікувати ({selected.size})
+          {t('publishBtn', { n: selected.size })}
         </Button>
         <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
           <input
@@ -362,7 +363,7 @@ export function ProductsTab() {
             onChange={(e) => setShowOnlyUnpublished(e.target.checked)}
             className="accent-[var(--color-primary)]"
           />
-          Тільки не опубліковані
+          {t('onlyUnpublished')}
         </label>
       </div>
 
@@ -370,7 +371,7 @@ export function ProductsTab() {
       {isPublishing && publishProgress.total > 0 && (
         <div className="mb-4">
           <div className="mb-1 flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
-            <span>Публікація (паралельно {PARALLEL})...</span>
+            <span>{t('publishingProgress', { n: PARALLEL })}</span>
             <div className="flex items-center gap-3">
               <span>
                 {publishProgress.current} / {publishProgress.total}
@@ -379,7 +380,7 @@ export function ProductsTab() {
                 onClick={handleCancel}
                 className="rounded border border-red-300 px-2 py-0.5 text-[10px] text-red-600 hover:bg-red-50"
               >
-                Скасувати
+                {t('cancel')}
               </button>
             </div>
           </div>
@@ -397,8 +398,10 @@ export function ProductsTab() {
         <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-sm font-semibold">
-              Результати: {publishResults.filter((r) => r.status === 'ok').length} ok ·{' '}
-              {publishResults.filter((r) => r.status === 'error').length} помилок
+              {t('resultsLine', {
+                ok: publishResults.filter((r) => r.status === 'ok').length,
+                err: publishResults.filter((r) => r.status === 'error').length,
+              })}
             </p>
             <div className="flex items-center gap-2">
               {publishResults.some((r) => r.status === 'error') && !isPublishing && (
@@ -406,14 +409,14 @@ export function ProductsTab() {
                   onClick={handleRetryFailed}
                   className="rounded border border-[var(--color-primary)] px-2 py-0.5 text-xs text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5"
                 >
-                  ↻ Повторити невдалі
+                  {t('retryFailed')}
                 </button>
               )}
               <button
                 onClick={() => setPublishResults([])}
                 className="text-xs text-[var(--color-text-secondary)] hover:underline"
               >
-                Закрити
+                {t('close')}
               </button>
             </div>
           </div>
@@ -453,12 +456,12 @@ export function ProductsTab() {
                       className="accent-[var(--color-primary)]"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left font-medium">Товар</th>
-                  <th className="px-4 py-3 text-left font-medium">Код</th>
-                  <th className="px-4 py-3 text-left font-medium">Категорія</th>
-                  <th className="px-4 py-3 text-right font-medium">Ціна</th>
-                  <th className="px-4 py-3 text-center font-medium">Залишок</th>
-                  <th className="px-4 py-3 text-center font-medium">Статус</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('colProduct')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('colCode')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('colCategory')}</th>
+                  <th className="px-4 py-3 text-right font-medium">{t('colPrice')}</th>
+                  <th className="px-4 py-3 text-center font-medium">{t('colStock')}</th>
+                  <th className="px-4 py-3 text-center font-medium">{t('colStatus')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -519,7 +522,7 @@ export function ProductsTab() {
                       <td className="px-4 py-3 text-center">
                         {isPublished ? (
                           <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                            Опублік.
+                            {t('publishedBadge')}
                           </span>
                         ) : (
                           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
@@ -536,7 +539,7 @@ export function ProductsTab() {
                       colSpan={7}
                       className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                     >
-                      Товарів не знайдено
+                      {t('noProducts')}
                     </td>
                   </tr>
                 )}
@@ -546,7 +549,9 @@ export function ProductsTab() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
-              <p className="text-xs text-[var(--color-text-secondary)]">Всього: {total}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                {t('totalLabel', { total })}
+              </p>
               <PageSizeSelector
                 value={limit}
                 onChange={(size) => {
@@ -563,7 +568,7 @@ export function ProductsTab() {
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                 >
-                  Назад
+                  {t('prev')}
                 </Button>
                 <span className="px-2 py-1 text-sm text-[var(--color-text-secondary)]">
                   {page} / {Math.ceil(total / limit)}
@@ -574,7 +579,7 @@ export function ProductsTab() {
                   onClick={() => setPage((p) => p + 1)}
                   disabled={products.length < limit}
                 >
-                  Далі
+                  {t('next')}
                 </Button>
               </div>
             )}
@@ -586,9 +591,12 @@ export function ProductsTab() {
         isOpen={confirmPublish}
         onClose={() => setConfirmPublish(false)}
         onConfirm={handlePublish}
-        title="Публікація на маркетплейс"
-        message={`Опублікувати ${selected.size} товарів на ${MARKETPLACE_BY_KEY[targetMarketplace]?.name}?`}
-        confirmText="Так, опублікувати"
+        title={t('confirmPublishTitle')}
+        message={t('confirmPublishMsg', {
+          count: selected.size,
+          name: MARKETPLACE_BY_KEY[targetMarketplace]?.name ?? '',
+        })}
+        confirmText={t('confirmPublishBtn')}
       />
     </div>
   );
