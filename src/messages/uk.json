@@ -974,6 +974,26 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "orderItemsEditor": {
+      "searchError": "Помилка пошуку товарів",
+      "searchNetworkError": "Помилка мережі під час пошуку",
+      "alreadyAdded": "Товар «{name}» вже додано",
+      "saveError": "Помилка збереження",
+      "networkError": "Помилка мережі",
+      "addProductLabel": "Додати товар",
+      "searchPlaceholder": "Пошук за назвою або кодом...",
+      "searching": "Пошук...",
+      "photo": "Фото",
+      "stockLabel": "Залишок:",
+      "notFound": "Товарів не знайдено",
+      "newBadge": "(новий)",
+      "restore": "Повернути",
+      "remove": "Видалити",
+      "itemsCount": "Товарів: {count}",
+      "total": "Разом: {total} ₴",
+      "cancel": "Скасувати",
+      "save": "Зберегти"
+    },
     "smsTemplates": {
       "labelReady": "Замовлення готове",
       "labelTtn": "ТТН",

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -44,6 +45,7 @@ export default function OrderItemsEditor({
   onSaved,
   onClose,
 }: OrderItemsEditorProps) {
+  const t = useTranslations('admin.orderItemsEditor');
   const [editItems, setEditItems] = useState<EditableItem[]>(() =>
     items.map((item) => ({
       itemId: item.id,
@@ -79,41 +81,44 @@ export default function OrderItemsEditor({
   }, []);
 
   // Debounced search
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchQuery(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (value.length < 2) {
-      setSearchResults([]);
-      setShowDropdown(false);
-      return;
-    }
-
-    debounceRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const res = await apiClient.get<{ products: SearchResult[] }>(
-          `/api/v1/products/search?q=${encodeURIComponent(value)}`,
-        );
-        if (res.success && res.data?.products) {
-          setSearchResults(res.data.products);
-          setShowDropdown(true);
-        } else if (!res.success) {
-          toast.error(res.error || 'Помилка пошуку товарів');
-        }
-      } catch {
-        toast.error('Помилка мережі під час пошуку');
-      } finally {
-        setIsSearching(false);
+      if (value.length < 2) {
+        setSearchResults([]);
+        setShowDropdown(false);
+        return;
       }
-    }, 300);
-  }, []);
+
+      debounceRef.current = setTimeout(async () => {
+        setIsSearching(true);
+        try {
+          const res = await apiClient.get<{ products: SearchResult[] }>(
+            `/api/v1/products/search?q=${encodeURIComponent(value)}`,
+          );
+          if (res.success && res.data?.products) {
+            setSearchResults(res.data.products);
+            setShowDropdown(true);
+          } else if (!res.success) {
+            toast.error(res.error || t('searchError'));
+          }
+        } catch {
+          toast.error(t('searchNetworkError'));
+        } finally {
+          setIsSearching(false);
+        }
+      }, 300);
+    },
+    [t],
+  );
 
   const handleAddProduct = (product: SearchResult) => {
     // Check duplicates
     const exists = editItems.find((item) => item.productId === product.id && !item.isRemoved);
     if (exists) {
-      setError(`Товар "${product.name}" вже додано`);
+      setError(t('alreadyAdded', { name: product.name }));
       setShowDropdown(false);
       setSearchQuery('');
       return;
@@ -204,10 +209,10 @@ export default function OrderItemsEditor({
       if (res.success && res.data) {
         onSaved(res.data);
       } else {
-        setError(res.error || 'Помилка збереження');
+        setError(res.error || t('saveError'));
       }
     } catch {
-      setError('Помилка мережі');
+      setError(t('networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -221,12 +226,14 @@ export default function OrderItemsEditor({
       {/* Product search */}
       <div ref={searchRef} className="relative mb-4">
         <Input
-          label="Додати товар"
-          placeholder="Пошук за назвою або кодом..."
+          label={t('addProductLabel')}
+          placeholder={t('searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => handleSearchChange(e.target.value)}
         />
-        {isSearching && <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Пошук...</p>}
+        {isSearching && (
+          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{t('searching')}</p>
+        )}
         {showDropdown && searchResults.length > 0 && (
           <div className="absolute z-10 mt-1 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-lg">
             {searchResults.map((product) => (
@@ -247,14 +254,14 @@ export default function OrderItemsEditor({
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">
-                      Фото
+                      {t('photo')}
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="truncate font-medium">{product.name}</p>
                   <p className="text-xs text-[var(--color-text-secondary)]">
-                    {product.code} | {Number(product.priceRetail).toFixed(2)} ₴ | Залишок:{' '}
+                    {product.code} | {Number(product.priceRetail).toFixed(2)} ₴ | {t('stockLabel')}{' '}
                     {product.quantity}
                   </p>
                 </div>
@@ -264,7 +271,7 @@ export default function OrderItemsEditor({
         )}
         {showDropdown && searchResults.length === 0 && searchQuery.length >= 2 && !isSearching && (
           <div className="absolute z-10 mt-1 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-center text-sm text-[var(--color-text-secondary)] shadow-lg">
-            Товарів не знайдено
+            {t('notFound')}
           </div>
         )}
       </div>
@@ -287,7 +294,7 @@ export default function OrderItemsEditor({
                 <Image src={item.imagePath} alt="" fill className="object-cover" sizes="40px" />
               ) : (
                 <div className="flex h-full items-center justify-center text-[8px] text-[var(--color-text-secondary)]">
-                  Фото
+                  {t('photo')}
                 </div>
               )}
             </div>
@@ -298,7 +305,7 @@ export default function OrderItemsEditor({
               </p>
               <p className="text-xs text-[var(--color-text-secondary)]">
                 {item.productCode} | {item.priceAtOrder.toFixed(2)} ₴
-                {item.isNew && <span className="ml-1 text-green-600">(новий)</span>}
+                {item.isNew && <span className="ml-1 text-green-600">{t('newBadge')}</span>}
               </p>
             </div>
 
@@ -338,7 +345,7 @@ export default function OrderItemsEditor({
                 onClick={() => handleRestore(index)}
                 className="text-xs text-[var(--color-primary)] hover:underline"
               >
-                Повернути
+                {t('restore')}
               </button>
             ) : (
               <button
@@ -346,7 +353,7 @@ export default function OrderItemsEditor({
                 onClick={() => handleRemove(index)}
                 className="text-xs text-[var(--color-danger)] hover:underline"
               >
-                Видалити
+                {t('remove')}
               </button>
             )}
           </div>
@@ -356,9 +363,9 @@ export default function OrderItemsEditor({
       {/* Total */}
       <div className="mt-4 flex items-center justify-between border-t border-[var(--color-border)] pt-4">
         <span className="text-sm font-medium">
-          Товарів: {activeItems.reduce((sum, i) => sum + i.quantity, 0)}
+          {t('itemsCount', { count: activeItems.reduce((sum, i) => sum + i.quantity, 0) })}
         </span>
-        <span className="text-lg font-bold">Разом: {total.toFixed(2)} ₴</span>
+        <span className="text-lg font-bold">{t('total', { total: total.toFixed(2) })}</span>
       </div>
 
       {error && <p className="mt-3 text-sm text-[var(--color-danger)]">{error}</p>}
@@ -366,10 +373,10 @@ export default function OrderItemsEditor({
       {/* Actions */}
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="outline" onClick={onClose} disabled={isSaving}>
-          Скасувати
+          {t('cancel')}
         </Button>
         <Button onClick={handleSave} isLoading={isSaving}>
-          Зберегти
+          {t('save')}
         </Button>
       </div>
     </div>

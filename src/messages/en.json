@@ -974,6 +974,26 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "orderItemsEditor": {
+      "searchError": "Error searching products",
+      "searchNetworkError": "Network error during search",
+      "alreadyAdded": "Product «{name}» already added",
+      "saveError": "Save error",
+      "networkError": "Network error",
+      "addProductLabel": "Add product",
+      "searchPlaceholder": "Search by name or code...",
+      "searching": "Searching...",
+      "photo": "Photo",
+      "stockLabel": "Stock:",
+      "notFound": "No products found",
+      "newBadge": "(new)",
+      "restore": "Restore",
+      "remove": "Remove",
+      "itemsCount": "Items: {count}",
+      "total": "Total: {total} ₴",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
     "smsTemplates": {
       "labelReady": "Order ready",
       "labelTtn": "Waybill",

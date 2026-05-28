@@ -974,6 +974,26 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "orderItemsEditor": {
+      "searchError": "Błąd wyszukiwania produktów",
+      "searchNetworkError": "Błąd sieci podczas wyszukiwania",
+      "alreadyAdded": "Produkt «{name}» już dodano",
+      "saveError": "Błąd zapisu",
+      "networkError": "Błąd sieci",
+      "addProductLabel": "Dodaj produkt",
+      "searchPlaceholder": "Szukaj po nazwie lub kodzie...",
+      "searching": "Wyszukiwanie...",
+      "photo": "Zdjęcie",
+      "stockLabel": "Stan:",
+      "notFound": "Nie znaleziono produktów",
+      "newBadge": "(nowy)",
+      "restore": "Przywróć",
+      "remove": "Usuń",
+      "itemsCount": "Produktów: {count}",
+      "total": "Razem: {total} ₴",
+      "cancel": "Anuluj",
+      "save": "Zapisz"
+    },
     "smsTemplates": {
       "labelReady": "Zamówienie gotowe",
       "labelTtn": "List przewozowy",
