@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import PageSizeSelector from '@/components/admin/PageSizeSelector';
@@ -62,6 +63,7 @@ export default function AdminTable<T>({
   pagination,
   onRowClick,
 }: AdminTableProps<T>) {
+  const t = useTranslations('admin.adminTable');
   const handleHeaderClick = (col: AdminTableColumn<T>) => {
     if (!col.sortKey || !onSortChange) return;
     if (sort?.by === col.sortKey) {
@@ -71,9 +73,7 @@ export default function AdminTable<T>({
     }
   };
 
-  const totalPages = pagination
-    ? Math.max(1, Math.ceil(pagination.total / pagination.limit))
-    : 1;
+  const totalPages = pagination ? Math.max(1, Math.ceil(pagination.total / pagination.limit)) : 1;
 
   return (
     <Fragment>
@@ -121,8 +121,11 @@ export default function AdminTable<T>({
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-12 text-center text-[var(--color-text-secondary)]">
-                  {emptyState ?? 'Записів немає'}
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-12 text-center text-[var(--color-text-secondary)]"
+                >
+                  {emptyState ?? t('emptyDefault')}
                 </td>
               </tr>
             ) : (
@@ -160,7 +163,7 @@ export default function AdminTable<T>({
             <PageSizeSelector value={pagination.limit} onChange={pagination.onLimitChange} />
           ) : (
             <span className="text-xs text-[var(--color-text-secondary)]">
-              Всього: {pagination.total}
+              {t('total', { total: pagination.total })}
             </span>
           )}
           {totalPages > 1 && (
@@ -171,10 +174,10 @@ export default function AdminTable<T>({
                 disabled={pagination.page <= 1}
                 onClick={() => pagination.onPageChange(pagination.page - 1)}
               >
-                Попередня
+                {t('prev')}
               </Button>
               <span className="text-sm text-[var(--color-text-secondary)]">
-                Стор. {pagination.page} з {totalPages}
+                {t('pageOf', { page: pagination.page, total: totalPages })}
               </span>
               <Button
                 variant="outline"
@@ -182,7 +185,7 @@ export default function AdminTable<T>({
                 disabled={pagination.page >= totalPages}
                 onClick={() => pagination.onPageChange(pagination.page + 1)}
               >
-                Наступна
+                {t('next')}
               </Button>
             </div>
           )}

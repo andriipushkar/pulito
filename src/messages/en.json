@@ -974,6 +974,37 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "restockSuggestionHint": {
+      "error": "Error",
+      "suggestLink": "Restock suggestion →",
+      "analyzing": "Analyzing…",
+      "suggestionLabel": "Suggestion:",
+      "suggestionQty": "+{count} pcs",
+      "apply": "Apply"
+    },
+    "tagPicker": {
+      "created": "Tag created and attached",
+      "detachTitle": "Click to detach",
+      "addTag": "+ tag",
+      "newTagPlaceholder": "New tag…",
+      "create": "Create"
+    },
+    "previewPanel": {
+      "hidePreview": "◐ Hide preview",
+      "showPreview": "◑ Show preview",
+      "previewTitle": "Preview",
+      "previewTitleWith": "Preview: {title}",
+      "googlePreview": "How it will look in Google",
+      "noTitle": "(no title set)",
+      "noDescription": "(no description set)"
+    },
+    "adminTable": {
+      "emptyDefault": "No records",
+      "total": "Total: {total}",
+      "prev": "Previous",
+      "pageOf": "Page {page} of {total}",
+      "next": "Next"
+    },
     "copyButton": {
       "copied": "Copied",
       "copyFailed": "Failed to copy",

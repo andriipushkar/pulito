@@ -974,6 +974,37 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "restockSuggestionHint": {
+      "error": "Eroare",
+      "suggestLink": "Sugestie de reaprovizionare →",
+      "analyzing": "Analizăm…",
+      "suggestionLabel": "Sugestie:",
+      "suggestionQty": "+{count} buc",
+      "apply": "Aplică"
+    },
+    "tagPicker": {
+      "created": "Etichetă creată și atașată",
+      "detachTitle": "Apasă pentru a detașa",
+      "addTag": "+ etichetă",
+      "newTagPlaceholder": "Etichetă nouă…",
+      "create": "Creează"
+    },
+    "previewPanel": {
+      "hidePreview": "◐ Ascunde previzualizarea",
+      "showPreview": "◑ Arată previzualizarea",
+      "previewTitle": "Previzualizare",
+      "previewTitleWith": "Previzualizare: {title}",
+      "googlePreview": "Cum va apărea în Google",
+      "noTitle": "(fără titlu)",
+      "noDescription": "(fără descriere)"
+    },
+    "adminTable": {
+      "emptyDefault": "Niciun rezultat",
+      "total": "Total: {total}",
+      "prev": "Anterioară",
+      "pageOf": "Pag. {page} din {total}",
+      "next": "Următoarea"
+    },
     "copyButton": {
       "copied": "Copiat",
       "copyFailed": "Nu s-a putut copia",

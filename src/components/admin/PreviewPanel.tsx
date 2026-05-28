@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface Props {
   title?: string;
@@ -23,6 +24,7 @@ export default function PreviewPanel({
   seoDescription,
   seoSlug,
 }: Props) {
+  const t = useTranslations('admin.previewPanel');
   const [showPreview, setShowPreview] = useState(false);
 
   return (
@@ -34,18 +36,16 @@ export default function PreviewPanel({
           className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-bg-secondary)]"
           aria-pressed={showPreview}
         >
-          {showPreview ? '◐ Сховати попередній перегляд' : '◑ Показати попередній перегляд'}
+          {showPreview ? t('hidePreview') : t('showPreview')}
         </button>
       </div>
-      <div
-        className={`grid gap-4 ${showPreview ? 'lg:grid-cols-2' : 'grid-cols-1'}`}
-      >
+      <div className={`grid gap-4 ${showPreview ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
         <div>{children}</div>
         {showPreview && (
           <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
             <div className="mb-3 flex items-center justify-between border-b border-[var(--color-border)] pb-2">
               <h3 className="text-sm font-semibold">
-                Попередній перегляд{title ? `: ${title}` : ''}
+                {title ? t('previewTitleWith', { title }) : t('previewTitle')}
               </h3>
               <span className="text-[10px] uppercase text-[var(--color-text-secondary)]">
                 Live preview
@@ -54,16 +54,16 @@ export default function PreviewPanel({
             {(seoTitle || seoDescription) && (
               <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
                 <p className="mb-1 text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">
-                  Як виглядатиме у Google
+                  {t('googlePreview')}
                 </p>
                 {seoSlug && (
                   <p className="truncate text-[11px] text-emerald-700">pulito.trade › {seoSlug}</p>
                 )}
                 <p className="truncate text-base font-medium text-blue-700">
-                  {seoTitle || '(заголовок не задано)'}
+                  {seoTitle || t('noTitle')}
                 </p>
                 <p className="line-clamp-2 text-xs text-[var(--color-text-secondary)]">
-                  {seoDescription || '(опис не задано)'}
+                  {seoDescription || t('noDescription')}
                 </p>
               </div>
             )}

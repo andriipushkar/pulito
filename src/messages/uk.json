@@ -974,6 +974,37 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "restockSuggestionHint": {
+      "error": "Помилка",
+      "suggestLink": "Пропозиція щодо поповнення →",
+      "analyzing": "Аналізуємо…",
+      "suggestionLabel": "Пропозиція:",
+      "suggestionQty": "+{count} шт",
+      "apply": "Застосувати"
+    },
+    "tagPicker": {
+      "created": "Тег створено й прив'язано",
+      "detachTitle": "Натисніть щоб відв'язати",
+      "addTag": "+ тег",
+      "newTagPlaceholder": "Новий тег…",
+      "create": "Створити"
+    },
+    "previewPanel": {
+      "hidePreview": "◐ Сховати попередній перегляд",
+      "showPreview": "◑ Показати попередній перегляд",
+      "previewTitle": "Попередній перегляд",
+      "previewTitleWith": "Попередній перегляд: {title}",
+      "googlePreview": "Як виглядатиме у Google",
+      "noTitle": "(заголовок не задано)",
+      "noDescription": "(опис не задано)"
+    },
+    "adminTable": {
+      "emptyDefault": "Записів немає",
+      "total": "Всього: {total}",
+      "prev": "Попередня",
+      "pageOf": "Стор. {page} з {total}",
+      "next": "Наступна"
+    },
     "copyButton": {
       "copied": "Скопійовано",
       "copyFailed": "Не вдалося скопіювати",

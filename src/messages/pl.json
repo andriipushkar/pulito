@@ -974,6 +974,37 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "restockSuggestionHint": {
+      "error": "Błąd",
+      "suggestLink": "Sugestia uzupełnienia →",
+      "analyzing": "Analizujemy…",
+      "suggestionLabel": "Sugestia:",
+      "suggestionQty": "+{count} szt",
+      "apply": "Zastosuj"
+    },
+    "tagPicker": {
+      "created": "Tag utworzony i przypisany",
+      "detachTitle": "Kliknij, aby odłączyć",
+      "addTag": "+ tag",
+      "newTagPlaceholder": "Nowy tag…",
+      "create": "Utwórz"
+    },
+    "previewPanel": {
+      "hidePreview": "◐ Ukryj podgląd",
+      "showPreview": "◑ Pokaż podgląd",
+      "previewTitle": "Podgląd",
+      "previewTitleWith": "Podgląd: {title}",
+      "googlePreview": "Jak to będzie wyglądać w Google",
+      "noTitle": "(brak tytułu)",
+      "noDescription": "(brak opisu)"
+    },
+    "adminTable": {
+      "emptyDefault": "Brak rekordów",
+      "total": "Razem: {total}",
+      "prev": "Poprzednia",
+      "pageOf": "Str. {page} z {total}",
+      "next": "Następna"
+    },
     "copyButton": {
       "copied": "Skopiowano",
       "copyFailed": "Nie udało się skopiować",
