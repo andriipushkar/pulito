@@ -1488,6 +1488,467 @@
       "quickNav": "Navigare rapidă",
       "escToClose": "Apasă Esc pentru a închide"
     },
+    "helpPanel": {
+      "ui": {
+        "helpTitleBtn": "Ajutor (F1)",
+        "help": "Ajutor",
+        "close": "Închide",
+        "howToUse": "Cum se folosește",
+        "tips": "Sfaturi",
+        "shortcuts": "Scurtături de tastatură",
+        "openHelp": "Deschide ajutorul",
+        "quickNav": "Navigare rapidă"
+      },
+      "pages": {
+        "dashboard": {
+          "title": "Dashboard",
+          "description": "Pagina principală a panoului de administrare cu indicatorii cheie ai magazinului.",
+          "steps": [
+            "Vezi statisticile de azi pentru comenzi, venit și clienți noi",
+            "Trage widgeturile pentru a schimba ordinea de afișare",
+            "Apasă pe ochi pentru a ascunde/afișa un widget",
+            "Activează reîmprospătarea automată pentru a urmări comenzile în timp real"
+          ],
+          "tips": [
+            "Notificările despre comenzi noi apar automat",
+            "Ctrl+K — navigare rapidă între secțiuni"
+          ]
+        },
+        "orders": {
+          "title": "Comenzi",
+          "description": "Gestionarea tuturor comenzilor magazinului. Vizualizare, filtrare, schimbare statusuri și export.",
+          "steps": [
+            "Folosește căutarea după număr, nume, telefon sau AWB",
+            "Filtrează după status, tip client, metodă de plată sau livrare",
+            "Pentru o schimbare rapidă a statusului apasă pictograma creion din rândul comenzii",
+            "Apasă pe numărul comenzii pentru a vedea detaliile"
+          ],
+          "tips": [
+            "Comenzile noi sunt evidențiate cu o insignă sus",
+            "Statisticile se actualizează la fiecare 30 de secunde",
+            "Exportul în XLSX este disponibil prin butonul \"Export\""
+          ]
+        },
+        "products": {
+          "title": "Produse",
+          "description": "Gestionarea catalogului de produse. Adăugare, editare, operațiuni în masă.",
+          "steps": [
+            "Căutarea funcționează automat în timp ce scrii (cu o întârziere de 400ms)",
+            "Deschide filtrele pentru a căuta după categorie, status sau stoc",
+            "Selectează produsele cu casete pentru acțiuni în masă (activare, dezactivare, schimbare categorie)",
+            "Apasă pe numele produsului pentru a edita"
+          ],
+          "tips": [
+            "Sortarea după categorie ajută la găsirea rapidă a produselor necesare",
+            "Produsele cu stoc zero sunt evidențiate cu roșu"
+          ]
+        },
+        "users": {
+          "title": "Utilizatori",
+          "description": "Gestionarea clienților, cererilor en-gros și rolurilor.",
+          "steps": [
+            "Caută după email, nume, telefon sau numele companiei",
+            "Pentru a aproba o cerere en-gros, alege un grup (En-gros 1/2/3) și apasă \"Da\"",
+            "Apasă pe nume pentru a vedea profilul utilizatorului"
+          ],
+          "tips": [
+            "Statusul en-gros \"În așteptare\" este evidențiat cu culoare",
+            "Conturile blocate au o insignă roșie"
+          ]
+        },
+        "analytics": {
+          "title": "Analize",
+          "description": "Analize detaliate pentru vânzări, produse, clienți și canale.",
+          "steps": [
+            "Alege perioada de analiză: 7, 30 sau 90 de zile",
+            "Comută între file pentru diferite tipuri de analize",
+            "Exportă rapoartele în CSV sau PDF"
+          ],
+          "tips": [
+            "Fila \"Pâlnie\" arată conversia de la vizualizare la achiziție",
+            "Analiza ABC ajută la identificarea celor mai profitabile produse"
+          ]
+        },
+        "reports": {
+          "title": "Rapoarte",
+          "description": "Generarea de rapoarte de afaceri în formatele XLSX, CSV și PDF.",
+          "steps": [
+            "Alege tipul de raport din lista de șabloane",
+            "Setează parametrii (perioadă, status) și apasă \"Generează\"",
+            "Fișierul se descarcă automat în formatul selectat"
+          ],
+          "tips": [
+            "Poți crea un raport propriu prin constructor",
+            "Rapoartele se generează pe server — fișierele mari pot dura câteva secunde"
+          ]
+        },
+        "categories": {
+          "title": "Categorii",
+          "description": "Gestionarea ierarhiei de categorii de produse.",
+          "steps": [
+            "Trage categoriile pentru a schimba ordinea de afișare",
+            "Apasă \"Editează\" pentru a schimba numele, slug-ul sau vizibilitatea",
+            "Pentru a îmbina categorii, apasă \"Îmbină\" — toate produsele se vor muta",
+            "Subcategoriile sunt afișate cu indentare sub categoria părinte"
+          ],
+          "tips": [
+            "Maximum 8 categorii părinte",
+            "O categorie cu produse nu poate fi ștearsă — mai întâi mută produsele"
+          ]
+        },
+        "pages": {
+          "title": "Pagini statice",
+          "description": "Gestionarea paginilor statice ale site-ului (Despre noi, Livrare, Retururi etc.).",
+          "steps": [
+            "Apasă \"Editează\" pentru a schimba conținutul paginii",
+            "Slug-ul definește URL-ul paginii (de ex. /pages/delivery)"
+          ],
+          "tips": [
+            "Paginile \"Ciornă\" nu sunt afișate pe site",
+            "Modificările se aplică imediat după salvare"
+          ]
+        },
+        "faq": {
+          "title": "FAQ",
+          "description": "Gestionarea întrebărilor frecvente.",
+          "steps": [
+            "Apasă \"Adaugă întrebare\" pentru a crea o intrare nouă",
+            "Grupează întrebările pe categorii pentru o navigare comodă",
+            "Activează/dezactivează publicarea fiecărei întrebări separat",
+            "Sortează după ordine, nume sau număr de clicuri"
+          ]
+        },
+        "import": {
+          "title": "Import",
+          "description": "Încărcarea și actualizarea produselor din fișiere (CSV, XLSX).",
+          "steps": [
+            "Încarcă un fișier în format .xlsx, .xls sau .csv",
+            "Verifică previzualizarea înainte de a confirma importul",
+            "După import verifică jurnalul cu numărul de produse create, actualizate și sărite"
+          ],
+          "tips": [
+            "Format standard: Cod, Nume, Categorie, Preț retail, Preț en-gros",
+            "O listă de prețuri cu 4 prețuri (Retail, En-gros1, En-gros2, En-gros3) actualizează prețurile automat"
+          ]
+        },
+        "publications": {
+          "title": "Publicații",
+          "description": "Publicarea conținutului pe rețelele sociale și marketplace-uri.",
+          "steps": [
+            "Creează o publicație: introdu titlul, textul, alege canalele",
+            "Folosește șabloane pentru creare rapidă (Produs nou, Promoție, Știre)",
+            "Atașează un produs pentru a completa automat datele (preț, nume, link)",
+            "Programează publicația pentru o dată anume sau publică imediat"
+          ],
+          "tips": [
+            "Variabilele {productName}, {productPrice} sunt înlocuite automat",
+            "Pentru fiecare canal se poate seta un text separat"
+          ]
+        },
+        "badges": {
+          "title": "Insigne produse",
+          "description": "Gestionarea insignelor (etichetelor) de pe cardurile produselor: Promoție, Noutate, Hit etc.",
+          "steps": [
+            "Apasă \"Adaugă insignă\" și specifică ID-ul produsului și tipul insignei",
+            "Pentru o insignă personalizată introdu propriul text și alege o culoare",
+            "Prioritatea definește ordinea de afișare când sunt mai multe insigne"
+          ]
+        },
+        "personalPrices": {
+          "title": "Prețuri personalizate",
+          "description": "Prețuri sau reduceri individuale pentru anumiți clienți.",
+          "steps": [
+            "Apasă \"Adaugă\" și specifică ID-ul utilizatorului",
+            "Alege un produs sau o categorie pentru prețul personalizat",
+            "Setează o reducere în % sau un preț fix",
+            "Setează o perioadă de valabilitate (opțional)"
+          ]
+        },
+        "wholesaleRules": {
+          "title": "Reguli en-gros",
+          "description": "Configurarea regulilor pentru cumpărătorii en-gros: sumă minimă, multiplicitate, limite.",
+          "steps": [
+            "Apasă \"Adaugă regulă\" și alege un tip",
+            "Sumă min. — suma minimă a comenzii pentru angrosiști",
+            "Multiplicitate — produsul poate fi comandat doar în multipli",
+            "Activează/dezactivează regula cu butonul de status"
+          ]
+        },
+        "referrals": {
+          "title": "Recomandări",
+          "description": "Gestionarea programului de recomandări: cine pe cine a invitat, bonusuri.",
+          "steps": [
+            "Vizualizează recomandatorii și utilizatorii invitați",
+            "Pentru a acorda un bonus apasă \"Acordă bonus\" și introdu suma",
+            "Filtrează după status: înregistrat, prima comandă, bonus acordat"
+          ]
+        },
+        "loyalty": {
+          "title": "Program de loialitate",
+          "description": "Configurarea nivelurilor de loialitate și gestionarea manuală a punctelor.",
+          "steps": [
+            "Editează nivelurile (bronze/silver/gold/platinum): cheltuieli min., multiplicator de puncte, reducere",
+            "Adaugă un nivel nou cu butonul \"Adaugă nivel\"",
+            "Pentru acordarea/scăderea manuală a punctelor folosește formularul de mai jos"
+          ],
+          "tips": ["Punctele se acordă automat la finalizarea comenzii"]
+        },
+        "emailTemplates": {
+          "title": "Șabloane email",
+          "description": "Editarea șabloanelor de email (confirmare comandă, înregistrare etc.).",
+          "steps": [
+            "Apasă \"Editează\" pentru a schimba subiectul și corpul emailului",
+            "Folosește variabilele: {name}, {orderNumber}, {status}, {link}, {amount}",
+            "Trimite un email de test pentru a verifica aspectul",
+            "Activează/dezactivează șablonul cu butonul de status"
+          ]
+        },
+        "feedback": {
+          "title": "Feedback",
+          "description": "Gestionarea solicitărilor de la clienți: formulare de contact, apeluri inverse.",
+          "steps": [
+            "Apasă o solicitare pentru a vedea detaliile",
+            "Apasă \"Procesat\" sau \"Respinge\" pentru a schimba statusul",
+            "Filtrează după tip (formular, apel) și status"
+          ]
+        },
+        "channels": {
+          "title": "Statistici canale",
+          "description": "Prezentare generală a statisticilor de abonați și publicații în Telegram, Viber, Instagram.",
+          "steps": [
+            "Vezi numărul de abonați, noi și dezabonați",
+            "O listă a publicațiilor recente cu canalele de distribuție"
+          ]
+        },
+        "channelSettings": {
+          "title": "Setări canale",
+          "description": "Conectarea rețelelor sociale și a marketplace-urilor prin API.",
+          "steps": [
+            "Activează un canal cu comutatorul",
+            "Introdu cheile API (Bot Token, Access Token etc.)",
+            "Apasă \"Testează conexiunea\" pentru verificare",
+            "Apasă \"Salvează\" — cheile sunt criptate și mascate"
+          ],
+          "tips": [
+            "Datele sensibile (tokenuri) sunt afișate mascate",
+            "La resalvare valorile mascate NU sunt suprascrise"
+          ]
+        },
+        "botSettings": {
+          "title": "Setări boți",
+          "description": "Gestionarea mesajelor de întâmpinare și a răspunsurilor automate ale boților.",
+          "steps": [
+            "Vezi mesajele de întâmpinare pentru fiecare platformă",
+            "Adaugă un răspuns automat: introdu un cuvânt cheie și textul răspunsului",
+            "Alege o platformă sau \"Toate\" pentru un răspuns universal"
+          ]
+        },
+        "moderation": {
+          "title": "Moderare",
+          "description": "Reguli de moderare automată a mesajelor în boți.",
+          "steps": [
+            "Creează o regulă: alege platforma, tipul (cuvinte interzise, blocare linkuri, flood) și acțiunea",
+            "Setează configurația în format JSON (exemplu afișat mai jos)",
+            "Vezi jurnalul de moderare în fila \"Jurnal\"",
+            "Marchează rezultatele false cu butonul \"Greșit\""
+          ]
+        },
+        "marketplaces": {
+          "title": "Marketplace-uri",
+          "description": "Publicarea produselor pe OLX, Rozetka, Prom.ua și Epicentr K.",
+          "steps": [
+            "Fila \"Publicare\": alege produse, un marketplace și apasă \"Publică\"",
+            "Fila \"Istoric\": vizualizarea tuturor publicărilor cu filtre",
+            "Fila \"Mesaje\": mesaje de la cumpărătorii din marketplace-uri",
+            "Fila \"Setări API\": chei API pentru fiecare marketplace"
+          ],
+          "tips": [
+            "Butonul \"Sincronizează prețurile\" va actualiza prețurile pe marketplace",
+            "Filtrul \"Doar nepublicate\" ajută la a nu duplica produsele",
+            "Sincronizarea automată se configurează în fila \"Setări API\""
+          ]
+        },
+        "settings": {
+          "title": "Setări generale",
+          "description": "Datele de bază ale site-ului: nume, contacte, informații juridice, SEO, analize.",
+          "steps": [
+            "Comută între file: Generale, Informații juridice, Social media, SEO",
+            "Completează câmpurile și apasă \"Salvează\"",
+            "Telefonul trebuie să fie în formatul +380XXXXXXXXX",
+            "IBAN-ul este verificat automat (UA + 27 de cifre)"
+          ],
+          "tips": [
+            "Modificările intră în vigoare imediat pentru toți vizitatorii",
+            "EDRPOU trebuie să conțină exact 8 cifre"
+          ]
+        },
+        "paymentSettings": {
+          "title": "Sisteme de plată",
+          "description": "Configurarea metodelor de plată: LiqPay, Monobank, WayForPay, plată la livrare.",
+          "steps": [
+            "Activează metoda de plată dorită cu comutatorul",
+            "Introdu cheile API din contul sistemului de plată",
+            "Apasă \"Testează conexiunea\" pentru verificare",
+            "Copiază Webhook URL și inserează-l în contul sistemului de plată"
+          ],
+          "tips": [
+            "Modul sandbox pentru LiqPay — plăți de test fără bani reali",
+            "Suma minimă pentru plata online limitează tranzacțiile mici"
+          ]
+        },
+        "deliverySettings": {
+          "title": "Servicii de livrare",
+          "description": "Configurarea Nova Poshta, Ukrposhta și ridicare personală.",
+          "steps": [
+            "Activează un serviciu de livrare cu comutatorul",
+            "Pentru Nova Poshta: introdu API Key și datele expeditorului",
+            "Apasă \"Testează conexiunea\" pentru a verifica cheia API",
+            "Setează pragul de livrare gratuită (opțional)"
+          ],
+          "tips": [
+            "AWB-ul se creează automat la schimbarea statusului în \"Expediat\"",
+            "Un cost fix poate fi setat în loc de calculul prin API"
+          ]
+        },
+        "smtpSettings": {
+          "title": "Email / SMTP",
+          "description": "Configurarea serverului de mail pentru trimiterea emailurilor către clienți.",
+          "steps": [
+            "Introdu datele serverului SMTP (host, port, login, parolă)",
+            "Pentru Gmail folosește App Password (nu parola principală)",
+            "Apasă \"Testează conexiunea\" pentru verificare",
+            "Introdu un email și trimite un mesaj de test"
+          ],
+          "tips": [
+            "SSL/TLS de obicei pe portul 465, STARTTLS pe 587",
+            "Pentru SendGrid/Mailgun folosește datele lor SMTP"
+          ]
+        },
+        "homepage": {
+          "title": "Blocuri pagina principală",
+          "description": "Gestionarea ordinii și vizibilității blocurilor de pe pagina principală.",
+          "steps": [
+            "Trage blocurile pentru a schimba ordinea",
+            "Activează/dezactivează un bloc cu butonul",
+            "Apasă \"Salvează\" pentru a aplica modificările"
+          ],
+          "tips": [
+            "Blocurile dezactivate nu sunt afișate vizitatorilor",
+            "Primul bloc este cel mai vizibil pe pagină"
+          ]
+        },
+        "banners": {
+          "title": "Bannere / Slider",
+          "description": "Gestionarea bannerelor de pe pagina principală.",
+          "steps": [
+            "Apasă \"Adaugă\" pentru a crea un banner nou",
+            "Plasează cursorul peste imagine și apasă pentru a încărca o poză nouă",
+            "Trage bannerele pentru a schimba ordinea",
+            "Activează/dezactivează un banner cu butonul de status"
+          ]
+        },
+        "themes": {
+          "title": "Teme",
+          "description": "Gestionarea schemei de culori și a temelor site-ului.",
+          "steps": [
+            "Apasă \"Culori\" pentru a schimba paleta de culori a temei",
+            "Vezi previzualizarea modificărilor înainte de salvare",
+            "Apasă \"Activează\" pentru a aplica tema pe site",
+            "Încarcă un fișier ZIP pentru a adăuga o temă nouă"
+          ]
+        },
+        "seoTemplates": {
+          "title": "Șabloane SEO",
+          "description": "Generarea automată a meta tagurilor pentru produse și categorii.",
+          "steps": [
+            "Creează un șablon folosind variabilele: {name}, {code}, {category}, {price}",
+            "Apasă pe ochi pentru a previzualiza rezultatul",
+            "\"Generare în masă\" — aplică șablonul tuturor produselor fără meta taguri"
+          ]
+        },
+        "seoAudit": {
+          "title": "Audit SEO",
+          "description": "Verificarea site-ului pentru probleme SEO: linkuri stricate, meta taguri lipsă.",
+          "steps": [
+            "Apasă \"Rulează auditul\" pentru a începe verificarea",
+            "Vezi problemele găsite și recomandările"
+          ],
+          "tips": [
+            "Se recomandă rularea auditului după modificări în masă ale produselor",
+            "Produsele fără Meta Title pierd poziții în căutare"
+          ]
+        },
+        "palletDelivery": {
+          "title": "Livrare paletizată",
+          "description": "Configurarea livrării comenzilor mari pe paleți.",
+          "steps": [
+            "Activează/dezactivează livrarea paletizată",
+            "Setează greutatea min/max, prețul de bază și prețul pe kg",
+            "Adaugă regiuni cu multiplicatori pentru costuri diferite"
+          ],
+          "tips": [
+            "Un multiplicator de 1.5 pentru o regiune înseamnă +50% la prețul de bază",
+            "Pragul de livrare gratuită funcționează separat de cel obișnuit"
+          ]
+        },
+        "auditLog": {
+          "title": "Jurnal de acțiuni",
+          "description": "Istoricul tuturor acțiunilor administratorilor și managerilor în sistem.",
+          "steps": [
+            "Filtrează după tipul acțiunii, utilizator sau dată",
+            "Apasă o intrare pentru a vedea detaliile",
+            "Exportă jurnalul în CSV pentru analiză externă"
+          ],
+          "tips": [
+            "Jurnalul păstrează toate modificările: creare, editare, ștergere",
+            "Util pentru audit și investigarea incidentelor"
+          ]
+        },
+        "ordersDetail": {
+          "title": "Detalii comandă",
+          "description": "Informații complete despre comandă: client, produse, plată, livrare, istoricul modificărilor.",
+          "steps": [
+            "Schimbă statusul comenzii prin lista derulantă de sus",
+            "Atribuie un manager responsabil",
+            "Adaugă sau schimbă AWB-ul (numărul de expediție Nova Poshta)",
+            "Apasă \"Factură\" sau \"Aviz de însoțire\" pentru a genera documente PDF",
+            "Editează produsele din comandă cu butonul \"Editează\"",
+            "Trimite o poză a produsului clientului prin Telegram/Viber"
+          ],
+          "tips": [
+            "AWB-ul se creează automat la schimbarea statusului în \"Expediat\"",
+            "Nota managerului este vizibilă doar pentru echipă, clientul nu o vede",
+            "Istoricul modificărilor de jos arată cine și când a schimbat statusul"
+          ]
+        },
+        "productsDetail": {
+          "title": "Editare produs",
+          "description": "Editare completă a produsului: nume, prețuri, imagini, descriere, SEO.",
+          "steps": [
+            "Încarcă imagini apăsând \"+\" în secțiunea de imagini",
+            "Completează informațiile de bază: nume, cod, categorie",
+            "Setează prețurile: retail și 3 niveluri en-gros",
+            "Adaugă o descriere HTML prin editorul WYSIWYG",
+            "Completează câmpurile SEO (Meta Title până la 70 de caractere, Description până la 160)",
+            "Apasă \"Salvează modificările\""
+          ],
+          "tips": [
+            "Un filigran este adăugat automat pe poze (dimensiunile full și medium)",
+            "Butonul \"Publică pe social media\" va crea o publicație cu datele produsului",
+            "Istoricul prețurilor se extinde la clic pe blocul de jos"
+          ]
+        },
+        "usersDetail": {
+          "title": "Profil utilizator",
+          "description": "Informații detaliate despre utilizator: comenzi, loialitate, status en-gros.",
+          "steps": [
+            "Vezi istoricul comenzilor clientului",
+            "Schimbă rolul sau grupul en-gros",
+            "Blochează sau deblochează contul"
+          ]
+        }
+      }
+    },
     "userSecurityTab": {
       "loading": "Se încarcă…",
       "noData": "Nu există date",

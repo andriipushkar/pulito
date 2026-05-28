@@ -1488,6 +1488,467 @@
       "quickNav": "Quick navigation",
       "escToClose": "Press Esc to close"
     },
+    "helpPanel": {
+      "ui": {
+        "helpTitleBtn": "Help (F1)",
+        "help": "Help",
+        "close": "Close",
+        "howToUse": "How to use",
+        "tips": "Tips",
+        "shortcuts": "Keyboard shortcuts",
+        "openHelp": "Open help",
+        "quickNav": "Quick navigation"
+      },
+      "pages": {
+        "dashboard": {
+          "title": "Dashboard",
+          "description": "The admin panel home page with the store's key metrics.",
+          "steps": [
+            "Review today's order, revenue and new-customer stats",
+            "Drag widgets to change their display order",
+            "Click the eye to hide/show a widget",
+            "Enable auto-refresh to track orders in real time"
+          ],
+          "tips": [
+            "New-order notifications appear automatically",
+            "Ctrl+K — quick navigation between sections"
+          ]
+        },
+        "orders": {
+          "title": "Orders",
+          "description": "Manage all store orders. View, filter, change statuses and export.",
+          "steps": [
+            "Use search by number, name, phone or tracking number",
+            "Filter by status, customer type, payment or delivery method",
+            "For a quick status change click the pencil icon in the order row",
+            "Click the order number to view details"
+          ],
+          "tips": [
+            "New orders are highlighted with a badge at the top",
+            "Stats refresh every 30 seconds",
+            "XLSX export is available via the \"Export\" button"
+          ]
+        },
+        "products": {
+          "title": "Products",
+          "description": "Manage the product catalog. Adding, editing, bulk operations.",
+          "steps": [
+            "Search runs automatically as you type (with a 400ms delay)",
+            "Open filters to search by category, status or stock",
+            "Select products with checkboxes for bulk actions (activate, deactivate, change category)",
+            "Click the product name to edit"
+          ],
+          "tips": [
+            "Sorting by category helps quickly find the products you need",
+            "Products with zero stock are highlighted in red"
+          ]
+        },
+        "users": {
+          "title": "Users",
+          "description": "Manage customers, wholesale requests and roles.",
+          "steps": [
+            "Search by email, name, phone or company name",
+            "To approve a wholesale request select a group (Wholesale 1/2/3) and click \"Yes\"",
+            "Click the name to view the user's profile"
+          ],
+          "tips": [
+            "The \"Pending\" wholesale status is highlighted with color",
+            "Blocked accounts have a red badge"
+          ]
+        },
+        "analytics": {
+          "title": "Analytics",
+          "description": "Detailed analytics for sales, products, customers and channels.",
+          "steps": [
+            "Choose the analysis period: 7, 30 or 90 days",
+            "Switch between tabs for different analytics types",
+            "Export reports to CSV or PDF"
+          ],
+          "tips": [
+            "The \"Funnel\" tab shows conversion from view to purchase",
+            "ABC analysis helps identify the most profitable products"
+          ]
+        },
+        "reports": {
+          "title": "Reports",
+          "description": "Generate business reports in XLSX, CSV and PDF formats.",
+          "steps": [
+            "Choose a report type from the template list",
+            "Set parameters (period, status) and click \"Generate\"",
+            "The file downloads automatically in the selected format"
+          ],
+          "tips": [
+            "You can build a custom report via the builder",
+            "Reports are generated on the server — large files may take a few seconds"
+          ]
+        },
+        "categories": {
+          "title": "Categories",
+          "description": "Manage the product category hierarchy.",
+          "steps": [
+            "Drag categories to change the display order",
+            "Click \"Edit\" to change the name, slug or visibility",
+            "To merge categories click \"Merge\" — all products will move over",
+            "Subcategories are shown indented under the parent"
+          ],
+          "tips": [
+            "Maximum of 8 parent categories",
+            "A category with products can't be deleted — move the products first"
+          ]
+        },
+        "pages": {
+          "title": "Static pages",
+          "description": "Manage the site's static pages (About, Delivery, Returns, etc.).",
+          "steps": [
+            "Click \"Edit\" to change the page content",
+            "The slug defines the page URL (e.g. /pages/delivery)"
+          ],
+          "tips": [
+            "\"Draft\" pages are not shown on the site",
+            "Changes take effect immediately after saving"
+          ]
+        },
+        "faq": {
+          "title": "FAQ",
+          "description": "Manage frequently asked questions.",
+          "steps": [
+            "Click \"Add question\" to create a new entry",
+            "Group questions by category for easy navigation",
+            "Enable/disable publication of each question separately",
+            "Sort by order, name or click count"
+          ]
+        },
+        "import": {
+          "title": "Import",
+          "description": "Upload and update products from files (CSV, XLSX).",
+          "steps": [
+            "Upload a file in .xlsx, .xls or .csv format",
+            "Review the preview before confirming the import",
+            "After import review the log with the number of created, updated and skipped products"
+          ],
+          "tips": [
+            "Standard format: Code, Name, Category, Retail price, Wholesale price",
+            "A price list with 4 prices (Retail, Wholesale1, Wholesale2, Wholesale3) updates prices automatically"
+          ]
+        },
+        "publications": {
+          "title": "Publications",
+          "description": "Publish content to social networks and marketplaces.",
+          "steps": [
+            "Create a publication: enter a title, text, choose channels",
+            "Use templates for quick creation (New product, Sale, News)",
+            "Attach a product to auto-fill data (price, name, link)",
+            "Schedule the publication for a specific date or publish immediately"
+          ],
+          "tips": [
+            "The variables {productName}, {productPrice} are replaced automatically",
+            "You can set separate text for each channel"
+          ]
+        },
+        "badges": {
+          "title": "Product badges",
+          "description": "Manage badges (stickers) on product cards: Sale, New, Hit, etc.",
+          "steps": [
+            "Click \"Add badge\" and specify the product ID and badge type",
+            "For a custom badge enter your own text and choose a color",
+            "Priority defines the display order when there are multiple badges"
+          ]
+        },
+        "personalPrices": {
+          "title": "Personal prices",
+          "description": "Individual prices or discounts for specific customers.",
+          "steps": [
+            "Click \"Add\" and specify the user ID",
+            "Choose a product or category for the personal price",
+            "Set a discount in % or a fixed price",
+            "Set a validity period (optional)"
+          ]
+        },
+        "wholesaleRules": {
+          "title": "Wholesale rules",
+          "description": "Configure rules for wholesale buyers: minimum amount, multiplicity, limits.",
+          "steps": [
+            "Click \"Add rule\" and choose a type",
+            "Min. amount — minimum order amount for wholesalers",
+            "Multiplicity — a product can only be ordered in multiples",
+            "Enable/disable the rule with the status button"
+          ]
+        },
+        "referrals": {
+          "title": "Referrals",
+          "description": "Manage the referral program: who invited whom, bonuses.",
+          "steps": [
+            "View referrers and invited users",
+            "To award a bonus click \"Award bonus\" and enter the amount",
+            "Filter by status: registered, first order, bonus awarded"
+          ]
+        },
+        "loyalty": {
+          "title": "Loyalty program",
+          "description": "Configure loyalty tiers and manage points manually.",
+          "steps": [
+            "Edit tiers (bronze/silver/gold/platinum): min. spend, points multiplier, discount",
+            "Add a new tier with the \"Add tier\" button",
+            "Use the form below for manual crediting/debiting of points"
+          ],
+          "tips": ["Points are credited automatically when an order is completed"]
+        },
+        "emailTemplates": {
+          "title": "Email templates",
+          "description": "Edit email templates (order confirmation, registration, etc.).",
+          "steps": [
+            "Click \"Edit\" to change the subject and body of the email",
+            "Use the variables: {name}, {orderNumber}, {status}, {link}, {amount}",
+            "Send a test email to check the appearance",
+            "Enable/disable the template with the status button"
+          ]
+        },
+        "feedback": {
+          "title": "Feedback",
+          "description": "Manage customer requests: contact forms, callbacks.",
+          "steps": [
+            "Click a request to view details",
+            "Click \"Processed\" or \"Reject\" to change the status",
+            "Filter by type (form, call) and status"
+          ]
+        },
+        "channels": {
+          "title": "Channel statistics",
+          "description": "Overview of subscriber and publication stats in Telegram, Viber, Instagram.",
+          "steps": [
+            "View the number of subscribers, new and unsubscribed",
+            "A list of recent publications with distribution channels"
+          ]
+        },
+        "channelSettings": {
+          "title": "Channel settings",
+          "description": "Connect social networks and marketplaces via API.",
+          "steps": [
+            "Enable a channel with the toggle",
+            "Enter the API keys (Bot Token, Access Token, etc.)",
+            "Click \"Test connection\" to verify",
+            "Click \"Save\" — keys are encrypted and masked"
+          ],
+          "tips": [
+            "Sensitive data (tokens) are shown masked",
+            "On re-save, masked values are NOT overwritten"
+          ]
+        },
+        "botSettings": {
+          "title": "Bot settings",
+          "description": "Manage welcome messages and bot auto-replies.",
+          "steps": [
+            "Review the welcome messages for each platform",
+            "Add an auto-reply: enter a keyword and reply text",
+            "Choose a platform or \"All\" for a universal reply"
+          ]
+        },
+        "moderation": {
+          "title": "Moderation",
+          "description": "Automatic message moderation rules in bots.",
+          "steps": [
+            "Create a rule: choose a platform, type (stop words, link blocking, flood) and action",
+            "Set the configuration in JSON format (example shown below)",
+            "Review the moderation log on the \"Log\" tab",
+            "Mark false positives with the \"False\" button"
+          ]
+        },
+        "marketplaces": {
+          "title": "Marketplaces",
+          "description": "Publish products to OLX, Rozetka, Prom.ua and Epicentr K.",
+          "steps": [
+            "\"Publish\" tab: choose products, a marketplace and click \"Publish\"",
+            "\"History\" tab: view all publications with filters",
+            "\"Messages\" tab: messages from marketplace buyers",
+            "\"API settings\" tab: API keys for each marketplace"
+          ],
+          "tips": [
+            "The \"Sync prices\" button updates prices on the marketplace",
+            "The \"Only unpublished\" filter helps avoid duplicating products",
+            "Auto-sync is configured on the \"API settings\" tab"
+          ]
+        },
+        "settings": {
+          "title": "General settings",
+          "description": "Core site data: name, contacts, legal information, SEO, analytics.",
+          "steps": [
+            "Switch between tabs: General, Legal information, Social, SEO",
+            "Fill in the fields and click \"Save\"",
+            "The phone must be in the +380XXXXXXXXX format",
+            "The IBAN is validated automatically (UA + 27 digits)"
+          ],
+          "tips": [
+            "Changes take effect immediately for all visitors",
+            "The EDRPOU must contain exactly 8 digits"
+          ]
+        },
+        "paymentSettings": {
+          "title": "Payment systems",
+          "description": "Configure payment methods: LiqPay, Monobank, WayForPay, cash on delivery.",
+          "steps": [
+            "Enable the desired payment method with the toggle",
+            "Enter the API keys from the payment system's dashboard",
+            "Click \"Test connection\" to verify",
+            "Copy the Webhook URL and paste it in the payment system's dashboard"
+          ],
+          "tips": [
+            "Sandbox mode for LiqPay — test payments without real money",
+            "The minimum amount for online payment limits small transactions"
+          ]
+        },
+        "deliverySettings": {
+          "title": "Delivery services",
+          "description": "Configure Nova Poshta, Ukrposhta and pickup.",
+          "steps": [
+            "Enable a delivery service with the toggle",
+            "For Nova Poshta: enter the API Key and sender details",
+            "Click \"Test connection\" to verify the API key",
+            "Set the free-delivery threshold (optional)"
+          ],
+          "tips": [
+            "The tracking number is created automatically when the status changes to \"Shipped\"",
+            "A fixed cost can be set instead of an API calculation"
+          ]
+        },
+        "smtpSettings": {
+          "title": "Email / SMTP",
+          "description": "Configure the mail server for sending emails to customers.",
+          "steps": [
+            "Enter the SMTP server details (host, port, login, password)",
+            "For Gmail use an App Password (not the main password)",
+            "Click \"Test connection\" to verify",
+            "Enter an email and send a test message"
+          ],
+          "tips": [
+            "SSL/TLS is usually on port 465, STARTTLS on 587",
+            "For SendGrid/Mailgun use their SMTP details"
+          ]
+        },
+        "homepage": {
+          "title": "Homepage blocks",
+          "description": "Manage the order and visibility of blocks on the homepage.",
+          "steps": [
+            "Drag blocks to change the order",
+            "Enable/disable a block with the button",
+            "Click \"Save\" to apply changes"
+          ],
+          "tips": [
+            "Disabled blocks are not shown to visitors",
+            "The first block is the most prominent on the page"
+          ]
+        },
+        "banners": {
+          "title": "Banners / Slider",
+          "description": "Manage banners on the homepage.",
+          "steps": [
+            "Click \"Add\" to create a new banner",
+            "Hover over the image and click to upload a new photo",
+            "Drag banners to change the order",
+            "Enable/disable a banner with the status button"
+          ]
+        },
+        "themes": {
+          "title": "Themes",
+          "description": "Manage the site's color scheme and themes.",
+          "steps": [
+            "Click \"Colors\" to change the theme's color palette",
+            "Preview the changes before saving",
+            "Click \"Activate\" to apply the theme on the site",
+            "Upload a ZIP file to add a new theme"
+          ]
+        },
+        "seoTemplates": {
+          "title": "SEO templates",
+          "description": "Automatically generate meta tags for products and categories.",
+          "steps": [
+            "Create a template using the variables: {name}, {code}, {category}, {price}",
+            "Click the eye to preview the result",
+            "\"Bulk generation\" — applies the template to all products without meta tags"
+          ]
+        },
+        "seoAudit": {
+          "title": "SEO audit",
+          "description": "Check the site for SEO issues: broken links, missing meta tags.",
+          "steps": [
+            "Click \"Run audit\" to start the check",
+            "Review the issues found and the recommendations"
+          ],
+          "tips": [
+            "It's recommended to run the audit after bulk product changes",
+            "Products without a Meta Title lose ranking in search"
+          ]
+        },
+        "palletDelivery": {
+          "title": "Pallet delivery",
+          "description": "Configure delivery of large orders by pallet.",
+          "steps": [
+            "Enable/disable pallet delivery",
+            "Set min/max weight, base price and price per kg",
+            "Add regions with multipliers for different costs"
+          ],
+          "tips": [
+            "A 1.5 multiplier for a region means +50% to the base price",
+            "The free-delivery threshold works separately from the regular one"
+          ]
+        },
+        "auditLog": {
+          "title": "Audit log",
+          "description": "History of all admin and manager actions in the system.",
+          "steps": [
+            "Filter by action type, user or date",
+            "Click an entry to view details",
+            "Export the log to CSV for external analysis"
+          ],
+          "tips": [
+            "The log keeps all changes: creation, editing, deletion",
+            "Useful for auditing and investigating incidents"
+          ]
+        },
+        "ordersDetail": {
+          "title": "Order details",
+          "description": "Full order information: customer, products, payment, delivery, change history.",
+          "steps": [
+            "Change the order status via the dropdown at the top",
+            "Assign a responsible manager",
+            "Add or change the tracking number (Nova Poshta waybill number)",
+            "Click \"Invoice\" or \"Delivery note\" to generate PDF documents",
+            "Edit the products in the order with the \"Edit\" button",
+            "Send a product photo to the customer via Telegram/Viber"
+          ],
+          "tips": [
+            "The tracking number is created automatically when the status changes to \"Shipped\"",
+            "The manager note is visible only to the team, the customer doesn't see it",
+            "The change history at the bottom shows who changed the status and when"
+          ]
+        },
+        "productsDetail": {
+          "title": "Edit product",
+          "description": "Full product editing: name, prices, images, description, SEO.",
+          "steps": [
+            "Upload images by clicking \"+\" in the images section",
+            "Fill in the basic info: name, code, category",
+            "Set prices: retail and 3 wholesale tiers",
+            "Add an HTML description via the WYSIWYG editor",
+            "Fill in the SEO fields (Meta Title up to 70 characters, Description up to 160)",
+            "Click \"Save changes\""
+          ],
+          "tips": [
+            "A watermark is added automatically to photos (full and medium sizes)",
+            "The \"Publish to social\" button creates a publication with the product data",
+            "Price history expands when you click the block at the bottom"
+          ]
+        },
+        "usersDetail": {
+          "title": "User profile",
+          "description": "Detailed user information: orders, loyalty, wholesale status.",
+          "steps": [
+            "Review the customer's order history",
+            "Change the role or wholesale group",
+            "Block or unblock the account"
+          ]
+        }
+      }
+    },
     "userSecurityTab": {
       "loading": "Loading…",
       "noData": "No data",

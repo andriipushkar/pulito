@@ -1488,6 +1488,467 @@
       "quickNav": "Szybka nawigacja",
       "escToClose": "Naciśnij Esc, aby zamknąć"
     },
+    "helpPanel": {
+      "ui": {
+        "helpTitleBtn": "Pomoc (F1)",
+        "help": "Pomoc",
+        "close": "Zamknij",
+        "howToUse": "Jak korzystać",
+        "tips": "Wskazówki",
+        "shortcuts": "Skróty klawiszowe",
+        "openHelp": "Otwórz pomoc",
+        "quickNav": "Szybka nawigacja"
+      },
+      "pages": {
+        "dashboard": {
+          "title": "Dashboard",
+          "description": "Strona główna panelu administracyjnego z kluczowymi wskaźnikami sklepu.",
+          "steps": [
+            "Przejrzyj dzisiejsze statystyki zamówień, przychodu i nowych klientów",
+            "Przeciągaj widżety, aby zmienić kolejność wyświetlania",
+            "Kliknij oko, aby ukryć/pokazać widżet",
+            "Włącz autoodświeżanie, aby śledzić zamówienia w czasie rzeczywistym"
+          ],
+          "tips": [
+            "Powiadomienia o nowych zamówieniach pojawiają się automatycznie",
+            "Ctrl+K — szybka nawigacja między sekcjami"
+          ]
+        },
+        "orders": {
+          "title": "Zamówienia",
+          "description": "Zarządzanie wszystkimi zamówieniami sklepu. Podgląd, filtrowanie, zmiana statusów i eksport.",
+          "steps": [
+            "Użyj wyszukiwania po numerze, nazwisku, telefonie lub numerze przesyłki",
+            "Filtruj według statusu, typu klienta, metody płatności lub dostawy",
+            "Aby szybko zmienić status, kliknij ikonę ołówka w wierszu zamówienia",
+            "Kliknij numer zamówienia, aby zobaczyć szczegóły"
+          ],
+          "tips": [
+            "Nowe zamówienia są wyróżnione plakietką u góry",
+            "Statystyki odświeżają się co 30 sekund",
+            "Eksport do XLSX jest dostępny przez przycisk \"Eksport\""
+          ]
+        },
+        "products": {
+          "title": "Produkty",
+          "description": "Zarządzanie katalogiem produktów. Dodawanie, edycja, operacje masowe.",
+          "steps": [
+            "Wyszukiwanie działa automatycznie podczas wpisywania (z opóźnieniem 400ms)",
+            "Otwórz filtry, aby wyszukiwać według kategorii, statusu lub stanu",
+            "Zaznacz produkty polami wyboru do akcji masowych (aktywacja, dezaktywacja, zmiana kategorii)",
+            "Kliknij nazwę produktu, aby edytować"
+          ],
+          "tips": [
+            "Sortowanie według kategorii pomoże szybko znaleźć potrzebne produkty",
+            "Produkty z zerowym stanem są wyróżnione na czerwono"
+          ]
+        },
+        "users": {
+          "title": "Użytkownicy",
+          "description": "Zarządzanie klientami, zgłoszeniami hurtowymi i rolami.",
+          "steps": [
+            "Szukaj po e-mailu, nazwisku, telefonie lub nazwie firmy",
+            "Aby zatwierdzić zgłoszenie hurtowe, wybierz grupę (Hurt 1/2/3) i kliknij \"Tak\"",
+            "Kliknij nazwisko, aby zobaczyć profil użytkownika"
+          ],
+          "tips": [
+            "Status hurtowy \"Oczekuje\" jest wyróżniony kolorem",
+            "Zablokowane konta mają czerwoną plakietkę"
+          ]
+        },
+        "analytics": {
+          "title": "Analityka",
+          "description": "Szczegółowa analityka sprzedaży, produktów, klientów i kanałów.",
+          "steps": [
+            "Wybierz okres analizy: 7, 30 lub 90 dni",
+            "Przełączaj się między zakładkami dla różnych typów analityki",
+            "Eksportuj raporty do CSV lub PDF"
+          ],
+          "tips": [
+            "Zakładka \"Lejek\" pokazuje konwersję od wyświetlenia do zakupu",
+            "Analiza ABC pomoże określić najbardziej dochodowe produkty"
+          ]
+        },
+        "reports": {
+          "title": "Raporty",
+          "description": "Generowanie raportów biznesowych w formatach XLSX, CSV i PDF.",
+          "steps": [
+            "Wybierz typ raportu z listy szablonów",
+            "Ustaw parametry (okres, status) i kliknij \"Generuj\"",
+            "Plik pobierze się automatycznie w wybranym formacie"
+          ],
+          "tips": [
+            "Można utworzyć własny raport przez kreator",
+            "Raporty są generowane na serwerze — duże pliki mogą zająć kilka sekund"
+          ]
+        },
+        "categories": {
+          "title": "Kategorie",
+          "description": "Zarządzanie hierarchią kategorii produktów.",
+          "steps": [
+            "Przeciągaj kategorie, aby zmienić kolejność wyświetlania",
+            "Kliknij \"Edytuj\", aby zmienić nazwę, slug lub widoczność",
+            "Aby scalić kategorie, kliknij \"Scal\" — wszystkie produkty zostaną przeniesione",
+            "Podkategorie są wyświetlane z wcięciem pod kategorią nadrzędną"
+          ],
+          "tips": [
+            "Maksymalnie 8 kategorii nadrzędnych",
+            "Kategorii z produktami nie można usunąć — najpierw przenieś produkty"
+          ]
+        },
+        "pages": {
+          "title": "Strony statyczne",
+          "description": "Zarządzanie stronami statycznymi witryny (O nas, Dostawa, Zwroty itp.).",
+          "steps": [
+            "Kliknij \"Edytuj\", aby zmienić treść strony",
+            "Slug określa adres URL strony (np. /pages/delivery)"
+          ],
+          "tips": [
+            "Strony \"Szkic\" nie są wyświetlane w witrynie",
+            "Zmiany są stosowane od razu po zapisaniu"
+          ]
+        },
+        "faq": {
+          "title": "FAQ",
+          "description": "Zarządzanie najczęściej zadawanymi pytaniami.",
+          "steps": [
+            "Kliknij \"Dodaj pytanie\", aby utworzyć nowy wpis",
+            "Grupuj pytania według kategorii dla wygodnej nawigacji",
+            "Włącz/wyłącz publikację każdego pytania osobno",
+            "Sortuj według kolejności, nazwy lub liczby kliknięć"
+          ]
+        },
+        "import": {
+          "title": "Import",
+          "description": "Wgrywanie i aktualizacja produktów z plików (CSV, XLSX).",
+          "steps": [
+            "Wgraj plik w formacie .xlsx, .xls lub .csv",
+            "Sprawdź podgląd przed potwierdzeniem importu",
+            "Po imporcie sprawdź log z liczbą utworzonych, zaktualizowanych i pominiętych produktów"
+          ],
+          "tips": [
+            "Standardowy format: Kod, Nazwa, Kategoria, Cena detaliczna, Cena hurtowa",
+            "Cennik z 4 cenami (Detal, Hurt1, Hurt2, Hurt3) aktualizuje ceny automatycznie"
+          ]
+        },
+        "publications": {
+          "title": "Publikacje",
+          "description": "Publikowanie treści w sieciach społecznościowych i marketplace'ach.",
+          "steps": [
+            "Utwórz publikację: wpisz tytuł, tekst, wybierz kanały",
+            "Użyj szablonów do szybkiego tworzenia (Nowy produkt, Promocja, Wiadomość)",
+            "Dołącz produkt do automatycznego wypełnienia danych (cena, nazwa, link)",
+            "Zaplanuj publikację na konkretną datę lub opublikuj od razu"
+          ],
+          "tips": [
+            "Zmienne {productName}, {productPrice} są zastępowane automatycznie",
+            "Dla każdego kanału można ustawić osobny tekst"
+          ]
+        },
+        "badges": {
+          "title": "Plakietki produktów",
+          "description": "Zarządzanie plakietkami (naklejkami) na kartach produktów: Promocja, Nowość, Hit itp.",
+          "steps": [
+            "Kliknij \"Dodaj plakietkę\" i podaj ID produktu oraz typ plakietki",
+            "Dla niestandardowej plakietki wpisz własny tekst i wybierz kolor",
+            "Priorytet określa kolejność wyświetlania przy wielu plakietkach"
+          ]
+        },
+        "personalPrices": {
+          "title": "Ceny indywidualne",
+          "description": "Indywidualne ceny lub rabaty dla konkretnych klientów.",
+          "steps": [
+            "Kliknij \"Dodaj\" i podaj ID użytkownika",
+            "Wybierz produkt lub kategorię dla ceny indywidualnej",
+            "Ustaw rabat w % lub cenę stałą",
+            "Ustaw okres ważności (opcjonalnie)"
+          ]
+        },
+        "wholesaleRules": {
+          "title": "Reguły hurtowe",
+          "description": "Konfiguracja reguł dla kupujących hurtowo: minimalna kwota, wielokrotność, ograniczenia.",
+          "steps": [
+            "Kliknij \"Dodaj regułę\" i wybierz typ",
+            "Min. kwota — minimalna kwota zamówienia dla hurtowników",
+            "Wielokrotność — produkt można zamówić tylko w wielokrotnościach",
+            "Włącz/wyłącz regułę przyciskiem statusu"
+          ]
+        },
+        "referrals": {
+          "title": "Polecenia",
+          "description": "Zarządzanie programem poleceń: kto kogo zaprosił, bonusy.",
+          "steps": [
+            "Przeglądaj polecających i zaproszonych użytkowników",
+            "Aby przyznać bonus, kliknij \"Przyznaj bonus\" i wpisz kwotę",
+            "Filtruj według statusu: zarejestrowano, pierwsze zamówienie, bonus przyznany"
+          ]
+        },
+        "loyalty": {
+          "title": "Program lojalnościowy",
+          "description": "Konfiguracja poziomów lojalności i ręczne zarządzanie punktami.",
+          "steps": [
+            "Edytuj poziomy (bronze/silver/gold/platinum): min. wydatki, mnożnik punktów, rabat",
+            "Dodaj nowy poziom przyciskiem \"Dodaj poziom\"",
+            "Do ręcznego przyznawania/odejmowania punktów użyj formularza poniżej"
+          ],
+          "tips": ["Punkty są przyznawane automatycznie po zakończeniu zamówienia"]
+        },
+        "emailTemplates": {
+          "title": "Szablony e-mail",
+          "description": "Edycja szablonów wiadomości e-mail (potwierdzenie zamówienia, rejestracja itp.).",
+          "steps": [
+            "Kliknij \"Edytuj\", aby zmienić temat i treść wiadomości",
+            "Użyj zmiennych: {name}, {orderNumber}, {status}, {link}, {amount}",
+            "Wyślij testową wiadomość, aby sprawdzić wygląd",
+            "Włącz/wyłącz szablon przyciskiem statusu"
+          ]
+        },
+        "feedback": {
+          "title": "Opinie",
+          "description": "Zarządzanie zgłoszeniami od klientów: formularze kontaktowe, oddzwonienia.",
+          "steps": [
+            "Kliknij zgłoszenie, aby zobaczyć szczegóły",
+            "Kliknij \"Przetworzone\" lub \"Odrzuć\", aby zmienić status",
+            "Filtruj według typu (formularz, połączenie) i statusu"
+          ]
+        },
+        "channels": {
+          "title": "Statystyki kanałów",
+          "description": "Przegląd statystyk subskrybentów i publikacji w Telegram, Viber, Instagram.",
+          "steps": [
+            "Przejrzyj liczbę subskrybentów, nowych i wypisanych",
+            "Lista ostatnich publikacji z kanałami dystrybucji"
+          ]
+        },
+        "channelSettings": {
+          "title": "Ustawienia kanałów",
+          "description": "Podłączanie sieci społecznościowych i marketplace'ów przez API.",
+          "steps": [
+            "Włącz kanał przełącznikiem",
+            "Wprowadź klucze API (Bot Token, Access Token itp.)",
+            "Kliknij \"Testuj połączenie\", aby sprawdzić",
+            "Kliknij \"Zapisz\" — klucze są zaszyfrowane i zamaskowane"
+          ],
+          "tips": [
+            "Wrażliwe dane (tokeny) są pokazywane zamaskowane",
+            "Przy ponownym zapisie zamaskowane wartości NIE są nadpisywane"
+          ]
+        },
+        "botSettings": {
+          "title": "Ustawienia botów",
+          "description": "Zarządzanie wiadomościami powitalnymi i autoodpowiedziami botów.",
+          "steps": [
+            "Przejrzyj wiadomości powitalne dla każdej platformy",
+            "Dodaj autoodpowiedź: wpisz słowo kluczowe i tekst odpowiedzi",
+            "Wybierz platformę lub \"Wszystkie\" dla uniwersalnej odpowiedzi"
+          ]
+        },
+        "moderation": {
+          "title": "Moderacja",
+          "description": "Reguły automatycznej moderacji wiadomości w botach.",
+          "steps": [
+            "Utwórz regułę: wybierz platformę, typ (stop-słowa, blokowanie linków, flood) i akcję",
+            "Konfigurację podaj w formacie JSON (przykład pokazany poniżej)",
+            "Przejrzyj dziennik moderacji w zakładce \"Dziennik\"",
+            "Oznacz fałszywe trafienia przyciskiem \"Błędne\""
+          ]
+        },
+        "marketplaces": {
+          "title": "Marketplace'y",
+          "description": "Publikacja produktów na OLX, Rozetka, Prom.ua i Epicentr K.",
+          "steps": [
+            "Zakładka \"Publikacja\": wybierz produkty, marketplace i kliknij \"Opublikuj\"",
+            "Zakładka \"Historia\": podgląd wszystkich publikacji z filtrami",
+            "Zakładka \"Wiadomości\": wiadomości od kupujących z marketplace'ów",
+            "Zakładka \"Ustawienia API\": klucze API dla każdego marketplace"
+          ],
+          "tips": [
+            "Przycisk \"Synchronizuj ceny\" zaktualizuje ceny na marketplace",
+            "Filtr \"Tylko nieopublikowane\" pomoże nie duplikować produktów",
+            "Autosynchronizacja jest konfigurowana w zakładce \"Ustawienia API\""
+          ]
+        },
+        "settings": {
+          "title": "Ustawienia ogólne",
+          "description": "Podstawowe dane witryny: nazwa, kontakty, informacje prawne, SEO, analityka.",
+          "steps": [
+            "Przełączaj się między zakładkami: Ogólne, Informacje prawne, Social media, SEO",
+            "Wypełnij pola i kliknij \"Zapisz\"",
+            "Telefon musi być w formacie +380XXXXXXXXX",
+            "IBAN jest sprawdzany automatycznie (UA + 27 cyfr)"
+          ],
+          "tips": [
+            "Zmiany wchodzą w życie od razu dla wszystkich odwiedzających",
+            "EDRPOU musi zawierać dokładnie 8 cyfr"
+          ]
+        },
+        "paymentSettings": {
+          "title": "Systemy płatności",
+          "description": "Konfiguracja metod płatności: LiqPay, Monobank, WayForPay, płatność przy odbiorze.",
+          "steps": [
+            "Włącz żądaną metodę płatności przełącznikiem",
+            "Wprowadź klucze API z panelu systemu płatności",
+            "Kliknij \"Testuj połączenie\", aby sprawdzić",
+            "Skopiuj Webhook URL i wklej w panelu systemu płatności"
+          ],
+          "tips": [
+            "Tryb sandbox dla LiqPay — płatności testowe bez prawdziwych pieniędzy",
+            "Minimalna kwota płatności online ogranicza drobne transakcje"
+          ]
+        },
+        "deliverySettings": {
+          "title": "Usługi dostawy",
+          "description": "Konfiguracja Nova Poshta, Ukrposhta i odbioru osobistego.",
+          "steps": [
+            "Włącz usługę dostawy przełącznikiem",
+            "Dla Nova Poshta: wprowadź API Key i dane nadawcy",
+            "Kliknij \"Testuj połączenie\", aby sprawdzić klucz API",
+            "Ustaw próg darmowej dostawy (opcjonalnie)"
+          ],
+          "tips": [
+            "Numer przesyłki jest tworzony automatycznie przy zmianie statusu na \"Wysłane\"",
+            "Stały koszt można ustawić zamiast obliczenia przez API"
+          ]
+        },
+        "smtpSettings": {
+          "title": "Email / SMTP",
+          "description": "Konfiguracja serwera pocztowego do wysyłania e-maili do klientów.",
+          "steps": [
+            "Wprowadź dane serwera SMTP (host, port, login, hasło)",
+            "Dla Gmaila użyj App Password (nie głównego hasła)",
+            "Kliknij \"Testuj połączenie\", aby sprawdzić",
+            "Wprowadź e-mail i wyślij testową wiadomość"
+          ],
+          "tips": [
+            "SSL/TLS zwykle na porcie 465, STARTTLS na 587",
+            "Dla SendGrid/Mailgun użyj ich danych SMTP"
+          ]
+        },
+        "homepage": {
+          "title": "Bloki strony głównej",
+          "description": "Zarządzanie kolejnością i widocznością bloków na stronie głównej.",
+          "steps": [
+            "Przeciągaj bloki, aby zmienić kolejność",
+            "Włącz/wyłącz blok przyciskiem",
+            "Kliknij \"Zapisz\", aby zastosować zmiany"
+          ],
+          "tips": [
+            "Wyłączone bloki nie są pokazywane odwiedzającym",
+            "Pierwszy blok jest najbardziej widoczny na stronie"
+          ]
+        },
+        "banners": {
+          "title": "Banery / Slider",
+          "description": "Zarządzanie banerami na stronie głównej.",
+          "steps": [
+            "Kliknij \"Dodaj\", aby utworzyć nowy baner",
+            "Najedź na obraz i kliknij, aby wgrać nowe zdjęcie",
+            "Przeciągaj banery, aby zmienić kolejność",
+            "Włącz/wyłącz baner przyciskiem statusu"
+          ]
+        },
+        "themes": {
+          "title": "Motywy",
+          "description": "Zarządzanie schematem kolorów i motywami witryny.",
+          "steps": [
+            "Kliknij \"Kolory\", aby zmienić paletę kolorów motywu",
+            "Sprawdź podgląd zmian przed zapisaniem",
+            "Kliknij \"Aktywuj\", aby zastosować motyw w witrynie",
+            "Wgraj plik ZIP, aby dodać nowy motyw"
+          ]
+        },
+        "seoTemplates": {
+          "title": "Szablony SEO",
+          "description": "Automatyczne generowanie meta tagów dla produktów i kategorii.",
+          "steps": [
+            "Utwórz szablon z użyciem zmiennych: {name}, {code}, {category}, {price}",
+            "Kliknij oko, aby zobaczyć podgląd wyniku",
+            "\"Generowanie masowe\" — zastosuje szablon do wszystkich produktów bez meta tagów"
+          ]
+        },
+        "seoAudit": {
+          "title": "Audyt SEO",
+          "description": "Sprawdzanie witryny pod kątem problemów SEO: uszkodzone linki, brakujące meta tagi.",
+          "steps": [
+            "Kliknij \"Uruchom audyt\", aby rozpocząć sprawdzanie",
+            "Przejrzyj znalezione problemy i rekomendacje"
+          ],
+          "tips": [
+            "Zaleca się uruchamianie audytu po masowych zmianach produktów",
+            "Produkty bez Meta Title tracą pozycje w wyszukiwaniu"
+          ]
+        },
+        "palletDelivery": {
+          "title": "Dostawa paletowa",
+          "description": "Konfiguracja dostawy dużych zamówień na paletach.",
+          "steps": [
+            "Włącz/wyłącz dostawę paletową",
+            "Ustaw min/maks wagę, cenę bazową i cenę za kg",
+            "Dodaj regiony z mnożnikami dla różnych kosztów"
+          ],
+          "tips": [
+            "Mnożnik 1.5 dla regionu oznacza +50% do ceny bazowej",
+            "Próg darmowej dostawy działa osobno od zwykłej"
+          ]
+        },
+        "auditLog": {
+          "title": "Dziennik działań",
+          "description": "Historia wszystkich działań administratorów i menedżerów w systemie.",
+          "steps": [
+            "Filtruj według typu działania, użytkownika lub daty",
+            "Kliknij wpis, aby zobaczyć szczegóły",
+            "Eksportuj dziennik do CSV do analizy zewnętrznej"
+          ],
+          "tips": [
+            "Dziennik przechowuje wszystkie zmiany: tworzenie, edycję, usuwanie",
+            "Przydatny do audytu i badania incydentów"
+          ]
+        },
+        "ordersDetail": {
+          "title": "Szczegóły zamówienia",
+          "description": "Pełne informacje o zamówieniu: klient, produkty, płatność, dostawa, historia zmian.",
+          "steps": [
+            "Zmień status zamówienia przez listę rozwijaną u góry",
+            "Przypisz odpowiedzialnego menedżera",
+            "Dodaj lub zmień numer przesyłki (numer listu przewozowego Nova Poshta)",
+            "Kliknij \"Faktura\" lub \"WZ\", aby wygenerować dokumenty PDF",
+            "Edytuj produkty w zamówieniu przyciskiem \"Edytuj\"",
+            "Wyślij zdjęcie produktu klientowi przez Telegram/Viber"
+          ],
+          "tips": [
+            "Numer przesyłki jest tworzony automatycznie przy zmianie statusu na \"Wysłane\"",
+            "Notatka menedżera jest widoczna tylko dla zespołu, klient jej nie widzi",
+            "Historia zmian na dole pokazuje kto i kiedy zmienił status"
+          ]
+        },
+        "productsDetail": {
+          "title": "Edycja produktu",
+          "description": "Pełna edycja produktu: nazwa, ceny, zdjęcia, opis, SEO.",
+          "steps": [
+            "Wgraj zdjęcia, klikając \"+\" w sekcji zdjęć",
+            "Wypełnij podstawowe informacje: nazwa, kod, kategoria",
+            "Ustaw ceny: detaliczna i 3 poziomy hurtowe",
+            "Dodaj opis HTML przez edytor WYSIWYG",
+            "Wypełnij pola SEO (Meta Title do 70 znaków, Description do 160)",
+            "Kliknij \"Zapisz zmiany\""
+          ],
+          "tips": [
+            "Znak wodny jest dodawany automatycznie do zdjęć (rozmiary full i medium)",
+            "Przycisk \"Opublikuj w social media\" utworzy publikację z danymi produktu",
+            "Historia cen rozwija się po kliknięciu bloku na dole"
+          ]
+        },
+        "usersDetail": {
+          "title": "Profil użytkownika",
+          "description": "Szczegółowe informacje o użytkowniku: zamówienia, lojalność, status hurtowy.",
+          "steps": [
+            "Przejrzyj historię zamówień klienta",
+            "Zmień rolę lub grupę hurtową",
+            "Zablokuj lub odblokuj konto"
+          ]
+        }
+      }
+    },
     "userSecurityTab": {
       "loading": "Ładowanie…",
       "noData": "Brak danych",
