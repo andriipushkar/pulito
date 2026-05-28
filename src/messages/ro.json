@@ -1,4 +1,36 @@
 {
+  "orderLabels": {
+    "status": {
+      "new_order": "Nouă",
+      "processing": "În procesare",
+      "confirmed": "Confirmată",
+      "paid": "Plătită",
+      "packed": "Ambalată",
+      "shipped": "Expediată",
+      "completed": "Finalizată",
+      "cancelled": "Anulată",
+      "returned": "Retur"
+    },
+    "paymentStatus": {
+      "pending": "În așteptarea plății",
+      "paid": "Plătit",
+      "partial": "Plată parțială",
+      "refunded": "Rambursare"
+    },
+    "deliveryMethod": {
+      "nova_poshta": "Nova Poshta",
+      "ukrposhta": "Ukrposhta",
+      "pickup": "Ridicare personală",
+      "pallet": "Livrare paletizată"
+    },
+    "paymentMethod": {
+      "cod": "Plată la livrare",
+      "bank_transfer": "Transfer bancar",
+      "online": "Plată online",
+      "card_prepay": "Plată anticipată cu cardul"
+    },
+    "allStatuses": "Toate statusurile"
+  },
   "nav": {
     "home": "Acasa",
     "catalog": "Catalog",
@@ -187,7 +219,19 @@
     "performance": "Performanta",
     "funnel": "Palnie",
     "cohorts": "Cohorte",
-    "abcAnalysis": "Analiza ABC",
+    "abcAnalysis": {
+      "totalRevenue": "Venit total",
+      "groupLabel": "Grupa {cat} ({pct} din venit)",
+      "productsCount": "{count, plural, one {# produs} few {# produse} other {# de produse}}",
+      "pieLabel": "{cat} ({count, plural, one {# produs} few {# produse} other {# de produse}})",
+      "colCat": "Cat.",
+      "colCode": "Cod",
+      "colName": "Nume",
+      "colRevenue": "Venit",
+      "colRevenuePct": "% din venit",
+      "colQty": "Cant.",
+      "colOrders": "Comenzi"
+    },
     "palletDelivery": "Livrare pe paleti",
     "ordersBulk": {
       "title": "Actiuni in masa",
@@ -2017,25 +2061,6 @@
       "tsCronNoImport": "Verifică <code>/api/v1/cron/sync-marketplace-orders</code> — endpointul returnează JSON cu rezultate pe fiecare marketplace. Dacă <code>failed: -1</code> — există o eroare de conexiune.",
       "footerNote": "<b>Mai multă documentație:</b> referința tehnică este în fișierul <code>MARKETPLACES.md</code> din rădăcina repo-ului."
     },
-    "orderLabels": {
-      "status": {
-        "new_order": "Nouă",
-        "processing": "În procesare",
-        "confirmed": "Confirmată",
-        "paid": "Plătită",
-        "packed": "Ambalată",
-        "shipped": "Expediată",
-        "completed": "Finalizată",
-        "cancelled": "Anulată",
-        "returned": "Retur"
-      },
-      "paymentStatus": {
-        "pending": "În așteptarea plății",
-        "paid": "Plătit",
-        "partial": "Plată parțială",
-        "refunded": "Rambursare"
-      }
-    },
     "orderTimeline": {
       "created": "Comandă creată",
       "itemsSummary": "{count, plural, one {# produs} few {# produse} other {# de produse}} în valoare de {amount} ₴",
@@ -2535,19 +2560,6 @@
       "colOrders": "Comenzi",
       "colSpent": "Cheltuit",
       "colDaysAgo": "Zile în urmă"
-    },
-    "abcAnalysis": {
-      "totalRevenue": "Venit total",
-      "groupLabel": "Grupa {cat} ({pct} din venit)",
-      "productsCount": "{count, plural, one {# produs} few {# produse} other {# de produse}}",
-      "pieLabel": "{cat} ({count, plural, one {# produs} few {# produse} other {# de produse}})",
-      "colCat": "Cat.",
-      "colCode": "Cod",
-      "colName": "Nume",
-      "colRevenue": "Venit",
-      "colRevenuePct": "% din venit",
-      "colQty": "Cant.",
-      "colOrders": "Comenzi"
     },
     "customerLtv": {
       "customers": "Clienți",
@@ -5597,7 +5609,7 @@
     },
     "emailTemplatesPage": {
       "testSent": "Email de test trimis la {email}",
-      "sendError": "Eroare la trimitere",
+      "sendError": "Eroare trimitere",
       "sendTest": "Trimite test",
       "title": "Sabloane email",
       "back": "← Inapoi la lista",
@@ -5615,10 +5627,7 @@
       "varsHint": "Apasa «Previzualizare» — variabilele se vor inlocui cu valori exemplu pentru verificare.",
       "testTitle": "Email test",
       "testEmailPh": "Email pentru test...",
-      "sendTest": "Trimite test",
       "invalidEmail": "Format email invalid",
-      "testSent": "Email de test trimis la {email}",
-      "sendError": "Eroare trimitere",
       "versionsTitle": "Istoric versiuni",
       "show": "Arata",
       "hide": "Ascunde",

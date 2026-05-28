@@ -1,4 +1,36 @@
 {
+  "orderLabels": {
+    "status": {
+      "new_order": "New",
+      "processing": "Processing",
+      "confirmed": "Confirmed",
+      "paid": "Paid",
+      "packed": "Packed",
+      "shipped": "Shipped",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "returned": "Returned"
+    },
+    "paymentStatus": {
+      "pending": "Awaiting payment",
+      "paid": "Paid",
+      "partial": "Partial payment",
+      "refunded": "Refunded"
+    },
+    "deliveryMethod": {
+      "nova_poshta": "Nova Poshta",
+      "ukrposhta": "Ukrposhta",
+      "pickup": "Pickup",
+      "pallet": "Pallet delivery"
+    },
+    "paymentMethod": {
+      "cod": "Cash on delivery",
+      "bank_transfer": "Bank transfer",
+      "online": "Online payment",
+      "card_prepay": "Card prepayment"
+    },
+    "allStatuses": "All statuses"
+  },
   "nav": {
     "home": "Home",
     "catalog": "Catalog",
@@ -187,7 +219,19 @@
     "performance": "Performance",
     "funnel": "Funnel",
     "cohorts": "Cohorts",
-    "abcAnalysis": "ABC Analysis",
+    "abcAnalysis": {
+      "totalRevenue": "Total revenue",
+      "groupLabel": "Group {cat} ({pct} of revenue)",
+      "productsCount": "{count, plural, one {# product} other {# products}}",
+      "pieLabel": "{cat} ({count, plural, one {# product} other {# products}})",
+      "colCat": "Cat.",
+      "colCode": "Code",
+      "colName": "Name",
+      "colRevenue": "Revenue",
+      "colRevenuePct": "% of revenue",
+      "colQty": "Qty",
+      "colOrders": "Orders"
+    },
     "palletDelivery": "Pallet Delivery",
     "ordersBulk": {
       "title": "Bulk Actions",
@@ -2017,25 +2061,6 @@
       "tsCronNoImport": "Check <code>/api/v1/cron/sync-marketplace-orders</code> — the endpoint returns JSON with results per marketplace. If <code>failed: -1</code> — there is a connection error.",
       "footerNote": "<b>More documentation:</b> the technical reference is in the <code>MARKETPLACES.md</code> file at the repo root."
     },
-    "orderLabels": {
-      "status": {
-        "new_order": "New",
-        "processing": "Processing",
-        "confirmed": "Confirmed",
-        "paid": "Paid",
-        "packed": "Packed",
-        "shipped": "Shipped",
-        "completed": "Completed",
-        "cancelled": "Cancelled",
-        "returned": "Returned"
-      },
-      "paymentStatus": {
-        "pending": "Awaiting payment",
-        "paid": "Paid",
-        "partial": "Partial payment",
-        "refunded": "Refunded"
-      }
-    },
     "orderTimeline": {
       "created": "Order created",
       "itemsSummary": "{count, plural, one {# item} other {# items}} totaling {amount} ₴",
@@ -2535,19 +2560,6 @@
       "colOrders": "Orders",
       "colSpent": "Spent",
       "colDaysAgo": "Days ago"
-    },
-    "abcAnalysis": {
-      "totalRevenue": "Total revenue",
-      "groupLabel": "Group {cat} ({pct} of revenue)",
-      "productsCount": "{count, plural, one {# product} other {# products}}",
-      "pieLabel": "{cat} ({count, plural, one {# product} other {# products}})",
-      "colCat": "Cat.",
-      "colCode": "Code",
-      "colName": "Name",
-      "colRevenue": "Revenue",
-      "colRevenuePct": "% of revenue",
-      "colQty": "Qty",
-      "colOrders": "Orders"
     },
     "customerLtv": {
       "customers": "Customers",
@@ -5615,10 +5627,7 @@
       "varsHint": "Click «Preview» — variables get filled with sample values (name «Андрій», order «PT-2026-00123», etc.) for verification.",
       "testTitle": "Test email",
       "testEmailPh": "Email for test...",
-      "sendTest": "Send test",
       "invalidEmail": "Invalid email format",
-      "testSent": "Test email sent to {email}",
-      "sendError": "Send error",
       "versionsTitle": "Version history",
       "show": "Show",
       "hide": "Hide",

@@ -25,7 +25,7 @@ import CheckoutSection from '@/components/checkout/CheckoutSection';
 import SubscriptionToggle, {
   type SubscriptionFrequency,
 } from '@/components/checkout/SubscriptionToggle';
-import { DELIVERY_METHOD_LABELS, PAYMENT_METHOD_LABELS } from '@/types/order';
+import { useTranslations } from 'next-intl';
 
 const SUBSCRIPTION_DISCOUNT_PERCENT = 5;
 import PageViewTracker from '@/components/analytics/PageViewTracker';
@@ -34,6 +34,7 @@ import { readStoredUtms } from '@/lib/utm';
 import type { CheckoutConfig } from '@/services/checkout-config';
 
 export default function CheckoutPage() {
+  const tl = useTranslations('orderLabels');
   const router = useRouter();
   const { items, total, clearCart, updateQuantity, removeItem } = useCart();
   const { user } = useAuth();
@@ -623,7 +624,7 @@ export default function CheckoutPage() {
             title="Доставка"
             summary={
               formData.deliveryMethod
-                ? `${DELIVERY_METHOD_LABELS[formData.deliveryMethod]}${formData.deliveryCity ? ` • ${formData.deliveryCity}` : ''}${formData.deliveryAddress ? ` • ${formData.deliveryAddress}` : ''}`
+                ? `${tl(`deliveryMethod.${formData.deliveryMethod}`)}${formData.deliveryCity ? ` • ${formData.deliveryCity}` : ''}${formData.deliveryAddress ? ` • ${formData.deliveryAddress}` : ''}`
                 : ''
             }
             expanded={expandedStep === 2}
@@ -675,7 +676,7 @@ export default function CheckoutPage() {
             title="Оплата"
             summary={
               formData.paymentMethod
-                ? `${PAYMENT_METHOD_LABELS[formData.paymentMethod]}${formData.paymentProvider ? ` • ${formData.paymentProvider}` : ''}`
+                ? `${tl(`paymentMethod.${formData.paymentMethod}`)}${formData.paymentProvider ? ` • ${formData.paymentProvider}` : ''}`
                 : ''
             }
             expanded={expandedStep === 3}

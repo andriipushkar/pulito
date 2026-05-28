@@ -45,7 +45,7 @@ function formatTs(d: Date | string): string {
  */
 export default function OrderTimeline({ order }: OrderTimelineProps) {
   const t = useTranslations('admin.orderTimeline');
-  const tl = useTranslations('admin.orderLabels');
+  const tl = useTranslations('orderLabels');
   const statusLabel = (s: string) => (tl.has(`status.${s}`) ? tl(`status.${s}`) : s);
   const events: TimelineEvent[] = [];
 

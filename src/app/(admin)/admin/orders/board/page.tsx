@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { formatPrice } from '@/utils/format';
 import Spinner from '@/components/ui/Spinner';
-import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/types/order';
+import { ORDER_STATUS_COLORS } from '@/types/order';
 import type { OrderStatus } from '@/types/order';
 import { ALLOWED_ORDER_TRANSITIONS } from '@/config/admin-constants';
 
@@ -42,6 +42,7 @@ interface BoardResponse {
 
 export default function AdminOrdersBoardPage() {
   const t = useTranslations('admin.ordersBoard');
+  const tl = useTranslations('orderLabels');
   const [orders, setOrders] = useState<BoardOrder[]>([]);
   const [boardMeta, setBoardMeta] = useState<{
     total: number;
@@ -102,8 +103,8 @@ export default function AdminOrdersBoardPage() {
     if (!allowed.includes(target)) {
       toast.error(
         t('transitionForbidden', {
-          from: ORDER_STATUS_LABELS[order.status],
-          to: ORDER_STATUS_LABELS[target],
+          from: tl(`status.${order.status}`),
+          to: tl(`status.${target}`),
         }),
       );
       return;
@@ -119,9 +120,7 @@ export default function AdminOrdersBoardPage() {
       status: target,
     });
     if (res.success) {
-      toast.success(
-        t('updateSuccess', { number: order.orderNumber, to: ORDER_STATUS_LABELS[target] }),
-      );
+      toast.success(t('updateSuccess', { number: order.orderNumber, to: tl(`status.${target}`) }));
     } else {
       toast.error(res.error || t('updateFailed'));
       setOrders((all) =>
@@ -204,7 +203,7 @@ export default function AdminOrdersBoardPage() {
                 className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2"
                 style={{ borderTopColor: ORDER_STATUS_COLORS[col], borderTopWidth: 3 }}
               >
-                <span className="text-sm font-semibold">{ORDER_STATUS_LABELS[col]}</span>
+                <span className="text-sm font-semibold">{tl(`status.${col}`)}</span>
                 <span className="rounded-full bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs">
                   {cards.length}
                 </span>

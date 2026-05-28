@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
-import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/types/order';
+import { ORDER_STATUS_COLORS, ORDER_STATUSES } from '@/types/order';
 import type { OrderListItem, OrderStatus } from '@/types/order';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
@@ -28,12 +28,13 @@ export default function AdminOrdersBulkPage() {
 
 function AdminOrdersBulkPageInner() {
   const t = useTranslations('admin.ordersBulk');
+  const tl = useTranslations('orderLabels');
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const STATUS_OPTIONS = [
     { value: '', label: t('allStatuses') },
-    ...Object.entries(ORDER_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
+    ...ORDER_STATUSES.map((v) => ({ value: v, label: tl(`status.${v}`) })),
   ];
 
   const BULK_ACTIONS = [
@@ -271,7 +272,7 @@ function AdminOrdersBulkPageInner() {
                           backgroundColor: ORDER_STATUS_COLORS[order.status as OrderStatus],
                         }}
                       >
-                        {ORDER_STATUS_LABELS[order.status as OrderStatus]}
+                        {tl(`status.${order.status as OrderStatus}`)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-bold">

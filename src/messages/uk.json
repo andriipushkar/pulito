@@ -1,4 +1,36 @@
 {
+  "orderLabels": {
+    "status": {
+      "new_order": "Нове",
+      "processing": "В обробці",
+      "confirmed": "Підтверджене",
+      "paid": "Оплачене",
+      "packed": "Упаковано",
+      "shipped": "Відправлене",
+      "completed": "Виконане",
+      "cancelled": "Скасоване",
+      "returned": "Повернення"
+    },
+    "paymentStatus": {
+      "pending": "Очікує оплати",
+      "paid": "Оплачено",
+      "partial": "Часткова оплата",
+      "refunded": "Повернення коштів"
+    },
+    "deliveryMethod": {
+      "nova_poshta": "Нова Пошта",
+      "ukrposhta": "Укрпошта",
+      "pickup": "Самовивіз",
+      "pallet": "Палетна доставка"
+    },
+    "paymentMethod": {
+      "cod": "Накладений платіж",
+      "bank_transfer": "На розрахунковий рахунок",
+      "online": "Онлайн-оплата",
+      "card_prepay": "Передоплата на картку"
+    },
+    "allStatuses": "Всі статуси"
+  },
   "nav": {
     "home": "Головна",
     "catalog": "Каталог",
@@ -187,7 +219,19 @@
     "performance": "Продуктивність",
     "funnel": "Воронка",
     "cohorts": "Когорти",
-    "abcAnalysis": "ABC-аналіз",
+    "abcAnalysis": {
+      "totalRevenue": "Загальна виручка",
+      "groupLabel": "Група {cat} ({pct} виручки)",
+      "productsCount": "{count, plural, one {# товар} few {# товари} many {# товарів} other {# товарів}}",
+      "pieLabel": "{cat} ({count, plural, one {# товар} few {# товари} many {# товарів} other {# товарів}})",
+      "colCat": "Кат.",
+      "colCode": "Код",
+      "colName": "Назва",
+      "colRevenue": "Виручка",
+      "colRevenuePct": "% виручки",
+      "colQty": "К-ть",
+      "colOrders": "Замовлень"
+    },
     "palletDelivery": "Палетна доставка",
     "ordersBulk": {
       "title": "Масові дії",
@@ -2017,25 +2061,6 @@
       "tsCronNoImport": "Перевірте <code>/api/v1/cron/sync-marketplace-orders</code> — ендпоінт повертає JSON з результатами по кожному маркетплейсу. Якщо <code>failed: -1</code> — є помилка підключення.",
       "footerNote": "<b>Більше документації:</b> технічний референс у файлі <code>MARKETPLACES.md</code> у корені репо."
     },
-    "orderLabels": {
-      "status": {
-        "new_order": "Нове",
-        "processing": "В обробці",
-        "confirmed": "Підтверджене",
-        "paid": "Оплачене",
-        "packed": "Упаковано",
-        "shipped": "Відправлене",
-        "completed": "Виконане",
-        "cancelled": "Скасоване",
-        "returned": "Повернення"
-      },
-      "paymentStatus": {
-        "pending": "Очікує оплати",
-        "paid": "Оплачено",
-        "partial": "Часткова оплата",
-        "refunded": "Повернення коштів"
-      }
-    },
     "orderTimeline": {
       "created": "Замовлення створено",
       "itemsSummary": "{count, plural, one {# товар} few {# товари} many {# товарів} other {# товарів}} на сумі {amount} ₴",
@@ -2535,19 +2560,6 @@
       "colOrders": "Замовлень",
       "colSpent": "Витрачено",
       "colDaysAgo": "Днів тому"
-    },
-    "abcAnalysis": {
-      "totalRevenue": "Загальна виручка",
-      "groupLabel": "Група {cat} ({pct} виручки)",
-      "productsCount": "{count, plural, one {# товар} few {# товари} many {# товарів} other {# товарів}}",
-      "pieLabel": "{cat} ({count, plural, one {# товар} few {# товари} many {# товарів} other {# товарів}})",
-      "colCat": "Кат.",
-      "colCode": "Код",
-      "colName": "Назва",
-      "colRevenue": "Виручка",
-      "colRevenuePct": "% виручки",
-      "colQty": "К-ть",
-      "colOrders": "Замовлень"
     },
     "customerLtv": {
       "customers": "Клієнтів",
@@ -5615,10 +5627,7 @@
       "varsHint": "Натисніть «Попередній перегляд» — і змінні підставляться зразковими значеннями (ім'я «Андрій», замовлення «PT-2026-00123» тощо) для перевірки.",
       "testTitle": "Тестовий лист",
       "testEmailPh": "Email для тесту...",
-      "sendTest": "Надіслати тест",
       "invalidEmail": "Невірний формат email",
-      "testSent": "Тестовий лист надіслано на {email}",
-      "sendError": "Помилка відправки",
       "versionsTitle": "Історія версій",
       "show": "Показати",
       "hide": "Сховати",

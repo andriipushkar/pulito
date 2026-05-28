@@ -9,7 +9,6 @@ import NovaPoshtaPicker from '@/components/checkout/NovaPoshtaPicker';
 import UkrposhtaPicker from '@/components/checkout/UkrposhtaPicker';
 import type { CheckoutInput } from '@/validators/order';
 import type { DeliveryMethod } from '@/types/order';
-import { DELIVERY_METHOD_LABELS } from '@/types/order';
 import type { CheckoutConfig } from '@/services/checkout-config';
 
 const DELIVERY_OPTIONS: { value: DeliveryMethod; descriptionKey: string }[] = [
@@ -35,6 +34,7 @@ export default function StepDelivery({
   config,
 }: StepDeliveryProps) {
   const t = useTranslations('checkout');
+  const tl = useTranslations('orderLabels');
   const needsAddress = data.deliveryMethod === 'nova_poshta' || data.deliveryMethod === 'ukrposhta';
   // Form-only state: cityRef is needed to fetch warehouses but not persisted on the order.
   const [npCityRef, setNpCityRef] = useState('');
@@ -98,7 +98,7 @@ export default function StepDelivery({
               className="mt-0.5 accent-[var(--color-primary)]"
             />
             <div>
-              <span className="text-sm font-medium">{DELIVERY_METHOD_LABELS[option.value]}</span>
+              <span className="text-sm font-medium">{tl(`deliveryMethod.${option.value}`)}</span>
               <p className="text-xs text-[var(--color-text-secondary)]">
                 {t(option.descriptionKey)}
               </p>

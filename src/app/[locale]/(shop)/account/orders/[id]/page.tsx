@@ -1,17 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
 import { apiClient } from '@/lib/api-client';
-import {
-  ORDER_STATUS_LABELS,
-  ORDER_STATUS_COLORS,
-  DELIVERY_METHOD_LABELS,
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_STATUS_LABELS,
-} from '@/types/order';
+import { ORDER_STATUS_COLORS } from '@/types/order';
 import type { OrderDetail, OrderStatus } from '@/types/order';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Button from '@/components/ui/Button';
@@ -54,6 +49,7 @@ const IconClock = () => (
 );
 
 export default function OrderDetailPage() {
+  const tl = useTranslations('orderLabels');
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -201,7 +197,7 @@ export default function OrderDetailPage() {
                 color: ORDER_STATUS_COLORS[order.status],
               }}
             >
-              {ORDER_STATUS_LABELS[order.status]}
+              {tl(`status.${order.status}`)}
             </span>
             <p className="text-2xl font-bold">
               {total.toFixed(2)} <span className="text-lg">₴</span>
@@ -268,7 +264,7 @@ export default function OrderDetailPage() {
                 Доставка
               </h3>
               <p className="text-sm font-semibold">
-                {DELIVERY_METHOD_LABELS[order.deliveryMethod]}
+                {tl(`deliveryMethod.${order.deliveryMethod}`)}
               </p>
               {(order.deliveryCity || order.deliveryAddress) && (
                 <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
@@ -318,7 +314,7 @@ export default function OrderDetailPage() {
               <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
                 Оплата
               </h3>
-              <p className="text-sm font-semibold">{PAYMENT_METHOD_LABELS[order.paymentMethod]}</p>
+              <p className="text-sm font-semibold">{tl(`paymentMethod.${order.paymentMethod}`)}</p>
               <p className="mt-1.5">
                 <span
                   className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -329,7 +325,7 @@ export default function OrderDetailPage() {
                         : 'bg-amber-100 text-amber-700'
                   }`}
                 >
-                  {PAYMENT_STATUS_LABELS[order.paymentStatus]}
+                  {tl(`paymentStatus.${order.paymentStatus}`)}
                 </span>
               </p>
             </div>
@@ -452,12 +448,12 @@ export default function OrderDetailPage() {
                     <p className="text-sm font-medium">
                       {entry.oldStatus ? (
                         <>
-                          {ORDER_STATUS_LABELS[entry.oldStatus as OrderStatus]}{' '}
+                          {tl(`status.${entry.oldStatus as OrderStatus}`)}{' '}
                           <span className="text-[var(--color-text-secondary)]">&rarr;</span>{' '}
-                          {ORDER_STATUS_LABELS[entry.newStatus as OrderStatus]}
+                          {tl(`status.${entry.newStatus as OrderStatus}`)}
                         </>
                       ) : (
-                        ORDER_STATUS_LABELS[entry.newStatus as OrderStatus]
+                        tl(`status.${entry.newStatus as OrderStatus}`)
                       )}
                     </p>
                     <p className="text-xs text-[var(--color-text-secondary)]">

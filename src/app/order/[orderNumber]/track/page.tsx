@@ -4,12 +4,28 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
-import {
-  ORDER_STATUS_LABELS,
-  ORDER_STATUS_COLORS,
-  DELIVERY_METHOD_LABELS,
-} from '@/types/order';
+import { ORDER_STATUS_COLORS } from '@/types/order';
 import type { OrderStatus, DeliveryMethod } from '@/types/order';
+
+// Public tracking page lives outside the [locale] segment (no next-intl
+// context), so it keeps single-locale Ukrainian labels inline.
+const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  new_order: 'Нове',
+  processing: 'В обробці',
+  confirmed: 'Підтверджене',
+  paid: 'Оплачене',
+  packed: 'Упаковано',
+  shipped: 'Відправлене',
+  completed: 'Виконане',
+  cancelled: 'Скасоване',
+  returned: 'Повернення',
+};
+const DELIVERY_METHOD_LABELS: Record<DeliveryMethod, string> = {
+  nova_poshta: 'Нова Пошта',
+  ukrposhta: 'Укрпошта',
+  pickup: 'Самовивіз',
+  pallet: 'Палетна доставка',
+};
 
 interface TrackedOrder {
   orderNumber: string;
@@ -52,11 +68,7 @@ function formatDateTime(iso: string) {
   });
 }
 
-export default function OrderTrackPage({
-  params,
-}: {
-  params: Promise<{ orderNumber: string }>;
-}) {
+export default function OrderTrackPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   const { orderNumber } = use(params);
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [loading, setLoading] = useState(true);

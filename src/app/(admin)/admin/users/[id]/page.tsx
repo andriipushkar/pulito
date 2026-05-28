@@ -22,7 +22,7 @@ import type {
   UserAddress,
   UserTimelineEntry,
 } from '@/types/user';
-import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, PAYMENT_STATUS_LABELS } from '@/types/order';
+import { ORDER_STATUS_COLORS } from '@/types/order';
 import type { OrderStatus, PaymentStatus } from '@/types/order';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
@@ -62,6 +62,7 @@ type Tab =
 
 export default function AdminUserDetailPage() {
   const t = useTranslations('admin.userDetailPage');
+  const tl = useTranslations('orderLabels');
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [user, setUser] = useState<UserDetail | null>(null);
@@ -883,7 +884,7 @@ export default function AdminUserDetailPage() {
                           className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium text-white"
                           style={{ backgroundColor: ORDER_STATUS_COLORS[o.status as OrderStatus] }}
                         >
-                          {ORDER_STATUS_LABELS[o.status as OrderStatus]}
+                          {tl(`status.${o.status as OrderStatus}`)}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -896,7 +897,7 @@ export default function AdminUserDetailPage() {
                                 : 'bg-gray-100 text-gray-700'
                           }`}
                         >
-                          {PAYMENT_STATUS_LABELS[o.paymentStatus as PaymentStatus]}
+                          {tl(`paymentStatus.${o.paymentStatus as PaymentStatus}`)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">{o.itemsCount}</td>

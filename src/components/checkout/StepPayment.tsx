@@ -3,7 +3,6 @@
 import { useTranslations } from 'next-intl';
 import type { CheckoutInput } from '@/validators/order';
 import type { PaymentMethod } from '@/types/order';
-import { PAYMENT_METHOD_LABELS } from '@/types/order';
 import type { CheckoutConfig } from '@/services/checkout-config';
 import { useWalletAvailability } from '@/hooks/useWalletAvailability';
 import TrustBadges from './TrustBadges';
@@ -71,6 +70,7 @@ export default function StepPayment({
   cartTotal = 0,
 }: StepPaymentProps) {
   const t = useTranslations('checkout');
+  const tl = useTranslations('orderLabels');
   const wallet = useWalletAvailability();
   const minOnline = config?.payment.minOnlineAmount ?? null;
   const onlineBlocked = minOnline !== null && cartTotal < minOnline;
@@ -195,7 +195,7 @@ export default function StepPayment({
               className="mt-0.5 accent-[var(--color-primary)]"
             />
             <div>
-              <span className="text-sm font-medium">{PAYMENT_METHOD_LABELS[option.value]}</span>
+              <span className="text-sm font-medium">{tl(`paymentMethod.${option.value}`)}</span>
               <p className="text-xs text-[var(--color-text-secondary)]">
                 {t(option.descriptionKey)}
               </p>

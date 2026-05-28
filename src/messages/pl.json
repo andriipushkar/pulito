@@ -1,4 +1,36 @@
 {
+  "orderLabels": {
+    "status": {
+      "new_order": "Nowe",
+      "processing": "W realizacji",
+      "confirmed": "Potwierdzone",
+      "paid": "Opłacone",
+      "packed": "Spakowane",
+      "shipped": "Wysłane",
+      "completed": "Zrealizowane",
+      "cancelled": "Anulowane",
+      "returned": "Zwrot"
+    },
+    "paymentStatus": {
+      "pending": "Oczekuje na płatność",
+      "paid": "Opłacone",
+      "partial": "Płatność częściowa",
+      "refunded": "Zwrot środków"
+    },
+    "deliveryMethod": {
+      "nova_poshta": "Nova Poshta",
+      "ukrposhta": "Ukrposhta",
+      "pickup": "Odbiór osobisty",
+      "pallet": "Dostawa paletowa"
+    },
+    "paymentMethod": {
+      "cod": "Płatność przy odbiorze",
+      "bank_transfer": "Przelew bankowy",
+      "online": "Płatność online",
+      "card_prepay": "Przedpłata kartą"
+    },
+    "allStatuses": "Wszystkie statusy"
+  },
   "nav": {
     "home": "Strona glowna",
     "catalog": "Katalog",
@@ -187,7 +219,19 @@
     "performance": "Wydajnosc",
     "funnel": "Lejek",
     "cohorts": "Kohorty",
-    "abcAnalysis": "Analiza ABC",
+    "abcAnalysis": {
+      "totalRevenue": "Całkowity przychód",
+      "groupLabel": "Grupa {cat} ({pct} przychodu)",
+      "productsCount": "{count, plural, one {# produkt} few {# produkty} many {# produktów} other {# produktu}}",
+      "pieLabel": "{cat} ({count, plural, one {# produkt} few {# produkty} many {# produktów} other {# produktu}})",
+      "colCat": "Kat.",
+      "colCode": "Kod",
+      "colName": "Nazwa",
+      "colRevenue": "Przychód",
+      "colRevenuePct": "% przychodu",
+      "colQty": "Ilość",
+      "colOrders": "Zamówienia"
+    },
     "palletDelivery": "Dostawa paletowa",
     "ordersBulk": {
       "title": "Akcje masowe",
@@ -2017,25 +2061,6 @@
       "tsCronNoImport": "Sprawdź <code>/api/v1/cron/sync-marketplace-orders</code> — endpoint zwraca JSON z wynikami dla każdego marketplace. Jeśli <code>failed: -1</code> — jest błąd połączenia.",
       "footerNote": "<b>Więcej dokumentacji:</b> referencja techniczna w pliku <code>MARKETPLACES.md</code> w katalogu głównym repo."
     },
-    "orderLabels": {
-      "status": {
-        "new_order": "Nowe",
-        "processing": "W realizacji",
-        "confirmed": "Potwierdzone",
-        "paid": "Opłacone",
-        "packed": "Spakowane",
-        "shipped": "Wysłane",
-        "completed": "Zrealizowane",
-        "cancelled": "Anulowane",
-        "returned": "Zwrot"
-      },
-      "paymentStatus": {
-        "pending": "Oczekuje na płatność",
-        "paid": "Opłacone",
-        "partial": "Płatność częściowa",
-        "refunded": "Zwrot środków"
-      }
-    },
     "orderTimeline": {
       "created": "Zamówienie utworzone",
       "itemsSummary": "{count, plural, one {# produkt} few {# produkty} many {# produktów} other {# produktów}} na kwotę {amount} ₴",
@@ -2535,19 +2560,6 @@
       "colOrders": "Zamówienia",
       "colSpent": "Wydano",
       "colDaysAgo": "Dni temu"
-    },
-    "abcAnalysis": {
-      "totalRevenue": "Całkowity przychód",
-      "groupLabel": "Grupa {cat} ({pct} przychodu)",
-      "productsCount": "{count, plural, one {# produkt} few {# produkty} many {# produktów} other {# produktu}}",
-      "pieLabel": "{cat} ({count, plural, one {# produkt} few {# produkty} many {# produktów} other {# produktu}})",
-      "colCat": "Kat.",
-      "colCode": "Kod",
-      "colName": "Nazwa",
-      "colRevenue": "Przychód",
-      "colRevenuePct": "% przychodu",
-      "colQty": "Ilość",
-      "colOrders": "Zamówienia"
     },
     "customerLtv": {
       "customers": "Klienci",
@@ -5596,9 +5608,9 @@
       "noActivityHint": "Brak innych logowan do konta"
     },
     "emailTemplatesPage": {
-      "testSent": "Testowy e-mail wysłany na {email}",
-      "sendError": "Błąd wysyłki",
-      "sendTest": "Wyślij test",
+      "testSent": "Email testowy wyslany na {email}",
+      "sendError": "Blad wysylki",
+      "sendTest": "Wyslij test",
       "title": "Szablony email",
       "back": "← Powrot do listy",
       "editing": "Edycja:",
@@ -5615,10 +5627,7 @@
       "varsHint": "Kliknij «Podglad» — zmienne zostana wypelnione przykladowymi wartosciami w celu weryfikacji.",
       "testTitle": "Testowy email",
       "testEmailPh": "Email do testu...",
-      "sendTest": "Wyslij test",
       "invalidEmail": "Nieprawidlowy format email",
-      "testSent": "Email testowy wyslany na {email}",
-      "sendError": "Blad wysylki",
       "versionsTitle": "Historia wersji",
       "show": "Pokaz",
       "hide": "Ukryj",

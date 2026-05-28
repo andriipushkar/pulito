@@ -3,7 +3,6 @@
 import { useTranslations } from 'next-intl';
 import type { CartItem } from '@/providers/CartProvider';
 import type { CheckoutInput } from '@/validators/order';
-import { DELIVERY_METHOD_LABELS, PAYMENT_METHOD_LABELS } from '@/types/order';
 import type { CheckoutConfig } from '@/services/checkout-config';
 import FrequentlyBought from './FrequentlyBought';
 
@@ -28,6 +27,7 @@ export default function StepConfirmation({
 }: StepConfirmationProps) {
   const t = useTranslations('checkout');
   const tc = useTranslations('common');
+  const tl = useTranslations('orderLabels');
 
   const maxSpendable = Math.min(loyaltyPoints ?? 0, Math.floor(total));
   const pointsDiscount = loyaltyPointsToSpend ?? 0;
@@ -64,7 +64,7 @@ export default function StepConfirmation({
         ) : (
           <>
             <p className="text-sm">
-              {data.deliveryMethod ? DELIVERY_METHOD_LABELS[data.deliveryMethod] : '—'}
+              {data.deliveryMethod ? tl(`deliveryMethod.${data.deliveryMethod}`) : '—'}
             </p>
             {data.deliveryCity && <p className="text-sm">{data.deliveryCity}</p>}
             {data.deliveryAddress && <p className="text-sm">{data.deliveryAddress}</p>}
@@ -81,7 +81,7 @@ export default function StepConfirmation({
           <p className="whitespace-pre-wrap text-sm">{data.paymentNote || '—'}</p>
         ) : (
           <p className="text-sm">
-            {data.paymentMethod ? PAYMENT_METHOD_LABELS[data.paymentMethod] : '—'}
+            {data.paymentMethod ? tl(`paymentMethod.${data.paymentMethod}`) : '—'}
           </p>
         )}
         {data.comment && (

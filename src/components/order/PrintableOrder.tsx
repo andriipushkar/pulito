@@ -1,14 +1,46 @@
 'use client';
 
 import { useRef } from 'react';
-import type { OrderDetail } from '@/types/order';
-import {
-  DELIVERY_METHOD_LABELS,
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_STATUS_LABELS,
-  ORDER_STATUS_LABELS,
+import type {
+  OrderDetail,
+  OrderStatus,
+  DeliveryMethod,
+  PaymentMethod,
+  PaymentStatus,
 } from '@/types/order';
 import { useSettings } from '@/hooks/useSettings';
+
+// Printable order is an official single-locale Ukrainian document, so its label
+// maps stay inline here rather than going through the i18n orderLabels namespace.
+const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  new_order: 'Нове',
+  processing: 'В обробці',
+  confirmed: 'Підтверджене',
+  paid: 'Оплачене',
+  packed: 'Упаковано',
+  shipped: 'Відправлене',
+  completed: 'Виконане',
+  cancelled: 'Скасоване',
+  returned: 'Повернення',
+};
+const DELIVERY_METHOD_LABELS: Record<DeliveryMethod, string> = {
+  nova_poshta: 'Нова Пошта',
+  ukrposhta: 'Укрпошта',
+  pickup: 'Самовивіз',
+  pallet: 'Палетна доставка',
+};
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cod: 'Накладений платіж',
+  bank_transfer: 'На розрахунковий рахунок',
+  online: 'Онлайн-оплата',
+  card_prepay: 'Передоплата на картку',
+};
+const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  pending: 'Очікує оплати',
+  paid: 'Оплачено',
+  partial: 'Часткова оплата',
+  refunded: 'Повернення коштів',
+};
 
 interface PrintableOrderProps {
   order: OrderDetail;

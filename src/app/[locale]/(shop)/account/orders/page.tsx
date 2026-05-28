@@ -1,14 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { apiClient } from '@/lib/api-client';
-import {
-  ORDER_STATUS_LABELS,
-  ORDER_STATUS_COLORS,
-  DELIVERY_METHOD_LABELS,
-  PAYMENT_METHOD_LABELS,
-} from '@/types/order';
+import { ORDER_STATUS_COLORS, ORDER_STATUSES } from '@/types/order';
 import type { OrderListItem, OrderStatus } from '@/types/order';
 import Spinner from '@/components/ui/Spinner';
 import EmptyState from '@/components/ui/EmptyState';
@@ -17,12 +13,12 @@ import Select from '@/components/ui/Select';
 import PageHeader from '@/components/account/PageHeader';
 import { Cart } from '@/components/icons';
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Всі статуси' },
-  ...Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => ({ value, label })),
-];
-
 export default function OrdersPage() {
+  const tl = useTranslations('orderLabels');
+  const STATUS_OPTIONS = [
+    { value: '', label: tl('allStatuses') },
+    ...ORDER_STATUSES.map((value) => ({ value, label: tl(`status.${value}`) })),
+  ];
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -152,7 +148,7 @@ export default function OrdersPage() {
                         color: ORDER_STATUS_COLORS[order.status as OrderStatus],
                       }}
                     >
-                      {ORDER_STATUS_LABELS[order.status as OrderStatus]}
+                      {tl(`status.${order.status as OrderStatus}`)}
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -187,7 +183,7 @@ export default function OrdersPage() {
                             d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
                           />
                         </svg>
-                        {DELIVERY_METHOD_LABELS[order.deliveryMethod]}
+                        {tl(`deliveryMethod.${order.deliveryMethod}`)}
                       </span>
                       <span className="flex items-center gap-1">
                         <svg
@@ -203,7 +199,7 @@ export default function OrdersPage() {
                             d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
                           />
                         </svg>
-                        {PAYMENT_METHOD_LABELS[order.paymentMethod]}
+                        {tl(`paymentMethod.${order.paymentMethod}`)}
                       </span>
                     </div>
                     <span className="text-lg font-bold text-[var(--color-text)]">

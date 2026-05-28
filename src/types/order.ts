@@ -17,17 +17,24 @@ export type DeliveryMethod = 'nova_poshta' | 'ukrposhta' | 'pickup' | 'pallet';
 export type PaymentMethod = 'cod' | 'bank_transfer' | 'online' | 'card_prepay';
 export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
 
-export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  new_order: 'Нове',
-  processing: 'В обробці',
-  confirmed: 'Підтверджене',
-  paid: 'Оплачене',
-  packed: 'Упаковано',
-  shipped: 'Відправлене',
-  completed: 'Виконане',
-  cancelled: 'Скасоване',
-  returned: 'Повернення',
-};
+// Order label text lives in the i18n `orderLabels` namespace (status /
+// paymentStatus / deliveryMethod / paymentMethod), resolved by UI consumers via
+// useTranslations('orderLabels'). These arrays give a stable iteration order for
+// building filter dropdowns without a Ukrainian label map in this module.
+export const ORDER_STATUSES: OrderStatus[] = [
+  'new_order',
+  'processing',
+  'confirmed',
+  'paid',
+  'packed',
+  'shipped',
+  'completed',
+  'cancelled',
+  'returned',
+];
+export const DELIVERY_METHODS: DeliveryMethod[] = ['nova_poshta', 'ukrposhta', 'pickup', 'pallet'];
+export const PAYMENT_METHODS: PaymentMethod[] = ['cod', 'bank_transfer', 'online', 'card_prepay'];
+export const PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'partial', 'refunded'];
 
 export const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   new_order: '#2563eb',
@@ -39,27 +46,6 @@ export const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   completed: '#4b5563',
   cancelled: '#dc2626',
   returned: '#ea580c',
-};
-
-export const DELIVERY_METHOD_LABELS: Record<DeliveryMethod, string> = {
-  nova_poshta: 'Нова Пошта',
-  ukrposhta: 'Укрпошта',
-  pickup: 'Самовивіз',
-  pallet: 'Палетна доставка',
-};
-
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  cod: 'Накладений платіж',
-  bank_transfer: 'На розрахунковий рахунок',
-  online: 'Онлайн-оплата',
-  card_prepay: 'Передоплата на картку',
-};
-
-export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  pending: 'Очікує оплати',
-  paid: 'Оплачено',
-  partial: 'Часткова оплата',
-  refunded: 'Повернення коштів',
 };
 
 export interface OrderItemData {

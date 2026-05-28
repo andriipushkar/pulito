@@ -8,13 +8,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { formatPrice, formatDateTime } from '@/utils/format';
-import {
-  ORDER_STATUS_LABELS,
-  ORDER_STATUS_COLORS,
-  DELIVERY_METHOD_LABELS,
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_STATUS_LABELS,
-} from '@/types/order';
+import { ORDER_STATUS_COLORS } from '@/types/order';
 import type { OrderDetail, OrderStatus } from '@/types/order';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
@@ -35,6 +29,7 @@ import { ALLOWED_ORDER_TRANSITIONS, TTN_PATTERN } from '@/config/admin-constants
 
 export default function AdminOrderDetailPage() {
   const t = useTranslations('admin.ordersDetail');
+  const tl = useTranslations('orderLabels');
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -148,9 +143,7 @@ export default function AdminOrderDetailPage() {
         comment: comment || undefined,
       });
       if (res.success) {
-        toast.success(
-          t('statusChanged', { status: ORDER_STATUS_LABELS[newStatus as OrderStatus] }),
-        );
+        toast.success(t('statusChanged', { status: tl(`status.${newStatus as OrderStatus}`) }));
         await reloadOrder();
         setNewStatus('');
         setComment('');
@@ -293,7 +286,7 @@ export default function AdminOrderDetailPage() {
               className="rounded-full px-3 py-0.5 text-xs font-medium text-white"
               style={{ backgroundColor: ORDER_STATUS_COLORS[order.status] }}
             >
-              {ORDER_STATUS_LABELS[order.status]}
+              {tl(`status.${order.status}`)}
             </span>
             {order.clientType === 'wholesale' && (
               <span className="rounded bg-[var(--color-primary)]/10 px-2 py-0.5 text-xs font-bold text-[var(--color-primary)]">
@@ -370,7 +363,7 @@ export default function AdminOrderDetailPage() {
                 { value: '', label: t('selectStatus') },
                 ...allowedStatuses.map((s) => ({
                   value: s,
-                  label: ORDER_STATUS_LABELS[s as OrderStatus],
+                  label: tl(`status.${s as OrderStatus}`),
                 })),
               ]}
               value={newStatus}
@@ -506,7 +499,7 @@ export default function AdminOrderDetailPage() {
 
         {/* Delivery + TTN */}
         <InfoCard title={t('delivery')}>
-          <p className="font-medium">{DELIVERY_METHOD_LABELS[order.deliveryMethod]}</p>
+          <p className="font-medium">{tl(`deliveryMethod.${order.deliveryMethod}`)}</p>
           {order.deliveryCity && <p>{order.deliveryCity}</p>}
           {order.deliveryAddress && (
             <div className="flex items-start gap-1">
@@ -600,7 +593,7 @@ export default function AdminOrderDetailPage() {
 
         {/* Payment */}
         <InfoCard title={t('payment')}>
-          <p className="font-medium">{PAYMENT_METHOD_LABELS[order.paymentMethod]}</p>
+          <p className="font-medium">{tl(`paymentMethod.${order.paymentMethod}`)}</p>
           <p
             className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
               order.paymentStatus === 'paid'
@@ -610,7 +603,7 @@ export default function AdminOrderDetailPage() {
                   : 'bg-gray-100 text-gray-700'
             }`}
           >
-            {PAYMENT_STATUS_LABELS[order.paymentStatus]}
+            {tl(`paymentStatus.${order.paymentStatus}`)}
           </p>
           {order.payment?.paymentProvider && (
             <p className="text-xs text-[var(--color-text-secondary)]">
@@ -922,7 +915,7 @@ export default function AdminOrderDetailPage() {
         variant="warning"
         title={t('confirmStatusTitle')}
         message={t('confirmStatusMsg', {
-          status: ORDER_STATUS_LABELS[newStatus as OrderStatus] || newStatus,
+          status: tl(`status.${newStatus as OrderStatus}`),
         })}
         confirmText={t('yesChange')}
         isLoading={isUpdating}

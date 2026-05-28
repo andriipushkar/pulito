@@ -35,7 +35,7 @@ interface Props {
 
 export default function OrderQuickEditDrawer({ orderId, onClose, onUpdated }: Props) {
   const t = useTranslations('admin.orderQuickEdit');
-  const tl = useTranslations('admin.orderLabels');
+  const tl = useTranslations('orderLabels');
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [newStatus, setNewStatus] = useState<OrderStatus | ''>('');

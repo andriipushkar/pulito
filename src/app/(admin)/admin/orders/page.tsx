@@ -10,11 +10,10 @@ import Button from '@/components/ui/Button';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import { formatPrice, formatDateTime } from '@/utils/format';
 import {
-  ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,
-  DELIVERY_METHOD_LABELS,
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_STATUS_LABELS,
+  ORDER_STATUSES,
+  DELIVERY_METHODS,
+  PAYMENT_METHODS,
 } from '@/types/order';
 import type {
   OrderListItem,
@@ -78,12 +77,13 @@ export default function AdminOrdersPage() {
 
 function AdminOrdersPageInner() {
   const t = useTranslations('admin.ordersListPage');
+  const tl = useTranslations('orderLabels');
   const STATUS_OPTIONS = useMemo(
     () => [
       { value: '', label: t('allStatuses') },
-      ...Object.entries(ORDER_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
+      ...ORDER_STATUSES.map((v) => ({ value: v, label: tl(`status.${v}`) })),
     ],
-    [t],
+    [t, tl],
   );
   const CLIENT_TYPE_OPTIONS = useMemo(
     () => [
@@ -96,16 +96,16 @@ function AdminOrdersPageInner() {
   const PAYMENT_METHOD_OPTIONS = useMemo(
     () => [
       { value: '', label: t('allPayment') },
-      ...Object.entries(PAYMENT_METHOD_LABELS).map(([v, l]) => ({ value: v, label: l })),
+      ...PAYMENT_METHODS.map((v) => ({ value: v, label: tl(`paymentMethod.${v}`) })),
     ],
-    [t],
+    [t, tl],
   );
   const DELIVERY_METHOD_OPTIONS = useMemo(
     () => [
       { value: '', label: t('allDelivery') },
-      ...Object.entries(DELIVERY_METHOD_LABELS).map(([v, l]) => ({ value: v, label: l })),
+      ...DELIVERY_METHODS.map((v) => ({ value: v, label: tl(`deliveryMethod.${v}`) })),
     ],
-    [t],
+    [t, tl],
   );
   const SORT_OPTIONS = useMemo(
     () => [
@@ -235,7 +235,7 @@ function AdminOrdersPageInner() {
           toast.success(
             t('statusUpdatedN', {
               count: ok.length,
-              status: ORDER_STATUS_LABELS[statusToApply as OrderStatus],
+              status: tl(`status.${statusToApply as OrderStatus}`),
             }),
           );
         }
@@ -505,9 +505,7 @@ function AdminOrdersPageInner() {
         status: nextStatus,
       });
       if (res.success) {
-        toast.success(
-          t('statusChangedTo', { status: ORDER_STATUS_LABELS[nextStatus as OrderStatus] }),
-        );
+        toast.success(t('statusChangedTo', { status: tl(`status.${nextStatus as OrderStatus}`) }));
         loadStats();
       } else {
         setOrders(prevOrders);
@@ -870,7 +868,7 @@ function AdminOrdersPageInner() {
                       backgroundColor: ORDER_STATUS_COLORS[order.status as OrderStatus],
                     }}
                   >
-                    {ORDER_STATUS_LABELS[order.status as OrderStatus]}
+                    {tl(`status.${order.status as OrderStatus}`)}
                   </span>
                 </div>
                 <p className="text-sm">{order.contactName}</p>
@@ -1010,22 +1008,22 @@ function AdminOrdersPageInner() {
                             backgroundColor: ORDER_STATUS_COLORS[order.status as OrderStatus],
                           }}
                         >
-                          {ORDER_STATUS_LABELS[order.status as OrderStatus]}
+                          {tl(`status.${order.status as OrderStatus}`)}
                         </span>
                       </td>
                       <td className="px-3 py-3">
                         <p className="text-[11px] text-[var(--color-text-secondary)]">
-                          {PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod]}
+                          {tl(`paymentMethod.${order.paymentMethod as PaymentMethod}`)}
                         </p>
                         <span
                           className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${paymentStatusColor(order.paymentStatus)}`}
                         >
-                          {PAYMENT_STATUS_LABELS[order.paymentStatus as PaymentStatus]}
+                          {tl(`paymentStatus.${order.paymentStatus as PaymentStatus}`)}
                         </span>
                       </td>
                       <td className="px-3 py-3">
                         <p className="text-xs">
-                          {DELIVERY_METHOD_LABELS[order.deliveryMethod as DeliveryMethod]}
+                          {tl(`deliveryMethod.${order.deliveryMethod as DeliveryMethod}`)}
                         </p>
                         {order.trackingNumber && (
                           <p className="mt-0.5 text-[11px] font-medium text-[var(--color-primary)]">
@@ -1050,7 +1048,7 @@ function AdminOrdersPageInner() {
                                   <option value="">{t('statusPlaceholder')}</option>
                                   {transitions.map((s) => (
                                     <option key={s} value={s}>
-                                      {ORDER_STATUS_LABELS[s as OrderStatus]}
+                                      {tl(`status.${s as OrderStatus}`)}
                                     </option>
                                   ))}
                                 </select>
@@ -1171,7 +1169,7 @@ function AdminOrdersPageInner() {
         message={
           confirmStatusChange
             ? t('statusChangeMsg', {
-                status: ORDER_STATUS_LABELS[confirmStatusChange.status as OrderStatus],
+                status: tl(`status.${confirmStatusChange.status as OrderStatus}`),
               })
             : ''
         }
@@ -1205,7 +1203,7 @@ function AdminOrdersPageInner() {
           bulkStatusConfirm
             ? t('bulkStatusMsg', {
                 count: selectedIds.size,
-                status: ORDER_STATUS_LABELS[bulkStatusConfirm as OrderStatus],
+                status: tl(`status.${bulkStatusConfirm as OrderStatus}`),
               })
             : ''
         }

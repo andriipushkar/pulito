@@ -8,7 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { apiClient } from '@/lib/api-client';
 import { displayName, plural } from '@/utils/format';
-import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/types/order';
+import { useTranslations } from 'next-intl';
+import { ORDER_STATUS_COLORS } from '@/types/order';
 import type { OrderListItem, OrderStatus } from '@/types/order';
 import Spinner from '@/components/ui/Spinner';
 import EmptyState from '@/components/ui/EmptyState';
@@ -89,6 +90,7 @@ const IconCartStat = (
 );
 
 export default function AccountDashboard() {
+  const tl = useTranslations('orderLabels');
   const router = useRouter();
   const { user } = useAuth();
   const { addItem, itemCount, total } = useCart();
@@ -356,7 +358,7 @@ export default function AccountDashboard() {
                           color: ORDER_STATUS_COLORS[order.status as OrderStatus],
                         }}
                       >
-                        {ORDER_STATUS_LABELS[order.status as OrderStatus]}
+                        {tl(`status.${order.status as OrderStatus}`)}
                       </span>
                     </div>
                   </div>
