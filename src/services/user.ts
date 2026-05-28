@@ -175,8 +175,13 @@ export async function updateUserProfile(
   const user = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
   if (!user) throw new UserError('Користувача не знайдено', 404);
 
-  // Check email uniqueness if changing
+  // Check email uniqueness if changing. Validate format too — email is the
+  // login identifier, so an admin typo (missing @, stray space) would lock the
+  // user out of sign-in without any obvious error.
   if (data.email && data.email !== user.email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      throw new UserError('Невірний формат email', 400);
+    }
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new UserError('Цей email вже зайнятий', 400);
   }
@@ -215,9 +220,18 @@ export async function toggleBlockUser(
 ) {
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, isBlocked: true },
+    select: { id: true, isBlocked: true, role: true },
   });
   if (!user) throw new UserError('Користувача не знайдено', 404);
+
+  // Never block an admin: blocking deletes their refresh tokens, so blocking
+  // yourself locks you out mid-session, and blocking the last/only admin locks
+  // everyone out — recoverable only via direct DB access. Mirror the
+  // deleteUserAccount policy ("cannot delete an admin"). To lock out a
+  // compromised admin, demote the role first or rotate their password.
+  if (block && user.role === 'admin') {
+    throw new UserError('Неможливо заблокувати адміністратора — спершу знизьте роль', 400);
+  }
 
   const updated = await prisma.user.update({
     where: { id },
