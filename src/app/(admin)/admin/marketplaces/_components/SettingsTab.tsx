@@ -33,6 +33,7 @@ interface TokenExpiryInfo {
 
 export function SettingsTab() {
   const tSync = useTranslations('admin.autoSyncSettings');
+  const tShared = useTranslations('admin.marketplacesShared');
   const [configs, setConfigs] = useState<Record<string, MarketplaceConfig | null>>({});
   const [forms, setForms] = useState<Record<string, Record<string, string | boolean>>>({});
   const [statuses, setStatuses] = useState<Record<string, MarketplaceStatus | null>>({});
@@ -152,7 +153,7 @@ export function SettingsTab() {
     });
 
     if (clearedSensitive.length > 0) {
-      const fieldLabels = clearedSensitive.map((f) => f.label).join(', ');
+      const fieldLabels = clearedSensitive.map((f) => tShared(f.label)).join(', ');
       const ok = window.confirm(
         `Ви залишили порожніми поля: ${fieldLabels}.\n\n` +
           `Якщо зберегти зараз, ці креденшли буде стерто і ${marketplace.name} ` +
@@ -286,7 +287,7 @@ export function SettingsTab() {
                         href={marketplace.docsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title={marketplace.docsLabel}
+                        title={tShared(marketplace.docsLabel)}
                         className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
                       >
                         <svg
@@ -305,7 +306,7 @@ export function SettingsTab() {
                       </a>
                     </div>
                     <p className="text-xs text-[var(--color-text-secondary)]">
-                      {marketplace.description}
+                      {tShared(marketplace.description)}
                     </p>
                   </div>
                 </div>
@@ -325,7 +326,7 @@ export function SettingsTab() {
                 <HealthBadge health={health} enabled={isEnabled} />
                 {health && (
                   <span className="text-[var(--color-text-secondary)]">
-                    Перевірено: {formatRelative(health.checkedAt)}
+                    Перевірено: {formatRelative(tShared, health.checkedAt)}
                   </span>
                 )}
                 {status?.publishedCount ? (
@@ -406,8 +407,8 @@ export function SettingsTab() {
                   return (
                     <div key={field.key}>
                       <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[var(--color-text-secondary)]">
-                        {field.label} {field.optional && <span>(опц.)</span>}
-                        {help && <HelpTooltip text={help} />}
+                        {tShared(field.label)} {field.optional && <span>(опц.)</span>}
+                        {help && <HelpTooltip text={tShared(help)} />}
                       </label>
                       {isMasked ? (
                         <div className="flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-xs">
@@ -430,7 +431,7 @@ export function SettingsTab() {
                             type={field.sensitive && !isShown ? 'password' : 'text'}
                             value={currentValue}
                             onChange={(e) => updateField(ch, field.key, e.target.value)}
-                            placeholder={field.placeholder}
+                            placeholder={tShared(field.placeholder)}
                           />
                           {field.sensitive && (
                             <button
@@ -528,14 +529,14 @@ export function SettingsTab() {
                                 ? 'Спочатку увімкніть маркетплейс'
                                 : health?.status === 'error'
                                   ? 'Спочатку виправте помилку підключення'
-                                  : `Останній: ${formatRelative(lastSync)}`
+                                  : `Останній: ${formatRelative(tShared, lastSync)}`
                           }
                         >
                           {syncTypeLabel(tSync, type)}
                         </Button>
                         {lastSync && supported && (
                           <span className="text-[10px] text-[var(--color-text-secondary)]">
-                            {formatRelative(lastSync)}
+                            {formatRelative(tShared, lastSync)}
                           </span>
                         )}
                       </div>

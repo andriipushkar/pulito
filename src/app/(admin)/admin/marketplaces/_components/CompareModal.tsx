@@ -24,6 +24,7 @@ interface CompareModalProps {
  */
 export default function CompareModal({ open, onClose }: CompareModalProps) {
   const t = useTranslations('admin.compareModal');
+  const tShared = useTranslations('admin.marketplacesShared');
   const [leftKey, setLeftKey] = useState<string>(MARKETPLACES[0]?.key ?? 'olx');
   const [rightKey, setRightKey] = useState<string>(MARKETPLACES[1]?.key ?? 'rozetka');
   const [configs, setConfigs] = useState<Record<string, ConfigSummary | null>>({});
@@ -98,7 +99,7 @@ export default function CompareModal({ open, onClose }: CompareModalProps) {
               rel="noopener noreferrer"
               className="text-xs text-[var(--color-primary)] hover:underline"
             >
-              {platform?.docsLabel ?? t('openDocs')}
+              {platform?.docsLabel ? tShared(platform.docsLabel) : t('openDocs')}
             </a>
           </Row>
         </div>

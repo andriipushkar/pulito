@@ -14,6 +14,7 @@ import { MARKETPLACES } from '../_shared';
  */
 export default function OnboardingWizard() {
   const t = useTranslations('admin.onboardingWizard');
+  const tShared = useTranslations('admin.marketplacesShared');
   const [allEmpty, setAllEmpty] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +52,7 @@ export default function OnboardingWizard() {
               <span className="font-bold">{m.name}</span>
             </div>
             <p className="mb-3 line-clamp-2 text-xs text-[var(--color-text-secondary)]">
-              {m.description}
+              {tShared(m.description)}
             </p>
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-[var(--color-primary)]">{t('configure')}</span>
