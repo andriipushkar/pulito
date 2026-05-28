@@ -974,6 +974,28 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "userSecurityTab": {
+      "loading": "Ładowanie…",
+      "noData": "Brak danych",
+      "twoFactor": "Uwierzytelnianie dwuskładnikowe",
+      "enabled": "✓ Włączone",
+      "disabled": "⚠ Wyłączone",
+      "blockStatus": "Status blokady",
+      "blocked": "🚫 Zablokowany",
+      "active": "✓ Aktywny",
+      "reason": "Powód:",
+      "lastLogin": "Ostatnie logowanie",
+      "neverLoggedIn": "Nigdy się nie logował",
+      "loginHistory": "Historia logowań (ostatnie 20)",
+      "noRecords": "Brak rekordów",
+      "colDate": "Data",
+      "colStatus": "Status",
+      "colDevice": "Urządzenie",
+      "colLocation": "Lokalizacja",
+      "success": "✓ Sukces",
+      "failure": "✗ Błąd",
+      "maskedTitle": "Zamaskowane dla prywatności"
+    },
     "performanceWidget": {
       "noData": "Brak danych o wydajności w wybranym okresie"
     },

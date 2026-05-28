@@ -974,6 +974,28 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "userSecurityTab": {
+      "loading": "Loading…",
+      "noData": "No data",
+      "twoFactor": "Two-factor authentication",
+      "enabled": "✓ Enabled",
+      "disabled": "⚠ Disabled",
+      "blockStatus": "Block status",
+      "blocked": "🚫 Blocked",
+      "active": "✓ Active",
+      "reason": "Reason:",
+      "lastLogin": "Last login",
+      "neverLoggedIn": "Never logged in",
+      "loginHistory": "Login history (last 20)",
+      "noRecords": "No records",
+      "colDate": "Date",
+      "colStatus": "Status",
+      "colDevice": "Device",
+      "colLocation": "Location",
+      "success": "✓ Success",
+      "failure": "✗ Failure",
+      "maskedTitle": "Masked for privacy"
+    },
     "performanceWidget": {
       "noData": "No performance data for the selected period"
     },

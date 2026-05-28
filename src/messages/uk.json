@@ -974,6 +974,28 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "userSecurityTab": {
+      "loading": "Завантаження…",
+      "noData": "Немає даних",
+      "twoFactor": "Двофакторна автентифікація",
+      "enabled": "✓ Увімкнено",
+      "disabled": "⚠ Вимкнено",
+      "blockStatus": "Статус блокування",
+      "blocked": "🚫 Заблоковано",
+      "active": "✓ Активний",
+      "reason": "Причина:",
+      "lastLogin": "Останній вхід",
+      "neverLoggedIn": "Ніколи не входив",
+      "loginHistory": "Історія входу (останні 20)",
+      "noRecords": "Записів немає",
+      "colDate": "Дата",
+      "colStatus": "Статус",
+      "colDevice": "Пристрій",
+      "colLocation": "Місцезнаходження",
+      "success": "✓ Успіх",
+      "failure": "✗ Помилка",
+      "maskedTitle": "Замасковано для приватності"
+    },
     "performanceWidget": {
       "noData": "Немає даних про продуктивність за обраний період"
     },

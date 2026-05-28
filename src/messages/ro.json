@@ -974,6 +974,28 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "userSecurityTab": {
+      "loading": "Se încarcă…",
+      "noData": "Nu există date",
+      "twoFactor": "Autentificare în doi factori",
+      "enabled": "✓ Activat",
+      "disabled": "⚠ Dezactivat",
+      "blockStatus": "Status blocare",
+      "blocked": "🚫 Blocat",
+      "active": "✓ Activ",
+      "reason": "Motiv:",
+      "lastLogin": "Ultima autentificare",
+      "neverLoggedIn": "Nu s-a autentificat niciodată",
+      "loginHistory": "Istoric autentificări (ultimele 20)",
+      "noRecords": "Niciun rezultat",
+      "colDate": "Dată",
+      "colStatus": "Status",
+      "colDevice": "Dispozitiv",
+      "colLocation": "Locație",
+      "success": "✓ Succes",
+      "failure": "✗ Eșec",
+      "maskedTitle": "Mascat pentru confidențialitate"
+    },
     "performanceWidget": {
       "noData": "Nu există date despre performanță pentru perioada selectată"
     },
