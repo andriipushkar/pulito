@@ -974,6 +974,22 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "customerLtv": {
+      "customers": "Клієнтів",
+      "totalRevenue": "Загальна виручка",
+      "avgLtv": "Середній LTV",
+      "medianLtv": "Медіана LTV",
+      "distributionTitle": "Розподіл LTV",
+      "topTitle": "Топ-50 клієнтів за LTV",
+      "colClient": "Клієнт",
+      "colSpent": "Витрачено",
+      "colOrders": "Замовл.",
+      "colAvgCheck": "Сер. чек",
+      "colMonthly": "Міс. вартість",
+      "colYearlyLtv": "Річний LTV",
+      "colFirstOrder": "Перше зам.",
+      "colLast": "Останнє"
+    },
     "subscriptionAnalyticsBar": {
       "loading": "Завантаження аналітики…",
       "reasonUserRequested": "За запитом клієнта",

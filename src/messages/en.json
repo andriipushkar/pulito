@@ -974,6 +974,22 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "customerLtv": {
+      "customers": "Customers",
+      "totalRevenue": "Total revenue",
+      "avgLtv": "Average LTV",
+      "medianLtv": "Median LTV",
+      "distributionTitle": "LTV distribution",
+      "topTitle": "Top 50 customers by LTV",
+      "colClient": "Customer",
+      "colSpent": "Spent",
+      "colOrders": "Orders",
+      "colAvgCheck": "Avg. check",
+      "colMonthly": "Monthly value",
+      "colYearlyLtv": "Yearly LTV",
+      "colFirstOrder": "First order",
+      "colLast": "Last"
+    },
     "subscriptionAnalyticsBar": {
       "loading": "Loading analytics…",
       "reasonUserRequested": "At customer's request",

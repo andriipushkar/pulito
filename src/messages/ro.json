@@ -974,6 +974,22 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "customerLtv": {
+      "customers": "Clienți",
+      "totalRevenue": "Venit total",
+      "avgLtv": "LTV mediu",
+      "medianLtv": "Mediana LTV",
+      "distributionTitle": "Distribuția LTV",
+      "topTitle": "Top 50 clienți după LTV",
+      "colClient": "Client",
+      "colSpent": "Cheltuit",
+      "colOrders": "Com.",
+      "colAvgCheck": "Bon mediu",
+      "colMonthly": "Valoare lunară",
+      "colYearlyLtv": "LTV anual",
+      "colFirstOrder": "Prima com.",
+      "colLast": "Ultima"
+    },
     "subscriptionAnalyticsBar": {
       "loading": "Se încarcă analiza…",
       "reasonUserRequested": "La cererea clientului",

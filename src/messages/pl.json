@@ -974,6 +974,22 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "customerLtv": {
+      "customers": "Klienci",
+      "totalRevenue": "Całkowity przychód",
+      "avgLtv": "Średni LTV",
+      "medianLtv": "Mediana LTV",
+      "distributionTitle": "Rozkład LTV",
+      "topTitle": "Top 50 klientów wg LTV",
+      "colClient": "Klient",
+      "colSpent": "Wydano",
+      "colOrders": "Zam.",
+      "colAvgCheck": "Śr. koszyk",
+      "colMonthly": "Wartość mies.",
+      "colYearlyLtv": "Roczny LTV",
+      "colFirstOrder": "Pierwsze zam.",
+      "colLast": "Ostatnie"
+    },
     "subscriptionAnalyticsBar": {
       "loading": "Ładowanie analityki…",
       "reasonUserRequested": "Na życzenie klienta",
