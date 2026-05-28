@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -35,6 +36,7 @@ interface Props {
  * "Open full page" — that's the existing /admin/products/[id] route.
  */
 export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: Props) {
+  const t = useTranslations('admin.productQuickEdit');
   const [loadedProduct, setLoadedProduct] = useState<QuickProduct | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   // Derive isLoading from "the loaded product id matches the requested one".
@@ -91,11 +93,11 @@ export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: 
     });
     setIsSaving(false);
     if (res.success) {
-      toast.success('Збережено');
+      toast.success(t('saved'));
       onSaved?.();
       onClose();
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('error'));
     }
   };
 
@@ -106,11 +108,11 @@ export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: 
       <div className="flex-1 bg-black/30" onClick={onClose} aria-hidden="true" />
       <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-bg)] p-4 shadow-2xl sm:max-w-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold">Швидке редагування</h3>
+          <h3 className="text-lg font-bold">{t('quickEdit')}</h3>
           <button
             onClick={onClose}
             className="rounded-full p-1.5 hover:bg-[var(--color-bg-secondary)]"
-            aria-label="Закрити"
+            aria-label={t('close')}
           >
             ✕
           </button>
@@ -123,23 +125,23 @@ export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: 
         ) : (
           <div className="space-y-3">
             <div className="text-xs text-[var(--color-text-secondary)]">
-              Код: <span className="font-mono">{product.code}</span>
+              {t('code')} <span className="font-mono">{product.code}</span>
             </div>
             <Input
-              label="Назва"
+              label={t('name')}
               value={product.name}
               onChange={(e) => setProduct({ ...product, name: e.target.value })}
             />
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label="Ціна"
+                label={t('price')}
                 type="number"
                 step="0.01"
                 value={String(product.priceRetail)}
                 onChange={(e) => setProduct({ ...product, priceRetail: e.target.value })}
               />
               <Input
-                label="Опт"
+                label={t('wholesale')}
                 type="number"
                 step="0.01"
                 value={product.priceWholesale === null ? '' : String(product.priceWholesale)}
@@ -147,7 +149,7 @@ export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: 
               />
             </div>
             <Input
-              label="Кількість"
+              label={t('quantity')}
               type="number"
               value={String(product.quantity)}
               onChange={(e) => setProduct({ ...product, quantity: Number(e.target.value) })}
@@ -159,7 +161,7 @@ export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: 
                 onChange={(e) => setProduct({ ...product, isActive: e.target.checked })}
                 className="accent-[var(--color-primary)]"
               />
-              Активний
+              {t('active')}
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -168,23 +170,21 @@ export default function ProductQuickEditDrawer({ productId, onClose, onSaved }: 
                 onChange={(e) => setProduct({ ...product, isPromo: e.target.checked })}
                 className="accent-[var(--color-primary)]"
               />
-              Акційний
+              {t('promo')}
             </label>
 
             <div className="flex flex-wrap gap-2 pt-3">
               <Button onClick={save} disabled={isSaving}>
-                {isSaving ? 'Зберігаємо…' : '💾 Зберегти'}
+                {isSaving ? t('saving') : t('save')}
               </Button>
               <Link
                 href={`/admin/products/${product.id}`}
                 className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium hover:bg-[var(--color-bg-secondary)]"
               >
-                Повне редагування →
+                {t('fullEdit')}
               </Link>
             </div>
-            <p className="pt-2 text-[10px] text-[var(--color-text-secondary)]">
-              ESC щоб закрити. Для опису, SEO, фото — відкрийте повну сторінку.
-            </p>
+            <p className="pt-2 text-[10px] text-[var(--color-text-secondary)]">{t('escHint')}</p>
           </div>
         )}
       </div>

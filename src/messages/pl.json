@@ -2010,6 +2010,75 @@
       "tsCronNoImport": "Sprawdź <code>/api/v1/cron/sync-marketplace-orders</code> — endpoint zwraca JSON z wynikami dla każdego marketplace. Jeśli <code>failed: -1</code> — jest błąd połączenia.",
       "footerNote": "<b>Więcej dokumentacji:</b> referencja techniczna w pliku <code>MARKETPLACES.md</code> w katalogu głównym repo."
     },
+    "orderLabels": {
+      "status": {
+        "new_order": "Nowe",
+        "processing": "W realizacji",
+        "confirmed": "Potwierdzone",
+        "paid": "Opłacone",
+        "packed": "Spakowane",
+        "shipped": "Wysłane",
+        "completed": "Zrealizowane",
+        "cancelled": "Anulowane",
+        "returned": "Zwrot"
+      },
+      "paymentStatus": {
+        "pending": "Oczekuje na płatność",
+        "paid": "Opłacone",
+        "partial": "Płatność częściowa",
+        "refunded": "Zwrot środków"
+      }
+    },
+    "orderTimeline": {
+      "created": "Zamówienie utworzone",
+      "itemsSummary": "{count, plural, one {# produkt} few {# produkty} many {# produktów} other {# produktów}} na kwotę {amount} ₴",
+      "statusPrefix": "Status: {status}",
+      "paymentReceived": "Płatność otrzymana",
+      "paymentProvider": "dostawca: {provider}",
+      "txnSuffix": " · txn: {txn}",
+      "ttnAssigned": "Przypisano numer przesyłki: {ttn}",
+      "managerComment": "Komentarz menedżera",
+      "activity": "Aktywność ({count})",
+      "source_manager": "menedżer",
+      "source_client": "klient",
+      "source_system": "system",
+      "source_cron": "cron"
+    },
+    "orderQuickEdit": {
+      "statusToast": "Status: {status}",
+      "error": "Błąd",
+      "noteSaved": "Notatka zapisana",
+      "loading": "Ładowanie…",
+      "close": "Zamknij",
+      "customer": "Klient",
+      "items": "Produkty ({count})",
+      "andMore": "i jeszcze {count}…",
+      "payment": "Płatność:",
+      "changeStatus": "Zmień status",
+      "noTransitions": "Brak dostępnych przejść dla statusu „{status}”.",
+      "chooseStatus": "— Wybierz status —",
+      "apply": "Zastosuj",
+      "internalNote": "Notatka wewnętrzna",
+      "notePlaceholder": "Widoczne tylko dla zespołu",
+      "openFullPage": "Otwórz pełną stronę"
+    },
+    "productQuickEdit": {
+      "quickEdit": "Szybka edycja",
+      "close": "Zamknij",
+      "saved": "Zapisano",
+      "error": "Błąd",
+      "code": "Kod:",
+      "name": "Nazwa",
+      "price": "Cena",
+      "wholesale": "Hurt",
+      "quantity": "Ilość",
+      "active": "Aktywny",
+      "promo": "Promocyjny",
+      "saving": "Zapisujemy…",
+      "save": "💾 Zapisz",
+      "fullEdit": "Pełna edycja →",
+      "escHint": "ESC aby zamknąć. Dla opisu, SEO, zdjęć — otwórz pełną stronę."
+    },
     "userSecurityTab": {
       "loading": "Ładowanie…",
       "noData": "Brak danych",

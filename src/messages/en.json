@@ -2010,6 +2010,75 @@
       "tsCronNoImport": "Check <code>/api/v1/cron/sync-marketplace-orders</code> — the endpoint returns JSON with results per marketplace. If <code>failed: -1</code> — there is a connection error.",
       "footerNote": "<b>More documentation:</b> the technical reference is in the <code>MARKETPLACES.md</code> file at the repo root."
     },
+    "orderLabels": {
+      "status": {
+        "new_order": "New",
+        "processing": "Processing",
+        "confirmed": "Confirmed",
+        "paid": "Paid",
+        "packed": "Packed",
+        "shipped": "Shipped",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "returned": "Returned"
+      },
+      "paymentStatus": {
+        "pending": "Awaiting payment",
+        "paid": "Paid",
+        "partial": "Partial payment",
+        "refunded": "Refunded"
+      }
+    },
+    "orderTimeline": {
+      "created": "Order created",
+      "itemsSummary": "{count, plural, one {# item} other {# items}} totaling {amount} ₴",
+      "statusPrefix": "Status: {status}",
+      "paymentReceived": "Payment received",
+      "paymentProvider": "provider: {provider}",
+      "txnSuffix": " · txn: {txn}",
+      "ttnAssigned": "Tracking number assigned: {ttn}",
+      "managerComment": "Manager comment",
+      "activity": "Activity ({count})",
+      "source_manager": "manager",
+      "source_client": "customer",
+      "source_system": "system",
+      "source_cron": "cron"
+    },
+    "orderQuickEdit": {
+      "statusToast": "Status: {status}",
+      "error": "Error",
+      "noteSaved": "Note saved",
+      "loading": "Loading…",
+      "close": "Close",
+      "customer": "Customer",
+      "items": "Items ({count})",
+      "andMore": "and {count} more…",
+      "payment": "Payment:",
+      "changeStatus": "Change status",
+      "noTransitions": "No transitions available for the \"{status}\" status.",
+      "chooseStatus": "— Choose status —",
+      "apply": "Apply",
+      "internalNote": "Internal note",
+      "notePlaceholder": "Visible to the team only",
+      "openFullPage": "Open full page"
+    },
+    "productQuickEdit": {
+      "quickEdit": "Quick edit",
+      "close": "Close",
+      "saved": "Saved",
+      "error": "Error",
+      "code": "Code:",
+      "name": "Name",
+      "price": "Price",
+      "wholesale": "Wholesale",
+      "quantity": "Quantity",
+      "active": "Active",
+      "promo": "Promo",
+      "saving": "Saving…",
+      "save": "💾 Save",
+      "fullEdit": "Full edit →",
+      "escHint": "ESC to close. For description, SEO, photos — open the full page."
+    },
     "userSecurityTab": {
       "loading": "Loading…",
       "noData": "No data",

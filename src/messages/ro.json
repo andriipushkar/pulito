@@ -2010,6 +2010,75 @@
       "tsCronNoImport": "Verifică <code>/api/v1/cron/sync-marketplace-orders</code> — endpointul returnează JSON cu rezultate pe fiecare marketplace. Dacă <code>failed: -1</code> — există o eroare de conexiune.",
       "footerNote": "<b>Mai multă documentație:</b> referința tehnică este în fișierul <code>MARKETPLACES.md</code> din rădăcina repo-ului."
     },
+    "orderLabels": {
+      "status": {
+        "new_order": "Nouă",
+        "processing": "În procesare",
+        "confirmed": "Confirmată",
+        "paid": "Plătită",
+        "packed": "Ambalată",
+        "shipped": "Expediată",
+        "completed": "Finalizată",
+        "cancelled": "Anulată",
+        "returned": "Retur"
+      },
+      "paymentStatus": {
+        "pending": "În așteptarea plății",
+        "paid": "Plătit",
+        "partial": "Plată parțială",
+        "refunded": "Rambursare"
+      }
+    },
+    "orderTimeline": {
+      "created": "Comandă creată",
+      "itemsSummary": "{count, plural, one {# produs} few {# produse} other {# de produse}} în valoare de {amount} ₴",
+      "statusPrefix": "Status: {status}",
+      "paymentReceived": "Plată primită",
+      "paymentProvider": "furnizor: {provider}",
+      "txnSuffix": " · txn: {txn}",
+      "ttnAssigned": "Număr de expediție atribuit: {ttn}",
+      "managerComment": "Comentariu manager",
+      "activity": "Activitate ({count})",
+      "source_manager": "manager",
+      "source_client": "client",
+      "source_system": "sistem",
+      "source_cron": "cron"
+    },
+    "orderQuickEdit": {
+      "statusToast": "Status: {status}",
+      "error": "Eroare",
+      "noteSaved": "Notă salvată",
+      "loading": "Se încarcă…",
+      "close": "Închide",
+      "customer": "Client",
+      "items": "Produse ({count})",
+      "andMore": "și încă {count}…",
+      "payment": "Plată:",
+      "changeStatus": "Schimbă statusul",
+      "noTransitions": "Nicio tranziție disponibilă pentru statusul „{status}”.",
+      "chooseStatus": "— Alege statusul —",
+      "apply": "Aplică",
+      "internalNote": "Notă internă",
+      "notePlaceholder": "Vizibil doar pentru echipă",
+      "openFullPage": "Deschide pagina completă"
+    },
+    "productQuickEdit": {
+      "quickEdit": "Editare rapidă",
+      "close": "Închide",
+      "saved": "Salvat",
+      "error": "Eroare",
+      "code": "Cod:",
+      "name": "Nume",
+      "price": "Preț",
+      "wholesale": "En-gros",
+      "quantity": "Cantitate",
+      "active": "Activ",
+      "promo": "Promo",
+      "saving": "Se salvează…",
+      "save": "💾 Salvează",
+      "fullEdit": "Editare completă →",
+      "escHint": "ESC pentru a închide. Pentru descriere, SEO, foto — deschide pagina completă."
+    },
     "userSecurityTab": {
       "loading": "Se încarcă…",
       "noData": "Nu există date",

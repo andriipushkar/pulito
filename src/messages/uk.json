@@ -2010,6 +2010,75 @@
       "tsCronNoImport": "Перевірте <code>/api/v1/cron/sync-marketplace-orders</code> — ендпоінт повертає JSON з результатами по кожному маркетплейсу. Якщо <code>failed: -1</code> — є помилка підключення.",
       "footerNote": "<b>Більше документації:</b> технічний референс у файлі <code>MARKETPLACES.md</code> у корені репо."
     },
+    "orderLabels": {
+      "status": {
+        "new_order": "Нове",
+        "processing": "В обробці",
+        "confirmed": "Підтверджене",
+        "paid": "Оплачене",
+        "packed": "Упаковано",
+        "shipped": "Відправлене",
+        "completed": "Виконане",
+        "cancelled": "Скасоване",
+        "returned": "Повернення"
+      },
+      "paymentStatus": {
+        "pending": "Очікує оплати",
+        "paid": "Оплачено",
+        "partial": "Часткова оплата",
+        "refunded": "Повернення коштів"
+      }
+    },
+    "orderTimeline": {
+      "created": "Замовлення створено",
+      "itemsSummary": "{count, plural, one {# товар} few {# товари} many {# товарів} other {# товарів}} на сумі {amount} ₴",
+      "statusPrefix": "Статус: {status}",
+      "paymentReceived": "Оплата отримана",
+      "paymentProvider": "провайдер: {provider}",
+      "txnSuffix": " · txn: {txn}",
+      "ttnAssigned": "ТТН присвоєно: {ttn}",
+      "managerComment": "Коментар менеджера",
+      "activity": "Активність ({count})",
+      "source_manager": "менеджер",
+      "source_client": "клієнт",
+      "source_system": "система",
+      "source_cron": "cron"
+    },
+    "orderQuickEdit": {
+      "statusToast": "Статус: {status}",
+      "error": "Помилка",
+      "noteSaved": "Нотатку збережено",
+      "loading": "Завантаження…",
+      "close": "Закрити",
+      "customer": "Клієнт",
+      "items": "Товари ({count})",
+      "andMore": "і ще {count}…",
+      "payment": "Оплата:",
+      "changeStatus": "Змінити статус",
+      "noTransitions": "Для статусу «{status}» переходи недоступні.",
+      "chooseStatus": "— Оберіть статус —",
+      "apply": "Застосувати",
+      "internalNote": "Внутрішня нотатка",
+      "notePlaceholder": "Видно лише команді",
+      "openFullPage": "Відкрити повну сторінку"
+    },
+    "productQuickEdit": {
+      "quickEdit": "Швидке редагування",
+      "close": "Закрити",
+      "saved": "Збережено",
+      "error": "Помилка",
+      "code": "Код:",
+      "name": "Назва",
+      "price": "Ціна",
+      "wholesale": "Опт",
+      "quantity": "Кількість",
+      "active": "Активний",
+      "promo": "Акційний",
+      "saving": "Зберігаємо…",
+      "save": "💾 Зберегти",
+      "fullEdit": "Повне редагування →",
+      "escHint": "ESC щоб закрити. Для опису, SEO, фото — відкрийте повну сторінку."
+    },
     "userSecurityTab": {
       "loading": "Завантаження…",
       "noData": "Немає даних",
