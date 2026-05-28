@@ -310,15 +310,13 @@
 
 ## 🎯 Рекомендований план далі
 
-### Варіант A — закрити середній пріоритет (1-2 сесії)
+### Варіант A — закрити середній пріоритет ✅ DONE 2026-05-28 (commit ccc067d)
 
-Якщо хочеш мати «нічого важливого не висить»:
-
-1. **O3** manager scope assignment — security
-2. **O6** currency Decimal на invoice/delivery-note
-3. **PR6** soft/hard delete race — advisory lock
-4. **O11** date preset boundary — узгодити inclusive
-5. **Server idempotency-key** для bulk-actions
+1. ✅ **O3** manager scope assignment — менеджер не може перепризначити чуже замовлення (admin unrestricted); orders/[id]/route.ts:403
+2. ✅ **O6** currency drift — `sumMoney()` (integer-kopecks) у pdf.ts + admin order detail subtotal
+3. ✅ **PR6** soft/hard delete race — класифікація+delete в одній транзакції з `SELECT … FOR UPDATE` на products
+4. ✅ **O11** verified-OK — week=-6 / month=-29 вже консистентні (обидва inclusive), фіксу не треба
+5. ✅ **Server idempotency-key** — `x-idempotency-key` на bulk `change_price` (єдина неідемпотентна дія: +10% двічі); server replay + client key
 
 ### Варіант B — переходимо до нового розділу
 
