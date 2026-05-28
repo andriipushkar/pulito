@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 
@@ -27,42 +28,57 @@ interface PromoImpact {
 interface PriceData {
   changes: PriceChange[];
   promoImpact: PromoImpact[];
-  summary: { totalChanges: number; priceIncreases: number; priceDecreases: number; avgChangePercent: number };
+  summary: {
+    totalChanges: number;
+    priceIncreases: number;
+    priceDecreases: number;
+    avgChangePercent: number;
+  };
 }
 
 export default function PriceAnalytics({ days }: { days: number }) {
+  const t = useTranslations('admin.priceAnalytics');
   const [data, setData] = useState<PriceData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<'changes' | 'promo'>('changes');
 
   useEffect(() => {
-    apiClient.get<PriceData>(`/api/v1/admin/analytics/price?days=${days}`)
-      .then((res) => { if (res.success && res.data) setData(res.data); })
+    apiClient
+      .get<PriceData>(`/api/v1/admin/analytics/price?days=${days}`)
+      .then((res) => {
+        if (res.success && res.data) setData(res.data);
+      })
       .finally(() => setIsLoading(false));
   }, [days]);
 
-  if (isLoading) return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   if (!data) return null;
 
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   return (
     <div>
       <div className="mb-6 grid gap-4 md:grid-cols-4">
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="text-xs text-[var(--color-text-secondary)]">Змін цін</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('totalChanges')}</p>
           <p className="text-2xl font-bold">{data.summary.totalChanges}</p>
         </div>
         <div className="rounded-[var(--radius)] border border-green-300 bg-green-50 p-4">
-          <p className="text-xs text-green-600">Підвищення</p>
+          <p className="text-xs text-green-600">{t('increases')}</p>
           <p className="text-2xl font-bold text-green-700">{data.summary.priceIncreases}</p>
         </div>
         <div className="rounded-[var(--radius)] border border-red-300 bg-red-50 p-4">
-          <p className="text-xs text-red-600">Зниження</p>
+          <p className="text-xs text-red-600">{t('decreases')}</p>
           <p className="text-2xl font-bold text-red-700">{data.summary.priceDecreases}</p>
         </div>
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="text-xs text-[var(--color-text-secondary)]">Сер. зміна</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('avgChange')}</p>
           <p className="text-2xl font-bold">{data.summary.avgChangePercent}%</p>
         </div>
       </div>
@@ -72,13 +88,13 @@ export default function PriceAnalytics({ days }: { days: number }) {
           onClick={() => setView('changes')}
           className={`rounded-[var(--radius)] px-3 py-1.5 text-sm font-medium ${view === 'changes' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]'}`}
         >
-          Історія змін
+          {t('tabChanges')}
         </button>
         <button
           onClick={() => setView('promo')}
           className={`rounded-[var(--radius)] px-3 py-1.5 text-sm font-medium ${view === 'promo' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]'}`}
         >
-          Вплив знижок
+          {t('tabPromo')}
         </button>
       </div>
 
@@ -87,12 +103,12 @@ export default function PriceAnalytics({ days }: { days: number }) {
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-bg-secondary)]">
               <tr>
-                <th className="px-4 py-2 text-left">Код</th>
-                <th className="px-4 py-2 text-left">Назва</th>
-                <th className="px-4 py-2 text-right">Стара ціна</th>
-                <th className="px-4 py-2 text-right">Нова ціна</th>
-                <th className="px-4 py-2 text-right">Зміна</th>
-                <th className="px-4 py-2 text-right">Дата</th>
+                <th className="px-4 py-2 text-left">{t('colCode')}</th>
+                <th className="px-4 py-2 text-left">{t('colName')}</th>
+                <th className="px-4 py-2 text-right">{t('colOldPrice')}</th>
+                <th className="px-4 py-2 text-right">{t('colNewPrice')}</th>
+                <th className="px-4 py-2 text-right">{t('colChange')}</th>
+                <th className="px-4 py-2 text-right">{t('colDate')}</th>
               </tr>
             </thead>
             <tbody>
@@ -103,13 +119,20 @@ export default function PriceAnalytics({ days }: { days: number }) {
                   <td className="px-4 py-2 text-right text-xs">{c.priceRetailOld.toFixed(2)} ₴</td>
                   <td className="px-4 py-2 text-right text-xs">{c.priceRetailNew.toFixed(2)} ₴</td>
                   <td className="px-4 py-2 text-right">
-                    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                      c.changePercent > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {c.changePercent > 0 ? '+' : ''}{c.changePercent}%
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                        c.changePercent > 0
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {c.changePercent > 0 ? '+' : ''}
+                      {c.changePercent}%
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-right text-xs text-[var(--color-text-secondary)]">{formatDate(c.changedAt)}</td>
+                  <td className="px-4 py-2 text-right text-xs text-[var(--color-text-secondary)]">
+                    {formatDate(c.changedAt)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -122,13 +145,13 @@ export default function PriceAnalytics({ days }: { days: number }) {
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-bg-secondary)]">
               <tr>
-                <th className="px-4 py-2 text-left">Код</th>
-                <th className="px-4 py-2 text-left">Назва</th>
-                <th className="px-4 py-2 text-right">Продаж до</th>
-                <th className="px-4 py-2 text-right">Продаж після</th>
-                <th className="px-4 py-2 text-right">Зміна продажів</th>
-                <th className="px-4 py-2 text-right">Виручка до</th>
-                <th className="px-4 py-2 text-right">Виручка після</th>
+                <th className="px-4 py-2 text-left">{t('colCode')}</th>
+                <th className="px-4 py-2 text-left">{t('colName')}</th>
+                <th className="px-4 py-2 text-right">{t('colSalesBefore')}</th>
+                <th className="px-4 py-2 text-right">{t('colSalesAfter')}</th>
+                <th className="px-4 py-2 text-right">{t('colSalesChange')}</th>
+                <th className="px-4 py-2 text-right">{t('colRevenueBefore')}</th>
+                <th className="px-4 py-2 text-right">{t('colRevenueAfter')}</th>
               </tr>
             </thead>
             <tbody>
@@ -136,13 +159,24 @@ export default function PriceAnalytics({ days }: { days: number }) {
                 <tr key={p.productId} className="border-t border-[var(--color-border)]">
                   <td className="px-4 py-2 text-xs font-mono">{p.productCode}</td>
                   <td className="px-4 py-2 text-xs">{p.productName}</td>
-                  <td className="px-4 py-2 text-right text-xs">{p.avgSalesBefore}/день</td>
-                  <td className="px-4 py-2 text-right text-xs">{p.avgSalesAfter}/день</td>
+                  <td className="px-4 py-2 text-right text-xs">
+                    {t('perDay', { count: p.avgSalesBefore })}
+                  </td>
+                  <td className="px-4 py-2 text-right text-xs">
+                    {t('perDay', { count: p.avgSalesAfter })}
+                  </td>
                   <td className="px-4 py-2 text-right">
-                    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                      p.salesLift > 0 ? 'bg-green-100 text-green-700' : p.salesLift < 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {p.salesLift > 0 ? '+' : ''}{p.salesLift}%
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                        p.salesLift > 0
+                          ? 'bg-green-100 text-green-700'
+                          : p.salesLift < 0
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {p.salesLift > 0 ? '+' : ''}
+                      {p.salesLift}%
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right text-xs">{p.revenueBefore.toFixed(0)} ₴</td>
@@ -150,7 +184,14 @@ export default function PriceAnalytics({ days }: { days: number }) {
                 </tr>
               ))}
               {data.promoImpact.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">Немає акційних товарів</td></tr>
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
+                  >
+                    {t('noPromo')}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

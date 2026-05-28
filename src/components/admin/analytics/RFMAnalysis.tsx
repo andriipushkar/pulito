@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 
@@ -32,20 +33,20 @@ const SEGMENT_COLORS: Record<string, string> = {
   lost: '#374151',
 };
 
-const SEGMENT_LABELS: Record<string, string> = {
-  champions: 'Чемпіони',
-  loyal: 'Лояльні',
-  potential_loyal: 'Потенційно лояльні',
-  recent: 'Нові покупці',
-  promising: 'Перспективні',
-  needs_attention: 'Потребують уваги',
-  about_to_sleep: 'Засинають',
-  at_risk: 'Під загрозою',
-  hibernating: 'Сплячі',
-  lost: 'Втрачені',
-};
-
 export default function RFMAnalysis({ days }: { days: number }) {
+  const t = useTranslations('admin.rfmAnalysis');
+  const SEGMENT_LABELS: Record<string, string> = {
+    champions: t('segChampions'),
+    loyal: t('segLoyal'),
+    potential_loyal: t('segPotentialLoyal'),
+    recent: t('segRecent'),
+    promising: t('segPromising'),
+    needs_attention: t('segNeedsAttention'),
+    about_to_sleep: t('segAboutToSleep'),
+    at_risk: t('segAtRisk'),
+    hibernating: t('segHibernating'),
+    lost: t('segLost'),
+  };
   const [data, setData] = useState<RFMData | null>(null);
   // Derive isLoading from "completed days param matches requested one".
   const [completedDays, setCompletedDays] = useState<number | null>(null);
@@ -67,17 +68,22 @@ export default function RFMAnalysis({ days }: { days: number }) {
     };
   }, [days]);
 
-  if (isLoading) return <div className="flex justify-center py-8"><Spinner size="md" /></div>;
-  if (!data) return <p className="text-sm text-[var(--color-text-secondary)]">Дані RFM-аналізу недоступні</p>;
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-8">
+        <Spinner size="md" />
+      </div>
+    );
+  if (!data) return <p className="text-sm text-[var(--color-text-secondary)]">{t('noData')}</p>;
 
   const maxCount = Math.max(...data.segments.map((s) => s.count), 1);
 
   return (
     <div className="space-y-6">
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-2 text-sm font-semibold">RFM-аналіз клієнтів</h3>
+        <h3 className="mb-2 text-sm font-semibold">{t('title')}</h3>
         <p className="mb-4 text-xs text-[var(--color-text-secondary)]">
-          Сегментація {data.totalCustomers} клієнтів за давністю (Recency), частотою (Frequency) та сумою (Monetary) покупок за {days} днів
+          {t('subtitle', { total: data.totalCustomers, days })}
         </p>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -92,11 +98,13 @@ export default function RFMAnalysis({ days }: { days: number }) {
                   className="h-3 w-3 rounded-full"
                   style={{ backgroundColor: SEGMENT_COLORS[seg.segment] || '#6b7280' }}
                 />
-                <span className="text-sm font-semibold">{SEGMENT_LABELS[seg.segment] || seg.label}</span>
+                <span className="text-sm font-semibold">
+                  {SEGMENT_LABELS[seg.segment] || seg.label}
+                </span>
               </div>
               <p className="text-2xl font-bold">{seg.count}</p>
               <p className="text-xs text-[var(--color-text-secondary)]">
-                {((seg.count / data.totalCustomers) * 100).toFixed(1)}% клієнтів
+                {t('pctCustomers', { pct: ((seg.count / data.totalCustomers) * 100).toFixed(1) })}
               </p>
               {/* Bar */}
               <div className="mt-2 h-1.5 w-full rounded-full bg-[var(--color-bg-secondary)]">
@@ -109,9 +117,9 @@ export default function RFMAnalysis({ days }: { days: number }) {
                 />
               </div>
               <div className="mt-2 grid grid-cols-3 gap-1 text-[10px] text-[var(--color-text-secondary)]">
-                <div>R: {seg.avgRecency}д</div>
-                <div>F: {seg.avgFrequency.toFixed(1)}</div>
-                <div>M: {seg.avgMonetary.toFixed(0)}₴</div>
+                <div>{t('rfmR', { value: seg.avgRecency })}</div>
+                <div>{t('rfmF', { value: seg.avgFrequency.toFixed(1) })}</div>
+                <div>{t('rfmM', { value: seg.avgMonetary.toFixed(0) })}</div>
               </div>
             </div>
           ))}
@@ -119,19 +127,19 @@ export default function RFMAnalysis({ days }: { days: number }) {
       </div>
 
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Рекомендації</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('recommendationsTitle')}</h3>
         <div className="space-y-2 text-sm">
           <div className="rounded-[var(--radius)] bg-green-50 p-3">
-            <p className="font-medium text-green-700">Чемпіони та Лояльні</p>
-            <p className="text-xs text-green-600">Пропонуйте ексклюзивні знижки, ранній доступ до новинок, реферальні програми</p>
+            <p className="font-medium text-green-700">{t('recChampionsTitle')}</p>
+            <p className="text-xs text-green-600">{t('recChampionsText')}</p>
           </div>
           <div className="rounded-[var(--radius)] bg-amber-50 p-3">
-            <p className="font-medium text-amber-700">Потребують уваги / Засинають</p>
-            <p className="text-xs text-amber-600">Відправте персональну пропозицію, нагадування про покинутий кошик, обмежені акції</p>
+            <p className="font-medium text-amber-700">{t('recAttentionTitle')}</p>
+            <p className="text-xs text-amber-600">{t('recAttentionText')}</p>
           </div>
           <div className="rounded-[var(--radius)] bg-red-50 p-3">
-            <p className="font-medium text-red-700">Під загрозою / Втрачені</p>
-            <p className="text-xs text-red-600">Спробуйте реактивацію: великі знижки, опитування причин відтоку, win-back кампанії</p>
+            <p className="font-medium text-red-700">{t('recRiskTitle')}</p>
+            <p className="text-xs text-red-600">{t('recRiskText')}</p>
           </div>
         </div>
       </div>
