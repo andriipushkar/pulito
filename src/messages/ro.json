@@ -974,6 +974,18 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "hoverStats": {
+      "loading": "Se încarcă…",
+      "ordersWord": "comenzi",
+      "spent": "Cheltuit:",
+      "uahAmount": "{amount} UAH",
+      "neverBought": "Încă nu a cumpărat",
+      "today": "Astăzi",
+      "daysAgo": "acum {days} zile",
+      "sold": "Vândut:",
+      "stock": "Stoc:",
+      "views": "Vizualizări:"
+    },
     "savedViews": {
       "saved": "Salvat: {name}",
       "savedLabel": "Salvate:",

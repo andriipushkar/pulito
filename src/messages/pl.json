@@ -974,6 +974,18 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "hoverStats": {
+      "loading": "Ładowanie…",
+      "ordersWord": "zamówień",
+      "spent": "Wydano:",
+      "uahAmount": "{amount} UAH",
+      "neverBought": "Jeszcze nie kupował",
+      "today": "Dzisiaj",
+      "daysAgo": "{days} dni temu",
+      "sold": "Sprzedano:",
+      "stock": "Stan:",
+      "views": "Wyświetleń:"
+    },
     "savedViews": {
       "saved": "Zapisano: {name}",
       "savedLabel": "Zapisane:",

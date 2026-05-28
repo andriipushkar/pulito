@@ -974,6 +974,18 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "hoverStats": {
+      "loading": "Завантаження…",
+      "ordersWord": "замовлень",
+      "spent": "Витрачено:",
+      "uahAmount": "{amount} грн",
+      "neverBought": "Ще не купував",
+      "today": "Сьогодні",
+      "daysAgo": "{days} дн тому",
+      "sold": "Продано:",
+      "stock": "Залишок:",
+      "views": "Переглядів:"
+    },
     "savedViews": {
       "saved": "Збережено: {name}",
       "savedLabel": "Збережені:",

@@ -974,6 +974,18 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "hoverStats": {
+      "loading": "Loading…",
+      "ordersWord": "orders",
+      "spent": "Spent:",
+      "uahAmount": "{amount} UAH",
+      "neverBought": "Never purchased",
+      "today": "Today",
+      "daysAgo": "{days} days ago",
+      "sold": "Sold:",
+      "stock": "Stock:",
+      "views": "Views:"
+    },
     "savedViews": {
       "saved": "Saved: {name}",
       "savedLabel": "Saved:",

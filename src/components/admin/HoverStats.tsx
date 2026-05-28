@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
 interface UserStats {
@@ -38,6 +39,7 @@ export function HoverProductStats({
 }
 
 function HoverStatsBase({ target, children }: { target: StatsFor; children: ReactNode }) {
+  const t = useTranslations('admin.hoverStats');
   const [open, setOpen] = useState(false);
   const [stats, setStats] = useState<UserStats | ProductStats | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,7 +106,7 @@ function HoverStatsBase({ target, children }: { target: StatsFor; children: Reac
       {open && (
         <span className="pointer-events-none absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs shadow-lg">
           {stats === null ? (
-            <span className="text-[var(--color-text-secondary)]">Завантаження…</span>
+            <span className="text-[var(--color-text-secondary)]">{t('loading')}</span>
           ) : target.type === 'user' ? (
             <UserBody stats={stats as UserStats} />
           ) : (
@@ -117,35 +119,39 @@ function HoverStatsBase({ target, children }: { target: StatsFor; children: Reac
 }
 
 function UserBody({ stats }: { stats: UserStats }) {
+  const t = useTranslations('admin.hoverStats');
   return (
     <div className="space-y-1">
       <p>
-        <strong>{stats.totalOrders}</strong> замовлень
+        <strong>{stats.totalOrders}</strong> {t('ordersWord')}
       </p>
       <p>
-        Витрачено: <strong>{stats.totalSpent.toFixed(0)} грн</strong>
+        {t('spent')} <strong>{t('uahAmount', { amount: stats.totalSpent.toFixed(0) })}</strong>
       </p>
       <p className="text-[var(--color-text-secondary)]">
         {stats.lastOrderDays === null
-          ? 'Ще не купував'
+          ? t('neverBought')
           : stats.lastOrderDays === 0
-            ? 'Сьогодні'
-            : `${stats.lastOrderDays} дн тому`}
+            ? t('today')
+            : t('daysAgo', { days: stats.lastOrderDays })}
       </p>
     </div>
   );
 }
 
 function ProductBody({ stats }: { stats: ProductStats }) {
+  const t = useTranslations('admin.hoverStats');
   return (
     <div className="space-y-1">
       <p>
-        Продано: <strong>{stats.ordersCount}</strong>
+        {t('sold')} <strong>{stats.ordersCount}</strong>
       </p>
       <p>
-        Залишок: <strong>{stats.quantity}</strong>
+        {t('stock')} <strong>{stats.quantity}</strong>
       </p>
-      <p className="text-[var(--color-text-secondary)]">Переглядів: {stats.viewsCount}</p>
+      <p className="text-[var(--color-text-secondary)]">
+        {t('views')} {stats.viewsCount}
+      </p>
     </div>
   );
 }
