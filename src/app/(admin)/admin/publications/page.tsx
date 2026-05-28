@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -68,42 +69,6 @@ interface PublicationTemplate {
   channels: string[];
 }
 
-const PUBLICATION_TEMPLATES: PublicationTemplate[] = [
-  {
-    label: 'Новий товар',
-    title: 'Новинка: [Назва товару]',
-    content:
-      'Зустрічайте новинку в нашому магазині!\n\n[Назва товару] — [короткий опис товару та його переваги].\n\nЦіна: [ціна] грн\nЗамовляйте прямо зараз!',
-    hashtags: '#новинка #pulito_trade #новийтовар',
-    channels: ['telegram', 'viber', 'facebook', 'tiktok', 'site'],
-  },
-  {
-    label: 'Акція',
-    title: 'Акція: [Назва акції]',
-    content:
-      'Знижка [XX]%! Тільки до [дата]!\n\n[Опис акції та товарів, що беруть участь].\n\nНе пропустіть вигідну пропозицію!',
-    hashtags: '#акція #знижка #pulito_trade',
-    channels: ['telegram', 'viber', 'facebook', 'tiktok'],
-  },
-  {
-    label: 'Новина',
-    title: '[Заголовок новини]',
-    content:
-      '[Основний текст новини — що сталося, чому це важливо для клієнтів].\n\nДетальніше на нашому сайті.',
-    hashtags: '#новини #pulito_trade',
-    channels: ['telegram', 'facebook', 'site'],
-  },
-];
-
-const TEMPLATE_VARS = [
-  { key: '{{product.name}}', label: 'Назва товару' },
-  { key: '{{product.price}}', label: 'Ціна' },
-  { key: '{{product.oldPrice}}', label: 'Стара ціна' },
-  { key: '{{product.code}}', label: 'Код товару' },
-  { key: '{{product.url}}', label: 'Посилання' },
-  { key: '{{product.discount}}', label: 'Знижка %' },
-] as const;
-
 const ALL_CHANNELS = [
   { key: 'telegram', label: 'Telegram' },
   { key: 'viber', label: 'Viber' },
@@ -114,7 +79,7 @@ const ALL_CHANNELS = [
   { key: 'rozetka', label: 'Rozetka' },
   { key: 'prom', label: 'Prom.ua' },
   { key: 'epicentrk', label: 'Epicentr K' },
-  { key: 'site', label: 'Сайт' },
+  { key: 'site', label: 'Site' },
 ] as const;
 
 function ChannelCheckboxes({
@@ -124,6 +89,7 @@ function ChannelCheckboxes({
   channels: string[];
   onChange: (ch: string) => void;
 }) {
+  const t = useTranslations('admin.publicationsPage');
   return (
     <div className="mt-1 flex flex-wrap gap-3">
       {ALL_CHANNELS.map((ch) => (
@@ -134,7 +100,7 @@ function ChannelCheckboxes({
             onChange={() => onChange(ch.key)}
             className="accent-[var(--color-primary)]"
           />
-          {ch.label}
+          {ch.key === 'site' ? t('channelSite') : ch.label}
         </label>
       ))}
     </div>
@@ -142,6 +108,50 @@ function ChannelCheckboxes({
 }
 
 export default function AdminPublicationsPage() {
+  const t = useTranslations('admin.publicationsPage');
+  const channelLabel = useCallback(
+    (ch: string) =>
+      ch === 'site' ? t('channelSite') : ALL_CHANNELS.find((c) => c.key === ch)?.label || ch,
+    [t],
+  );
+  const PUBLICATION_TEMPLATES: PublicationTemplate[] = useMemo(
+    () => [
+      {
+        label: t('tpl_new_label'),
+        title: t('tpl_new_title'),
+        content: t('tpl_new_content'),
+        hashtags: '#новинка #pulito_trade #новийтовар',
+        channels: ['telegram', 'viber', 'facebook', 'tiktok', 'site'],
+      },
+      {
+        label: t('tpl_promo_label'),
+        title: t('tpl_promo_title'),
+        content: t('tpl_promo_content'),
+        hashtags: '#акція #знижка #pulito_trade',
+        channels: ['telegram', 'viber', 'facebook', 'tiktok'],
+      },
+      {
+        label: t('tpl_news_label'),
+        title: t('tpl_news_title'),
+        content: t('tpl_news_content'),
+        hashtags: '#новини #pulito_trade',
+        channels: ['telegram', 'facebook', 'site'],
+      },
+    ],
+    [t],
+  );
+  const TEMPLATE_VARS = useMemo(
+    () =>
+      [
+        { key: '{{product.name}}', label: t('var_name') },
+        { key: '{{product.price}}', label: t('var_price') },
+        { key: '{{product.oldPrice}}', label: t('var_oldPrice') },
+        { key: '{{product.code}}', label: t('var_code') },
+        { key: '{{product.url}}', label: t('var_url') },
+        { key: '{{product.discount}}', label: t('var_discount') },
+      ] as const,
+    [t],
+  );
   const [publications, setPublications] = useState<Publication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -217,7 +227,7 @@ export default function AdminPublicationsPage() {
 
   const loadPublications = async () => {
     const res = await apiClient.get<Publication[]>('/api/v1/admin/publications').catch(() => {
-      toast.error('Помилка завантаження публікацій');
+      toast.error(t('loadError'));
       return null;
     });
     if (res?.success && res.data) setPublications(res.data);
@@ -301,18 +311,18 @@ export default function AdminPublicationsPage() {
 
     for (const p of selectedProducts) {
       const priceText = p.priceRetailOld
-        ? `Стара ціна: ${p.priceRetailOld} грн → Нова ціна: ${p.priceRetail} грн`
-        : `Ціна: ${p.priceRetail} грн`;
-      const title = p.isPromo ? `Акція: ${p.name}` : p.name;
+        ? t('priceOldNew', { old: p.priceRetailOld, new: p.priceRetail })
+        : t('priceOnly', { price: p.priceRetail });
+      const title = p.isPromo ? t('promoTitle', { name: p.name }) : p.name;
       const content = p.isPromo
-        ? `🔥 Знижка на ${p.name}!\n\n${priceText}\n\nЗамовляйте прямо зараз!`
-        : `${p.name}\n\n${priceText}\n\nЗамовляйте на нашому сайті!`;
+        ? t('promoContent', { name: p.name, priceText })
+        : t('regularContent', { name: p.name, priceText });
 
       const data: Record<string, unknown> = {
         title,
         content,
         channels,
-        hashtags: p.isPromo ? '#акція #знижка #pulito_trade' : '#pulito_trade',
+        hashtags: p.isPromo ? t('hashtagsPromo') : t('hashtagsDefault'),
         imagePath: p.imagePath || undefined,
         productId: p.id,
       };
@@ -322,13 +332,13 @@ export default function AdminPublicationsPage() {
         const pubRes = await apiClient.post(
           `/api/v1/admin/publications/${createRes.data.id}/publish`,
         );
-        if (!pubRes.success) toast.error(pubRes.error || `Помилка публікації ${p.name}`);
+        if (!pubRes.success) toast.error(pubRes.error || t('pubFailedFor', { name: p.name }));
       } else {
-        toast.error(createRes.error || `Помилка створення публікації ${p.name}`);
+        toast.error(createRes.error || t('pubCreateFailedFor', { name: p.name }));
       }
     }
 
-    toast.success('Масову публікацію завершено');
+    toast.success(t('bulkDone'));
     setBulkPublishing(false);
     setBulkSelected(new Set());
     setShowProductPicker(false);
@@ -346,16 +356,16 @@ export default function AdminPublicationsPage() {
     slug: string;
   }) => {
     const priceText = p.priceRetailOld
-      ? `Стара ціна: ${p.priceRetailOld} грн → Нова ціна: ${p.priceRetail} грн`
-      : `Ціна: ${p.priceRetail} грн`;
-    const title = p.isPromo ? `Акція: ${p.name}` : `${p.name}`;
+      ? t('priceOldNew', { old: p.priceRetailOld, new: p.priceRetail })
+      : t('priceOnly', { price: p.priceRetail });
+    const title = p.isPromo ? t('promoTitle', { name: p.name }) : `${p.name}`;
     const content = p.isPromo
-      ? `🔥 Знижка на ${p.name}!\n\n${priceText}\n\nЗамовляйте прямо зараз!`
-      : `${p.name}\n\n${priceText}\n\nЗамовляйте на нашому сайті!`;
+      ? t('promoContent', { name: p.name, priceText })
+      : t('regularContent', { name: p.name, priceText });
     const channels = p.isPromo
       ? ['telegram', 'viber', 'facebook', 'tiktok']
       : ['telegram', 'viber', 'facebook', 'tiktok', 'site'];
-    const hashtags = p.isPromo ? '#акція #знижка #pulito_trade' : '#pulito_trade #новинка';
+    const hashtags = p.isPromo ? t('hashtagsPromo') : t('hashtagsNew');
     const productUrl = `/product/${p.slug}`;
     const discount = p.priceRetailOld
       ? Math.round((1 - p.priceRetail / p.priceRetailOld) * 100)
@@ -372,16 +382,20 @@ export default function AdminPublicationsPage() {
 
     // Auto-generate per-channel content
     const shortContent = p.isPromo
-      ? `${p.name} -${discount}%! ${p.priceRetail} грн`
-      : `${p.name} — ${p.priceRetail} грн`;
+      ? t('shortPromo', { name: p.name, discount, price: p.priceRetail })
+      : t('shortRegular', { name: p.name, price: p.priceRetail });
     setChannelContents({
-      tiktok: { title: p.name, content: shortContent, hashtags: `${hashtags} #тікток` },
+      tiktok: {
+        title: p.name,
+        content: shortContent,
+        hashtags: t('tiktokHashtags', { base: hashtags }),
+      },
       instagram: {
         title: '',
-        content: `${content}\n\n👉 Посилання в біо`,
-        hashtags: `${hashtags} #інстаграм #побутовахімія`,
+        content: t('igContent', { content }),
+        hashtags: t('igHashtags', { base: hashtags }),
       },
-      facebook: { title: '', content: `${content}\n\n🛒 Замовити: ${productUrl}`, hashtags },
+      facebook: { title: '', content: t('fbContent', { content, url: productUrl }), hashtags },
     });
     setShowChannelContents(true);
     setShowProductPicker(false);
@@ -398,32 +412,32 @@ export default function AdminPublicationsPage() {
     if (res.success && res.data) {
       setForm((f) => ({ ...f, imagePath: res.data!.path }));
     } else {
-      toast.error(res.error || 'Помилка завантаження зображення');
+      toast.error(res.error || t('imageUploadError'));
     }
     setImageUploading(false);
   };
 
   const handleCreate = async () => {
     if (!form.title.trim()) {
-      toast.error('Введіть заголовок публікації');
+      toast.error(t('enterTitle'));
       return;
     }
     if (!form.content.trim()) {
-      toast.error('Додайте вміст публікації');
+      toast.error(t('addContent'));
       return;
     }
     if (!form.channels || form.channels.length === 0) {
-      toast.error('Виберіть принаймні один канал');
+      toast.error(t('selectChannel'));
       return;
     }
     if (form.scheduledAt) {
       const d = new Date(form.scheduledAt);
       if (Number.isNaN(d.getTime())) {
-        toast.error('Невірний формат запланованої дати');
+        toast.error(t('invalidScheduleDate'));
         return;
       }
       if (d <= new Date()) {
-        toast.error('Запланована дата має бути у майбутньому');
+        toast.error(t('scheduleFuture'));
         return;
       }
     }
@@ -442,7 +456,7 @@ export default function AdminPublicationsPage() {
       if (useWatermark && form.imagePath) data.applyWatermark = true;
       const res = await apiClient.post('/api/v1/admin/publications', data);
       if (res.success) {
-        toast.success('Публікацію створено');
+        toast.success(t('pubCreated'));
         setShowForm(false);
         setForm({
           title: '',
@@ -457,25 +471,25 @@ export default function AdminPublicationsPage() {
         setAdditionalImages([]);
         loadPublications();
       } else {
-        toast.error(res.error || 'Помилка створення публікації');
+        toast.error(res.error || t('pubCreateError'));
       }
     } catch {
-      toast.error('Помилка створення публікації');
+      toast.error(t('pubCreateError'));
     }
     setIsSubmitting(false);
   };
 
   const handlePublish = async (id: number) => {
     const res = await apiClient.post(`/api/v1/admin/publications/${id}/publish`);
-    if (res.success) toast.success('Публікацію опубліковано');
-    else toast.error(res.error || 'Помилка публікації');
+    if (res.success) toast.success(t('pubPublished'));
+    else toast.error(res.error || t('pubError'));
     loadPublications();
   };
 
   const handleRetry = async (id: number, channel: string) => {
     const res = await apiClient.post(`/api/v1/admin/publications/${id}/retry`, { channel });
-    if (res.success) toast.success('Повторна публікація запущена');
-    else toast.error(res.error || 'Помилка повторної публікації');
+    if (res.success) toast.success(t('retryStarted'));
+    else toast.error(res.error || t('retryError'));
     loadPublications();
   };
 
@@ -488,8 +502,8 @@ export default function AdminPublicationsPage() {
     const id = deleteId;
     setDeleteId(null);
     const res = await apiClient.delete(`/api/v1/admin/publications/${id}`);
-    if (res.success) toast.success('Публікацію видалено');
-    else toast.error(res.error || 'Помилка видалення');
+    if (res.success) toast.success(t('pubDeleted'));
+    else toast.error(res.error || t('deleteError'));
     loadPublications();
   };
 
@@ -512,14 +526,14 @@ export default function AdminPublicationsPage() {
     try {
       const res = await apiClient.put(`/api/v1/admin/publications/${id}`, data);
       if (res.success) {
-        toast.success('Збережено');
+        toast.success(t('saved'));
         setEditingId(null);
         loadPublications();
       } else {
-        toast.error(res.error || 'Помилка збереження');
+        toast.error(res.error || t('saveError'));
       }
     } catch {
-      toast.error('Помилка мережі');
+      toast.error(t('networkError'));
     }
   };
 
@@ -539,12 +553,12 @@ export default function AdminPublicationsPage() {
 
   const statusLabel = (s: string) => {
     const map: Record<string, string> = {
-      draft: 'Чернетка',
-      scheduled: 'Запланована',
-      published: 'Опублікована',
-      partial: 'Частково опубліковано',
-      failed: 'Помилка',
-      error: 'Помилка',
+      draft: t('statusDraft'),
+      scheduled: t('statusScheduled'),
+      published: t('statusPublished'),
+      partial: t('statusPartial'),
+      failed: t('statusFailed'),
+      error: t('statusFailed'),
     };
     return map[s] || s;
   };
@@ -587,24 +601,24 @@ export default function AdminPublicationsPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Публікації</h2>
+        <h2 className="text-xl font-bold">{t('title')}</h2>
         <div className="flex items-center gap-2">
           <div className="flex overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]">
             <button
               onClick={() => setViewMode('list')}
               className={`px-3 py-1.5 text-sm transition-colors ${viewMode === 'list' ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-bg-secondary)]'}`}
             >
-              Список
+              {t('viewList')}
             </button>
             <button
               onClick={() => setViewMode('calendar')}
               className={`px-3 py-1.5 text-sm transition-colors ${viewMode === 'calendar' ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-bg-secondary)]'}`}
             >
-              Календар
+              {t('viewCalendar')}
             </button>
           </div>
           <Button onClick={() => setShowForm(!showForm)}>
-            {showForm ? 'Скасувати' : 'Нова публікація'}
+            {showForm ? t('cancel') : t('newPublication')}
           </Button>
         </div>
       </div>
@@ -613,18 +627,18 @@ export default function AdminPublicationsPage() {
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6">
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">Шаблон</label>
+              <label className="mb-1 block text-sm font-medium">{t('templateLabel')}</label>
               <select
                 className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
                 defaultValue=""
                 onChange={(e) => {
-                  const tpl = PUBLICATION_TEMPLATES.find((t) => t.label === e.target.value);
+                  const tpl = PUBLICATION_TEMPLATES.find((tp) => tp.label === e.target.value);
                   if (tpl) applyTemplate(tpl);
                   e.target.value = '';
                 }}
               >
                 <option value="" disabled>
-                  Обрати шаблон...
+                  {t('chooseTemplate')}
                 </option>
                 {PUBLICATION_TEMPLATES.map((tpl) => (
                   <option key={tpl.label} value={tpl.label}>
@@ -635,7 +649,7 @@ export default function AdminPublicationsPage() {
             </div>
             {/* Product picker */}
             <div>
-              <label className="mb-1 block text-sm font-medium">Товар</label>
+              <label className="mb-1 block text-sm font-medium">{t('productLabel')}</label>
               <Button
                 variant="secondary"
                 size="sm"
@@ -644,7 +658,7 @@ export default function AdminPublicationsPage() {
                   if (!showProductPicker) searchProducts('', 'all');
                 }}
               >
-                {showProductPicker ? 'Сховати вибір товару' : 'Обрати товар для публікації'}
+                {showProductPicker ? t('hideProductPicker') : t('chooseProduct')}
               </Button>
               {showProductPicker && (
                 <div className="mt-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
@@ -652,9 +666,9 @@ export default function AdminPublicationsPage() {
                     <div className="flex overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)]">
                       {(
                         [
-                          ['all', 'Всі'],
-                          ['promo', 'Акційні'],
-                          ['new', 'Нові'],
+                          ['all', t('filterAll')],
+                          ['promo', t('filterPromo')],
+                          ['new', t('filterNew')],
                         ] as const
                       ).map(([key, label]) => (
                         <button
@@ -672,7 +686,7 @@ export default function AdminPublicationsPage() {
                     <input
                       value={productSearch}
                       onChange={(e) => setProductSearch(e.target.value)}
-                      placeholder="Пошук товару..."
+                      placeholder={t('productSearchPh')}
                       className="flex-1 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1 text-sm"
                     />
                     {productSearching && <Spinner size="sm" />}
@@ -709,9 +723,11 @@ export default function AdminPublicationsPage() {
                           <div className="min-w-0 flex-1">
                             <div className="truncate font-medium">{p.name}</div>
                             <div className="text-xs text-[var(--color-text-secondary)]">
-                              {p.priceRetail} грн
+                              {t('priceShort', { price: p.priceRetail })}
                               {p.isPromo && (
-                                <span className="ml-1 text-[var(--color-danger)]">Акція</span>
+                                <span className="ml-1 text-[var(--color-danger)]">
+                                  {t('promo')}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -720,23 +736,23 @@ export default function AdminPublicationsPage() {
                     ))}
                     {productResults.length === 0 && !productSearching && (
                       <p className="py-2 text-center text-xs text-[var(--color-text-secondary)]">
-                        Товарів не знайдено
+                        {t('noProductsFound')}
                       </p>
                     )}
                   </div>
                   {bulkSelected.size > 0 && (
                     <div className="mt-2 flex items-center gap-2 border-t border-[var(--color-border)] pt-2">
                       <span className="text-xs text-[var(--color-text-secondary)]">
-                        Обрано: {bulkSelected.size}
+                        {t('selectedCount', { count: bulkSelected.size })}
                       </span>
                       <Button size="sm" onClick={handleBulkPublish} isLoading={bulkPublishing}>
-                        Опублікувати всі обрані
+                        {t('publishAllSelected')}
                       </Button>
                       <button
                         onClick={() => setBulkSelected(new Set())}
                         className="text-xs text-[var(--color-text-secondary)] hover:underline"
                       >
-                        Скинути
+                        {t('reset')}
                       </button>
                     </div>
                   )}
@@ -745,22 +761,24 @@ export default function AdminPublicationsPage() {
             </div>
 
             <Input
-              label="Заголовок"
+              label={t('titleLabel')}
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="Заголовок публікації"
+              placeholder={t('titlePh')}
             />
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium">Текст</label>
+              <label className="text-sm font-medium">{t('textLabel')}</label>
               <textarea
                 value={form.content}
                 onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
                 rows={4}
                 className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
-                placeholder="Текст публікації..."
+                placeholder={t('textPh')}
               />
               <div className="flex flex-wrap gap-1">
-                <span className="text-[10px] text-[var(--color-text-secondary)]">Вставити:</span>
+                <span className="text-[10px] text-[var(--color-text-secondary)]">
+                  {t('insert')}
+                </span>
                 {TEMPLATE_VARS.map((v) => (
                   <button
                     key={v.key}
@@ -775,7 +793,7 @@ export default function AdminPublicationsPage() {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium">Канали</label>
+              <label className="text-sm font-medium">{t('channelsLabel')}</label>
               <ChannelCheckboxes
                 channels={form.channels}
                 onChange={(ch) =>
@@ -784,7 +802,7 @@ export default function AdminPublicationsPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Зображення</label>
+              <label className="mb-1 block text-sm font-medium">{t('imageLabel')}</label>
               <div className="flex items-center gap-3">
                 <input
                   type="file"
@@ -807,7 +825,7 @@ export default function AdminPublicationsPage() {
                       onClick={() => setForm((f) => ({ ...f, imagePath: '' }))}
                       className="text-xs text-[var(--color-danger)]"
                     >
-                      Видалити
+                      {t('delete')}
                     </button>
                   </div>
                 )}
@@ -821,7 +839,7 @@ export default function AdminPublicationsPage() {
                     onChange={(e) => setUseWatermark(e.target.checked)}
                     className="accent-[var(--color-primary)]"
                   />
-                  Додати водяний знак
+                  {t('addWatermark')}
                 </label>
               )}
               {/* Additional images for carousel */}
@@ -829,7 +847,7 @@ export default function AdminPublicationsPage() {
                 <div className="mt-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-[var(--color-text-secondary)]">
-                      Додаткові фото (карусель Instagram):
+                      {t('additionalImages')}
                     </span>
                     <input
                       type="file"
@@ -886,13 +904,13 @@ export default function AdminPublicationsPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
-                label="Хештеги"
+                label={t('hashtagsLabel')}
                 value={form.hashtags}
                 onChange={(e) => setForm((f) => ({ ...f, hashtags: e.target.value }))}
-                placeholder="#акція #pulito_trade"
+                placeholder={t('hashtagsPh')}
               />
               <div>
-                <label className="mb-1 block text-sm font-medium">Запланувати</label>
+                <label className="mb-1 block text-sm font-medium">{t('scheduleLabel')}</label>
                 <input
                   type="datetime-local"
                   value={form.scheduledAt}
@@ -901,10 +919,10 @@ export default function AdminPublicationsPage() {
                 />
                 <div className="mt-1 flex flex-wrap gap-1">
                   {[
-                    { label: 'Через 1 год', hours: 1 },
-                    { label: 'Через 3 год', hours: 3 },
-                    { label: 'Завтра 9:00', preset: 'tomorrow9' },
-                    { label: 'Завтра 18:00', preset: 'tomorrow18' },
+                    { label: t('inOneHour'), hours: 1 },
+                    { label: t('inThreeHours'), hours: 3 },
+                    { label: t('tomorrow9'), preset: 'tomorrow9' },
+                    { label: t('tomorrow18'), preset: 'tomorrow18' },
                   ].map((opt) => (
                     <button
                       key={opt.label}
@@ -939,16 +957,15 @@ export default function AdminPublicationsPage() {
                 className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary)] hover:underline"
               >
                 <span>{showChannelContents ? '▼' : '▶'}</span>
-                Різний контент для каналів
+                {t('perChannelContent')}
               </button>
               {showChannelContents && (
                 <div className="mt-2 space-y-3">
                   <p className="text-xs text-[var(--color-text-secondary)]">
-                    Налаштуйте контент для кожного каналу окремо. Порожні поля використають основний
-                    контент.
+                    {t('perChannelHint')}
                   </p>
                   {form.channels.map((ch) => {
-                    const label = ALL_CHANNELS.find((c) => c.key === ch)?.label || ch;
+                    const label = channelLabel(ch);
                     const cc = channelContents[ch] || { title: '', content: '', hashtags: '' };
                     const updateCC = (field: keyof ChannelContent, value: string) => {
                       setChannelContents((prev) => ({
@@ -978,7 +995,7 @@ export default function AdminPublicationsPage() {
                               }
                               className="text-xs text-[var(--color-danger)] hover:underline"
                             >
-                              Скинути
+                              {t('reset')}
                             </button>
                           )}
                         </div>
@@ -986,20 +1003,22 @@ export default function AdminPublicationsPage() {
                           <input
                             value={cc.title}
                             onChange={(e) => updateCC('title', e.target.value)}
-                            placeholder={`Заголовок (${form.title || 'основний'})`}
+                            placeholder={t('ccTitlePh', { main: form.title || t('ccTitleMain') })}
                             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
                           />
                           <textarea
                             value={cc.content}
                             onChange={(e) => updateCC('content', e.target.value)}
-                            placeholder={`Текст (основний)`}
+                            placeholder={t('ccContentPh')}
                             rows={2}
                             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
                           />
                           <input
                             value={cc.hashtags}
                             onChange={(e) => updateCC('hashtags', e.target.value)}
-                            placeholder={`Хештеги (${form.hashtags || 'основні'})`}
+                            placeholder={t('ccHashtagsPh', {
+                              main: form.hashtags || t('ccHashtagsMain'),
+                            })}
                             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
                           />
                         </div>
@@ -1010,7 +1029,7 @@ export default function AdminPublicationsPage() {
               )}
             </div>
             <Button onClick={handleCreate} isLoading={isSubmitting}>
-              {form.scheduledAt ? 'Запланувати' : 'Створити чернетку'}
+              {form.scheduledAt ? t('schedule') : t('createDraft')}
             </Button>
           </div>
         </div>
@@ -1025,11 +1044,11 @@ export default function AdminPublicationsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                <th className="px-4 py-3 text-left font-medium">Заголовок</th>
-                <th className="px-4 py-3 text-left font-medium">Канали</th>
-                <th className="px-4 py-3 text-center font-medium">Статус</th>
-                <th className="px-4 py-3 text-left font-medium">Дата</th>
-                <th className="px-4 py-3 text-right font-medium">Дії</th>
+                <th className="px-4 py-3 text-left font-medium">{t('thTitle')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('thChannels')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('thStatus')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('thDate')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('thActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1046,13 +1065,13 @@ export default function AdminPublicationsPage() {
                             value={editForm.title}
                             onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                             className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
-                            placeholder="Заголовок"
+                            placeholder={t('titleEditPh')}
                           />
                           <input
                             value={editForm.hashtags}
                             onChange={(e) => setEditForm({ ...editForm, hashtags: e.target.value })}
                             className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
-                            placeholder="Хештеги"
+                            placeholder={t('hashtagsEditPh')}
                           />
                         </div>
                         <textarea
@@ -1127,7 +1146,7 @@ export default function AdminPublicationsPage() {
                                 }`}
                                 title={cr?.errorMessage || ''}
                               >
-                                {icon} {ALL_CHANNELS.find((c) => c.key === ch)?.label || ch}
+                                {icon} {channelLabel(ch)}
                                 {cr?.status === 'failed' && (
                                   <button
                                     onClick={(e) => {
@@ -1135,7 +1154,7 @@ export default function AdminPublicationsPage() {
                                       handleRetry(p.id, ch);
                                     }}
                                     className="ml-0.5 text-[9px] underline hover:no-underline"
-                                    title={`Повторити: ${cr.errorMessage || ''}`}
+                                    title={t('retryTitle', { error: cr.errorMessage || '' })}
                                   >
                                     ↻
                                   </button>
@@ -1160,7 +1179,7 @@ export default function AdminPublicationsPage() {
                           <button
                             onClick={() => setPreviewPub(p)}
                             className="rounded-[var(--radius)] border border-[var(--color-border)] p-1 hover:bg-[var(--color-bg-secondary)]"
-                            title="Переглянути"
+                            title={t('view')}
                           >
                             <Eye size={14} />
                           </button>
@@ -1170,24 +1189,24 @@ export default function AdminPublicationsPage() {
                                 onClick={() => startEdit(p)}
                                 className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
                               >
-                                Редагувати
+                                {t('edit')}
                               </button>
                               <button
                                 onClick={() => {
                                   const channel = p.channels?.[0];
                                   if (!channel) {
-                                    toast.error('Спочатку оберіть канал');
+                                    toast.error(t('selectChannelFirst'));
                                     return;
                                   }
                                   setTestPub({ id: p.id, channel });
                                 }}
                                 className="rounded-[var(--radius)] border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-bg-secondary)]"
-                                title="Перевірити підстановку плейсхолдерів без реальної публікації"
+                                title={t('testTitle')}
                               >
-                                🧪 Тест
+                                {t('test')}
                               </button>
                               <Button size="sm" onClick={() => setPublishConfirmId(p.id)}>
-                                Опублікувати
+                                {t('publish')}
                               </Button>
                               <button
                                 onClick={() => handleDelete(p.id)}
@@ -1202,7 +1221,7 @@ export default function AdminPublicationsPage() {
                               variant="secondary"
                               onClick={() => setPublishConfirmId(p.id)}
                             >
-                              Повторити
+                              {t('retry')}
                             </Button>
                           )}
                         </div>
@@ -1218,10 +1237,8 @@ export default function AdminPublicationsPage() {
                       <span className="text-3xl" aria-hidden="true">
                         📢
                       </span>
-                      <p className="text-sm font-medium">Публікацій немає</p>
-                      <p className="text-xs">
-                        Створіть першу публікацію або скористайтесь шаблоном
-                      </p>
+                      <p className="text-sm font-medium">{t('emptyTitle')}</p>
+                      <p className="text-xs">{t('emptyHint')}</p>
                     </div>
                   </td>
                 </tr>
@@ -1251,7 +1268,15 @@ export default function AdminPublicationsPage() {
 
           {/* Day-of-week headers */}
           <div className="grid grid-cols-7 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].map((d) => (
+            {[
+              t('dow_mon'),
+              t('dow_tue'),
+              t('dow_wed'),
+              t('dow_thu'),
+              t('dow_fri'),
+              t('dow_sat'),
+              t('dow_sun'),
+            ].map((d) => (
               <div
                 key={d}
                 className="px-1 py-2 text-center text-xs font-medium text-[var(--color-text-secondary)]"
@@ -1303,7 +1328,7 @@ export default function AdminPublicationsPage() {
                   ))}
                   {dayPubs.length > 3 && (
                     <div className="px-1 text-[10px] text-[var(--color-text-secondary)]">
-                      +{dayPubs.length - 3} ще
+                      {t('moreCount', { count: dayPubs.length - 3 })}
                     </div>
                   )}
                 </div>
@@ -1319,9 +1344,7 @@ export default function AdminPublicationsPage() {
                 {calendarYear}
               </h3>
               {(pubsByDay[selectedDay] || []).length === 0 ? (
-                <p className="text-sm text-[var(--color-text-secondary)]">
-                  Публікацій на цей день немає
-                </p>
+                <p className="text-sm text-[var(--color-text-secondary)]">{t('noPubsThisDay')}</p>
               ) : (
                 <div className="space-y-2">
                   {(pubsByDay[selectedDay] || []).map((pub) => (
@@ -1349,7 +1372,7 @@ export default function AdminPublicationsPage() {
                         <button
                           onClick={() => setPreviewPub(pub)}
                           className="rounded-[var(--radius)] border border-[var(--color-border)] p-1 hover:bg-[var(--color-bg-secondary)]"
-                          title="Переглянути"
+                          title={t('view')}
                         >
                           <Eye size={14} />
                         </button>
@@ -1381,9 +1404,7 @@ export default function AdminPublicationsPage() {
                       <span>
                         {cr.status === 'published' ? '✅' : cr.status === 'failed' ? '❌' : '⏳'}
                       </span>
-                      <span className="font-medium">
-                        {ALL_CHANNELS.find((c) => c.key === cr.channel)?.label || cr.channel}
-                      </span>
+                      <span className="font-medium">{channelLabel(cr.channel)}</span>
                       {cr.permalink && (
                         <a
                           href={cr.permalink}
@@ -1391,7 +1412,7 @@ export default function AdminPublicationsPage() {
                           rel="noopener"
                           className="text-[var(--color-primary)] underline"
                         >
-                          Посилання
+                          {t('link')}
                         </a>
                       )}
                       {cr.errorMessage && (
@@ -1405,7 +1426,7 @@ export default function AdminPublicationsPage() {
                           }}
                           className="rounded border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] hover:bg-[var(--color-bg-secondary)]"
                         >
-                          Повторити
+                          {t('retry')}
                         </button>
                       )}
                     </div>
@@ -1419,7 +1440,7 @@ export default function AdminPublicationsPage() {
               previewPub.channelResults.some((cr) => cr.views || cr.clicks) && (
                 <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
                   <div className="mb-2 text-[10px] font-medium uppercase text-[var(--color-text-secondary)]">
-                    Аналітика
+                    {t('analytics')}
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div>
@@ -1427,14 +1448,16 @@ export default function AdminPublicationsPage() {
                         {previewPub.channelResults.reduce((s, cr) => s + (cr.views || 0), 0)}
                       </div>
                       <div className="text-[10px] text-[var(--color-text-secondary)]">
-                        Перегляди
+                        {t('views')}
                       </div>
                     </div>
                     <div>
                       <div className="text-lg font-bold">
                         {previewPub.channelResults.reduce((s, cr) => s + (cr.clicks || 0), 0)}
                       </div>
-                      <div className="text-[10px] text-[var(--color-text-secondary)]">Кліки</div>
+                      <div className="text-[10px] text-[var(--color-text-secondary)]">
+                        {t('clicks')}
+                      </div>
                     </div>
                     <div>
                       <div className="text-lg font-bold">
@@ -1451,7 +1474,7 @@ export default function AdminPublicationsPage() {
                         })()}
                       </div>
                       <div className="text-[10px] text-[var(--color-text-secondary)]">
-                        Залучення
+                        {t('engagement')}
                       </div>
                     </div>
                   </div>
@@ -1460,12 +1483,14 @@ export default function AdminPublicationsPage() {
                       .filter((cr) => cr.status === 'published')
                       .map((cr) => (
                         <div key={cr.channel} className="flex items-center justify-between text-xs">
-                          <span className="font-medium">
-                            {ALL_CHANNELS.find((c) => c.key === cr.channel)?.label || cr.channel}
-                          </span>
+                          <span className="font-medium">{channelLabel(cr.channel)}</span>
                           <span className="text-[var(--color-text-secondary)]">
-                            {cr.views ?? '—'} перегл. · {cr.clicks ?? '—'} клік. ·{' '}
-                            {cr.engagement != null ? `${cr.engagement.toFixed(1)}%` : '—'}
+                            {t('channelStats', {
+                              views: cr.views ?? '—',
+                              clicks: cr.clicks ?? '—',
+                              engagement:
+                                cr.engagement != null ? `${cr.engagement.toFixed(1)}%` : '—',
+                            })}
                           </span>
                         </div>
                       ))}
@@ -1476,11 +1501,11 @@ export default function AdminPublicationsPage() {
             {/* Per-channel preview */}
             <div className="mb-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
               <div className="mb-2 text-[10px] font-medium uppercase text-[var(--color-text-secondary)]">
-                Прев&apos;ю по каналах
+                {t('previewByChannel')}
               </div>
               <div className="space-y-2 text-sm">
                 {previewPub.channels.map((ch) => {
-                  const label = ALL_CHANNELS.find((c) => c.key === ch)?.label || ch;
+                  const label = channelLabel(ch);
                   const cc = previewPub.channelContents?.[ch];
                   const title = cc?.title || previewPub.title;
                   const content = cc?.content || previewPub.content;
@@ -1542,11 +1567,13 @@ export default function AdminPublicationsPage() {
             </div>
             <div className="flex items-center justify-between">
               <div className="text-xs text-[var(--color-text-secondary)]">
-                <p>Автор: {previewPub.creator.fullName}</p>
-                <p>Створено: {formatDate(previewPub.createdAt)}</p>
-                {previewPub.scheduledAt && <p>Заплановано: {formatDate(previewPub.scheduledAt)}</p>}
+                <p>{t('author', { name: previewPub.creator.fullName })}</p>
+                <p>{t('createdLabel', { date: formatDate(previewPub.createdAt) })}</p>
+                {previewPub.scheduledAt && (
+                  <p>{t('scheduledLabel', { date: formatDate(previewPub.scheduledAt) })}</p>
+                )}
                 {previewPub.publishedAt && (
-                  <p>Опубліковано: {formatDate(previewPub.publishedAt)}</p>
+                  <p>{t('publishedLabel', { date: formatDate(previewPub.publishedAt) })}</p>
                 )}
               </div>
               {previewPub.status === 'published' && (
@@ -1558,7 +1585,7 @@ export default function AdminPublicationsPage() {
                   }}
                   className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-xs hover:bg-[var(--color-bg-secondary)]"
                 >
-                  Оновити аналітику
+                  {t('refreshAnalytics')}
                 </button>
               )}
             </div>
@@ -1574,9 +1601,11 @@ export default function AdminPublicationsPage() {
           return (
             <Modal isOpen onClose={() => setPublishConfirmId(null)} size="sm">
               <div className="p-6">
-                <h3 className="mb-3 text-lg font-bold">Підтвердження публікації</h3>
+                <h3 className="mb-3 text-lg font-bold">{t('confirmPublishTitle')}</h3>
                 <p className="mb-2 text-sm">
-                  Опублікувати <strong>{pub.title}</strong> у такі канали:
+                  {t('confirmPublishPre')}
+                  <strong>{pub.title}</strong>
+                  {t('confirmPublishPost')}
                 </p>
                 <div className="mb-4 flex flex-wrap gap-2">
                   {pub.channels.map((ch) => (
@@ -1584,19 +1613,18 @@ export default function AdminPublicationsPage() {
                       key={ch}
                       className="rounded-full bg-[var(--color-bg-secondary)] px-3 py-1 text-sm font-medium"
                     >
-                      {ALL_CHANNELS.find((c) => c.key === ch)?.label || ch}
+                      {channelLabel(ch)}
                     </span>
                   ))}
                 </div>
                 {pub.channelContents && Object.keys(pub.channelContents).length > 0 && (
                   <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
-                    Для {Object.keys(pub.channelContents).length} каналів використовується окремий
-                    контент
+                    {t('perChannelNote', { count: Object.keys(pub.channelContents).length })}
                   </p>
                 )}
                 <div className="flex justify-end gap-2">
                   <Button variant="secondary" onClick={() => setPublishConfirmId(null)}>
-                    Скасувати
+                    {t('cancel')}
                   </Button>
                   <Button
                     onClick={() => {
@@ -1604,7 +1632,7 @@ export default function AdminPublicationsPage() {
                       setPublishConfirmId(null);
                     }}
                   >
-                    Опублікувати
+                    {t('publish')}
                   </Button>
                 </div>
               </div>
@@ -1617,7 +1645,7 @@ export default function AdminPublicationsPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={executeDelete}
         variant="danger"
-        message="Видалити публікацію?"
+        message={t('deleteConfirm')}
       />
 
       {/* Test render modal — fires the /test endpoint when state is set, then
@@ -1633,7 +1661,7 @@ export default function AdminPublicationsPage() {
               })
               .then((res) => {
                 if (res.success && res.data) setTestResult(res.data);
-                else toast.error(res.error || 'Помилка тесту');
+                else toast.error(res.error || t('testError'));
               })
               .finally(() => setIsTesting(false));
           }
@@ -1646,24 +1674,24 @@ export default function AdminPublicationsPage() {
               }}
               size="md"
             >
-              <h3 className="mb-3 text-lg font-semibold">🧪 Тест-рендер</h3>
+              <h3 className="mb-3 text-lg font-semibold">{t('testRender')}</h3>
               {isTesting && !testResult && (
-                <p className="text-sm text-[var(--color-text-secondary)]">Рендеримо…</p>
+                <p className="text-sm text-[var(--color-text-secondary)]">{t('rendering')}</p>
               )}
               {testResult && (
                 <div className="space-y-3 text-sm">
                   <p className="text-xs text-[var(--color-text-secondary)]">
-                    Канал: <strong>{testResult.channel}</strong>
+                    {t('channelColon')} <strong>{testResult.channel}</strong>
                   </p>
                   <div>
                     <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                      Заголовок
+                      {t('headingLabel')}
                     </p>
                     <p className="rounded bg-[var(--color-bg-secondary)] p-2">{testResult.title}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                      Контент
+                      {t('contentLabel')}
                     </p>
                     <p className="whitespace-pre-wrap rounded bg-[var(--color-bg-secondary)] p-2">
                       {testResult.content}
@@ -1672,7 +1700,7 @@ export default function AdminPublicationsPage() {
                   {testResult.hashtags && (
                     <div>
                       <p className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                        Хештеги
+                        {t('hashtagsLabel')}
                       </p>
                       <p className="rounded bg-[var(--color-bg-secondary)] p-2 text-[var(--color-primary)]">
                         {testResult.hashtags}
@@ -1695,7 +1723,7 @@ export default function AdminPublicationsPage() {
                     setTestResult(null);
                   }}
                 >
-                  Закрити
+                  {t('close')}
                 </Button>
               </div>
             </Modal>
