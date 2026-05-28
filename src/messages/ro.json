@@ -974,6 +974,19 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "abcAnalysis": {
+      "totalRevenue": "Venit total",
+      "groupLabel": "Grupa {cat} ({pct} din venit)",
+      "productsCount": "{count, plural, one {# produs} few {# produse} other {# de produse}}",
+      "pieLabel": "{cat} ({count, plural, one {# produs} few {# produse} other {# de produse}})",
+      "colCat": "Cat.",
+      "colCode": "Cod",
+      "colName": "Nume",
+      "colRevenue": "Venit",
+      "colRevenuePct": "% din venit",
+      "colQty": "Cant.",
+      "colOrders": "Comenzi"
+    },
     "customerLtv": {
       "customers": "Clienți",
       "totalRevenue": "Venit total",

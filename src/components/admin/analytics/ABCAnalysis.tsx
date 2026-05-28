@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
@@ -37,6 +38,7 @@ const CATEGORY_COLORS = {
 };
 
 export default function ABCAnalysis({ days = 30 }: { days?: number }) {
+  const t = useTranslations('admin.abcAnalysis');
   const [data, setData] = useState<ABCData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -49,20 +51,37 @@ export default function ABCAnalysis({ days = 30 }: { days?: number }) {
       .finally(() => setIsLoading(false));
   }, [days]);
 
-  if (isLoading) return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   if (!data) return null;
 
   const pieData = [
-    { name: `A (${data.summary.A} товарів)`, value: data.summary.A, fill: CATEGORY_COLORS.A },
-    { name: `B (${data.summary.B} товарів)`, value: data.summary.B, fill: CATEGORY_COLORS.B },
-    { name: `C (${data.summary.C} товарів)`, value: data.summary.C, fill: CATEGORY_COLORS.C },
+    {
+      name: t('pieLabel', { cat: 'A', count: data.summary.A }),
+      value: data.summary.A,
+      fill: CATEGORY_COLORS.A,
+    },
+    {
+      name: t('pieLabel', { cat: 'B', count: data.summary.B }),
+      value: data.summary.B,
+      fill: CATEGORY_COLORS.B,
+    },
+    {
+      name: t('pieLabel', { cat: 'C', count: data.summary.C }),
+      value: data.summary.C,
+      fill: CATEGORY_COLORS.C,
+    },
   ];
 
   return (
     <div>
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <p className="text-xs text-[var(--color-text-secondary)]">Загальна виручка</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('totalRevenue')}</p>
           <p className="text-xl font-bold">{data.summary.totalRevenue.toFixed(0)} ₴</p>
         </div>
         {(['A', 'B', 'C'] as const).map((cat) => (
@@ -71,10 +90,10 @@ export default function ABCAnalysis({ days = 30 }: { days?: number }) {
             className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4"
           >
             <p className="text-xs text-[var(--color-text-secondary)]">
-              Група {cat} ({cat === 'A' ? '80%' : cat === 'B' ? '15%' : '5%'} виручки)
+              {t('groupLabel', { cat, pct: cat === 'A' ? '80%' : cat === 'B' ? '15%' : '5%' })}
             </p>
             <p className="text-xl font-bold" style={{ color: CATEGORY_COLORS[cat] }}>
-              {data.summary[cat]} товарів
+              {t('productsCount', { count: data.summary[cat] })}
             </p>
           </div>
         ))}
@@ -98,13 +117,13 @@ export default function ABCAnalysis({ days = 30 }: { days?: number }) {
         <table className="w-full text-sm">
           <thead className="bg-[var(--color-bg-secondary)]">
             <tr>
-              <th className="px-3 py-2 text-left">Кат.</th>
-              <th className="px-3 py-2 text-left">Код</th>
-              <th className="px-3 py-2 text-left">Назва</th>
-              <th className="px-3 py-2 text-right">Виручка</th>
-              <th className="px-3 py-2 text-right">% виручки</th>
-              <th className="px-3 py-2 text-right">К-ть</th>
-              <th className="px-3 py-2 text-right">Замовлень</th>
+              <th className="px-3 py-2 text-left">{t('colCat')}</th>
+              <th className="px-3 py-2 text-left">{t('colCode')}</th>
+              <th className="px-3 py-2 text-left">{t('colName')}</th>
+              <th className="px-3 py-2 text-right">{t('colRevenue')}</th>
+              <th className="px-3 py-2 text-right">{t('colRevenuePct')}</th>
+              <th className="px-3 py-2 text-right">{t('colQty')}</th>
+              <th className="px-3 py-2 text-right">{t('colOrders')}</th>
             </tr>
           </thead>
           <tbody>

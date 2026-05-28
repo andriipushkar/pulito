@@ -974,6 +974,19 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "abcAnalysis": {
+      "totalRevenue": "Total revenue",
+      "groupLabel": "Group {cat} ({pct} of revenue)",
+      "productsCount": "{count, plural, one {# product} other {# products}}",
+      "pieLabel": "{cat} ({count, plural, one {# product} other {# products}})",
+      "colCat": "Cat.",
+      "colCode": "Code",
+      "colName": "Name",
+      "colRevenue": "Revenue",
+      "colRevenuePct": "% of revenue",
+      "colQty": "Qty",
+      "colOrders": "Orders"
+    },
     "customerLtv": {
       "customers": "Customers",
       "totalRevenue": "Total revenue",

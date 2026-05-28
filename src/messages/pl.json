@@ -974,6 +974,19 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "abcAnalysis": {
+      "totalRevenue": "Całkowity przychód",
+      "groupLabel": "Grupa {cat} ({pct} przychodu)",
+      "productsCount": "{count, plural, one {# produkt} few {# produkty} many {# produktów} other {# produktu}}",
+      "pieLabel": "{cat} ({count, plural, one {# produkt} few {# produkty} many {# produktów} other {# produktu}})",
+      "colCat": "Kat.",
+      "colCode": "Kod",
+      "colName": "Nazwa",
+      "colRevenue": "Przychód",
+      "colRevenuePct": "% przychodu",
+      "colQty": "Ilość",
+      "colOrders": "Zamówienia"
+    },
     "customerLtv": {
       "customers": "Klienci",
       "totalRevenue": "Całkowity przychód",

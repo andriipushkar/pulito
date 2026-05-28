@@ -974,6 +974,19 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "abcAnalysis": {
+      "totalRevenue": "Загальна виручка",
+      "groupLabel": "Група {cat} ({pct} виручки)",
+      "productsCount": "{count, plural, one {# товар} few {# товари} many {# товарів} other {# товарів}}",
+      "pieLabel": "{cat} ({count, plural, one {# товар} few {# товари} many {# товарів} other {# товарів}})",
+      "colCat": "Кат.",
+      "colCode": "Код",
+      "colName": "Назва",
+      "colRevenue": "Виручка",
+      "colRevenuePct": "% виручки",
+      "colQty": "К-ть",
+      "colOrders": "Замовлень"
+    },
     "customerLtv": {
       "customers": "Клієнтів",
       "totalRevenue": "Загальна виручка",
