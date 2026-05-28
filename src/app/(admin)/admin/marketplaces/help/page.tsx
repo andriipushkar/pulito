@@ -1,17 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 const SECTIONS = [
-  { id: 'overview', label: '🚀 Огляд' },
-  { id: 'olx', label: '🟢 OLX' },
-  { id: 'rozetka', label: '🟩 Rozetka' },
-  { id: 'prom', label: '🔵 Prom.ua' },
-  { id: 'epicentrk', label: '🟠 Epicentr K' },
-  { id: 'workflow', label: '📦 Робочий процес' },
-  { id: 'messages', label: '💬 Повідомлення' },
-  { id: 'returns', label: '↩ Повернення' },
-  { id: 'troubleshooting', label: '🛠 Усунення несправностей' },
+  { id: 'overview', key: 'sec_overview' },
+  { id: 'olx', key: 'sec_olx' },
+  { id: 'rozetka', key: 'sec_rozetka' },
+  { id: 'prom', key: 'sec_prom' },
+  { id: 'epicentrk', key: 'sec_epicentrk' },
+  { id: 'workflow', key: 'sec_workflow' },
+  { id: 'messages', key: 'sec_messages' },
+  { id: 'returns', key: 'sec_returns' },
+  { id: 'troubleshooting', key: 'sec_troubleshooting' },
 ];
 
 function H({ id, children }: { id: string; children: React.ReactNode }) {
@@ -56,15 +57,32 @@ function Note({ children, type = 'info' }: { children: React.ReactNode; type?: '
 }
 
 export default function MarketplacesHelpPage() {
+  const t = useTranslations('admin.marketplacesHelp');
   const [active, setActive] = useState('overview');
+
+  // Shared rich-text chunk renderers reused across the prose blocks below.
+  const b = (c: React.ReactNode) => <strong>{c}</strong>;
+  const i = (c: React.ReactNode) => <em>{c}</em>;
+  const code = (c: React.ReactNode) => <Code>{c}</Code>;
+  const extLink = (href: string, c: React.ReactNode) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[var(--color-primary)] underline"
+    >
+      {c}
+    </a>
+  );
+  const linkOlx = (c: React.ReactNode) => extLink('https://developer.olx.ua/', c);
+  const linkRozetka = (c: React.ReactNode) => extLink('https://seller.rozetka.com.ua/', c);
+  const linkProm = (c: React.ReactNode) => extLink('https://my.prom.ua/api', c);
 
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Довідка: інтеграції з маркетплейсами</h1>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Покрокові інструкції з налаштування та роботи з OLX, Rozetka, Prom.ua та Epicentr K.
-        </p>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('subtitle')}</p>
       </div>
 
       <div className="flex gap-6">
@@ -80,215 +98,84 @@ export default function MarketplacesHelpPage() {
                   : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]'
               }`}
             >
-              {s.label}
+              {t(s.key)}
             </a>
           ))}
         </nav>
 
         <article className="prose-sm max-w-none flex-1 text-sm text-[var(--color-text)]">
-          <H id="overview">🚀 Огляд</H>
-          <p>
-            Адмінпанель дозволяє в одному місці керувати товарами на чотирьох маркетплейсах:
-            <strong> OLX, Rozetka, Prom.ua та Epicentr K</strong>. З панелі можна:
-          </p>
+          <H id="overview">{t('sec_overview')}</H>
+          <p>{t.rich('overviewIntro', { b })}</p>
           <ul className="ml-5 list-disc space-y-1">
-            <li>публікувати товари (з автоматичною націнкою та квотою залишку);</li>
-            <li>імпортувати замовлення з усіх маркетплейсів (автоматично через cron);</li>
-            <li>відповідати на повідомлення покупців прямо з адмінки;</li>
-            <li>опрацьовувати повернення та спори;</li>
-            <li>бачити аналітику продажів і здоров&apos;я API.</li>
+            <li>{t('overviewLi1')}</li>
+            <li>{t('overviewLi2')}</li>
+            <li>{t('overviewLi3')}</li>
+            <li>{t('overviewLi4')}</li>
+            <li>{t('overviewLi5')}</li>
           </ul>
 
-          <Note>
-            <strong>Базовий процес:</strong> 1) у «Налаштуваннях API» вводите токени та натискаєте
-            <em> Перевірити підключення</em>; 2) у вкладці «Публікація товарів» вибираєте товар і
-            натискаєте <em>Опублікувати</em>; 3) замовлення приходять автоматично кожні 30 хв;
-            4) на повідомлення відповідаєте з вкладки «Повідомлення».
-          </Note>
+          <Note>{t.rich('overviewNote', { b, i })}</Note>
 
-          <H id="olx">🟢 OLX</H>
-          <H3>Як отримати ключі</H3>
-          <Step n={1}>
-            Зареєструйтесь у{' '}
-            <a
-              href="https://developer.olx.ua/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[var(--color-primary)] underline"
-            >
-              OLX Partner Portal
-            </a>{' '}
-            як продавець.
-          </Step>
-          <Step n={2}>
-            Створіть нову інтеграцію (Application). В налаштуваннях вкажіть Redirect URI:{' '}
-            <Code>https://pulito.trade/api/v1/admin/marketplaces/olx/oauth-callback</Code>.
-          </Step>
-          <Step n={3}>
-            Отримайте <Code>client_id</Code> та <Code>client_secret</Code>. Вставте їх у форму OLX
-            в «Налаштуваннях API».
-          </Step>
-          <Step n={4}>
-            Натисніть <em>Запустити OAuth</em> — відкриється вікно OLX. Дайте дозвіл — токени
-            підтягнуться автоматично.
-          </Step>
-          <Note type="warn">
-            <strong>Токен діє ~30 днів.</strong> Cron оновлює його автоматично. Якщо в бейджі біля
-            маркетплейсу бачите <em>⚠ Токен прострочено</em> — натисніть <em>Оновити токен</em>.
-          </Note>
+          <H id="olx">{t('sec_olx')}</H>
+          <H3>{t('h3_olxKeys')}</H3>
+          <Step n={1}>{t.rich('olxStep1', { a: linkOlx })}</Step>
+          <Step n={2}>{t.rich('olxStep2', { code })}</Step>
+          <Step n={3}>{t.rich('olxStep3', { code })}</Step>
+          <Step n={4}>{t.rich('olxStep4', { i })}</Step>
+          <Note type="warn">{t.rich('olxNote', { b, i })}</Note>
 
-          <H id="rozetka">🟩 Rozetka</H>
-          <Step n={1}>
-            Зайдіть у{' '}
-            <a
-              href="https://seller.rozetka.com.ua/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[var(--color-primary)] underline"
-            >
-              Rozetka Seller
-            </a>{' '}
-            → Інтеграції → API.
-          </Step>
-          <Step n={2}>
-            Створіть API-ключ. Скопіюйте та збережіть у полі <em>API Key</em>.
-          </Step>
-          <Step n={3}>
-            Вкажіть <em>Seller ID</em> — це ваш числовий ID продавця, видно в URL кабінету.
-          </Step>
-          <Step n={4}>
-            Натисніть <em>Перевірити підключення</em>. Якщо відповідь
-            <em> Rozetka Seller #...</em> — все правильно.
-          </Step>
+          <H id="rozetka">{t('sec_rozetka')}</H>
+          <Step n={1}>{t.rich('rozetkaStep1', { a: linkRozetka })}</Step>
+          <Step n={2}>{t.rich('rozetkaStep2', { i })}</Step>
+          <Step n={3}>{t.rich('rozetkaStep3', { i })}</Step>
+          <Step n={4}>{t.rich('rozetkaStep4', { i })}</Step>
 
-          <H id="prom">🔵 Prom.ua</H>
-          <Step n={1}>
-            У{' '}
-            <a
-              href="https://my.prom.ua/api"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[var(--color-primary)] underline"
-            >
-              кабінеті Prom.ua
-            </a>{' '}
-            → API згенеруйте токен з правами «Товари», «Замовлення», «Повідомлення».
-          </Step>
-          <Step n={2}>
-            Вставте у поле <em>API Token</em> і збережіть.
-          </Step>
+          <H id="prom">{t('sec_prom')}</H>
+          <Step n={1}>{t.rich('promStep1', { a: linkProm })}</Step>
+          <Step n={2}>{t.rich('promStep2', { i })}</Step>
 
-          <H id="epicentrk">🟠 Epicentr K</H>
-          <Step n={1}>
-            Зверніться до менеджера Epicentr K за API-ключем для маркетплейсу{' '}
-            <Code>marketplace.epicentrk.ua</Code>.
-          </Step>
-          <Step n={2}>
-            Вставте у поле <em>API Key</em>.
-          </Step>
-          <Note type="warn">
-            Epicentr K <strong>не має API для відповідей на повідомлення</strong> покупців —
-            відповідайте через веб-кабінет продавця. Решта функцій (публікація, замовлення,
-            повернення) працює.
-          </Note>
+          <H id="epicentrk">{t('sec_epicentrk')}</H>
+          <Step n={1}>{t.rich('epicentrkStep1', { code })}</Step>
+          <Step n={2}>{t.rich('epicentrkStep2', { i })}</Step>
+          <Note type="warn">{t.rich('epicentrkNote', { b })}</Note>
 
-          <H id="workflow">📦 Робочий процес публікації товару</H>
-          <Step n={1}>
-            <strong>Mapping категорій.</strong> Перейдіть у <em>Маркетплейси → Mapping категорій</em>.
-            Зіставте локальні категорії з категоріями кожного маркетплейсу. Без mapping товари
-            публікуються у дефолтну категорію.
-          </Step>
-          <Step n={2}>
-            <strong>Налаштуйте націнку.</strong> У <em>Settings → Markup</em> для кожного маркетплейсу
-            вкажіть відсоток або фіксовану суму (компенсує комісію маркетплейсу).
-          </Step>
-          <Step n={3}>
-            <strong>Квота залишку.</strong> Поле <em>stockAllocationPercent</em> (0-100) — який
-            відсоток локального залишку показувати на цьому маркетплейсі. Захищає від оверселу при
-            продажах одночасно в кількох місцях.
-          </Step>
-          <Step n={4}>
-            <strong>Публікуйте.</strong> У вкладці <em>Публікація товарів</em> виберіть товари та
-            натисніть <em>Опублікувати</em> на потрібний маркетплейс.
-          </Step>
-          <Step n={5}>
-            <strong>Залишки синхронізуються автоматично</strong> — після кожного імпортованого
-            замовлення локальний залишок зменшується, і нове значення відправляється на всі
-            маркетплейси, де товар опублікований.
-          </Step>
+          <H id="workflow">{t('h_workflow')}</H>
+          <Step n={1}>{t.rich('workflowStep1', { b, i })}</Step>
+          <Step n={2}>{t.rich('workflowStep2', { b, i })}</Step>
+          <Step n={3}>{t.rich('workflowStep3', { b, i })}</Step>
+          <Step n={4}>{t.rich('workflowStep4', { b, i })}</Step>
+          <Step n={5}>{t.rich('workflowStep5', { b })}</Step>
 
-          <H id="messages">💬 Робота з повідомленнями</H>
-          <p>Вкладка <em>Повідомлення</em> об&apos;єднує месенджі покупців з усіх маркетплейсів.</p>
+          <H id="messages">{t('h_messages')}</H>
+          <p>{t.rich('messagesIntro', { i })}</p>
           <ul className="ml-5 list-disc space-y-1">
-            <li>
-              <strong>Фільтри:</strong> по маркетплейсу, по менеджеру, лише непрочитані, лише без
-              відповіді.
-            </li>
-            <li>
-              <strong>Призначення.</strong> Випадаючий список «без менеджера» біля кожного
-              повідомлення дозволяє розподілити роботу між адмінами/менеджерами.
-            </li>
-            <li>
-              <strong>Шаблони.</strong> Створіть готові відповіді в <em>API повідомленнях</em>
-              (POST /api/v1/admin/marketplaces/reply-templates). Підставляйте їх у відповідь одним
-              кліком.
-            </li>
-            <li>
-              <strong>SLA-індикатор.</strong> ⏱ біля повідомлення показує час очікування. Жовтий
-              &gt; 1 год, червоний &gt; 4 год — спершу беріть найгарячіші.
-            </li>
+            <li>{t.rich('messagesLi1', { b })}</li>
+            <li>{t.rich('messagesLi2', { b })}</li>
+            <li>{t.rich('messagesLi3', { b, i })}</li>
+            <li>{t.rich('messagesLi4', { b })}</li>
           </ul>
 
-          <H id="returns">↩ Повернення та спори</H>
-          <p>
-            <em>Маркетплейси → Повернення:</em> синхронізуються через cron з кожних 30 днів. Кнопки
-            <em> Підтвердити / Відхилити / Завершити</em> змінюють статус і
-            <strong> автоматично пушать рішення на маркетплейс</strong> (де API підтримує:
-            Rozetka, Prom). Для OLX та Epicentr K статус оновлюється тільки локально — рішення
-            треба підтвердити в кабінеті продавця.
-          </p>
-          <p>
-            <em>Маркетплейси → Спори:</em> агрегує скарги з OLX та Rozetka. Червоним підсвічуються
-            спори з дедлайном &lt; 24 год — на них треба відповідати в кабінеті маркетплейсу.
-          </p>
+          <H id="returns">{t('h_returns')}</H>
+          <p>{t.rich('returnsPara1', { b, i })}</p>
+          <p>{t.rich('returnsPara2', { i })}</p>
 
-          <H id="troubleshooting">🛠 Усунення несправностей</H>
-          <H3>Червоний бейдж «помилка підключення»</H3>
-          <p>
-            Натисніть <em>Перевірити підключення</em>. Якщо помилка лишається — перевірте токен,
-            він міг прострочитись. Для OLX — натисніть <em>Оновити токен</em>.
-          </p>
+          <H id="troubleshooting">{t('sec_troubleshooting')}</H>
+          <H3>{t('h3_redBadge')}</H3>
+          <p>{t.rich('tsRedBadge', { i })}</p>
 
-          <H3>Товар не публікується: «Невалідна категорія»</H3>
-          <p>
-            Зайдіть у <em>Mapping категорій</em> і додайте відповідник для локальної категорії
-            товару. Без mapping — використовується дефолтна (часто не пропускає валідацію).
-          </p>
+          <H3>{t('h3_invalidCategory')}</H3>
+          <p>{t.rich('tsInvalidCategory', { i })}</p>
 
-          <H3>Помилка «Перепродаж» у Telegram</H3>
-          <p>
-            Замовлення пройшло на маркетплейсі, але локально товару вже не було. Подивіться в
-            замовлення (Telegram-повідомлення містить лінк) і вирішіть: дозамовити, скасувати, чи
-            запропонувати клієнту альтернативу.
-          </p>
+          <H3>{t('h3_oversell')}</H3>
+          <p>{t('tsOversell')}</p>
 
-          <H3>Кредеї маркетплейсу зникли після збереження</H3>
-          <p>
-            <strong>Виправлено 2026-05-17:</strong> тепер поля з токеном захищені — щоб змінити
-            токен, треба натиснути <em>Змінити</em>. Порожнє значення не перезаписує токен.
-          </p>
+          <H3>{t('h3_credsGone')}</H3>
+          <p>{t.rich('tsCredsGone', { b, i })}</p>
 
-          <H3>Cron не імпортує замовлення</H3>
-          <p>
-            Перевірте <Code>/api/v1/cron/sync-marketplace-orders</Code> — ендпоінт повертає JSON з
-            результатами по кожному маркетплейсу. Якщо <Code>failed: -1</Code> — є помилка
-            підключення.
-          </p>
+          <H3>{t('h3_cronNoImport')}</H3>
+          <p>{t.rich('tsCronNoImport', { code })}</p>
 
-          <Note>
-            <strong>Більше документації:</strong> технічний референс у файлі{' '}
-            <Code>MARKETPLACES.md</Code> у корені репо.
-          </Note>
+          <Note>{t.rich('footerNote', { b, code })}</Note>
         </article>
       </div>
     </div>
