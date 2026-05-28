@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -26,6 +27,7 @@ interface PublicationHistoryItem {
 }
 
 export function HistoryTab() {
+  const t = useTranslations('admin.historyTab');
   const [items, setItems] = useState<PublicationHistoryItem[]>([]);
   const [filterMp, setFilterMp] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -102,14 +104,14 @@ export function HistoryTab() {
     try {
       const res = await apiClient.post(`/api/v1/admin/publications/${pubId}/retry`, { channel });
       if (res.success) {
-        toast.success(`Повторено публікацію на ${MARKETPLACE_BY_KEY[channel]?.name || channel}`);
+        toast.success(t('retrySuccess', { name: MARKETPLACE_BY_KEY[channel]?.name || channel }));
         loadHistory();
       } else if (res.statusCode === 409) {
         // Server-side idempotency: another retry for the same channel is
         // still running. Don't reload — let the user wait for it.
-        toast.info(res.error || 'Публікація на цей канал вже триває');
+        toast.info(res.error || t('retryInProgress'));
       } else {
-        toast.error(res.error || 'Не вдалося повторити публікацію');
+        toast.error(res.error || t('retryFailed'));
       }
     } finally {
       retryInFlight.current.delete(key);
@@ -143,12 +145,12 @@ export function HistoryTab() {
       const url = `/api/v1/admin/marketplaces/${channel}?channel=${encodeURIComponent(channel)}&externalId=${encodeURIComponent(externalId)}`;
       const res = await apiClient.delete(url);
       if (res.success) {
-        toast.success(`Знято з ${MARKETPLACE_BY_KEY[channel]?.name || channel}`);
+        toast.success(t('delistSuccess', { name: MARKETPLACE_BY_KEY[channel]?.name || channel }));
         loadHistory();
       } else if (res.statusCode === 409) {
-        toast.info(res.error || 'Видалення вже виконується');
+        toast.info(res.error || t('deleteInProgress'));
       } else {
-        toast.error(res.error || 'Не вдалося видалити з маркетплейсу');
+        toast.error(res.error || t('deleteFailed'));
       }
     } finally {
       deleteInFlight.current.delete(key);
@@ -238,12 +240,12 @@ export function HistoryTab() {
     loadHistory();
 
     if (cancelled) {
-      toast.info(`Скасовано. Встигли: ${ok} ok, ${fail} помилок, ${inProgress} вже в роботі`);
+      toast.info(t('bulkRetryCancelled', { ok, fail, inProgress }));
       return;
     }
-    if (ok > 0) toast.success(`Повторено: ${ok}`);
-    if (inProgress > 0) toast.info(`Вже виконується: ${inProgress}`);
-    if (fail > 0) toast.error(`З помилкою: ${fail}`);
+    if (ok > 0) toast.success(t('bulkRetried', { ok }));
+    if (inProgress > 0) toast.info(t('bulkInProgress', { n: inProgress }));
+    if (fail > 0) toast.error(t('bulkFailed', { n: fail }));
   };
 
   const handleBulkDelete = async () => {
@@ -265,7 +267,7 @@ export function HistoryTab() {
       tasks.push({ key, channel, externalId: cr.externalId });
     }
     if (tasks.length === 0) {
-      if (skippedNoExternalId > 0) toast.error('Жоден з вибраних не має externalId');
+      if (skippedNoExternalId > 0) toast.error(t('noExternalId'));
       return;
     }
 
@@ -286,11 +288,11 @@ export function HistoryTab() {
 
     const totalFail = fail + skippedNoExternalId;
     if (cancelled) {
-      toast.info(`Скасовано. Знято: ${ok}, помилок: ${totalFail}`);
+      toast.info(t('bulkDelistCancelled', { ok, fail: totalFail }));
       return;
     }
-    if (ok > 0) toast.success(`Знято з продажу: ${ok}`);
-    if (totalFail > 0) toast.error(`З помилкою: ${totalFail}`);
+    if (ok > 0) toast.success(t('bulkDelisted', { ok }));
+    if (totalFail > 0) toast.error(t('bulkFailed', { n: totalFail }));
   };
 
   const cancelBulk = () => {
@@ -335,13 +337,13 @@ export function HistoryTab() {
   const statusLabel = (s: string) => {
     switch (s) {
       case 'published':
-        return { text: 'Опубліковано', color: 'bg-green-100 text-green-700' };
+        return { text: t('statusPublished'), color: 'bg-green-100 text-green-700' };
       case 'failed':
-        return { text: 'Помилка', color: 'bg-red-100 text-red-700' };
+        return { text: t('statusFailed'), color: 'bg-red-100 text-red-700' };
       case 'draft':
-        return { text: 'Чернетка', color: 'bg-gray-100 text-gray-600' };
+        return { text: t('statusDraft'), color: 'bg-gray-100 text-gray-600' };
       case 'scheduled':
-        return { text: 'Заплановано', color: 'bg-blue-100 text-blue-700' };
+        return { text: t('statusScheduled'), color: 'bg-blue-100 text-blue-700' };
       default:
         return { text: s, color: 'bg-gray-100 text-gray-600' };
     }
@@ -358,7 +360,7 @@ export function HistoryTab() {
           }}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
-          <option value="">Всі маркетплейси</option>
+          <option value="">{t('allMarketplaces')}</option>
           {MARKETPLACES.map((m) => (
             <option key={m.key} value={m.key}>
               {m.icon} {m.name}
@@ -373,15 +375,15 @@ export function HistoryTab() {
           }}
           className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
         >
-          <option value="">Всі статуси</option>
-          <option value="published">Опубліковані</option>
-          <option value="failed">Помилки</option>
-          <option value="draft">Чернетки</option>
+          <option value="">{t('allStatuses')}</option>
+          <option value="published">{t('filterPublished')}</option>
+          <option value="failed">{t('filterFailed')}</option>
+          <option value="draft">{t('filterDraft')}</option>
         </select>
         {selected.size > 0 && (
           <>
             <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
-              Вибрано: {selected.size}
+              {t('selectedCount', { n: selected.size })}
             </span>
             <Button
               size="sm"
@@ -391,11 +393,11 @@ export function HistoryTab() {
               onClick={handleBulkRetry}
               title={
                 selectedFailedCount === 0
-                  ? 'Виберіть провалені публікації'
-                  : `Повторити: ${selectedFailedCount}`
+                  ? t('selectFailedHint')
+                  : t('retryTitle', { n: selectedFailedCount })
               }
             >
-              Повторити ({selectedFailedCount})
+              {t('retryBtn', { n: selectedFailedCount })}
             </Button>
             <Button
               size="sm"
@@ -404,17 +406,17 @@ export function HistoryTab() {
               onClick={() => setConfirmBulkDelete(true)}
               title={
                 selectedPublishedCount === 0
-                  ? 'Виберіть опубліковані лістинги'
-                  : `Зняти: ${selectedPublishedCount}`
+                  ? t('selectPublishedHint')
+                  : t('delistTitle', { n: selectedPublishedCount })
               }
             >
-              Зняти з продажу ({selectedPublishedCount})
+              {t('delistBtn', { n: selectedPublishedCount })}
             </Button>
             <button
               onClick={() => setSelected(new Set())}
               className="text-xs text-[var(--color-text-secondary)] hover:underline"
             >
-              Скинути вибір
+              {t('clearSelection')}
             </button>
           </>
         )}
@@ -424,8 +426,8 @@ export function HistoryTab() {
         <div className="mb-4">
           <div className="mb-1 flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
             <span>
-              {bulkAction === 'delete' ? 'Зняття з продажу' : 'Повторна публікація'} (паралельно{' '}
-              {BULK_PARALLEL})…
+              {bulkAction === 'delete' ? t('actionDelisting') : t('actionRetrying')}{' '}
+              {t('parallelSuffix', { n: BULK_PARALLEL })}
             </span>
             <div className="flex items-center gap-3">
               <span>
@@ -435,7 +437,7 @@ export function HistoryTab() {
                 onClick={cancelBulk}
                 className="rounded border border-red-300 px-2 py-0.5 text-[10px] text-red-600 hover:bg-red-50"
               >
-                Скасувати
+                {t('cancel')}
               </button>
             </div>
           </div>
@@ -452,7 +454,7 @@ export function HistoryTab() {
         <AdminTableSkeleton rows={8} columns={5} />
       ) : items.length === 0 ? (
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-12 text-center text-[var(--color-text-secondary)]">
-          Історія публікацій порожня
+          {t('emptyHistory')}
         </div>
       ) : (
         <>
@@ -493,7 +495,7 @@ export function HistoryTab() {
                                   checked={selected.has(expandKey)}
                                   onChange={() => toggleSelected(expandKey)}
                                   className="accent-[var(--color-primary)]"
-                                  title="Вибрати для масової операції"
+                                  title={t('selectTitle')}
                                 />
                                 <span>{cr.status === 'published' ? '✅' : '❌'}</span>
                                 <span className="font-medium">
@@ -506,7 +508,7 @@ export function HistoryTab() {
                                     rel="noopener noreferrer"
                                     className="text-[var(--color-primary)] hover:underline"
                                   >
-                                    Посилання ↗
+                                    {t('link')}
                                   </a>
                                 )}
                                 {hasError && (
@@ -514,7 +516,7 @@ export function HistoryTab() {
                                     onClick={() => toggleExpand(expandKey)}
                                     className="text-[var(--color-text-secondary)] hover:underline"
                                   >
-                                    {isExpanded ? 'Сховати помилку' : 'Деталі помилки'}
+                                    {isExpanded ? t('hideError') : t('errorDetails')}
                                   </button>
                                 )}
                                 <div className="ml-auto flex items-center gap-1.5">
@@ -524,7 +526,7 @@ export function HistoryTab() {
                                       disabled={retrying[retryKey]}
                                       className="rounded border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
                                     >
-                                      {retrying[retryKey] ? 'Повторюю...' : 'Повторити'}
+                                      {retrying[retryKey] ? t('retrying') : t('retry')}
                                     </button>
                                   )}
                                   {cr.status === 'published' && cr.externalId && (
@@ -540,7 +542,7 @@ export function HistoryTab() {
                                       disabled={deleting[retryKey]}
                                       className="rounded border border-red-200 px-2 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                                     >
-                                      {deleting[retryKey] ? 'Видаляю...' : 'Зняти з продажу'}
+                                      {deleting[retryKey] ? t('deleting') : t('delist')}
                                     </button>
                                   )}
                                 </div>
@@ -568,7 +570,7 @@ export function HistoryTab() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
               >
-                Назад
+                {t('prev')}
               </Button>
               <span className="px-2 py-1 text-sm text-[var(--color-text-secondary)]">{page}</span>
               <Button
@@ -577,7 +579,7 @@ export function HistoryTab() {
                 onClick={() => setPage((p) => p + 1)}
                 disabled={items.length < 20}
               >
-                Далі
+                {t('next')}
               </Button>
             </div>
           )}
@@ -588,22 +590,25 @@ export function HistoryTab() {
         isOpen={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDelete}
-        title="Зняти з продажу"
+        title={t('delist')}
         message={
           confirmDelete
-            ? `Видалити "${confirmDelete.title}" з ${MARKETPLACE_BY_KEY[confirmDelete.channel]?.name || confirmDelete.channel}? Лістинг буде видалено на маркетплейсі. Цю дію не можна скасувати.`
+            ? t('delistConfirm', {
+                title: confirmDelete.title,
+                name: MARKETPLACE_BY_KEY[confirmDelete.channel]?.name || confirmDelete.channel,
+              })
             : ''
         }
-        confirmText="Так, видалити"
+        confirmText={t('confirmDelete')}
       />
 
       <ConfirmDialog
         isOpen={confirmBulkDelete}
         onClose={() => setConfirmBulkDelete(false)}
         onConfirm={handleBulkDelete}
-        title="Масове зняття з продажу"
-        message={`Зняти ${selectedPublishedCount} опублікованих лістингів з маркетплейсів? Цю дію не можна скасувати.`}
-        confirmText="Так, зняти всі"
+        title={t('bulkDelistDialogTitle')}
+        message={t('bulkDelistConfirm', { n: selectedPublishedCount })}
+        confirmText={t('confirmDelistAll')}
         variant="danger"
       />
     </div>
