@@ -974,6 +974,32 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "healthBadge": {
+      "disabled": "Disabled",
+      "notChecked": "Not checked",
+      "connected": "Connected",
+      "online": "Online ({latency} ms)",
+      "error": "Error",
+      "notConfigured": "Not configured"
+    },
+    "uptimeSparkline": {
+      "uptime": "Availability ({count, plural, one {# check} other {# checks}}):",
+      "tooltip": "{date} — {status} ({latency}ms)"
+    },
+    "webhookUrlBlock": {
+      "copyFailed": "Failed to copy",
+      "label": "Webhook URL for the marketplace",
+      "helpText": "Paste this URL into the webhook settings in the marketplace dashboard. A «new order» event will be delivered here.",
+      "copied": "✓ Copied",
+      "copy": "Copy"
+    },
+    "onboardingWizard": {
+      "title": "👋 Connect your first marketplace",
+      "subtitle": "Expand your reach — publish products on the leading Ukrainian platforms in a couple of clicks.",
+      "configure": "Configure →",
+      "docs": "Instructions ↗",
+      "freeNote": "💡 Integration is free. Only the marketplaces themselves take a sales commission (5-25%)."
+    },
     "userSecurityTab": {
       "loading": "Loading…",
       "noData": "No data",

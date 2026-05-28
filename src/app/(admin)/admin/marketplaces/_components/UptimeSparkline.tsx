@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
 export function UptimeSparkline({ platform }: { platform: string }) {
+  const t = useTranslations('admin.uptimeSparkline');
   const [data, setData] = useState<{
     history: { checkedAt: string; status: string; latencyMs: number }[];
     uptime: number;
@@ -26,15 +28,15 @@ export function UptimeSparkline({ platform }: { platform: string }) {
     <div className="mb-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-xs">
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[var(--color-text-secondary)]">
-          Доступність ({data.count} перевірок):
+          {t('uptime', { count: data.count })}
         </span>
         <span
           className={`font-semibold ${
             data.uptime >= 99
               ? 'text-green-700'
               : data.uptime >= 90
-              ? 'text-amber-700'
-              : 'text-red-700'
+                ? 'text-amber-700'
+                : 'text-red-700'
           }`}
         >
           {data.uptime}%
@@ -44,15 +46,19 @@ export function UptimeSparkline({ platform }: { platform: string }) {
         {last30.map((h, i) => (
           <div
             key={i}
-            title={`${new Date(h.checkedAt).toLocaleString('uk-UA')} — ${h.status} (${h.latencyMs}мс)`}
+            title={t('tooltip', {
+              date: new Date(h.checkedAt).toLocaleString('uk-UA'),
+              status: h.status,
+              latency: h.latencyMs,
+            })}
             className={`flex-1 ${
               h.status === 'ok'
                 ? 'bg-green-400'
                 : h.status === 'error'
-                ? 'bg-red-400'
-                : h.status === 'disabled'
-                ? 'bg-gray-300'
-                : 'bg-amber-400'
+                  ? 'bg-red-400'
+                  : h.status === 'disabled'
+                    ? 'bg-gray-300'
+                    : 'bg-amber-400'
             }`}
             style={{ height: `${Math.max(20, Math.min(100, h.latencyMs / 10))}%` }}
           />

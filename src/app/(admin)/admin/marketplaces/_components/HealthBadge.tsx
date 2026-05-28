@@ -1,3 +1,6 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import type { HealthStatus } from '../_shared';
 
 /**
@@ -15,11 +18,12 @@ export function HealthBadge({
   health: HealthStatus | null;
   enabled: boolean;
 }) {
+  const t = useTranslations('admin.healthBadge');
   if (!enabled) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
         <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
-        Вимкнено
+        {t('disabled')}
       </span>
     );
   }
@@ -27,36 +31,36 @@ export function HealthBadge({
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
         <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
-        Не перевірено
+        {t('notChecked')}
       </span>
     );
   }
   if (health.status === 'ok') {
     return (
       <span
-        title={health.accountName || 'Підключено'}
+        title={health.accountName || t('connected')}
         className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-300"
       >
         <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-        Онлайн ({health.latencyMs} мс)
+        {t('online', { latency: health.latencyMs })}
       </span>
     );
   }
   if (health.status === 'error') {
     return (
       <span
-        title={health.error || 'Помилка'}
+        title={health.error || t('error')}
         className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800 dark:bg-red-900/40 dark:text-red-300"
       >
         <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-        Помилка
+        {t('error')}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
       <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-      Не налаштовано
+      {t('notConfigured')}
     </span>
   );
 }

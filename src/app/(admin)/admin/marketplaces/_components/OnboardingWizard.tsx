@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { MARKETPLACES } from '../_shared';
 
@@ -12,6 +13,7 @@ import { MARKETPLACES } from '../_shared';
  * Hidden as soon as at least one marketplace returns a configured channel.
  */
 export default function OnboardingWizard() {
+  const t = useTranslations('admin.onboardingWizard');
   const [allEmpty, setAllEmpty] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -32,10 +34,8 @@ export default function OnboardingWizard() {
   return (
     <div className="mb-6 rounded-2xl border-2 border-dashed border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 p-6">
       <div className="mb-5 text-center">
-        <h3 className="text-lg font-bold">👋 Підключіть перший маркетплейс</h3>
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Розширте охоплення — публікуйте товари на провідних українських платформах за пару кліків.
-        </p>
+        <h3 className="text-lg font-bold">{t('title')}</h3>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('subtitle')}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {MARKETPLACES.map((m) => (
@@ -54,7 +54,7 @@ export default function OnboardingWizard() {
               {m.description}
             </p>
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-[var(--color-primary)]">Налаштувати →</span>
+              <span className="font-medium text-[var(--color-primary)]">{t('configure')}</span>
               <a
                 href={m.docsUrl}
                 target="_blank"
@@ -62,15 +62,13 @@ export default function OnboardingWizard() {
                 onClick={(e) => e.stopPropagation()}
                 className="text-[var(--color-text-secondary)] hover:underline"
               >
-                Інструкція ↗
+                {t('docs')}
               </a>
             </div>
           </a>
         ))}
       </div>
-      <p className="mt-5 text-center text-xs text-[var(--color-text-secondary)]">
-        💡 Інтеграція безкоштовна. Комісію беруть лише самі маркетплейси з продажу (5-25%).
-      </p>
+      <p className="mt-5 text-center text-xs text-[var(--color-text-secondary)]">{t('freeNote')}</p>
     </div>
   );
 }

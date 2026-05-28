@@ -974,6 +974,32 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "healthBadge": {
+      "disabled": "Dezactivat",
+      "notChecked": "Neverificat",
+      "connected": "Conectat",
+      "online": "Online ({latency} ms)",
+      "error": "Eroare",
+      "notConfigured": "Neconfigurat"
+    },
+    "uptimeSparkline": {
+      "uptime": "Disponibilitate ({count, plural, one {# verificare} few {# verificări} other {# de verificări}}):",
+      "tooltip": "{date} — {status} ({latency}ms)"
+    },
+    "webhookUrlBlock": {
+      "copyFailed": "Nu s-a putut copia",
+      "label": "Webhook URL pentru marketplace",
+      "helpText": "Lipește acest URL în setările webhook din panoul marketplace. Un eveniment de tip «comandă nouă» va sosi aici.",
+      "copied": "✓ Copiat",
+      "copy": "Copiază"
+    },
+    "onboardingWizard": {
+      "title": "👋 Conectează primul marketplace",
+      "subtitle": "Extinde-ți acoperirea — publică produse pe platformele ucrainene de top în câteva clicuri.",
+      "configure": "Configurează →",
+      "docs": "Instrucțiuni ↗",
+      "freeNote": "💡 Integrarea este gratuită. Doar marketplace-urile percep comision din vânzări (5-25%)."
+    },
     "userSecurityTab": {
       "loading": "Se încarcă…",
       "noData": "Nu există date",

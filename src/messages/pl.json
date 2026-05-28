@@ -974,6 +974,32 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "healthBadge": {
+      "disabled": "Wyłączone",
+      "notChecked": "Niesprawdzone",
+      "connected": "Połączono",
+      "online": "Online ({latency} ms)",
+      "error": "Błąd",
+      "notConfigured": "Nieskonfigurowane"
+    },
+    "uptimeSparkline": {
+      "uptime": "Dostępność ({count, plural, one {# sprawdzenie} few {# sprawdzenia} many {# sprawdzeń} other {# sprawdzenia}}):",
+      "tooltip": "{date} — {status} ({latency}ms)"
+    },
+    "webhookUrlBlock": {
+      "copyFailed": "Nie udało się skopiować",
+      "label": "Webhook URL dla marketplace",
+      "helpText": "Wklej ten URL w ustawieniach webhook w panelu marketplace. Zdarzenie typu «nowe zamówienie» będzie przychodzić tutaj.",
+      "copied": "✓ Skopiowano",
+      "copy": "Kopiuj"
+    },
+    "onboardingWizard": {
+      "title": "👋 Podłącz pierwszy marketplace",
+      "subtitle": "Zwiększ zasięg — publikuj produkty na czołowych ukraińskich platformach w kilka kliknięć.",
+      "configure": "Skonfiguruj →",
+      "docs": "Instrukcja ↗",
+      "freeNote": "💡 Integracja jest bezpłatna. Prowizję od sprzedaży pobierają tylko same marketplace'y (5-25%)."
+    },
     "userSecurityTab": {
       "loading": "Ładowanie…",
       "noData": "Brak danych",

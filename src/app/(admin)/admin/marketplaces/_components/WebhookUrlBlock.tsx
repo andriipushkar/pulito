@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useSyncExternalStore } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { HelpTooltip } from './HelpTooltip';
 
@@ -11,6 +12,7 @@ const getOriginClient = () => window.location.origin;
 const getOriginServer = () => '';
 
 export function WebhookUrlBlock({ platform }: { platform: string }) {
+  const t = useTranslations('admin.webhookUrlBlock');
   const [copied, setCopied] = useState(false);
   const origin = useSyncExternalStore(subscribeNoop, getOriginClient, getOriginServer);
 
@@ -22,15 +24,15 @@ export function WebhookUrlBlock({ platform }: { platform: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error('Не вдалося скопіювати');
+      toast.error(t('copyFailed'));
     }
   };
 
   return (
     <div className="mb-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-xs">
       <div className="mb-1 flex items-center gap-1.5 text-[var(--color-text-secondary)]">
-        <span>Webhook URL для маркетплейсу</span>
-        <HelpTooltip text="Вставте цей URL у налаштування webhook у дашборді маркетплейсу. Подія типу 'нове замовлення' буде приходити сюди." />
+        <span>{t('label')}</span>
+        <HelpTooltip text={t('helpText')} />
       </div>
       <div className="flex items-center gap-2">
         <code className="flex-1 truncate rounded bg-[var(--color-bg)] px-2 py-1 font-mono text-[11px]">
@@ -40,7 +42,7 @@ export function WebhookUrlBlock({ platform }: { platform: string }) {
           onClick={handleCopy}
           className="shrink-0 rounded border border-[var(--color-border)] px-2 py-1 text-[10px] font-medium hover:bg-[var(--color-bg)]"
         >
-          {copied ? '✓ Скопійовано' : 'Копіювати'}
+          {copied ? t('copied') : t('copy')}
         </button>
       </div>
     </div>
