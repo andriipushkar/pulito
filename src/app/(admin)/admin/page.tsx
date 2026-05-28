@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import { formatPrice, todayKyivIso, plural } from '@/utils/format';
+import { formatPrice, todayKyivIso } from '@/utils/format';
 import type { DashboardStats } from '@/types/user';
 import Spinner from '@/components/ui/Spinner';
 import ActivityFeed from '@/components/admin/ActivityFeed';
@@ -30,29 +31,23 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// Single source of truth for dashboard widgets. Adding a new widget = add one
-// entry below; both default order and the toggle-menu label come from here.
-// Previously these lived in two parallel arrays — adding to one and forgetting
-// the other surfaced `undefined` labels in the React tree.
-const WIDGETS: { key: string; label: string }[] = [
-  { key: 'anomalies', label: 'Аномалії' },
-  { key: 'aiSummary', label: 'AI брифінг дня' },
-  { key: 'stats', label: 'Статистика' },
-  { key: 'churnRadar', label: 'Радар відтоку' },
-  { key: 'productQuality', label: 'Якість описів' },
-  { key: 'recommendations', label: 'Рекомендації' },
-  { key: 'weeklyRevenue', label: 'Тижнева виручка' },
-  { key: 'hourlyToday', label: 'Замовлення по годинах сьогодні' },
-  { key: 'recentOrders', label: 'Останні замовлення' },
-  { key: 'users', label: 'Користувачі' },
-  { key: 'products', label: 'Товари' },
-  { key: 'topProducts', label: 'Топ товарів' },
+// Single source of truth for dashboard widget order. Adding a new widget = add
+// one key below; the toggle-menu label is resolved from translations keyed by
+// the same value (see widgetLabels in AdminDashboard).
+const DEFAULT_WIDGET_ORDER = [
+  'anomalies',
+  'aiSummary',
+  'stats',
+  'churnRadar',
+  'productQuality',
+  'recommendations',
+  'weeklyRevenue',
+  'hourlyToday',
+  'recentOrders',
+  'users',
+  'products',
+  'topProducts',
 ];
-
-const DEFAULT_WIDGET_ORDER = WIDGETS.map((w) => w.key);
-const WIDGET_LABELS: Record<string, string> = Object.fromEntries(
-  WIDGETS.map((w) => [w.key, w.label]),
-);
 
 interface Recommendation {
   key: string;
@@ -86,6 +81,7 @@ function SortableWidgetItem({
   isHidden: boolean;
   onToggle: () => void;
 }) {
+  const t = useTranslations('admin.dashboardPage');
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
   });
@@ -115,7 +111,7 @@ function SortableWidgetItem({
         {...attributes}
         {...listeners}
         className="cursor-grab touch-none rounded p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-border)] active:cursor-grabbing"
-        aria-label={`Перетягнути ${label}`}
+        aria-label={t('dragWidget', { label })}
       >
         <svg
           className="h-4 w-4"
@@ -132,6 +128,24 @@ function SortableWidgetItem({
 }
 
 export default function AdminDashboard() {
+  const t = useTranslations('admin.dashboardPage');
+  const widgetLabels = useMemo<Record<string, string>>(
+    () => ({
+      anomalies: t('widgetAnomalies'),
+      aiSummary: t('widgetAiSummary'),
+      stats: t('widgetStats'),
+      churnRadar: t('widgetChurnRadar'),
+      productQuality: t('widgetProductQuality'),
+      recommendations: t('widgetRecommendations'),
+      weeklyRevenue: t('widgetWeeklyRevenue'),
+      hourlyToday: t('widgetHourlyToday'),
+      recentOrders: t('widgetRecentOrders'),
+      users: t('widgetUsers'),
+      products: t('widgetProducts'),
+      topProducts: t('widgetTopProducts'),
+    }),
+    [t],
+  );
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -201,12 +215,12 @@ export default function AdminDashboard() {
           setLastUpdated(new Date());
           setLoadError(null);
         } else {
-          setLoadError(res.error || 'Не вдалося завантажити статистику');
+          setLoadError(res.error || t('statsLoadFailed'));
         }
       })
       .catch((err) => {
         if (cancelled) return;
-        setLoadError(err instanceof Error ? err.message : 'Помилка мережі');
+        setLoadError(err instanceof Error ? err.message : t('networkError'));
       })
       .finally(() => {
         if (cancelled) return;
@@ -216,7 +230,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [statsReloadToken]);
+  }, [statsReloadToken, t]);
 
   // Load settings from server
   useEffect(() => {
@@ -286,22 +300,27 @@ export default function AdminDashboard() {
       const total = detail?.latest?.totalAmount;
       toast.success(
         orderNumber
-          ? `Нове замовлення #${orderNumber}${total ? ` на ${total} грн` : ''}`
-          : 'Нове замовлення',
+          ? total
+            ? t('newOrderNumTotal', { orderNumber, total })
+            : t('newOrderNum', { orderNumber })
+          : t('newOrder'),
         { duration: 6000 },
       );
       loadStats();
     };
     window.addEventListener('admin:new-order', onNewOrder);
     return () => window.removeEventListener('admin:new-order', onNewOrder);
-  }, [loadStats]);
+  }, [loadStats, t]);
 
-  const saveSettings = useCallback(async (order: string[], hidden: Set<string>) => {
-    const res = await apiClient.put('/api/v1/admin/dashboard/settings', {
-      layout: { widgetOrder: order, hiddenWidgets: [...hidden] },
-    });
-    if (!res.success) toast.error('Не вдалося зберегти налаштування');
-  }, []);
+  const saveSettings = useCallback(
+    async (order: string[], hidden: Set<string>) => {
+      const res = await apiClient.put('/api/v1/admin/dashboard/settings', {
+        layout: { widgetOrder: order, hiddenWidgets: [...hidden] },
+      });
+      if (!res.success) toast.error(t('saveSettingsFailed'));
+    },
+    [t],
+  );
 
   // Latest-state refs let toggleWidget / handleDragEnd save without stale
   // closures over widgetOrder/hiddenWidgets. Without this, rapid back-to-back
@@ -364,13 +383,13 @@ export default function AdminDashboard() {
             d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
           />
         </svg>
-        <p className="text-sm font-medium">Не вдалося завантажити статистику</p>
+        <p className="text-sm font-medium">{t('statsLoadFailed')}</p>
         {loadError && <p className="text-xs text-[var(--color-text-secondary)]">{loadError}</p>}
         <button
           onClick={loadStats}
           className="rounded-[var(--radius)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-dark)]"
         >
-          Спробувати ще раз
+          {t('retry')}
         </button>
       </div>
     );
@@ -389,13 +408,10 @@ export default function AdminDashboard() {
               {isRefreshing && (
                 <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--color-primary)]" />
               )}
-              Оновлено: {lastUpdated.toLocaleTimeString('uk-UA')}
+              {t('updated', { time: lastUpdated.toLocaleTimeString('uk-UA') })}
               {nowMs - lastUpdated.getTime() > 5 * 60_000 && (
-                <span
-                  className="font-semibold text-amber-600"
-                  title="Дані старші за 5 хвилин — натисніть «Оновити»"
-                >
-                  ⚠️ застаріли
+                <span className="font-semibold text-amber-600" title={t('staleTitle')}>
+                  ⚠️ {t('stale')}
                 </span>
               )}
             </span>
@@ -412,17 +428,15 @@ export default function AdminDashboard() {
             onClick={() => setShowConfig(!showConfig)}
             className="rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-bg-secondary)]"
           >
-            {showConfig ? 'Готово' : 'Налаштувати'}
+            {showConfig ? t('done') : t('configure')}
           </button>
         </div>
       </div>
 
       {showConfig && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">Налаштування віджетів</h3>
-          <p className="mb-2 text-xs text-[var(--color-text-secondary)]">
-            Перетягуйте віджети для зміни порядку
-          </p>
+          <h3 className="mb-3 text-sm font-semibold">{t('widgetSettings')}</h3>
+          <p className="mb-2 text-xs text-[var(--color-text-secondary)]">{t('dragToReorder')}</p>
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -434,7 +448,7 @@ export default function AdminDashboard() {
                   <SortableWidgetItem
                     key={key}
                     id={key}
-                    label={WIDGET_LABELS[key]}
+                    label={widgetLabels[key]}
                     isHidden={hiddenWidgets.has(key)}
                     onToggle={() => toggleWidget(key)}
                   />
@@ -454,7 +468,7 @@ export default function AdminDashboard() {
             actions.push({
               href: '/admin/orders?status=new_order',
               icon: '📦',
-              label: `Опрацювати ${stats.orders.newCount} ${plural(stats.orders.newCount, ['нове замовлення', 'нових замовлення', 'нових замовлень'])}`,
+              label: t('processNewOrders', { count: stats.orders.newCount }),
               urgent: true,
             });
           }
@@ -462,7 +476,7 @@ export default function AdminDashboard() {
             actions.push({
               href: '/admin/products?stock=out',
               icon: '🚨',
-              label: `Поповнити ${stats.products.outOfStock} ${plural(stats.products.outOfStock, ['товар', 'товари', 'товарів'])}`,
+              label: t('restockProducts', { count: stats.products.outOfStock }),
               urgent: true,
             });
           }
@@ -470,7 +484,7 @@ export default function AdminDashboard() {
             actions.push({
               href: '/admin/products?stock=low',
               icon: '⚠️',
-              label: `Перевірити ${stats.products.lowStock} низькі залишки`,
+              label: t('checkLowStock', { count: stats.products.lowStock }),
               urgent: true,
             });
           }
@@ -478,16 +492,16 @@ export default function AdminDashboard() {
             actions.push({
               href: '/admin/users?wholesaleStatus=pending',
               icon: '🤝',
-              label: `${stats.users.pendingWholesale} ${plural(stats.users.pendingWholesale, ['гуртовий запит', 'гуртових запити', 'гуртових запитів'])}`,
+              label: t('wholesaleRequestsAction', { count: stats.users.pendingWholesale }),
               urgent: true,
             });
           }
           // Fill remaining slots (up to 4) with static "create" actions
           const staticActions = [
-            { href: '/admin/products/new', icon: '➕', label: 'Додати товар' },
-            { href: '/admin/import', icon: '📥', label: 'Імпорт каталогу' },
-            { href: '/admin/campaigns', icon: '📣', label: 'Створити кампанію' },
-            { href: '/admin/users', icon: '👥', label: 'Користувачі' },
+            { href: '/admin/products/new', icon: '➕', label: t('addProduct') },
+            { href: '/admin/import', icon: '📥', label: t('importCatalog') },
+            { href: '/admin/campaigns', icon: '📣', label: t('createCampaign') },
+            { href: '/admin/users', icon: '👥', label: t('usersAction') },
           ];
           while (actions.length < 4 && staticActions.length > 0) {
             actions.push(staticActions.shift()!);
@@ -511,19 +525,19 @@ export default function AdminDashboard() {
         const alerts: { text: string; href: string; type: 'danger' | 'warning' }[] = [];
         if (stats.orders.newCount > 0)
           alerts.push({
-            text: `${stats.orders.newCount} ${plural(stats.orders.newCount, ['нове замовлення очікує', 'нових замовлення очікують', 'нових замовлень очікують'])} обробки`,
+            text: t('alertNewOrders', { count: stats.orders.newCount }),
             href: '/admin/orders?status=new_order',
             type: 'warning',
           });
         if (stats.products.outOfStock > 0)
           alerts.push({
-            text: `${stats.products.outOfStock} ${plural(stats.products.outOfStock, ['товар', 'товари', 'товарів'])} немає в наявності`,
+            text: t('alertOutOfStock', { count: stats.products.outOfStock }),
             href: '/admin/products?stock=out',
             type: 'danger',
           });
         if (stats.users.pendingWholesale > 0)
           alerts.push({
-            text: `${stats.users.pendingWholesale} ${plural(stats.users.pendingWholesale, ['гуртовий запит очікує', 'гуртових запити очікують', 'гуртових запитів очікують'])} підтвердження`,
+            text: t('alertWholesale', { count: stats.users.pendingWholesale }),
             href: '/admin/users?wholesaleStatus=pending',
             type: 'warning',
           });
@@ -543,7 +557,7 @@ export default function AdminDashboard() {
                   {a.type === 'danger' ? '✕' : '!'}
                 </span>
                 {a.text}
-                <span className="ml-auto text-xs opacity-70">Переглянути →</span>
+                <span className="ml-auto text-xs opacity-70">{t('view')}</span>
               </Link>
             ))}
           </div>
@@ -593,7 +607,11 @@ export default function AdminDashboard() {
               ? stats.orders.todayRevenue
               : buckets.reduce((s, b) => s + b.revenue, 0);
           const periodLabel =
-            dateRange === 'today' ? 'сьогодні' : dateRange === 'week' ? 'за тиждень' : 'за 7 днів';
+            dateRange === 'today'
+              ? t('periodToday')
+              : dateRange === 'week'
+                ? t('periodWeek')
+                : t('period7days');
           const periodDiff = dateRange === 'today' ? countDiff : undefined;
           const periodRevenueDiff = dateRange === 'today' ? revenueDiff : undefined;
           const ordersHref =
@@ -616,20 +634,24 @@ export default function AdminDashboard() {
                         : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]'
                     }`}
                   >
-                    {r === 'today' ? 'Сьогодні' : r === 'week' ? 'Тиждень' : 'Місяць'}
+                    {r === 'today'
+                      ? t('rangeToday')
+                      : r === 'week'
+                        ? t('rangeWeek')
+                        : t('rangeMonth')}
                   </button>
                 ))}
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard
-                  label={`Замовлення ${periodLabel}`}
+                  label={t('ordersPeriod', { period: periodLabel })}
                   value={String(periodCount)}
                   diff={periodDiff}
                   href={ordersHref}
                   trend={stats.weeklyRevenue.map((d) => d.count)}
                 />
                 <StatCard
-                  label={`Виручка ${periodLabel}`}
+                  label={t('revenuePeriod', { period: periodLabel })}
                   value={formatPrice(periodRevenue)}
                   diff={periodRevenueDiff}
                   diffFormatter={(v) => formatPrice(v)}
@@ -637,13 +659,13 @@ export default function AdminDashboard() {
                   trend={stats.weeklyRevenue.map((d) => d.revenue)}
                 />
                 <StatCard
-                  label="Нові замовлення"
+                  label={t('newOrdersCard')}
                   value={String(stats.orders.newCount)}
                   highlight={stats.orders.newCount > 0}
                   href="/admin/orders?status=new_order"
                 />
                 <StatCard
-                  label="Гуртові запити"
+                  label={t('wholesaleRequestsCard')}
                   value={String(stats.users.pendingWholesale)}
                   highlight={stats.users.pendingWholesale > 0}
                   href="/admin/users?wholesaleStatus=pending"
@@ -657,11 +679,11 @@ export default function AdminDashboard() {
           return (
             <div key="users" className="mb-6">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
-                Користувачі
+                {t('usersHeader')}
               </h3>
               <div className="grid gap-3 sm:grid-cols-3">
                 <MiniMetric
-                  label="Всього"
+                  label={t('usersTotal')}
                   value={stats.users.total}
                   href="/admin/users"
                   iconBg="bg-blue-50"
@@ -669,7 +691,7 @@ export default function AdminDashboard() {
                   iconPath="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
                 />
                 <MiniMetric
-                  label="Гуртівників"
+                  label={t('usersWholesalers')}
                   value={stats.users.wholesalers}
                   href="/admin/users?role=wholesaler"
                   iconBg="bg-emerald-50"
@@ -677,7 +699,7 @@ export default function AdminDashboard() {
                   iconPath="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z"
                 />
                 <MiniMetric
-                  label="Нових за тиждень"
+                  label={t('usersNewThisWeek')}
                   value={stats.users.newThisWeek}
                   iconBg="bg-amber-50"
                   iconColor="text-amber-600"
@@ -692,11 +714,11 @@ export default function AdminDashboard() {
           return (
             <div key="products" className="mb-6">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
-                Товари
+                {t('productsHeader')}
               </h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <MiniMetric
-                  label="Активних"
+                  label={t('productsActive')}
                   value={stats.products.total}
                   href="/admin/products"
                   iconBg="bg-indigo-50"
@@ -704,7 +726,7 @@ export default function AdminDashboard() {
                   iconPath="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"
                 />
                 <MiniMetric
-                  label="Закінчуються (≤5)"
+                  label={t('productsLowStock')}
                   value={stats.products.lowStock}
                   href="/admin/products?stock=low"
                   tone={stats.products.lowStock > 0 ? 'warning' : undefined}
@@ -713,7 +735,7 @@ export default function AdminDashboard() {
                   iconPath="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
                 />
                 <MiniMetric
-                  label="Немає на складі"
+                  label={t('productsOutOfStock')}
                   value={stats.products.outOfStock}
                   href="/admin/products?stock=out"
                   tone={stats.products.outOfStock > 0 ? 'danger' : undefined}
@@ -722,7 +744,7 @@ export default function AdminDashboard() {
                   iconPath="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
                 <MiniMetric
-                  label="Без штрихкоду"
+                  label={t('productsWithoutBarcode')}
                   value={stats.products.withoutBarcode ?? 0}
                   href="/admin/products?missingBarcode=1"
                   tone={(stats.products.withoutBarcode ?? 0) > 0 ? 'warning' : undefined}
@@ -743,13 +765,13 @@ export default function AdminDashboard() {
             >
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-                  Останні замовлення
+                  {t('recentOrdersHeader')}
                 </h3>
                 <Link
                   href="/admin/orders"
                   className="text-xs font-medium text-[var(--color-primary)] hover:underline"
                 >
-                  Усі →
+                  {t('all')}
                 </Link>
               </div>
               <div className="space-y-1">
@@ -780,7 +802,7 @@ export default function AdminDashboard() {
             if (backupStatus.ageStatus === 'missing') {
               combined.unshift({
                 key: 'backup_missing',
-                label: 'Бекапів бази даних не знайдено',
+                label: t('backupMissing'),
                 href: '/admin/audit-log',
                 count: 0,
                 severity: 'danger',
@@ -788,7 +810,7 @@ export default function AdminDashboard() {
             } else if (backupStatus.ageStatus === 'stale' && backupStatus.ageHours !== null) {
               combined.unshift({
                 key: 'backup_stale',
-                label: `Останній бекап ${Math.floor(backupStatus.ageHours / 24)} дн. тому — перевірте cron`,
+                label: t('backupStale', { days: Math.floor(backupStatus.ageHours / 24) }),
                 href: '/admin/audit-log',
                 count: 0,
                 severity: 'warning',
@@ -810,7 +832,7 @@ export default function AdminDashboard() {
               className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-5"
             >
               <h3 className="mb-3 text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-                Рекомендації для магазину
+                {t('recommendationsHeader')}
               </h3>
               <ul className="space-y-2">
                 {combined.map((r) => (
@@ -845,14 +867,14 @@ export default function AdminDashboard() {
               <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-                    Замовлення по годинах сьогодні
+                    {t('hourlyHeader')}
                   </h3>
                   <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                    Київський час · Усього: {totalToday}
+                    {t('kyivTimeTotal', { total: totalToday })}
                     {totalToday > 0 && (
                       <>
                         {' · '}
-                        Пік:{' '}
+                        {t('peak')}{' '}
                         <span className="font-semibold text-[var(--color-text)]">
                           {String(peak.hour).padStart(2, '0')}:00 ({peak.count})
                         </span>
@@ -867,7 +889,11 @@ export default function AdminDashboard() {
                   return (
                     <div
                       key={h.hour}
-                      title={`${String(h.hour).padStart(2, '0')}:00 — ${h.count} замовл., ${formatPrice(h.revenue)}`}
+                      title={t('hourTooltip', {
+                        hour: String(h.hour).padStart(2, '0'),
+                        count: h.count,
+                        revenue: formatPrice(h.revenue),
+                      })}
                       className="group flex flex-1 flex-col items-center"
                     >
                       <div className="flex h-20 w-full items-end">
@@ -908,7 +934,7 @@ export default function AdminDashboard() {
               <div className="mb-4 flex items-end justify-between">
                 <div>
                   <h3 className="text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-                    Виручка за тиждень
+                    {t('weeklyRevenueHeader')}
                   </h3>
                   <p className="mt-1 text-xl font-bold">{formatPrice(weekTotal)}</p>
                 </div>
@@ -925,7 +951,11 @@ export default function AdminDashboard() {
                     <Link
                       key={d.date}
                       href={`/admin/orders?dateFrom=${d.date}&dateTo=${d.date}`}
-                      title={`${d.date}: ${formatPrice(d.revenue)} (${d.count} замовл.)`}
+                      title={t('dayTooltip', {
+                        date: d.date,
+                        revenue: formatPrice(d.revenue),
+                        count: d.count,
+                      })}
                       className="group flex flex-1 flex-col items-center gap-1"
                     >
                       <div className="flex h-24 w-full items-end">
@@ -954,7 +984,7 @@ export default function AdminDashboard() {
               className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-5"
             >
               <h3 className="mb-4 text-sm font-semibold uppercase text-[var(--color-text-secondary)]">
-                Топ-5 товарів за замовленнями (30 днів)
+                {t('topProductsHeader')}
               </h3>
               <div className="space-y-1">
                 {stats.topProducts.map((p, i) => {
@@ -964,7 +994,9 @@ export default function AdminDashboard() {
                         <span className="mr-2 text-[var(--color-text-secondary)]">{i + 1}.</span>
                         {p.name}
                       </span>
-                      <span className="shrink-0 font-semibold">{p.quantity} шт</span>
+                      <span className="shrink-0 font-semibold">
+                        {t('pieces', { count: p.quantity })}
+                      </span>
                     </div>
                   );
                   return p.id ? (
@@ -1040,6 +1072,7 @@ function StatCard({
   href?: string;
   trend?: number[];
 }) {
+  const t = useTranslations('admin.dashboardPage');
   const content = (
     <div
       className={`rounded-[var(--radius)] border p-5 transition-colors ${
@@ -1064,11 +1097,12 @@ function StatCard({
           }`}
         >
           {diff === 0 ? (
-            <>— без змін vs вчора</>
+            <>{t('noChangeVsYesterday')}</>
           ) : (
             <>
               {diff > 0 ? '↑' : '↓'}{' '}
-              {diffFormatter ? diffFormatter(Math.abs(diff)) : Math.abs(diff).toFixed(0)} vs вчора
+              {diffFormatter ? diffFormatter(Math.abs(diff)) : Math.abs(diff).toFixed(0)}{' '}
+              {t('vsYesterday')}
             </>
           )}
         </p>
@@ -1106,34 +1140,35 @@ function QuickAction({
 }
 
 function OnboardingChecklist({ hasProducts }: { hasProducts: boolean }) {
+  const t = useTranslations('admin.dashboardPage');
   const steps = [
     {
       done: hasProducts,
-      title: 'Додайте товари',
-      description: 'Завантажте каталог через імпорт або створіть товари вручну',
+      title: t('onboardingStep1Title'),
+      description: t('onboardingStep1Desc'),
       href: '/admin/products',
-      cta: hasProducts ? 'Керувати товарами' : 'Додати перший товар',
+      cta: hasProducts ? t('onboardingManageProducts') : t('onboardingAddFirstProduct'),
     },
     {
       done: false,
-      title: 'Налаштуйте оплату',
-      description: 'Підключіть Monobank, LiqPay, Fondy або інші платіжки',
+      title: t('onboardingStep2Title'),
+      description: t('onboardingStep2Desc'),
       href: '/admin/payment-settings',
-      cta: 'Налаштувати',
+      cta: t('onboardingConfigure'),
     },
     {
       done: false,
-      title: 'Налаштуйте доставку',
-      description: "Нова Пошта, Укрпошта, кур'єр — встановіть зони і тарифи",
+      title: t('onboardingStep3Title'),
+      description: t('onboardingStep3Desc'),
       href: '/admin/delivery-settings',
-      cta: 'Налаштувати',
+      cta: t('onboardingConfigure'),
     },
     {
       done: false,
-      title: 'Налаштуйте Email/SMTP',
-      description: 'Без SMTP клієнти не отримають підтвердження замовлень',
+      title: t('onboardingStep4Title'),
+      description: t('onboardingStep4Desc'),
       href: '/admin/smtp-settings',
-      cta: 'Налаштувати',
+      cta: t('onboardingConfigure'),
     },
   ];
   const completed = steps.filter((s) => s.done).length;
@@ -1143,15 +1178,13 @@ function OnboardingChecklist({ hasProducts }: { hasProducts: boolean }) {
     <div className="mb-6 overflow-hidden rounded-2xl border border-[var(--color-primary)]/20 bg-gradient-to-br from-[var(--color-primary)]/5 via-[var(--color-bg)] to-[var(--color-bg)] p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-bold text-[var(--color-text)]">Перші кроки</h3>
-          <p className="text-xs text-[var(--color-text-secondary)]">
-            Завершіть налаштування магазину, щоб почати приймати замовлення
-          </p>
+          <h3 className="text-base font-bold text-[var(--color-text)]">{t('onboardingTitle')}</h3>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t('onboardingDesc')}</p>
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-[var(--color-primary)]">{percent}%</p>
           <p className="text-[10px] text-[var(--color-text-secondary)]">
-            {completed} з {steps.length}
+            {t('completedOfTotal', { completed, total: steps.length })}
           </p>
         </div>
       </div>
@@ -1224,11 +1257,12 @@ function RefreshControl({
   onToggleAuto: (v: boolean) => void;
   onIntervalChange: (v: number) => void;
 }) {
+  const t = useTranslations('admin.dashboardPage');
   const [open, setOpen] = useState(false);
   const INTERVALS = [
-    { seconds: 30, label: '30 секунд' },
-    { seconds: 60, label: '1 хвилина' },
-    { seconds: 300, label: '5 хвилин' },
+    { seconds: 30, label: t('interval30') },
+    { seconds: 60, label: t('interval60') },
+    { seconds: 300, label: t('interval300') },
   ];
   return (
     <div className="relative inline-flex items-stretch overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] text-xs font-medium">
@@ -1251,13 +1285,17 @@ function RefreshControl({
             d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
           />
         </svg>
-        {isRefreshing ? 'Оновлюємо…' : autoRefresh ? `Авто ${intervalSeconds}с` : 'Оновити'}
+        {isRefreshing
+          ? t('refreshing')
+          : autoRefresh
+            ? t('autoEvery', { seconds: intervalSeconds })
+            : t('refresh')}
       </button>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="border-l border-[var(--color-border)] px-2 transition-colors hover:bg-[var(--color-bg-secondary)]"
-        aria-label="Налаштування авто-оновлення"
+        aria-label={t('autoRefreshSettings')}
         aria-expanded={open}
       >
         <svg
@@ -1285,7 +1323,7 @@ function RefreshControl({
               !autoRefresh ? 'font-semibold text-[var(--color-primary)]' : ''
             }`}
           >
-            <span>Вимкнути</span>
+            <span>{t('disable')}</span>
             {!autoRefresh && <span aria-hidden>✓</span>}
           </button>
           <div className="border-t border-[var(--color-border)]" />
@@ -1304,7 +1342,7 @@ function RefreshControl({
                   active ? 'font-semibold text-[var(--color-primary)]' : ''
                 }`}
               >
-                <span>Авто кожні {opt.label}</span>
+                <span>{t('autoEveryLabel', { label: opt.label })}</span>
                 {active && <span aria-hidden>✓</span>}
               </button>
             );

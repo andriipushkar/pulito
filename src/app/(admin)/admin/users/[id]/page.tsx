@@ -1188,7 +1188,7 @@ export default function AdminUserDetailPage() {
                         className="font-mono text-[10px] text-[var(--color-text-secondary)]"
                         title={t('ipMaskedTitle')}
                       >
-                        {t('ipLabel', { ip: maskIpDisplay(entry.ipAddress) })}
+                        {t('ipLabel', { ip: maskIpDisplay(entry.ipAddress) ?? '—' })}
                       </p>
                     )}
                   </div>

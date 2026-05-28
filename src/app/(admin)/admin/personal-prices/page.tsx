@@ -310,7 +310,7 @@ export default function PersonalPricesPage() {
                     <td className="px-4 py-2 text-xs">
                       {item.product
                         ? `${item.product.name} (${item.product.code})`
-                        : t('categoryPrefix', { id: item.categoryId })}
+                        : t('categoryPrefix', { id: item.categoryId ?? '' })}
                     </td>
                     <td className="px-4 py-2 text-right text-xs">
                       {item.discountPercent ? `${Number(item.discountPercent)}%` : '—'}
