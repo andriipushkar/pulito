@@ -974,6 +974,20 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "performanceWidget": {
+      "noData": "Brak danych o wydajności w wybranym okresie"
+    },
+    "cohortAnalysis": {
+      "noData": "Za mało danych do analizy kohort",
+      "title": "Analiza kohort (retention %)",
+      "colCohort": "Kohorta",
+      "colUsers": "Użytkownicy"
+    },
+    "errorPage": {
+      "title": "Błąd",
+      "message": "Coś poszło nie tak. Spróbuj później.",
+      "retry": "Spróbuj ponownie"
+    },
     "keyboardShortcutsHelp": {
       "title": "Skróty klawiszowe",
       "close": "Zamknij",

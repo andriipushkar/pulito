@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 
@@ -40,6 +41,7 @@ function getLabel(metric: string, value: number): string {
 }
 
 export default function PerformanceWidget({ days = 30 }: { days?: number }) {
+  const t = useTranslations('admin.performanceWidget');
   const [metrics, setMetrics] = useState<MetricData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,13 +55,17 @@ export default function PerformanceWidget({ days = 30 }: { days?: number }) {
   }, [days]);
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   if (metrics.length === 0) {
     return (
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 text-center text-sm text-[var(--color-text-secondary)]">
-        Немає даних про продуктивність за обраний період
+        {t('noData')}
       </div>
     );
   }

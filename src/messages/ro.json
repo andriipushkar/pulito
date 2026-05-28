@@ -974,6 +974,20 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "performanceWidget": {
+      "noData": "Nu există date despre performanță pentru perioada selectată"
+    },
+    "cohortAnalysis": {
+      "noData": "Date insuficiente pentru analiza de cohortă",
+      "title": "Analiză de cohortă (retention %)",
+      "colCohort": "Cohortă",
+      "colUsers": "Utilizatori"
+    },
+    "errorPage": {
+      "title": "Eroare",
+      "message": "Ceva n-a mers bine. Încearcă mai târziu.",
+      "retry": "Încearcă din nou"
+    },
     "keyboardShortcutsHelp": {
       "title": "Scurtături de tastatură",
       "close": "Închide",

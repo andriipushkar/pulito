@@ -974,6 +974,20 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "performanceWidget": {
+      "noData": "No performance data for the selected period"
+    },
+    "cohortAnalysis": {
+      "noData": "Not enough data for cohort analysis",
+      "title": "Cohort analysis (retention %)",
+      "colCohort": "Cohort",
+      "colUsers": "Users"
+    },
+    "errorPage": {
+      "title": "Error",
+      "message": "Something went wrong. Please try again later.",
+      "retry": "Try again"
+    },
     "keyboardShortcutsHelp": {
       "title": "Keyboard shortcuts",
       "close": "Close",

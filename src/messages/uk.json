@@ -974,6 +974,20 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "performanceWidget": {
+      "noData": "Немає даних про продуктивність за обраний період"
+    },
+    "cohortAnalysis": {
+      "noData": "Недостатньо даних для когортного аналізу",
+      "title": "Когортний аналіз (retention %)",
+      "colCohort": "Когорта",
+      "colUsers": "Юзери"
+    },
+    "errorPage": {
+      "title": "Помилка",
+      "message": "Щось пішло не так. Спробуйте пізніше.",
+      "retry": "Спробувати знову"
+    },
     "keyboardShortcutsHelp": {
       "title": "Гарячі клавіші",
       "close": "Закрити",

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 
@@ -20,6 +21,7 @@ function getHeatColor(value: number): string {
 }
 
 export default function CohortAnalysis({ months = 6 }: { months?: number }) {
+  const t = useTranslations('admin.cohortAnalysis');
   const [data, setData] = useState<CohortRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -32,12 +34,17 @@ export default function CohortAnalysis({ months = 6 }: { months?: number }) {
       .finally(() => setIsLoading(false));
   }, [months]);
 
-  if (isLoading) return <div className="flex justify-center py-12"><Spinner size="md" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="md" />
+      </div>
+    );
 
   if (data.length === 0) {
     return (
       <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 text-center text-sm text-[var(--color-text-secondary)]">
-        Недостатньо даних для когортного аналізу
+        {t('noData')}
       </div>
     );
   }
@@ -53,15 +60,17 @@ export default function CohortAnalysis({ months = 6 }: { months?: number }) {
 
   return (
     <div>
-      <h3 className="mb-4 text-sm font-semibold">Когортний аналіз (retention %)</h3>
+      <h3 className="mb-4 text-sm font-semibold">{t('title')}</h3>
       <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)]">
         <table className="w-full text-xs">
           <thead className="bg-[var(--color-bg-secondary)]">
             <tr>
-              <th className="px-3 py-2 text-left">Когорта</th>
-              <th className="px-3 py-2 text-right">Юзери</th>
+              <th className="px-3 py-2 text-left">{t('colCohort')}</th>
+              <th className="px-3 py-2 text-right">{t('colUsers')}</th>
               {sortedMonths.map((m) => (
-                <th key={m} className="px-3 py-2 text-center">{m.slice(5)}</th>
+                <th key={m} className="px-3 py-2 text-center">
+                  {m.slice(5)}
+                </th>
               ))}
             </tr>
           </thead>
