@@ -974,6 +974,26 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "copyButton": {
+      "copied": "Skopiowano",
+      "copyFailed": "Nie udało się skopiować",
+      "copy": "Kopiuj",
+      "copyLabel": "Kopiuj {label}"
+    },
+    "inventoryStatsWidget": {
+      "active": "Aktywne",
+      "outOfStock": "Wyprzedane",
+      "outOfStockHint": "Ukryte z katalogu jako niedostępne",
+      "lowStock": "Mało (≤ {threshold})",
+      "lowStockHint": "Wymaga zamówienia"
+    },
+    "outOfStockAlert": {
+      "heading": "⚠️ Za mało towaru na stanie ({count, plural, one {# pozycja} few {# pozycje} many {# pozycji} other {# pozycji}})",
+      "ordered": "zamówiono",
+      "inStock": "dostępne",
+      "noneAtAll": " (brak całkowicie)",
+      "short": " (brakuje {count})"
+    },
     "hoverStats": {
       "loading": "Ładowanie…",
       "ordersWord": "zamówień",

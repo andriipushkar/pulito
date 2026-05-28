@@ -974,6 +974,26 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "copyButton": {
+      "copied": "Copied",
+      "copyFailed": "Failed to copy",
+      "copy": "Copy",
+      "copyLabel": "Copy {label}"
+    },
+    "inventoryStatsWidget": {
+      "active": "Active",
+      "outOfStock": "Out of stock",
+      "outOfStockHint": "Hidden from the catalog as out-of-stock",
+      "lowStock": "Low (≤ {threshold})",
+      "lowStockHint": "Needs reordering"
+    },
+    "outOfStockAlert": {
+      "heading": "⚠️ Not enough stock ({count, plural, one {# item} other {# items}})",
+      "ordered": "ordered",
+      "inStock": "in stock",
+      "noneAtAll": " (none at all)",
+      "short": " (short {count})"
+    },
     "hoverStats": {
       "loading": "Loading…",
       "ordersWord": "orders",

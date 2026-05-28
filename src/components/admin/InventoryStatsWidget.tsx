@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 
@@ -22,6 +23,7 @@ interface Stats {
  * parameter the API never read, so the cards were no-ops.
  */
 export default function InventoryStatsWidget() {
+  const t = useTranslations('admin.inventoryStatsWidget');
   const router = useRouter();
   const searchParams = useSearchParams();
   const [stats, setStats] = useState<Stats | null>(null);
@@ -47,27 +49,27 @@ export default function InventoryStatsWidget() {
 
   const cards = [
     {
-      label: 'Активних',
+      label: t('active'),
       value: stats.totalActive,
       color: 'text-emerald-700',
       bg: 'bg-emerald-50',
       onClick: () => setFilter('stock', null),
     },
     {
-      label: 'Закінчились',
+      label: t('outOfStock'),
       value: stats.outOfStock,
       color: 'text-red-700',
       bg: 'bg-red-50',
       onClick: () => setFilter('stock', 'out'),
-      hint: stats.outOfStock > 0 ? 'Сховані з каталогу як out-of-stock' : null,
+      hint: stats.outOfStock > 0 ? t('outOfStockHint') : null,
     },
     {
-      label: `Мало (≤ ${stats.lowStockThreshold})`,
+      label: t('lowStock', { threshold: stats.lowStockThreshold }),
       value: stats.lowStock,
       color: 'text-amber-700',
       bg: 'bg-amber-50',
       onClick: () => setFilter('stock', 'low'),
-      hint: stats.lowStock > 0 ? 'Потрібно дозамовити' : null,
+      hint: stats.lowStock > 0 ? t('lowStockHint') : null,
     },
   ];
 

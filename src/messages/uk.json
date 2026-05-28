@@ -974,6 +974,26 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "copyButton": {
+      "copied": "Скопійовано",
+      "copyFailed": "Не вдалося скопіювати",
+      "copy": "Копіювати",
+      "copyLabel": "Копіювати {label}"
+    },
+    "inventoryStatsWidget": {
+      "active": "Активних",
+      "outOfStock": "Закінчились",
+      "outOfStockHint": "Сховані з каталогу як out-of-stock",
+      "lowStock": "Мало (≤ {threshold})",
+      "lowStockHint": "Потрібно дозамовити"
+    },
+    "outOfStockAlert": {
+      "heading": "⚠️ Замало товару на складі ({count, plural, one {# позиція} few {# позиції} many {# позицій} other {# позицій}})",
+      "ordered": "замовлено",
+      "inStock": "в наявності",
+      "noneAtAll": " (немає взагалі)",
+      "short": " (бракує {count})"
+    },
     "hoverStats": {
       "loading": "Завантаження…",
       "ordersWord": "замовлень",

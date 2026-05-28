@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
 interface OrderItem {
@@ -22,6 +23,7 @@ interface StockInfo {
  * scenario after promotions or stock corrections.
  */
 export default function OutOfStockAlert({ items }: { items: OrderItem[] }) {
+  const t = useTranslations('admin.outOfStockAlert');
   const [shortages, setShortages] = useState<Array<{ item: OrderItem; available: number }>>([]);
   const [checked, setChecked] = useState(false);
 
@@ -74,16 +76,13 @@ export default function OutOfStockAlert({ items }: { items: OrderItem[] }) {
 
   return (
     <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm">
-      <p className="mb-1 font-semibold text-red-800">
-        ⚠️ Замало товару на складі ({shortages.length}{' '}
-        {shortages.length === 1 ? 'позиція' : 'позицій'})
-      </p>
+      <p className="mb-1 font-semibold text-red-800">{t('heading', { count: shortages.length })}</p>
       <ul className="space-y-0.5 text-xs text-red-700">
         {shortages.map(({ item, available }) => (
           <li key={item.productId}>
-            <strong>{item.productName}</strong> ({item.productCode}) — замовлено{' '}
-            <strong>{item.quantity}</strong>, в наявності <strong>{available}</strong>
-            {available === 0 ? ' (немає взагалі)' : ` (бракує ${item.quantity - available})`}
+            <strong>{item.productName}</strong> ({item.productCode}) — {t('ordered')}{' '}
+            <strong>{item.quantity}</strong>, {t('inStock')} <strong>{available}</strong>
+            {available === 0 ? t('noneAtAll') : t('short', { count: item.quantity - available })}
           </li>
         ))}
       </ul>

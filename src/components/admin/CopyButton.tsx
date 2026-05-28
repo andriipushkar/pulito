@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 interface Props {
@@ -10,7 +11,7 @@ interface Props {
   /** When true, renders the value next to the button. */
   showValue?: boolean;
   children?: ReactNode;
-  /** Custom toast text (defaults to "Скопійовано"). */
+  /** Custom toast text (defaults to the localised "Copied"). */
   toastText?: string;
 }
 
@@ -20,9 +21,11 @@ export default function CopyButton({
   className = '',
   showValue,
   children,
-  toastText = 'Скопійовано',
+  toastText,
 }: Props) {
+  const t = useTranslations('admin.copyButton');
   const [copied, setCopied] = useState(false);
+  const copyTitle = label ? t('copyLabel', { label }) : t('copy');
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -31,10 +34,10 @@ export default function CopyButton({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      toast.success(toastText, { duration: 1500 });
+      toast.success(toastText ?? t('copied'), { duration: 1500 });
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      toast.error('Не вдалося скопіювати');
+      toast.error(t('copyFailed'));
     }
   };
 
@@ -43,7 +46,7 @@ export default function CopyButton({
       <button
         type="button"
         onClick={handleCopy}
-        title={`Копіювати${label ? ` ${label}` : ''}`}
+        title={copyTitle}
         className={`inline-flex items-center gap-1 hover:text-[var(--color-primary)] ${className}`}
       >
         {children}
@@ -55,8 +58,8 @@ export default function CopyButton({
     <button
       type="button"
       onClick={handleCopy}
-      aria-label={`Копіювати${label ? ` ${label}` : ''}`}
-      title={`Копіювати${label ? ` ${label}` : ''}`}
+      aria-label={copyTitle}
+      title={copyTitle}
       className={`inline-flex items-center gap-1 rounded p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-primary)] ${className}`}
     >
       {showValue && <span className="truncate text-xs">{value}</span>}
