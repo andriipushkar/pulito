@@ -26,4 +26,4 @@
 | C7  | reorder race на 2 вкладках                                                                  | —        | ✅ already mitigated — reorder у `$transaction`; stale tab = клієнтський UX |
 | C15 | SEO caps валідатор 160/320 vs UI 70/160                                                     | 🟢 LOW   | skip — низька цінність; звуження ризикує відхиляти наявні довгі meta        |
 
-> Побічно: `tsc --noEmit` показує 2 **передіснуючі** (не від цього батчу) помилки типів у `catalog/page.tsx:122` та `brand/[slug]/page.tsx:106` — products list union `X[] | ProductListItem[]`. `next build` їх толерує (EXIT=0). Окремий пункт на майбутнє.
+> Побічно: `tsc --noEmit` показував 2 **передіснуючі** помилки типів у `catalog/page.tsx:122` та `brand/[slug]/page.tsx:106` — products list union `X[] | ProductListItem[]`. ✅ Виправлено (commit 1e0c033): `getProducts` отримав явну анотацію return-типу `Promise<{ products: ProductListItem[]; total: number }>`, що схлопує union (cached-гілка vs `serializeProducts<T>(): T[]`). Решта tsc-помилок — лише у тест-файлах.
