@@ -1000,6 +1000,48 @@
       "docs": "Інструкція ↗",
       "freeNote": "💡 Інтеграція безкоштовна. Комісію беруть лише самі маркетплейси з продажу (5-25%)."
     },
+    "autoSyncSettings": {
+      "products": "Товари",
+      "stock": "Залишки",
+      "orders": "Замовлення",
+      "saveFailed": "Не вдалося зберегти",
+      "colMarketplace": "Маркетплейс",
+      "notSupported": "Не підтримується",
+      "off": "Вимкнено",
+      "every1h": "Щогодини",
+      "every6h": "Кожні 6 год",
+      "every12h": "Кожні 12 год",
+      "every24h": "Раз на добу",
+      "cronNote": "Налаштування застосовуються cron-завданням `marketplace-health-check` / `sync-marketplace-*`.",
+      "saving": "Зберігаю..."
+    },
+    "autoCrosslistSettings": {
+      "saved": "Збережено",
+      "error": "Помилка",
+      "runResult": "Перевірено {scanned}, опубліковано {published}, помилок {errors}",
+      "enableLabel": "Автоматично публікувати нові активні товари на всі увімкнені маркетплейси",
+      "windowLabel": "Вікно (днів від створення):",
+      "windowRange": "1-90",
+      "excludeLabel": "Виключити маркетплейси (не публікувати автоматично):",
+      "save": "Зберегти",
+      "runNow": "▶ Запустити зараз",
+      "runDisabledTitle": "Увімкніть і збережіть, тоді можна запустити",
+      "runTitle": "Запустити зараз",
+      "cronNote": "Cron виконується періодично (потрібно налаштувати у системному планувальнику — <code>/api/v1/cron/marketplace-auto-crosslist</code>). Кожен товар публікується ОДИН раз на маркетплейс — повторні запуски пропускають вже опубліковані."
+    },
+    "compareModal": {
+      "statusRow": "Статус",
+      "activeRow": "Активний",
+      "supportsProducts": "Підтримує товари",
+      "supportsStock": "Підтримує stock sync",
+      "supportsOrders": "Підтримує замовлення",
+      "listingsPublished": "Опубліковано лістингів",
+      "docsRow": "Документація",
+      "openDocs": "Відкрити ↗",
+      "title": "Порівняти маркетплейси",
+      "close": "Закрити",
+      "footer": "{left} vs {right} — обирайте платформу зверху кожної колонки."
+    },
     "userSecurityTab": {
       "loading": "Завантаження…",
       "noData": "Немає даних",

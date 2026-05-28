@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Button from '@/components/ui/Button';
@@ -14,6 +15,7 @@ interface Settings {
 }
 
 export function AutoCrosslistSettings() {
+  const t = useTranslations('admin.autoCrosslistSettings');
   const [settings, setSettings] = useState<Settings>({
     enabled: false,
     windowDays: 7,
@@ -45,8 +47,8 @@ export function AutoCrosslistSettings() {
   const save = async () => {
     setSaving(true);
     const r = await apiClient.put('/api/v1/admin/marketplaces/auto-crosslist', settings);
-    if (r.success) toast.success('Збережено');
-    else toast.error(r.error || 'Помилка');
+    if (r.success) toast.success(t('saved'));
+    else toast.error(r.error || t('error'));
     setSaving(false);
   };
 
@@ -57,10 +59,14 @@ export function AutoCrosslistSettings() {
     );
     if (r.success && r.data) {
       toast.success(
-        `Перевірено ${r.data.scanned}, опубліковано ${r.data.published}, помилок ${r.data.errors}`,
+        t('runResult', {
+          scanned: r.data.scanned,
+          published: r.data.published,
+          errors: r.data.errors,
+        }),
       );
     } else {
-      toast.error(r.error || 'Помилка');
+      toast.error(r.error || t('error'));
     }
     setRunning(false);
   };
@@ -76,14 +82,12 @@ export function AutoCrosslistSettings() {
           onChange={(e) => setSettings({ ...settings, enabled: e.target.checked })}
           className="h-4 w-4 accent-[var(--color-primary)]"
         />
-        <span className="text-sm font-medium">
-          Автоматично публікувати нові активні товари на всі увімкнені маркетплейси
-        </span>
+        <span className="text-sm font-medium">{t('enableLabel')}</span>
       </label>
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="flex items-center gap-2 text-sm">
-          <span>Вікно (днів від створення):</span>
+          <span>{t('windowLabel')}</span>
           <Input
             type="number"
             min={1}
@@ -92,13 +96,13 @@ export function AutoCrosslistSettings() {
             onChange={(e) => setSettings({ ...settings, windowDays: Number(e.target.value) })}
             className="w-20"
           />
-          <span className="text-xs text-[var(--color-text-secondary)]">1-90</span>
+          <span className="text-xs text-[var(--color-text-secondary)]">{t('windowRange')}</span>
         </label>
       </div>
 
       <div>
         <p className="mb-2 text-xs font-medium text-[var(--color-text-secondary)]">
-          Виключити маркетплейси (не публікувати автоматично):
+          {t('excludeLabel')}
         </p>
         <div className="flex flex-wrap gap-3">
           {MARKETPLACES.map((m) => {
@@ -122,7 +126,7 @@ export function AutoCrosslistSettings() {
 
       <div className="flex gap-2">
         <Button size="sm" onClick={save} isLoading={saving}>
-          Зберегти
+          {t('save')}
         </Button>
         <Button
           size="sm"
@@ -130,16 +134,16 @@ export function AutoCrosslistSettings() {
           onClick={runNow}
           isLoading={running}
           disabled={!settings.enabled}
-          title={!settings.enabled ? 'Увімкніть і збережіть, тоді можна запустити' : 'Запустити зараз'}
+          title={!settings.enabled ? t('runDisabledTitle') : t('runTitle')}
         >
-          ▶ Запустити зараз
+          {t('runNow')}
         </Button>
       </div>
 
       <p className="text-[10px] text-[var(--color-text-secondary)]">
-        Cron виконується періодично (потрібно налаштувати у системному планувальнику —{' '}
-        <code>/api/v1/cron/marketplace-auto-crosslist</code>). Кожен товар публікується ОДИН раз
-        на маркетплейс — повторні запуски пропускають вже опубліковані.
+        {t.rich('cronNote', {
+          code: (chunks) => <code>{chunks}</code>,
+        })}
       </p>
     </div>
   );

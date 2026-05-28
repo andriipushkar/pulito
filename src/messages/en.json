@@ -1000,6 +1000,48 @@
       "docs": "Instructions ↗",
       "freeNote": "💡 Integration is free. Only the marketplaces themselves take a sales commission (5-25%)."
     },
+    "autoSyncSettings": {
+      "products": "Products",
+      "stock": "Stock",
+      "orders": "Orders",
+      "saveFailed": "Failed to save",
+      "colMarketplace": "Marketplace",
+      "notSupported": "Not supported",
+      "off": "Off",
+      "every1h": "Hourly",
+      "every6h": "Every 6 h",
+      "every12h": "Every 12 h",
+      "every24h": "Once a day",
+      "cronNote": "Settings are applied by the cron jobs `marketplace-health-check` / `sync-marketplace-*`.",
+      "saving": "Saving..."
+    },
+    "autoCrosslistSettings": {
+      "saved": "Saved",
+      "error": "Error",
+      "runResult": "Scanned {scanned}, published {published}, errors {errors}",
+      "enableLabel": "Automatically publish new active products to all enabled marketplaces",
+      "windowLabel": "Window (days since creation):",
+      "windowRange": "1-90",
+      "excludeLabel": "Exclude marketplaces (do not publish automatically):",
+      "save": "Save",
+      "runNow": "▶ Run now",
+      "runDisabledTitle": "Enable and save, then you can run it",
+      "runTitle": "Run now",
+      "cronNote": "Cron runs periodically (needs to be set up in the system scheduler — <code>/api/v1/cron/marketplace-auto-crosslist</code>). Each product is published ONCE per marketplace — repeated runs skip already-published ones."
+    },
+    "compareModal": {
+      "statusRow": "Status",
+      "activeRow": "Active",
+      "supportsProducts": "Supports products",
+      "supportsStock": "Supports stock sync",
+      "supportsOrders": "Supports orders",
+      "listingsPublished": "Listings published",
+      "docsRow": "Documentation",
+      "openDocs": "Open ↗",
+      "title": "Compare marketplaces",
+      "close": "Close",
+      "footer": "{left} vs {right} — pick a platform at the top of each column."
+    },
     "userSecurityTab": {
       "loading": "Loading…",
       "noData": "No data",

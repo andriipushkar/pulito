@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -31,6 +32,7 @@ interface TokenExpiryInfo {
 }
 
 export function SettingsTab() {
+  const tSync = useTranslations('admin.autoSyncSettings');
   const [configs, setConfigs] = useState<Record<string, MarketplaceConfig | null>>({});
   const [forms, setForms] = useState<Record<string, Record<string, string | boolean>>>({});
   const [statuses, setStatuses] = useState<Record<string, MarketplaceStatus | null>>({});
@@ -220,7 +222,7 @@ export function SettingsTab() {
       const parts = Object.entries(res.data)
         .map(([k, v]) => `${k}: ${v}`)
         .join(', ');
-      toast.success(`${marketplace.name} ${syncTypeLabel(action)} — ${parts}`);
+      toast.success(`${marketplace.name} ${syncTypeLabel(tSync, action)} — ${parts}`);
       await loadAll();
     } else {
       toast.error(res.error || 'Помилка синхронізації');
@@ -529,7 +531,7 @@ export function SettingsTab() {
                                   : `Останній: ${formatRelative(lastSync)}`
                           }
                         >
-                          {syncTypeLabel(type)}
+                          {syncTypeLabel(tSync, type)}
                         </Button>
                         {lastSync && supported && (
                           <span className="text-[10px] text-[var(--color-text-secondary)]">

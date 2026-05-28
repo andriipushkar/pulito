@@ -1,18 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import Spinner from '@/components/ui/Spinner';
 import { MARKETPLACES, type AutoSyncMap, type SyncInterval, type SyncType } from '../_shared';
 
-export function syncTypeLabel(type: SyncType): string {
-  if (type === 'products') return 'Товари';
-  if (type === 'stock') return 'Залишки';
-  return 'Замовлення';
+export function syncTypeLabel(t: (key: string) => string, type: SyncType): string {
+  return t(type);
 }
 
 export function AutoSyncSettings() {
+  const t = useTranslations('admin.autoSyncSettings');
   const [settings, setSettings] = useState<AutoSyncMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,7 +32,7 @@ export function AutoSyncSettings() {
     setSettings(next);
     setIsSaving(true);
     const res = await apiClient.put('/api/v1/admin/marketplaces/auto-sync', next);
-    if (!res.success) toast.error(res.error || 'Не вдалося зберегти');
+    if (!res.success) toast.error(res.error || t('saveFailed'));
     setIsSaving(false);
   };
 
@@ -44,10 +44,10 @@ export function AutoSyncSettings() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] text-left text-xs text-[var(--color-text-secondary)]">
-              <th className="px-2 py-2">Маркетплейс</th>
-              <th className="px-2 py-2">Товари</th>
-              <th className="px-2 py-2">Залишки</th>
-              <th className="px-2 py-2">Замовлення</th>
+              <th className="px-2 py-2">{t('colMarketplace')}</th>
+              <th className="px-2 py-2">{t('products')}</th>
+              <th className="px-2 py-2">{t('stock')}</th>
+              <th className="px-2 py-2">{t('orders')}</th>
             </tr>
           </thead>
           <tbody>
@@ -62,17 +62,15 @@ export function AutoSyncSettings() {
                     <select
                       disabled={!m.supports[type]}
                       value={(settings[m.key]?.[type] as SyncInterval) || 'off'}
-                      onChange={(e) =>
-                        updateField(m.key, type, e.target.value as SyncInterval)
-                      }
+                      onChange={(e) => updateField(m.key, type, e.target.value as SyncInterval)}
                       className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs disabled:opacity-40"
-                      title={m.supports[type] ? '' : 'Не підтримується'}
+                      title={m.supports[type] ? '' : t('notSupported')}
                     >
-                      <option value="off">Вимкнено</option>
-                      <option value="1h">Щогодини</option>
-                      <option value="6h">Кожні 6 год</option>
-                      <option value="12h">Кожні 12 год</option>
-                      <option value="24h">Раз на добу</option>
+                      <option value="off">{t('off')}</option>
+                      <option value="1h">{t('every1h')}</option>
+                      <option value="6h">{t('every6h')}</option>
+                      <option value="12h">{t('every12h')}</option>
+                      <option value="24h">{t('every24h')}</option>
                     </select>
                   </td>
                 ))}
@@ -82,8 +80,8 @@ export function AutoSyncSettings() {
         </table>
       </div>
       <p className="text-[10px] text-[var(--color-text-secondary)]">
-        Налаштування застосовуються cron-завданням `marketplace-health-check` / `sync-marketplace-*`.
-        {isSaving && <span className="ml-2 text-[var(--color-primary)]">Зберігаю...</span>}
+        {t('cronNote')}
+        {isSaving && <span className="ml-2 text-[var(--color-primary)]">{t('saving')}</span>}
       </p>
     </div>
   );

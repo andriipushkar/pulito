@@ -1000,6 +1000,48 @@
       "docs": "Instrucțiuni ↗",
       "freeNote": "💡 Integrarea este gratuită. Doar marketplace-urile percep comision din vânzări (5-25%)."
     },
+    "autoSyncSettings": {
+      "products": "Produse",
+      "stock": "Stoc",
+      "orders": "Comenzi",
+      "saveFailed": "Salvarea a eșuat",
+      "colMarketplace": "Marketplace",
+      "notSupported": "Neacceptat",
+      "off": "Dezactivat",
+      "every1h": "Din oră în oră",
+      "every6h": "La fiecare 6 h",
+      "every12h": "La fiecare 12 h",
+      "every24h": "O dată pe zi",
+      "cronNote": "Setările sunt aplicate de sarcinile cron `marketplace-health-check` / `sync-marketplace-*`.",
+      "saving": "Salvez..."
+    },
+    "autoCrosslistSettings": {
+      "saved": "Salvat",
+      "error": "Eroare",
+      "runResult": "Verificate {scanned}, publicate {published}, erori {errors}",
+      "enableLabel": "Publică automat produsele noi active pe toate marketplace-urile activate",
+      "windowLabel": "Fereastră (zile de la creare):",
+      "windowRange": "1-90",
+      "excludeLabel": "Exclude marketplace-uri (nu publica automat):",
+      "save": "Salvează",
+      "runNow": "▶ Rulează acum",
+      "runDisabledTitle": "Activează și salvează, apoi poți rula",
+      "runTitle": "Rulează acum",
+      "cronNote": "Cron rulează periodic (trebuie configurat în planificatorul de sistem — <code>/api/v1/cron/marketplace-auto-crosslist</code>). Fiecare produs este publicat O SINGURĂ DATĂ pe marketplace — rulările repetate le sar pe cele deja publicate."
+    },
+    "compareModal": {
+      "statusRow": "Status",
+      "activeRow": "Activ",
+      "supportsProducts": "Acceptă produse",
+      "supportsStock": "Acceptă sincronizarea stocului",
+      "supportsOrders": "Acceptă comenzi",
+      "listingsPublished": "Anunțuri publicate",
+      "docsRow": "Documentație",
+      "openDocs": "Deschide ↗",
+      "title": "Compară marketplace-uri",
+      "close": "Închide",
+      "footer": "{left} vs {right} — alege o platformă în partea de sus a fiecărei coloane."
+    },
     "userSecurityTab": {
       "loading": "Se încarcă…",
       "noData": "Nu există date",

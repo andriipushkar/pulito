@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { MARKETPLACES, type HealthStatus } from '../_shared';
 import { HealthBadge } from './HealthBadge';
@@ -22,6 +23,7 @@ interface CompareModalProps {
  * SettingsTab, but here we re-fetch on open so we don't depend on tab order.
  */
 export default function CompareModal({ open, onClose }: CompareModalProps) {
+  const t = useTranslations('admin.compareModal');
   const [leftKey, setLeftKey] = useState<string>(MARKETPLACES[0]?.key ?? 'olx');
   const [rightKey, setRightKey] = useState<string>(MARKETPLACES[1]?.key ?? 'rozetka');
   const [configs, setConfigs] = useState<Record<string, ConfigSummary | null>>({});
@@ -81,22 +83,22 @@ export default function CompareModal({ open, onClose }: CompareModalProps) {
         </select>
 
         <div className="space-y-2 text-sm">
-          <Row label="Статус">
+          <Row label={t('statusRow')}>
             <HealthBadge health={health ?? null} enabled={enabled} />
           </Row>
-          <Row label="Активний">{enabled ? '✅' : '❌'}</Row>
-          <Row label="Підтримує товари">{platform?.supports?.products ? '✅' : '➖'}</Row>
-          <Row label="Підтримує stock sync">{platform?.supports?.stock ? '✅' : '➖'}</Row>
-          <Row label="Підтримує замовлення">{platform?.supports?.orders ? '✅' : '➖'}</Row>
-          <Row label="Listings published">{listingCounts[selectedKey] ?? '—'}</Row>
-          <Row label="Документація">
+          <Row label={t('activeRow')}>{enabled ? '✅' : '❌'}</Row>
+          <Row label={t('supportsProducts')}>{platform?.supports?.products ? '✅' : '➖'}</Row>
+          <Row label={t('supportsStock')}>{platform?.supports?.stock ? '✅' : '➖'}</Row>
+          <Row label={t('supportsOrders')}>{platform?.supports?.orders ? '✅' : '➖'}</Row>
+          <Row label={t('listingsPublished')}>{listingCounts[selectedKey] ?? '—'}</Row>
+          <Row label={t('docsRow')}>
             <a
               href={platform?.docsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-[var(--color-primary)] hover:underline"
             >
-              {platform?.docsLabel ?? 'Відкрити ↗'}
+              {platform?.docsLabel ?? t('openDocs')}
             </a>
           </Row>
         </div>
@@ -114,11 +116,11 @@ export default function CompareModal({ open, onClose }: CompareModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Порівняти маркетплейси</h3>
+          <h3 className="text-lg font-semibold">{t('title')}</h3>
           <button
             onClick={onClose}
             className="rounded-full p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
-            aria-label="Закрити"
+            aria-label={t('close')}
           >
             ✕
           </button>
@@ -128,7 +130,7 @@ export default function CompareModal({ open, onClose }: CompareModalProps) {
           {renderColumn(rightKey, setRightKey, leftKey)}
         </div>
         <p className="mt-4 text-center text-[11px] text-[var(--color-text-secondary)]">
-          {left?.name} vs {right?.name} — обирайте платформу зверху кожної колонки.
+          {t('footer', { left: left?.name ?? '', right: right?.name ?? '' })}
         </p>
       </div>
     </div>

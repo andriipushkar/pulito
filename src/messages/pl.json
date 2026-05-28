@@ -1000,6 +1000,48 @@
       "docs": "Instrukcja ↗",
       "freeNote": "💡 Integracja jest bezpłatna. Prowizję od sprzedaży pobierają tylko same marketplace'y (5-25%)."
     },
+    "autoSyncSettings": {
+      "products": "Produkty",
+      "stock": "Stany",
+      "orders": "Zamówienia",
+      "saveFailed": "Nie udało się zapisać",
+      "colMarketplace": "Marketplace",
+      "notSupported": "Nieobsługiwane",
+      "off": "Wyłączone",
+      "every1h": "Co godzinę",
+      "every6h": "Co 6 godz.",
+      "every12h": "Co 12 godz.",
+      "every24h": "Raz dziennie",
+      "cronNote": "Ustawienia są stosowane przez zadania cron `marketplace-health-check` / `sync-marketplace-*`.",
+      "saving": "Zapisuję..."
+    },
+    "autoCrosslistSettings": {
+      "saved": "Zapisano",
+      "error": "Błąd",
+      "runResult": "Sprawdzono {scanned}, opublikowano {published}, błędów {errors}",
+      "enableLabel": "Automatycznie publikuj nowe aktywne produkty na wszystkich włączonych marketplace'ach",
+      "windowLabel": "Okno (dni od utworzenia):",
+      "windowRange": "1-90",
+      "excludeLabel": "Wyklucz marketplace'y (nie publikuj automatycznie):",
+      "save": "Zapisz",
+      "runNow": "▶ Uruchom teraz",
+      "runDisabledTitle": "Włącz i zapisz, wtedy można uruchomić",
+      "runTitle": "Uruchom teraz",
+      "cronNote": "Cron uruchamia się okresowo (trzeba go skonfigurować w systemowym harmonogramie — <code>/api/v1/cron/marketplace-auto-crosslist</code>). Każdy produkt jest publikowany RAZ na marketplace — powtórne uruchomienia pomijają już opublikowane."
+    },
+    "compareModal": {
+      "statusRow": "Status",
+      "activeRow": "Aktywny",
+      "supportsProducts": "Obsługuje produkty",
+      "supportsStock": "Obsługuje synchronizację stanów",
+      "supportsOrders": "Obsługuje zamówienia",
+      "listingsPublished": "Opublikowane oferty",
+      "docsRow": "Dokumentacja",
+      "openDocs": "Otwórz ↗",
+      "title": "Porównaj marketplace'y",
+      "close": "Zamknij",
+      "footer": "{left} vs {right} — wybierz platformę u góry każdej kolumny."
+    },
     "userSecurityTab": {
       "loading": "Ładowanie…",
       "noData": "Brak danych",
