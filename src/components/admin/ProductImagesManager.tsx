@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -46,6 +47,7 @@ function SortableImage({
   onDelete: () => void;
   onPreview: () => void;
 }) {
+  const t = useTranslations('admin.productImagesManager');
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: img.id,
   });
@@ -64,22 +66,16 @@ function SortableImage({
         type="button"
         onClick={onPreview}
         className="absolute inset-0 z-10"
-        aria-label="Збільшити фото"
+        aria-label={t('enlargePhoto')}
       >
-        <Image
-          src={img.pathMedium}
-          alt=""
-          fill
-          sizes="96px"
-          className="object-contain p-1"
-        />
+        <Image src={img.pathMedium} alt="" fill sizes="96px" className="object-contain p-1" />
       </button>
       <button
         type="button"
         {...attributes}
         {...listeners}
         className="absolute left-1 top-1 z-20 cursor-grab rounded bg-white/90 px-1 py-0.5 text-[10px] text-[var(--color-text-secondary)] shadow-sm opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
-        aria-label="Перетягнути"
+        aria-label={t('drag')}
       >
         ⋮⋮
       </button>
@@ -102,6 +98,7 @@ export default function ProductImagesManager({
   onUpload,
   onRequestDelete,
 }: Props) {
+  const t = useTranslations('admin.productImagesManager');
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -117,10 +114,10 @@ export default function ProductImagesManager({
         imageIds: next.map((i) => i.id),
       });
       if (!res.success) {
-        toast.error(res.error || 'Не вдалося зберегти порядок');
+        toast.error(res.error || t('reorderFailed'));
       }
     },
-    [productId],
+    [productId, t],
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -141,7 +138,7 @@ export default function ProductImagesManager({
     if (!files || files.length === 0) return;
     const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
     if (imageFiles.length === 0) {
-      toast.error('Можна перетягувати тільки зображення');
+      toast.error(t('onlyImages'));
       return;
     }
     const dt = new DataTransfer();
@@ -172,11 +169,7 @@ export default function ProductImagesManager({
             : 'border-transparent'
         }`}
       >
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={images.map((i) => i.id)} strategy={rectSortingStrategy}>
             <div className="flex flex-wrap gap-3">
               {images.map((img) => (
@@ -197,7 +190,7 @@ export default function ProductImagesManager({
               >
                 <span className="text-2xl">{isUploading ? '⏳' : '+'}</span>
                 <span className="px-1 text-center text-[10px] leading-tight">
-                  {isUploading ? 'Завантаження' : 'Додати або перетягни'}
+                  {isUploading ? t('uploading') : t('addOrDrag')}
                 </span>
               </button>
               <input
@@ -218,15 +211,13 @@ export default function ProductImagesManager({
         {dragging && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[var(--radius)] bg-[var(--color-primary)]/10">
             <span className="rounded bg-[var(--color-primary)] px-3 py-1 text-sm font-semibold text-white">
-              Відпустіть, щоб завантажити
+              {t('dropToUpload')}
             </span>
           </div>
         )}
       </div>
       {images.length > 1 && (
-        <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-          Перетягуйте зображення, щоб змінити порядок. Перше — головне.
-        </p>
+        <p className="mt-2 text-xs text-[var(--color-text-secondary)]">{t('reorderHint')}</p>
       )}
       {preview && (
         <div
@@ -234,7 +225,7 @@ export default function ProductImagesManager({
           onClick={() => setPreview(null)}
           role="dialog"
           aria-modal="true"
-          aria-label="Перегляд фото"
+          aria-label={t('previewAria')}
         >
           <div className="relative max-h-full max-w-3xl">
             <Image
@@ -249,7 +240,7 @@ export default function ProductImagesManager({
               type="button"
               onClick={() => setPreview(null)}
               className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg shadow-lg hover:bg-gray-100"
-              aria-label="Закрити"
+              aria-label={t('close')}
             >
               ✕
             </button>

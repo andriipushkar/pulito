@@ -974,6 +974,38 @@
       "emptyHint": "Customers will start conversations via the on-site chat",
       "totalLabel": "Total: {count}"
     },
+    "cameraBarcodeScanner": {
+      "unsupported": "Your browser doesn't support BarcodeDetector. Try Chrome on Android or Safari on iOS 17+.",
+      "initFailed": "Failed to initialize the scanner: {error}",
+      "cameraFailed": "Failed to access the camera: {error}",
+      "title": "Scanner",
+      "close": "Close",
+      "usbHint": "Tip: connect a USB scanner in keyboard-wedge mode — it just «types» the code into the input field and needs no API.",
+      "aim": "Point the barcode into the frame"
+    },
+    "warehouseStockSection": {
+      "error": "Error",
+      "loading": "Loading warehouses…",
+      "title": "Stock by warehouse",
+      "titleHint": "(foundation — does not affect the site)",
+      "total": "Total:",
+      "colWarehouse": "Warehouse",
+      "colCity": "City",
+      "colQty": "Quantity",
+      "colReserved": "Reserved"
+    },
+    "productImagesManager": {
+      "enlargePhoto": "Enlarge photo",
+      "drag": "Drag",
+      "reorderFailed": "Failed to save the order",
+      "onlyImages": "Only images can be dragged here",
+      "uploading": "Uploading",
+      "addOrDrag": "Add or drag",
+      "dropToUpload": "Drop to upload",
+      "reorderHint": "Drag images to reorder. The first one is the main.",
+      "previewAria": "Photo preview",
+      "close": "Close"
+    },
     "aiDashboardSummary": {
       "providerRules": "Template",
       "generateFailed": "Failed to generate the briefing",

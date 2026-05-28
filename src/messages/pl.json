@@ -974,6 +974,38 @@
       "emptyHint": "Klienci rozpoczna rozmowe przez czat na stronie",
       "totalLabel": "Razem: {count}"
     },
+    "cameraBarcodeScanner": {
+      "unsupported": "Przeglądarka nie obsługuje BarcodeDetector. Spróbuj Chrome na Androidzie lub Safari na iOS 17+.",
+      "initFailed": "Nie udało się zainicjować skanera: {error}",
+      "cameraFailed": "Nie udało się uzyskać dostępu do kamery: {error}",
+      "title": "Skaner",
+      "close": "Zamknij",
+      "usbHint": "Wskazówka: podłącz skaner USB w trybie keyboard-wedge — po prostu «wpisuje» kod w pole i nie wymaga API.",
+      "aim": "Skieruj kod kreskowy w ramkę"
+    },
+    "warehouseStockSection": {
+      "error": "Błąd",
+      "loading": "Ładowanie magazynów…",
+      "title": "Stany w magazynach",
+      "titleHint": "(podstawa — nie wpływa na stronę)",
+      "total": "Razem:",
+      "colWarehouse": "Magazyn",
+      "colCity": "Miasto",
+      "colQty": "Ilość",
+      "colReserved": "Rezerwacja"
+    },
+    "productImagesManager": {
+      "enlargePhoto": "Powiększ zdjęcie",
+      "drag": "Przeciągnij",
+      "reorderFailed": "Nie udało się zapisać kolejności",
+      "onlyImages": "Można przeciągać tylko obrazy",
+      "uploading": "Przesyłanie",
+      "addOrDrag": "Dodaj lub przeciągnij",
+      "dropToUpload": "Upuść, aby przesłać",
+      "reorderHint": "Przeciągaj obrazy, aby zmienić kolejność. Pierwszy jest główny.",
+      "previewAria": "Podgląd zdjęcia",
+      "close": "Zamknij"
+    },
     "aiDashboardSummary": {
       "providerRules": "Szablon",
       "generateFailed": "Nie udało się wygenerować briefingu",

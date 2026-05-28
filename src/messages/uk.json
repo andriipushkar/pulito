@@ -974,6 +974,38 @@
       "emptyHint": "Клієнти розпочнуть діалог через чат на сайті",
       "totalLabel": "Всього: {count}"
     },
+    "cameraBarcodeScanner": {
+      "unsupported": "Браузер не підтримує BarcodeDetector. Спробуйте Chrome на Android або Safari на iOS 17+.",
+      "initFailed": "Не вдалося ініціалізувати сканер: {error}",
+      "cameraFailed": "Не вдалося отримати доступ до камери: {error}",
+      "title": "Сканер",
+      "close": "Закрити",
+      "usbHint": "Підказка: підключіть USB-сканер у режимі keyboard-wedge — він просто «друкує» код у полі вводу і не потребує API.",
+      "aim": "Наведіть штрих-код у рамку"
+    },
+    "warehouseStockSection": {
+      "error": "Помилка",
+      "loading": "Завантаження складів…",
+      "title": "Залишки по складах",
+      "titleHint": "(foundation — не впливає на сайт)",
+      "total": "Всього:",
+      "colWarehouse": "Склад",
+      "colCity": "Місто",
+      "colQty": "Кількість",
+      "colReserved": "Резерв"
+    },
+    "productImagesManager": {
+      "enlargePhoto": "Збільшити фото",
+      "drag": "Перетягнути",
+      "reorderFailed": "Не вдалося зберегти порядок",
+      "onlyImages": "Можна перетягувати тільки зображення",
+      "uploading": "Завантаження",
+      "addOrDrag": "Додати або перетягни",
+      "dropToUpload": "Відпустіть, щоб завантажити",
+      "reorderHint": "Перетягуйте зображення, щоб змінити порядок. Перше — головне.",
+      "previewAria": "Перегляд фото",
+      "close": "Закрити"
+    },
     "aiDashboardSummary": {
       "providerRules": "Шаблон",
       "generateFailed": "Не вдалося згенерувати брифінг",

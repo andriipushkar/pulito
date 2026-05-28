@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 
@@ -21,6 +22,7 @@ interface WarehouseRow {
  * have real data when the multi-warehouse cart integration ships.
  */
 export default function WarehouseStockSection({ productId }: { productId: number }) {
+  const t = useTranslations('admin.warehouseStockSection');
   const [rows, setRows] = useState<WarehouseRow[]>([]);
   const [pending, setPending] = useState<Record<number, string>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -49,15 +51,15 @@ export default function WarehouseStockSection({ productId }: { productId: number
       });
       return;
     }
-    const res = await apiClient.patch(
-      `/api/v1/admin/products/${productId}/warehouse-stock`,
-      { warehouseId, quantity: next },
-    );
+    const res = await apiClient.patch(`/api/v1/admin/products/${productId}/warehouse-stock`, {
+      warehouseId,
+      quantity: next,
+    });
     if (res.success) {
       setRows((rs) => rs.map((r) => (r.id === warehouseId ? { ...r, quantity: next } : r)));
       toast.success(`${current.name}: ${next}`);
     } else {
-      toast.error(res.error || 'Помилка');
+      toast.error(res.error || t('error'));
     }
     setPending((p) => {
       const c = { ...p };
@@ -69,7 +71,7 @@ export default function WarehouseStockSection({ productId }: { productId: number
   if (isLoading) {
     return (
       <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <p className="text-xs text-[var(--color-text-secondary)]">Завантаження складів…</p>
+        <p className="text-xs text-[var(--color-text-secondary)]">{t('loading')}</p>
       </div>
     );
   }
@@ -84,23 +86,23 @@ export default function WarehouseStockSection({ productId }: { productId: number
     <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">
-          Залишки по складах{' '}
+          {t('title')}{' '}
           <span className="text-xs font-normal text-[var(--color-text-secondary)]">
-            (foundation — не впливає на сайт)
+            {t('titleHint')}
           </span>
         </h3>
         <span className="text-xs text-[var(--color-text-secondary)]">
-          Всього: <strong>{totalQty}</strong>
+          {t('total')} <strong>{totalQty}</strong>
         </span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="text-left text-[var(--color-text-secondary)]">
             <tr>
-              <th className="px-2 py-1.5">Склад</th>
-              <th className="px-2 py-1.5">Місто</th>
-              <th className="px-2 py-1.5 text-right">Кількість</th>
-              <th className="px-2 py-1.5 text-right">Резерв</th>
+              <th className="px-2 py-1.5">{t('colWarehouse')}</th>
+              <th className="px-2 py-1.5">{t('colCity')}</th>
+              <th className="px-2 py-1.5 text-right">{t('colQty')}</th>
+              <th className="px-2 py-1.5 text-right">{t('colReserved')}</th>
             </tr>
           </thead>
           <tbody>

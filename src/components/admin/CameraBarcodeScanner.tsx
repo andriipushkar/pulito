@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 /**
  * Camera-based barcode scanner using the native BarcodeDetector API. Works in
@@ -39,6 +40,7 @@ export default function CameraBarcodeScanner({
   onClose,
   onScan,
 }: CameraBarcodeScannerProps) {
+  const t = useTranslations('admin.cameraBarcodeScanner');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const stopLoopRef = useRef(false);
@@ -84,9 +86,7 @@ export default function CameraBarcodeScanner({
 
       if (typeof window === 'undefined' || !window.BarcodeDetector) {
         setSupported(false);
-        setError(
-          'Браузер не підтримує BarcodeDetector. Спробуйте Chrome на Android або Safari на iOS 17+.',
-        );
+        setError(t('unsupported'));
         return;
       }
 
@@ -97,7 +97,7 @@ export default function CameraBarcodeScanner({
         });
       } catch (e) {
         setSupported(false);
-        setError(`Не вдалося ініціалізувати сканер: ${String(e)}`);
+        setError(t('initFailed', { error: String(e) }));
         return;
       }
 
@@ -113,7 +113,7 @@ export default function CameraBarcodeScanner({
         }
         scanLoop(detector);
       } catch (e) {
-        setError(`Не вдалося отримати доступ до камери: ${String(e)}`);
+        setError(t('cameraFailed', { error: String(e) }));
       }
     };
 
@@ -125,7 +125,7 @@ export default function CameraBarcodeScanner({
       streamRef.current = null;
       if (videoEl) videoEl.srcObject = null;
     };
-  }, [isOpen, scanLoop]);
+  }, [isOpen, scanLoop, t]);
 
   if (!isOpen) return null;
 
@@ -141,33 +141,23 @@ export default function CameraBarcodeScanner({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between bg-[var(--color-bg)] px-4 py-3">
-          <h2 className="text-base font-semibold">Сканер</h2>
+          <h2 className="text-base font-semibold">{t('title')}</h2>
           <button
             type="button"
             onClick={onClose}
             className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
           >
-            Закрити
+            {t('close')}
           </button>
         </div>
         {error ? (
           <div className="p-6 text-center text-sm text-white">
             <p className="text-amber-300">{error}</p>
-            {!supported && (
-              <p className="mt-3 text-xs text-white/70">
-                Підказка: підключіть USB-сканер у режимі keyboard-wedge — він просто «друкує» код у
-                полі вводу і не потребує API.
-              </p>
-            )}
+            {!supported && <p className="mt-3 text-xs text-white/70">{t('usbHint')}</p>}
           </div>
         ) : (
           <div className="relative aspect-[3/4] w-full bg-black">
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              className="h-full w-full object-cover"
-            />
+            <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="relative h-32 w-72 border-2 border-emerald-400">
                 <div className="absolute -top-1 left-0 h-1 w-8 bg-emerald-400" />
@@ -177,7 +167,7 @@ export default function CameraBarcodeScanner({
               </div>
             </div>
             <p className="absolute bottom-2 left-0 right-0 text-center text-xs text-white/80">
-              Наведіть штрих-код у рамку
+              {t('aim')}
             </p>
           </div>
         )}

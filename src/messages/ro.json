@@ -974,6 +974,38 @@
       "emptyHint": "Clientii vor incepe conversatii prin chat-ul de pe site",
       "totalLabel": "Total: {count}"
     },
+    "cameraBarcodeScanner": {
+      "unsupported": "Browserul nu acceptă BarcodeDetector. Încearcă Chrome pe Android sau Safari pe iOS 17+.",
+      "initFailed": "Nu s-a putut inițializa scanerul: {error}",
+      "cameraFailed": "Nu s-a putut accesa camera: {error}",
+      "title": "Scaner",
+      "close": "Închide",
+      "usbHint": "Sfat: conectează un scaner USB în modul keyboard-wedge — pur și simplu «tastează» codul în câmp și nu necesită API.",
+      "aim": "Îndreaptă codul de bare în cadru"
+    },
+    "warehouseStockSection": {
+      "error": "Eroare",
+      "loading": "Se încarcă depozitele…",
+      "title": "Stocuri pe depozite",
+      "titleHint": "(bază — nu afectează site-ul)",
+      "total": "Total:",
+      "colWarehouse": "Depozit",
+      "colCity": "Oraș",
+      "colQty": "Cantitate",
+      "colReserved": "Rezervat"
+    },
+    "productImagesManager": {
+      "enlargePhoto": "Mărește fotografia",
+      "drag": "Trage",
+      "reorderFailed": "Nu s-a putut salva ordinea",
+      "onlyImages": "Doar imaginile pot fi trase aici",
+      "uploading": "Se încarcă",
+      "addOrDrag": "Adaugă sau trage",
+      "dropToUpload": "Eliberează pentru a încărca",
+      "reorderHint": "Trage imaginile pentru a schimba ordinea. Prima este cea principală.",
+      "previewAria": "Previzualizare foto",
+      "close": "Închide"
+    },
     "aiDashboardSummary": {
       "providerRules": "Șablon",
       "generateFailed": "Nu s-a putut genera briefingul",
