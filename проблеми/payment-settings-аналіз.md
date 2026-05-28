@@ -120,6 +120,15 @@
 - **PS14** — Multi-currency: винести «UAH» у env або в order.currency (для майбутнього розширення)
 - **PS15** — COD race: відкласти webhook processing до `order.create` commit (через event queue)
 
+## Re-audit 2026-05-29 — verification pass
+
+Звірено код проти claimed-фіксів: PS3/PS9/PS13 (sensitive clear-guard + mask-skip + sensitiveHashDiff)
+на місці у `payment-settings/route.ts`; PS5 dedup fallback = `o${orderId}:s${status}:a${paidAmount}`
+(без `Date.now()`); PS6 accumulated-refund (`remaining = paid − alreadyRefunded`, блок при перевищенні);
+PS4 `PAYMENT_AMOUNT_MISMATCH` + `KOPECKS_CONFUSION` логи. Усі присутні. **Нових вартісних+безпечних правок
+немає.** PS14 (multi-currency refactor) і PS15 (COD race → event queue) лишаються свідомо відкладеними
+multi-day — не виконуються в автономному проході. Секцію вважаю завершеною.
+
 ## Маркетингові розширення (окрема сесія)
 
 - Conversion-funnel per провайдер
