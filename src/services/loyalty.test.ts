@@ -7,6 +7,7 @@ vi.mock('@/lib/prisma', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     loyaltyTransaction: {
       create: vi.fn(),
@@ -44,7 +45,14 @@ import {
 
 const makeLevels = () => [
   { id: 1, name: 'bronze', minSpent: 0, pointsMultiplier: 1, discountPercent: 0, sortOrder: 0 },
-  { id: 2, name: 'silver', minSpent: 5000, pointsMultiplier: 1.5, discountPercent: 3, sortOrder: 1 },
+  {
+    id: 2,
+    name: 'silver',
+    minSpent: 5000,
+    pointsMultiplier: 1.5,
+    discountPercent: 3,
+    sortOrder: 1,
+  },
   { id: 3, name: 'gold', minSpent: 15000, pointsMultiplier: 2, discountPercent: 5, sortOrder: 2 },
 ];
 
@@ -63,8 +71,14 @@ const makeAccount = (overrides: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: $transaction just resolves (array-based usage)
-  vi.mocked(mockPrisma.$transaction).mockResolvedValue(undefined as never);
+  // $transaction is used in callback form (earnPoints, updateLoyaltySettings):
+  // run the callback with the mocked client as the transaction handle so the
+  // tx.* operations land on the same spies the assertions check.
+  vi.mocked(mockPrisma.$transaction).mockImplementation((arg: unknown) =>
+    typeof arg === 'function'
+      ? (arg as (tx: unknown) => unknown)(mockPrisma)
+      : (undefined as never),
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -127,14 +141,18 @@ describe('earnPoints', () => {
     const levels = makeLevels();
     vi.mocked(mockPrisma.loyaltyLevel.findMany).mockResolvedValue(levels as never);
 
-    // After earnPoints, recalculateLevel is called which also uses findUnique + findMany
-    vi.mocked(mockPrisma.loyaltyAccount.update).mockResolvedValue(undefined as never);
+    // Tier recalc runs inline inside the transaction off the updated row, so
+    // the update mock must return the post-increment totalSpent + level.
+    vi.mocked(mockPrisma.loyaltyAccount.update).mockResolvedValue({
+      totalSpent: 6500,
+      level: 'silver',
+    } as never);
 
     await earnPoints(1, 100, 500);
 
     // multiplier for silver = 1.5, so points = floor(500 * 1 * 1.5) = 750
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-    // The $transaction is called with an array of prisma operations
+    // The credit happens inside the transaction via tx.loyaltyAccount.update.
     expect(mockPrisma.loyaltyAccount.update).toHaveBeenCalledWith({
       where: { userId: 1 },
       data: {
@@ -157,7 +175,10 @@ describe('earnPoints', () => {
     const account = makeAccount({ level: 'unknown', points: 10, totalSpent: 100 });
     vi.mocked(mockPrisma.loyaltyAccount.findUnique).mockResolvedValue(account as never);
     vi.mocked(mockPrisma.loyaltyLevel.findMany).mockResolvedValue(makeLevels() as never);
-    vi.mocked(mockPrisma.loyaltyAccount.update).mockResolvedValue(undefined as never);
+    vi.mocked(mockPrisma.loyaltyAccount.update).mockResolvedValue({
+      totalSpent: 100,
+      level: 'bronze',
+    } as never);
 
     await earnPoints(1, 200, 300);
 
@@ -167,7 +188,7 @@ describe('earnPoints', () => {
         data: expect.objectContaining({
           points: { increment: 300 },
         }),
-      })
+      }),
     );
   });
 
@@ -181,18 +202,26 @@ describe('earnPoints', () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('should call recalculateLevel after earning points', async () => {
+  it('should bump the tier inline when the new totalSpent crosses a threshold', async () => {
     const account = makeAccount({ level: 'bronze', totalSpent: 4800 });
     vi.mocked(mockPrisma.loyaltyAccount.findUnique).mockResolvedValue(account as never);
     const levels = makeLevels();
     vi.mocked(mockPrisma.loyaltyLevel.findMany).mockResolvedValue(levels as never);
-    vi.mocked(mockPrisma.loyaltyAccount.update).mockResolvedValue(undefined as never);
+    // Post-increment row crosses the silver threshold (5000).
+    vi.mocked(mockPrisma.loyaltyAccount.update).mockResolvedValue({
+      totalSpent: 5050,
+      level: 'bronze',
+    } as never);
 
     await earnPoints(1, 10, 250);
 
-    // recalculateLevel calls findUnique and findMany again, plus update if level changed
-    // findUnique: once for getOrCreate, once for recalculate = 2 calls total
-    expect(mockPrisma.loyaltyAccount.findUnique).toHaveBeenCalledTimes(2);
+    // Recalc is inlined in the same transaction (no extra findUnique round-trip);
+    // it issues a second update setting the new tier.
+    expect(mockPrisma.loyaltyAccount.findUnique).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.loyaltyAccount.update).toHaveBeenCalledWith({
+      where: { userId: 1 },
+      data: { level: 'silver' },
+    });
   });
 });
 
@@ -204,12 +233,13 @@ describe('spendPoints', () => {
   it('should spend points and create a spend transaction', async () => {
     const account = makeAccount({ points: 200 });
     vi.mocked(mockPrisma.loyaltyAccount.findUnique).mockResolvedValue(account as never);
+    // Atomic claim succeeds (sufficient balance).
+    vi.mocked(mockPrisma.loyaltyAccount.updateMany).mockResolvedValue({ count: 1 } as never);
 
     await spendPoints(1, 100, 50);
 
-    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.loyaltyAccount.update).toHaveBeenCalledWith({
-      where: { userId: 1 },
+    expect(mockPrisma.loyaltyAccount.updateMany).toHaveBeenCalledWith({
+      where: { userId: 1, points: { gte: 100 } },
       data: { points: { decrement: 100 } },
     });
     expect(mockPrisma.loyaltyTransaction.create).toHaveBeenCalledWith({
@@ -226,10 +256,12 @@ describe('spendPoints', () => {
   it('should throw LoyaltyError when insufficient points', async () => {
     const account = makeAccount({ points: 30 });
     vi.mocked(mockPrisma.loyaltyAccount.findUnique).mockResolvedValue(account as never);
+    // Atomic claim fails — balance below the requested spend.
+    vi.mocked(mockPrisma.loyaltyAccount.updateMany).mockResolvedValue({ count: 0 } as never);
 
     await expect(spendPoints(1, 100, 10)).rejects.toThrow(LoyaltyError);
     await expect(spendPoints(1, 100, 10)).rejects.toThrow(/30/);
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.loyaltyTransaction.create).not.toHaveBeenCalled();
   });
 });
 
@@ -249,7 +281,6 @@ describe('adjustPoints', () => {
       description: 'Bonus points',
     });
 
-    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.loyaltyAccount.update).toHaveBeenCalledWith({
       where: { userId: 1 },
       data: { points: { increment: 200 } },
@@ -268,6 +299,8 @@ describe('adjustPoints', () => {
     const account = makeAccount({ points: 300 });
     vi.mocked(mockPrisma.loyaltyAccount.findUnique).mockResolvedValue(account as never);
 
+    vi.mocked(mockPrisma.loyaltyAccount.updateMany).mockResolvedValue({ count: 1 } as never);
+
     await adjustPoints({
       userId: 1,
       type: 'manual_deduct',
@@ -275,10 +308,10 @@ describe('adjustPoints', () => {
       description: 'Manual deduction',
     });
 
-    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.loyaltyAccount.update).toHaveBeenCalledWith({
-      where: { userId: 1 },
-      data: { points: { increment: -100 } },
+    // Deduct uses an atomic guarded claim, not a plain update.
+    expect(mockPrisma.loyaltyAccount.updateMany).toHaveBeenCalledWith({
+      where: { userId: 1, points: { gte: 100 } },
+      data: { points: { decrement: 100 } },
     });
     expect(mockPrisma.loyaltyTransaction.create).toHaveBeenCalledWith({
       data: {
@@ -293,6 +326,8 @@ describe('adjustPoints', () => {
   it('should throw LoyaltyError on manual_deduct when insufficient points', async () => {
     const account = makeAccount({ points: 20 });
     vi.mocked(mockPrisma.loyaltyAccount.findUnique).mockResolvedValue(account as never);
+    // Guarded claim matches no row → deduct is refused.
+    vi.mocked(mockPrisma.loyaltyAccount.updateMany).mockResolvedValue({ count: 0 } as never);
 
     await expect(
       adjustPoints({
@@ -300,10 +335,10 @@ describe('adjustPoints', () => {
         type: 'manual_deduct',
         points: 100,
         description: 'Too much',
-      })
+      }),
     ).rejects.toThrow(LoyaltyError);
 
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.loyaltyTransaction.create).not.toHaveBeenCalled();
   });
 });
 
@@ -381,9 +416,7 @@ describe('getLoyaltyDashboard', () => {
     vi.mocked(mockPrisma.loyaltyAccount.findUnique).mockResolvedValue(account as never);
     const levels = makeLevels();
     vi.mocked(mockPrisma.loyaltyLevel.findMany).mockResolvedValue(levels as never);
-    const transactions = [
-      { id: 1, userId: 1, type: 'earn', points: 100, createdAt: new Date() },
-    ];
+    const transactions = [{ id: 1, userId: 1, type: 'earn', points: 100, createdAt: new Date() }];
     vi.mocked(mockPrisma.loyaltyTransaction.findMany).mockResolvedValue(transactions as never);
 
     const dashboard = await getLoyaltyDashboard(1);
@@ -472,7 +505,7 @@ describe('getTransactionHistory', () => {
     await getTransactionHistory(1, 1, 20);
 
     expect(mockPrisma.loyaltyTransaction.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 0, take: 20 })
+      expect.objectContaining({ skip: 0, take: 20 }),
     );
   });
 });
