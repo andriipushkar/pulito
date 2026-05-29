@@ -40,7 +40,7 @@ const RecentlyViewedSection = dynamic(() => import('@/components/product/Recentl
 export const revalidate = 60;
 import { getCategories } from '@/services/category';
 import { getPromoProducts, getNewProducts, getPopularProducts } from '@/services/product';
-import { getHomepageBlocks } from '@/services/homepage';
+import { getHomepageBlocks, getSeoText } from '@/services/homepage';
 
 const organizationJsonLd = {
   '@context': 'https://schema.org',
@@ -63,14 +63,16 @@ const organizationJsonLd = {
 };
 
 export default async function HomePage() {
-  const [categories, promoProducts, newProducts, popularProducts, blocks, t] = await Promise.all([
-    getCategories(),
-    getPromoProducts(10),
-    getNewProducts(10),
-    getPopularProducts(10),
-    getHomepageBlocks(),
-    getTranslations('home'),
-  ]);
+  const [categories, promoProducts, newProducts, popularProducts, blocks, seoText, t] =
+    await Promise.all([
+      getCategories(),
+      getPromoProducts(10),
+      getNewProducts(10),
+      getPopularProducts(10),
+      getHomepageBlocks(),
+      getSeoText(),
+      getTranslations('home'),
+    ]);
 
   const enabledBlocks = blocks.filter((b) => b.enabled);
 
@@ -119,7 +121,15 @@ export default async function HomePage() {
           />
         </Suspense>
       ) : null,
-    seo_text: null,
+    // Stored as already-sanitized HTML (admin PATCH runs sanitizeHtml before
+    // persisting), so rendering it directly is safe. Hidden when empty so an
+    // enabled-but-blank block doesn't leave a gap.
+    seo_text: seoText.trim() ? (
+      <section
+        className="text-sm leading-relaxed text-[var(--color-text-secondary)] [&_a]:text-[var(--color-primary)] [&_a]:underline [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-[var(--color-text)] [&_h3]:mb-1 [&_h3]:mt-3 [&_h3]:font-semibold [&_h3]:text-[var(--color-text)] [&_li]:mb-1 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
+        dangerouslySetInnerHTML={{ __html: seoText }}
+      />
+    ) : null,
   };
 
   return (

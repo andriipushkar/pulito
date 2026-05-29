@@ -23,6 +23,31 @@ export default function AdminHomepagePage() {
   // Optimistic-lock token: the layout's updatedAt as loaded. Sent back on save
   // so a concurrent reorder by another admin is rejected (409) not clobbered.
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
+  // SEO text shown by the "seo_text" homepage block (stored as HTML).
+  const [seoText, setSeoText] = useState('');
+  const [seoSaving, setSeoSaving] = useState(false);
+
+  const loadSeoText = useCallback(() => {
+    apiClient
+      .get<{ seoText: string }>('/api/v1/admin/homepage')
+      .then((res) => {
+        if (res.success && res.data) setSeoText(res.data.seoText ?? '');
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveSeoText = async () => {
+    setSeoSaving(true);
+    try {
+      const res = await apiClient.patch('/api/v1/admin/homepage', { seoText });
+      if (res.success) toast.success(t('seoSavedToast'));
+      else toast.error(res.error || t('seoSaveError'));
+    } catch {
+      toast.error(t('networkError'));
+    } finally {
+      setSeoSaving(false);
+    }
+  };
 
   const loadBlocks = useCallback(() => {
     apiClient
@@ -38,7 +63,8 @@ export default function AdminHomepagePage() {
 
   useEffect(() => {
     loadBlocks();
-  }, [loadBlocks]);
+    loadSeoText();
+  }, [loadBlocks, loadSeoText]);
 
   // Warn user if they try to leave with unsaved changes
   useEffect(() => {
@@ -182,6 +208,23 @@ export default function AdminHomepagePage() {
           </Button>
         </div>
       )}
+
+      <div className="mt-8 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <h3 className="text-sm font-semibold">{t('seoTitle')}</h3>
+        <p className="mb-3 mt-1 text-xs text-[var(--color-text-secondary)]">{t('seoHint')}</p>
+        <textarea
+          value={seoText}
+          onChange={(e) => setSeoText(e.target.value)}
+          rows={8}
+          placeholder={t('seoPlaceholder')}
+          className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-2 font-mono text-xs"
+        />
+        <div className="mt-3">
+          <Button onClick={saveSeoText} disabled={seoSaving}>
+            {seoSaving ? t('saving') : t('seoSave')}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
