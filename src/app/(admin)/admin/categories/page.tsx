@@ -535,12 +535,15 @@ export default function AdminCategoriesPage() {
     // Pre-check the same guards the server enforces (category with live
     // products or child categories can't be deleted) so the reason is shown
     // immediately instead of only after a failed round-trip.
+    // Long duration so the reason can't be missed — the blocked case is the
+    // common one (user tries to delete a non-empty category) and a 4s toast
+    // that vanishes reads as "nothing happened".
     if (cat._count?.products) {
-      toast.error(t('deleteHasProducts', { count: cat._count.products }));
+      toast.error(t('deleteHasProducts', { count: cat._count.products }), { duration: 10000 });
       return;
     }
     if (cat._count?.children) {
-      toast.error(t('deleteHasChildren', { count: cat._count.children }));
+      toast.error(t('deleteHasChildren', { count: cat._count.children }), { duration: 10000 });
       return;
     }
     setConfirmAction({ type: 'delete', id: catId, name: cat.name });
@@ -557,7 +560,9 @@ export default function AdminCategoriesPage() {
         toast.success(t('categoryDeleted'));
         loadCategories();
       } else {
-        toast.error(res.error || t('deleteError'));
+        // Server-side block (e.g. inactive products still reference the
+        // category) — show the reason long enough to read.
+        toast.error(res.error || t('deleteError'), { duration: 10000 });
       }
     } catch {
       toast.error(t('networkError'));
