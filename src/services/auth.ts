@@ -232,8 +232,8 @@ export async function verifyTwoFactorLogin(
     throw new AuthError('Користувача не знайдено або 2FA не налаштовано', 401);
   }
 
-  const { verifyTOTP, hashBackupCode } = await import('./totp');
-  let totpValid = verifyTOTP(user.twoFactorSecret, code);
+  const { verifyTOTP, hashBackupCode, decryptStoredSecret } = await import('./totp');
+  let totpValid = verifyTOTP(decryptStoredSecret(user.twoFactorSecret), code);
 
   // If TOTP failed, check backup codes
   if (!totpValid && user.twoFactorBackupCodes && user.twoFactorBackupCodes.length > 0) {

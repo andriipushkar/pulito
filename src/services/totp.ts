@@ -1,4 +1,5 @@
 import { createHmac, createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { encrypt, decrypt, isEncrypted } from '@/lib/encryption';
 
 /**
  * TOTP implementation (RFC 6238) without external dependencies.
@@ -88,6 +89,24 @@ function generateHOTP(secret: Buffer, counter: bigint): string {
 export function generateSecret(): string {
   const bytes = randomBytes(20);
   return base32Encode(bytes);
+}
+
+/**
+ * Encrypt a TOTP secret for at-rest storage (AES-256-GCM via the shared
+ * encryption helper). A DB leak no longer hands an attacker the seed needed to
+ * mint valid 2FA codes.
+ */
+export function encryptSecret(secret: string): string {
+  return encrypt(secret);
+}
+
+/**
+ * Decrypt a stored TOTP secret. Tolerates legacy plaintext rows (written before
+ * encryption was added) by passing them through unchanged — they get encrypted
+ * on the next setup, and the one-time backfill script handles the rest.
+ */
+export function decryptStoredSecret(stored: string): string {
+  return isEncrypted(stored) ? decrypt(stored) : stored;
 }
 
 /**

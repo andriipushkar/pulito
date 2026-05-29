@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
-import { verifyTOTP, generateBackupCodes, hashBackupCode } from '@/services/totp';
+import {
+  verifyTOTP,
+  generateBackupCodes,
+  hashBackupCode,
+  decryptStoredSecret,
+} from '@/services/totp';
 import { privateResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
@@ -77,7 +82,7 @@ export const POST = withRole(
       return errorResponse('Час налаштування 2FA вичерпано (30 хв). Почніть заново.', 400);
     }
 
-    if (!verifyTOTP(dbUser.twoFactorSecret, parsed.data.code)) {
+    if (!verifyTOTP(decryptStoredSecret(dbUser.twoFactorSecret), parsed.data.code)) {
       return errorResponse('Невірний код. Спробуйте ще раз.', 400);
     }
 

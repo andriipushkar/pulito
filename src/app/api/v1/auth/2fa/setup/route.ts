@@ -1,6 +1,6 @@
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
-import { generateSecret, generateOtpauthUrl } from '@/services/totp';
+import { generateSecret, generateOtpauthUrl, encryptSecret } from '@/services/totp';
 import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { privateResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
@@ -56,7 +56,7 @@ export const POST = withRole(
     // automatically — preventing indefinite persistence of unused secrets.
     await prisma.user.update({
       where: { id: user.id },
-      data: { twoFactorSecret: secret, twoFactorEnabled: false },
+      data: { twoFactorSecret: encryptSecret(secret), twoFactorEnabled: false },
     });
 
     // Set a 30-minute TTL — if not verified, clear the secret

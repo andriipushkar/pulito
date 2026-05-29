@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
-import { verifyTOTP } from '@/services/totp';
+import { verifyTOTP, decryptStoredSecret } from '@/services/totp';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
@@ -58,7 +58,7 @@ export const POST = withRole(
       return errorResponse('Двофакторна автентифікація не увімкнена', 400);
     }
 
-    if (!verifyTOTP(dbUser.twoFactorSecret, parsed.data.code)) {
+    if (!verifyTOTP(decryptStoredSecret(dbUser.twoFactorSecret), parsed.data.code)) {
       return errorResponse('Невірний код. Спробуйте ще раз.', 400);
     }
 
