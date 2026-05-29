@@ -189,8 +189,17 @@ export async function createOrder(
 
   // Validate wholesale rules
   if (clientType === 'wholesale') {
+    // Only rules whose scheduling window currently covers now() apply
+    // (NULL bound = open-ended on that side).
+    const now = new Date();
+    const activeWindow = {
+      AND: [
+        { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+        { OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
+      ],
+    };
     const rules = await prisma.wholesaleRule.findMany({
-      where: { isActive: true, productId: null, ruleType: 'min_order_amount' },
+      where: { isActive: true, productId: null, ruleType: 'min_order_amount', ...activeWindow },
     });
 
     const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -207,7 +216,7 @@ export async function createOrder(
     // Per-product rules
     for (const item of cartItems) {
       const productRules = await prisma.wholesaleRule.findMany({
-        where: { isActive: true, productId: item.productId },
+        where: { isActive: true, productId: item.productId, ...activeWindow },
       });
 
       for (const rule of productRules) {

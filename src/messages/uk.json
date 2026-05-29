@@ -6016,7 +6016,12 @@
       "typeMinAmount": "Мін. сума замовлення",
       "typeMinQty": "Мін. кількість товару",
       "typeMultiplicity": "Кратність замовлення",
-      "qtyUnit": "шт"
+      "qtyUnit": "шт",
+      "validFromLabel": "Діє з",
+      "validUntilLabel": "Діє до",
+      "validityHint": "Період необов'язковий. Порожньо = діє завжди. Правило застосовується лише в межах періоду й коли воно активне.",
+      "colPeriod": "Період",
+      "periodAlways": "Завжди"
     },
     "adminPageEditPage": {
       "notFound": "Сторінку не знайдено",

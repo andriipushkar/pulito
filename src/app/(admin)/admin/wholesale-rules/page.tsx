@@ -18,6 +18,8 @@ interface WholesaleRule {
   product?: { id: number; name: string; code: string } | null;
   value: string | number;
   isActive: boolean;
+  validFrom: string | null;
+  validUntil: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +45,11 @@ export default function AdminWholesaleRulesPage() {
     if (RULE_TYPE_UNIT[ruleType] === 'currency') return formatPrice(value);
     return `${value} ${t('qtyUnit')}`;
   };
+  const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString('uk-UA') : '∞');
+  const formatPeriod = (rule: WholesaleRule): string => {
+    if (!rule.validFrom && !rule.validUntil) return t('periodAlways');
+    return `${fmtDate(rule.validFrom)} — ${fmtDate(rule.validUntil)}`;
+  };
   const [rules, setRules] = useState<WholesaleRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -53,6 +60,8 @@ export default function AdminWholesaleRulesPage() {
     productId: '',
     value: '',
     isActive: true,
+    validFrom: '',
+    validUntil: '',
   });
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
@@ -73,7 +82,14 @@ export default function AdminWholesaleRulesPage() {
   }, []);
 
   const resetForm = () => {
-    setForm({ ruleType: 'min_order_amount', productId: '', value: '', isActive: true });
+    setForm({
+      ruleType: 'min_order_amount',
+      productId: '',
+      value: '',
+      isActive: true,
+      validFrom: '',
+      validUntil: '',
+    });
     setEditingId(null);
     setShowForm(false);
   };
@@ -84,6 +100,9 @@ export default function AdminWholesaleRulesPage() {
       productId: rule.productId ? String(rule.productId) : '',
       value: String(rule.value),
       isActive: rule.isActive,
+      // datetime-local wants "YYYY-MM-DDTHH:mm" — trim the ISO string.
+      validFrom: rule.validFrom ? rule.validFrom.slice(0, 16) : '',
+      validUntil: rule.validUntil ? rule.validUntil.slice(0, 16) : '',
     });
     setEditingId(rule.id);
     setShowForm(true);
@@ -97,6 +116,8 @@ export default function AdminWholesaleRulesPage() {
         productId: form.productId ? Number(form.productId) : null,
         value: Number(form.value),
         isActive: form.isActive,
+        validFrom: form.validFrom || null,
+        validUntil: form.validUntil || null,
         // Optimistic-lock token (edit only): the updatedAt we loaded, so a
         // concurrent edit is rejected with 409 rather than silently clobbered.
         ...(editingId
@@ -206,7 +227,20 @@ export default function AdminWholesaleRulesPage() {
                 {t('active')}
               </label>
             </div>
+            <Input
+              label={t('validFromLabel')}
+              type="datetime-local"
+              value={form.validFrom}
+              onChange={(e) => setForm({ ...form, validFrom: e.target.value })}
+            />
+            <Input
+              label={t('validUntilLabel')}
+              type="datetime-local"
+              value={form.validUntil}
+              onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
+            />
           </div>
+          <p className="mt-2 text-xs text-[var(--color-text-secondary)]">{t('validityHint')}</p>
           <div className="mt-4 flex gap-2">
             <Button onClick={handleSave} isLoading={isSaving} disabled={!form.value}>
               {editingId ? t('save') : t('create')}
@@ -219,7 +253,7 @@ export default function AdminWholesaleRulesPage() {
       )}
 
       {isLoading ? (
-        <AdminTableSkeleton rows={5} columns={5} />
+        <AdminTableSkeleton rows={5} columns={6} />
       ) : (
         <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)]">
           <table className="w-full text-sm">
@@ -228,6 +262,7 @@ export default function AdminWholesaleRulesPage() {
                 <th className="px-4 py-3 text-left font-medium">{t('colType')}</th>
                 <th className="px-4 py-3 text-left font-medium">{t('colProduct')}</th>
                 <th className="px-4 py-3 text-right font-medium">{t('colValue')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('colPeriod')}</th>
                 <th className="px-4 py-3 text-center font-medium">{t('colStatus')}</th>
                 <th className="px-4 py-3 text-right font-medium">{t('colActions')}</th>
               </tr>
@@ -246,6 +281,9 @@ export default function AdminWholesaleRulesPage() {
                   </td>
                   <td className="px-4 py-3 text-right font-semibold">
                     {formatRuleValue(rule.ruleType, Number(rule.value))}
+                  </td>
+                  <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                    {formatPeriod(rule)}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button
@@ -273,7 +311,7 @@ export default function AdminWholesaleRulesPage() {
               ))}
               {rules.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center">
+                  <td colSpan={6} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
                       <span className="text-3xl" aria-hidden="true">
                         📦

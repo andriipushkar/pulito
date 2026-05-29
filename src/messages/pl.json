@@ -6016,7 +6016,12 @@
       "typeMinAmount": "Min. kwota zamowienia",
       "typeMinQty": "Min. ilosc produktu",
       "typeMultiplicity": "Krotnosc zamowienia",
-      "qtyUnit": "szt"
+      "qtyUnit": "szt",
+      "validFromLabel": "Aktywne od",
+      "validUntilLabel": "Aktywne do",
+      "validityHint": "Okres jest opcjonalny. Puste = zawsze aktywne. Regula obowiazuje tylko w okresie i gdy jest aktywna.",
+      "colPeriod": "Okres",
+      "periodAlways": "Zawsze"
     },
     "adminPageEditPage": {
       "notFound": "Strony nie znaleziono",

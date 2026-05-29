@@ -8,8 +8,17 @@ export const GET = withAuth(async (_request, { user }) => {
       return errorResponse('Доступ заборонено', 403);
     }
 
+    // Only rules whose scheduling window currently covers now() (NULL bound =
+    // open-ended). Keeps the public list in sync with what checkout enforces.
+    const now = new Date();
     const rules = await prisma.wholesaleRule.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        AND: [
+          { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+          { OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
+        ],
+      },
       include: {
         product: { select: { id: true, name: true } },
       },

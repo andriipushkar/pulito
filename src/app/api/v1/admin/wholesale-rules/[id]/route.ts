@@ -15,6 +15,9 @@ const updateRuleSchema = z.object({
   productId: z.number().int().positive().nullable().optional(),
   value: z.coerce.number().min(0).max(99_999_999.99).optional(),
   isActive: z.boolean().optional(),
+  // Scheduling window (datetime strings; null clears the bound → open-ended).
+  validFrom: z.string().nullable().optional(),
+  validUntil: z.string().nullable().optional(),
   // Optimistic-lock token: the updatedAt the client last read. When present,
   // the update is applied conditionally so concurrent admin edits don't
   // silently clobber each other (last-write-wins).
@@ -41,6 +44,10 @@ export const PUT = withRole(
     if (updates.productId !== undefined) data.productId = updates.productId ?? null;
     if (updates.value !== undefined) data.value = updates.value;
     if (updates.isActive !== undefined) data.isActive = updates.isActive;
+    if (updates.validFrom !== undefined)
+      data.validFrom = updates.validFrom ? new Date(updates.validFrom) : null;
+    if (updates.validUntil !== undefined)
+      data.validUntil = updates.validUntil ? new Date(updates.validUntil) : null;
 
     // Capture BEFORE state for audit diff — without it the audit shows
     // "rule X was updated" but reviewer can't see what actually changed.
@@ -103,6 +110,8 @@ export const PUT = withRole(
       product: rule.product,
       value: Number(rule.value),
       isActive: rule.isActive,
+      validFrom: rule.validFrom,
+      validUntil: rule.validUntil,
       createdAt: rule.createdAt,
       updatedAt: rule.updatedAt,
     });

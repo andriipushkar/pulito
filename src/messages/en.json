@@ -6016,7 +6016,12 @@
       "typeMinAmount": "Min. order amount",
       "typeMinQty": "Min. product quantity",
       "typeMultiplicity": "Order multiplicity",
-      "qtyUnit": "pcs"
+      "qtyUnit": "pcs",
+      "validFromLabel": "Active from",
+      "validUntilLabel": "Active until",
+      "validityHint": "Period is optional. Empty = always active. The rule applies only within the period and while it is active.",
+      "colPeriod": "Period",
+      "periodAlways": "Always"
     },
     "adminPageEditPage": {
       "notFound": "Page not found",

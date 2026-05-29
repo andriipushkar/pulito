@@ -87,7 +87,8 @@ describe('POST /api/v1/admin/wholesale-rules', () => {
       isActive: true,
       createdAt: '2024-01-01',
     };
-    vi.mocked(prisma.wholesaleRule.findFirst).mockResolvedValue(null as any);
+    // No sibling rules → no scheduling-window overlap.
+    vi.mocked(prisma.wholesaleRule.findMany).mockResolvedValue([] as any);
     vi.mocked(prisma.wholesaleRule.create).mockResolvedValue(rule as any);
 
     const req = new Request('http://localhost', {
@@ -102,6 +103,23 @@ describe('POST /api/v1/admin/wholesale-rules', () => {
     expect(json.data.value).toBe(15);
   });
 
+  it('returns 409 when an existing rule overlaps the scheduling window', async () => {
+    // Existing open-ended rule (both bounds null) overlaps any new window.
+    vi.mocked(prisma.wholesaleRule.findMany).mockResolvedValue([
+      { id: 7, validFrom: null, validUntil: null },
+    ] as any);
+
+    const req = new Request('http://localhost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ruleType: 'min_order_amount', value: 15 }),
+    });
+    const res = await POST(req as any);
+
+    expect(res.status).toBe(409);
+    expect(prisma.wholesaleRule.create).not.toHaveBeenCalled();
+  });
+
   it('returns 422 when ruleType or value missing', async () => {
     const req = new Request('http://localhost', {
       method: 'POST',
@@ -114,6 +132,7 @@ describe('POST /api/v1/admin/wholesale-rules', () => {
   });
 
   it('returns 500 on error', async () => {
+    vi.mocked(prisma.wholesaleRule.findMany).mockResolvedValue([] as any);
     vi.mocked(prisma.wholesaleRule.create).mockRejectedValue(new Error('fail'));
 
     const req = new Request('http://localhost', {

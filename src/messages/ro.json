@@ -6016,7 +6016,12 @@
       "typeMinAmount": "Suma min. comanda",
       "typeMinQty": "Cant. min. produs",
       "typeMultiplicity": "Multiplicitate comanda",
-      "qtyUnit": "buc"
+      "qtyUnit": "buc",
+      "validFromLabel": "Activ de la",
+      "validUntilLabel": "Activ pana la",
+      "validityHint": "Perioada este optionala. Gol = mereu activ. Regula se aplica doar in perioada si cat timp este activa.",
+      "colPeriod": "Perioada",
+      "periodAlways": "Mereu"
     },
     "adminPageEditPage": {
       "notFound": "Pagina negasita",
