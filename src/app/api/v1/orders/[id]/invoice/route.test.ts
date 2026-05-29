@@ -16,6 +16,14 @@ vi.mock('@/lib/prisma', () => ({
   prisma: { order: { findUnique: vi.fn() } },
 }));
 
+// Mock the rate limiter so the test doesn't depend on real Redis state — the
+// daily PDF-export quota is shared/persistent, which otherwise makes the suite
+// flaky (it 429s once the quota is consumed across runs).
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true }),
+  RATE_LIMITS: { adminPdfExport: { limit: 50, windowSeconds: 86400 } },
+}));
+
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
   withOptionalAuth: (handler: Function) => handler,
@@ -28,7 +36,10 @@ import { prisma } from '@/lib/prisma';
 
 const mockGenerateInvoicePdf = generateInvoicePdf as ReturnType<typeof vi.fn>;
 const mockFindUnique = prisma.order.findUnique as ReturnType<typeof vi.fn>;
-const authCtx = { user: { id: 1, email: 'test@test.com', role: 'admin' }, params: Promise.resolve({ id: '5' }) };
+const authCtx = {
+  user: { id: 1, email: 'test@test.com', role: 'admin' },
+  params: Promise.resolve({ id: '5' }),
+};
 
 describe('POST /api/v1/orders/[id]/invoice', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -52,7 +63,10 @@ describe('POST /api/v1/orders/[id]/invoice', () => {
 
   it('returns 400 for invalid id', async () => {
     const req = new NextRequest('http://localhost/api/v1/orders/abc/invoice', { method: 'POST' });
-    const ctx = { user: { id: 1, email: 'test@test.com', role: 'admin' }, params: Promise.resolve({ id: 'abc' }) };
+    const ctx = {
+      user: { id: 1, email: 'test@test.com', role: 'admin' },
+      params: Promise.resolve({ id: 'abc' }),
+    };
     const res = await POST(req, ctx as any);
     expect(res.status).toBe(400);
   });
