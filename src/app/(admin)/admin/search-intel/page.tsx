@@ -31,12 +31,6 @@ export default function SearchIntelPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [provider, setProvider] = useState<'claude' | 'gemini' | 'rules'>('gemini');
-
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('pulito.aiProvider') : null;
-    if (stored === 'claude' || stored === 'gemini' || stored === 'rules') setProvider(stored);
-  }, []);
 
   useEffect(() => {
     apiClient
@@ -50,9 +44,7 @@ export default function SearchIntelPage() {
   const generateInsights = async () => {
     setIsGenerating(true);
     try {
-      const res = await apiClient.post<InsightsResponse>('/api/v1/admin/search-intel', {
-        provider,
-      });
+      const res = await apiClient.post<InsightsResponse>('/api/v1/admin/search-intel', {});
       if (res.success && res.data) {
         setInsights(res.data);
       } else {
@@ -85,16 +77,6 @@ export default function SearchIntelPage() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold">{t('aiRecommendations')}</h3>
           <div className="flex items-center gap-2">
-            <select
-              value={provider}
-              onChange={(e) => setProvider(e.target.value as 'claude' | 'gemini' | 'rules')}
-              disabled={isGenerating}
-              className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-            >
-              <option value="gemini">{t('providerGemini')}</option>
-              <option value="claude">{t('providerClaude')}</option>
-              <option value="rules">{t('providerRules')}</option>
-            </select>
             <Button
               variant="outline"
               size="sm"

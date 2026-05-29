@@ -120,19 +120,7 @@ export default function AdminCategoriesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkParent, setBulkParent] = useState<string>('');
   const [isBulkRunning, setIsBulkRunning] = useState(false);
-  const [aiProvider, setAiProvider] = useState<'claude' | 'gemini' | 'rules'>('claude');
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('pulito.aiProvider') : null;
-    if (stored === 'claude' || stored === 'gemini' || stored === 'rules') {
-      setAiProvider(stored);
-    }
-  }, []);
-  const updateAiProvider = (v: 'claude' | 'gemini' | 'rules') => {
-    setAiProvider(v);
-    if (typeof window !== 'undefined') localStorage.setItem('pulito.aiProvider', v);
-  };
 
   const askConflictOverwrite = (
     next: {
@@ -175,7 +163,6 @@ export default function AdminCategoriesPage() {
       }>('/api/v1/admin/categories/ai-generate-preview', {
         name: createForm.name.trim(),
         parentId: createForm.parentId ? Number(createForm.parentId) : null,
-        provider: aiProvider,
       });
       if (!res.success || !res.data) {
         toast.error(res.error || t('generateFailed'));
@@ -204,7 +191,7 @@ export default function AdminCategoriesPage() {
         description: string;
         seoTitle: string;
         seoDescription: string;
-      }>(`/api/v1/admin/categories/${catId}/ai-generate`, { provider: aiProvider });
+      }>(`/api/v1/admin/categories/${catId}/ai-generate`, {});
       if (!res.success || !res.data) {
         toast.error(res.error || t('generateFailed'));
         return;
@@ -726,19 +713,6 @@ export default function AdminCategoriesPage() {
                 {t('seoContent')}
               </p>
               <div className="flex items-center gap-2">
-                <select
-                  value={aiProvider}
-                  onChange={(e) =>
-                    updateAiProvider(e.target.value as 'claude' | 'gemini' | 'rules')
-                  }
-                  disabled={isGeneratingAi}
-                  className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-                  title={t('aiSourceTitle')}
-                >
-                  <option value="claude">{t('aiClaude')}</option>
-                  <option value="gemini">{t('aiGemini')}</option>
-                  <option value="rules">{t('aiRules')}</option>
-                </select>
                 <Button
                   variant="outline"
                   size="sm"
@@ -982,8 +956,6 @@ export default function AdminCategoriesPage() {
                   isFirst={i === 0}
                   onIconUpload={handleIconUpload}
                   isUploadingIcon={isUploadingIcon}
-                  aiProvider={aiProvider}
-                  onAiProviderChange={updateAiProvider}
                   isGeneratingAi={isGeneratingAi}
                   onGenerate={handleGenerateForEdit}
                 />
@@ -1009,8 +981,6 @@ export default function AdminCategoriesPage() {
                     isFirst={false}
                     onIconUpload={handleIconUpload}
                     isUploadingIcon={isUploadingIcon}
-                    aiProvider={aiProvider}
-                    onAiProviderChange={updateAiProvider}
                     isGeneratingAi={isGeneratingAi}
                     onGenerate={handleGenerateForEdit}
                   />
@@ -1078,8 +1048,6 @@ function SortableCategoryRow({
   isFirst,
   onIconUpload,
   isUploadingIcon,
-  aiProvider,
-  onAiProviderChange,
   isGeneratingAi,
   onGenerate,
 }: {
@@ -1102,8 +1070,6 @@ function SortableCategoryRow({
   isFirst?: boolean;
   onIconUpload: (file: File) => void;
   isUploadingIcon: boolean;
-  aiProvider: 'claude' | 'gemini' | 'rules';
-  onAiProviderChange: (v: 'claude' | 'gemini' | 'rules') => void;
   isGeneratingAi: boolean;
   onGenerate: (catId: number) => void;
 }) {
@@ -1246,19 +1212,6 @@ function SortableCategoryRow({
               {t('seoContent')}
             </p>
             <div className="flex items-center gap-2">
-              <select
-                value={aiProvider}
-                onChange={(e) =>
-                  onAiProviderChange(e.target.value as 'claude' | 'gemini' | 'rules')
-                }
-                disabled={isGeneratingAi}
-                className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-                title={t('aiSourceTitle')}
-              >
-                <option value="claude">{t('aiClaude')}</option>
-                <option value="gemini">{t('aiGemini')}</option>
-                <option value="rules">{t('aiRules')}</option>
-              </select>
               <Button
                 variant="outline"
                 size="sm"

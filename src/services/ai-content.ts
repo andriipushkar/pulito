@@ -20,6 +20,23 @@ import { getSettings } from '@/services/settings';
 
 export type AIProvider = 'claude' | 'gemini' | 'rules';
 
+// Resolve the effective AI provider. The per-action UI dropdowns were removed
+// in favour of one site-wide choice (`ai_provider` in settings), so callers no
+// longer pass `provider`. An explicit arg still wins (e.g. tests / future use);
+// otherwise we read the global setting. Returns `undefined` only if the setting
+// is unreadable/blank, letting the legacy fallback chain (claude→gemini→rules)
+// take over so generation never hard-fails.
+export async function resolveAIProvider(explicit?: AIProvider): Promise<AIProvider | undefined> {
+  if (explicit) return explicit;
+  try {
+    const p = (await getSettings()).ai_provider;
+    if (p === 'claude' || p === 'gemini' || p === 'rules') return p;
+  } catch {
+    // settings unavailable — fall through to undefined
+  }
+  return undefined;
+}
+
 // Read provider config from DB settings first (admin-editable), then env var.
 // `getSettings` is cached, so this stays fast on the hot path.
 async function getAnthropicKey(): Promise<string | null> {
@@ -811,7 +828,7 @@ export async function generateForProduct(
   input: GenerateInput,
   opts?: { provider?: AIProvider },
 ): Promise<GeneratedContent> {
-  const provider = opts?.provider;
+  const provider = await resolveAIProvider(opts?.provider);
 
   if (provider === 'rules') {
     return generateWithRules(input);
@@ -924,7 +941,7 @@ export async function generateImageAltText(
   input: AltTextInput,
   opts?: { provider?: AIProvider },
 ): Promise<string> {
-  const provider = opts?.provider;
+  const provider = await resolveAIProvider(opts?.provider);
   if (provider === 'rules') return altWithRules(input);
   if (provider === 'gemini') return (await altWithGemini(input)) || altWithRules(input);
   if (provider === 'claude') return (await altWithClaude(input)) || altWithRules(input);
@@ -1106,7 +1123,7 @@ export async function generateForBlog(
   input: GenerateBlogInput,
   opts?: { provider?: AIProvider },
 ): Promise<GeneratedBlogContent> {
-  const provider = opts?.provider;
+  const provider = await resolveAIProvider(opts?.provider);
   if (provider === 'rules') return blogWithRules(input);
   if (provider === 'gemini') return (await blogWithGemini(input)) || blogWithRules(input);
   if (provider === 'claude') return (await blogWithClaude(input)) || blogWithRules(input);
@@ -1364,7 +1381,7 @@ export async function generateForCategory(
   input: GenerateCategoryInput,
   opts?: { provider?: AIProvider },
 ): Promise<GeneratedCategoryContent> {
-  const provider = opts?.provider;
+  const provider = await resolveAIProvider(opts?.provider);
 
   if (provider === 'rules') return generateCategoryWithRules(input);
 

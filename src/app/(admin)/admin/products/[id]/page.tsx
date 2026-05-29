@@ -177,17 +177,6 @@ export default function AdminProductDetailPage() {
   // through React's async setState, so a fast double-click would fire two
   // billable Claude/Gemini calls before the disabled prop takes effect.
   const aiInFlight = useRef(false);
-  const [aiProvider, setAiProvider] = useState<'claude' | 'gemini' | 'rules'>('claude');
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('pulito.aiProvider') : null;
-    if (stored === 'claude' || stored === 'gemini' || stored === 'rules') {
-      setAiProvider(stored);
-    }
-  }, []);
-  const updateAiProvider = (v: 'claude' | 'gemini' | 'rules') => {
-    setAiProvider(v);
-    if (typeof window !== 'undefined') localStorage.setItem('pulito.aiProvider', v);
-  };
   const [form, setForm] = useState<ProductFormState>(EMPTY_PRODUCT_FORM);
   const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -407,7 +396,6 @@ export default function AdminProductDetailPage() {
         brandId: form.brandId ? Number(form.brandId) : null,
         priceRetail: Number(form.priceRetail) || 0,
         shortDescription: form.description.trim() || null,
-        provider: aiProvider,
       });
       if (res.success && res.data) {
         setForm((prev) => ({
@@ -417,7 +405,7 @@ export default function AdminProductDetailPage() {
           seoTitle: res.data!.seoTitle,
           seoDescription: res.data!.seoDescription,
         }));
-        toast.success(t('aiGenerated', { provider: aiProvider }));
+        toast.success(t('aiGenerated'));
       } else {
         toast.error(res.error || t('aiFailed'));
       }
@@ -781,17 +769,6 @@ export default function AdminProductDetailPage() {
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">{t('description')}</h3>
           <div className="flex items-center gap-2">
-            <select
-              value={aiProvider}
-              onChange={(e) => updateAiProvider(e.target.value as 'claude' | 'gemini' | 'rules')}
-              disabled={isGenerating}
-              className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-              title={t('aiSourceTitle')}
-            >
-              <option value="claude">{t('aiClaude')}</option>
-              <option value="gemini">{t('aiGemini')}</option>
-              <option value="rules">{t('aiRules')}</option>
-            </select>
             <button
               type="button"
               disabled={isGenerating}
@@ -805,7 +782,7 @@ export default function AdminProductDetailPage() {
                     seoDescription: string;
                     shortDescription: string;
                     fullDescription: string;
-                  }>(`/api/v1/admin/products/${id}/ai-generate`, { provider: aiProvider });
+                  }>(`/api/v1/admin/products/${id}/ai-generate`, {});
                   if (!res.success || !res.data) {
                     toast.error(res.error || t('generateFailed'));
                     return;

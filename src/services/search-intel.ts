@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import Anthropic from '@anthropic-ai/sdk';
 import { logger } from '@/lib/logger';
 import { getSettings } from '@/services/settings';
-import type { AIProvider } from '@/services/ai-content';
+import { resolveAIProvider, type AIProvider } from '@/services/ai-content';
 
 export interface SearchIntelEntry {
   id: number;
@@ -97,7 +97,8 @@ export async function generateSearchInsights(
   if (entries.length === 0) {
     return { text: 'Поки немає пошуків без результатів.', provider: 'rules' };
   }
-  const provider = opts?.provider;
+  // Falls back to the site-wide ai_provider setting (per-action dropdown removed).
+  const provider = await resolveAIProvider(opts?.provider);
 
   if (provider !== 'rules') {
     if (provider === 'gemini' || provider === undefined) {

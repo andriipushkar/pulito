@@ -50,7 +50,6 @@ export default function AdminProductCreatePage() {
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [aiProvider, setAiProvider] = useState<'claude' | 'gemini' | 'rules'>('claude');
   const [stagedImages, setStagedImages] = useState<File[]>([]);
   const [removeBg, setRemoveBg] = useState(true);
 
@@ -67,17 +66,6 @@ export default function AdminProductCreatePage() {
     };
   }, [stagedImages]);
 
-  // Restore last-used AI provider from localStorage.
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('pulito.aiProvider') : null;
-    if (stored === 'claude' || stored === 'gemini' || stored === 'rules') {
-      setAiProvider(stored);
-    }
-  }, []);
-  const updateAiProvider = (v: 'claude' | 'gemini' | 'rules') => {
-    setAiProvider(v);
-    if (typeof window !== 'undefined') localStorage.setItem('pulito.aiProvider', v);
-  };
   const { errors, validateAll, clearError } = useFormValidation({
     name: { required: t('valName'), minLength: { value: 2, message: t('valMin2') } },
     code: { required: t('valCode') },
@@ -436,17 +424,6 @@ export default function AdminProductCreatePage() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">{t('description')}</h3>
           <div className="flex items-center gap-2">
-            <select
-              value={aiProvider}
-              onChange={(e) => updateAiProvider(e.target.value as 'claude' | 'gemini' | 'rules')}
-              disabled={isGenerating}
-              className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-              title={t('aiSourceTitle')}
-            >
-              <option value="claude">{t('aiClaude')}</option>
-              <option value="gemini">{t('aiGemini')}</option>
-              <option value="rules">{t('aiRules')}</option>
-            </select>
             <button
               type="button"
               disabled={isGenerating || !form.name.trim()}
@@ -468,7 +445,6 @@ export default function AdminProductCreatePage() {
                     brandId: form.brandId ? Number(form.brandId) : null,
                     priceRetail: Number(form.priceRetail) || 0,
                     shortDescription: form.description || null,
-                    provider: aiProvider,
                   });
                   if (!res.success || !res.data) {
                     toast.error(res.error || t('generateFailed'));

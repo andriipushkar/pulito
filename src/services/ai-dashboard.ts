@@ -10,6 +10,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { logger } from '@/lib/logger';
 import { getSettings } from '@/services/settings';
+import { resolveAIProvider } from '@/services/ai-content';
 
 export type AIDashboardProvider = 'claude' | 'gemini' | 'rules';
 
@@ -213,7 +214,9 @@ export async function generateDashboardSummary(
   input: DashboardSummaryInput,
   opts?: { provider?: AIDashboardProvider },
 ): Promise<{ text: string; provider: AIDashboardProvider }> {
-  const provider = opts?.provider;
+  // Falls back to the site-wide ai_provider setting when no explicit provider
+  // is passed (the per-action dropdown was removed).
+  const provider = (await resolveAIProvider(opts?.provider)) as AIDashboardProvider | undefined;
 
   if (provider === 'rules') {
     return { text: summarizeWithRules(input), provider: 'rules' };

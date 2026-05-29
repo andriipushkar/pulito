@@ -30,31 +30,17 @@ export default function AIDashboardSummary() {
     gemini: 'Gemini',
     rules: t('providerRules'),
   };
-  // Resolve the user's saved provider synchronously during initial render so
-  // the auto-generate effect never fires with the default 'gemini' before
-  // localStorage is read (the previous two-effect setup caused exactly that
-  // — the user's chosen provider only kicked in on manual refresh).
-  const [provider, setProvider] = useState<Provider>(() => {
-    if (typeof window === 'undefined') return 'gemini';
-    const stored = localStorage.getItem('pulito.aiProvider');
-    return stored === 'claude' || stored === 'gemini' || stored === 'rules' ? stored : 'gemini';
-  });
   const [text, setText] = useState<string | null>(null);
+  // Which provider the server actually used (driven by the site-wide setting).
   const [usedProvider, setUsedProvider] = useState<Provider | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(null);
 
-  const updateProvider = (v: Provider) => {
-    setProvider(v);
-    if (typeof window !== 'undefined') localStorage.setItem('pulito.aiProvider', v);
-  };
-
   const generate = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient.post<SummaryResponse>('/api/v1/admin/dashboard/ai-summary', {
-        provider,
-      });
+      // Provider is chosen globally in Settings; no per-action override.
+      const res = await apiClient.post<SummaryResponse>('/api/v1/admin/dashboard/ai-summary', {});
       if (res.success && res.data) {
         setText(res.data.text);
         setUsedProvider(res.data.provider);
@@ -67,7 +53,7 @@ export default function AIDashboardSummary() {
     } finally {
       setIsLoading(false);
     }
-  }, [provider, t]);
+  }, [t]);
 
   // Auto-generate on mount once. User refresh via button.
   useEffect(() => {
@@ -100,17 +86,6 @@ export default function AIDashboardSummary() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <select
-            value={provider}
-            onChange={(e) => updateProvider(e.target.value as Provider)}
-            disabled={isLoading}
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-xs"
-            title={t('providerSelectTitle')}
-          >
-            <option value="gemini">{t('providerGeminiOption')}</option>
-            <option value="claude">{t('providerClaudeOption')}</option>
-            <option value="rules">{t('providerRulesOption')}</option>
-          </select>
           <button
             type="button"
             onClick={generate}

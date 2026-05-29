@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { getSettings } from '@/services/settings';
+import { resolveAIProvider } from '@/services/ai-content';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 
@@ -145,7 +146,8 @@ export const POST = withRole(
 
     const body = await request.json().catch(() => ({}));
     const parsed = schema.safeParse(body);
-    const provider = parsed.success ? parsed.data.provider : undefined;
+    // Per-action provider dropdown removed — fall back to the site-wide setting.
+    const provider = await resolveAIProvider(parsed.success ? parsed.data.provider : undefined);
 
     const review = await prisma.review.findUnique({
       where: { id: numId },
