@@ -7,20 +7,30 @@
 
 ## 0. Поточний стан
 
-- Старт: **222** «червоних» тест-файлів (з 695). Зараз: **~152** (фіксимо інкрементально).
+- Старт: **222** «червоних» тест-файлів (з 695). Зараз: **~126** (фіксимо інкрементально).
+- ✅ **Область `src/services` ПОВНІСТЮ ЗЕЛЕНА** (2026-05-29): 139 файлів, 0 падінь. Було 26 червоних → 0. Регресій немає (повний JSON-прогон).
 - Прод-код **робочий** (білди EXIT 0, фічі задеплоєні). Це **борг тестів**, не регресії: тести відстали від рефакторів попередніх сесій.
 - Усе запушено в `origin/main`. Гілка: `main`.
 
 ### Що вже зроблено (коміти)
 
-| Коміт                         | Що                                                                                                                          | Файлів |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `671ad94`                     | Глобальні моки `next/navigation` + `next-intl` (+ `@/i18n/navigation`) у `src/test/setup.ts`; фікс flaky invoice            | ~27    |
-| `e2e669b`                     | Стандартизація моку `@/middleware/auth` (codemod ×53): `withRole`/`withRole2fa`/`withAuth`/`withOptionalAuth` + інжект user | 29     |
-| `4f09e5f`                     | Мок `@/services/rate-limit` у роут-тестах (429-флакі, ×21)                                                                  | 9      |
-| `4a3f40b`, `8217687`, (badge) | services: tenant/wishlist/brand/review/badge — додані prisma-методи + оновлені асерти                                       | 5      |
+| Коміт                         | Що                                                                                                                                                                                                                                                                                         | Файлів |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| `671ad94`                     | Глобальні моки `next/navigation` + `next-intl` (+ `@/i18n/navigation`) у `src/test/setup.ts`; фікс flaky invoice                                                                                                                                                                           | ~27    |
+| `e2e669b`                     | Стандартизація моку `@/middleware/auth` (codemod ×53): `withRole`/`withRole2fa`/`withAuth`/`withOptionalAuth` + інжект user                                                                                                                                                                | 29     |
+| `4f09e5f`                     | Мок `@/services/rate-limit` у роут-тестах (429-флакі, ×21)                                                                                                                                                                                                                                 | 9      |
+| `4a3f40b`, `8217687`, (badge) | services: tenant/wishlist/brand/review/badge — додані prisma-методи + оновлені асерти                                                                                                                                                                                                      | 5      |
+| (2026-05-29, 5 комітів)       | **решта `src/services` (26 файлів)**: $transaction/$queryRaw/findFirst/updateMany моки; warehouseStock/seoTemplate/campaignLog/siteSetting; redis-мок у report-generator + telegram feedback; atomic-updateMany рефактори (referral/wholesale/coupon); attachRatings; before/after у theme | 26     |
 
-**Разом полагоджено ~70 файлів, 0 регресій.**
+**Разом полагоджено ~96 файлів, 0 регресій. Область services закрита.**
+
+### Ключові патерни цієї сесії (для решти областей)
+
+- **`$transaction` callback-форму** мокати так, щоб виконувала колбек із тим самим mock-prisma (див. billing/delivery-address/cart).
+- **Сервіс делегує в інший сервіс** (auto-cancel → `updateOrderStatus`, subscriptions → `createOrder`): мокати ТОЙ сервіс, а не низькорівневі prisma-виклики.
+- **Live redis у тестах** (report-generator cache, telegram feedback-mode): мокати `@/lib/redis` (stateful Set для feedback).
+- **Atomic-updateMany рефактори**: багато сервісів перейшли з `findUnique→update` на `updateMany({where:{...,status}})` + `findUniqueOrThrow`; повідомлення помилок змінились (напр. 409 «вже опрацьовано»).
+- **Збагачення відповіді**: списки продуктів тепер `attachRatings` (avgRating/reviewCount); getEffectivePrice додає stackableWith; create-методи додають нові поля (stackableWith, questionEn/answerEn). Онови очікувані обʼєкти.
 
 ---
 
@@ -196,31 +206,9 @@ vi.mock('@/services/rate-limit', () => ({
 - src/app/api/v1/wholesale/bulk-order/route.test.ts
 - src/app/api/v1/wholesale/commercial-proposal/route.test.ts
 
-### services (23)
+### ✅ services (23) — ЗАКРИТО 2026-05-29
 
-- src/services/billing.test.ts
-- src/services/blog.test.ts
-- src/services/cart.test.ts
-- src/services/coupon.test.ts
-- src/services/delivery-address.test.ts
-- src/services/domain.test.ts
-- src/services/faq.test.ts
-- src/services/feedback.test.ts
-- src/services/image.padding.integration.test.ts
-- src/services/image.test.ts
-- src/services/integration-1c.test.ts
-- src/services/order.test.ts
-- src/services/payment-tracking.test.ts
-- src/services/payment.test.ts
-- src/services/personal-price.test.ts
-- src/services/product.test.ts
-- src/services/publication.test.ts
-- src/services/report-generator.test.ts
-- src/services/return-request.test.ts
-- src/services/static-page.test.ts
-- src/services/telegram.test.ts
-- src/services/theme.test.ts
-- src/services/user.test.ts
+Усі зелені (включно з services/jobs). Не чіпати.
 
 ### components/admin/analytics (11)
 
