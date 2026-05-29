@@ -18,9 +18,14 @@ vi.mock('@/lib/prisma', () => ({
     user: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       count: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
+    },
+    feedback: {
+      findMany: vi.fn().mockResolvedValue([]),
     },
     order: {
       findMany: vi.fn(),
@@ -255,7 +260,9 @@ describe('updateUserProfile', () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
     await expect(updateUserProfile(999, { fullName: 'New' }, 1)).rejects.toThrow(UserError);
-    await expect(updateUserProfile(999, { fullName: 'New' }, 1)).rejects.toMatchObject({ statusCode: 404 });
+    await expect(updateUserProfile(999, { fullName: 'New' }, 1)).rejects.toMatchObject({
+      statusCode: 404,
+    });
   });
 
   it('throws 400 if email is taken', async () => {
@@ -295,7 +302,9 @@ describe('updateUserProfile', () => {
 describe('toggleBlockUser', () => {
   it('throws 404 if user not found', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
-    await expect(toggleBlockUser(999, true, undefined, 1)).rejects.toMatchObject({ statusCode: 404 });
+    await expect(toggleBlockUser(999, true, undefined, 1)).rejects.toMatchObject({
+      statusCode: 404,
+    });
   });
 
   it('blocks user, deletes refresh tokens, creates audit log', async () => {
@@ -347,9 +356,7 @@ describe('getUserOrders', () => {
   it('accepts custom limit', async () => {
     mockPrisma.order.findMany.mockResolvedValue([]);
     await getUserOrders(1, 5);
-    expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 5 }),
-    );
+    expect(mockPrisma.order.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
   });
 });
 
@@ -489,35 +496,51 @@ describe('verifyUserEmail', () => {
 describe('sendMessageToUser', () => {
   it('throws 404 if user not found', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
-    await expect(sendMessageToUser(999, 'hi', ['email'])).rejects.toMatchObject({ statusCode: 404 });
+    await expect(sendMessageToUser(999, 'hi', ['email'])).rejects.toMatchObject({
+      statusCode: 404,
+    });
   });
 
   it('sends email successfully', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
-      id: 1, email: 'a@b.com', fullName: 'John', telegramChatId: null, viberUserId: null,
+      id: 1,
+      email: 'a@b.com',
+      fullName: 'John',
+      telegramChatId: null,
+      viberUserId: null,
     });
 
     const result = await sendMessageToUser(1, 'Hello', ['email']);
 
-    expect(result).toEqual({ sent: ['email'] });
+    expect(result).toEqual({ sent: ['email'], failed: [] });
   });
 
   it('sends telegram when user has chatId', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
-      id: 1, email: 'a@b.com', fullName: 'John', telegramChatId: '123', viberUserId: null,
+      id: 1,
+      email: 'a@b.com',
+      fullName: 'John',
+      telegramChatId: '123',
+      viberUserId: null,
     });
 
     const result = await sendMessageToUser(1, 'Hello', ['telegram']);
 
-    expect(result).toEqual({ sent: ['telegram'] });
+    expect(result).toEqual({ sent: ['telegram'], failed: [] });
   });
 
   it('throws if no channel succeeds', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
-      id: 1, email: 'a@b.com', fullName: 'John', telegramChatId: null, viberUserId: null,
+      id: 1,
+      email: 'a@b.com',
+      fullName: 'John',
+      telegramChatId: null,
+      viberUserId: null,
     });
 
-    await expect(sendMessageToUser(1, 'Hello', ['telegram'])).rejects.toMatchObject({ statusCode: 400 });
+    await expect(sendMessageToUser(1, 'Hello', ['telegram'])).rejects.toMatchObject({
+      statusCode: 400,
+    });
   });
 });
 
@@ -527,7 +550,15 @@ describe('getUserWishlist', () => {
       {
         id: 1,
         addedAt: new Date('2024-01-01'),
-        product: { id: 10, name: 'Soap', slug: 'soap', priceRetail: 150, quantity: 5, isActive: true, imagePath: '/img.jpg' },
+        product: {
+          id: 10,
+          name: 'Soap',
+          slug: 'soap',
+          priceRetail: 150,
+          quantity: 5,
+          isActive: true,
+          imagePath: '/img.jpg',
+        },
       },
     ]);
 
@@ -537,7 +568,14 @@ describe('getUserWishlist', () => {
       {
         id: 1,
         createdAt: expect.any(Date),
-        product: { id: 10, name: 'Soap', slug: 'soap', price: 150, imageUrl: '/img.jpg', inStock: true },
+        product: {
+          id: 10,
+          name: 'Soap',
+          slug: 'soap',
+          price: 150,
+          imageUrl: '/img.jpg',
+          inStock: true,
+        },
       },
     ]);
   });
@@ -547,7 +585,15 @@ describe('getUserWishlist', () => {
       {
         id: 1,
         addedAt: new Date(),
-        product: { id: 10, name: 'X', slug: 'x', priceRetail: 100, quantity: 0, isActive: true, imagePath: null },
+        product: {
+          id: 10,
+          name: 'X',
+          slug: 'x',
+          priceRetail: 100,
+          quantity: 0,
+          isActive: true,
+          imagePath: null,
+        },
       },
     ]);
 
@@ -562,7 +608,13 @@ describe('getUserRecentlyViewed', () => {
       {
         id: 1,
         viewedAt: new Date('2024-06-01'),
-        product: { id: 5, name: 'Detergent', slug: 'detergent', priceRetail: 200, imagePath: '/d.jpg' },
+        product: {
+          id: 5,
+          name: 'Detergent',
+          slug: 'detergent',
+          priceRetail: 200,
+          imagePath: '/d.jpg',
+        },
       },
     ]);
 
@@ -606,7 +658,8 @@ describe('exportUserData', () => {
     mockPrisma.user.findUnique.mockResolvedValue(userData);
 
     const result = await exportUserData(1);
-    expect(result).toEqual(userData);
+    // Export now also bundles the user's feedback submissions.
+    expect(result).toEqual({ ...userData, feedback: [] });
   });
 });
 
@@ -670,7 +723,7 @@ describe('updateUserRole', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           actionType: 'role_change',
-          details: { oldRole: 'client', newRole: 'manager' },
+          details: expect.objectContaining({ oldRole: 'client', newRole: 'manager' }),
         }),
       }),
     );
@@ -696,28 +749,33 @@ describe('updateUserRole', () => {
   });
 });
 
+// approveWholesale/rejectWholesale now use an atomic conditional updateMany
+// (status=pending) to claim the request, then findUniqueOrThrow for the row.
 describe('approveWholesale', () => {
   it('throws 404 if user not found', async () => {
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.user.findUnique.mockResolvedValue(null);
     await expect(approveWholesale(999)).rejects.toThrow('Користувача не знайдено');
   });
 
-  it('throws if status is not pending', async () => {
+  it('throws 409 if request was already processed', async () => {
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.user.findUnique.mockResolvedValue({ wholesaleStatus: 'approved' });
-    await expect(approveWholesale(1)).rejects.toThrow('Запит не очікує розгляду');
+    await expect(approveWholesale(1)).rejects.toThrow('Запит уже опрацьовано');
   });
 
   it('approves wholesale request', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ wholesaleStatus: 'pending' });
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
     const updated = { id: 1, role: 'wholesaler', wholesaleStatus: 'approved' };
-    mockPrisma.user.update.mockResolvedValue(updated);
+    mockPrisma.user.findUniqueOrThrow.mockResolvedValue(updated);
     mockPrisma.auditLog.create.mockResolvedValue({});
 
     const result = await approveWholesale(1, 10, 2);
 
     expect(result).toEqual(updated);
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: expect.objectContaining({ id: 1, wholesaleStatus: 'pending' }),
         data: expect.objectContaining({
           role: 'wholesaler',
           wholesaleStatus: 'approved',
@@ -729,12 +787,12 @@ describe('approveWholesale', () => {
   });
 
   it('defaults wholesaleGroup to 1', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ wholesaleStatus: 'pending' });
-    mockPrisma.user.update.mockResolvedValue({ id: 1 });
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ id: 1 });
 
     await approveWholesale(1);
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ wholesaleGroup: 1 }),
       }),
@@ -744,19 +802,21 @@ describe('approveWholesale', () => {
 
 describe('rejectWholesale', () => {
   it('throws 404 if user not found', async () => {
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.user.findUnique.mockResolvedValue(null);
     await expect(rejectWholesale(999)).rejects.toThrow('Користувача не знайдено');
   });
 
-  it('throws if status is not pending', async () => {
+  it('throws 409 if request was already processed', async () => {
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.user.findUnique.mockResolvedValue({ wholesaleStatus: 'approved' });
-    await expect(rejectWholesale(1)).rejects.toThrow('Запит не очікує розгляду');
+    await expect(rejectWholesale(1)).rejects.toThrow('Запит уже опрацьовано');
   });
 
   it('rejects wholesale request and creates audit log', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ wholesaleStatus: 'pending' });
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
     const updated = { id: 1, wholesaleStatus: 'rejected' };
-    mockPrisma.user.update.mockResolvedValue(updated);
+    mockPrisma.user.findUniqueOrThrow.mockResolvedValue(updated);
     mockPrisma.auditLog.create.mockResolvedValue({});
 
     const result = await rejectWholesale(1, 10);

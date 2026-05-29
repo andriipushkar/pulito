@@ -8,16 +8,21 @@ vi.mock('@/lib/prisma', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      upsert: vi.fn(),
       delete: vi.fn(),
       deleteMany: vi.fn(),
     },
     product: {
       findUnique: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     volumeDiscount: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    $transaction: vi.fn(async (arg: unknown) =>
+      Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(undefined),
+    ),
   },
 }));
 
@@ -75,7 +80,7 @@ describe('getCartItems', () => {
 
     expect(mockPrisma.cartItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: 1 },
+        where: expect.objectContaining({ userId: 1 }),
         orderBy: { addedAt: 'desc' },
       }),
     );
@@ -301,6 +306,10 @@ describe('clearCart', () => {
   });
 });
 
+// mergeCart now batches: one cartItem.findMany for existing rows, one
+// product.findMany for valid products, then $transaction([cartItem.upsert…]).
+// (Existing rows + out-of-stock/inactive/deleted products are filtered in the
+// queries, so the test controls behaviour via what those two findMany return.)
 describe('mergeCart', () => {
   it('should merge local items into db cart for new products', async () => {
     const localItems = [
@@ -308,35 +317,29 @@ describe('mergeCart', () => {
       { productId: 20, quantity: 3 },
     ];
 
-    // Both items don't exist in cart
-    mockPrisma.cartItem.findUnique
-      .mockResolvedValueOnce(null as never) // item 10 not in cart
-      .mockResolvedValueOnce(null as never); // item 20 not in cart
-
-    // Both products are active
-    mockPrisma.product.findUnique
-      .mockResolvedValueOnce({ isActive: true, quantity: 50 } as never)
-      .mockResolvedValueOnce({ isActive: true, quantity: 50 } as never);
-
-    mockPrisma.cartItem.create
-      .mockResolvedValueOnce({} as never)
-      .mockResolvedValueOnce({} as never);
-
-    // getCartItems is called at the end of mergeCart
     const mergedItems = [makeCartItem({ productId: 10 }), makeCartItem({ productId: 20 })];
-    mockPrisma.cartItem.findMany.mockResolvedValue(mergedItems as never);
+    mockPrisma.cartItem.findMany
+      .mockResolvedValueOnce([] as never) // no existing rows
+      .mockResolvedValueOnce(mergedItems as never); // getCartItems at the end
+    mockPrisma.product.findMany.mockResolvedValue([
+      { id: 10, quantity: 50 },
+      { id: 20, quantity: 50 },
+    ] as never);
+    mockPrisma.cartItem.upsert.mockResolvedValue({} as never);
 
     const result = await mergeCart(1, localItems);
 
-    expect(mockPrisma.cartItem.create).toHaveBeenCalledTimes(2);
-    expect(mockPrisma.cartItem.create).toHaveBeenCalledWith(
+    expect(mockPrisma.cartItem.upsert).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.cartItem.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { userId: 1, productId: 10, quantity: 2 },
+        where: { userId_productId: { userId: 1, productId: 10 } },
+        create: { userId: 1, productId: 10, quantity: 2 },
       }),
     );
-    expect(mockPrisma.cartItem.create).toHaveBeenCalledWith(
+    expect(mockPrisma.cartItem.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { userId: 1, productId: 20, quantity: 3 },
+        where: { userId_productId: { userId: 1, productId: 20 } },
+        create: { userId: 1, productId: 20, quantity: 3 },
       }),
     );
     expect(result).toHaveLength(2);
@@ -345,65 +348,61 @@ describe('mergeCart', () => {
   it('should skip items that already exist in cart', async () => {
     const localItems = [{ productId: 10, quantity: 2 }];
 
-    // Item already exists
-    const existing = { id: 1, userId: 1, productId: 10, quantity: 3 };
-    mockPrisma.cartItem.findUnique.mockResolvedValueOnce(existing as never);
-
-    // getCartItems at the end
-    mockPrisma.cartItem.findMany.mockResolvedValue([makeCartItem()] as never);
+    mockPrisma.cartItem.findMany
+      .mockResolvedValueOnce([{ productId: 10 }] as never) // already in cart
+      .mockResolvedValueOnce([makeCartItem()] as never);
+    mockPrisma.product.findMany.mockResolvedValue([{ id: 10, quantity: 50 }] as never);
 
     const result = await mergeCart(1, localItems);
 
-    expect(mockPrisma.cartItem.create).not.toHaveBeenCalled();
+    expect(mockPrisma.cartItem.upsert).not.toHaveBeenCalled();
     expect(result).toHaveLength(1);
   });
 
   it('should skip inactive products', async () => {
     const localItems = [{ productId: 10, quantity: 2 }];
 
-    // Item not in cart
-    mockPrisma.cartItem.findUnique.mockResolvedValueOnce(null as never);
-
-    // Product is inactive
-    mockPrisma.product.findUnique.mockResolvedValueOnce({ isActive: false, quantity: 50 } as never);
-
-    // getCartItems at the end
-    mockPrisma.cartItem.findMany.mockResolvedValue([] as never);
+    mockPrisma.cartItem.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    // Inactive products are excluded by the product.findMany where clause.
+    mockPrisma.product.findMany.mockResolvedValue([] as never);
 
     const result = await mergeCart(1, localItems);
 
-    expect(mockPrisma.cartItem.create).not.toHaveBeenCalled();
+    expect(mockPrisma.cartItem.upsert).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
 
   it('should skip products with zero stock', async () => {
     const localItems = [{ productId: 10, quantity: 2 }];
 
-    mockPrisma.cartItem.findUnique.mockResolvedValueOnce(null as never);
-    mockPrisma.product.findUnique.mockResolvedValueOnce({ isActive: true, quantity: 0 } as never);
-
-    mockPrisma.cartItem.findMany.mockResolvedValue([] as never);
+    mockPrisma.cartItem.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    // quantity > 0 filter in the query drops out-of-stock products.
+    mockPrisma.product.findMany.mockResolvedValue([] as never);
 
     const result = await mergeCart(1, localItems);
 
-    expect(mockPrisma.cartItem.create).not.toHaveBeenCalled();
+    expect(mockPrisma.cartItem.upsert).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
 
   it('should clamp quantity to available stock', async () => {
     const localItems = [{ productId: 10, quantity: 100 }];
 
-    mockPrisma.cartItem.findUnique.mockResolvedValueOnce(null as never);
-    mockPrisma.product.findUnique.mockResolvedValueOnce({ isActive: true, quantity: 5 } as never);
-    mockPrisma.cartItem.create.mockResolvedValueOnce({} as never);
-
-    mockPrisma.cartItem.findMany.mockResolvedValue([makeCartItem({ quantity: 5 })] as never);
+    mockPrisma.cartItem.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([makeCartItem({ quantity: 5 })] as never);
+    mockPrisma.product.findMany.mockResolvedValue([{ id: 10, quantity: 5 }] as never);
+    mockPrisma.cartItem.upsert.mockResolvedValue({} as never);
 
     const result = await mergeCart(1, localItems);
 
-    expect(mockPrisma.cartItem.create).toHaveBeenCalledWith(
+    expect(mockPrisma.cartItem.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { userId: 1, productId: 10, quantity: 5 },
+        create: { userId: 1, productId: 10, quantity: 5 },
       }),
     );
     expect(result).toHaveLength(1);
@@ -412,14 +411,14 @@ describe('mergeCart', () => {
   it('should skip products that do not exist', async () => {
     const localItems = [{ productId: 10, quantity: 2 }];
 
-    mockPrisma.cartItem.findUnique.mockResolvedValueOnce(null as never);
-    mockPrisma.product.findUnique.mockResolvedValueOnce(null as never);
-
-    mockPrisma.cartItem.findMany.mockResolvedValue([] as never);
+    mockPrisma.cartItem.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    mockPrisma.product.findMany.mockResolvedValue([] as never);
 
     const result = await mergeCart(1, localItems);
 
-    expect(mockPrisma.cartItem.create).not.toHaveBeenCalled();
+    expect(mockPrisma.cartItem.upsert).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
 });
