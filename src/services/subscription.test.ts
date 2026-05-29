@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockCreate = vi.fn();
 const mockFindFirst = vi.fn();
 const mockUpdate = vi.fn();
+const mockUpdateMany = vi.fn();
+const mockFindUniqueOrThrow = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -10,6 +12,8 @@ vi.mock('@/lib/prisma', () => ({
       create: (...args: unknown[]) => mockCreate(...args),
       findFirst: (...args: unknown[]) => mockFindFirst(...args),
       update: (...args: unknown[]) => mockUpdate(...args),
+      updateMany: (...args: unknown[]) => mockUpdateMany(...args),
+      findUniqueOrThrow: (...args: unknown[]) => mockFindUniqueOrThrow(...args),
     },
   },
 }));
@@ -45,7 +49,7 @@ describe('createSubscription', () => {
           frequency: 'monthly',
           nextDeliveryAt: expect.any(Date),
         }),
-      })
+      }),
     );
   });
 });
@@ -53,15 +57,17 @@ describe('createSubscription', () => {
 describe('pauseSubscription', () => {
   it('pauses an active subscription', async () => {
     mockFindFirst.mockResolvedValue({ id: 1, userId: 1, status: 'active' });
-    mockUpdate.mockResolvedValue({ id: 1, status: 'paused' });
+    mockUpdateMany.mockResolvedValue({ count: 1 });
+    mockFindUniqueOrThrow.mockResolvedValue({ id: 1, status: 'paused' });
 
     const result = await pauseSubscription(1, 1);
 
     expect(result.status).toBe('paused');
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: expect.objectContaining({ id: 1, userId: 1, status: 'active' }),
         data: expect.objectContaining({ status: 'paused', pausedAt: expect.any(Date) }),
-      })
+      }),
     );
   });
 
@@ -81,19 +87,21 @@ describe('pauseSubscription', () => {
 describe('resumeSubscription', () => {
   it('resumes a paused subscription', async () => {
     mockFindFirst.mockResolvedValue({ id: 1, userId: 1, status: 'paused', frequency: 'weekly' });
-    mockUpdate.mockResolvedValue({ id: 1, status: 'active' });
+    mockUpdateMany.mockResolvedValue({ count: 1 });
+    mockFindUniqueOrThrow.mockResolvedValue({ id: 1, status: 'active' });
 
     const result = await resumeSubscription(1, 1);
 
     expect(result.status).toBe('active');
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: expect.objectContaining({ id: 1, userId: 1, status: 'paused' }),
         data: expect.objectContaining({
           status: 'active',
           pausedAt: null,
           nextDeliveryAt: expect.any(Date),
         }),
-      })
+      }),
     );
   });
 
@@ -107,15 +115,17 @@ describe('resumeSubscription', () => {
 describe('cancelSubscription', () => {
   it('cancels an active subscription', async () => {
     mockFindFirst.mockResolvedValue({ id: 1, userId: 1, status: 'active' });
-    mockUpdate.mockResolvedValue({ id: 1, status: 'cancelled' });
+    mockUpdateMany.mockResolvedValue({ count: 1 });
+    mockFindUniqueOrThrow.mockResolvedValue({ id: 1, status: 'cancelled' });
 
     const result = await cancelSubscription(1, 1);
 
     expect(result.status).toBe('cancelled');
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: expect.objectContaining({ id: 1, userId: 1, status: { not: 'cancelled' } }),
         data: expect.objectContaining({ status: 'cancelled', cancelledAt: expect.any(Date) }),
-      })
+      }),
     );
   });
 

@@ -159,12 +159,19 @@ export async function pauseSubscription(id: number, userId: number) {
     throw new SubscriptionError('Призупинити можна лише активну підписку', 400);
   }
 
-  return prisma.subscription.update({
-    where: { id },
+  const claimed = await prisma.subscription.updateMany({
+    where: { id, userId, status: 'active' },
     data: {
       status: 'paused',
       pausedAt: new Date(),
     },
+  });
+  if (claimed.count === 0) {
+    throw new SubscriptionError('Статус підписки щойно змінився — оновіть сторінку', 409);
+  }
+
+  return prisma.subscription.findUniqueOrThrow({
+    where: { id },
     include: {
       items: {
         include: {
@@ -190,13 +197,23 @@ export async function resumeSubscription(id: number, userId: number) {
     throw new SubscriptionError('Відновити можна лише призупинену підписку', 400);
   }
 
-  return prisma.subscription.update({
-    where: { id },
+  // Atomic status flip: the `status: 'paused'` guard means a concurrent resume,
+  // cancel, or cron state change collapses to a single winner — the loser sees
+  // count 0 and gets a 409 instead of a duplicate transition / double-fire.
+  const claimed = await prisma.subscription.updateMany({
+    where: { id, userId, status: 'paused' },
     data: {
       status: 'active',
       pausedAt: null,
       nextDeliveryAt: calculateNextDelivery(subscription.frequency),
     },
+  });
+  if (claimed.count === 0) {
+    throw new SubscriptionError('Статус підписки щойно змінився — оновіть сторінку', 409);
+  }
+
+  return prisma.subscription.findUniqueOrThrow({
+    where: { id },
     include: {
       items: {
         include: {
@@ -222,12 +239,19 @@ export async function cancelSubscription(id: number, userId: number) {
     throw new SubscriptionError('Підписку вже скасовано', 400);
   }
 
-  return prisma.subscription.update({
-    where: { id },
+  const claimed = await prisma.subscription.updateMany({
+    where: { id, userId, status: { not: 'cancelled' } },
     data: {
       status: 'cancelled',
       cancelledAt: new Date(),
     },
+  });
+  if (claimed.count === 0) {
+    throw new SubscriptionError('Підписку вже скасовано', 400);
+  }
+
+  return prisma.subscription.findUniqueOrThrow({
+    where: { id },
     include: {
       items: {
         include: {

@@ -12,6 +12,16 @@ export class StaticPageError extends Error {
   }
 }
 
+// Postgres unique-violation (P2002). The findUnique slug pre-checks below
+// narrow the common case, but two concurrent create/update calls can both pass
+// the read and race to the unique index — the DB is the only authority that
+// serialises them, so surface a clean 409 instead of a raw 500.
+function isUniqueViolation(e: unknown): boolean {
+  return (
+    typeof e === 'object' && e !== null && 'code' in e && (e as { code?: string }).code === 'P2002'
+  );
+}
+
 // Routes that a CMS page must never collide with. The public router serves
 // pages under `/<slug>`, so any of these would shadow real app namespaces
 // (admin panel, API, auth, catalog, etc.). Keep the list narrow — admin can
@@ -112,22 +122,29 @@ export async function createPage(data: {
     throw new StaticPageError('Сторінка з таким slug вже існує', 409);
   }
 
-  return prisma.staticPage.create({
-    data: {
-      title: data.title,
-      slug,
-      content: sanitizeHtml(data.content),
-      seoTitle: data.seoTitle,
-      seoDescription: data.seoDescription,
-      titleEn: data.titleEn || null,
-      contentEn: data.contentEn ? sanitizeHtml(data.contentEn) : null,
-      seoTitleEn: data.seoTitleEn || null,
-      seoDescriptionEn: data.seoDescriptionEn || null,
-      isPublished: data.isPublished ?? true,
-      sortOrder: data.sortOrder ?? 0,
-      updatedBy: data.updatedBy,
-    },
-  });
+  try {
+    return await prisma.staticPage.create({
+      data: {
+        title: data.title,
+        slug,
+        content: sanitizeHtml(data.content),
+        seoTitle: data.seoTitle,
+        seoDescription: data.seoDescription,
+        titleEn: data.titleEn || null,
+        contentEn: data.contentEn ? sanitizeHtml(data.contentEn) : null,
+        seoTitleEn: data.seoTitleEn || null,
+        seoDescriptionEn: data.seoDescriptionEn || null,
+        isPublished: data.isPublished ?? true,
+        sortOrder: data.sortOrder ?? 0,
+        updatedBy: data.updatedBy,
+      },
+    });
+  } catch (e) {
+    if (isUniqueViolation(e)) {
+      throw new StaticPageError('Сторінка з таким slug вже існує', 409);
+    }
+    throw e;
+  }
 }
 
 export async function updatePage(
@@ -179,28 +196,35 @@ export async function updatePage(
     }
   }
 
-  return prisma.staticPage.update({
-    where: { id },
-    data: {
-      ...(data.title !== undefined && { title: data.title }),
-      ...(data.slug !== undefined && { slug: data.slug }),
-      ...(data.content !== undefined && { content: sanitizeHtml(data.content) }),
-      ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
-      ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
-      ...(data.titleEn !== undefined && { titleEn: data.titleEn || null }),
-      ...(data.contentEn !== undefined && {
-        contentEn: data.contentEn ? sanitizeHtml(data.contentEn) : null,
-      }),
-      ...(data.seoTitleEn !== undefined && { seoTitleEn: data.seoTitleEn || null }),
-      ...(data.seoDescriptionEn !== undefined && {
-        seoDescriptionEn: data.seoDescriptionEn || null,
-      }),
-      ...(data.isPublished !== undefined && { isPublished: data.isPublished }),
-      ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
-      ...(data.parentId !== undefined && { parentId: data.parentId }),
-      ...(data.updatedBy !== undefined && { updatedBy: data.updatedBy }),
-    },
-  });
+  try {
+    return await prisma.staticPage.update({
+      where: { id },
+      data: {
+        ...(data.title !== undefined && { title: data.title }),
+        ...(data.slug !== undefined && { slug: data.slug }),
+        ...(data.content !== undefined && { content: sanitizeHtml(data.content) }),
+        ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
+        ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
+        ...(data.titleEn !== undefined && { titleEn: data.titleEn || null }),
+        ...(data.contentEn !== undefined && {
+          contentEn: data.contentEn ? sanitizeHtml(data.contentEn) : null,
+        }),
+        ...(data.seoTitleEn !== undefined && { seoTitleEn: data.seoTitleEn || null }),
+        ...(data.seoDescriptionEn !== undefined && {
+          seoDescriptionEn: data.seoDescriptionEn || null,
+        }),
+        ...(data.isPublished !== undefined && { isPublished: data.isPublished }),
+        ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+        ...(data.parentId !== undefined && { parentId: data.parentId }),
+        ...(data.updatedBy !== undefined && { updatedBy: data.updatedBy }),
+      },
+    });
+  } catch (e) {
+    if (isUniqueViolation(e)) {
+      throw new StaticPageError('Сторінка з таким slug вже існує', 409);
+    }
+    throw e;
+  }
 }
 
 export async function deletePage(id: number) {
