@@ -185,12 +185,12 @@ describe('getProductReviews', () => {
 
 describe('getProductRatingStats', () => {
   it('returns correct distribution and average', async () => {
-    mockPrisma.review.findMany.mockResolvedValue([
-      { rating: 5 },
-      { rating: 5 },
-      { rating: 4 },
-      { rating: 3 },
-      { rating: 1 },
+    // Service aggregates via groupBy({ by: ['rating'], _count: { rating } }).
+    mockPrisma.review.groupBy.mockResolvedValue([
+      { rating: 5, _count: { rating: 2 } },
+      { rating: 4, _count: { rating: 1 } },
+      { rating: 3, _count: { rating: 1 } },
+      { rating: 1, _count: { rating: 1 } },
     ]);
 
     const result = await getProductRatingStats(1);
@@ -203,7 +203,7 @@ describe('getProductRatingStats', () => {
   });
 
   it('returns zeroed stats when no reviews', async () => {
-    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.review.groupBy.mockResolvedValue([]);
 
     const result = await getProductRatingStats(1);
 
