@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockPrismaClient } from '@/test/prisma-mock';
-import { getCategories, getCategoryBySlug, getCategoryById, createCategory, updateCategory, deleteCategory, CategoryError } from './category';
+import {
+  getCategories,
+  getCategoryBySlug,
+  getCategoryById,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  CategoryError,
+} from './category';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -14,9 +22,15 @@ vi.mock('@/lib/prisma', () => ({
       updateMany: vi.fn(),
       delete: vi.fn(),
     },
+    siteSetting: {
+      findUnique: vi.fn(),
+    },
     slugRedirect: {
       upsert: vi.fn(),
     },
+    // Top-level category create takes a pg advisory lock via $queryRaw; the
+    // default resolves "lock acquired" so the create path proceeds.
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -41,6 +55,10 @@ beforeEach(() => {
   vi.resetAllMocks();
   // Restore default count value used by createCategory pre-checks.
   mockPrisma.category.count.mockResolvedValue(3 as never);
+  // Advisory-lock acquired by default so the top-level create path proceeds.
+  (mockPrisma as unknown as { $queryRaw: ReturnType<typeof vi.fn> }).$queryRaw.mockResolvedValue([
+    { ok: true },
+  ] as never);
 });
 
 describe('getCategories', () => {
@@ -62,13 +80,14 @@ describe('getCategories', () => {
 describe('getCategoryBySlug', () => {
   it('should return category by slug', async () => {
     const mockCategory = { id: 1, name: 'Test', slug: 'test', _count: { products: 5 } };
-    mockPrisma.category.findUnique.mockResolvedValue(mockCategory as never);
+    // getCategoryBySlug uses findFirst (filters out soft-deleted), not findUnique.
+    mockPrisma.category.findFirst.mockResolvedValue(mockCategory as never);
     const result = await getCategoryBySlug('test');
     expect(result).toEqual(mockCategory);
   });
 
   it('should return null for non-existent slug', async () => {
-    mockPrisma.category.findUnique.mockResolvedValue(null);
+    mockPrisma.category.findFirst.mockResolvedValue(null);
     const result = await getCategoryBySlug('nonexistent');
     expect(result).toBeNull();
   });
@@ -84,7 +103,7 @@ describe('createCategory', () => {
     expect(mockPrisma.category.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ name: 'Пральні засоби' }),
-      })
+      }),
     );
   });
 
@@ -151,7 +170,7 @@ describe('getCategoryById', () => {
     const result = await getCategoryById(1);
     expect(result).toEqual(mockCategory);
     expect(mockPrisma.category.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 1 } })
+      expect.objectContaining({ where: { id: 1 } }),
     );
   });
 
@@ -172,14 +191,15 @@ describe('createCategory - additional', () => {
     expect(mockPrisma.category.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ slug: 'custom-slug' }),
-      })
+      }),
     );
   });
 
   it('should create with valid parentId', async () => {
     // createCategory now resolves the parent via findFirst (excluding soft-deleted),
-    // and only then checks slug uniqueness via findUnique.
-    mockPrisma.category.findFirst.mockResolvedValueOnce({ id: 5 } as never);
+    // and only then checks slug uniqueness via findUnique. parentId: null marks
+    // the parent as a root so the 2-level depth check passes.
+    mockPrisma.category.findFirst.mockResolvedValueOnce({ id: 5, parentId: null } as never);
     mockPrisma.category.findUnique.mockResolvedValueOnce(null);
     const created = { id: 2, name: 'Child', slug: 'child', parentId: 5 };
     mockPrisma.category.create.mockResolvedValue(created as never);
@@ -194,7 +214,9 @@ describe('updateCategory - additional', () => {
     mockPrisma.category.findUnique
       .mockResolvedValueOnce({ id: 1, slug: 'old-slug' } as never) // category lookup
       .mockResolvedValueOnce(null as never); // slug uniqueness check
-    (prisma as unknown as MockPrismaClient).slugRedirect = { upsert: vi.fn().mockResolvedValue({} as never) } as never;
+    (prisma as unknown as MockPrismaClient).slugRedirect = {
+      upsert: vi.fn().mockResolvedValue({} as never),
+    } as never;
     mockPrisma.category.update.mockResolvedValue({ id: 1, slug: 'new-name' } as never);
 
     await updateCategory(1, { name: 'New Name' });
@@ -219,7 +241,11 @@ describe('updateCategory - additional', () => {
 
   it('should update without slug change when name not provided', async () => {
     mockPrisma.category.findUnique.mockResolvedValue({ id: 1, slug: 'test' } as never);
-    mockPrisma.category.update.mockResolvedValue({ id: 1, slug: 'test', description: 'updated' } as never);
+    mockPrisma.category.update.mockResolvedValue({
+      id: 1,
+      slug: 'test',
+      description: 'updated',
+    } as never);
 
     await updateCategory(1, { description: 'updated' });
     expect(mockPrisma.category.update).toHaveBeenCalled();
@@ -248,7 +274,9 @@ describe('updateCategory - parentId not found', () => {
   it('should update with valid parentId successfully', async () => {
     mockPrisma.category.findUnique
       .mockResolvedValueOnce({ id: 1, slug: 'test' } as never) // category lookup
-      .mockResolvedValueOnce({ id: 5 } as never); // parent found
+      .mockResolvedValueOnce({ id: 5, parentId: null } as never); // parent found (a root)
+    // No existing children → the category may become a child.
+    mockPrisma.category.count.mockResolvedValue(0 as never);
     mockPrisma.category.update.mockResolvedValue({ id: 1, parentId: 5 } as never);
 
     await updateCategory(1, { parentId: 5 });
@@ -278,7 +306,7 @@ describe('updateCategory - parentId not found', () => {
           sortOrder: 5,
           isVisible: false,
         }),
-      })
+      }),
     );
   });
 
@@ -293,7 +321,7 @@ describe('updateCategory - parentId not found', () => {
         data: expect.objectContaining({
           parentId: null,
         }),
-      })
+      }),
     );
   });
 });
