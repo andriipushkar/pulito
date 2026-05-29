@@ -5863,6 +5863,7 @@
       "apiKeysTitle": "API Keys",
       "newKeyAlert": "New API key created. Copy it now — it will not be shown again:",
       "copyDismiss": "Copy & dismiss",
+      "keyCopied": "Key copied",
       "keyNamePh": "Key name (e.g. 1C Production)",
       "creating": "Creating...",
       "createKey": "Create API Key",

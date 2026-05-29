@@ -5863,6 +5863,7 @@
       "apiKeysTitle": "Klucze API",
       "newKeyAlert": "Utworzono nowy klucz API. Skopiuj teraz — nie bedzie pokazany ponownie:",
       "copyDismiss": "Skopiuj i zamknij",
+      "keyCopied": "Klucz skopiowany",
       "keyNamePh": "Nazwa klucza (np. 1C Production)",
       "creating": "Tworzenie...",
       "createKey": "Utworz klucz API",

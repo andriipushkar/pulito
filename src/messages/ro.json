@@ -5863,6 +5863,7 @@
       "apiKeysTitle": "Chei API",
       "newKeyAlert": "Cheie API noua creata. Copiaza acum — nu va mai fi afisata:",
       "copyDismiss": "Copiaza si inchide",
+      "keyCopied": "Cheie copiata",
       "keyNamePh": "Nume cheie (ex. 1C Production)",
       "creating": "Se creeaza...",
       "createKey": "Creeaza cheie API",

@@ -133,6 +133,7 @@ export default function AdminIntegrationsPage() {
             <button
               onClick={() => {
                 navigator.clipboard.writeText(createdKey);
+                toast.success(t('keyCopied'));
                 setCreatedKey(null);
               }}
               className="ml-3 text-sm text-green-700 underline"

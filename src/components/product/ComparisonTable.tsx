@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
 import { useComparison } from '@/hooks/useComparison';
@@ -127,7 +128,7 @@ export default function ComparisonTable() {
                 navigator.share({ title: 'Порівняння товарів — Pulito', url }).catch(() => {});
               } else {
                 navigator.clipboard.writeText(url).then(
-                  () => alert('Посилання скопійовано в буфер обміну'),
+                  () => toast.success('Посилання скопійовано в буфер обміну'),
                   () => prompt('Скопіюйте посилання:', url),
                 );
               }

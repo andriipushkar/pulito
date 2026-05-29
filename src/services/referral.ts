@@ -29,7 +29,9 @@ const referralSelect = {
 } satisfies Prisma.ReferralSelect;
 
 export function generateReferralCode(): string {
-  return crypto.randomBytes(4).toString('hex').toUpperCase();
+  // 6 bytes → 12 hex chars (~2.8e14 keyspace). The old 4 bytes (8 hex, ~4.3e9)
+  // was brute-forceable for attribution abuse; 12 chars stays easy to share.
+  return crypto.randomBytes(6).toString('hex').toUpperCase();
 }
 
 export async function getUserReferralStats(userId: number) {

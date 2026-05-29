@@ -8,8 +8,10 @@ vi.mock('@/lib/prisma', () => ({
       count: vi.fn().mockResolvedValue(0),
       findFirst: vi.fn(),
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
@@ -26,7 +28,7 @@ describe('referral service', () => {
   it('should generate referral code', async () => {
     const { generateReferralCode } = await import('./referral');
     const code = generateReferralCode();
-    expect(code).toHaveLength(8);
+    expect(code).toHaveLength(12);
     expect(/^[A-F0-9]+$/.test(code)).toBe(true);
   });
 
@@ -36,7 +38,7 @@ describe('referral service', () => {
 
     const { grantReferralBonus, ReferralError } = await import('./referral');
     await expect(
-      grantReferralBonus(999, { bonusType: 'cashback', bonusValue: 50 })
+      grantReferralBonus(999, { bonusType: 'cashback', bonusValue: 50 }),
     ).rejects.toThrow(ReferralError);
   });
 
@@ -70,7 +72,7 @@ describe('referral service', () => {
       const result = await getUserReferralStats(1);
 
       expect(prisma.user.update).toHaveBeenCalled();
-      expect(result.referralCode).toHaveLength(8);
+      expect(result.referralCode).toHaveLength(12);
       expect(result.referralLink).toContain('ref=');
       expect(result.totalReferred).toBe(0);
       expect(result.convertedCount).toBe(0);
@@ -185,7 +187,7 @@ describe('referral service', () => {
           where: { status: 'registered', referrerUserId: 10 },
           skip: 5,
           take: 5,
-        })
+        }),
       );
     });
   });
@@ -194,20 +196,25 @@ describe('referral service', () => {
     it('should update referral with bonus data', async () => {
       const { prisma } = await import('@/lib/prisma');
       vi.mocked(prisma.referral.findUnique).mockResolvedValue({ id: 1 } as never);
-      vi.mocked(prisma.referral.update).mockResolvedValue({ id: 1, status: 'bonus_granted' } as never);
+      // Grant is now an atomic claim (updateMany WHERE status pre-bonus) then a
+      // re-read; only count>0 means this caller won the race.
+      vi.mocked(prisma.referral.updateMany).mockResolvedValue({ count: 1 } as never);
+      vi.mocked(prisma.referral.findUniqueOrThrow).mockResolvedValue({
+        id: 1,
+        status: 'bonus_granted',
+      } as never);
 
       const { grantReferralBonus } = await import('./referral');
       const result = await grantReferralBonus(1, { bonusType: 'cashback', bonusValue: 50 });
 
       expect(result.status).toBe('bonus_granted');
-      expect(prisma.referral.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+      expect(prisma.referral.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, status: { in: ['registered', 'first_order'] } },
         data: {
           status: 'bonus_granted',
           bonusType: 'cashback',
           bonusValue: 50,
         },
-        select: expect.any(Object),
       });
     });
   });
