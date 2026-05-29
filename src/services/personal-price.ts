@@ -32,12 +32,39 @@ const personalPriceSelect = {
   createdAt: true,
 } satisfies Prisma.PersonalPriceSelect;
 
-export async function getPersonalPrices(filters: PersonalPriceFilterInput) {
+/**
+ * Manager scoping: a `manager` may only see/touch personal prices belonging to
+ * customers assigned to them (`User.assignedManagerId`). Pass the manager's own
+ * id as `managerScopeId`; pass `null`/`undefined` for `admin` (no restriction).
+ */
+async function assertManagerOwnsCustomer(
+  managerScopeId: number | null | undefined,
+  customerUserId: number,
+) {
+  if (managerScopeId == null) return;
+  const customer = await prisma.user.findUnique({
+    where: { id: customerUserId },
+    select: { assignedManagerId: true },
+  });
+  if (!customer || customer.assignedManagerId !== managerScopeId) {
+    throw new PersonalPriceError('Цей клієнт не закріплений за вами', 403);
+  }
+}
+
+export async function getPersonalPrices(
+  filters: PersonalPriceFilterInput,
+  managerScopeId?: number | null,
+) {
   const where: Prisma.PersonalPriceWhereInput = {};
 
   if (filters.userId) where.userId = filters.userId;
   if (filters.productId) where.productId = filters.productId;
   if (filters.categoryId) where.categoryId = filters.categoryId;
+
+  // Restrict a manager to their assigned customers' prices.
+  if (managerScopeId != null) {
+    where.user = { assignedManagerId: managerScopeId };
+  }
 
   const skip = (filters.page - 1) * filters.limit;
 
@@ -58,7 +85,10 @@ export async function getPersonalPrices(filters: PersonalPriceFilterInput) {
 export async function createPersonalPrice(
   data: CreatePersonalPriceInput & { stackableWith?: string[] },
   createdBy: number,
+  managerScopeId?: number | null,
 ) {
+  await assertManagerOwnsCustomer(managerScopeId, data.userId);
+
   // Idempotency-by-shape: a duplicate (userId, productId, categoryId) entry
   // means two rules compete for the same lookup, with `getEffectivePrice`
   // arbitrarily picking the first by createdAt. The DB has no unique
@@ -102,11 +132,13 @@ export async function createPersonalPrice(
 export async function updatePersonalPrice(
   id: number,
   data: UpdatePersonalPriceInput & { stackableWith?: string[] },
+  managerScopeId?: number | null,
 ) {
   const existing = await prisma.personalPrice.findUnique({ where: { id } });
   if (!existing) {
     throw new PersonalPriceError('Персональну ціну не знайдено', 404);
   }
+  await assertManagerOwnsCustomer(managerScopeId, existing.userId);
 
   return prisma.personalPrice.update({
     where: { id },
@@ -131,11 +163,12 @@ export async function updatePersonalPrice(
   });
 }
 
-export async function deletePersonalPrice(id: number) {
+export async function deletePersonalPrice(id: number, managerScopeId?: number | null) {
   const existing = await prisma.personalPrice.findUnique({ where: { id } });
   if (!existing) {
     throw new PersonalPriceError('Персональну ціну не знайдено', 404);
   }
+  await assertManagerOwnsCustomer(managerScopeId, existing.userId);
 
   await prisma.personalPrice.delete({ where: { id } });
 }

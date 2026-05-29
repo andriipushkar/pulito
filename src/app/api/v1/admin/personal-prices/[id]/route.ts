@@ -1,13 +1,20 @@
 import { NextRequest } from 'next/server';
 import { withRole } from '@/middleware/auth';
-import { updatePersonalPrice, deletePersonalPrice, PersonalPriceError } from '@/services/personal-price';
+import {
+  updatePersonalPrice,
+  deletePersonalPrice,
+  PersonalPriceError,
+} from '@/services/personal-price';
 import { updatePersonalPriceSchema } from '@/validators/personal-price';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { logAudit } from '@/services/audit';
 
-export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { params }) => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async (_request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = parseInt(id, 10);
@@ -15,13 +22,18 @@ export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { 
     const item = await prisma.personalPrice.findUnique({
       where: { id: numId },
       include: {
-        user: { select: { id: true, fullName: true, email: true } },
+        user: { select: { id: true, fullName: true, email: true, assignedManagerId: true } },
         product: { select: { id: true, name: true, code: true } },
         creator: { select: { id: true, fullName: true } },
       },
     });
 
     if (!item) return errorResponse('Не знайдено', 404);
+    // A manager may only view prices for their assigned customers. Return 404
+    // (not 403) so an out-of-scope id is indistinguishable from a missing one.
+    if (user.role === 'manager' && item.user.assignedManagerId !== user.id) {
+      return errorResponse('Не знайдено', 404);
+    }
     return successResponse(item);
   } catch (err) {
     logger.error('[admin/personal-prices/[id]] GET failed', { error: err });
@@ -29,7 +41,10 @@ export const GET = withRole('admin', 'manager')(async (_request: NextRequest, { 
   }
 });
 
-export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { params, user }) => {
+export const PUT = withRole(
+  'admin',
+  'manager',
+)(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = parseInt(id, 10);
@@ -40,7 +55,11 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { p
       return errorResponse(parsed.error.issues[0].message, 400);
     }
 
-    const item = await updatePersonalPrice(numId, parsed.data);
+    const item = await updatePersonalPrice(
+      numId,
+      parsed.data,
+      user.role === 'manager' ? user.id : null,
+    );
     await logAudit({
       userId: user.id,
       actionType: 'data_update',
@@ -58,12 +77,15 @@ export const PUT = withRole('admin', 'manager')(async (request: NextRequest, { p
   }
 });
 
-export const DELETE = withRole('admin', 'manager')(async (_request: NextRequest, { params, user }) => {
+export const DELETE = withRole(
+  'admin',
+  'manager',
+)(async (_request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = parseInt(id, 10);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
-    await deletePersonalPrice(numId);
+    await deletePersonalPrice(numId, user.role === 'manager' ? user.id : null);
     await logAudit({
       userId: user.id,
       actionType: 'data_delete',
