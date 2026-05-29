@@ -1,11 +1,40 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/user', () => ({
   approveWholesale: vi.fn(),
   rejectWholesale: vi.fn(),
-  UserError: class UserError extends Error { statusCode = 400; },
+  UserError: class UserError extends Error {
+    statusCode = 400;
+  },
 }));
 
 import { PUT } from './route';
@@ -14,7 +43,9 @@ import { approveWholesale, rejectWholesale } from '@/services/user';
 const mockCtx = { user: { id: 1 }, params: Promise.resolve({ id: '2' }) };
 
 describe('PUT /api/v1/admin/users/[id]/wholesale', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('approves wholesale on success', async () => {
     vi.mocked(approveWholesale).mockResolvedValue({ id: 2 } as any);
@@ -44,7 +75,10 @@ describe('PUT /api/v1/admin/users/[id]/wholesale', () => {
       body: JSON.stringify({ action: 'approve' }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await PUT(req as any, { user: { id: 1 }, params: Promise.resolve({ id: 'abc' }) } as any);
+    const res = await PUT(
+      req as any,
+      { user: { id: 1 }, params: Promise.resolve({ id: 'abc' }) } as any,
+    );
     expect(res.status).toBe(400);
   });
 

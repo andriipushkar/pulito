@@ -1,7 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
- 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: any) => handler }));
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
 vi.mock('@/config/env', () => ({
   env: {
     JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
@@ -39,11 +56,9 @@ describe('GET /api/v1/admin/dashboard/recommendations', () => {
   });
 
   it('returns cached recommendations when present and skips DB', async () => {
-    const cached = [
-      { key: 'cached', label: 'cached', href: '/x', count: 1, severity: 'info' },
-    ];
+    const cached = [{ key: 'cached', label: 'cached', href: '/x', count: 1, severity: 'info' }];
     cacheGetMock.mockResolvedValueOnce(cached);
-     
+
     const res = await GET(new Request('http://localhost/x') as any);
     const json = await res.json();
     expect(json.success).toBe(true);
@@ -63,7 +78,6 @@ describe('GET /api/v1/admin/dashboard/recommendations', () => {
     vi.mocked(prisma.category.count).mockResolvedValueOnce(4); // categoriesNoDescription (info)
     vi.mocked(prisma.user.count).mockResolvedValueOnce(1); // adminsNo2fa (danger)
 
-     
     const res = await GET(new Request('http://localhost/x') as any);
     const json = await res.json();
 
@@ -81,7 +95,6 @@ describe('GET /api/v1/admin/dashboard/recommendations', () => {
     vi.mocked(prisma.category.count).mockResolvedValue(0);
     vi.mocked(prisma.user.count).mockResolvedValue(0);
 
-     
     const res = await GET(new Request('http://localhost/x') as any);
     const json = await res.json();
     expect(json.data).toEqual([]);
@@ -89,7 +102,7 @@ describe('GET /api/v1/admin/dashboard/recommendations', () => {
 
   it('returns 500 on DB error', async () => {
     vi.mocked(prisma.product.count).mockRejectedValue(new Error('DB down'));
-     
+
     const res = await GET(new Request('http://localhost/x') as any);
     expect(res.status).toBe(500);
   });

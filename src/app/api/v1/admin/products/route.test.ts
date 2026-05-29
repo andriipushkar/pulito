@@ -1,12 +1,41 @@
 import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/validators/product', () => ({ createProductSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/product', () => ({
   createProduct: vi.fn(),
-  ProductError: class ProductError extends Error { statusCode = 400; },
+  ProductError: class ProductError extends Error {
+    statusCode = 400;
+  },
 }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -20,7 +49,9 @@ import { createProduct } from '@/services/product';
 import { createProductSchema } from '@/validators/product';
 
 describe('GET /api/v1/admin/products', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns products on success', async () => {
     vi.mocked(prisma.product.findMany).mockResolvedValue([]);
@@ -37,7 +68,7 @@ describe('GET /api/v1/admin/products', () => {
     const res = await GET(req as any);
     expect(res.status).toBe(200);
     expect(vi.mocked(prisma.product.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ OR: expect.any(Array) }) })
+      expect.objectContaining({ where: expect.objectContaining({ OR: expect.any(Array) }) }),
     );
   });
 
@@ -50,10 +81,15 @@ describe('GET /api/v1/admin/products', () => {
 });
 
 describe('POST /api/v1/admin/products', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('creates product on success', async () => {
-    vi.mocked(createProductSchema.safeParse).mockReturnValue({ success: true, data: { name: 'Test', code: 'T1' } } as any);
+    vi.mocked(createProductSchema.safeParse).mockReturnValue({
+      success: true,
+      data: { name: 'Test', code: 'T1' },
+    } as any);
     vi.mocked(createProduct).mockResolvedValue({ id: 1 } as any);
     const req = new NextRequest('http://localhost', {
       method: 'POST',
@@ -65,7 +101,10 @@ describe('POST /api/v1/admin/products', () => {
   });
 
   it('returns 422 on validation error', async () => {
-    vi.mocked(createProductSchema.safeParse).mockReturnValue({ success: false, error: { issues: [{ message: 'Required' }] } } as any);
+    vi.mocked(createProductSchema.safeParse).mockReturnValue({
+      success: false,
+      error: { issues: [{ message: 'Required' }] },
+    } as any);
     const req = new NextRequest('http://localhost', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -76,7 +115,10 @@ describe('POST /api/v1/admin/products', () => {
   });
 
   it('uses fallback message when issues array is empty', async () => {
-    vi.mocked(createProductSchema.safeParse).mockReturnValue({ success: false, error: { issues: [] } } as any);
+    vi.mocked(createProductSchema.safeParse).mockReturnValue({
+      success: false,
+      error: { issues: [] },
+    } as any);
     const req = new NextRequest('http://localhost', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -90,7 +132,10 @@ describe('POST /api/v1/admin/products', () => {
 
   it('handles ProductError', async () => {
     const { ProductError } = await import('@/services/product');
-    vi.mocked(createProductSchema.safeParse).mockReturnValue({ success: true, data: { name: 'Test', code: 'T1' } } as any);
+    vi.mocked(createProductSchema.safeParse).mockReturnValue({
+      success: true,
+      data: { name: 'Test', code: 'T1' },
+    } as any);
     vi.mocked(createProduct).mockRejectedValue(new (ProductError as any)('Duplicate code'));
     const req = new NextRequest('http://localhost', {
       method: 'POST',
@@ -102,7 +147,10 @@ describe('POST /api/v1/admin/products', () => {
   });
 
   it('returns 500 on unexpected error', async () => {
-    vi.mocked(createProductSchema.safeParse).mockReturnValue({ success: true, data: { name: 'Test', code: 'T1' } } as any);
+    vi.mocked(createProductSchema.safeParse).mockReturnValue({
+      success: true,
+      data: { name: 'Test', code: 'T1' },
+    } as any);
     vi.mocked(createProduct).mockRejectedValue(new Error('fail'));
     const req = new NextRequest('http://localhost', {
       method: 'POST',

@@ -1,20 +1,55 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 const mockSafeParse = vi.fn().mockReturnValue({ success: true, data: {} });
-vi.mock('@/validators/pallet-delivery', () => ({ palletConfigSchema: { partial: () => ({ safeParse: (...args: unknown[]) => mockSafeParse(...args) }) } }));
+vi.mock('@/validators/pallet-delivery', () => ({
+  palletConfigSchema: {
+    partial: () => ({ safeParse: (...args: unknown[]) => mockSafeParse(...args) }),
+  },
+}));
 vi.mock('@/services/pallet-delivery', () => ({
   getPalletConfig: vi.fn(),
   updatePalletConfig: vi.fn(),
-  PalletDeliveryError: class PalletDeliveryError extends Error { statusCode = 400; },
+  PalletDeliveryError: class PalletDeliveryError extends Error {
+    statusCode = 400;
+  },
 }));
 
 import { GET, PUT } from './route';
 import { getPalletConfig, updatePalletConfig } from '@/services/pallet-delivery';
 
 describe('GET /api/v1/admin/settings/pallet-delivery', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns pallet config on success', async () => {
     vi.mocked(getPalletConfig).mockResolvedValue({} as any);
@@ -30,7 +65,9 @@ describe('GET /api/v1/admin/settings/pallet-delivery', () => {
 });
 
 describe('PUT /api/v1/admin/settings/pallet-delivery', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates pallet config on success', async () => {
     vi.mocked(updatePalletConfig).mockResolvedValue({} as any);

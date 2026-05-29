@@ -1,12 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({
-  withRole:
-    (..._roles: string[]) =>
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
     (handler: Function) =>
-    (...args: unknown[]) =>
-      handler(...args),
-}));
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
 vi.mock('@/config/env', () => ({
   env: {
     JWT_SECRET: 'test-jwt-secret-minimum-16-chars',

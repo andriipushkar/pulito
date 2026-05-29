@@ -1,7 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 
 const mockParsePreview = vi.fn();
 vi.mock('@/services/import', () => {
@@ -29,7 +56,9 @@ function createFileFormData(name: string, size: number = 100): Request {
 }
 
 describe('POST /api/v1/admin/import/preview', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns 400 when no file provided', async () => {
     const formData = new FormData();
@@ -79,7 +108,9 @@ describe('POST /api/v1/admin/import/preview', () => {
 
   it('handles ImportError', async () => {
     const { ImportError } = await import('@/services/import');
-    mockParsePreview.mockImplementation(() => { throw new ImportError('Bad format', 422); });
+    mockParsePreview.mockImplementation(() => {
+      throw new ImportError('Bad format', 422);
+    });
     const req = createFileFormData('data.xlsx');
     const res = await POST(req as any);
     expect(res.status).toBe(422);
@@ -88,7 +119,11 @@ describe('POST /api/v1/admin/import/preview', () => {
   });
 
   it('returns 500 on unexpected error', async () => {
-    const req = { formData: () => { throw new Error('fail'); } } as any;
+    const req = {
+      formData: () => {
+        throw new Error('fail');
+      },
+    } as any;
     const res = await POST(req);
     expect(res.status).toBe(500);
   });

@@ -1,14 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({
-  withRole: (..._roles: string[]) => (handler: Function) =>
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
     (req: unknown, ctx?: Record<string, unknown>) =>
-      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
-}));
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
 vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/settings', () => ({ invalidateSettingsCache: vi.fn() }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     siteSetting: { findMany: vi.fn(), upsert: vi.fn() },
@@ -19,7 +42,9 @@ import { GET, PUT } from './route';
 import { prisma } from '@/lib/prisma';
 
 describe('GET /api/v1/admin/settings', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns settings on success', async () => {
     vi.mocked(prisma.siteSetting.findMany).mockResolvedValue([]);
@@ -35,7 +60,9 @@ describe('GET /api/v1/admin/settings', () => {
 });
 
 describe('PUT /api/v1/admin/settings', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates settings on success', async () => {
     vi.mocked(prisma.siteSetting.upsert).mockResolvedValue({} as any);

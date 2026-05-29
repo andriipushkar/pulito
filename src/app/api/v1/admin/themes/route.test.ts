@@ -1,18 +1,49 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/theme', () => ({
   getAllThemes: vi.fn(),
   uploadTheme: vi.fn(),
-  ThemeError: class ThemeError extends Error { statusCode = 400; },
+  ThemeError: class ThemeError extends Error {
+    statusCode = 400;
+  },
 }));
 
 import { GET, POST } from './route';
 import { getAllThemes, uploadTheme } from '@/services/theme';
 
 describe('GET /api/v1/admin/themes', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns themes on success', async () => {
     vi.mocked(getAllThemes).mockResolvedValue([]);
@@ -38,7 +69,9 @@ describe('GET /api/v1/admin/themes', () => {
 });
 
 describe('POST /api/v1/admin/themes', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns 400 when no file provided', async () => {
     const formData = new FormData();
@@ -57,7 +90,9 @@ describe('POST /api/v1/admin/themes', () => {
 
   it('returns 400 when file too large', async () => {
     const formData = new FormData();
-    const bigFile = new File([new ArrayBuffer(11 * 1024 * 1024)], 'theme.zip', { type: 'application/zip' });
+    const bigFile = new File([new ArrayBuffer(11 * 1024 * 1024)], 'theme.zip', {
+      type: 'application/zip',
+    });
     Object.defineProperty(bigFile, 'size', { value: 11 * 1024 * 1024 });
     formData.append('file', bigFile);
     const req = new Request('http://localhost', { method: 'POST', body: formData });

@@ -1,15 +1,44 @@
 import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (req: any, ctx?: any) => handler(req, { ...ctx, user: { id: 1, role: 'admin' } }) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/user', () => ({ getAllUsers: vi.fn() }));
 
 import { GET } from './route';
 import { getAllUsers } from '@/services/user';
 
 describe('GET /api/v1/admin/users', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns users on success', async () => {
     vi.mocked(getAllUsers).mockResolvedValue({ users: [], total: 0 });
@@ -20,11 +49,19 @@ describe('GET /api/v1/admin/users', () => {
 
   it('passes filter params to service', async () => {
     vi.mocked(getAllUsers).mockResolvedValue({ users: [], total: 0 });
-    const req = new NextRequest('http://localhost/api/v1/admin/users?page=2&limit=10&role=admin&wholesaleStatus=pending&search=test');
+    const req = new NextRequest(
+      'http://localhost/api/v1/admin/users?page=2&limit=10&role=admin&wholesaleStatus=pending&search=test',
+    );
     const res = await GET(req as any);
     expect(res.status).toBe(200);
     expect(vi.mocked(getAllUsers)).toHaveBeenCalledWith(
-      expect.objectContaining({ page: 2, limit: 10, role: 'admin', wholesaleStatus: 'pending', search: 'test' })
+      expect.objectContaining({
+        page: 2,
+        limit: 10,
+        role: 'admin',
+        wholesaleStatus: 'pending',
+        search: 'test',
+      }),
     );
   });
 
@@ -41,7 +78,13 @@ describe('GET /api/v1/admin/users', () => {
     const res = await GET(req as any);
     expect(res.status).toBe(200);
     expect(vi.mocked(getAllUsers)).toHaveBeenCalledWith(
-      expect.objectContaining({ page: 1, limit: 20, role: undefined, wholesaleStatus: undefined, search: undefined })
+      expect.objectContaining({
+        page: 1,
+        limit: 20,
+        role: undefined,
+        wholesaleStatus: undefined,
+        search: undefined,
+      }),
     );
   });
 });

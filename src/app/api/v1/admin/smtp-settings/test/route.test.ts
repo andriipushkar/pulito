@@ -1,7 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
 vi.mock('nodemailer', () => ({
   createTransport: vi.fn(() => ({
     verify: vi.fn(),
@@ -13,11 +41,16 @@ import { POST } from './route';
 import * as nodemailer from 'nodemailer';
 
 describe('POST /api/v1/admin/smtp-settings/test', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns success on valid SMTP connection', async () => {
     const mockVerify = vi.fn().mockResolvedValue(true);
-    vi.mocked(nodemailer.createTransport).mockReturnValue({ verify: mockVerify, sendMail: vi.fn() } as any);
+    vi.mocked(nodemailer.createTransport).mockReturnValue({
+      verify: mockVerify,
+      sendMail: vi.fn(),
+    } as any);
 
     const req = new Request('http://localhost', {
       method: 'POST',
@@ -34,12 +67,18 @@ describe('POST /api/v1/admin/smtp-settings/test', () => {
   it('sends test email when testEmail provided', async () => {
     const mockSendMail = vi.fn().mockResolvedValue({});
     const mockVerify = vi.fn().mockResolvedValue(true);
-    vi.mocked(nodemailer.createTransport).mockReturnValue({ verify: mockVerify, sendMail: mockSendMail } as any);
+    vi.mocked(nodemailer.createTransport).mockReturnValue({
+      verify: mockVerify,
+      sendMail: mockSendMail,
+    } as any);
 
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ config: { host: 'smtp.test.com', port: 587 }, testEmail: 'test@example.com' }),
+      body: JSON.stringify({
+        config: { host: 'smtp.test.com', port: 587 },
+        testEmail: 'test@example.com',
+      }),
     });
     const res = await POST(req as any);
     const json = await res.json();

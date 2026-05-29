@@ -1,12 +1,41 @@
 import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (req: any, ctx?: any) => handler(req, { ...ctx, user: { id: 99, role: 'admin' } }) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => {
+  const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
+    user: { id: 1, email: 'admin@test.com', role: 'admin' },
+    ...(ctx || {}),
+  });
+  const roleWrap =
+    (..._roles: unknown[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, withUser(req, ctx));
+  const authWrap = (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, withUser(req, ctx));
+  return {
+    withRole: roleWrap,
+    withRole2fa: roleWrap,
+    withAuth: authWrap,
+    withOptionalAuth: authWrap,
+  };
+});
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/user', () => ({
   getUserById: vi.fn(),
   updateUserRole: vi.fn(),
-  UserError: class UserError extends Error { statusCode = 400; },
+  UserError: class UserError extends Error {
+    statusCode = 400;
+  },
 }));
 
 import { GET, PUT } from './route';
@@ -15,7 +44,9 @@ import { getUserById, updateUserRole } from '@/services/user';
 const mockCtx = { params: Promise.resolve({ id: '1' }) };
 
 describe('GET /api/v1/admin/users/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns user on success', async () => {
     vi.mocked(getUserById).mockResolvedValue({ id: 1 } as any);
@@ -33,7 +64,9 @@ describe('GET /api/v1/admin/users/[id]', () => {
 });
 
 describe('PUT /api/v1/admin/users/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates user role on success', async () => {
     vi.mocked(updateUserRole).mockResolvedValue({ id: 1 } as any);
@@ -91,7 +124,9 @@ describe('PUT /api/v1/admin/users/[id]', () => {
 });
 
 describe('GET /api/v1/admin/users/[id] - edge cases', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns 400 for non-numeric id', async () => {
     const req = new NextRequest('http://localhost');
