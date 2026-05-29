@@ -29,7 +29,7 @@ vi.mock('@/utils/slug', () => ({
     name
       .toLowerCase()
       .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
+      .replace(/[^a-z0-9-]/g, ''),
   ),
 }));
 
@@ -59,6 +59,11 @@ describe('integration-1c', () => {
         priceWholesale: 149.99,
         quantity: 50,
         isActive: true,
+        weightGrams: null,
+        lengthMm: null,
+        widthMm: null,
+        heightMm: null,
+        cost: null,
       });
     });
 
@@ -194,7 +199,7 @@ describe('integration-1c', () => {
 
       vi.mocked(prisma.product.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.product.create).mockRejectedValue(
-        new Error('Unique constraint failed on the fields: (`code`)')
+        new Error('Unique constraint failed on the fields: (`code`)'),
       );
 
       const result = await importProductsFrom1C([
@@ -219,16 +224,14 @@ describe('integration-1c', () => {
       } as never);
       vi.mocked(prisma.product.update).mockResolvedValue({} as never);
 
-      const result = await updateStockFrom1C([
-        { code: 'SKU-001', quantity: 25 },
-      ]);
+      const result = await updateStockFrom1C([{ code: 'SKU-001', quantity: 25 }]);
 
       expect(result.updated).toBe(1);
       expect(result.failed).toBe(0);
       expect(prisma.product.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { quantity: 25 },
-        })
+        }),
       );
     });
 
@@ -238,9 +241,7 @@ describe('integration-1c', () => {
 
       vi.mocked(prisma.product.findUnique).mockResolvedValue(null);
 
-      const result = await updateStockFrom1C([
-        { code: 'UNKNOWN-999', quantity: 10 },
-      ]);
+      const result = await updateStockFrom1C([{ code: 'UNKNOWN-999', quantity: 10 }]);
 
       expect(result.failed).toBe(1);
       expect(result.errors[0].message).toContain('Product not found');

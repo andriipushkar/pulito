@@ -165,8 +165,8 @@ describe('handlePaymentCallback - tracking', () => {
       amount: 200,
     });
 
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Payment amount mismatch',
+    expect(logger.error).toHaveBeenCalledWith(
+      'PAYMENT_AMOUNT_MISMATCH',
       expect.objectContaining({ paidAmount: 200, expectedAmount: 500 }),
     );
   });

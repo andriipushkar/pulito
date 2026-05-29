@@ -161,10 +161,11 @@ describe('Monobank provider', () => {
 
       const freshMod = await import('./monobank');
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ key: pubKeyBase64 }),
-      });
+      // verifyCallback retries once with a freshly-fetched pubkey on signature
+      // failure (handles Mono key rotation), so the pubkey endpoint is hit twice.
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ key: pubKeyBase64 }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ key: pubKeyBase64 }) });
 
       const body = JSON.stringify({
         reference: 'order_123',

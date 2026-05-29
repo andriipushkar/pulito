@@ -2,7 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    staticPage: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    staticPage: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
   },
 }));
 
@@ -11,7 +17,15 @@ vi.mock('@/utils/slug', () => ({
 }));
 
 import { prisma } from '@/lib/prisma';
-import { StaticPageError, getPublishedPages, getPageBySlug, getAllPages, createPage, updatePage, deletePage } from './static-page';
+import {
+  StaticPageError,
+  getPublishedPages,
+  getPageBySlug,
+  getAllPages,
+  createPage,
+  updatePage,
+  deletePage,
+} from './static-page';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -49,9 +63,11 @@ describe('getPageBySlug', () => {
 
     await getPageBySlug('about');
 
-    expect(prisma.staticPage.findUnique).toHaveBeenCalledWith({
-      where: { slug: 'about', isPublished: true },
-    });
+    expect(prisma.staticPage.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { slug: 'about', isPublished: true },
+      }),
+    );
   });
 });
 
@@ -71,7 +87,9 @@ describe('createPage', () => {
     vi.mocked(prisma.staticPage.findUnique).mockResolvedValue({ id: 1 } as any);
 
     await expect(createPage({ title: 'Test', content: 'x' })).rejects.toThrow(StaticPageError);
-    await expect(createPage({ title: 'Test', content: 'x' })).rejects.toMatchObject({ statusCode: 409 });
+    await expect(createPage({ title: 'Test', content: 'x' })).rejects.toMatchObject({
+      statusCode: 409,
+    });
   });
 });
 
@@ -85,7 +103,7 @@ describe('updatePage', () => {
 
   it('throws 409 if new slug conflicts', async () => {
     vi.mocked(prisma.staticPage.findUnique)
-      .mockResolvedValueOnce({ id: 1, slug: 'old-slug' } as any)   // page found
+      .mockResolvedValueOnce({ id: 1, slug: 'old-slug' } as any) // page found
       .mockResolvedValueOnce({ id: 2, slug: 'taken-slug' } as any); // conflict
 
     await expect(updatePage(1, { slug: 'taken-slug' })).rejects.toThrow(StaticPageError);

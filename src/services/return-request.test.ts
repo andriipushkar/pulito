@@ -98,9 +98,11 @@ describe('createReturnRequest', () => {
         orderId: 1,
         userId: 10,
         reason: 'defective',
-        totalAmount: 150,
       }),
     });
+    // totalAmount is now a Prisma.Decimal; compare by string value.
+    const createArg = mockPrisma.returnRequest.create.mock.calls[0][0];
+    expect(String(createArg.data.totalAmount)).toBe('150');
   });
 
   it('throws 404 when order not found', async () => {

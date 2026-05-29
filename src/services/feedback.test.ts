@@ -14,7 +14,13 @@ vi.mock('@/config/env', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    feedback: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), count: vi.fn() },
+    feedback: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      count: vi.fn(),
+    },
   },
 }));
 
@@ -56,7 +62,14 @@ describe('createFeedback', () => {
   });
 
   it('creates callback type with optional fields', async () => {
-    const input = { name: 'Jane', message: 'Call me', type: 'callback' as const, phone: '+380501234567', email: 'jane@test.com', subject: 'Order' };
+    const input = {
+      name: 'Jane',
+      message: 'Call me',
+      type: 'callback' as const,
+      phone: '+380501234567',
+      email: 'jane@test.com',
+      subject: 'Order',
+    };
     const created = { id: 2, ...input, status: 'new_feedback' };
     mockPrisma.feedback.create.mockResolvedValue(created);
 
@@ -80,7 +93,12 @@ describe('getFeedbackList', () => {
     mockPrisma.feedback.findMany.mockResolvedValue(items);
     mockPrisma.feedback.count.mockResolvedValue(10);
 
-    const result = await getFeedbackList({ page: 2, limit: 5, type: 'callback', status: 'new_feedback' });
+    const result = await getFeedbackList({
+      page: 2,
+      limit: 5,
+      type: 'callback',
+      status: 'new_feedback',
+    });
 
     expect(result).toEqual({ items, total: 10 });
     expect(mockPrisma.feedback.findMany).toHaveBeenCalledWith(
@@ -117,6 +135,9 @@ describe('getFeedbackList', () => {
           OR: [
             { name: { contains: 'john', mode: 'insensitive' } },
             { email: { contains: 'john', mode: 'insensitive' } },
+            { phone: { contains: 'john', mode: 'insensitive' } },
+            { message: { contains: 'john', mode: 'insensitive' } },
+            { subject: { contains: 'john', mode: 'insensitive' } },
           ],
         }),
       }),
@@ -227,7 +248,9 @@ describe('updateFeedbackStatus', () => {
     mockPrisma.feedback.findUnique.mockResolvedValue(null);
 
     await expect(updateFeedbackStatus(999, 'processed', 1)).rejects.toThrow(FeedbackError);
-    await expect(updateFeedbackStatus(999, 'processed', 1)).rejects.toMatchObject({ statusCode: 404 });
+    await expect(updateFeedbackStatus(999, 'processed', 1)).rejects.toMatchObject({
+      statusCode: 404,
+    });
   });
 
   it('updates status to processed', async () => {

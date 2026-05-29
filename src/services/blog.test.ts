@@ -118,13 +118,16 @@ describe('getPostBySlug', () => {
 });
 
 describe('deletePost', () => {
-  it('deletes existing post', async () => {
+  it('soft-deletes existing post', async () => {
     mockPostFindUnique.mockResolvedValue({ id: 1 });
-    mockPostDelete.mockResolvedValue(undefined);
+    mockPostUpdate.mockResolvedValue(undefined);
 
     await deletePost(1);
 
-    expect(mockPostDelete).toHaveBeenCalledWith({ where: { id: 1 } });
+    expect(mockPostUpdate).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: expect.objectContaining({ deletedAt: expect.any(Date), isPublished: false }),
+    });
   });
 
   it('throws for non-existent post', async () => {

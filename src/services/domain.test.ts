@@ -54,7 +54,7 @@ describe('domain service', () => {
 
     it('rejects invalid domain format', async () => {
       await expect(initiateDomainVerification(1, 'not a domain')).rejects.toThrow(
-        'Невалідний формат домену'
+        'Невалідний формат домену',
       );
     });
 
@@ -62,7 +62,7 @@ describe('domain service', () => {
       mockPrisma.tenant.findFirst.mockResolvedValue({ id: 2 });
 
       await expect(initiateDomainVerification(1, 'example.com')).rejects.toThrow(
-        'Цей домен вже використовується іншим магазином'
+        'Цей домен вже використовується іншим магазином',
       );
     });
   });
@@ -82,7 +82,7 @@ describe('domain service', () => {
       expect(result).toBe(true);
       expect(mockPrisma.tenant.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { domainVerified: true },
+        data: { domainVerified: true, domainVerificationToken: null },
       });
     });
 
@@ -138,9 +138,7 @@ describe('domain service', () => {
         domainVerified: false,
       });
 
-      await expect(mapDomain(1, 'example.com')).rejects.toThrow(
-        'Домен не верифіковано'
-      );
+      await expect(mapDomain(1, 'example.com')).rejects.toThrow('Домен не верифіковано');
     });
   });
 
