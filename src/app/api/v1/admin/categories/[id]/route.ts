@@ -97,6 +97,12 @@ export const DELETE = withRole(
     return successResponse({ message: 'Категорію видалено' });
   } catch (error) {
     if (error instanceof CategoryError) {
+      // Log blocked deletes (e.g. category still has products) so we can confirm
+      // the request reached the server and the reason was returned to the client.
+      logger.info('[admin/categories/[id]] DELETE blocked', {
+        status: error.statusCode,
+        message: error.message,
+      });
       return errorResponse(error.message, error.statusCode);
     }
     logger.error('[admin/categories/[id]] DELETE failed', { error });
