@@ -423,7 +423,10 @@ export async function deleteCategory(id: number) {
     include: {
       _count: {
         select: {
-          products: true,
+          // Count only LIVE products — a soft-deleted product keeps its
+          // categoryId, so without this filter a category whose products were
+          // all archived could never be deleted (count stays > 0).
+          products: { where: { deletedAt: null } },
           children: { where: { deletedAt: null } },
         },
       },
@@ -436,7 +439,8 @@ export async function deleteCategory(id: number) {
 
   if (category._count.products > 0) {
     throw new CategoryError(
-      `Неможливо видалити категорію з ${category._count.products} товарами. Спочатку перенесіть товари.`,
+      `Неможливо видалити категорію: у ній ${category._count.products} товар(ів). ` +
+        `Спочатку перенесіть товари в іншу категорію або видаліть їх.`,
       400,
     );
   }
