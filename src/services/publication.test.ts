@@ -77,7 +77,12 @@ const mockFetch = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   global.fetch = mockFetch;
-  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ ok: true }) });
+  // Include result.message_id — the Telegram path now persists tgMessageId
+  // (BigInt(data.result.message_id)) on success.
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ ok: true, result: { message_id: 555 } }),
+  });
   // Reset channel configs
   mockChannelConfigs.telegram = null;
   mockChannelConfigs.viber = null;
@@ -196,6 +201,8 @@ describe('publishNow', () => {
       buttons: null,
     } as never);
     mockPrisma.publication.update.mockResolvedValue({ id: 1, status: 'published' } as never);
+    // Overall publication status is now aggregated from the channel rows.
+    mockPrisma.publicationChannel.findMany.mockResolvedValue([{ status: 'published' }] as never);
 
     await publishNow(1);
 
@@ -610,10 +617,11 @@ describe('publishNow concurrency lock', () => {
       hashtags: null,
       buttons: null,
     } as never);
-    // updateMany affects 0 rows — meaning row was already in `pending` state.
+    // Both updateMany calls (stale-lock reset + claim) affect 0 rows — the row
+    // is already `pending`, so the claim can't transition it.
     (
       mockPrisma.publicationChannel.updateMany as unknown as ReturnType<typeof vi.fn>
-    ).mockResolvedValueOnce({ count: 0 });
+    ).mockResolvedValue({ count: 0 });
     (
       mockPrisma.publicationChannel.findUnique as unknown as ReturnType<typeof vi.fn>
     ).mockResolvedValueOnce({
@@ -635,9 +643,11 @@ describe('publishNow concurrency lock', () => {
       buttons: null,
     } as never);
     mockPrisma.publication.update.mockResolvedValue({ id: 101, status: 'failed' } as never);
+    // Both updateMany calls (stale-lock reset + claim) match nothing, so the
+    // lock falls through to creating a fresh pending row.
     (
       mockPrisma.publicationChannel.updateMany as unknown as ReturnType<typeof vi.fn>
-    ).mockResolvedValueOnce({ count: 0 });
+    ).mockResolvedValue({ count: 0 });
     (
       mockPrisma.publicationChannel.findUnique as unknown as ReturnType<typeof vi.fn>
     ).mockResolvedValueOnce(null);

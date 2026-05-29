@@ -36,6 +36,10 @@ vi.mock('@/lib/prisma', () => ({
     slugRedirect: {
       upsert: vi.fn(),
     },
+    // List endpoints enrich products with aggregated ratings via review.groupBy.
+    review: {
+      groupBy: vi.fn().mockResolvedValue([]),
+    },
     $queryRaw: vi.fn(),
     $queryRawUnsafe: vi.fn(),
     $executeRaw: vi.fn(),
@@ -110,7 +114,7 @@ describe('getProductBySlug', () => {
     expect(mockPrisma.product.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { slug: 'test-product', isActive: true },
-      })
+      }),
     );
   });
 
@@ -179,7 +183,7 @@ describe('getProductById', () => {
     expect(result!.id).toBe(10);
     expect(result!.personalPrice).toBeNull();
     expect(mockPrisma.product.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 10 } })
+      expect.objectContaining({ where: { id: 10 } }),
     );
   });
 
@@ -228,10 +232,10 @@ describe('searchAutocomplete', () => {
     ];
     mockPrisma.product.findMany.mockResolvedValue(mockProducts as never);
 
-    const mockCategories = [
-      { id: 10, name: 'Soaps', slug: 'soaps', _count: { products: 15 } },
-    ];
-    (mockPrisma as never as { category: { findMany: ReturnType<typeof vi.fn> } }).category.findMany.mockResolvedValue(mockCategories as never);
+    const mockCategories = [{ id: 10, name: 'Soaps', slug: 'soaps', _count: { products: 15 } }];
+    (
+      mockPrisma as never as { category: { findMany: ReturnType<typeof vi.fn> } }
+    ).category.findMany.mockResolvedValue(mockCategories as never);
 
     const result = await searchAutocomplete('soap');
 
@@ -242,7 +246,9 @@ describe('searchAutocomplete', () => {
 
   it('should return empty products when no ids matched', async () => {
     mockPrisma.$queryRaw.mockResolvedValue([] as never);
-    (mockPrisma as never as { category: { findMany: ReturnType<typeof vi.fn> } }).category.findMany.mockResolvedValue([] as never);
+    (
+      mockPrisma as never as { category: { findMany: ReturnType<typeof vi.fn> } }
+    ).category.findMany.mockResolvedValue([] as never);
 
     const result = await searchAutocomplete('zzzzz');
 
@@ -287,7 +293,7 @@ describe('createProduct', () => {
           slug: 'new-product',
           priceRetail: 150,
         }),
-      })
+      }),
     );
   });
 
@@ -309,28 +315,30 @@ describe('createProduct', () => {
         data: expect.objectContaining({
           slug: 'new-product-p002',
         }),
-      })
+      }),
     );
   });
 
   it('should throw 409 if product code already exists', async () => {
     mockPrisma.product.findUnique.mockResolvedValueOnce({ id: 1 } as never);
 
-    await expect(
-      createProduct({ code: 'P001', name: 'Dup', priceRetail: 100 })
-    ).rejects.toThrow(ProductError);
+    await expect(createProduct({ code: 'P001', name: 'Dup', priceRetail: 100 })).rejects.toThrow(
+      ProductError,
+    );
 
-    await expect(
-      createProduct({ code: 'P001', name: 'Dup', priceRetail: 100 })
-    ).rejects.toThrow('Товар з таким кодом вже існує');
+    await expect(createProduct({ code: 'P001', name: 'Dup', priceRetail: 100 })).rejects.toThrow(
+      'Товар з таким кодом вже існує',
+    );
   });
 
   it('should throw 404 if category not found', async () => {
     mockPrisma.product.findUnique.mockResolvedValueOnce(null); // code check
-    (mockPrisma as never as { category: { findUnique: ReturnType<typeof vi.fn> } }).category.findUnique.mockResolvedValue(null);
+    (
+      mockPrisma as never as { category: { findUnique: ReturnType<typeof vi.fn> } }
+    ).category.findUnique.mockResolvedValue(null);
 
     await expect(
-      createProduct({ code: 'P003', name: 'Test', priceRetail: 100, categoryId: 999 })
+      createProduct({ code: 'P003', name: 'Test', priceRetail: 100, categoryId: 999 }),
     ).rejects.toThrow(ProductError);
   });
 
@@ -338,7 +346,9 @@ describe('createProduct', () => {
     mockPrisma.product.findUnique
       .mockResolvedValueOnce(null) // code check
       .mockResolvedValueOnce(null); // slug check
-    (mockPrisma as never as { category: { findUnique: ReturnType<typeof vi.fn> } }).category.findUnique.mockResolvedValue({ id: 1 } as never);
+    (
+      mockPrisma as never as { category: { findUnique: ReturnType<typeof vi.fn> } }
+    ).category.findUnique.mockResolvedValue({ id: 1 } as never);
     mockPrisma.product.create.mockResolvedValue({ id: 3 } as never);
 
     await createProduct({
@@ -362,7 +372,7 @@ describe('createProduct', () => {
           isActive: true,
           sortOrder: 5,
         }),
-      })
+      }),
     );
   });
 });
@@ -389,7 +399,7 @@ describe('updateProduct', () => {
       expect.objectContaining({
         where: { id: 1 },
         data: expect.objectContaining({ quantity: 25 }),
-      })
+      }),
     );
   });
 
@@ -448,7 +458,9 @@ describe('updateProduct', () => {
       .mockResolvedValueOnce({ id: 2, code: 'P002' } as never); // code conflict
 
     await expect(updateProduct(1, { code: 'P002' })).rejects.toThrow(ProductError);
-    await expect(updateProduct(1, { code: 'P002' })).rejects.toThrow('Товар з таким кодом вже існує');
+    await expect(updateProduct(1, { code: 'P002' })).rejects.toThrow(
+      'Товар з таким кодом вже існує',
+    );
   });
 
   it('should regenerate slug when name changes', async () => {
@@ -471,7 +483,7 @@ describe('updateProduct', () => {
           name: 'New Name',
           slug: 'new-name',
         }),
-      })
+      }),
     );
   });
 });
@@ -522,13 +534,14 @@ describe('getPromoProducts', () => {
 
     const result = await getPromoProducts();
 
-    expect(result).toEqual(promoItems);
+    // List endpoints enrich each product with aggregated rating fields.
+    expect(result).toEqual(promoItems.map((p) => ({ ...p, avgRating: null, reviewCount: 0 })));
     expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { isActive: true, isPromo: true, quantity: { gt: 0 } },
         orderBy: { ordersCount: 'desc' },
         take: 10,
-      })
+      }),
     );
   });
 
@@ -537,9 +550,7 @@ describe('getPromoProducts', () => {
 
     await getPromoProducts(5);
 
-    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 5 })
-    );
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
   });
 });
 
@@ -553,13 +564,13 @@ describe('getNewProducts', () => {
 
     const result = await getNewProducts();
 
-    expect(result).toEqual(newItems);
+    expect(result).toEqual(newItems.map((p) => ({ ...p, avgRating: null, reviewCount: 0 })));
     expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { isActive: true },
         orderBy: { createdAt: 'desc' },
         take: 10,
-      })
+      }),
     );
   });
 
@@ -568,9 +579,7 @@ describe('getNewProducts', () => {
 
     await getNewProducts(3);
 
-    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 3 })
-    );
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 3 }));
   });
 });
 
@@ -587,13 +596,13 @@ describe('getPopularProducts', () => {
 
     const result = await getPopularProducts();
 
-    expect(result).toEqual(popularItems);
+    expect(result).toEqual(popularItems.map((p) => ({ ...p, avgRating: null, reviewCount: 0 })));
     expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { isActive: true, quantity: { gt: 0 } },
         orderBy: { ordersCount: 'desc' },
         take: 10,
-      })
+      }),
     );
   });
 
@@ -602,9 +611,7 @@ describe('getPopularProducts', () => {
 
     await getPopularProducts(20);
 
-    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 20 })
-    );
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 20 }));
   });
 });
 
@@ -634,7 +641,7 @@ describe('getProducts', () => {
         where: { isActive: true },
         skip: 0,
         take: 10,
-      })
+      }),
     );
   });
 
@@ -649,7 +656,7 @@ describe('getProducts', () => {
         where: expect.objectContaining({
           category: { slug: 'soap' },
         }),
-      })
+      }),
     );
   });
 
@@ -664,7 +671,7 @@ describe('getProducts', () => {
         where: expect.objectContaining({
           priceRetail: { gte: 50, lte: 200 },
         }),
-      })
+      }),
     );
   });
 
@@ -679,7 +686,7 @@ describe('getProducts', () => {
         where: expect.objectContaining({
           priceRetail: { gte: 50 },
         }),
-      })
+      }),
     );
   });
 
@@ -694,7 +701,7 @@ describe('getProducts', () => {
         where: expect.objectContaining({
           isPromo: true,
         }),
-      })
+      }),
     );
   });
 
@@ -709,12 +716,13 @@ describe('getProducts', () => {
         where: expect.objectContaining({
           quantity: { gt: 0 },
         }),
-      })
+      }),
     );
   });
 
   it('should use full-text search when search query is provided', async () => {
-    mockPrisma.$queryRawUnsafe = vi.fn()
+    mockPrisma.$queryRawUnsafe = vi
+      .fn()
       .mockResolvedValueOnce([{ count: BigInt(2) }] as never) // count
       .mockResolvedValueOnce([{ id: 1 }, { id: 2 }] as never) as never; // rank
     mockPrisma.product.findMany.mockResolvedValue([
@@ -729,10 +737,16 @@ describe('getProducts', () => {
   });
 
   it('should return empty when full-text search returns no results', async () => {
-    mockPrisma.$queryRawUnsafe = vi.fn()
+    mockPrisma.$queryRawUnsafe = vi
+      .fn()
       .mockResolvedValueOnce([{ count: BigInt(0) }] as never) as never;
 
-    const result = await getProducts({ page: 1, limit: 10, sort: 'popular', search: 'nonexistent' });
+    const result = await getProducts({
+      page: 1,
+      limit: 10,
+      sort: 'popular',
+      search: 'nonexistent',
+    });
 
     expect(result).toEqual({ products: [], total: 0 });
   });
@@ -756,7 +770,7 @@ describe('getProducts', () => {
     expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [{ priceRetail: 'asc' }],
-      })
+      }),
     );
   });
 
@@ -769,7 +783,7 @@ describe('getProducts', () => {
     expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [{ priceRetail: 'desc' }],
-      })
+      }),
     );
   });
 
@@ -782,7 +796,7 @@ describe('getProducts', () => {
     expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [{ name: 'asc' }],
-      })
+      }),
     );
   });
 
@@ -795,12 +809,13 @@ describe('getProducts', () => {
     expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [{ createdAt: 'desc' }],
-      })
+      }),
     );
   });
 
   it('should apply search filters in full-text search', async () => {
-    mockPrisma.$queryRawUnsafe = vi.fn()
+    mockPrisma.$queryRawUnsafe = vi
+      .fn()
       .mockResolvedValueOnce([{ count: BigInt(1) }] as never)
       .mockResolvedValueOnce([{ id: 1 }] as never) as never;
     mockPrisma.product.findMany.mockResolvedValue([
@@ -808,8 +823,15 @@ describe('getProducts', () => {
     ] as never);
 
     await getProducts({
-      page: 1, limit: 10, sort: 'popular', search: 'soap',
-      category: 'cleaning', priceMin: 10, priceMax: 100, promo: true, inStock: true,
+      page: 1,
+      limit: 10,
+      sort: 'popular',
+      search: 'soap',
+      category: 'cleaning',
+      priceMin: 10,
+      priceMax: 100,
+      promo: true,
+      inStock: true,
     });
 
     // Verify $queryRawUnsafe was called with filter params
@@ -823,7 +845,7 @@ describe('getProducts', () => {
     await getProducts({ page: 3, limit: 20, sort: 'popular' });
 
     expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 40, take: 20 })
+      expect.objectContaining({ skip: 40, take: 20 }),
     );
   });
 });
@@ -848,7 +870,8 @@ describe('applyPersonalPricing', () => {
   it('should return fixedPrice when set', async () => {
     const { getEffectivePrice } = await import('@/services/personal-price');
     vi.mocked(getEffectivePrice).mockResolvedValue({
-      fixedPrice: 75, discountPercent: null,
+      fixedPrice: 75,
+      discountPercent: null,
     } as never);
 
     const result = await applyPersonalPricing({ id: 1, priceRetail: 100, categoryId: 1 }, 1);
@@ -858,7 +881,8 @@ describe('applyPersonalPricing', () => {
   it('should calculate discount when discountPercent is set', async () => {
     const { getEffectivePrice } = await import('@/services/personal-price');
     vi.mocked(getEffectivePrice).mockResolvedValue({
-      fixedPrice: null, discountPercent: 25,
+      fixedPrice: null,
+      discountPercent: 25,
     } as never);
 
     const result = await applyPersonalPricing({ id: 1, priceRetail: 200, categoryId: 1 }, 1);
@@ -869,7 +893,8 @@ describe('applyPersonalPricing', () => {
   it('should return null when both fixedPrice and discountPercent are null', async () => {
     const { getEffectivePrice } = await import('@/services/personal-price');
     vi.mocked(getEffectivePrice).mockResolvedValue({
-      fixedPrice: null, discountPercent: null,
+      fixedPrice: null,
+      discountPercent: null,
     } as never);
 
     const result = await applyPersonalPricing({ id: 1, priceRetail: 100, categoryId: 1 }, 1);
@@ -901,8 +926,12 @@ describe('applyPersonalPricing', () => {
 describe('updateProduct - additional branches', () => {
   it('should track wholesale price changes', async () => {
     const existing = {
-      id: 1, code: 'P001', name: 'Product', slug: 'product',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'P001',
+      name: 'Product',
+      slug: 'product',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
     mockPrisma.product.update.mockResolvedValue({ id: 1 } as never);
@@ -915,14 +944,18 @@ describe('updateProduct - additional branches', () => {
           priceWholesaleOld: 80,
           priceWholesale: 70,
         }),
-      })
+      }),
     );
   });
 
   it('should not track wholesale price when it stays the same', async () => {
     const existing = {
-      id: 1, code: 'P001', name: 'Product', slug: 'product',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'P001',
+      name: 'Product',
+      slug: 'product',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
     mockPrisma.product.update.mockResolvedValue({ id: 1 } as never);
@@ -934,7 +967,7 @@ describe('updateProduct - additional branches', () => {
         data: expect.objectContaining({
           priceWholesale: 80,
         }),
-      })
+      }),
     );
     // Should NOT contain priceWholesaleOld
     const updateData = mockPrisma.product.update.mock.calls[0][0].data;
@@ -943,8 +976,12 @@ describe('updateProduct - additional branches', () => {
 
   it('should create slug redirect when name changes and slug differs', async () => {
     const existing = {
-      id: 1, code: 'p001', name: 'Old Name', slug: 'old-name',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'p001',
+      name: 'Old Name',
+      slug: 'old-name',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
     mockPrisma.product.findFirst.mockResolvedValue(null as never);
@@ -962,8 +999,12 @@ describe('updateProduct - additional branches', () => {
 
   it('should append code to slug when name changes and slug conflicts', async () => {
     const existing = {
-      id: 1, code: 'p001', name: 'Old Name', slug: 'old-name',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'p001',
+      name: 'Old Name',
+      slug: 'old-name',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
     // First findFirst checks raw slug → conflict triggers code suffix;
@@ -981,25 +1022,33 @@ describe('updateProduct - additional branches', () => {
         data: expect.objectContaining({
           slug: 'new-name-p001',
         }),
-      })
+      }),
     );
   });
 
   it('should validate category exists when categoryId is changed', async () => {
     const existing = {
-      id: 1, code: 'P001', name: 'Product',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'P001',
+      name: 'Product',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
-    (mockPrisma as never as { category: { findUnique: ReturnType<typeof vi.fn> } }).category.findUnique.mockResolvedValue(null);
+    (
+      mockPrisma as never as { category: { findUnique: ReturnType<typeof vi.fn> } }
+    ).category.findUnique.mockResolvedValue(null);
 
     await expect(updateProduct(1, { categoryId: 999 })).rejects.toThrow(ProductError);
   });
 
   it('should disconnect category when categoryId is set to null', async () => {
     const existing = {
-      id: 1, code: 'P001', name: 'Product',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'P001',
+      name: 'Product',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
     mockPrisma.product.update.mockResolvedValue({ id: 1 } as never);
@@ -1011,17 +1060,22 @@ describe('updateProduct - additional branches', () => {
         data: expect.objectContaining({
           category: { disconnect: true },
         }),
-      })
+      }),
     );
   });
 
   it('should connect category when categoryId is a valid number', async () => {
     const existing = {
-      id: 1, code: 'P001', name: 'Product',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'P001',
+      name: 'Product',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
-    (mockPrisma as never as { category: { findUnique: ReturnType<typeof vi.fn> } }).category.findUnique.mockResolvedValue({ id: 5 } as never);
+    (
+      mockPrisma as never as { category: { findUnique: ReturnType<typeof vi.fn> } }
+    ).category.findUnique.mockResolvedValue({ id: 5 } as never);
     mockPrisma.product.update.mockResolvedValue({ id: 1 } as never);
 
     await updateProduct(1, { categoryId: 5 });
@@ -1031,14 +1085,18 @@ describe('updateProduct - additional branches', () => {
         data: expect.objectContaining({
           category: { connect: { id: 5 } },
         }),
-      })
+      }),
     );
   });
 
   it('should not create slug redirect when slug does not change', async () => {
     const existing = {
-      id: 1, code: 'p001', name: 'Same Name', slug: 'same-name',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'p001',
+      name: 'Same Name',
+      slug: 'same-name',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
     mockPrisma.product.findFirst.mockResolvedValue(null as never);
@@ -1052,8 +1110,11 @@ describe('updateProduct - additional branches', () => {
 
   it('should update all optional fields', async () => {
     const existing = {
-      id: 1, code: 'P001', name: 'Product',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'P001',
+      name: 'Product',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
     mockPrisma.product.update.mockResolvedValue({ id: 1 } as never);
@@ -1075,14 +1136,17 @@ describe('updateProduct - additional branches', () => {
           isActive: false,
           sortOrder: 10,
         }),
-      })
+      }),
     );
   });
 
   it('should include wholesale price in history when retail price changes', async () => {
     const existing = {
-      id: 1, code: 'P001', name: 'Product',
-      priceRetail: 100, priceWholesale: 80,
+      id: 1,
+      code: 'P001',
+      name: 'Product',
+      priceRetail: 100,
+      priceWholesale: 80,
     };
     mockPrisma.product.findUnique.mockResolvedValue(existing as never);
     mockPrisma.priceHistory.create.mockResolvedValue({} as never);
@@ -1155,7 +1219,10 @@ describe('getProductBySlug - cache', () => {
   it('should return cached product and still increment views', async () => {
     const { cacheGet } = await import('@/services/cache');
     const cachedProduct = {
-      id: 10, slug: 'cached', priceRetail: 100, categoryId: null,
+      id: 10,
+      slug: 'cached',
+      priceRetail: 100,
+      categoryId: null,
     };
     vi.mocked(cacheGet).mockResolvedValueOnce(cachedProduct);
     mockPrisma.product.update.mockResolvedValue({} as never);

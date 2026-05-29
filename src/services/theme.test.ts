@@ -149,7 +149,9 @@ describe('getActiveTheme', () => {
     expect(result.cssVariables['--color-primary']).toBe('#FF0000');
     expect(result.cssVariables['--color-bg']).toBe('#111111');
     // Other variables should remain from THEME_CRYSTAL
-    expect(result.cssVariables['--color-primary-light']).toBe(THEME_CRYSTAL['--color-primary-light']);
+    expect(result.cssVariables['--color-primary-light']).toBe(
+      THEME_CRYSTAL['--color-primary-light'],
+    );
   });
 
   it('should handle empty customSettings object', async () => {
@@ -249,13 +251,16 @@ describe('updateThemeSettings', () => {
       where: { id: 1 },
       data: { customSettings },
     });
-    expect(result).toEqual(updated);
+    // Now returns a before/after snapshot so the route can audit-log the diff.
+    expect(result).toEqual({ before: {}, theme: updated });
   });
 
   it('should throw ThemeError with 404 when theme not found', async () => {
     mockPrisma.theme.findUnique.mockResolvedValue(null as never);
 
-    await expect(updateThemeSettings(999, { '--color-primary': '#FF0000' })).rejects.toThrow(ThemeError);
+    await expect(updateThemeSettings(999, { '--color-primary': '#FF0000' })).rejects.toThrow(
+      ThemeError,
+    );
 
     try {
       await updateThemeSettings(999, {});
@@ -275,7 +280,9 @@ describe('uploadTheme', () => {
     zip.addFile('readme.txt', Buffer.from('hello'));
     const buffer = zip.toBuffer();
 
-    await expect(uploadTheme(buffer, 'test.zip')).rejects.toThrow('ZIP-архів має містити файл theme.json');
+    await expect(uploadTheme(buffer, 'test.zip')).rejects.toThrow(
+      'ZIP-архів має містити файл theme.json',
+    );
   });
 
   it('should throw when theme.json has invalid JSON', async () => {
@@ -295,18 +302,25 @@ describe('uploadTheme', () => {
     zip.addFile('theme.json', Buffer.from(JSON.stringify({ displayName: 'Test' })));
     const buffer = zip.toBuffer();
 
-    await expect(uploadTheme(buffer, 'test.zip')).rejects.toThrow('theme.json має містити поле "name"');
+    await expect(uploadTheme(buffer, 'test.zip')).rejects.toThrow(
+      'theme.json має містити поле "name"',
+    );
   });
 
   it('should update existing theme when folderName matches', async () => {
     const { uploadTheme } = await import('./theme');
     const AdmZip = (await import('adm-zip')).default;
     const zip = new AdmZip();
-    zip.addFile('theme.json', Buffer.from(JSON.stringify({
-      name: 'My Theme',
-      displayName: 'My Display Name',
-      variables: { '--color-primary': '#000' },
-    })));
+    zip.addFile(
+      'theme.json',
+      Buffer.from(
+        JSON.stringify({
+          name: 'My Theme',
+          displayName: 'My Display Name',
+          variables: { '--color-primary': '#000' },
+        }),
+      ),
+    );
     const buffer = zip.toBuffer();
 
     mockPrisma.theme.findFirst.mockResolvedValue({ id: 5, folderName: 'my-theme' } as never);
@@ -319,7 +333,7 @@ describe('uploadTheme', () => {
       expect.objectContaining({
         where: { id: 5 },
         data: expect.objectContaining({ displayName: 'My Display Name' }),
-      })
+      }),
     );
   });
 
@@ -333,19 +347,24 @@ describe('uploadTheme', () => {
     const fs = await import('fs');
     vi.mocked(fs.existsSync).mockReturnValue(false);
 
-    (mockPrisma.theme as Record<string, ReturnType<typeof vi.fn>>).create.mockResolvedValue({ id: 10, displayName: 'NewTheme' } as never);
+    (mockPrisma.theme as Record<string, ReturnType<typeof vi.fn>>).create.mockResolvedValue({
+      id: 10,
+      displayName: 'NewTheme',
+    } as never);
     mockPrisma.theme.findFirst.mockResolvedValue(null as never);
 
     const result = await uploadTheme(buffer, 'theme.zip');
 
     expect(result.id).toBe(10);
-    expect((mockPrisma.theme as Record<string, ReturnType<typeof vi.fn>>).create).toHaveBeenCalledWith(
+    expect(
+      (mockPrisma.theme as Record<string, ReturnType<typeof vi.fn>>).create,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           folderName: 'newtheme',
           isActive: false,
         }),
-      })
+      }),
     );
   });
 
@@ -353,11 +372,16 @@ describe('uploadTheme', () => {
     const { uploadTheme } = await import('./theme');
     const AdmZip = (await import('adm-zip')).default;
     const zip = new AdmZip();
-    zip.addFile('theme.json', Buffer.from(JSON.stringify({
-      name: 'NoVarsTheme',
-      displayName: 'No Vars Display',
-      // no variables field
-    })));
+    zip.addFile(
+      'theme.json',
+      Buffer.from(
+        JSON.stringify({
+          name: 'NoVarsTheme',
+          displayName: 'No Vars Display',
+          // no variables field
+        }),
+      ),
+    );
     const buffer = zip.toBuffer();
 
     mockPrisma.theme.findFirst.mockResolvedValue({ id: 8, folderName: 'novarstheme' } as never);
@@ -371,7 +395,7 @@ describe('uploadTheme', () => {
         data: expect.objectContaining({
           customSettings: {},
         }),
-      })
+      }),
     );
   });
 
@@ -383,7 +407,10 @@ describe('uploadTheme', () => {
     const buffer = zip.toBuffer();
 
     mockPrisma.theme.findFirst.mockResolvedValue(null as never);
-    (mockPrisma.theme as Record<string, ReturnType<typeof vi.fn>>).create.mockResolvedValue({ id: 11, displayName: 'PlainName' } as never);
+    (mockPrisma.theme as Record<string, ReturnType<typeof vi.fn>>).create.mockResolvedValue({
+      id: 11,
+      displayName: 'PlainName',
+    } as never);
 
     const result = await uploadTheme(buffer, 'theme.zip');
 
@@ -398,7 +425,10 @@ describe('uploadTheme', () => {
     const buffer = zip.toBuffer();
 
     mockPrisma.theme.findFirst.mockResolvedValue(null as never);
-    (mockPrisma.theme as Record<string, ReturnType<typeof vi.fn>>).create.mockResolvedValue({ id: 12, displayName: 'SubTheme' } as never);
+    (mockPrisma.theme as Record<string, ReturnType<typeof vi.fn>>).create.mockResolvedValue({
+      id: 12,
+      displayName: 'SubTheme',
+    } as never);
 
     const result = await uploadTheme(buffer, 'theme.zip');
 
@@ -443,9 +473,16 @@ describe('uploadTheme', () => {
         default: class MockAdmZip {
           constructor() {}
           getEntries() {
+            // header.size + isDirectory are read by the zip-bomb size guard
+            // that now runs before the path-traversal check.
             return [
-              { entryName: 'theme.json', getData: () => Buffer.from(JSON.stringify({ name: 'Evil' })) },
-              { entryName: '../../etc/passwd' },
+              {
+                entryName: 'theme.json',
+                isDirectory: false,
+                header: { size: 100 },
+                getData: () => Buffer.from(JSON.stringify({ name: 'Evil' })),
+              },
+              { entryName: '../../etc/passwd', isDirectory: false, header: { size: 100 } },
             ];
           }
           extractAllTo() {}
@@ -484,7 +521,7 @@ describe('uploadTheme', () => {
     const freshMod = await import('./theme');
 
     await expect(freshMod.uploadTheme(Buffer.from('fake'), 'evil.zip')).rejects.toThrow(
-      'ZIP-архів містить небезпечні шляхи'
+      'ZIP-архів містить небезпечні шляхи',
     );
   });
 });

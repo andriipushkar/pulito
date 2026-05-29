@@ -57,24 +57,52 @@ describe('getPublishedFaq', () => {
   // categoryRefId is null). Mock both stages.
   it('should group FaqCategory items + orphan legacy items', async () => {
     const orphanItems = [
-      { id: 1, category: 'Доставка', question: 'Q1', answer: 'A1', isPublished: true, sortOrder: 0, categoryRefId: null },
-      { id: 2, category: 'Доставка', question: 'Q2', answer: 'A2', isPublished: true, sortOrder: 1, categoryRefId: null },
-      { id: 3, category: 'Оплата', question: 'Q3', answer: 'A3', isPublished: true, sortOrder: 0, categoryRefId: null },
+      {
+        id: 1,
+        category: 'Доставка',
+        question: 'Q1',
+        answer: 'A1',
+        isPublished: true,
+        sortOrder: 0,
+        categoryRefId: null,
+      },
+      {
+        id: 2,
+        category: 'Доставка',
+        question: 'Q2',
+        answer: 'A2',
+        isPublished: true,
+        sortOrder: 1,
+        categoryRefId: null,
+      },
+      {
+        id: 3,
+        category: 'Оплата',
+        question: 'Q3',
+        answer: 'A3',
+        isPublished: true,
+        sortOrder: 0,
+        categoryRefId: null,
+      },
     ];
     // No new FaqCategory rows yet → first stage returns empty
-    (mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }).faqCategory.findMany.mockResolvedValue([] as never);
+    (
+      mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }
+    ).faqCategory.findMany.mockResolvedValue([] as never);
     mockPrisma.faqItem.findMany.mockResolvedValue(orphanItems as never);
 
     const result = await getPublishedFaq();
 
     expect(result).toEqual({
-      'Доставка': [orphanItems[0], orphanItems[1]],
-      'Оплата': [orphanItems[2]],
+      Доставка: [orphanItems[0], orphanItems[1]],
+      Оплата: [orphanItems[2]],
     });
   });
 
   it('should return empty object when no published items exist', async () => {
-    (mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }).faqCategory.findMany.mockResolvedValue([] as never);
+    (
+      mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }
+    ).faqCategory.findMany.mockResolvedValue([] as never);
     mockPrisma.faqItem.findMany.mockResolvedValue([] as never);
 
     const result = await getPublishedFaq();
@@ -83,7 +111,9 @@ describe('getPublishedFaq', () => {
   });
 
   it('prefers FaqCategory items over orphans for same group', async () => {
-    (mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }).faqCategory.findMany.mockResolvedValue([
+    (
+      mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }
+    ).faqCategory.findMany.mockResolvedValue([
       {
         id: 10,
         name: 'Загальні',
@@ -104,9 +134,7 @@ describe('getPublishedFaq', () => {
 
 describe('searchFaq', () => {
   it('should search FAQ items by question and answer', async () => {
-    const items = [
-      { id: 1, question: 'Як оплатити?', answer: 'Карткою', clickCount: 10 },
-    ];
+    const items = [{ id: 1, question: 'Як оплатити?', answer: 'Карткою', clickCount: 10 }];
     mockPrisma.faqItem.findMany.mockResolvedValue(items as never);
 
     const result = await searchFaq('оплатити');
@@ -120,6 +148,7 @@ describe('searchFaq', () => {
         ],
       },
       orderBy: { clickCount: 'desc' },
+      take: 50,
     });
     expect(result).toEqual(items);
   });
@@ -152,6 +181,8 @@ describe('createFaqItem', () => {
         category: 'Доставка',
         question: 'Як довго доставляють?',
         answer: '1-3 дні',
+        questionEn: null,
+        answerEn: null,
         sortOrder: 5,
         isPublished: true,
       },
@@ -165,7 +196,12 @@ describe('createFaqItem', () => {
       question: 'Які способи оплати?',
       answer: 'Карта, накладений платіж',
     };
-    mockPrisma.faqItem.create.mockResolvedValue({ id: 2, ...input, sortOrder: 0, isPublished: true } as never);
+    mockPrisma.faqItem.create.mockResolvedValue({
+      id: 2,
+      ...input,
+      sortOrder: 0,
+      isPublished: true,
+    } as never);
 
     await createFaqItem(input);
 
@@ -304,19 +340,19 @@ describe('incrementFaqClick', () => {
 describe('getFaqCategories', () => {
   // Service unions FaqCategory names with legacy `category` strings.
   it('should merge FaqCategory + orphan categories', async () => {
-    (mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }).faqCategory.findMany.mockResolvedValue([
-      { name: 'Доставка' },
-    ] as never);
-    mockPrisma.faqItem.findMany.mockResolvedValue([
-      { category: 'Оплата' },
-    ] as never);
+    (
+      mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }
+    ).faqCategory.findMany.mockResolvedValue([{ name: 'Доставка' }] as never);
+    mockPrisma.faqItem.findMany.mockResolvedValue([{ category: 'Оплата' }] as never);
 
     const result = await getFaqCategories();
     expect(result.sort()).toEqual(['Доставка', 'Оплата']);
   });
 
   it('should return empty array when no published items', async () => {
-    (mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }).faqCategory.findMany.mockResolvedValue([] as never);
+    (
+      mockPrisma as unknown as { faqCategory: { findMany: ReturnType<typeof vi.fn> } }
+    ).faqCategory.findMany.mockResolvedValue([] as never);
     mockPrisma.faqItem.findMany.mockResolvedValue([] as never);
 
     const result = await getFaqCategories();

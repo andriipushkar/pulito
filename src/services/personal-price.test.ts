@@ -59,7 +59,7 @@ describe('personal-price service', () => {
           where: { userId: 1, productId: 5, categoryId: 3 },
           skip: 10,
           take: 10,
-        })
+        }),
       );
     });
   });
@@ -80,7 +80,7 @@ describe('personal-price service', () => {
           validFrom: '2026-01-01T00:00:00Z',
           validUntil: '2026-12-31T00:00:00Z',
         },
-        42
+        42,
       );
 
       expect(prisma.personalPrice.create).toHaveBeenCalledWith({
@@ -92,6 +92,7 @@ describe('personal-price service', () => {
           fixedPrice: 99,
           validFrom: expect.any(Date),
           validUntil: expect.any(Date),
+          stackableWith: [],
           createdBy: 42,
         },
         select: expect.any(Object),
@@ -114,6 +115,7 @@ describe('personal-price service', () => {
           fixedPrice: null,
           validFrom: null,
           validUntil: null,
+          stackableWith: [],
           createdBy: 42,
         },
         select: expect.any(Object),
@@ -259,7 +261,7 @@ describe('personal-price service', () => {
       const { getEffectivePrice } = await import('./personal-price');
       const result = await getEffectivePrice(1, 10, 5);
 
-      expect(result).toEqual({ discountPercent: 15, fixedPrice: null });
+      expect(result).toEqual({ discountPercent: 15, fixedPrice: null, stackableWith: [] });
     });
 
     it('should return product price with fixedPrice', async () => {
@@ -272,7 +274,7 @@ describe('personal-price service', () => {
       const { getEffectivePrice } = await import('./personal-price');
       const result = await getEffectivePrice(1, 10, 5);
 
-      expect(result).toEqual({ discountPercent: null, fixedPrice: 99.99 });
+      expect(result).toEqual({ discountPercent: null, fixedPrice: 99.99, stackableWith: [] });
     });
 
     it('should fall back to category price when no product price', async () => {
@@ -284,7 +286,7 @@ describe('personal-price service', () => {
       const { getEffectivePrice } = await import('./personal-price');
       const result = await getEffectivePrice(1, 10, 5);
 
-      expect(result).toEqual({ discountPercent: 10, fixedPrice: null });
+      expect(result).toEqual({ discountPercent: 10, fixedPrice: null, stackableWith: [] });
     });
 
     it('should return null when no product or category price', async () => {
@@ -320,7 +322,7 @@ describe('personal-price service', () => {
       const { getEffectivePrice } = await import('./personal-price');
       const result = await getEffectivePrice(1, 10, 5);
 
-      expect(result).toEqual({ discountPercent: null, fixedPrice: 50 });
+      expect(result).toEqual({ discountPercent: null, fixedPrice: 50, stackableWith: [] });
     });
   });
 });

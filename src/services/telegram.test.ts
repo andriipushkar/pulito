@@ -21,13 +21,26 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
-vi.mock('@/lib/redis', () => ({
-  redis: {
-    setex: vi.fn(),
-    get: vi.fn(),
-    del: vi.fn(),
-  },
-}));
+// Feedback mode is now persisted in redis (set/exists/del keyed by chatId), so
+// back the store with an in-memory Set to keep /feedback → /cancel stateful.
+vi.mock('@/lib/redis', () => {
+  const store = new Set<string>();
+  return {
+    redis: {
+      setex: vi.fn(),
+      get: vi.fn(),
+      set: vi.fn(async (k: string) => {
+        store.add(k);
+        return 'OK';
+      }),
+      exists: vi.fn(async (k: string) => (store.has(k) ? 1 : 0)),
+      del: vi.fn(async (k: string) => {
+        store.delete(k);
+        return 1;
+      }),
+    },
+  };
+});
 
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
@@ -290,7 +303,10 @@ describe('notifyClientStatusChange', () => {
     await notifyClientStatusChange(1, 'ORD-009', 'new_order', 'confirmed');
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.reply_markup.inline_keyboard[0][0].url).toBe('https://shop.test/account/orders');
+    // Link now points at the public order-tracking page rather than the account list.
+    expect(body.reply_markup.inline_keyboard[0][0].url).toBe(
+      'https://shop.test/order/ORD-009/track',
+    );
   });
 });
 

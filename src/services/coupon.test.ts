@@ -54,6 +54,10 @@ const makeCoupon = (overrides?: Record<string, unknown>) => ({
   usedCount: 0,
   validFrom: null,
   validUntil: null,
+  // Product/category-restriction arrays (default: no restrictions).
+  applicableCategoryIds: [],
+  applicableProductIds: [],
+  excludedProductIds: [],
   createdAt: new Date(),
   ...overrides,
 });
@@ -185,7 +189,7 @@ describe('getCoupons', () => {
     const result = await getCoupons(1, 20);
     expect(result).toEqual({ coupons, total: 1 });
     expect(mockPrisma.coupon.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { isActive: true }, skip: 0, take: 20 })
+      expect.objectContaining({ where: { isActive: true }, skip: 0, take: 20 }),
     );
   });
 
@@ -194,9 +198,7 @@ describe('getCoupons', () => {
     mockPrisma.coupon.count.mockResolvedValue(0);
 
     await getCoupons(1, 20, true);
-    expect(mockPrisma.coupon.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} })
-    );
+    expect(mockPrisma.coupon.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
   });
 });
 
