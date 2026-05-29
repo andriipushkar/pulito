@@ -18,6 +18,11 @@ vi.mock('@/lib/prisma', () => ({
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
+    },
+    product: {
+      count: vi.fn().mockResolvedValue(0),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   },
 }));
@@ -164,7 +169,7 @@ describe('deleteBrand', () => {
     mockPrisma.brand.findFirst.mockResolvedValue({ id: 1, deletedAt: null });
     mockPrisma.brand.delete.mockResolvedValue({ id: 1 });
     const res = await deleteBrand(1);
-    expect(res).toEqual({ hard: true });
+    expect(res).toEqual({ hard: true, affectedProducts: 0 });
     expect(mockPrisma.brand.update).not.toHaveBeenCalled();
   });
 
@@ -178,7 +183,7 @@ describe('deleteBrand', () => {
     mockPrisma.brand.update.mockResolvedValue({ id: 1, deletedAt: new Date() });
 
     const res = await deleteBrand(1);
-    expect(res).toEqual({ hard: false });
+    expect(res).toEqual({ hard: false, affectedProducts: 0 });
     expect(mockPrisma.brand.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ deletedAt: expect.any(Date), isVisible: false }),

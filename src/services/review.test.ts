@@ -6,6 +6,7 @@ vi.mock('@/lib/prisma', () => ({
     review: {
       create: vi.fn(),
       findMany: vi.fn(),
+      groupBy: vi.fn().mockResolvedValue([]),
       count: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -140,7 +141,7 @@ describe('getProductReviews', () => {
     await getProductReviews(1, 3, 5);
 
     expect(mockPrisma.review.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 10, take: 5 })
+      expect.objectContaining({ skip: 10, take: 5 }),
     );
   });
 
@@ -151,7 +152,7 @@ describe('getProductReviews', () => {
     await getProductReviews(1, 1, 10, 'helpful');
 
     expect(mockPrisma.review.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { helpfulCount: 'desc' } })
+      expect.objectContaining({ orderBy: { helpfulCount: 'desc' } }),
     );
   });
 
@@ -162,7 +163,7 @@ describe('getProductReviews', () => {
     await getProductReviews(1, 1, 10, 'rating_high');
 
     expect(mockPrisma.review.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { rating: 'desc' } })
+      expect.objectContaining({ orderBy: { rating: 'desc' } }),
     );
   });
 
@@ -173,7 +174,7 @@ describe('getProductReviews', () => {
     await getProductReviews(1, 1, 10, 'rating_low');
 
     expect(mockPrisma.review.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { rating: 'asc' } })
+      expect.objectContaining({ orderBy: { rating: 'asc' } }),
     );
   });
 });
@@ -323,7 +324,7 @@ describe('getReviewsForModeration', () => {
     await getReviewsForModeration(1, 20, 'pending');
 
     expect(mockPrisma.review.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: 'pending' } })
+      expect.objectContaining({ where: { status: 'pending' } }),
     );
     expect(mockPrisma.review.count).toHaveBeenCalledWith({
       where: { status: 'pending' },
@@ -337,7 +338,7 @@ describe('getReviewsForModeration', () => {
     await getReviewsForModeration(3, 10);
 
     expect(mockPrisma.review.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 20, take: 10 })
+      expect.objectContaining({ skip: 20, take: 10 }),
     );
   });
 });

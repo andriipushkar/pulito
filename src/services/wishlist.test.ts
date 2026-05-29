@@ -11,6 +11,7 @@ vi.mock('@/lib/prisma', () => ({
       update: vi.fn(),
       delete: vi.fn(),
       deleteMany: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
     },
     wishlistItem: {
       findUnique: vi.fn(),
@@ -169,7 +170,7 @@ describe('getUserWishlists', () => {
       expect.objectContaining({
         where: { userId: 1 },
         orderBy: { createdAt: 'desc' },
-      })
+      }),
     );
   });
 });
@@ -186,7 +187,7 @@ describe('getWishlistById', () => {
 
     expect(result).toEqual(wishlist);
     expect(mockPrisma.wishlist.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: wishlistId } })
+      expect.objectContaining({ where: { id: wishlistId } }),
     );
   });
 
@@ -222,7 +223,7 @@ describe('createWishlist', () => {
     expect(mockPrisma.wishlist.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { userId: 1, name: 'New List' },
-      })
+      }),
     );
   });
 });
@@ -276,10 +277,7 @@ describe('deleteWishlist', () => {
 
     await deleteWishlist(userId, wishlistId);
 
-    expect(mockPrisma.$transaction).toHaveBeenCalledWith([
-      expect.anything(),
-      expect.anything(),
-    ]);
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith([expect.anything(), expect.anything()]);
   });
 
   it('should throw 404 when wishlist not found', async () => {
@@ -375,7 +373,7 @@ describe('addItemToWishlist', () => {
     expect(mockPrisma.wishlistItem.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { wishlistId, productId },
-      })
+      }),
     );
   });
 
@@ -442,7 +440,9 @@ describe('removeItemFromWishlist', () => {
   it('should throw 404 when wishlist not found', async () => {
     mockPrisma.wishlist.findUnique.mockResolvedValue(null);
 
-    await expect(removeItemFromWishlist(userId, wishlistId, productId)).rejects.toThrow(WishlistError);
+    await expect(removeItemFromWishlist(userId, wishlistId, productId)).rejects.toThrow(
+      WishlistError,
+    );
     await expect(removeItemFromWishlist(userId, wishlistId, productId)).rejects.toMatchObject({
       statusCode: 404,
       message: 'Список не знайдено',
@@ -452,7 +452,9 @@ describe('removeItemFromWishlist', () => {
   it('should throw 404 when wishlist belongs to different user', async () => {
     mockPrisma.wishlist.findUnique.mockResolvedValue({ id: wishlistId, userId: 999 });
 
-    await expect(removeItemFromWishlist(userId, wishlistId, productId)).rejects.toThrow(WishlistError);
+    await expect(removeItemFromWishlist(userId, wishlistId, productId)).rejects.toThrow(
+      WishlistError,
+    );
     await expect(removeItemFromWishlist(userId, wishlistId, productId)).rejects.toMatchObject({
       statusCode: 404,
     });
@@ -462,7 +464,9 @@ describe('removeItemFromWishlist', () => {
     mockPrisma.wishlist.findUnique.mockResolvedValue({ id: wishlistId, userId });
     mockPrisma.wishlistItem.findUnique.mockResolvedValue(null);
 
-    await expect(removeItemFromWishlist(userId, wishlistId, productId)).rejects.toThrow(WishlistError);
+    await expect(removeItemFromWishlist(userId, wishlistId, productId)).rejects.toThrow(
+      WishlistError,
+    );
     await expect(removeItemFromWishlist(userId, wishlistId, productId)).rejects.toMatchObject({
       statusCode: 404,
       message: 'Товар не знайдено в списку',

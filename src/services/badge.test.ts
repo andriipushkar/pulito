@@ -3,7 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     product: { findMany: vi.fn() },
-    productBadge: { create: vi.fn(), deleteMany: vi.fn() },
+    productBadge: {
+      create: vi.fn(),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      deleteMany: vi.fn(),
+    },
   },
 }));
 

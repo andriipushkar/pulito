@@ -13,6 +13,7 @@ vi.mock('@/lib/prisma', () => ({
       create: vi.fn(),
       delete: vi.fn(),
       findMany: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
     },
   },
 }));
@@ -70,7 +71,10 @@ describe('createTenant', () => {
 
 describe('getTenants', () => {
   it('returns all tenants when no filters', async () => {
-    const tenants = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
+    const tenants = [
+      { id: 1, name: 'A' },
+      { id: 2, name: 'B' },
+    ];
     tenantFindMany.mockResolvedValue(tenants);
 
     const result = await getTenants();
