@@ -1,16 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
 vi.mock('@/middleware/auth', () => ({
-  withRole: (..._roles: string[]) => (handler: Function) =>
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
     (req: unknown, ctx?: Record<string, unknown>) =>
-      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+      handler(req, {
+        user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' },
+        ...(ctx || {}),
+      }),
 }));
 vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     wholesaleRule: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
     },
   },
@@ -20,11 +36,21 @@ import { GET, POST } from './route';
 import { prisma } from '@/lib/prisma';
 
 describe('GET /api/v1/admin/wholesale-rules', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns wholesale rules', async () => {
     const rules = [
-      { id: 1, ruleType: 'markup', productId: null, product: null, value: 10, isActive: true, createdAt: '2024-01-01' },
+      {
+        id: 1,
+        ruleType: 'markup',
+        productId: null,
+        product: null,
+        value: 10,
+        isActive: true,
+        createdAt: '2024-01-01',
+      },
     ];
     vi.mocked(prisma.wholesaleRule.findMany).mockResolvedValue(rules as any);
 
@@ -47,16 +73,27 @@ describe('GET /api/v1/admin/wholesale-rules', () => {
 });
 
 describe('POST /api/v1/admin/wholesale-rules', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('creates a wholesale rule', async () => {
-    const rule = { id: 1, ruleType: 'markup', productId: null, product: null, value: 15, isActive: true, createdAt: '2024-01-01' };
+    const rule = {
+      id: 1,
+      ruleType: 'min_order_amount',
+      productId: null,
+      product: null,
+      value: 15,
+      isActive: true,
+      createdAt: '2024-01-01',
+    };
+    vi.mocked(prisma.wholesaleRule.findFirst).mockResolvedValue(null as any);
     vi.mocked(prisma.wholesaleRule.create).mockResolvedValue(rule as any);
 
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ruleType: 'markup', value: 15 }),
+      body: JSON.stringify({ ruleType: 'min_order_amount', value: 15 }),
     });
     const res = await POST(req as any);
     const json = await res.json();
@@ -82,7 +119,7 @@ describe('POST /api/v1/admin/wholesale-rules', () => {
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ruleType: 'markup', value: 15 }),
+      body: JSON.stringify({ ruleType: 'min_order_amount', value: 15 }),
     });
     const res = await POST(req as any);
 

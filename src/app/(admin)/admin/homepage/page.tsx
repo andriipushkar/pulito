@@ -20,12 +20,18 @@ export default function AdminHomepagePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  // Optimistic-lock token: the layout's updatedAt as loaded. Sent back on save
+  // so a concurrent reorder by another admin is rejected (409) not clobbered.
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
 
   const loadBlocks = useCallback(() => {
     apiClient
-      .get<HomepageBlock[]>('/api/v1/admin/homepage-blocks')
+      .get<{ blocks: HomepageBlock[]; updatedAt: string | null }>('/api/v1/admin/homepage-blocks')
       .then((res) => {
-        if (res.success && res.data) setBlocks(res.data);
+        if (res.success && res.data) {
+          setBlocks(res.data.blocks);
+          setExpectedUpdatedAt(res.data.updatedAt);
+        }
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -72,10 +78,18 @@ export default function AdminHomepagePage() {
   const saveBlocks = async () => {
     setIsSaving(true);
     try {
-      const res = await apiClient.put('/api/v1/admin/homepage-blocks', blocks);
+      const res = await apiClient.put<{ updated: boolean; updatedAt: string | null }>(
+        '/api/v1/admin/homepage-blocks',
+        { blocks, expectedUpdatedAt },
+      );
       if (res.success) {
         toast.success(t('savedToast'));
         setHasChanges(false);
+        // Advance the token so the next save in this session isn't a false 409.
+        setExpectedUpdatedAt(res.data?.updatedAt ?? null);
+      } else if (res.statusCode === 409) {
+        toast.error(t('conflictToast'));
+        loadBlocks();
       } else {
         toast.error(res.error || t('saveError'));
       }

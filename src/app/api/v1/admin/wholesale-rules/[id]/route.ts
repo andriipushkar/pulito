@@ -15,6 +15,10 @@ const updateRuleSchema = z.object({
   productId: z.number().int().positive().nullable().optional(),
   value: z.coerce.number().min(0).max(99_999_999.99).optional(),
   isActive: z.boolean().optional(),
+  // Optimistic-lock token: the updatedAt the client last read. When present,
+  // the update is applied conditionally so concurrent admin edits don't
+  // silently clobber each other (last-write-wins).
+  expectedUpdatedAt: z.string().optional(),
 });
 
 export const PUT = withRole(
@@ -46,9 +50,24 @@ export const PUT = withRole(
     });
     if (!before) return errorResponse('Правило не знайдено', 404);
 
-    const rule = await prisma.wholesaleRule.update({
+    // Optimistic-lock: when the client sent the updatedAt it read, apply the
+    // update conditionally. count=0 means another admin saved in the meantime
+    // (the row exists — we just fetched `before`), so → 409 instead of a
+    // silent overwrite. Without a token, fall back to a plain update.
+    if (updates.expectedUpdatedAt) {
+      const res = await prisma.wholesaleRule.updateMany({
+        where: { id: numId, updatedAt: new Date(updates.expectedUpdatedAt) },
+        data,
+      });
+      if (res.count === 0) {
+        return errorResponse('Правило змінено в іншій сесії. Перезавантажте сторінку.', 409);
+      }
+    } else {
+      await prisma.wholesaleRule.update({ where: { id: numId }, data });
+    }
+
+    const rule = await prisma.wholesaleRule.findUniqueOrThrow({
       where: { id: numId },
-      data,
       include: {
         product: { select: { id: true, name: true, code: true } },
       },
@@ -85,6 +104,7 @@ export const PUT = withRole(
       value: Number(rule.value),
       isActive: rule.isActive,
       createdAt: rule.createdAt,
+      updatedAt: rule.updatedAt,
     });
   } catch (err) {
     logger.error('[admin/wholesale-rules/[id]] PUT failed', { error: err });

@@ -141,9 +141,14 @@ export default function AdminFeatureFlagsPage() {
             .map((id) => Number(id.trim()))
             .filter(Boolean)
         : [],
+      // Optimistic-lock token: same as toggleFlag, so a concurrent edit to
+      // rollout/roles/userIds is rejected instead of silently clobbering.
+      expectedUpdatedAt: flags.find((f) => f.key === key)?.updatedAt,
     });
     if (res.success) {
       toast.success(t('updatedToast'));
+    } else if (res.statusCode === 409) {
+      toast.error(t('conflictToast'));
     } else {
       toast.error(res.error || t('errorGeneric'));
     }

@@ -19,6 +19,7 @@ interface WholesaleRule {
   value: string | number;
   isActive: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 const RULE_TYPE_UNIT: Record<string, 'currency' | 'count'> = {
@@ -96,6 +97,11 @@ export default function AdminWholesaleRulesPage() {
         productId: form.productId ? Number(form.productId) : null,
         value: Number(form.value),
         isActive: form.isActive,
+        // Optimistic-lock token (edit only): the updatedAt we loaded, so a
+        // concurrent edit is rejected with 409 rather than silently clobbered.
+        ...(editingId
+          ? { expectedUpdatedAt: rules.find((r) => r.id === editingId)?.updatedAt }
+          : {}),
       };
 
       const res = editingId
@@ -104,6 +110,10 @@ export default function AdminWholesaleRulesPage() {
 
       if (res.success) {
         toast.success(editingId ? t('savedToast') : t('createdToast'));
+        resetForm();
+        loadRules();
+      } else if (res.statusCode === 409) {
+        toast.error(t('conflictToast'));
         resetForm();
         loadRules();
       } else {
@@ -136,8 +146,10 @@ export default function AdminWholesaleRulesPage() {
   const handleToggle = async (rule: WholesaleRule) => {
     const res = await apiClient.put(`/api/v1/admin/wholesale-rules/${rule.id}`, {
       isActive: !rule.isActive,
+      expectedUpdatedAt: rule.updatedAt,
     });
     if (res.success) toast.success(rule.isActive ? t('disabledToast') : t('enabledToast'));
+    else if (res.statusCode === 409) toast.error(t('conflictToast'));
     loadRules();
   };
 

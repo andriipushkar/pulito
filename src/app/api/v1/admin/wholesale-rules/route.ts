@@ -43,6 +43,7 @@ export const GET = withRole(
         value: Number(r.value),
         isActive: r.isActive,
         createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
       })),
     );
   } catch (err) {

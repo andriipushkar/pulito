@@ -87,7 +87,9 @@ export const GET = withRole(
       try {
         const parsed: unknown = JSON.parse(setting.value);
         const migrated = migrateBlocks(parsed);
-        if (migrated) return successResponse(migrated);
+        // updatedAt doubles as the optimistic-lock token: the client sends it
+        // back on PUT so a concurrent reorder is rejected, not silently lost.
+        if (migrated) return successResponse({ blocks: migrated, updatedAt: setting.updatedAt });
         logger.warn('[admin/homepage-blocks] stored value malformed, falling back to defaults');
       } catch (parseErr) {
         logger.warn('[admin/homepage-blocks] JSON.parse failed, falling back to defaults', {
@@ -96,7 +98,8 @@ export const GET = withRole(
       }
     }
 
-    return successResponse(DEFAULT_BLOCKS);
+    // No stored row yet (or unreadable) → defaults, no token.
+    return successResponse({ blocks: DEFAULT_BLOCKS, updatedAt: null });
   } catch (err) {
     logger.error('[admin/homepage-blocks] GET failed', { error: err });
     return errorResponse('Помилка завантаження блоків', 500);
@@ -108,7 +111,13 @@ export const PUT = withRole(
   'manager',
 )(async (request: NextRequest, { user }) => {
   try {
-    const blocks: unknown = await request.json();
+    const body: unknown = await request.json();
+    // Accept the new envelope { blocks, expectedUpdatedAt }; tolerate a bare
+    // array for resilience (e.g. an older client tab still open).
+    const blocks: unknown = Array.isArray(body) ? body : (body as { blocks?: unknown })?.blocks;
+    const expectedUpdatedAt: unknown = Array.isArray(body)
+      ? undefined
+      : (body as { expectedUpdatedAt?: unknown })?.expectedUpdatedAt;
 
     if (!Array.isArray(blocks) || blocks.length === 0) {
       return errorResponse('Невалідний формат даних', 400);
@@ -122,10 +131,34 @@ export const PUT = withRole(
     const doc: HomepageBlocksDoc = { version: HOMEPAGE_BLOCKS_VERSION, blocks };
     const value = JSON.stringify(doc);
 
-    await prisma.siteSetting.upsert({
+    // Optimistic-lock: the layout is a single JSON blob, so two admins
+    // reordering at once would last-write-wins and silently drop one set of
+    // changes. When a row exists, require the client's updatedAt token to
+    // still match (atomic updateMany WHERE updatedAt) → else 409.
+    const current = await prisma.siteSetting.findUnique({
       where: { key: SETTING_KEY },
-      update: { value, updatedBy: user.id },
-      create: { key: SETTING_KEY, value, updatedBy: user.id },
+      select: { updatedAt: true },
+    });
+    if (current) {
+      const conflict = errorResponse(
+        'Розкладку змінено в іншій сесії. Перезавантажте сторінку.',
+        409,
+      );
+      if (typeof expectedUpdatedAt !== 'string') return conflict;
+      const updated = await prisma.siteSetting.updateMany({
+        where: { key: SETTING_KEY, updatedAt: new Date(expectedUpdatedAt) },
+        data: { value, updatedBy: user.id },
+      });
+      if (updated.count === 0) return conflict;
+    } else {
+      await prisma.siteSetting.create({
+        data: { key: SETTING_KEY, value, updatedBy: user.id },
+      });
+    }
+
+    const saved = await prisma.siteSetting.findUnique({
+      where: { key: SETTING_KEY },
+      select: { updatedAt: true },
     });
 
     await logAudit({
@@ -146,7 +179,7 @@ export const PUT = withRole(
       });
     }
 
-    return successResponse({ updated: true });
+    return successResponse({ updated: true, updatedAt: saved?.updatedAt ?? null });
   } catch (err) {
     logger.error('[admin/homepage-blocks] PUT failed', { error: err });
     return errorResponse('Помилка збереження блоків', 500);
