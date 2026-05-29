@@ -15,6 +15,10 @@ const DELIVERY_SETTINGS_KEYS = [
   'delivery_nova_poshta_sender_city_ref',
   'delivery_nova_poshta_sender_warehouse_ref',
   'delivery_nova_poshta_sender_phone',
+  // Free-text reference the admin maintains by hand (NP doesn't expose account
+  // balance / monthly TTN quota via its public API). Shown to the team on the
+  // delivery-settings screen; not read by any runtime delivery logic.
+  'delivery_nova_poshta_balance_note',
   'delivery_ukrposhta_enabled',
   'delivery_ukrposhta_bearer_token',
   'delivery_ukrposhta_sender_name',

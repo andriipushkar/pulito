@@ -70,6 +70,12 @@ export default function DeliverySettingsPage() {
             label: t('senderPhone'),
             placeholder: '+380501234567',
           },
+          {
+            key: 'delivery_nova_poshta_balance_note',
+            label: t('novaBalanceNote'),
+            placeholder: t('novaBalanceNotePh'),
+            hint: t('novaBalanceNoteHint'),
+          },
         ],
       },
       {

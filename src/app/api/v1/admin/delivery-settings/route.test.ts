@@ -12,12 +12,14 @@ vi.mock('@/config/env', () => ({
     APP_SECRET: 'test-app-secret',
   },
 }));
-vi.mock('@/middleware/auth', () => ({
-  withRole:
+vi.mock('@/middleware/auth', () => {
+  const wrap =
     (..._roles: string[]) =>
     (handler: any) =>
-      handler,
-}));
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 'test-admin', role: 'admin' }, ...(ctx || {}) });
+  return { withRole: wrap, withRole2fa: wrap };
+});
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     siteSetting: { findMany: vi.fn(), upsert: vi.fn() },
