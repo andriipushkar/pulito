@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     product: { findMany: vi.fn() },
@@ -26,13 +36,23 @@ vi.mock('@/services/jobs/broken-link-checker', () => ({
   }),
 }));
 
+// withCronLock wraps doSeoCheck — run the inner fn directly and report the
+// lock as acquired so the audit logic under test actually executes.
+vi.mock('@/lib/cron-lock', () => ({
+  withCronLock: async (_name: string, _ttl: number, fn: () => Promise<unknown>) => ({
+    acquired: true,
+    result: await fn(),
+  }),
+}));
+
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
 import { POST } from './route';
 import { prisma } from '@/lib/prisma';
 
-const authHeaders = { Authorization: 'Bearer test-app-secret' };
+// Route prefers CRON_SECRET over APP_SECRET, so authenticate with that.
+const authHeaders = { Authorization: 'Bearer test-cron-secret' };
 
 describe('POST /api/v1/cron/seo-check', () => {
   beforeEach(() => {
@@ -82,9 +102,7 @@ describe('POST /api/v1/cron/seo-check', () => {
       { slug: 'a', name: 'A' } as any,
       { slug: 'b', name: 'B' } as any,
     ]);
-    vi.mocked(prisma.category.findMany).mockResolvedValue([
-      { slug: 'c', name: 'C' } as any,
-    ]);
+    vi.mocked(prisma.category.findMany).mockResolvedValue([{ slug: 'c', name: 'C' } as any]);
     const req = new Request('http://localhost', { method: 'POST', headers: authHeaders });
     await POST(req as any);
     // 2 products head + 1 category head + 2 canonical fetches for sampled products

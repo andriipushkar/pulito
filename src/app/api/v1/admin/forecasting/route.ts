@@ -14,12 +14,16 @@ export const GET = withRole(
     const buffer = sp.get('bufferDays') ? Number(sp.get('bufferDays')) : undefined;
     const limit = sp.get('limit') ? Math.min(Number(sp.get('limit')), 500) : 100;
     const movingOnly = sp.get('movingOnly') === '1';
+    const overstockThresholdDays = sp.get('overstockDays')
+      ? Number(sp.get('overstockDays'))
+      : undefined;
 
     const forecast = await getDemandForecast({
       leadTimeDays: leadTime,
       bufferDays: buffer,
       limit,
       movingOnly,
+      overstockThresholdDays,
     });
 
     // 3 heavy aggregates + sort on every GET. Forecast drift over a few

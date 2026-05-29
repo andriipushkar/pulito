@@ -234,6 +234,36 @@ export async function createVolumeDiscount(
   });
 }
 
+/**
+ * Bulk-create volume discounts (CSV/spreadsheet import). Creates sequentially
+ * rather than in one transaction so a single bad row (e.g. range overlap)
+ * doesn't roll back the whole import — each row succeeds or fails on its own
+ * and the caller gets a per-row report. Sequential order also means the
+ * overlap check in createVolumeDiscount sees rows created earlier in the same
+ * batch, so internally-conflicting imports are caught too.
+ */
+export async function createVolumeDiscountsBulk(
+  items: (CreateVolumeDiscountInput & { stackableWith?: string[] })[],
+): Promise<{
+  created: number;
+  failed: number;
+  results: Array<{ index: number; ok: boolean; id?: number; error?: string }>;
+}> {
+  const results: Array<{ index: number; ok: boolean; id?: number; error?: string }> = [];
+  let created = 0;
+  for (let i = 0; i < items.length; i++) {
+    try {
+      const item = await createVolumeDiscount(items[i]);
+      created++;
+      results.push({ index: i, ok: true, id: item.id });
+    } catch (err) {
+      const error = err instanceof VolumePricingError ? err.message : 'Помилка створення';
+      results.push({ index: i, ok: false, error });
+    }
+  }
+  return { created, failed: results.length - created, results };
+}
+
 export async function updateVolumeDiscount(
   id: number,
   data: UpdateVolumeDiscountInput & { stackableWith?: string[] },

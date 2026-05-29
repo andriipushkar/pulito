@@ -56,6 +56,9 @@ export default function AdminVolumeDiscountsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   const loadDiscounts = () => {
     setIsLoading(true);
@@ -173,6 +176,63 @@ export default function AdminVolumeDiscountsPage() {
     }
   };
 
+  // Parse pasted CSV/spreadsheet rows into discount payloads. Column order:
+  // productId, categoryId, minQuantity, maxQuantity, discountPercent, priority.
+  // Empty productId/categoryId/maxQuantity → null. A header row (any line with
+  // letters) is dropped. Per-row validation happens server-side.
+  const parseBulk = (text: string) => {
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length && /[a-zа-яіїєґ]/i.test(lines[0])) lines.shift();
+    const num = (v: string | undefined) => (v === undefined || v === '' ? undefined : Number(v));
+    return lines.map((line) => {
+      const c = line.split(/[,;\t]/).map((x) => x.trim());
+      return {
+        productId: num(c[0]) ?? null,
+        categoryId: num(c[1]) ?? null,
+        minQuantity: num(c[2]),
+        maxQuantity: num(c[3]) ?? null,
+        discountPercent: num(c[4]),
+        priority: num(c[5]) ?? 0,
+      };
+    });
+  };
+
+  const handleBulkImport = async () => {
+    const items = parseBulk(bulkText);
+    if (items.length === 0) {
+      toast.error(t('bulkEmpty'));
+      return;
+    }
+    setIsImporting(true);
+    try {
+      const res = await apiClient.post<{
+        created: number;
+        failed: number;
+        results: Array<{ index: number; ok: boolean; error?: string }>;
+      }>('/api/v1/admin/volume-discounts/bulk', { items });
+      if (res.success && res.data) {
+        const { created, failed, results } = res.data;
+        toast.success(t('bulkResult', { created, failed }));
+        if (failed > 0) {
+          const firstErr = results.find((r) => !r.ok);
+          if (firstErr) toast.error(`#${firstErr.index + 1}: ${firstErr.error}`);
+        }
+        setShowBulk(false);
+        setBulkText('');
+        loadDiscounts();
+      } else {
+        toast.error(res.error || t('bulkError'));
+      }
+    } catch {
+      toast.error(t('networkError'));
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleDelete = (id: number) => {
     setDeleteId(id);
   };
@@ -218,15 +278,57 @@ export default function AdminVolumeDiscountsPage() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold">{t('title')}</h2>
-        <Button
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-        >
-          {t('add')}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowBulk((v) => !v);
+              setShowForm(false);
+            }}
+          >
+            {t('bulkBtn')}
+          </Button>
+          <Button
+            onClick={() => {
+              resetForm();
+              setShowBulk(false);
+              setShowForm(true);
+            }}
+          >
+            {t('add')}
+          </Button>
+        </div>
       </div>
+
+      {showBulk && (
+        <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <h3 className="mb-1 text-sm font-semibold">{t('bulkTitle')}</h3>
+          <p className="mb-3 whitespace-pre-line text-xs text-[var(--color-text-secondary)]">
+            {t('bulkHint')}
+          </p>
+          <textarea
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+            rows={8}
+            placeholder={t('bulkPlaceholder')}
+            className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-2 font-mono text-xs"
+          />
+          <div className="mt-3 flex gap-2">
+            <Button onClick={handleBulkImport} isLoading={isImporting} disabled={!bulkText.trim()}>
+              {t('bulkImport')}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowBulk(false);
+                setBulkText('');
+              }}
+            >
+              {t('cancel')}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="mb-6 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">

@@ -8,6 +8,10 @@ import { runBrokenLinkChecker, type BrokenLinkReport } from '@/services/jobs/bro
 const HEAD_SAMPLE_PRODUCTS = 50;
 const HEAD_CONCURRENCY = 5;
 const HEAD_TIMEOUT_MS = 5_000;
+// Pause each worker between requests so a full catalog scan doesn't fire
+// hundreds of HEAD/GET hits at our own origin back-to-back (self-DoS). With
+// concurrency=5 this caps the crawl at ~50 req/s instead of unbounded.
+const HEAD_THROTTLE_MS = 100;
 const CANONICAL_SAMPLE_PRODUCTS = 25;
 const SITEMAP_FETCH_TIMEOUT_MS = 15_000;
 // Cap history at ~3 months of daily runs so siteSetting blob stays small.
@@ -88,6 +92,7 @@ async function runBatched<T, R>(
   items: T[],
   concurrency: number,
   worker: (item: T) => Promise<R | null>,
+  delayMs = 0,
 ): Promise<R[]> {
   const results: R[] = [];
   let cursor = 0;
@@ -96,6 +101,11 @@ async function runBatched<T, R>(
       const i = cursor++;
       const r = await worker(items[i]);
       if (r) results.push(r);
+      // Throttle between requests within each worker — keeps the crawl from
+      // hammering our own origin. Skip the wait after the last item.
+      if (delayMs > 0 && cursor < items.length) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, next));
@@ -241,11 +251,13 @@ async function doSeoCheck() {
       products,
       HEAD_CONCURRENCY,
       (p) => headCheck(`${appUrl}/product/${p.slug}`, p.name),
+      HEAD_THROTTLE_MS,
     );
     const categoryIssues = await runBatched<(typeof categories)[number], HttpIssue>(
       categories,
       HEAD_CONCURRENCY,
       (c) => headCheck(`${appUrl}/catalog?category=${c.slug}`, c.name),
+      HEAD_THROTTLE_MS,
     );
 
     // 3. Canonical sample — random-ish slice of fresh products
@@ -257,6 +269,7 @@ async function doSeoCheck() {
         const url = `${appUrl}/product/${p.slug}`;
         return canonicalCheck(url, url);
       },
+      HEAD_THROTTLE_MS,
     );
 
     // 4. Sitemap audit

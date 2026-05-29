@@ -36,6 +36,12 @@ interface ForecastOptions {
   limit?: number;
   /** Only include products with sales in the window. */
   movingOnly?: boolean;
+  /**
+   * Days of cover above which stock is flagged `over-stock`. Default 180.
+   * Seasonal SKUs (e.g. New-Year gifts) legitimately hold many months of
+   * stock pre-season, so the owner can raise this to silence false alarms.
+   */
+  overstockThresholdDays?: number;
 }
 
 export async function getDemandForecast(options: ForecastOptions = {}): Promise<ForecastEntry[]> {
@@ -45,6 +51,12 @@ export async function getDemandForecast(options: ForecastOptions = {}): Promise<
   const leadTime = Math.max(0, Math.floor(options.leadTimeDays ?? DEFAULT_LEAD_TIME_DAYS));
   const buffer = Math.max(0, Math.floor(options.bufferDays ?? DEFAULT_BUFFER_DAYS));
   const safeLimit = Math.max(1, Math.min(500, Math.floor(options.limit ?? 200)));
+  // Keep the over-stock cutoff strictly above the "soon" boundary
+  // (leadTime+buffer) so the buckets never overlap, and cap it at ~5 years.
+  const overstockInput = Number.isFinite(options.overstockThresholdDays)
+    ? Math.floor(options.overstockThresholdDays as number)
+    : 180;
+  const overstockThreshold = Math.min(1825, Math.max(leadTime + buffer + 1, overstockInput));
   const since = new Date(Date.now() - TRAILING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
   // Aggregate sold quantities per product over the window
@@ -125,7 +137,7 @@ export async function getDemandForecast(options: ForecastOptions = {}): Promise<
       urgency = 'critical';
     } else if (daysUntilOOS !== null && daysUntilOOS < leadTime + buffer) {
       urgency = 'soon';
-    } else if (daysUntilOOS !== null && daysUntilOOS > 180) {
+    } else if (daysUntilOOS !== null && daysUntilOOS > overstockThreshold) {
       urgency = 'over-stock';
     } else {
       urgency = 'ok';

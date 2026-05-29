@@ -42,12 +42,36 @@ export const PUT = withRole('admin')(async (request: NextRequest, { user }) => {
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
 
+    // Snapshot the levels before replacing them. Changing pointsMultiplier
+    // silently affects all future earns, so the audit log doubles as the
+    // settings-change history — without before/after there's no way to answer
+    // "when did the Gold multiplier change from 2× to 3×, and who did it?".
+    const summarize = (
+      lvls: {
+        name: string;
+        minSpent: unknown;
+        pointsMultiplier: unknown;
+        discountPercent: unknown;
+      }[],
+    ) =>
+      lvls.map((l) => ({
+        name: l.name,
+        minSpent: Number(l.minSpent),
+        pointsMultiplier: Number(l.pointsMultiplier),
+        discountPercent: Number(l.discountPercent),
+      }));
+    const beforeLevels = await getLoyaltyLevels();
+
     const levels = await updateLoyaltySettings(parsed.data.levels);
     await logAudit({
       userId: user.id,
       actionType: 'data_update',
       entityType: 'loyalty_levels',
-      details: { count: parsed.data.levels.length },
+      details: {
+        count: parsed.data.levels.length,
+        before: summarize(beforeLevels),
+        after: summarize(levels),
+      },
     });
     return successResponse(levels);
   } catch (err) {

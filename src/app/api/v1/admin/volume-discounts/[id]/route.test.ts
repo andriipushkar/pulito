@@ -1,7 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 'test-admin', role: 'admin' }, ...(ctx || {}) }),
+}));
 vi.mock('@/services/volume-pricing', () => ({
   updateVolumeDiscount: vi.fn(),
   deleteVolumeDiscount: vi.fn(),
@@ -21,12 +37,26 @@ vi.mock('@/validators/volume-discount', () => ({
     }),
   },
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    volumeDiscount: {
+      findUnique: vi.fn().mockResolvedValue({ id: 1, minQuantity: 10, discountPercent: 5 }),
+    },
+  },
+}));
 
 import { PATCH, DELETE } from './route';
-import { updateVolumeDiscount, deleteVolumeDiscount, VolumePricingError } from '@/services/volume-pricing';
+import {
+  updateVolumeDiscount,
+  deleteVolumeDiscount,
+  VolumePricingError,
+} from '@/services/volume-pricing';
 
 describe('PATCH /api/v1/admin/volume-discounts/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates a volume discount', async () => {
     const item = { id: 1, minQuantity: 20, discountPercent: 10 };
@@ -83,7 +113,9 @@ describe('PATCH /api/v1/admin/volume-discounts/[id]', () => {
 });
 
 describe('DELETE /api/v1/admin/volume-discounts/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('deletes a volume discount', async () => {
     vi.mocked(deleteVolumeDiscount).mockResolvedValue(undefined as any);

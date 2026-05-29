@@ -61,7 +61,7 @@ describe('volume-pricing service', () => {
       const { getVolumeDiscount } = await import('./volume-pricing');
       const result = await getVolumeDiscount(1, null, 10);
 
-      expect(result).toEqual({ discountPercent: 5, discountType: 'percentage' });
+      expect(result).toEqual({ discountPercent: 5, discountType: 'percentage', stackableWith: [] });
     });
 
     it('should return product-specific discount over category-wide', async () => {
@@ -77,7 +77,11 @@ describe('volume-pricing service', () => {
       const { getVolumeDiscount } = await import('./volume-pricing');
       const result = await getVolumeDiscount(1, 5, 20);
 
-      expect(result).toEqual({ discountPercent: 10, discountType: 'percentage' });
+      expect(result).toEqual({
+        discountPercent: 10,
+        discountType: 'percentage',
+        stackableWith: [],
+      });
       // Should only call findFirst once (product match found, no need for category)
       expect(prisma.volumeDiscount.findFirst).toHaveBeenCalledTimes(1);
     });
@@ -97,7 +101,7 @@ describe('volume-pricing service', () => {
       const { getVolumeDiscount } = await import('./volume-pricing');
       const result = await getVolumeDiscount(1, 5, 20);
 
-      expect(result).toEqual({ discountPercent: 8, discountType: 'percentage' });
+      expect(result).toEqual({ discountPercent: 8, discountType: 'percentage', stackableWith: [] });
       expect(prisma.volumeDiscount.findFirst).toHaveBeenCalledTimes(2);
     });
 
@@ -115,18 +119,14 @@ describe('volume-pricing service', () => {
             isActive: true,
             AND: expect.arrayContaining([
               expect.objectContaining({
-                OR: expect.arrayContaining([
-                  expect.objectContaining({ startsAt: null }),
-                ]),
+                OR: expect.arrayContaining([expect.objectContaining({ startsAt: null })]),
               }),
               expect.objectContaining({
-                OR: expect.arrayContaining([
-                  expect.objectContaining({ endsAt: null }),
-                ]),
+                OR: expect.arrayContaining([expect.objectContaining({ endsAt: null })]),
               }),
             ]),
           }),
-        })
+        }),
       );
     });
 
@@ -142,7 +142,7 @@ describe('volume-pricing service', () => {
           where: expect.objectContaining({
             isActive: true,
           }),
-        })
+        }),
       );
     });
 
@@ -156,7 +156,7 @@ describe('volume-pricing service', () => {
       expect(prisma.volumeDiscount.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: [{ priority: 'desc' }, { discountPercent: 'desc' }],
-        })
+        }),
       );
     });
 
@@ -183,7 +183,14 @@ describe('volume-pricing service', () => {
       ]);
 
       expect(result).toEqual([
-        { productId: 1, originalPrice: 100, discountedPrice: 100, discountPercent: 0, quantity: 1 },
+        {
+          productId: 1,
+          originalPrice: 100,
+          discountedPrice: 100,
+          discountPercent: 0,
+          quantity: 1,
+          stackableWith: [],
+        },
       ]);
     });
 
@@ -257,7 +264,7 @@ describe('volume-pricing service', () => {
       expect(prisma.volumeDiscount.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { productId: 1, isActive: true },
-        })
+        }),
       );
     });
   });
@@ -299,7 +306,7 @@ describe('volume-pricing service', () => {
             discountPercent: 15,
             minQuantity: 10,
           }),
-        })
+        }),
       );
     });
   });
