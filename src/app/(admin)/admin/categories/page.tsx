@@ -545,6 +545,17 @@ export default function AdminCategoriesPage() {
   const handleDelete = (catId: number) => {
     const cat = categories.find((c) => c.id === catId);
     if (!cat) return;
+    // Pre-check the same guards the server enforces (category with live
+    // products or child categories can't be deleted) so the reason is shown
+    // immediately instead of only after a failed round-trip.
+    if (cat._count?.products) {
+      toast.error(t('deleteHasProducts', { count: cat._count.products }));
+      return;
+    }
+    if (cat._count?.children) {
+      toast.error(t('deleteHasChildren', { count: cat._count.children }));
+      return;
+    }
     setConfirmAction({ type: 'delete', id: catId, name: cat.name });
   };
 

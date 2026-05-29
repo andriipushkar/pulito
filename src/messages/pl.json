@@ -3367,6 +3367,8 @@
       "mergeMsg": "Polaczyc kategorie z inna? Wszystkie produkty zostana przeniesione.",
       "deleteTitle": "Usuwanie kategorii",
       "deleteMsg": "Usunac kategorie \"{name}\"? Produkty pozostana bez kategorii.",
+      "deleteHasProducts": "Nie mozna usunac: kategoria zawiera {count} produkt(ow). Najpierw przenies lub usun je.",
+      "deleteHasChildren": "Nie mozna usunac: kategoria ma {count} podkategorii. Najpierw przenies lub usun je.",
       "selectAria": "Wybierz {name}",
       "dragAria": "Przeciagnij {name}",
       "productsTitle": "{count} produktow",

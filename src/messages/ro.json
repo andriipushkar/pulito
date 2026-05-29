@@ -3367,6 +3367,8 @@
       "mergeMsg": "Combinati categoria cu alta? Toate produsele vor fi mutate.",
       "deleteTitle": "Stergere categorie",
       "deleteMsg": "Stergeti categoria \"{name}\"? Produsele vor ramane fara categorie.",
+      "deleteHasProducts": "Nu se poate sterge: categoria are {count} produs(e). Mutati-le sau stergeti-le mai intai.",
+      "deleteHasChildren": "Nu se poate sterge: categoria are {count} subcategorii. Mutati-le sau stergeti-le mai intai.",
       "selectAria": "Selecteaza {name}",
       "dragAria": "Trage {name}",
       "productsTitle": "{count} produse",

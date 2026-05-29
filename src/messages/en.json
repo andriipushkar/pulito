@@ -3367,6 +3367,8 @@
       "mergeMsg": "Merge the category into another? All products will be moved.",
       "deleteTitle": "Delete category",
       "deleteMsg": "Delete category \"{name}\"? Products will remain without a category.",
+      "deleteHasProducts": "Can't delete: the category has {count} product(s). Move or delete them first.",
+      "deleteHasChildren": "Can't delete: the category has {count} subcategory(ies). Move or delete them first.",
       "selectAria": "Select {name}",
       "dragAria": "Drag {name}",
       "productsTitle": "{count} products",
