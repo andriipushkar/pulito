@@ -6,18 +6,29 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
+// The cancellation now delegates to updateOrderStatus (which restores stock,
+// releases reservations, refunds loyalty, writes statusHistory) rather than
+// writing the order row directly.
+vi.mock('@/services/order', () => ({
+  updateOrderStatus: vi.fn(),
+}));
+
 vi.mock('@/services/telegram', () => ({
   notifyClientStatusChange: vi.fn(),
 }));
 
 import { prisma } from '@/lib/prisma';
+import { updateOrderStatus } from '@/services/order';
 import { notifyClientStatusChange } from '@/services/telegram';
 import { autoCancelStaleOrders } from './auto-cancel-orders';
 
 const mockPrisma = prisma as unknown as {
   order: { findMany: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
 };
-const mockNotifyClientStatusChange = notifyClientStatusChange as unknown as ReturnType<typeof vi.fn>;
+const mockUpdateOrderStatus = updateOrderStatus as unknown as ReturnType<typeof vi.fn>;
+const mockNotifyClientStatusChange = notifyClientStatusChange as unknown as ReturnType<
+  typeof vi.fn
+>;
 
 async function flushAsyncCallbacks() {
   // Dynamic import() in the source creates a microtask chain:
@@ -44,7 +55,7 @@ describe('autoCancelStaleOrders', () => {
     mockPrisma.order.findMany.mockResolvedValue([]);
     const result = await autoCancelStaleOrders();
     expect(result).toBe(0);
-    expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    expect(mockUpdateOrderStatus).not.toHaveBeenCalled();
   });
 
   it('should cancel stale orders and return count', async () => {
@@ -53,46 +64,42 @@ describe('autoCancelStaleOrders', () => {
       { id: 2, orderNumber: 'ORD-002', userId: null },
     ];
     mockPrisma.order.findMany.mockResolvedValue(staleOrders);
-    mockPrisma.order.update.mockResolvedValue({});
+    mockUpdateOrderStatus.mockResolvedValue({});
 
     const result = await autoCancelStaleOrders();
 
     expect(result).toBe(2);
-    expect(mockPrisma.order.update).toHaveBeenCalledTimes(2);
-    expect(mockPrisma.order.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: {
-        status: 'cancelled',
-        cancelledReason: 'Автоматичне скасування: замовлення не оброблено протягом 72 годин',
-        cancelledBy: 'system',
-        statusHistory: {
-          create: {
-            oldStatus: 'new_order',
-            newStatus: 'cancelled',
-            changeSource: 'cron',
-            comment: 'Автоматичне скасування через 72 години',
-          },
-        },
-      },
-    });
+    expect(mockUpdateOrderStatus).toHaveBeenCalledTimes(2);
+    expect(mockUpdateOrderStatus).toHaveBeenCalledWith(
+      1,
+      'cancelled',
+      null,
+      'cron',
+      'Автоматичне скасування: замовлення не оброблено протягом 72 годин',
+    );
   });
 
   it('should trigger notification path when userId is present', async () => {
     const staleOrders = [{ id: 1, orderNumber: 'ORD-001', userId: 42 }];
     mockPrisma.order.findMany.mockResolvedValue(staleOrders);
-    mockPrisma.order.update.mockResolvedValue({});
+    mockUpdateOrderStatus.mockResolvedValue({});
 
     const result = await autoCancelStaleOrders();
     await flushAsyncCallbacks();
 
     expect(result).toBe(1);
-    expect(mockNotifyClientStatusChange).toHaveBeenCalledWith(42, 'ORD-001', 'new_order', 'cancelled');
+    expect(mockNotifyClientStatusChange).toHaveBeenCalledWith(
+      42,
+      'ORD-001',
+      'new_order',
+      'cancelled',
+    );
   });
 
   it('should skip notification when userId is null', async () => {
     const staleOrders = [{ id: 1, orderNumber: 'ORD-001', userId: null }];
     mockPrisma.order.findMany.mockResolvedValue(staleOrders);
-    mockPrisma.order.update.mockResolvedValue({});
+    mockUpdateOrderStatus.mockResolvedValue({});
 
     const result = await autoCancelStaleOrders();
     await flushAsyncCallbacks();
@@ -104,7 +111,7 @@ describe('autoCancelStaleOrders', () => {
   it('should handle telegram notification failure gracefully', async () => {
     const staleOrders = [{ id: 1, orderNumber: 'ORD-001', userId: 42 }];
     mockPrisma.order.findMany.mockResolvedValue(staleOrders);
-    mockPrisma.order.update.mockResolvedValue({});
+    mockUpdateOrderStatus.mockResolvedValue({});
     mockNotifyClientStatusChange.mockRejectedValue(new Error('Telegram down'));
 
     const result = await autoCancelStaleOrders();

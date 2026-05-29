@@ -2,13 +2,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    subscription: { findMany: vi.fn(), update: vi.fn() },
-    order: { update: vi.fn() },
+    // updateMany is the atomic "claim this due subscription" guard; default to
+    // count:1 so the cron proceeds (count:0 would skip as already-claimed).
+    subscription: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    order: { findUnique: vi.fn(), update: vi.fn() },
   },
 }));
 
 vi.mock('@/services/order', () => ({
   createOrder: vi.fn(),
+}));
+
+vi.mock('@/services/email', () => ({
+  sendEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -242,7 +252,15 @@ describe('processSubscriptionOrders', () => {
       items: [
         {
           quantity: 1,
-          product: { id: 200, code: 'X', name: 'Off', priceRetail: 10, quantity: 0, isActive: true, imagePath: null },
+          product: {
+            id: 200,
+            code: 'X',
+            name: 'Off',
+            priceRetail: 10,
+            quantity: 0,
+            isActive: true,
+            imagePath: null,
+          },
         },
       ],
     });

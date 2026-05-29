@@ -69,6 +69,15 @@ const mockPdfDoc = vi.hoisted(() => {
 });
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
+// Mock redis so the report cache always misses — otherwise a live redis with a
+// stale entry (filenames are deterministic per template/format/params) makes
+// generateReport short-circuit and skip xlsx/pdf rendering.
+vi.mock('@/lib/redis', () => ({
+  redis: {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue('OK'),
+  },
+}));
 vi.mock('@/config/env', () => ({
   env: { UPLOAD_DIR: '/tmp/test-uploads' },
 }));
