@@ -5,6 +5,7 @@ import { verifyTOTP, decryptStoredSecret } from '@/services/totp';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
+import { notifyTwoFactorChange } from '@/services/two-factor-notify';
 
 const disableSchema = z.object({
   // Match the setup-verify schema — TOTP is strictly 6 digits. Tighter than
@@ -82,6 +83,8 @@ export const POST = withRole(
       details: { action: '2fa_disabled' },
       ipAddress: getClientIp(request),
     });
+
+    await notifyTwoFactorChange(user.email, false);
 
     return successResponse({ twoFactorEnabled: false });
   } catch {

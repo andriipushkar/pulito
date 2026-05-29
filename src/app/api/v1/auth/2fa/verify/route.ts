@@ -10,6 +10,7 @@ import {
 import { privateResponse, errorResponse } from '@/utils/api-response';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
+import { notifyTwoFactorChange } from '@/services/two-factor-notify';
 
 const verifySchema = z.object({
   code: z.string().regex(/^\d{6}$/, 'Код має бути 6 цифр'),
@@ -109,6 +110,8 @@ export const POST = withRole(
       details: { action: '2fa_enabled' },
       ipAddress: getClientIp(request),
     });
+
+    await notifyTwoFactorChange(user.email, true);
 
     return privateResponse({
       twoFactorEnabled: true,
