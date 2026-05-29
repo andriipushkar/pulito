@@ -1,4 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 import { NextRequest } from 'next/server';
 
 vi.mock('@/lib/prisma', () => ({
@@ -34,7 +45,15 @@ describe('GET /api/v1/me/export', () => {
       wholesaleStatus: null,
       createdAt: new Date('2024-01-01'),
       addresses: [
-        { label: 'Home', city: 'Kyiv', street: 'Main St', building: '1', apartment: '10', postalCode: '01001', isDefault: true },
+        {
+          label: 'Home',
+          city: 'Kyiv',
+          street: 'Main St',
+          building: '1',
+          apartment: '10',
+          postalCode: '01001',
+          isDefault: true,
+        },
       ],
       orders: [
         {
@@ -42,18 +61,13 @@ describe('GET /api/v1/me/export', () => {
           status: 'completed',
           totalAmount: 500,
           createdAt: new Date('2024-06-15'),
-          items: [
-            { productName: 'Product A', quantity: 2, priceAtOrder: 200, subtotal: 400 },
-          ],
+          items: [{ productName: 'Product A', quantity: 2, priceAtOrder: 200, subtotal: 400 }],
         },
       ],
       wishlists: [
         {
           name: 'My List',
-          items: [
-            { product: { name: 'Fav Product', code: 'FP1' } },
-            { product: null },
-          ],
+          items: [{ product: { name: 'Fav Product', code: 'FP1' } }, { product: null }],
         },
       ],
     });

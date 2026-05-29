@@ -1,7 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
 
 vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 
 const mockImportProducts = vi.fn();
 vi.mock('@/services/import', () => {
@@ -31,7 +50,9 @@ function createFileFormData(name: string, size: number = 100): Request {
 }
 
 describe('POST /api/v1/admin/import/products', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns 400 when no file provided', async () => {
     const formData = new FormData();
@@ -91,7 +112,11 @@ describe('POST /api/v1/admin/import/products', () => {
   });
 
   it('returns 500 on unexpected error', async () => {
-    const req = { formData: () => { throw new Error('fail'); } } as any;
+    const req = {
+      formData: () => {
+        throw new Error('fail');
+      },
+    } as any;
     const res = await POST(req, mockCtx as any);
     expect(res.status).toBe(500);
   });

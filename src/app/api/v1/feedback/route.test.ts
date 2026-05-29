@@ -1,4 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 import { NextRequest } from 'next/server';
 
 vi.mock('@/middleware/auth', () => ({
@@ -33,11 +44,13 @@ describe('POST /api/v1/feedback', () => {
 
   it('creates feedback on success', async () => {
     mocked.mockResolvedValue({ id: 1 } as never);
-    const res = await POST(makeReq({
-      name: 'Test User',
-      email: 'test@example.com',
-      message: 'This is a test message with enough chars',
-    }));
+    const res = await POST(
+      makeReq({
+        name: 'Test User',
+        email: 'test@example.com',
+        message: 'This is a test message with enough chars',
+      }),
+    );
     const json = await res.json();
     expect(res.status).toBe(201);
     expect(json.success).toBe(true);
@@ -50,11 +63,13 @@ describe('POST /api/v1/feedback', () => {
 
   it('returns 500 on service error', async () => {
     mocked.mockRejectedValue(new Error('fail'));
-    const res = await POST(makeReq({
-      name: 'Test User',
-      email: 'test@example.com',
-      message: 'This is a test message with enough chars',
-    }));
+    const res = await POST(
+      makeReq({
+        name: 'Test User',
+        email: 'test@example.com',
+        message: 'This is a test message with enough chars',
+      }),
+    );
     expect(res.status).toBe(500);
   });
 });

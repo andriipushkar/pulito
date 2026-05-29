@@ -1,5 +1,15 @@
 import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
 
 vi.mock('@/config/env', () => ({
   env: {

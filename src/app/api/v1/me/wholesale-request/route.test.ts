@@ -1,4 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 import { NextRequest } from 'next/server';
 
 vi.mock('@/lib/prisma', () => ({
@@ -47,7 +58,11 @@ describe('POST /api/v1/me/wholesale-request', () => {
 
   it('submits wholesale request', async () => {
     mockFindUnique.mockResolvedValue({ wholesaleStatus: null, role: 'client' });
-    mockUpdate.mockResolvedValue({ wholesaleStatus: 'pending', wholesaleRequestDate: new Date(), companyName: 'Test Co' });
+    mockUpdate.mockResolvedValue({
+      wholesaleStatus: 'pending',
+      wholesaleRequestDate: new Date(),
+      companyName: 'Test Co',
+    });
     const req = new NextRequest('http://localhost/api/v1/me/wholesale-request', {
       method: 'POST',
       body: JSON.stringify({
@@ -91,7 +106,11 @@ describe('POST /api/v1/me/wholesale-request', () => {
     mockFindUnique.mockResolvedValue(null);
     const req = new NextRequest('http://localhost/api/v1/me/wholesale-request', {
       method: 'POST',
-      body: JSON.stringify({ companyName: 'Test Co', contactPersonName: 'John', contactPersonPhone: '+380501234567' }),
+      body: JSON.stringify({
+        companyName: 'Test Co',
+        contactPersonName: 'John',
+        contactPersonPhone: '+380501234567',
+      }),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
@@ -102,7 +121,11 @@ describe('POST /api/v1/me/wholesale-request', () => {
     mockFindUnique.mockResolvedValue({ wholesaleStatus: null, role: 'wholesaler' });
     const req = new NextRequest('http://localhost/api/v1/me/wholesale-request', {
       method: 'POST',
-      body: JSON.stringify({ companyName: 'Test Co', contactPersonName: 'John', contactPersonPhone: '+380501234567' }),
+      body: JSON.stringify({
+        companyName: 'Test Co',
+        contactPersonName: 'John',
+        contactPersonPhone: '+380501234567',
+      }),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
@@ -133,7 +156,11 @@ describe('POST /api/v1/me/wholesale-request', () => {
 
   it('submits with all optional fields including edrpou and comment', async () => {
     mockFindUnique.mockResolvedValue({ wholesaleStatus: null, role: 'client' });
-    mockUpdate.mockResolvedValue({ wholesaleStatus: 'pending', wholesaleRequestDate: new Date(), companyName: 'Test Co' });
+    mockUpdate.mockResolvedValue({
+      wholesaleStatus: 'pending',
+      wholesaleRequestDate: new Date(),
+      companyName: 'Test Co',
+    });
     const req = new NextRequest('http://localhost/api/v1/me/wholesale-request', {
       method: 'POST',
       body: JSON.stringify({
@@ -154,7 +181,11 @@ describe('POST /api/v1/me/wholesale-request', () => {
     const { notifyManagerFeedback } = await import('@/services/telegram');
     vi.mocked(notifyManagerFeedback).mockRejectedValue(new Error('telegram down'));
     mockFindUnique.mockResolvedValue({ wholesaleStatus: null, role: 'client' });
-    mockUpdate.mockResolvedValue({ wholesaleStatus: 'pending', wholesaleRequestDate: new Date(), companyName: 'Test Co' });
+    mockUpdate.mockResolvedValue({
+      wholesaleStatus: 'pending',
+      wholesaleRequestDate: new Date(),
+      companyName: 'Test Co',
+    });
     const req = new NextRequest('http://localhost/api/v1/me/wholesale-request', {
       method: 'POST',
       body: JSON.stringify({

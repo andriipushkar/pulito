@@ -1,12 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 import { NextRequest } from 'next/server';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
 
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
   withOptionalAuth: (handler: Function) => handler,
-  withRole: (..._roles: string[]) => (handler: Function) => handler,
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+      handler,
 }));
 
 vi.mock('@/services/return-request', () => {
@@ -33,8 +57,10 @@ vi.mock('@/validators/return-request', () => ({
 vi.mock('@/utils/api-response', async () => {
   const { NextResponse } = await import('next/server');
   return {
-    successResponse: (data: any, status = 200) => NextResponse.json({ success: true, data }, { status }),
-    errorResponse: (message: string, status = 500) => NextResponse.json({ success: false, error: message }, { status }),
+    successResponse: (data: any, status = 200) =>
+      NextResponse.json({ success: true, data }, { status }),
+    errorResponse: (message: string, status = 500) =>
+      NextResponse.json({ success: false, error: message }, { status }),
   };
 });
 

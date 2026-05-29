@@ -1,4 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 import { NextRequest } from 'next/server';
 
 vi.mock('@/services/review', () => ({
@@ -25,7 +36,10 @@ const mockGetProductReviews = getProductReviews as ReturnType<typeof vi.fn>;
 const mockGetProductRatingStats = getProductRatingStats as ReturnType<typeof vi.fn>;
 const mockCreateReview = createReview as ReturnType<typeof vi.fn>;
 const mockCreateReviewParse = createReviewSchema.safeParse as ReturnType<typeof vi.fn>;
-const authCtx = { user: { id: 1, email: 'test@test.com', role: 'client' }, params: Promise.resolve({ slug: '5' }) };
+const authCtx = {
+  user: { id: 1, email: 'test@test.com', role: 'client' },
+  params: Promise.resolve({ slug: '5' }),
+};
 
 // ---------------------------------------------------------------------------
 // GET /api/v1/products/[id]/reviews
@@ -64,7 +78,9 @@ describe('GET /api/v1/products/[id]/reviews', () => {
       distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
     });
 
-    const req = new NextRequest('http://localhost/api/v1/products/5/reviews?page=2&limit=5&sort=helpful');
+    const req = new NextRequest(
+      'http://localhost/api/v1/products/5/reviews?page=2&limit=5&sort=helpful',
+    );
     await GET(req, { params: Promise.resolve({ slug: '5' }) });
 
     expect(mockGetProductReviews).toHaveBeenCalledWith(5, 2, 5, 'helpful');

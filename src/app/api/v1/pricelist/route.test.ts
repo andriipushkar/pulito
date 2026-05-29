@@ -1,10 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 import { NextRequest } from 'next/server';
 
 vi.mock('@/middleware/auth', () => ({
-  withAuth: (handler: Function) => (...args: unknown[]) => handler(...args),
-  withOptionalAuth: (handler: Function) => (...args: unknown[]) => handler(...args),
-  withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args),
+  withAuth:
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
+  withOptionalAuth:
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
 }));
 
 vi.mock('@/services/pricelist', () => ({
@@ -55,14 +76,20 @@ describe('GET /api/v1/pricelist', () => {
 
   it('returns 403 for wholesale pricelist with non-privileged user', async () => {
     const req = new NextRequest('http://localhost/api/v1/pricelist?type=wholesale');
-    const res = await GET(req, { user: { id: 1, role: 'client' }, params: Promise.resolve({}) } as any);
+    const res = await GET(req, {
+      user: { id: 1, role: 'client' },
+      params: Promise.resolve({}),
+    } as any);
     expect(res.status).toBe(403);
   });
 
   it('returns PDF on success for wholesale with admin', async () => {
     mocked.mockResolvedValue(Buffer.from('pdf-data') as never);
     const req = new NextRequest('http://localhost/api/v1/pricelist?type=wholesale');
-    const res = await GET(req, { user: { id: 1, role: 'admin' }, params: Promise.resolve({}) } as any);
+    const res = await GET(req, {
+      user: { id: 1, role: 'admin' },
+      params: Promise.resolve({}),
+    } as any);
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Disposition')).toContain('wholesale');
   });
@@ -70,14 +97,20 @@ describe('GET /api/v1/pricelist', () => {
   it('returns PDF on success for wholesale with wholesaler', async () => {
     mocked.mockResolvedValue(Buffer.from('pdf-data') as never);
     const req = new NextRequest('http://localhost/api/v1/pricelist?type=wholesale');
-    const res = await GET(req, { user: { id: 1, role: 'wholesaler' }, params: Promise.resolve({}) } as any);
+    const res = await GET(req, {
+      user: { id: 1, role: 'wholesaler' },
+      params: Promise.resolve({}),
+    } as any);
     expect(res.status).toBe(200);
   });
 
   it('returns PDF on success for wholesale with manager', async () => {
     mocked.mockResolvedValue(Buffer.from('pdf-data') as never);
     const req = new NextRequest('http://localhost/api/v1/pricelist?type=wholesale');
-    const res = await GET(req, { user: { id: 1, role: 'manager' }, params: Promise.resolve({}) } as any);
+    const res = await GET(req, {
+      user: { id: 1, role: 'manager' },
+      params: Promise.resolve({}),
+    } as any);
     expect(res.status).toBe(200);
   });
 

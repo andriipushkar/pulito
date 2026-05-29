@@ -1,10 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 import { NextRequest } from 'next/server';
 
 vi.mock('@/middleware/auth', () => ({
-  withAuth: (handler: Function) => (...args: unknown[]) => handler(...args),
-  withOptionalAuth: (handler: Function) => (...args: unknown[]) => handler(...args),
-  withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args),
+  withAuth:
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
+  withOptionalAuth:
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
 }));
 
 vi.mock('@/services/push', () => ({
@@ -31,7 +52,10 @@ describe('POST /api/v1/push/subscribe', () => {
 
   it('subscribes on success', async () => {
     mockedSubscribe.mockResolvedValue(undefined as never);
-    const req = makeReq({ endpoint: 'https://push.example.com', keys: { p256dh: 'key1', auth: 'key2' } });
+    const req = makeReq({
+      endpoint: 'https://push.example.com',
+      keys: { p256dh: 'key1', auth: 'key2' },
+    });
     const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) } as any);
     const json = await res.json();
     expect(res.status).toBe(200);
@@ -46,7 +70,10 @@ describe('POST /api/v1/push/subscribe', () => {
 
   it('returns 500 on error', async () => {
     mockedSubscribe.mockRejectedValue(new Error('fail'));
-    const req = makeReq({ endpoint: 'https://push.example.com', keys: { p256dh: 'key1', auth: 'key2' } });
+    const req = makeReq({
+      endpoint: 'https://push.example.com',
+      keys: { p256dh: 'key1', auth: 'key2' },
+    });
     const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) } as any);
     expect(res.status).toBe(500);
   });

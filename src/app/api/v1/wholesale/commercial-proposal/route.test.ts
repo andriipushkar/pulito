@@ -1,12 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (handler: Function) => handler,
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 import { NextRequest } from 'next/server';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
 
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
   withOptionalAuth: (handler: Function) => handler,
-  withRole: (..._roles: string[]) => (handler: Function) => handler,
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+      handler,
 }));
 
 vi.mock('@/lib/prisma', () => ({
@@ -26,8 +50,10 @@ vi.mock('@/services/commercial-proposal', () => ({
 vi.mock('@/utils/api-response', async () => {
   const { NextResponse } = await import('next/server');
   return {
-    successResponse: (data: any, status = 200) => NextResponse.json({ success: true, data }, { status }),
-    errorResponse: (message: string, status = 500) => NextResponse.json({ success: false, error: message }, { status }),
+    successResponse: (data: any, status = 200) =>
+      NextResponse.json({ success: true, data }, { status }),
+    errorResponse: (message: string, status = 500) =>
+      NextResponse.json({ success: false, error: message }, { status }),
   };
 });
 
@@ -59,20 +85,35 @@ describe('POST /api/v1/wholesale/commercial-proposal', () => {
   });
 
   it('returns 403 for non-wholesaler users', async () => {
-    mockFindUser.mockResolvedValue({ role: 'customer', wholesaleGroup: null, fullName: 'Test', companyName: null });
+    mockFindUser.mockResolvedValue({
+      role: 'customer',
+      wholesaleGroup: null,
+      fullName: 'Test',
+      companyName: null,
+    });
     const res = await POST(makeReq({ items: [{ code: 'P1', quantity: 10 }] }), authCtx as any);
     expect(res.status).toBe(403);
   });
 
   it('returns 404 when no products found', async () => {
-    mockFindUser.mockResolvedValue({ role: 'wholesaler', wholesaleGroup: 'A', fullName: 'Test', companyName: 'Co' });
+    mockFindUser.mockResolvedValue({
+      role: 'wholesaler',
+      wholesaleGroup: 'A',
+      fullName: 'Test',
+      companyName: 'Co',
+    });
     mockResolveBulk.mockResolvedValue({ items: [], totalAmount: 0 });
     const res = await POST(makeReq({ items: [{ code: 'P1', quantity: 10 }] }), authCtx as any);
     expect(res.status).toBe(404);
   });
 
   it('generates proposal on success', async () => {
-    mockFindUser.mockResolvedValue({ role: 'wholesaler', wholesaleGroup: 'A', fullName: 'Test', companyName: 'Co' });
+    mockFindUser.mockResolvedValue({
+      role: 'wholesaler',
+      wholesaleGroup: 'A',
+      fullName: 'Test',
+      companyName: 'Co',
+    });
     mockResolveBulk.mockResolvedValue({
       items: [{ code: 'P1', name: 'Product 1', quantity: 10, price: 100, total: 1000 }],
       totalAmount: 1000,
