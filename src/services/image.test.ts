@@ -14,6 +14,10 @@ const mockPrisma = vi.hoisted(() => ({
     findUnique: vi.fn(),
     delete: vi.fn(),
   },
+  // generateAutoAltText → getSeoTemplateByEntity reads SEO templates.
+  seoTemplate: {
+    findFirst: vi.fn(),
+  },
 }));
 
 const mockSharp = vi.hoisted(() => {
@@ -112,10 +116,12 @@ describe('processProductImage', () => {
   it('should process a valid JPEG image', async () => {
     const result = await processProductImage(fakeBuffer, 'image/jpeg', 'photo.jpg', 1);
 
-    expect(mockPrisma.product.findUnique).toHaveBeenCalledWith({
-      where: { id: 1 },
-      select: { id: true, code: true, name: true },
-    });
+    expect(mockPrisma.product.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 1 },
+        select: expect.objectContaining({ id: true, code: true, name: true }),
+      }),
+    );
     expect(mockFs.mkdir).toHaveBeenCalled();
     expect(mockPrisma.productImage.create).toHaveBeenCalled();
     expect(result).toEqual({ id: 1 });

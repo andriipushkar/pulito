@@ -20,6 +20,9 @@ const mockPrisma = vi.hoisted(() => ({
     findUnique: vi.fn(),
     delete: vi.fn(),
   },
+  seoTemplate: {
+    findFirst: vi.fn(),
+  },
 }));
 
 const capturedUploads: { key: string; buffer: Buffer; contentType: string }[] = [];

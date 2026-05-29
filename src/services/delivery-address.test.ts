@@ -8,18 +8,23 @@ import {
   AddressError,
 } from './delivery-address';
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    userAddress: {
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
-      delete: vi.fn(),
-    },
-  },
-}));
+vi.mock('@/lib/prisma', () => {
+  const userAddress = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+    delete: vi.fn(),
+  };
+  const prisma = {
+    userAddress,
+    $transaction: vi.fn(async (arg: unknown) =>
+      typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(prisma) : undefined,
+    ),
+  };
+  return { prisma };
+});
 
 import { prisma } from '@/lib/prisma';
 

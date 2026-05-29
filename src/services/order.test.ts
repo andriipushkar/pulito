@@ -24,6 +24,12 @@ vi.mock('@/lib/prisma', () => ({
       findUnique: vi.fn(),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // adjustReserved() bookkeeping; null target → no-op (actual stock still
+    // moves through product.update/updateMany, which the assertions target).
+    warehouseStock: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
+    },
     payment: {
       upsert: vi.fn().mockResolvedValue({}),
     },
@@ -39,10 +45,18 @@ vi.mock('@/lib/prisma', () => ({
     referral: {
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     loyaltyTransaction: {
       findFirst: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
+    },
+    campaignLog: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
+    siteSetting: {
+      findMany: vi.fn().mockResolvedValue([]),
     },
     loyaltyAccount: {
       findUnique: vi.fn(),
@@ -74,7 +88,10 @@ vi.mock('@/services/loyalty', () => ({
 const pdfMock = vi.hoisted(() => ({ generateInvoicePdf: vi.fn() }));
 vi.mock('@/services/pdf', () => pdfMock);
 
-const emailMock = vi.hoisted(() => ({ sendEmail: vi.fn() }));
+const emailMock = vi.hoisted(() => ({
+  sendEmail: vi.fn(),
+  sendOrderConfirmationEmail: vi.fn(),
+}));
 vi.mock('@/services/email', () => emailMock);
 
 const fsMock = vi.hoisted(() => ({ readFile: vi.fn() }));
@@ -824,7 +841,7 @@ describe('updateOrderStatus', () => {
       mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
       mockPrisma.product.update.mockResolvedValue({} as never);
       mockPrisma.order.updateMany.mockResolvedValue({ count: 1 } as never);
-    mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
+      mockPrisma.order.findUniqueOrThrow.mockResolvedValue(updatedOrder as never);
       // Fire-and-forget paths need thenable mocks
       mockPrisma.referral.findFirst.mockResolvedValue(null as never);
       mockPrisma.loyaltyTransaction.findFirst.mockResolvedValue(null as never);
@@ -939,6 +956,17 @@ describe('editOrderItems', () => {
           subtotal: 500,
           isPromo: false,
         },
+        // Second item stays — the service forbids emptying an order entirely.
+        {
+          id: 11,
+          productId: 2,
+          productCode: 'SKU-002',
+          productName: 'Товар 2',
+          priceAtOrder: 50,
+          quantity: 1,
+          subtotal: 50,
+          isPromo: false,
+        },
       ],
     };
 
@@ -946,7 +974,7 @@ describe('editOrderItems', () => {
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.update.mockResolvedValue({} as never);
     mockPrisma.orderItem.delete.mockResolvedValue({} as never);
-    mockPrisma.orderItem.findMany.mockResolvedValue([] as never);
+    mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 1, subtotal: 50 }] as never);
     mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
     mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
 
@@ -981,8 +1009,9 @@ describe('editOrderItems', () => {
 
     mockPrisma.order.findUnique.mockResolvedValue(order as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    // Increasing quantity: need stock check
+    // Increasing quantity uses an atomic conditional updateMany (race-safe).
     mockPrisma.product.findUnique.mockResolvedValue({ quantity: 10 } as never);
+    mockPrisma.product.updateMany.mockResolvedValue({ count: 1 } as never);
     mockPrisma.product.update.mockResolvedValue({} as never);
     mockPrisma.orderItem.update.mockResolvedValue({} as never);
     mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 5, subtotal: 500 }] as never);
@@ -991,9 +1020,9 @@ describe('editOrderItems', () => {
 
     await editOrderItems(1, [{ itemId: 10, quantity: 5 }], 10);
 
-    // Stock decrement by difference (5 - 2 = 3)
-    expect(mockPrisma.product.update).toHaveBeenCalledWith({
-      where: { id: 1 },
+    // Stock decrement by difference (5 - 2 = 3) via atomic conditional updateMany
+    expect(mockPrisma.product.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, quantity: { gte: 3 } },
       data: { quantity: { decrement: 3 } },
     });
     // Item updated
@@ -1088,12 +1117,23 @@ describe('editOrderItems', () => {
     const order = {
       id: 1,
       status: 'processing',
-      items: [],
+      items: [
+        {
+          id: 10,
+          productId: 1,
+          productCode: 'SKU-001',
+          productName: 'Товар 1',
+          priceAtOrder: 100,
+          quantity: 1,
+          subtotal: 100,
+          isPromo: false,
+        },
+      ],
     };
 
     mockPrisma.order.findUnique.mockResolvedValue(order as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
-    mockPrisma.orderItem.findMany.mockResolvedValue([] as never);
+    mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 1, subtotal: 100 }] as never);
     mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
     mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
 
@@ -1420,6 +1460,8 @@ describe('editOrderItems - insufficient stock on increase', () => {
     mockPrisma.order.findUnique.mockResolvedValue(order as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.product.findUnique.mockResolvedValue({ quantity: 1 } as never); // Only 1 in stock, need 3 more
+    // Atomic conditional decrement matches 0 rows when stock is short.
+    mockPrisma.product.updateMany.mockResolvedValue({ count: 0 } as never);
 
     await expect(editOrderItems(1, [{ itemId: 10, quantity: 5 }], 10)).rejects.toThrow(OrderError);
   });
@@ -1544,19 +1586,30 @@ describe('editOrderItems - insufficient stock on increase', () => {
           subtotal: 100,
           isPromo: false,
         },
+        // Second item stays — an order can't be emptied via edit.
+        {
+          id: 11,
+          productId: 2,
+          productCode: 'SKU-002',
+          productName: 'Товар 2',
+          priceAtOrder: 50,
+          quantity: 1,
+          subtotal: 50,
+          isPromo: false,
+        },
       ],
     };
 
     mockPrisma.order.findUnique.mockResolvedValue(order as never);
     mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
     mockPrisma.orderItem.delete.mockResolvedValue({} as never);
-    mockPrisma.orderItem.findMany.mockResolvedValue([] as never);
+    mockPrisma.orderItem.findMany.mockResolvedValue([{ quantity: 1, subtotal: 50 }] as never);
     mockPrisma.orderStatusHistory.create.mockResolvedValue({} as never);
     mockPrisma.order.update.mockResolvedValue(makeOrderDetail() as never);
 
     await editOrderItems(1, [{ itemId: 10, quantity: 0, remove: true }], 10);
 
-    // product.update should NOT be called since productId is null
+    // product.update should NOT be called since the removed item's productId is null
     expect(mockPrisma.product.update).not.toHaveBeenCalled();
     expect(mockPrisma.orderItem.delete).toHaveBeenCalledWith({ where: { id: 10 } });
   });
@@ -1860,8 +1913,9 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
     mockPrisma.referral.findFirst.mockResolvedValue({
       id: 10,
       referrerUserId: 99,
+      referredUserId: 5,
     } as never);
-    mockPrisma.referral.update.mockResolvedValue({} as never);
+    mockPrisma.referral.updateMany.mockResolvedValue({ count: 1 } as never);
 
     const result = await updateOrderStatus(1, 'completed', 10, 'manager');
     expect(result.status).toBe('completed');
@@ -1869,8 +1923,8 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
     // Wait for fire-and-forget chains to complete
     await new Promise((r) => setTimeout(r, 100));
 
-    // The referral.update should have been called at least once (for first_order status)
-    expect(mockPrisma.referral.update).toHaveBeenCalled();
+    // The atomic conditional updateMany claims the bonus (status registered→first_order)
+    expect(mockPrisma.referral.updateMany).toHaveBeenCalled();
   });
 
   it('should execute bonus_granted update after adjustPoints completes', async () => {
@@ -1903,8 +1957,9 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
     mockPrisma.referral.findFirst.mockResolvedValue({
       id: 10,
       referrerUserId: 99,
+      referredUserId: 5,
     } as never);
-    mockPrisma.referral.update.mockResolvedValue({} as never);
+    mockPrisma.referral.updateMany.mockResolvedValue({ count: 1 } as never);
     // The chain uses the real loyalty module (dynamic import bypasses vi.mock)
     // so we need loyaltyAccount mock to be set up
     (mockPrisma as any).loyaltyAccount.findUnique.mockResolvedValue({
@@ -1929,22 +1984,22 @@ describe('updateOrderStatus - completed with referral bonus (full chain)', () =>
     // Wait for fire-and-forget chain to settle
     await vi.waitFor(
       () => {
-        expect(mockPrisma.referral.update.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(mockPrisma.referral.updateMany.mock.calls.length).toBeGreaterThanOrEqual(2);
       },
       { timeout: 2000, interval: 20 },
     );
 
-    const updateCalls = mockPrisma.referral.update.mock.calls;
+    const updateCalls = mockPrisma.referral.updateMany.mock.calls;
     expect(updateCalls.length).toBe(2);
     expect(updateCalls[0][0]).toEqual(
       expect.objectContaining({
-        where: { id: 10 },
+        where: expect.objectContaining({ id: 10, status: 'registered' }),
         data: expect.objectContaining({ status: 'first_order' }),
       }),
     );
     expect(updateCalls[1][0]).toEqual(
       expect.objectContaining({
-        where: { id: 10 },
+        where: expect.objectContaining({ id: 10, status: 'first_order' }),
         data: expect.objectContaining({
           status: 'bonus_granted',
           bonusType: 'points',

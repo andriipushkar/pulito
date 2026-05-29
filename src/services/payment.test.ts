@@ -13,6 +13,11 @@ vi.mock('@/lib/prisma', () => ({
       update: vi.fn(),
       upsert: vi.fn(),
     },
+    loyaltyTransaction: {
+      findFirst: vi.fn(),
+    },
+    // Advisory-lock helper queries; default to lock-acquired so refundPayment proceeds.
+    $queryRaw: vi.fn().mockResolvedValue([{ ok: true }]),
     $transaction: vi.fn((input: unknown) => {
       // Support both array-style and callback-style transactions
       if (typeof input === 'function') {
@@ -567,6 +572,8 @@ describe('refundPayment', () => {
     paymentProvider: 'liqpay',
     transactionId: 'txn-001',
     amount: 500,
+    // Refund accounting subtracts prior refunds from the paid total.
+    refundedAmount: 0,
     order: { orderNumber: 'ORD-001', totalAmount: 500 },
   };
 

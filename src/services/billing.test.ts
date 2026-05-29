@@ -24,6 +24,9 @@ const mockPrisma = vi.hoisted(() => ({
   order: {
     count: vi.fn(),
   },
+  $transaction: vi.fn(async (arg: unknown) =>
+    typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(mockPrisma) : undefined,
+  ),
 }));
 
 vi.mock('@/lib/prisma', () => ({
@@ -75,7 +78,7 @@ describe('billing service', () => {
       mockPrisma.tenantBilling.findUnique.mockResolvedValue({ id: 1 });
 
       await expect(createBillingForTenant(1, 1)).rejects.toThrow(
-        'Біллінг для цього тенанта вже існує'
+        'Біллінг для цього тенанта вже існує',
       );
     });
   });
@@ -86,8 +89,14 @@ describe('billing service', () => {
         id: 1,
         tenantId: 1,
         planId: 1,
+        status: 'active',
+        proratedCredit: 0,
+        // Proration reads the current period bounds (Date objects).
+        currentPeriodStart: new Date('2026-01-01'),
+        currentPeriodEnd: new Date('2026-02-01'),
+        plan: { priceMonthly: 100 },
       });
-      mockPrisma.plan.findUnique.mockResolvedValue({ id: 2, name: 'Pro' });
+      mockPrisma.plan.findUnique.mockResolvedValue({ id: 2, name: 'Pro', priceMonthly: 200 });
       mockPrisma.tenantBilling.update.mockResolvedValue({
         id: 1,
         tenantId: 1,
