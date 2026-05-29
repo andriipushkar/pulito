@@ -1,18 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/middleware/auth', () => ({
-  withRole: (..._roles: string[]) => (handler: Function) =>
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
     (req: unknown, ctx?: Record<string, unknown>) =>
-      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+      handler(req, {
+        user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' },
+        ...(ctx || {}),
+      }),
 }));
 vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+// PUT/DELETE bust ISR caches on success; outside a request context the real
+// revalidatePath throws, so stub it.
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/validators/category', () => ({ updateCategorySchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/category', () => ({
   getCategoryById: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn(),
-  CategoryError: class CategoryError extends Error { statusCode = 400; },
+  CategoryError: class CategoryError extends Error {
+    statusCode = 400;
+  },
 }));
 
 import { GET, PUT, DELETE } from './route';
@@ -23,7 +42,9 @@ const mockCtx = { params: Promise.resolve({ id: '1' }) };
 const invalidCtx = { params: Promise.resolve({ id: 'abc' }) };
 
 describe('GET /api/v1/admin/categories/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns category on success', async () => {
     vi.mocked(getCategoryById).mockResolvedValue({ id: 1, name: 'Test' } as any);
@@ -54,10 +75,15 @@ describe('GET /api/v1/admin/categories/[id]', () => {
 });
 
 describe('PUT /api/v1/admin/categories/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates category on success', async () => {
-    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({ success: true, data: { name: 'Updated' } } as any);
+    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({
+      success: true,
+      data: { name: 'Updated' },
+    } as any);
     vi.mocked(updateCategory).mockResolvedValue({ id: 1 } as any);
     const req = new Request('http://localhost', {
       method: 'PUT',
@@ -79,7 +105,10 @@ describe('PUT /api/v1/admin/categories/[id]', () => {
   });
 
   it('returns 422 on validation error', async () => {
-    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({ success: false, error: { issues: [{ message: 'Bad' }] } } as any);
+    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({
+      success: false,
+      error: { issues: [{ message: 'Bad' }] },
+    } as any);
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({}),
@@ -90,7 +119,10 @@ describe('PUT /api/v1/admin/categories/[id]', () => {
   });
 
   it('uses fallback message when issues array is empty', async () => {
-    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({ success: false, error: { issues: [] } } as any);
+    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({
+      success: false,
+      error: { issues: [] },
+    } as any);
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({}),
@@ -104,7 +136,10 @@ describe('PUT /api/v1/admin/categories/[id]', () => {
 
   it('handles CategoryError', async () => {
     const { CategoryError } = await import('@/services/category');
-    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({ success: true, data: { name: 'Updated' } } as any);
+    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({
+      success: true,
+      data: { name: 'Updated' },
+    } as any);
     vi.mocked(updateCategory).mockRejectedValue(new (CategoryError as any)('Duplicate'));
     const req = new Request('http://localhost', {
       method: 'PUT',
@@ -116,7 +151,10 @@ describe('PUT /api/v1/admin/categories/[id]', () => {
   });
 
   it('returns 500 on unexpected error', async () => {
-    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({ success: true, data: { name: 'Updated' } } as any);
+    vi.mocked(updateCategorySchema.safeParse).mockReturnValue({
+      success: true,
+      data: { name: 'Updated' },
+    } as any);
     vi.mocked(updateCategory).mockRejectedValue(new Error('fail'));
     const req = new Request('http://localhost', {
       method: 'PUT',
@@ -129,7 +167,9 @@ describe('PUT /api/v1/admin/categories/[id]', () => {
 });
 
 describe('DELETE /api/v1/admin/categories/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('deletes category on success', async () => {
     vi.mocked(deleteCategory).mockResolvedValue(undefined as any);
