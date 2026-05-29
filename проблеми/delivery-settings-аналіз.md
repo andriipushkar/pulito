@@ -108,13 +108,16 @@
 - ✅ **DS11** — Estimate cache-key normalize: `weight.toFixed(1)` + `total.toFixed(2)` — float-drift `1.1` vs `1.1000000000000001` більше не cache-miss'ить | `delivery/estimate/route.ts:54-58` |
 - ✅ **DS13** — UX hint biggerу: «**окремий конфіг** (свої тарифи, ваговий клас, мін.сума). API ключ Нової Пошти переписується з цього розділу, але всі інші параметри окремі» | `delivery-settings/page.tsx:329` |
 
-## DS10 (encryption salt) — рішення 2026-05-29: НЕ робити
+## DS10 (encryption salt) — рішення 2026-05-29: НЕ робити (✅ ВЛАСНИК ПІДТВЕРДИВ 2026-05-29)
 
 Категорія-1 розбір: зміна hardcoded `'salt'` у `scryptSync(APP_SECRET,'salt',32)` змінює сам KEY → весь
 наявний ciphertext (payment/delivery/integration secrets + новий 2FA-секрет) стає недешифровним без
 ризикованої re-encrypt-міграції всіх secrets. Вигода ж нульова: random salt жив би у тому самому `.env`,
 що й `APP_SECRET`, тож загроза (.env/APP_SECRET leak) витекла б разом. **Катастрофічний ризик за ~нульову
 користь — лишаємо як є.** Робити лише з backup БД + maintenance window і явним прийняттям ризику.
+
+> **Закрито.** Власник підтвердив «лишаємо як є» 2026-05-29. Питання не переглядаємо без явного запиту
+> з бекапом БД і maintenance-вікном.
 
 ## Re-audit 2026-05-29 — verification pass
 
