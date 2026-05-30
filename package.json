@@ -6,7 +6,7 @@
   "description": "Інтернет-магазин побутової хімії (гуртово-роздрібна платформа)",
   "scripts": {
     "dev": "next dev",
-    "build": "NODE_OPTIONS='--max-old-space-size=6144' next build --webpack",
+    "build": "NODE_OPTIONS='--max-old-space-size=3072' next build --webpack",
     "start": "next start",
     "lint": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",

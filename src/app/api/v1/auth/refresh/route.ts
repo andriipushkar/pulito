@@ -4,7 +4,11 @@ import { parseTtlToSeconds, hashToken } from '@/services/token';
 import { AuthError } from '@/services/auth-errors';
 import { checkRateLimit, RATE_LIMITS, RateLimitError } from '@/services/rate-limit';
 import { successResponse, errorResponse } from '@/utils/api-response';
-import { getAllRefreshTokensFromCookies, serializeRefreshTokenCookie } from '@/utils/cookies';
+import {
+  getAllRefreshTokensFromCookies,
+  serializeRefreshTokenCookie,
+  serializeClearRefreshTokenCookie,
+} from '@/utils/cookies';
 import { getClientIp, getDeviceInfo } from '@/utils/request';
 import { env } from '@/config/env';
 import { prisma } from '@/lib/prisma';
@@ -25,7 +29,16 @@ export async function POST(request: NextRequest) {
     const candidates = getAllRefreshTokensFromCookies(cookieHeader);
 
     if (candidates.length === 0) {
-      return errorResponse('Refresh token не надано', 401);
+      // No refresh cookie at all → an unauthenticated guest, not an error.
+      // AuthProvider calls this endpoint on every mount, so a 401 here logged a
+      // noisy (but harmless) console error on every public page load. Return a
+      // 200 "no session" instead; refreshSession() treats a 200 without an
+      // accessToken as "not logged in". Genuinely invalid / expired / reused
+      // tokens still fall through to the 401s below.
+      const res = successResponse({ user: null, accessToken: null });
+      res.headers.set('Cache-Control', 'no-store');
+      res.headers.set('Pragma', 'no-cache');
+      return res;
     }
 
     // Browsers can send multiple refresh_token cookies (e.g. when an older
@@ -72,6 +85,19 @@ export async function POST(request: NextRequest) {
       return res;
     }
     if (error instanceof AuthError) {
+      // A 401 here means the refresh cookie exists but its token is
+      // invalid / expired / revoked — i.e. the session has simply ended. That
+      // is not an error worth a red console entry on every page load for a
+      // returning visitor. Clear the dead cookie and return a 200 "no session"
+      // so the browser self-heals: next load sends no cookie and stays quiet.
+      // Non-401 AuthErrors (e.g. 403) are genuine problems and still surface.
+      if (error.statusCode === 401) {
+        const res = successResponse({ user: null, accessToken: null });
+        res.headers.set('Set-Cookie', serializeClearRefreshTokenCookie());
+        res.headers.set('Cache-Control', 'no-store');
+        res.headers.set('Pragma', 'no-cache');
+        return res;
+      }
       return errorResponse(error.message, error.statusCode);
     }
     return errorResponse('Внутрішня помилка сервера', 500);

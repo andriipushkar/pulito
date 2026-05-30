@@ -104,12 +104,17 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
-  // Load maintenance mode state
+  // Load maintenance mode state — only AFTER auth has finished hydrating.
+  // The endpoint is Bearer-protected; firing before AuthProvider has restored
+  // the access token sends a tokenless request that 401s in the console on
+  // every admin page load. Gating on `!authLoading && user` guarantees the
+  // token is in place first.
   useEffect(() => {
+    if (isLoading || !user) return;
     apiClient.get<{ enabled: boolean }>('/api/v1/admin/maintenance').then((res) => {
       if (res.success && res.data) setMaintenanceMode(res.data.enabled);
     });
-  }, []);
+  }, [isLoading, user]);
 
   // Swap PWA manifest while the operator is inside /admin. When they install
   // from here, the desktop shortcut opens straight on /admin instead of the

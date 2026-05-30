@@ -57,6 +57,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+    // Cap build parallelism at 2 workers. This box has 4 cores but only ~6GB
+    // free RAM (Postgres/Redis/Typesense run alongside in Docker); the default
+    // 3 workers each spawn a heap and peaked past RAM, triggering OOM kills
+    // (exit 137) that left a half-written .next and took the site down on
+    // restart. 2 workers keeps the memory ceiling safe at a small time cost.
+    cpus: 2,
   },
   async headers() {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
