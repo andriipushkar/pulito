@@ -43,12 +43,19 @@ export async function getCategories(options?: {
 
   const where = options?.includeHidden ? { deletedAt: null } : { isVisible: true, deletedAt: null };
 
+  // Admin context (includeHidden) counts every LIVE product (deletedAt: null) so
+  // the badge matches exactly what deleteCategory() blocks on — otherwise a
+  // category with only hidden/inactive products showed "0 товарів" yet refused
+  // to delete. The public storefront still counts only active products, since a
+  // hidden product shouldn't inflate the customer-facing count.
+  const productCountWhere = options?.includeHidden ? { deletedAt: null } : { isActive: true };
+
   const result = await prisma.category.findMany({
     where,
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     include: {
       _count: {
-        select: { products: { where: { isActive: true } } },
+        select: { products: { where: productCountWhere } },
       },
     },
   });
@@ -76,11 +83,13 @@ export async function getCategoryBySlug(slug: string) {
 }
 
 export async function getCategoryById(id: number) {
+  // Admin-only lookup — count LIVE products (deletedAt: null) to match the
+  // delete-block check and the admin list badge. See getCategories() note.
   return prisma.category.findUnique({
     where: { id },
     include: {
       _count: {
-        select: { products: { where: { isActive: true } } },
+        select: { products: { where: { deletedAt: null } } },
       },
     },
   });
