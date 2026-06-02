@@ -62,10 +62,10 @@ describe('POST /api/v1/push/subscribe', () => {
     expect(json.data.subscribed).toBe(true);
   });
 
-  it('returns 400 on missing keys', async () => {
+  it('returns 422 on missing keys', async () => {
     const req = makeReq({ endpoint: 'https://push.example.com' });
     const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) } as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 500 on error', async () => {

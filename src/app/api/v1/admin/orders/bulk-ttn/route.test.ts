@@ -237,7 +237,9 @@ describe('POST /api/v1/admin/orders/bulk-ttn', () => {
         costOnSite: 0,
         estimatedDeliveryDate: '',
       })
-      .mockRejectedValueOnce(new npMock.NovaPoshtaError('NP отказала', 502));
+      // 4xx = permanent failure (non-retryable); 5xx/429 would trigger the
+      // route's backoff-retry and succeed on the mock's next call.
+      .mockRejectedValueOnce(new npMock.NovaPoshtaError('NP отказала', 400));
     const res = await POST(makeReq({ orderIds: [1, 2] }) as any);
     const body = await res.json();
     expect(body.data.ok).toHaveLength(1);

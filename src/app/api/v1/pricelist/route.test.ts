@@ -39,13 +39,24 @@ vi.mock('@/services/pricelist', () => ({
   },
 }));
 
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    user: { findUnique: vi.fn().mockResolvedValue({ wholesaleGroup: 1 }) },
+  },
+}));
+
 import { GET } from './route';
 import { generatePricelist } from '@/services/pricelist';
+import { prisma } from '@/lib/prisma';
 
 const mocked = vi.mocked(generatePricelist);
+const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
 
 describe('GET /api/v1/pricelist', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUserFindUnique.mockResolvedValue({ wholesaleGroup: 1 } as never);
+  });
 
   it('returns PDF on success for retail', async () => {
     mocked.mockResolvedValue(Buffer.from('pdf-data') as never);

@@ -26,6 +26,19 @@ vi.mock('@/services/marketplace-sync', () => ({
 vi.mock('@/services/marketplace-messages-sync', () => ({
   syncMarketplaceMessages: vi.fn().mockResolvedValue({ synced: 0, perPlatform: {} }),
 }));
+// Dedup uses redis SET NX (→ 'OK' = first-seen) and the rate-limiter uses
+// incr/expire. Mock all of them: a real redis on the box would return a stale
+// dedup key (TTL 24h) from a prior run, masking every event as a duplicate and
+// skipping the handlers/log.
+vi.mock('@/lib/redis', () => ({
+  redis: {
+    set: vi.fn().mockResolvedValue('OK'),
+    incr: vi.fn().mockResolvedValue(1),
+    expire: vi.fn().mockResolvedValue(1),
+    get: vi.fn().mockResolvedValue(null),
+    del: vi.fn().mockResolvedValue(1),
+  },
+}));
 
 import { POST } from './route';
 import { prisma } from '@/lib/prisma';
@@ -65,10 +78,7 @@ describe('Marketplace webhook POST', () => {
   });
 
   it('400s on invalid JSON', async () => {
-    const res = await POST(
-      makeReq({}, { bodyOverride: 'not-json{' }) as any,
-      params('rozetka'),
-    );
+    const res = await POST(makeReq({}, { bodyOverride: 'not-json{' }) as any, params('rozetka'));
     expect(res.status).toBe(400);
   });
 
@@ -111,10 +121,7 @@ describe('Marketplace webhook POST', () => {
   it('triggers importOrdersFromMarketplace on order.created when order is new', async () => {
     mockOrderFind.mockResolvedValue(null);
 
-    await POST(
-      makeReq({ event: 'order_created', data: { id: '500' } }) as any,
-      params('rozetka'),
-    );
+    await POST(makeReq({ event: 'order_created', data: { id: '500' } }) as any, params('rozetka'));
 
     // void-promise — give microtasks a tick
     await new Promise((r) => setImmediate(r));
@@ -160,7 +167,14 @@ describe('Marketplace webhook POST', () => {
     await POST(
       makeReq({
         event: 'return_created',
-        data: { id: 'r-1', order_id: 'ord-1', reason: 'broken', status: 'pending', quantity: 1, refund_amount: 100 },
+        data: {
+          id: 'r-1',
+          order_id: 'ord-1',
+          reason: 'broken',
+          status: 'pending',
+          quantity: 1,
+          refund_amount: 100,
+        },
       }) as any,
       params('rozetka'),
     );

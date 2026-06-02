@@ -8,6 +8,15 @@ vi.mock('@/services/rate-limit', () => ({
   clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
   withRateLimit: () => (handler: Function) => handler,
   RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+  RateLimitError: class RateLimitError extends Error {
+    statusCode: number;
+    retryAfter?: number;
+    constructor(message: string, statusCode: number, retryAfter?: number) {
+      super(message);
+      this.statusCode = statusCode;
+      this.retryAfter = retryAfter;
+    }
+  },
 }));
 
 import { NextRequest } from 'next/server';
@@ -15,6 +24,12 @@ import { NextRequest } from 'next/server';
 vi.mock('@/services/verification', () => ({
   resetPassword: vi.fn(),
 }));
+
+vi.mock('@/services/audit', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+}));
+
+const VALID_TOKEN = 'a'.repeat(64);
 
 vi.mock('@/services/auth-errors', () => {
   class AuthError extends Error {
@@ -52,7 +67,7 @@ describe('POST /api/v1/auth/reset-password', () => {
 
   it('returns success for valid data', async () => {
     mockResetPassword.mockResolvedValue(undefined);
-    const res = await POST(makeRequest({ token: 'valid-token', password: 'NewPassword1!' }));
+    const res = await POST(makeRequest({ token: VALID_TOKEN, password: 'NewPassword1!' }));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
@@ -65,13 +80,13 @@ describe('POST /api/v1/auth/reset-password', () => {
 
   it('returns AuthError status on AuthError', async () => {
     mockResetPassword.mockRejectedValue(new AuthError('Token expired', 400));
-    const res = await POST(makeRequest({ token: 'expired', password: 'NewPassword1!' }));
+    const res = await POST(makeRequest({ token: VALID_TOKEN, password: 'NewPassword1!' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 500 on server error', async () => {
     mockResetPassword.mockRejectedValue(new Error('fail'));
-    const res = await POST(makeRequest({ token: 'valid', password: 'NewPassword1!' }));
+    const res = await POST(makeRequest({ token: VALID_TOKEN, password: 'NewPassword1!' }));
     expect(res.status).toBe(500);
   });
 });

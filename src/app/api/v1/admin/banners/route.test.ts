@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 
 vi.mock('@/middleware/auth', () => {
   const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
@@ -77,7 +78,7 @@ describe('POST /api/v1/admin/banners', () => {
     vi.mocked(prisma.banner.aggregate).mockRejectedValue(new Error('fail'));
     const req = new Request('http://localhost', {
       method: 'POST',
-      body: JSON.stringify({ title: 'Test' }),
+      body: JSON.stringify({ title: 'Test', imageDesktop: '/img.jpg' }),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req as any);
@@ -87,9 +88,10 @@ describe('POST /api/v1/admin/banners', () => {
   it('creates banner with empty/missing optional fields', async () => {
     vi.mocked(prisma.banner.aggregate).mockResolvedValue({ _max: { sortOrder: 2 } } as any);
     vi.mocked(prisma.banner.create).mockResolvedValue({ id: 3 } as any);
+    // imageDesktop is the only required field; all others are optional.
     const req = new Request('http://localhost', {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify({ imageDesktop: '/img.jpg' }),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req as any);

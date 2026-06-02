@@ -5,13 +5,21 @@ import EmptyState from '@/components/ui/EmptyState';
 import BundleCard from '@/components/bundle/BundleCard';
 import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import { getActiveBundles, calculateBundlePrice } from '@/services/bundle';
+import { buildHreflang } from '@/lib/i18n';
 
 export const revalidate = 120;
+
+const _baseUrl = process.env.APP_URL || 'https://pulito.trade';
 
 export const metadata: Metadata = {
   title: 'Комплекти товарів — вигідні набори',
   description: 'Готові комплекти побутової хімії за зниженими цінами. Зберіть набір та заощадьте.',
+  alternates: {
+    canonical: `${_baseUrl}/bundles`,
+    languages: buildHreflang('/bundles'),
+  },
   openGraph: {
+    url: `${_baseUrl}/bundles`,
     title: 'Комплекти товарів — вигідні набори',
     description:
       'Готові комплекти побутової хімії за зниженими цінами. Зберіть набір та заощадьте.',

@@ -7,6 +7,6 @@ export const GET = withRole(
   'admin',
 )(async () => {
   return successResponse({
-    backgroundRemoval: isBackgroundRemovalEnabled(),
+    backgroundRemoval: await isBackgroundRemovalEnabled(),
   });
 });

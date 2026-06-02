@@ -3,7 +3,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
-vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
+vi.mock('next/link', () => ({
+  default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
 
 import CategoryGrid from './CategoryGrid';
 
@@ -65,12 +67,12 @@ describe('CategoryGrid', () => {
 
   it('limits to 8 categories', () => {
     const cats = Array.from({ length: 12 }, (_, i) =>
-      mockCategory(i + 1, `Cat ${i + 1}`, `cat-${i + 1}`)
+      mockCategory(i + 1, `Cat ${i + 1}`, `cat-${i + 1}`),
     );
     const { container } = render(<CategoryGrid categories={cats as any} />);
-    // Each category renders three times (mobile + tablet + desktop), so total links = 8 * 3 = 24
+    // Each category renders twice (mobile + desktop layouts), so total links = 8 * 2 = 16
     const catLinks = container.querySelectorAll('a[href*="category="]');
-    expect(catLinks.length).toBe(24);
+    expect(catLinks.length).toBe(16);
   });
 
   it('renders links to category pages', () => {
@@ -102,7 +104,7 @@ describe('CategoryGrid', () => {
 
   it('renders different icons for different indices', () => {
     const cats = Array.from({ length: 6 }, (_, i) =>
-      mockCategory(i + 1, `Cat ${i + 1}`, `cat-${i + 1}`)
+      mockCategory(i + 1, `Cat ${i + 1}`, `cat-${i + 1}`),
     );
     const { container } = render(<CategoryGrid categories={cats as any} />);
     const svgs = container.querySelectorAll('svg');

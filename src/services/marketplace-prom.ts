@@ -35,7 +35,7 @@ interface PromOrder {
   phone: string;
   email?: string;
   products: { id: number; name: string; quantity: number; price: string }[];
-  delivery_option?: { name: string; };
+  delivery_option?: { name: string };
   delivery_address?: string;
 }
 
@@ -73,14 +73,16 @@ export class PromClient {
   async getProducts(page = 1, limit = 20): Promise<{ items: PromProduct[]; total: number }> {
     try {
       const data = await this.request<{ products: PromProduct[]; _meta?: { total: number } }>(
-        `products/list?limit=${limit}&offset=${(page - 1) * limit}`
+        `products/list?limit=${limit}&offset=${(page - 1) * limit}`,
       );
       return {
         items: data.products || [],
         total: data._meta?.total || data.products?.length || 0,
       };
     } catch (error) {
-      log.error('getProducts error', { error: error instanceof Error ? error.message : String(error) });
+      log.error('getProducts error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return { items: [], total: 0 };
     }
   }
@@ -107,10 +109,10 @@ export class PromClient {
         images: (data.images || []).slice(0, 12).map((url) => ({ url })),
       };
 
-      const result = await this.request<{ id?: number; status?: string }>(
-        'products/edit',
-        { method: 'POST', body: JSON.stringify(body) }
-      );
+      const result = await this.request<{ id?: number; status?: string }>('products/edit', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
 
       if (result.id || result.status === 'ok') {
         return { success: true, externalId: result.id ? String(result.id) : undefined };
@@ -125,7 +127,7 @@ export class PromClient {
 
   async updateProduct(
     externalId: string,
-    data: { name?: string; price?: number; quantity?: number; description?: string }
+    data: { name?: string; price?: number; quantity?: number; description?: string },
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const body: Record<string, unknown> = { id: Number(externalId) };
@@ -147,37 +149,78 @@ export class PromClient {
     }
   }
 
-  async updateStock(externalId: string, quantity: number): Promise<{ success: boolean; error?: string }> {
+  async updateStock(
+    externalId: string,
+    quantity: number,
+  ): Promise<{ success: boolean; error?: string }> {
     return this.updateProduct(externalId, { quantity });
   }
 
   async getOrders(dateFrom?: string, dateTo?: string): Promise<PromOrder[]> {
+    // Paginate so a seller with many orders in the window isn't truncated to the
+    // first page. Bounded: stops on a short page, when a page brings no new ids
+    // (API ignored offset), or at PAGE_CAP — so it can't loop forever.
+    const PER_PAGE = 50;
+    const PAGE_CAP = 40;
+    const acc = new Map<number, PromOrder>();
     try {
-      const params = new URLSearchParams();
-      if (dateFrom) params.set('date_from', dateFrom);
-      if (dateTo) params.set('date_to', dateTo);
-      params.set('status', 'pending,accepted,ready,delivered');
-      const query = params.toString() ? `?${params.toString()}` : '';
+      for (let page = 0; page < PAGE_CAP; page++) {
+        const params = new URLSearchParams();
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
+        params.set('status', 'pending,accepted,ready,delivered');
+        params.set('limit', String(PER_PAGE));
+        params.set('offset', String(page * PER_PAGE));
 
-      const data = await this.request<{ orders: PromOrder[] }>(`orders/list${query}`);
-      return data.orders || [];
+        const data = await this.request<{ orders: PromOrder[] }>(
+          `orders/list?${params.toString()}`,
+        );
+        const batch = data.orders || [];
+        if (batch.length === 0) break;
+        const before = acc.size;
+        for (const o of batch) acc.set(o.id, o);
+        if (acc.size === before) break;
+        if (batch.length < PER_PAGE) break;
+        if (page === PAGE_CAP - 1) {
+          log.error('getOrders hit PAGE_CAP — orders may be truncated', { fetched: acc.size });
+        }
+      }
+      return Array.from(acc.values());
     } catch (error) {
-      log.error('getOrders error', { error: error instanceof Error ? error.message : String(error) });
-      return [];
+      log.error('getOrders error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return Array.from(acc.values());
     }
   }
 
   async getReturns(dateFrom?: string): Promise<PromReturn[]> {
+    const PER_PAGE = 50;
+    const PAGE_CAP = 40;
+    const acc = new Map<number, PromReturn>();
     try {
-      const params = new URLSearchParams();
-      if (dateFrom) params.set('date_from', dateFrom);
-      const query = params.toString() ? `?${params.toString()}` : '';
+      for (let page = 0; page < PAGE_CAP; page++) {
+        const params = new URLSearchParams();
+        if (dateFrom) params.set('date_from', dateFrom);
+        params.set('limit', String(PER_PAGE));
+        params.set('offset', String(page * PER_PAGE));
 
-      const data = await this.request<{ returns: PromReturn[] }>(`returns/list${query}`);
-      return data.returns || [];
+        const data = await this.request<{ returns: PromReturn[] }>(
+          `returns/list?${params.toString()}`,
+        );
+        const batch = data.returns || [];
+        if (batch.length === 0) break;
+        const before = acc.size;
+        for (const r of batch) acc.set(r.id, r);
+        if (acc.size === before) break;
+        if (batch.length < PER_PAGE) break;
+      }
+      return Array.from(acc.values());
     } catch (error) {
-      log.error('getReturns error', { error: error instanceof Error ? error.message : String(error) });
-      return [];
+      log.error('getReturns error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return Array.from(acc.values());
     }
   }
 }

@@ -1,5 +1,6 @@
-import { env } from '@/config/env';
 import { prisma } from '@/lib/prisma';
+import { GRAPH_API_VERSION } from '@/services/meta-graph';
+import { getInstagramCreds } from '@/services/channel-config';
 
 interface InsightMetric {
   name: string;
@@ -15,21 +16,29 @@ export async function collectInstagramInsights(): Promise<{
   metricsCount: number;
   error?: string;
 }> {
-  if (!env.INSTAGRAM_ACCESS_TOKEN || !env.INSTAGRAM_BUSINESS_ACCOUNT_ID) {
+  const { accessToken, businessAccountId } = await getInstagramCreds();
+  if (!accessToken || !businessAccountId) {
     return { collected: false, metricsCount: 0, error: 'Instagram credentials not configured' };
   }
 
   try {
-    const metrics = 'impressions,reach,profile_views';
-    const url = `https://graph.facebook.com/v18.0/${env.INSTAGRAM_BUSINESS_ACCOUNT_ID}/insights?metric=${metrics}&period=day&access_token=${env.INSTAGRAM_ACCESS_TOKEN}`;
+    // `reach` + `views` are the current user-level metrics. `impressions` and
+    // `profile_views` were deprecated by Meta (error on newer Graph versions),
+    // which is why this call had been failing on the old v18.0.
+    const metrics = 'reach,views';
+    const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${businessAccountId}/insights?metric=${metrics}&period=day&access_token=${accessToken}`;
 
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) {
       const body = await res.text();
-      return { collected: false, metricsCount: 0, error: `Instagram API error: ${res.status} ${body}` };
+      return {
+        collected: false,
+        metricsCount: 0,
+        error: `Instagram API error: ${res.status} ${body}`,
+      };
     }
 
-    const data = await res.json() as { data: InsightMetric[] };
+    const data = (await res.json()) as { data: InsightMetric[] };
     let metricsCount = 0;
 
     for (const metric of data.data) {

@@ -120,7 +120,7 @@ export default function AdminVolumeDiscountsPage() {
       toast.error(t('validateDiscount'));
       return;
     }
-    if (form.discountType === 'percent' && discount > 100) {
+    if (form.discountType === 'percentage' && discount > 100) {
       toast.error(t('validateDiscount100'));
       return;
     }

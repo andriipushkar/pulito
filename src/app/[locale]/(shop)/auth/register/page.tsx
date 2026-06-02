@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import Input from '@/components/ui/Input';
 import PhoneInput, { cleanPhone } from '@/components/ui/PhoneInput';
@@ -38,6 +38,11 @@ const registerSchema = z.object({
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Capture the referral code from the invite link (/auth/register?ref=CODE).
+  // Without this, referral signups were silently attributed to organic and the
+  // referrer earned nothing — the backend already handles referralCode.
+  const referralCode = searchParams.get('ref') || undefined;
   const { register } = useAuth();
   const [form, setForm] = useState({
     fullName: '',
@@ -81,6 +86,7 @@ export default function RegisterPage() {
       phone: form.phone || undefined,
       companyName: form.companyName || undefined,
       edrpou: form.edrpou || undefined,
+      referralCode,
     });
     setIsLoading(false);
 

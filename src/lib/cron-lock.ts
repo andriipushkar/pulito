@@ -32,10 +32,12 @@ export async function withCronLock<T>(
     const ok = await redis.set(key, token, 'EX', ttlSeconds, 'NX');
     acquired = ok === 'OK';
   } catch (err) {
-    console.error(`[CronLock:${name}] Redis SET failed, falling through unsynced:`, err);
-    // Degrade gracefully — better to run unlocked than to skip work entirely.
-    const result = await fn();
-    return { acquired: true, result };
+    // Fail CLOSED: if Redis is unreachable we can't guarantee mutual exclusion,
+    // so skip this run rather than risk two unsynchronized executions
+    // double-processing a non-idempotent job. The next scheduled tick retries
+    // once Redis recovers. (Previously this ran the job unlocked.)
+    console.error(`[CronLock:${name}] Redis SET failed, skipping run to avoid double-exec:`, err);
+    return { acquired: false };
   }
 
   if (!acquired) return { acquired: false };

@@ -1,11 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => ({
+  withRole: () => (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/publication', () => ({
   updatePublication: vi.fn(),
   deletePublication: vi.fn(),
-  PublicationError: class PublicationError extends Error { statusCode = 400; },
+  PublicationError: class PublicationError extends Error {
+    statusCode = 400;
+  },
 }));
 
 import { PUT, DELETE } from './route';
@@ -14,7 +29,9 @@ import { updatePublication, deletePublication } from '@/services/publication';
 const mockCtx = { params: Promise.resolve({ id: '1' }) };
 
 describe('PUT /api/v1/admin/publications/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates publication on success', async () => {
     vi.mocked(updatePublication).mockResolvedValue({ id: 1 } as any);
@@ -62,7 +79,9 @@ describe('PUT /api/v1/admin/publications/[id]', () => {
 });
 
 describe('DELETE /api/v1/admin/publications/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('deletes publication on success', async () => {
     vi.mocked(deletePublication).mockResolvedValue(undefined as any);

@@ -78,7 +78,7 @@ describe('POST /api/v1/admin/channel-settings/test', () => {
     });
     const res = await POST(req);
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 500 on error', async () => {

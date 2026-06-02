@@ -91,7 +91,7 @@ describe('POST /api/v1/me/wholesale-request', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 for missing required fields', async () => {
+  it('returns 422 for missing required fields', async () => {
     mockFindUnique.mockResolvedValue({ wholesaleStatus: null, role: 'client' });
     const req = new NextRequest('http://localhost/api/v1/me/wholesale-request', {
       method: 'POST',
@@ -99,7 +99,7 @@ describe('POST /api/v1/me/wholesale-request', () => {
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 404 when user not found for POST', async () => {
@@ -132,7 +132,7 @@ describe('POST /api/v1/me/wholesale-request', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 for missing companyName', async () => {
+  it('returns 422 for missing companyName', async () => {
     mockFindUnique.mockResolvedValue({ wholesaleStatus: null, role: 'client' });
     const req = new NextRequest('http://localhost/api/v1/me/wholesale-request', {
       method: 'POST',
@@ -140,10 +140,10 @@ describe('POST /api/v1/me/wholesale-request', () => {
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
-  it('returns 400 for missing contactPersonPhone', async () => {
+  it('returns 422 for missing contactPersonPhone', async () => {
     mockFindUnique.mockResolvedValue({ wholesaleStatus: null, role: 'client' });
     const req = new NextRequest('http://localhost/api/v1/me/wholesale-request', {
       method: 'POST',
@@ -151,7 +151,7 @@ describe('POST /api/v1/me/wholesale-request', () => {
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('submits with all optional fields including edrpou and comment', async () => {

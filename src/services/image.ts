@@ -7,9 +7,18 @@ import { validateFileType } from '@/utils/file-validation';
 import { uploadFile, isCloudStorageEnabled } from '@/lib/storage';
 import { removeBackground, isBackgroundRemovalEnabled } from '@/services/background-removal';
 import { applyProductTemplate, getSeoTemplateByEntity } from '@/services/seo-template';
+import { getSettings } from '@/services/settings';
 
-const WATERMARK_TEXT = process.env.WATERMARK_TEXT || 'pulito.trade';
-const WATERMARK_ENABLED = process.env.WATERMARK_ENABLED !== 'false'; // enabled by default
+// Escape XML special chars so an admin-configured watermark text can't break
+// (or inject into) the generated SVG overlay.
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
 
 export class ImageError extends Error {
   constructor(
@@ -101,6 +110,12 @@ export async function processProductImage(
     throw new ImageError('Вміст файлу не відповідає заявленому формату', 400);
   }
 
+  // Watermark config is admin-editable (DB-backed) — empty text falls back to
+  // the env var, then the brand default. Disabled => '0'.
+  const settings = await getSettings();
+  const watermarkText = settings.watermark_text || process.env.WATERMARK_TEXT || 'pulito.trade';
+  const watermarkEnabled = settings.watermark_enabled !== '0';
+
   // Get product
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -139,7 +154,7 @@ export async function processProductImage(
   let processBuffer = fileBuffer;
   let processMime = mimeType;
   let bgRemoved = false;
-  if (options.removeBg && isBackgroundRemovalEnabled()) {
+  if (options.removeBg && (await isBackgroundRemovalEnabled())) {
     const cutout = await removeBackground(fileBuffer, mimeType);
     if (cutout) {
       processBuffer = cutout;
@@ -190,7 +205,7 @@ export async function processProductImage(
 
       // Apply watermark to full and medium sizes
       let variantBuffer: Buffer;
-      if (WATERMARK_ENABLED && (key === 'full' || key === 'medium')) {
+      if (watermarkEnabled && (key === 'full' || key === 'medium')) {
         const resizedBuffer = await pipeline.toBuffer();
         const resizedMeta = await sharp(resizedBuffer).metadata();
         const w = resizedMeta.width || size.width;
@@ -201,7 +216,7 @@ export async function processProductImage(
         const svgWatermark = `
           <svg width="${w}" height="${h}">
             <style>.wm { fill: rgba(255,255,255,0.5); font-size: ${fontSize}px; font-family: Arial, sans-serif; font-weight: bold; }</style>
-            <text x="${w - pad}" y="${h - pad}" text-anchor="end" class="wm">${WATERMARK_TEXT}</text>
+            <text x="${w - pad}" y="${h - pad}" text-anchor="end" class="wm">${escapeXml(watermarkText)}</text>
           </svg>`;
 
         variantBuffer = await sharp(resizedBuffer)

@@ -36,9 +36,14 @@ vi.mock('@/services/theme', () => ({
     statusCode = 400;
   },
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 
 import { GET, POST } from './route';
 import { getAllThemes, uploadTheme } from '@/services/theme';
+
+// Route validates the magic bytes — a real ZIP starts with PK\x03\x04.
+const zipBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00]);
+const makeZipFile = () => new File([zipBytes], 'theme.zip', { type: 'application/zip' });
 
 describe('GET /api/v1/admin/themes', () => {
   beforeEach(() => {
@@ -103,7 +108,7 @@ describe('POST /api/v1/admin/themes', () => {
   it('uploads theme successfully', async () => {
     vi.mocked(uploadTheme).mockResolvedValue({ id: 1, name: 'test' } as any);
     const formData = new FormData();
-    formData.append('file', new File(['data'], 'theme.zip', { type: 'application/zip' }));
+    formData.append('file', makeZipFile());
     const req = new Request('http://localhost', { method: 'POST', body: formData });
     const res = await POST(req as any);
     expect(res.status).toBe(201);
@@ -113,7 +118,7 @@ describe('POST /api/v1/admin/themes', () => {
     const { ThemeError } = await import('@/services/theme');
     vi.mocked(uploadTheme).mockRejectedValue(new ThemeError('bad theme'));
     const formData = new FormData();
-    formData.append('file', new File(['data'], 'theme.zip', { type: 'application/zip' }));
+    formData.append('file', makeZipFile());
     const req = new Request('http://localhost', { method: 'POST', body: formData });
     const res = await POST(req as any);
     expect(res.status).toBe(400);
@@ -122,7 +127,7 @@ describe('POST /api/v1/admin/themes', () => {
   it('returns 500 on POST error', async () => {
     vi.mocked(uploadTheme).mockRejectedValue(new Error('fail'));
     const formData = new FormData();
-    formData.append('file', new File(['data'], 'theme.zip', { type: 'application/zip' }));
+    formData.append('file', makeZipFile());
     const req = new Request('http://localhost', { method: 'POST', body: formData });
     const res = await POST(req as any);
     expect(res.status).toBe(500);

@@ -65,6 +65,7 @@ describe('PUT /api/v1/admin/settings', () => {
   });
 
   it('updates settings on success', async () => {
+    vi.mocked(prisma.siteSetting.findMany).mockResolvedValue([]);
     vi.mocked(prisma.siteSetting.upsert).mockResolvedValue({} as any);
     const req = new Request('http://localhost', {
       method: 'PUT',
@@ -76,6 +77,7 @@ describe('PUT /api/v1/admin/settings', () => {
   });
 
   it('returns 500 on error', async () => {
+    vi.mocked(prisma.siteSetting.findMany).mockResolvedValue([]);
     vi.mocked(prisma.siteSetting.upsert).mockRejectedValue(new Error('fail'));
     const req = new Request('http://localhost', {
       method: 'PUT',

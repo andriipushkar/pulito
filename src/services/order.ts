@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 import type { CheckoutInput, OrderFilterInput } from '@/validators/order';
 import { logger } from '@/lib/logger';
 import { phoneSearchVariants } from '@/utils/phone';
+import { env } from '@/config/env';
 
 const STATS_CACHE_KEY = 'admin:order-stats:v1';
 const STATS_CACHE_TTL = 15; // seconds — collapses concurrent admin tabs onto one query.
@@ -236,7 +237,11 @@ export async function createOrder(
     }
   }
 
-  const itemsTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Round to kopecks so float drift doesn't accumulate into the total for
+  // high-value / many-line orders (matches editOrderItems). An unrounded total
+  // can land >0.01 off the provider amount and trip the payment-mismatch guard.
+  const itemsTotal =
+    Math.round(cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
   // Pallet method: the storefront has already done the regional-tariff
   // calculation in PalletDeliveryForm and submitted the result with the
   // checkout. Trust that value here (it's the same formula
@@ -247,15 +252,62 @@ export async function createOrder(
     palletWeightKg?: number;
     palletRegion?: string;
   };
-  const deliveryCost =
-    checkout.deliveryMethod === 'pallet' && palletCheckout.palletDeliveryCost != null
-      ? Number(palletCheckout.palletDeliveryCost)
-      : await calculateDeliveryCost(checkout.deliveryMethod as DeliveryMethod, itemsTotal);
+  let deliveryCost: number;
+  if (checkout.deliveryMethod === 'pallet') {
+    // Recompute pallet shipping SERVER-SIDE from weight/region — never trust
+    // the client-submitted palletDeliveryCost (a crafted request could send 0
+    // and make the shop eat the freight on a heavy pallet).
+    if (palletCheckout.palletWeightKg == null) {
+      throw new OrderError('Не вказано вагу для палетної доставки', 400);
+    }
+    try {
+      const { calculatePalletDeliveryCost } = await import('@/services/pallet-delivery');
+      const pallet = await calculatePalletDeliveryCost(
+        palletCheckout.palletWeightKg,
+        palletCheckout.palletRegion,
+      );
+      deliveryCost = pallet.cost;
+    } catch (e) {
+      throw new OrderError(
+        e instanceof Error ? e.message : 'Помилка розрахунку палетної доставки',
+        400,
+      );
+    }
+  } else {
+    deliveryCost = await calculateDeliveryCost(
+      checkout.deliveryMethod as DeliveryMethod,
+      itemsTotal,
+    );
+  }
   // Clamp loyalty discount so an out-of-range value can't drive totalAmount
   // negative (which would make the courier refund money to the customer).
   // Also cap by SiteSetting loyalty_max_redemption_percent so customers can't
   // pay 100% with points (typical cap: 50%). 0 in setting disables the cap.
-  const grossTotal = itemsTotal + deliveryCost;
+  // Coupon (promo code) — order-level discount on the goods subtotal. Validated
+  // against the goods total + product set (min-order, usage limits, expiry,
+  // category/product scope all checked in validateCoupon). Applied before
+  // delivery and before loyalty; stacks with loyalty and the clamps below keep
+  // the total ≥ 0. Discount is clamped to itemsTotal so goods can't go negative.
+  let couponDiscount = 0;
+  let couponId: number | null = null;
+  const couponCode = (checkout as CheckoutInput & { couponCode?: string }).couponCode?.trim();
+  if (couponCode) {
+    const { validateCoupon, calculateDiscount, CouponError } = await import('@/services/coupon');
+    try {
+      const coupon = await validateCoupon(
+        couponCode,
+        userId ?? undefined,
+        itemsTotal,
+        cartItems.map((i) => i.productId),
+      );
+      couponId = coupon.id;
+      couponDiscount = Math.min(calculateDiscount(coupon, itemsTotal), itemsTotal);
+    } catch (e) {
+      throw new OrderError(e instanceof CouponError ? e.message : 'Невалідний промокод', 400);
+    }
+  }
+
+  const grossTotal = itemsTotal - couponDiscount + deliveryCost;
   const settingsMod = await import('@/services/settings');
   const _settings = await settingsMod.getSettings();
   const maxPercent = Math.max(
@@ -263,11 +315,14 @@ export async function createOrder(
     Math.min(100, Number(_settings.loyalty_max_redemption_percent) || 0),
   );
   const percentCap = maxPercent > 0 ? Math.floor((grossTotal * maxPercent) / 100) : grossTotal;
-  const discountAmount = Math.max(
-    0,
-    Math.min(Number(loyaltyPointsToSpend) || 0, grossTotal, percentCap),
+  // Floor to a whole number: 1 point = 1 UAH and the points balance is an
+  // integer column, so the discount (and thus points spent) must be integer —
+  // a fractional discount would write a fractional value into the Int points
+  // ledger (drift / error).
+  const discountAmount = Math.floor(
+    Math.max(0, Math.min(Number(loyaltyPointsToSpend) || 0, grossTotal, percentCap)),
   );
-  const netTotal = grossTotal - discountAmount;
+  const netTotal = Math.round((grossTotal - discountAmount) * 100) / 100;
   const orderNumber = generateOrderNumber();
 
   const order = await prisma.$transaction(async (tx) => {
@@ -372,6 +427,28 @@ export async function createOrder(
     });
   });
 
+  // Redeem the coupon now that the order exists. redeemCoupon atomically claims
+  // a usage slot; if it was exhausted between validation and here (race), cancel
+  // the order so we never ship a discount we couldn't account for.
+  if (couponId && couponDiscount > 0) {
+    try {
+      const { redeemCoupon } = await import('@/services/coupon');
+      await redeemCoupon(couponId, userId, order.id, couponDiscount);
+    } catch (e) {
+      await updateOrderStatus(
+        order.id,
+        'cancelled',
+        null,
+        'system',
+        'Скасовано: промокод вичерпано',
+      ).catch(() => {});
+      throw new OrderError(
+        e instanceof Error ? e.message : 'Промокод вичерпано, спробуйте ще раз',
+        400,
+      );
+    }
+  }
+
   // Clear server cart for authenticated users (non-critical — outside transaction)
   if (userId) {
     prisma.cartItem.deleteMany({ where: { userId } }).catch((err) => {
@@ -388,6 +465,35 @@ export async function createOrder(
         error: String(err),
       });
     });
+
+  // Email fallback to the manager — Telegram is primary but may be unset in
+  // prod (then the owner would never learn of a new order). Recipient is the
+  // explicit MANAGER_NOTIFICATION_EMAIL, else the shop's own SMTP_FROM address
+  // (skip the noreply@localhost default). Fire-and-forget; never blocks.
+  const managerEmail =
+    env.MANAGER_NOTIFICATION_EMAIL ||
+    (env.SMTP_FROM && env.SMTP_FROM !== 'noreply@localhost' ? env.SMTP_FROM : '');
+  if (managerEmail) {
+    import('@/services/email-template')
+      .then((mod) =>
+        mod.sendNewOrderToManager({
+          to: managerEmail,
+          orderNumber: order.orderNumber,
+          customerName: order.contactName,
+          customerPhone: order.contactPhone,
+          customerType: clientType === 'wholesale' ? 'wholesaler' : 'client',
+          total: Number(order.totalAmount),
+          itemCount: order.itemsCount,
+          orderId: order.id,
+        }),
+      )
+      .catch((err) => {
+        logger.error('Manager new-order email failed', {
+          orderNumber: order.orderNumber,
+          error: String(err),
+        });
+      });
+  }
 
   // Customer confirmation email (non-blocking). Guests rely on this for the
   // order number — they have no /account/orders to fall back to.
@@ -646,7 +752,9 @@ export async function updateOrderStatus(
       ...(setPaymentPaid && { paymentStatus: 'paid' }),
       ...(newStatus === 'cancelled' && {
         cancelledReason: comment,
-        cancelledBy: changeSource,
+        // Store WHO cancelled (user id), not the source kind — needed for audit.
+        // Falls back to the source label for system/cron where there's no user.
+        cancelledBy: changedBy != null ? String(changedBy) : changeSource,
       }),
     };
 
@@ -998,7 +1106,13 @@ export async function updateOrderStatus(
         });
 
         const earned = txs.filter((t) => t.type === 'earn').reduce((sum, t) => sum + t.points, 0);
-        const spent = txs.filter((t) => t.type === 'spend').reduce((sum, t) => sum + t.points, 0);
+        // `spend` transactions are stored NEGATIVE (loyalty.ts: points: -points),
+        // so sum to a non-positive number — take the absolute value of what was
+        // spent. The previous `spent > 0` guard was never true, so customers who
+        // paid with points and then cancelled/returned silently lost them.
+        const spent = Math.abs(
+          txs.filter((t) => t.type === 'spend').reduce((sum, t) => sum + t.points, 0),
+        );
 
         if (earned > 0) {
           await mod.adjustPoints({
@@ -1021,6 +1135,51 @@ export async function updateOrderStatus(
         logger.error('Loyalty reverse failed', {
           orderNumber: updated.orderNumber,
           userId: order.userId,
+          newStatus,
+          error: String(err),
+        });
+      });
+  }
+
+  // Release any coupon redeemed for this order when it's cancelled/returned —
+  // free the global + per-user usage slot and re-activate an auto-disabled
+  // single-use coupon. Without this a cancel permanently burns the code.
+  if (newStatus === 'cancelled' || newStatus === 'returned') {
+    import('@/lib/prisma')
+      .then(async ({ prisma: db }) => {
+        const redemptions = await db.couponRedemption.findMany({
+          where: { orderId },
+          select: { id: true, couponId: true },
+        });
+        for (const r of redemptions) {
+          // Re-activate ONLY if the coupon was auto-disabled by hitting its
+          // usage limit (freeing a slot makes it usable again). Do NOT flip
+          // isActive for a coupon an admin deliberately disabled — read state
+          // first and decide.
+          const coupon = await db.coupon.findUnique({
+            where: { id: r.couponId },
+            select: { usageLimit: true, usedCount: true, isActive: true },
+          });
+          const wasLimitDisabled =
+            !!coupon &&
+            !coupon.isActive &&
+            coupon.usageLimit != null &&
+            coupon.usedCount >= coupon.usageLimit;
+          await db.$transaction([
+            db.coupon.update({
+              where: { id: r.couponId },
+              data: {
+                usedCount: { decrement: 1 },
+                ...(wasLimitDisabled ? { isActive: true } : {}),
+              },
+            }),
+            db.couponRedemption.delete({ where: { id: r.id } }),
+          ]);
+        }
+      })
+      .catch((err) => {
+        logger.error('Coupon release on cancel failed', {
+          orderNumber: updated.orderNumber,
           newStatus,
           error: String(err),
         });

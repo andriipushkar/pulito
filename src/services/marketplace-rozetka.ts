@@ -4,7 +4,9 @@ import { marketplaceLogger } from '@/services/marketplace-logger';
 
 const log = marketplaceLogger('rozetka', { platform: 'rozetka' });
 
-const BASE_URL = 'https://seller-api.rozetka.com.ua/';
+// Official host is api-seller (hyphen after "api"). The seller-api.* form does
+// NOT resolve — it silently broke the entire Rozetka sync path.
+const BASE_URL = 'https://api-seller.rozetka.com.ua/';
 
 interface RozetkaAuthResponse {
   success: boolean;
@@ -82,10 +84,18 @@ export class RozetkaClient {
   async authenticate(): Promise<string> {
     try {
       recordMarketplaceCall('rozetka');
+      // Docs: POST /sites with { username, password: base64(password) }.
+      // The stored apiKey holds "login:password"; split on the first colon.
+      const sep = this.apiKey.indexOf(':');
+      const username = sep >= 0 ? this.apiKey.slice(0, sep) : this.apiKey;
+      const password = sep >= 0 ? this.apiKey.slice(sep + 1) : this.apiKey;
       const res = await fetch(`${BASE_URL}sites`, {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: this.apiKey, password: this.apiKey }),
+        body: JSON.stringify({
+          username,
+          password: Buffer.from(password, 'utf-8').toString('base64'),
+        }),
         signal: AbortSignal.timeout(15000),
       });
 
@@ -103,7 +113,9 @@ export class RozetkaClient {
 
       return this.authToken;
     } catch (error) {
-      log.error('authenticate error', { error: error instanceof Error ? error.message : String(error) });
+      log.error('authenticate error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -143,14 +155,16 @@ export class RozetkaClient {
   async getProducts(page = 1, limit = 20): Promise<{ items: RozetkaProduct[]; total: number }> {
     try {
       const data = await this.request<RozetkaProductsResponse>(
-        `items?page=${page}&per_page=${limit}`
+        `items?page=${page}&per_page=${limit}`,
       );
       return {
         items: data.content?.items || [],
         total: data.content?.total || 0,
       };
     } catch (error) {
-      log.error('getProducts error', { error: error instanceof Error ? error.message : String(error) });
+      log.error('getProducts error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return { items: [], total: 0 };
     }
   }
@@ -198,7 +212,7 @@ export class RozetkaClient {
 
   async updateProduct(
     externalId: string,
-    data: { name?: string; price?: number; quantity?: number; description?: string }
+    data: { name?: string; price?: number; quantity?: number; description?: string },
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const body: Record<string, unknown> = {};
@@ -220,36 +234,77 @@ export class RozetkaClient {
     }
   }
 
-  async updateStock(externalId: string, quantity: number): Promise<{ success: boolean; error?: string }> {
+  async updateStock(
+    externalId: string,
+    quantity: number,
+  ): Promise<{ success: boolean; error?: string }> {
     return this.updateProduct(externalId, { quantity });
   }
 
   async getOrders(dateFrom?: string, dateTo?: string): Promise<RozetkaOrder[]> {
+    // Paginate so a large seller isn't truncated to the first page. Bounded:
+    // stops on a short page, when no new ids arrive (API ignored paging), or at
+    // PAGE_CAP — safe even if the endpoint doesn't support these params.
+    const PER_PAGE = 50;
+    const PAGE_CAP = 40;
+    const acc = new Map<number, RozetkaOrder>();
     try {
-      const params = new URLSearchParams();
-      if (dateFrom) params.set('date_from', dateFrom);
-      if (dateTo) params.set('date_to', dateTo);
-      const query = params.toString() ? `?${params.toString()}` : '';
+      for (let page = 1; page <= PAGE_CAP; page++) {
+        const params = new URLSearchParams();
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
+        params.set('per_page', String(PER_PAGE));
+        params.set('page', String(page));
 
-      const data = await this.request<RozetkaOrdersResponse>(`orders/search${query}`);
-      return data.content?.orders || [];
+        const data = await this.request<RozetkaOrdersResponse>(
+          `orders/search?${params.toString()}`,
+        );
+        const batch = data.content?.orders || [];
+        if (batch.length === 0) break;
+        const before = acc.size;
+        for (const o of batch) acc.set(o.id, o);
+        if (acc.size === before) break;
+        if (batch.length < PER_PAGE) break;
+        if (page === PAGE_CAP) {
+          log.error('getOrders hit PAGE_CAP — orders may be truncated', { fetched: acc.size });
+        }
+      }
+      return Array.from(acc.values());
     } catch (error) {
-      log.error('getOrders error', { error: error instanceof Error ? error.message : String(error) });
-      return [];
+      log.error('getOrders error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return Array.from(acc.values());
     }
   }
 
   async getReturns(dateFrom?: string): Promise<RozetkaReturn[]> {
+    const PER_PAGE = 50;
+    const PAGE_CAP = 40;
+    const acc = new Map<number, RozetkaReturn>();
     try {
-      const params = new URLSearchParams();
-      if (dateFrom) params.set('date_from', dateFrom);
-      const query = params.toString() ? `?${params.toString()}` : '';
+      for (let page = 1; page <= PAGE_CAP; page++) {
+        const params = new URLSearchParams();
+        if (dateFrom) params.set('date_from', dateFrom);
+        params.set('per_page', String(PER_PAGE));
+        params.set('page', String(page));
 
-      const data = await this.request<RozetkaReturnsResponse>(`returns/search${query}`);
-      return data.content?.returns || [];
+        const data = await this.request<RozetkaReturnsResponse>(
+          `returns/search?${params.toString()}`,
+        );
+        const batch = data.content?.returns || [];
+        if (batch.length === 0) break;
+        const before = acc.size;
+        for (const r of batch) acc.set(r.id, r);
+        if (acc.size === before) break;
+        if (batch.length < PER_PAGE) break;
+      }
+      return Array.from(acc.values());
     } catch (error) {
-      log.error('getReturns error', { error: error instanceof Error ? error.message : String(error) });
-      return [];
+      log.error('getReturns error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return Array.from(acc.values());
     }
   }
 }

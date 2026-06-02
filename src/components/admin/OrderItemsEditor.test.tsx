@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockGet = vi.fn();
 const mockPut = vi.fn();
 
@@ -108,7 +122,9 @@ describe('OrderItemsEditor', () => {
   it('calls onClose when cancel button is clicked', () => {
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const cancelBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Скасувати');
+    const cancelBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Скасувати',
+    );
     expect(cancelBtn).toBeTruthy();
     fireEvent.click(cancelBtn!);
     expect(props.onClose).toHaveBeenCalled();
@@ -117,7 +133,9 @@ describe('OrderItemsEditor', () => {
   it('increments item quantity when plus is clicked', () => {
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const plusBtns = Array.from(container.querySelectorAll('button')).filter(b => b.textContent === '+');
+    const plusBtns = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent === '+',
+    );
     fireEvent.click(plusBtns[0]);
     expect(container.textContent).toContain('525.50 ₴');
   });
@@ -125,7 +143,9 @@ describe('OrderItemsEditor', () => {
   it('decrements item quantity when minus is clicked', () => {
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const minusBtns = Array.from(container.querySelectorAll('button')).filter(b => b.textContent === '-');
+    const minusBtns = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent === '-',
+    );
     fireEvent.click(minusBtns[0]);
     expect(container.textContent).toContain('225.50 ₴');
   });
@@ -133,7 +153,9 @@ describe('OrderItemsEditor', () => {
   it('does not decrement quantity below 1', () => {
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const minusBtns = Array.from(container.querySelectorAll('button')).filter(b => b.textContent === '-');
+    const minusBtns = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent === '-',
+    );
     fireEvent.click(minusBtns[1]);
     expect(container.textContent).toContain('375.50 ₴');
   });
@@ -141,7 +163,9 @@ describe('OrderItemsEditor', () => {
   it('marks item as removed and updates totals', () => {
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const removeBtns = Array.from(container.querySelectorAll('button')).filter(b => b.textContent === 'Видалити');
+    const removeBtns = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent === 'Видалити',
+    );
     fireEvent.click(removeBtns[0]);
     expect(container.textContent).toContain('Повернути');
     expect(container.textContent).toContain('Товарів: 1');
@@ -150,9 +174,13 @@ describe('OrderItemsEditor', () => {
   it('restores removed item when restore is clicked', () => {
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const removeBtns = Array.from(container.querySelectorAll('button')).filter(b => b.textContent === 'Видалити');
+    const removeBtns = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent === 'Видалити',
+    );
     fireEvent.click(removeBtns[0]);
-    const restoreBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Повернути');
+    const restoreBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Повернути',
+    );
     fireEvent.click(restoreBtn!);
     expect(container.textContent).toContain('Товарів: 3');
   });
@@ -170,7 +198,9 @@ describe('OrderItemsEditor', () => {
     mockPut.mockResolvedValue({ success: true, data: mockOrder });
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const saveBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Зберегти');
+    const saveBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Зберегти',
+    );
     fireEvent.click(saveBtn!);
 
     await waitFor(() => {
@@ -188,7 +218,9 @@ describe('OrderItemsEditor', () => {
     mockPut.mockResolvedValue({ success: false, error: 'Помилка збереження' });
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const saveBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Зберегти');
+    const saveBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Зберегти',
+    );
     fireEvent.click(saveBtn!);
 
     await waitFor(() => {
@@ -201,7 +233,9 @@ describe('OrderItemsEditor', () => {
     mockPut.mockRejectedValue(new Error('Network'));
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const saveBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Зберегти');
+    const saveBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Зберегти',
+    );
     fireEvent.click(saveBtn!);
 
     await waitFor(() => {
@@ -239,9 +273,13 @@ describe('OrderItemsEditor', () => {
     mockPut.mockResolvedValue({ success: true, data: { id: 100, items: [] } });
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
-    const removeBtns = Array.from(container.querySelectorAll('button')).filter(b => b.textContent === 'Видалити');
+    const removeBtns = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent === 'Видалити',
+    );
     fireEvent.click(removeBtns[1]);
-    const saveBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Зберегти');
+    const saveBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Зберегти',
+    );
     fireEvent.click(saveBtn!);
 
     await waitFor(() => {
@@ -255,7 +293,16 @@ describe('OrderItemsEditor', () => {
 
   it('searches products via API with debounce and shows dropdown results', async () => {
     const searchProducts = [
-      { id: 30, name: 'Мило рідке', code: 'MR-001', priceRetail: 50, priceWholesale: null, quantity: 10, imagePath: '/img/soap.jpg', images: [] },
+      {
+        id: 30,
+        name: 'Мило рідке',
+        code: 'MR-001',
+        priceRetail: 50,
+        priceWholesale: null,
+        quantity: 10,
+        imagePath: '/img/soap.jpg',
+        images: [],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
     const props = makeProps();
@@ -270,7 +317,16 @@ describe('OrderItemsEditor', () => {
 
   it('adds a product from search results and clears error (line 144)', async () => {
     const searchProducts = [
-      { id: 30, name: 'Мило рідке', code: 'MR-001', priceRetail: 50, priceWholesale: null, quantity: 10, imagePath: '/img/soap.jpg', images: [] },
+      {
+        id: 30,
+        name: 'Мило рідке',
+        code: 'MR-001',
+        priceRetail: 50,
+        priceWholesale: null,
+        quantity: 10,
+        imagePath: '/img/soap.jpg',
+        images: [],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
     const props = makeProps();
@@ -281,7 +337,9 @@ describe('OrderItemsEditor', () => {
     expect(container.textContent).toContain('Мило рідке');
 
     // Click to add the product
-    const dropdownBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Мило рідке'));
+    const dropdownBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Мило рідке'),
+    );
     fireEvent.click(dropdownBtn!);
 
     // Product should be added to the list with (новий) marker
@@ -291,7 +349,16 @@ describe('OrderItemsEditor', () => {
 
   it('shows duplicate error when adding existing product', async () => {
     const searchProducts = [
-      { id: 10, name: 'Порошок для прання', code: 'ABC-001', priceRetail: 150, priceWholesale: null, quantity: 5, imagePath: '/img/product1.jpg', images: [] },
+      {
+        id: 10,
+        name: 'Порошок для прання',
+        code: 'ABC-001',
+        priceRetail: 150,
+        priceWholesale: null,
+        quantity: 5,
+        imagePath: '/img/product1.jpg',
+        images: [],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
     const props = makeProps();
@@ -299,8 +366,8 @@ describe('OrderItemsEditor', () => {
 
     await triggerSearch(container, 'Порошок');
 
-    const dropdownBtn = Array.from(container.querySelectorAll('button')).find(b =>
-      b.textContent?.includes('ABC-001') && b.closest('.absolute')
+    const dropdownBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('ABC-001') && b.closest('.absolute'),
     );
     fireEvent.click(dropdownBtn!);
 
@@ -312,13 +379,24 @@ describe('OrderItemsEditor', () => {
     const { container } = render(<OrderItemsEditor {...props} />);
 
     // Remove the first item
-    const removeBtns = Array.from(container.querySelectorAll('button')).filter(b => b.textContent === 'Видалити');
+    const removeBtns = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent === 'Видалити',
+    );
     fireEvent.click(removeBtns[0]);
     expect(container.textContent).toContain('Повернути');
 
     // Now search and add the same product
     const searchProducts = [
-      { id: 10, name: 'Порошок для прання', code: 'ABC-001', priceRetail: 150, priceWholesale: null, quantity: 5, imagePath: '/img/product1.jpg', images: [] },
+      {
+        id: 10,
+        name: 'Порошок для прання',
+        code: 'ABC-001',
+        priceRetail: 150,
+        priceWholesale: null,
+        quantity: 5,
+        imagePath: '/img/product1.jpg',
+        images: [],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
 
@@ -335,7 +413,16 @@ describe('OrderItemsEditor', () => {
   it('sends new items with productId in save payload (line 192)', async () => {
     vi.useRealTimers();
     const searchProducts = [
-      { id: 30, name: 'Мило рідке', code: 'MR-001', priceRetail: 50, priceWholesale: null, quantity: 10, imagePath: null, images: [{ pathThumbnail: '/thumb.jpg' }] },
+      {
+        id: 30,
+        name: 'Мило рідке',
+        code: 'MR-001',
+        priceRetail: 50,
+        priceWholesale: null,
+        quantity: 10,
+        imagePath: null,
+        images: [{ pathThumbnail: '/thumb.jpg' }],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
     mockPut.mockResolvedValue({ success: true, data: { id: 100, items: [] } });
@@ -353,10 +440,14 @@ describe('OrderItemsEditor', () => {
       expect(container.textContent).toContain('Мило рідке');
     });
 
-    const dropdownBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Мило рідке'));
+    const dropdownBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Мило рідке'),
+    );
     fireEvent.click(dropdownBtn!);
 
-    const saveBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Зберегти');
+    const saveBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Зберегти',
+    );
     fireEvent.click(saveBtn!);
 
     await waitFor(() => {
@@ -369,7 +460,16 @@ describe('OrderItemsEditor', () => {
 
   it('removes new items entirely when delete is clicked', async () => {
     const searchProducts = [
-      { id: 30, name: 'Мило рідке', code: 'MR-001', priceRetail: 50, priceWholesale: null, quantity: 10, imagePath: null, images: [] },
+      {
+        id: 30,
+        name: 'Мило рідке',
+        code: 'MR-001',
+        priceRetail: 50,
+        priceWholesale: null,
+        quantity: 10,
+        imagePath: null,
+        images: [],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
     const props = makeProps();
@@ -379,13 +479,17 @@ describe('OrderItemsEditor', () => {
 
     expect(container.textContent).toContain('Мило рідке');
 
-    const dropdownBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Мило рідке'));
+    const dropdownBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Мило рідке'),
+    );
     fireEvent.click(dropdownBtn!);
 
     expect(container.textContent).toContain('(новий)');
 
     // Remove the new item
-    const removeBtns = Array.from(container.querySelectorAll('button')).filter(b => b.textContent === 'Видалити');
+    const removeBtns = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent === 'Видалити',
+    );
     fireEvent.click(removeBtns[removeBtns.length - 1]);
 
     expect(container.textContent).not.toContain('Мило рідке');
@@ -403,7 +507,16 @@ describe('OrderItemsEditor', () => {
 
   it('closes dropdown on outside click', async () => {
     const searchProducts = [
-      { id: 30, name: 'Мило рідке', code: 'MR-001', priceRetail: 50, priceWholesale: null, quantity: 10, imagePath: '/img/soap.jpg', images: [] },
+      {
+        id: 30,
+        name: 'Мило рідке',
+        code: 'MR-001',
+        priceRetail: 50,
+        priceWholesale: null,
+        quantity: 10,
+        imagePath: '/img/soap.jpg',
+        images: [],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
     const props = makeProps();
@@ -432,7 +545,11 @@ describe('OrderItemsEditor', () => {
 
   it('shows searching indicator during API call', async () => {
     let resolveSearch: any;
-    mockGet.mockReturnValue(new Promise((resolve) => { resolveSearch = resolve; }));
+    mockGet.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSearch = resolve;
+      }),
+    );
     const props = makeProps();
     const { container } = render(<OrderItemsEditor {...props} />);
 
@@ -463,7 +580,16 @@ describe('OrderItemsEditor', () => {
 
   it('uses image from product.images fallback when imagePath is null', async () => {
     const searchProducts = [
-      { id: 30, name: 'Мило', code: 'MR-001', priceRetail: 50, priceWholesale: null, quantity: 10, imagePath: null, images: [{ pathThumbnail: '/thumb.jpg' }] },
+      {
+        id: 30,
+        name: 'Мило',
+        code: 'MR-001',
+        priceRetail: 50,
+        priceWholesale: null,
+        quantity: 10,
+        imagePath: null,
+        images: [{ pathThumbnail: '/thumb.jpg' }],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
     const props = makeProps();
@@ -473,7 +599,9 @@ describe('OrderItemsEditor', () => {
 
     expect(container.textContent).toContain('Мило');
 
-    const dropdownBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('MR-001'));
+    const dropdownBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('MR-001'),
+    );
     fireEvent.click(dropdownBtn!);
 
     const imgs = container.querySelectorAll('img[src="/thumb.jpg"]');
@@ -482,7 +610,16 @@ describe('OrderItemsEditor', () => {
 
   it('shows search result product with image in dropdown', async () => {
     const searchProducts = [
-      { id: 30, name: 'Мило рідке', code: 'MR-001', priceRetail: 50, priceWholesale: null, quantity: 10, imagePath: '/img/soap.jpg', images: [] },
+      {
+        id: 30,
+        name: 'Мило рідке',
+        code: 'MR-001',
+        priceRetail: 50,
+        priceWholesale: null,
+        quantity: 10,
+        imagePath: '/img/soap.jpg',
+        images: [],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
     const props = makeProps();
@@ -496,7 +633,16 @@ describe('OrderItemsEditor', () => {
 
   it('shows search result product without image (Фото placeholder) in dropdown', async () => {
     const searchProducts = [
-      { id: 30, name: 'Мило рідке', code: 'MR-001', priceRetail: 50, priceWholesale: null, quantity: 10, imagePath: null, images: [] },
+      {
+        id: 30,
+        name: 'Мило рідке',
+        code: 'MR-001',
+        priceRetail: 50,
+        priceWholesale: null,
+        quantity: 10,
+        imagePath: null,
+        images: [],
+      },
     ];
     mockGet.mockResolvedValue({ success: true, data: { products: searchProducts } });
     const props = makeProps();

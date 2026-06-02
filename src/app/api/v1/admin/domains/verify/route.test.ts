@@ -46,6 +46,8 @@ vi.mock('@/lib/prisma', () => ({
     tenantUser: { findFirst: vi.fn() },
   },
 }));
+vi.mock('@/lib/admin-tenant', () => ({ resolveActiveTenantId: vi.fn() }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/domain', () => ({
   verifyDomain: vi.fn(),
   DomainError: class DomainError extends Error {
@@ -62,8 +64,12 @@ vi.mock('@/utils/api-response', () => ({
 }));
 
 import { POST } from './route';
-import { prisma } from '@/lib/prisma';
 import { verifyDomain } from '@/services/domain';
+import { resolveActiveTenantId } from '@/lib/admin-tenant';
+
+const notFound = () => ({
+  error: Response.json({ error: 'Тенант не знайдено' }, { status: 404 }),
+});
 
 describe('POST /api/v1/admin/domains/verify', () => {
   beforeEach(() => {
@@ -71,7 +77,7 @@ describe('POST /api/v1/admin/domains/verify', () => {
   });
 
   it('verifies domain on success', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (verifyDomain as any).mockResolvedValue(true);
 
     const req = new NextRequest('http://localhost', {
@@ -98,7 +104,7 @@ describe('POST /api/v1/admin/domains/verify', () => {
   });
 
   it('returns 404 when tenant not found', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
+    (resolveActiveTenantId as any).mockResolvedValue(notFound());
 
     const req = new NextRequest('http://localhost', {
       method: 'POST',
@@ -111,7 +117,7 @@ describe('POST /api/v1/admin/domains/verify', () => {
   });
 
   it('returns 500 on error', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (verifyDomain as any).mockRejectedValue(new Error('fail'));
 
     const req = new NextRequest('http://localhost', {

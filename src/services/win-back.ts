@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/services/email';
+import { getSuppressedEmails } from '@/services/email-suppression';
 import { logger } from '@/lib/logger';
 import { randomBytes } from 'crypto';
 
@@ -109,12 +110,19 @@ export async function runWinBackCampaign(options: RunOptions = {}) {
     take: cap,
   });
 
+  // Honour the global marketing opt-out list — never mail unsubscribed users.
+  const suppressed = await getSuppressedEmails(users.map((u) => u.email));
+
   let processed = 0;
   let failed = 0;
   let skipped = recentSentIds.size;
 
   for (const u of users) {
     if (!u.email) continue;
+    if (suppressed.has(u.email)) {
+      skipped += 1;
+      continue;
+    }
     const userLatest = latestOrders.find((r) => r.userId === u.id);
     const daysSince = userLatest?._max.createdAt
       ? Math.floor((now - userLatest._max.createdAt.getTime()) / (24 * 60 * 60 * 1000))

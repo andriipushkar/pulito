@@ -160,7 +160,7 @@ export async function handlePaymentCallback(
   // audit-grade log so monitoring picks it up.
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { totalAmount: true, orderNumber: true, userId: true },
+    select: { totalAmount: true, orderNumber: true, userId: true, status: true },
   });
 
   let effectiveStatus = status;
@@ -255,14 +255,23 @@ export async function handlePaymentCallback(
 
     // Update order payment status
     if (effectiveStatus === 'success') {
+      // Payment confirmation also advances the order lifecycle to 'paid', but
+      // must never regress an order a manager already moved further
+      // (shipped/completed/etc). Record the REAL oldStatus so the history isn't
+      // a misleading "null → paid"; if we can't advance, log the payment
+      // against the unchanged status instead of faking a transition.
+      const prePaidStatuses = ['new_order', 'processing', 'confirmed'];
+      const currentStatus = order?.status ?? 'new_order';
+      const advanceStatus = prePaidStatuses.includes(currentStatus);
       await tx.order.update({
         where: { id: orderId },
         data: {
           paymentStatus: 'paid',
+          ...(advanceStatus && { status: 'paid' }),
           statusHistory: {
             create: {
-              oldStatus: null,
-              newStatus: 'paid',
+              oldStatus: currentStatus,
+              newStatus: advanceStatus ? 'paid' : currentStatus,
               changeSource: 'system',
               comment: `Оплата підтверджена через ${provider}`,
             },
@@ -388,7 +397,10 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
     where: { orderId },
     select: { paymentStatus: true },
   });
-  if (!fresh || fresh.paymentStatus !== 'paid') {
+  // Allow 'partial' too — sequential partial refunds on one order are a valid
+  // flow. The accumulated over-refund guard above (refund ≤ paid − refunded)
+  // still caps the total, and the advisory lock serialises them.
+  if (!fresh || !['paid', 'partial'].includes(fresh.paymentStatus)) {
     await releaseLock();
     throw new PaymentError('Повернення вже виконано або статус змінився', 409);
   }

@@ -1425,34 +1425,35 @@ export async function importProducts(
             updateData.barcode = barcode;
           }
 
-          // Track price changes
-          if (priceRetail !== null) {
-            if (Number(existingProduct.priceRetail) !== priceRetail) {
-              updateData.priceRetailOld = existingProduct.priceRetail;
-              updateData.priceRetail = priceRetail;
+          // Track price changes. A PriceHistory row must be written when EITHER
+          // retail OR wholesale changes — rollback reverts via PriceHistory, so
+          // a wholesale-only change with no row was previously unrecoverable.
+          const retailChanged =
+            priceRetail !== null && Number(existingProduct.priceRetail) !== priceRetail;
+          const wholesaleChanged =
+            priceWholesale !== null && Number(existingProduct.priceWholesale) !== priceWholesale;
 
-              if (!dryRun) {
-                await prisma.priceHistory.create({
-                  data: {
-                    productId: existingProduct.id,
-                    priceRetailOld: existingProduct.priceRetail,
-                    priceRetailNew: priceRetail,
-                    priceWholesaleOld: existingProduct.priceWholesale,
-                    priceWholesaleNew: priceWholesale ?? existingProduct.priceWholesale,
-                    importId: importLog.id,
-                  },
-                });
-              }
-            } else {
-              updateData.priceRetail = priceRetail;
-            }
+          if (priceRetail !== null) {
+            if (retailChanged) updateData.priceRetailOld = existingProduct.priceRetail;
+            updateData.priceRetail = priceRetail;
           }
 
           if (priceWholesale !== null) {
-            if (Number(existingProduct.priceWholesale) !== priceWholesale) {
-              updateData.priceWholesaleOld = existingProduct.priceWholesale;
-            }
+            if (wholesaleChanged) updateData.priceWholesaleOld = existingProduct.priceWholesale;
             updateData.priceWholesale = priceWholesale;
+          }
+
+          if ((retailChanged || wholesaleChanged) && !dryRun) {
+            await prisma.priceHistory.create({
+              data: {
+                productId: existingProduct.id,
+                priceRetailOld: existingProduct.priceRetail,
+                priceRetailNew: priceRetail ?? existingProduct.priceRetail,
+                priceWholesaleOld: existingProduct.priceWholesale,
+                priceWholesaleNew: priceWholesale ?? existingProduct.priceWholesale,
+                importId: importLog.id,
+              },
+            });
           }
 
           if (priceWholesale2 !== null) {

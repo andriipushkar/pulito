@@ -48,11 +48,16 @@ async function getMonoPubKey(): Promise<crypto.KeyObject> {
   }
 
   const { key } = await res.json();
-  const pubKey = crypto.createPublicKey({
-    key: Buffer.from(key, 'base64'),
-    format: 'der',
-    type: 'spki',
-  });
+  // Monobank's /pubkey returns a base64 value that decodes to a PEM string
+  // ("-----BEGIN PUBLIC KEY-----..."), NOT raw DER. Feeding the decoded bytes
+  // to createPublicKey with format:'der' throws / yields a wrong key, which
+  // would make EVERY real webhook fail signature verification. Decode to text
+  // and let Node parse the PEM; fall back to DER for safety/legacy.
+  const decoded = Buffer.from(key, 'base64');
+  const asText = decoded.toString('utf8');
+  const pubKey = asText.includes('-----BEGIN')
+    ? crypto.createPublicKey(asText)
+    : crypto.createPublicKey({ key: decoded, format: 'der', type: 'spki' });
 
   cachedPubKey = { key: pubKey, expiresAt: Date.now() + 86400000 }; // 24h
   return pubKey;
@@ -136,7 +141,10 @@ export async function refundPayment(invoiceId: string, amount: number): Promise<
     },
     body: JSON.stringify({
       invoiceId,
-      extRef: invoiceId,
+      // extRef must be unique PER refund attempt. Using invoiceId verbatim made
+      // every partial refund of the same invoice share an extRef — Monobank can
+      // dedupe on extRef and silently reject/replay the second partial refund.
+      extRef: `refund_${invoiceId}_${Date.now()}`,
       amount: Math.round(amount * 100), // kopecks
     }),
   });
@@ -155,10 +163,17 @@ export async function refundPayment(invoiceId: string, amount: number): Promise<
   const data = await res.json();
   logger.info('Monobank refund response', { invoiceId, status: data.status });
 
+  // The /invoice/cancel response status enum is `processing | success | failure`
+  // (NOT `reversed` — that's an *invoice* status). A synchronously-completed
+  // refund returns `success`; the old code mapped that to `processing` so a
+  // finished refund never showed as refunded. Treat success/reversed as done.
+  if (data.status === 'failure') {
+    return { success: false, status: 'failed', message: 'Monobank refund failed' };
+  }
   return {
     success: true,
     refundId: invoiceId,
-    status: data.status === 'reversed' ? 'refunded' : 'processing',
+    status: data.status === 'success' || data.status === 'reversed' ? 'refunded' : 'processing',
   };
 }
 

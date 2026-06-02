@@ -70,12 +70,14 @@ describe('withCronLock', () => {
     expect(mockRedis.del).not.toHaveBeenCalled();
   });
 
-  it('falls through when Redis errors', async () => {
+  it('fails closed when Redis errors (skips run to avoid double-exec)', async () => {
+    // Redis unreachable → mutual exclusion can't be guaranteed, so the run is
+    // skipped rather than executed unlocked (would risk double-processing a
+    // non-idempotent job). Next scheduled tick retries once Redis recovers.
     mockRedis.set.mockRejectedValue(new Error('redis down'));
     const fn = vi.fn().mockResolvedValue('still-ran');
     const r = await withCronLock('test', 60, fn);
-    expect(r.acquired).toBe(true);
-    expect(r.result).toBe('still-ran');
-    expect(fn).toHaveBeenCalledOnce();
+    expect(r.acquired).toBe(false);
+    expect(fn).not.toHaveBeenCalled();
   });
 });

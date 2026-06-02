@@ -5,6 +5,9 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     order: { findUnique: vi.fn() },
     payment: { update: vi.fn() },
+    // generateInvoicePdf now sums coupon discounts so the invoice balances;
+    // default to "no coupon" (discount 0).
+    couponRedemption: { aggregate: vi.fn().mockResolvedValue({ _sum: { discount: null } }) },
   },
 }));
 
@@ -288,7 +291,9 @@ describe('generateInvoicePdf - directory creation', () => {
       discountAmount: 0,
       deliveryCost: 0,
       totalAmount: 100,
-      items: [{ productCode: null, productName: 'Item', priceAtOrder: 100, quantity: 1, subtotal: 100 }],
+      items: [
+        { productCode: null, productName: 'Item', priceAtOrder: 100, quantity: 1, subtotal: 100 },
+      ],
       payment: null,
     };
 
@@ -394,7 +399,9 @@ describe('generateDeliveryNotePdf - directory creation', () => {
       deliveryAddress: null,
       trackingNumber: null,
       totalAmount: 100,
-      items: [{ productCode: null, productName: 'Item', priceAtOrder: 100, quantity: 1, subtotal: 100 }],
+      items: [
+        { productCode: null, productName: 'Item', priceAtOrder: 100, quantity: 1, subtotal: 100 },
+      ],
     };
 
     mockPrisma.order.findUnique.mockResolvedValue(mockOrder as never);
@@ -429,7 +436,9 @@ describe('generateDeliveryNotePdf - without optional fields', () => {
       deliveryAddress: null,
       trackingNumber: null,
       totalAmount: 200,
-      items: [{ productCode: null, productName: 'Товар', priceAtOrder: 200, quantity: 1, subtotal: 200 }],
+      items: [
+        { productCode: null, productName: 'Товар', priceAtOrder: 200, quantity: 1, subtotal: 200 },
+      ],
     };
 
     mockPrisma.order.findUnique.mockResolvedValue(mockOrder as never);

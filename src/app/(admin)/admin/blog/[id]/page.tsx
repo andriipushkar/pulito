@@ -44,6 +44,7 @@ export default function AdminBlogEditPage() {
   const isNew = id === 'new';
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [form, setForm] = useState({
@@ -123,6 +124,52 @@ export default function AdminBlogEditPage() {
     };
   }, [id, isNew]);
 
+  /** Generate article body + SEO via AI from the typed title (topic).
+   *  Fills only empty fields so a human edit is never overwritten. Same
+   *  pattern as the products/categories AI buttons; backend enforces a
+   *  per-user rate limit so a stuck click can't run up an AI bill. */
+  const handleAiGenerate = async () => {
+    if (isGenerating) return;
+    const topic = form.title.trim();
+    if (topic.length < 3) {
+      toast.error(t('aiNeedTopic'));
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const res = await apiClient.post<{
+        title: string;
+        excerpt: string;
+        content: string;
+        seoTitle: string;
+        seoDescription: string;
+        tags: string[];
+      }>('/api/v1/admin/blog/ai-generate', {
+        topic,
+        categoryId: form.categoryId ? Number(form.categoryId) : undefined,
+      });
+      if (res.success && res.data) {
+        const d = res.data;
+        setForm((prev) => ({
+          ...prev,
+          title: prev.title || d.title,
+          excerpt: prev.excerpt || d.excerpt,
+          content: prev.content || d.content,
+          seoTitle: prev.seoTitle || d.seoTitle,
+          seoDescription: prev.seoDescription || d.seoDescription,
+          tags: prev.tags || (d.tags || []).join(', '),
+        }));
+        toast.success(t('aiGenerated'));
+      } else {
+        toast.error(res.error || t('aiError'));
+      }
+    } catch {
+      toast.error(t('networkError'));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setMessage(null);
@@ -201,7 +248,18 @@ export default function AdminBlogEditPage() {
 
       <div className="space-y-6">
         <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-          <h3 className="mb-3 text-sm font-semibold">{t('basicSection')}</h3>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">{t('basicSection')}</h3>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleAiGenerate}
+              isLoading={isGenerating}
+            >
+              {t('generateAi')}
+            </Button>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label={t('titleLabel')}

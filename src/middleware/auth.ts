@@ -11,7 +11,7 @@ interface AuthContext {
 
 type AuthHandler = (
   request: NextRequest,
-  context: AuthContext & { params?: Promise<Record<string, string>> }
+  context: AuthContext & { params?: Promise<Record<string, string>> },
 ) => Promise<NextResponse>;
 
 function extractBearerToken(request: NextRequest): string | null {
@@ -21,9 +21,13 @@ function extractBearerToken(request: NextRequest): string | null {
 }
 
 export function withAuth(handler: AuthHandler) {
+  // The 2nd arg is typed to match Next's generated RouteContext
+  // ({ params: Promise<...> }) so the app-router route-type validator accepts
+  // these wrapped handlers. At runtime non-dynamic routes may omit it, so we
+  // still read it with optional chaining below.
   return async (
     request: NextRequest,
-    segmentData?: { params?: Promise<Record<string, string>> }
+    segmentData: { params: Promise<Record<string, string>> },
   ): Promise<NextResponse> => {
     const token = extractBearerToken(request);
     if (!token) {
@@ -58,13 +62,15 @@ interface OptionalAuthContext {
 
 type OptionalAuthHandler = (
   request: NextRequest,
-  context: OptionalAuthContext & { params?: Promise<Record<string, string>> }
+  context: OptionalAuthContext & { params?: Promise<Record<string, string>> },
 ) => Promise<NextResponse>;
 
 export function withOptionalAuth(handler: OptionalAuthHandler) {
+  // See withAuth: 2nd arg shaped like Next's RouteContext for the validator;
+  // still accessed via optional chaining for non-dynamic routes at runtime.
   return async (
     request: NextRequest,
-    segmentData?: { params?: Promise<Record<string, string>> }
+    segmentData: { params: Promise<Record<string, string>> },
   ): Promise<NextResponse> => {
     const token = extractBearerToken(request);
     if (!token) {

@@ -1,8 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+      handler,
+}));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 
 import { POST } from './route';
 import { revalidatePath } from 'next/cache';
@@ -10,7 +25,9 @@ import { revalidatePath } from 'next/cache';
 const mockRevalidate = vi.mocked(revalidatePath);
 
 describe('POST /api/v1/admin/revalidate', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('revalidates specific paths', async () => {
     const req = new Request('http://localhost', {
@@ -85,7 +102,9 @@ describe('POST /api/v1/admin/revalidate', () => {
   });
 
   it('returns 500 on error', async () => {
-    mockRevalidate.mockImplementation(() => { throw new Error('fail'); });
+    mockRevalidate.mockImplementation(() => {
+      throw new Error('fail');
+    });
 
     const req = new Request('http://localhost', {
       method: 'POST',

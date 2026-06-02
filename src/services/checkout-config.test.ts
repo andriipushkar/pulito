@@ -82,15 +82,16 @@ describe('getCheckoutConfig — env vs DB credentials priority', () => {
   });
 
   it('LiqPay requires BOTH public and private keys', async () => {
-    envMock.LIQPAY_PUBLIC_KEY = 'pub';
-    // private missing
+    settingsMock.value = { payment_liqpay_public_key: 'pub' }; // private missing
     const config = await getCheckoutConfig();
     expect(config.payment.available.online.liqpay).toBe(false);
   });
 
-  it('LiqPay public from DB + private from env', async () => {
-    envMock.LIQPAY_PRIVATE_KEY = 'env-priv';
-    settingsMock.value = { payment_liqpay_public_key: 'db-pub' };
+  it('LiqPay available when both keys configured in DB', async () => {
+    settingsMock.value = {
+      payment_liqpay_public_key: 'db-pub',
+      payment_liqpay_private_key: 'db-priv',
+    };
     const config = await getCheckoutConfig();
     expect(config.payment.available.online.liqpay).toBe(true);
   });
@@ -98,17 +99,21 @@ describe('getCheckoutConfig — env vs DB credentials priority', () => {
 
 describe('getCheckoutConfig — paypart toggle', () => {
   it('paypart defaults OFF even when LiqPay configured', async () => {
-    envMock.LIQPAY_PUBLIC_KEY = 'pub';
-    envMock.LIQPAY_PRIVATE_KEY = 'priv';
+    settingsMock.value = {
+      payment_liqpay_public_key: 'pub',
+      payment_liqpay_private_key: 'priv',
+    };
     const config = await getCheckoutConfig();
     expect(config.payment.available.online.liqpay).toBe(true);
     expect(config.payment.available.online.liqpay_paypart).toBe(false);
   });
 
   it('paypart enabled when toggle = "true" AND LiqPay configured', async () => {
-    envMock.LIQPAY_PUBLIC_KEY = 'pub';
-    envMock.LIQPAY_PRIVATE_KEY = 'priv';
-    settingsMock.value = { payment_liqpay_paypart_enabled: 'true' };
+    settingsMock.value = {
+      payment_liqpay_public_key: 'pub',
+      payment_liqpay_private_key: 'priv',
+      payment_liqpay_paypart_enabled: 'true',
+    };
     const config = await getCheckoutConfig();
     expect(config.payment.available.online.liqpay_paypart).toBe(true);
   });
@@ -125,17 +130,21 @@ describe('getCheckoutConfig — apple/google pay availability', () => {
     const config1 = await getCheckoutConfig();
     expect(config1.payment.available.online.apple_pay).toBe(false);
 
-    envMock.WAYFORPAY_MERCHANT_ACCOUNT = 'merch';
-    envMock.WAYFORPAY_SECRET_KEY = 'sec';
+    settingsMock.value = {
+      payment_wayforpay_merchant_account: 'merch',
+      payment_wayforpay_secret_key: 'sec',
+    };
     const config2 = await getCheckoutConfig();
     expect(config2.payment.available.online.apple_pay).toBe(true);
     expect(config2.payment.available.online.google_pay).toBe(true);
   });
 
   it('apple_pay can be disabled via toggle', async () => {
-    envMock.WAYFORPAY_MERCHANT_ACCOUNT = 'merch';
-    envMock.WAYFORPAY_SECRET_KEY = 'sec';
-    settingsMock.value = { payment_apple_pay_enabled: 'false' };
+    settingsMock.value = {
+      payment_wayforpay_merchant_account: 'merch',
+      payment_wayforpay_secret_key: 'sec',
+      payment_apple_pay_enabled: 'false',
+    };
     const config = await getCheckoutConfig();
     expect(config.payment.available.online.apple_pay).toBe(false);
   });

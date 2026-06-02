@@ -3,6 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const envMock = vi.hoisted(() => ({ REMOVEBG_API_KEY: '' }));
 vi.mock('@/config/env', () => ({ env: envMock }));
 
+// The key now resolves DB-first (getSettings) then env. Mock settings to an
+// empty value so the env mock above remains the source of truth in tests.
+vi.mock('@/services/settings', () => ({
+  getSettings: vi.fn(async () => ({ removebg_api_key: '' })),
+}));
+
 import { isBackgroundRemovalEnabled, removeBackground } from './background-removal';
 
 const fetchMock = vi.fn();
@@ -14,13 +20,13 @@ beforeEach(() => {
 });
 
 describe('isBackgroundRemovalEnabled', () => {
-  it('false when no key', () => {
-    expect(isBackgroundRemovalEnabled()).toBe(false);
+  it('false when no key', async () => {
+    expect(await isBackgroundRemovalEnabled()).toBe(false);
   });
 
-  it('true when key set', () => {
+  it('true when key set', async () => {
     envMock.REMOVEBG_API_KEY = 'k';
-    expect(isBackgroundRemovalEnabled()).toBe(true);
+    expect(await isBackgroundRemovalEnabled()).toBe(true);
   });
 });
 

@@ -1,7 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => ({
+  withRole: () => (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     order: { findUnique: vi.fn(), update: vi.fn() },
@@ -14,7 +27,9 @@ import { prisma } from '@/lib/prisma';
 const mockCtx = { params: Promise.resolve({ id: '1' }) };
 
 describe('PUT /api/v1/admin/orders/[id]/comment', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates comment on success', async () => {
     vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1 } as any);

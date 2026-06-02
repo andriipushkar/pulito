@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -28,7 +42,9 @@ describe('CommandPalette', () => {
   it('opens with Ctrl+K and shows search input', () => {
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-    expect(screen.getByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…'),
+    ).toBeInTheDocument();
   });
 
   it('shows command items when open', () => {
@@ -70,7 +86,9 @@ describe('CommandPalette', () => {
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
     const input = screen.getByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…');
     fireEvent.keyDown(input, { key: 'Escape' });
-    expect(screen.queryByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…')).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText('Шукай товар, замовлення, клієнта, сторінку…'),
+    ).not.toBeInTheDocument();
   });
 
   it('navigates with arrow keys', () => {

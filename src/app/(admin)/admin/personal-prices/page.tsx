@@ -20,6 +20,7 @@ interface PersonalPrice {
   productId: number | null;
   product: { id: number; name: string; code: string } | null;
   categoryId: number | null;
+  category: { id: number; name: string } | null;
   discountPercent: number | null;
   fixedPrice: number | null;
   validFrom: string | null;
@@ -310,7 +311,7 @@ export default function PersonalPricesPage() {
                     <td className="px-4 py-2 text-xs">
                       {item.product
                         ? `${item.product.name} (${item.product.code})`
-                        : t('categoryPrefix', { id: item.categoryId ?? '' })}
+                        : item.category?.name || t('categoryPrefix', { id: item.categoryId ?? '' })}
                     </td>
                     <td className="px-4 py-2 text-right text-xs">
                       {item.discountPercent ? `${Number(item.discountPercent)}%` : '—'}

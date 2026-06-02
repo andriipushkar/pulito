@@ -59,6 +59,12 @@ vi.mock('@/lib/wholesale-price', () => ({
   resolveWholesalePrice: vi.fn(),
 }));
 
+// Guest checkout path dynamically imports volume-pricing; mock so it doesn't
+// hit the DB. Returns no discount (route only lowers price when discounted).
+vi.mock('@/services/volume-pricing', () => ({
+  applyVolumeDiscounts: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
   withOptionalAuth: (handler: Function) => handler,
@@ -335,7 +341,8 @@ describe('POST /api/v1/orders', () => {
   });
 
   it('sets idempotency response for authenticated order', async () => {
-    const { updateIdempotentResponse, reserveIdempotencyKey } = await import('@/services/idempotency');
+    const { updateIdempotentResponse, reserveIdempotencyKey } =
+      await import('@/services/idempotency');
     vi.mocked(reserveIdempotencyKey).mockResolvedValue({ reserved: true });
 
     mockCheckoutParse.mockReturnValue({
@@ -562,7 +569,8 @@ describe('POST /api/v1/orders (guest checkout)', () => {
     ] as any);
     mockCreateOrder.mockResolvedValue({ id: 11, orderNumber: 'ORD-011' });
 
-    const { updateIdempotentResponse, reserveIdempotencyKey } = await import('@/services/idempotency');
+    const { updateIdempotentResponse, reserveIdempotencyKey } =
+      await import('@/services/idempotency');
     vi.mocked(reserveIdempotencyKey).mockResolvedValue({ reserved: true });
 
     const req = new NextRequest('http://localhost/api/v1/orders', {

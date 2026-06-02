@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     productNote: { findMany: vi.fn(), upsert: vi.fn() },
+    product: { findUnique: vi.fn() },
   },
 }));
 
@@ -13,11 +14,19 @@ vi.mock('@/middleware/auth', () => ({
   withRole: () => (handler: Function) => handler,
 }));
 
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 import { GET, POST } from './route';
 import { prisma } from '@/lib/prisma';
 
 const mockFindMany = prisma.productNote.findMany as ReturnType<typeof vi.fn>;
 const mockUpsert = prisma.productNote.upsert as ReturnType<typeof vi.fn>;
+const mockProductFindUnique = prisma.product.findUnique as ReturnType<typeof vi.fn>;
 const authCtx = { user: { id: 1, email: 'test@test.com', role: 'admin' } };
 
 describe('GET /api/v1/me/notes', () => {
@@ -42,6 +51,7 @@ describe('POST /api/v1/me/notes', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('creates a note', async () => {
+    mockProductFindUnique.mockResolvedValue({ id: 1 });
     mockUpsert.mockResolvedValue({ id: 1, noteText: 'note' });
     const req = new NextRequest('http://localhost/api/v1/me/notes', {
       method: 'POST',
@@ -52,27 +62,39 @@ describe('POST /api/v1/me/notes', () => {
     expect(res.status).toBe(201);
   });
 
-  it('returns 400 for missing fields', async () => {
+  it('returns 422 for missing fields', async () => {
     const req = new NextRequest('http://localhost/api/v1/me/notes', {
       method: 'POST',
       body: JSON.stringify({ productId: 1 }),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
-  it('returns 400 for note exceeding 500 chars', async () => {
+  it('returns 422 for note exceeding max length', async () => {
     const req = new NextRequest('http://localhost/api/v1/me/notes', {
       method: 'POST',
-      body: JSON.stringify({ productId: 1, noteText: 'a'.repeat(501) }),
+      body: JSON.stringify({ productId: 1, noteText: 'a'.repeat(2001) }),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
+  });
+
+  it('returns 404 when product does not exist', async () => {
+    mockProductFindUnique.mockResolvedValue(null);
+    const req = new NextRequest('http://localhost/api/v1/me/notes', {
+      method: 'POST',
+      body: JSON.stringify({ productId: 999, noteText: 'note' }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const res = await POST(req, authCtx as any);
+    expect(res.status).toBe(404);
   });
 
   it('returns 500 on server error', async () => {
+    mockProductFindUnique.mockResolvedValue({ id: 1 });
     mockUpsert.mockRejectedValue(new Error('db fail'));
     const req = new NextRequest('http://localhost/api/v1/me/notes', {
       method: 'POST',

@@ -19,14 +19,22 @@ vi.mock('@/services/publication', () => ({
 vi.mock('@/middleware/auth', () => ({
   withRole: () => (handler: Function) => {
     return (request: NextRequest, segmentData?: unknown) => {
-      return handler(request, { user: { id: 1, role: 'admin' }, params: (segmentData as { params?: unknown })?.params });
+      return handler(request, {
+        user: { id: 1, role: 'admin' },
+        params: (segmentData as { params?: unknown })?.params,
+      });
     };
   },
   withAuth: (handler: Function) => handler,
 }));
 
 vi.mock('@/config/env', () => ({
-  env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '' },
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+  },
 }));
 
 import { GET, POST } from './route';
@@ -51,11 +59,13 @@ describe('GET /api/v1/admin/publications', () => {
   it('should pass query params to service', async () => {
     mockGetPublications.mockResolvedValue({ publications: [], total: 0 });
 
-    const request = new NextRequest('http://localhost/api/v1/admin/publications?page=2&status=draft');
+    const request = new NextRequest(
+      'http://localhost/api/v1/admin/publications?page=2&status=draft',
+    );
     await GET(request);
 
     expect(mockGetPublications).toHaveBeenCalledWith(
-      expect.objectContaining({ page: 2, status: 'draft' })
+      expect.objectContaining({ page: 2, status: 'draft' }),
     );
   });
 
@@ -94,7 +104,7 @@ describe('POST /api/v1/admin/publications', () => {
 
     const request = new NextRequest('http://localhost/api/v1/admin/publications', {
       method: 'POST',
-      body: JSON.stringify({ title: 'Test', content: 'Test', channels: [] }),
+      body: JSON.stringify({ title: 'Test', content: 'Test', channels: ['site'] }),
       headers: { 'content-type': 'application/json' },
     });
 
@@ -107,7 +117,7 @@ describe('POST /api/v1/admin/publications', () => {
 
     const request = new NextRequest('http://localhost/api/v1/admin/publications', {
       method: 'POST',
-      body: JSON.stringify({ title: 'Test', content: 'Test', channels: [] }),
+      body: JSON.stringify({ title: 'Test', content: 'Test', channels: ['site'] }),
       headers: { 'content-type': 'application/json' },
     });
 

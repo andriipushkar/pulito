@@ -1,4 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (h) => h,
+  RateLimitError: class RateLimitError extends Error {
+    statusCode = 429;
+    retryAfter;
+    constructor(m, s, r) {
+      super(m);
+      this.statusCode = s || 429;
+      this.retryAfter = r;
+    }
+  },
+  RATE_LIMITS: new Proxy(
+    {},
+    { get: () => ({ limit: 100, windowSeconds: 60, prefix: 'test', max: 1e9, windowSec: 60 }) },
+  ),
+}));
 import { NextRequest } from 'next/server';
 
 vi.mock('@/services/cart', () => {
@@ -35,7 +58,10 @@ import { updateCartItemSchema } from '@/validators/order';
 const mockUpdateCartItem = updateCartItem as ReturnType<typeof vi.fn>;
 const mockRemoveFromCart = removeFromCart as ReturnType<typeof vi.fn>;
 const mockSafeParse = updateCartItemSchema.safeParse as ReturnType<typeof vi.fn>;
-const authCtx = { user: { id: 1, email: 'test@test.com', role: 'admin' }, params: Promise.resolve({ productId: '5' }) };
+const authCtx = {
+  user: { id: 1, email: 'test@test.com', role: 'admin' },
+  params: Promise.resolve({ productId: '5' }),
+};
 
 describe('PUT /api/v1/cart/[productId]', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -58,12 +84,15 @@ describe('PUT /api/v1/cart/[productId]', () => {
       body: JSON.stringify({ quantity: 1 }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const ctx = { user: { id: 1, email: 'test@test.com', role: 'admin' }, params: Promise.resolve({ productId: 'abc' }) };
+    const ctx = {
+      user: { id: 1, email: 'test@test.com', role: 'admin' },
+      params: Promise.resolve({ productId: 'abc' }),
+    };
     const res = await PUT(req, ctx as any);
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 on validation error', async () => {
+  it('returns 422 on validation error', async () => {
     mockSafeParse.mockReturnValue({ success: false, error: { issues: [{ message: 'bad qty' }] } });
     const req = new NextRequest('http://localhost/api/v1/cart/5', {
       method: 'PUT',
@@ -71,7 +100,7 @@ describe('PUT /api/v1/cart/[productId]', () => {
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await PUT(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns CartError status code on PUT', async () => {
@@ -112,7 +141,10 @@ describe('DELETE /api/v1/cart/[productId]', () => {
 
   it('returns 400 for invalid productId', async () => {
     const req = new NextRequest('http://localhost/api/v1/cart/abc', { method: 'DELETE' });
-    const ctx = { user: { id: 1, email: 'test@test.com', role: 'admin' }, params: Promise.resolve({ productId: 'abc' }) };
+    const ctx = {
+      user: { id: 1, email: 'test@test.com', role: 'admin' },
+      params: Promise.resolve({ productId: 'abc' }),
+    };
     const res = await DELETE(req, ctx as any);
     expect(res.status).toBe(400);
   });

@@ -17,6 +17,12 @@ vi.mock('@/services/verification', () => ({
   sendEmailVerification: vi.fn(),
 }));
 
+vi.mock('@/services/audit', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+}));
+
+const VALID_TOKEN = 'a'.repeat(64);
+
 vi.mock('@/services/auth-errors', () => {
   class AuthError extends Error {
     statusCode: number;
@@ -55,7 +61,7 @@ describe('POST /api/v1/auth/verify-email', () => {
 
   it('verifies email with valid token', async () => {
     mockVerifyEmail.mockResolvedValue(undefined);
-    const res = await POST(makeRequest({ token: 'valid-token' }));
+    const res = await POST(makeRequest({ token: VALID_TOKEN }));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
@@ -68,13 +74,13 @@ describe('POST /api/v1/auth/verify-email', () => {
 
   it('returns AuthError status on POST', async () => {
     mockVerifyEmail.mockRejectedValue(new AuthError('Token expired', 400));
-    const res = await POST(makeRequest({ token: 'expired-tok' }));
+    const res = await POST(makeRequest({ token: VALID_TOKEN }));
     expect(res.status).toBe(400);
   });
 
   it('returns 500 on server error', async () => {
     mockVerifyEmail.mockRejectedValue(new Error('fail'));
-    const res = await POST(makeRequest({ token: 'tok' }));
+    const res = await POST(makeRequest({ token: VALID_TOKEN }));
     expect(res.status).toBe(500);
   });
 });

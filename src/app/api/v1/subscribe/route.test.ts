@@ -35,6 +35,9 @@ const mockedUnsubscribe = vi.mocked(unsubscribeByEmail);
 describe('POST /api/v1/subscribe', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  // Anti-enumeration: POST always returns a uniform 202 so a scraper can't
+  // tell whether the email was new/already-subscribed/errored. The actual
+  // state change is gated behind the emailed confirmation token.
   it('subscribes on success', async () => {
     mockedSubscribe.mockResolvedValue({ id: 1 } as never);
     const req = new NextRequest('http://localhost/api/v1/subscribe', {
@@ -43,7 +46,7 @@ describe('POST /api/v1/subscribe', () => {
       body: JSON.stringify({ email: 'test@example.com' }),
     });
     const res = await POST(req);
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(202);
   });
 
   it('returns 422 on invalid email', async () => {
@@ -56,7 +59,7 @@ describe('POST /api/v1/subscribe', () => {
     expect(res.status).toBe(422);
   });
 
-  it('returns 500 on service error', async () => {
+  it('swallows service errors and still returns uniform 202', async () => {
     mockedSubscribe.mockRejectedValue(new Error('fail'));
     const req = new NextRequest('http://localhost/api/v1/subscribe', {
       method: 'POST',
@@ -64,7 +67,7 @@ describe('POST /api/v1/subscribe', () => {
       body: JSON.stringify({ email: 'test@example.com' }),
     });
     const res = await POST(req);
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(202);
   });
 });
 
@@ -82,7 +85,9 @@ describe('GET /api/v1/subscribe', () => {
 
   it('unsubscribes with action=unsubscribe', async () => {
     mockedUnsubscribe.mockResolvedValue({ unsubscribed: true } as never);
-    const req = new NextRequest('http://localhost/api/v1/subscribe?token=abc123&action=unsubscribe');
+    const req = new NextRequest(
+      'http://localhost/api/v1/subscribe?token=abc123&action=unsubscribe',
+    );
     const res = await GET(req);
     expect(res.status).toBe(200);
   });
@@ -108,19 +113,19 @@ describe('GET /api/v1/subscribe', () => {
     expect(res.status).toBe(500);
   });
 
-  it('handles SubscriberError on unsubscribe', async () => {
+  it('swallows SubscriberError on unsubscribe (uniform 200)', async () => {
     const { SubscriberError } = await import('@/services/subscriber');
     mockedUnsubscribe.mockRejectedValue(new SubscriberError('Not found', 404));
     const req = new NextRequest('http://localhost/api/v1/subscribe?token=abc&action=unsubscribe');
     const res = await GET(req);
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
   });
 });
 
 describe('POST /api/v1/subscribe (SubscriberError)', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('handles SubscriberError on subscribe', async () => {
+  it('swallows SubscriberError on subscribe (uniform 202)', async () => {
     const { SubscriberError } = await import('@/services/subscriber');
     mockedSubscribe.mockRejectedValue(new SubscriberError('Already subscribed', 409));
     const req = new NextRequest('http://localhost/api/v1/subscribe', {
@@ -129,6 +134,6 @@ describe('POST /api/v1/subscribe (SubscriberError)', () => {
       body: JSON.stringify({ email: 'test@example.com' }),
     });
     const res = await POST(req);
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(202);
   });
 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, withOptionalAuth } from '@/middleware/auth';
-import { createOrder, getUserOrders, OrderError } from '@/services/order';
+import { createOrder, getUserOrders, updateOrderStatus, OrderError } from '@/services/order';
 import { getCartWithPersonalPrices } from '@/services/cart';
 import { spendPoints, LoyaltyError } from '@/services/loyalty';
 import { reserveIdempotencyKey, updateIdempotentResponse } from '@/services/idempotency';
@@ -113,6 +113,17 @@ export const POST = createApiHandler(
             price = Number(item.product.priceRetail);
           }
 
+          // Wholesale prices are SUBMITTED by the seller (not derived), so a
+          // wholesale customer must never be charged above their submitted
+          // wholesale price. Volume/personal still apply if LOWER, but the
+          // wholesale tier is the ceiling — previously a volume discount
+          // computed off RETAIL could exceed the wholesale price and overcharge
+          // a B2B client.
+          if (clientType === 'wholesale') {
+            const wholesale = resolveWholesalePrice(item.product, wholesaleGroup);
+            if (wholesale != null) price = Math.min(price, wholesale);
+          }
+
           return {
             productId: item.product.id,
             productCode: item.product.code,
@@ -154,14 +165,37 @@ export const POST = createApiHandler(
           try {
             await spendPoints(user.id, pointsActuallySpent, order.id);
           } catch (error) {
-            if (error instanceof LoyaltyError) {
-              // Points were pre-validated, so this is unexpected — log but don't fail
-              logger.error('Loyalty points spend failed after validation', {
-                userId: user.id,
+            // Spend failed AFTER the order was created with the discount baked
+            // into its total (the pre-check at line ~128 is a non-atomic read,
+            // so a concurrent order can drain the balance in between). Without
+            // compensation the customer would ship with a discount they never
+            // paid for in points — silent revenue loss. Cancel the order so
+            // stock is restored and surface a friendly retry error.
+            logger.error('Loyalty points spend failed after order creation — compensating', {
+              userId: user.id,
+              orderId: order.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            try {
+              await updateOrderStatus(
+                order.id,
+                'cancelled',
+                null,
+                'system',
+                'Скасовано: не вдалось списати бали лояльності',
+              );
+            } catch (rollbackErr) {
+              logger.error('Failed to compensate order after loyalty spend failure', {
                 orderId: order.id,
-                error: error.message,
+                error: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
               });
             }
+            return errorResponse(
+              error instanceof LoyaltyError
+                ? error.message
+                : 'Не вдалося списати бали лояльності. Спробуйте ще раз.',
+              400,
+            );
           }
         }
 
@@ -212,6 +246,7 @@ export const POST = createApiHandler(
             priceRetail: true,
             isPromo: true,
             quantity: true,
+            categoryId: true,
           },
         });
 
@@ -237,6 +272,25 @@ export const POST = createApiHandler(
             quantity: item.quantity,
             isPromo: product.isPromo,
           });
+        }
+
+        // Apply volume (quantity-tier) discounts so a guest is charged the same
+        // discounted unit price the cart/checkout UI showed them — previously
+        // the guest path snapshotted full priceRetail and overcharged anyone
+        // who hit a bulk tier.
+        const { applyVolumeDiscounts } = await import('@/services/volume-pricing');
+        const volumeResults = await applyVolumeDiscounts(
+          orderItems.map((oi) => ({
+            productId: oi.productId,
+            categoryId: productMap.get(oi.productId)?.categoryId ?? null,
+            quantity: oi.quantity,
+            price: oi.price,
+          })),
+        );
+        const volumeByProduct = new Map(volumeResults.map((v) => [v.productId, v]));
+        for (const oi of orderItems) {
+          const vd = volumeByProduct.get(oi.productId);
+          if (vd && vd.discountedPrice < oi.price) oi.price = vd.discountedPrice;
         }
 
         const order = await createOrder(null, parsed.data, orderItems, 'retail');

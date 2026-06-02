@@ -1,7 +1,14 @@
 # Хендовер: чистка тех-боргу юніт-тестів (vitest)
 
-> Дата: 2026-05-29. Документ для **нової сесії**, щоб продовжити роботу.
-> Мета: довести `npx vitest run` до зеленого (або максимально близько), **не маскуючи реальні баги**.
+> ✅ **ЗАКРИТО 2026-06-02.** Повний `npx vitest run` зелений: **696 файлів, 6306 тестів, 0 червоних, 0 регресій** (звірка red-set before/after на повному JSON-прогоні).
+> Фінальні 19 червоних (робоче дерево гілки `fix/auth-refresh-401-and-build-memory`) — усі stale-тести за навмисними змінами коду, не регресії:
+> webhooks тепер 401 на mismatch підпису (було 200, маскувало форджинг) + 500 на bad-JSON (було catch-all 200) + `logger` замість `console` + потрібні повні redis-моки (реальний redis на :6380 віддає stale 24h dedup-ключі); cron-lock fail-closed; api-client `statusCode` + one-time mount hydration; i18n uk-only; AuthProvider mount через `refreshSession`; ukrposhta схема (nested/грами); NP `getDocumentPrice` без ETA; marketplaces DELETE idempotency `findFirst`; bulk-ttn backoff-retry (non-retryable 400 для perm-fail); useAdminNotifications cookie-grant+async; sitemap blogCategory/7-static; sitemap-products `p.images`; uploads `fs.realpath`; smtp generic-error.
+> **НЕ закомічено** — 307 uncommitted змін на гілці (вкл. прод аудит-роботу); коміт/пуш на розсуд власника.
+>
+> ---
+>
+> Дата старту: 2026-05-29. Нижче — історичний документ процесу (для довідки).
+> Мета була: довести `npx vitest run` до зеленого, **не маскуючи реальні баги**.
 
 ---
 

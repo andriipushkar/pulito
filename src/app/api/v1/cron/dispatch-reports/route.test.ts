@@ -8,7 +8,15 @@ vi.mock('@/config/env', () => ({
     JWT_ALGORITHM: 'HS256',
     JWT_PRIVATE_KEY_PATH: '',
     JWT_PUBLIC_KEY_PATH: '',
+    UPLOAD_DIR: '/tmp/test-uploads',
   },
+}));
+
+// Route dynamically imports the report generator to attach an XLSX; mock it so
+// the test doesn't spawn the real (heavy, DB+fs) generator and hang under
+// fake timers. Returning a url with no real file leaves attachments empty.
+vi.mock('@/services/report-generator', () => ({
+  generateReport: vi.fn().mockResolvedValue({ url: '/uploads/reports/none.xlsx' }),
 }));
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
@@ -49,7 +57,6 @@ describe('POST /api/v1/cron/dispatch-reports', () => {
     vi.mocked(prisma.user.count).mockResolvedValue(0);
     vi.mocked(prisma.order.aggregate).mockResolvedValue({
       _sum: { totalAmount: 0 },
-       
     } as any);
   });
 
@@ -59,7 +66,7 @@ describe('POST /api/v1/cron/dispatch-reports', () => {
       method: 'POST',
       headers: { authorization: 'Bearer wrong' },
     });
-     
+
     const res = await POST(req as any);
     expect(res.status).toBe(401);
     expect(prisma.reportTemplate.findMany).not.toHaveBeenCalled();
@@ -72,12 +79,11 @@ describe('POST /api/v1/cron/dispatch-reports', () => {
         schedule: 'daily',
         scheduleEmail: 'a@b.com',
         reportType: 'sales_summary',
-         
       } as any,
     ]);
     // 10:00 UTC — not the daily window
     const req = reqAt(new Date(Date.UTC(2026, 4, 15, 10, 0, 0)));
-     
+
     const res = await POST(req as any);
     const json = await res.json();
     expect(res.status).toBe(200);
@@ -94,28 +100,22 @@ describe('POST /api/v1/cron/dispatch-reports', () => {
         schedule: 'daily',
         scheduleEmail: 'ok@x.com',
         reportType: 'sales_summary',
-         
       } as any,
       {
         id: 2,
         schedule: 'daily',
         scheduleEmail: 'bad@x.com',
         reportType: 'sales_summary',
-         
       } as any,
     ]);
-    sendEmailMock
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('smtp blew up'));
+    sendEmailMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('smtp blew up'));
     const req = reqAt(new Date(Date.UTC(2026, 4, 15, 6, 0, 0)));
-     
+
     const res = await POST(req as any);
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.data.dispatched).toBe(1);
-    expect(json.data.failed).toEqual([
-      { id: 2, error: 'smtp blew up' },
-    ]);
+    expect(json.data.failed).toEqual([{ id: 2, error: 'smtp blew up' }]);
     expect(sendEmailMock).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
@@ -123,7 +123,7 @@ describe('POST /api/v1/cron/dispatch-reports', () => {
   it('returns 500 when prisma.findMany throws', async () => {
     vi.mocked(prisma.reportTemplate.findMany).mockRejectedValue(new Error('DB'));
     const req = reqAt(new Date(Date.UTC(2026, 4, 15, 6, 0, 0)));
-     
+
     const res = await POST(req as any);
     expect(res.status).toBe(500);
     vi.useRealTimers();

@@ -16,7 +16,7 @@ interface Challenge {
   type: string;
   target: number;
   reward: number;
-  participants: number;
+  participantsCount: number;
   isActive: boolean;
   startDate: string | null;
   endDate: string | null;
@@ -24,11 +24,14 @@ interface Challenge {
 
 export default function AdminLoyaltyChallengesPage() {
   const t = useTranslations('admin.loyaltyChallengesPage');
+  // Values MUST match the API/DB enum (order_count | order_amount | review |
+  // referral | streak). They previously read orders_count/total_spent/etc, so
+  // every create except "streak" was rejected with 400.
   const CHALLENGE_TYPES = [
-    { value: 'orders_count', label: t('typeOrdersCount') },
-    { value: 'total_spent', label: t('typeTotalSpent') },
-    { value: 'referrals', label: t('typeReferrals') },
-    { value: 'reviews', label: t('typeReviews') },
+    { value: 'order_count', label: t('typeOrdersCount') },
+    { value: 'order_amount', label: t('typeTotalSpent') },
+    { value: 'referral', label: t('typeReferrals') },
+    { value: 'review', label: t('typeReviews') },
     { value: 'streak', label: t('typeStreak') },
   ];
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -37,7 +40,7 @@ export default function AdminLoyaltyChallengesPage() {
   const [form, setForm] = useState({
     name: '',
     description: '',
-    type: 'orders_count',
+    type: 'order_count',
     target: '',
     reward: '',
     startDate: '',
@@ -85,7 +88,7 @@ export default function AdminLoyaltyChallengesPage() {
       setForm({
         name: '',
         description: '',
-        type: 'orders_count',
+        type: 'order_count',
         target: '',
         reward: '',
         startDate: '',
@@ -236,7 +239,7 @@ export default function AdminLoyaltyChallengesPage() {
                   {ch.reward} {t('rewardSuffix')}
                 </td>
                 <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">
-                  {ch.participants}
+                  {ch.participantsCount ?? 0}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <button

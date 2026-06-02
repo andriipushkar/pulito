@@ -1,11 +1,44 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (h) => h,
+  RateLimitError: class RateLimitError extends Error {
+    statusCode = 429;
+    retryAfter;
+    constructor(m, s, r) {
+      super(m);
+      this.statusCode = s || 429;
+      this.retryAfter = r;
+    }
+  },
+  RATE_LIMITS: new Proxy(
+    {},
+    { get: () => ({ limit: 100, windowSeconds: 60, prefix: 'test', max: 1e9, windowSec: 60 }) },
+  ),
+}));
 import { NextRequest } from 'next/server';
 
-vi.mock('@/services/wishlist', () => ({
-  getUserWishlists: vi.fn(),
-  createWishlist: vi.fn(),
-  deleteEmptyWishlists: vi.fn(),
-}));
+vi.mock('@/services/wishlist', () => {
+  class WishlistError extends Error {
+    statusCode: number;
+    constructor(message: string, statusCode: number) {
+      super(message);
+      this.statusCode = statusCode;
+    }
+  }
+  return {
+    getUserWishlists: vi.fn(),
+    createWishlist: vi.fn(),
+    deleteEmptyWishlists: vi.fn(),
+    WishlistError,
+  };
+});
 
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,

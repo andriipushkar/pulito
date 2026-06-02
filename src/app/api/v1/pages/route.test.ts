@@ -10,17 +10,26 @@ vi.mock('@/services/static-page', () => ({
   getPublishedPages: vi.fn(),
 }));
 
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
+import { NextRequest } from 'next/server';
 import { GET } from './route';
 import { getPublishedPages } from '@/services/static-page';
 
 const mocked = vi.mocked(getPublishedPages);
+const makeReq = () => new NextRequest('http://localhost/api/v1/pages');
 
 describe('GET /api/v1/pages', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns pages on success', async () => {
     mocked.mockResolvedValue([{ id: 1, title: 'Page' }] as never);
-    const res = await GET();
+    const res = await GET(makeReq());
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.success).toBe(true);
@@ -28,7 +37,7 @@ describe('GET /api/v1/pages', () => {
 
   it('returns 500 on error', async () => {
     mocked.mockRejectedValue(new Error('fail'));
-    const res = await GET();
+    const res = await GET(makeReq());
     expect(res.status).toBe(500);
   });
 });

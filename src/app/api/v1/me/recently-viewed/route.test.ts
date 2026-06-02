@@ -13,12 +13,31 @@ vi.mock('@/middleware/auth', () => ({
   withRole: () => (handler: Function) => handler,
 }));
 
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    product: { findUnique: vi.fn() },
+  },
+}));
+
 import { GET, POST, DELETE } from './route';
-import { getRecentlyViewed, addRecentlyViewed, clearRecentlyViewed } from '@/services/recently-viewed';
+import {
+  getRecentlyViewed,
+  addRecentlyViewed,
+  clearRecentlyViewed,
+} from '@/services/recently-viewed';
+import { prisma } from '@/lib/prisma';
 
 const mockGetRecentlyViewed = getRecentlyViewed as ReturnType<typeof vi.fn>;
 const mockAddRecentlyViewed = addRecentlyViewed as ReturnType<typeof vi.fn>;
 const mockClearRecentlyViewed = clearRecentlyViewed as ReturnType<typeof vi.fn>;
+const mockProductFindUnique = prisma.product.findUnique as ReturnType<typeof vi.fn>;
 const authCtx = { user: { id: 1, email: 'test@test.com', role: 'admin' } };
 
 describe('GET /api/v1/me/recently-viewed', () => {
@@ -43,6 +62,7 @@ describe('POST /api/v1/me/recently-viewed', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('adds product to recently viewed', async () => {
+    mockProductFindUnique.mockResolvedValue({ id: 1 });
     mockAddRecentlyViewed.mockResolvedValue(undefined);
     const req = new NextRequest('http://localhost/api/v1/me/recently-viewed', {
       method: 'POST',
@@ -53,17 +73,18 @@ describe('POST /api/v1/me/recently-viewed', () => {
     expect(res.status).toBe(200);
   });
 
-  it('returns 400 for missing productId', async () => {
+  it('returns 422 for missing productId', async () => {
     const req = new NextRequest('http://localhost/api/v1/me/recently-viewed', {
       method: 'POST',
       body: JSON.stringify({}),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 500 on error', async () => {
+    mockProductFindUnique.mockResolvedValue({ id: 1 });
     mockAddRecentlyViewed.mockRejectedValue(new Error('fail'));
     const req = new NextRequest('http://localhost/api/v1/me/recently-viewed', {
       method: 'POST',

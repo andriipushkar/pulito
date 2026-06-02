@@ -58,6 +58,13 @@ export const GET = withRole(
         ]);
 
         const daily: Record<string, { date: string; revenue: number; count: number }> = {};
+        // Pre-seed every day in the window so the chart shows a continuous
+        // timeline — days with no orders render as 0 instead of being
+        // skipped (which previously compressed the X axis).
+        for (let d = new Date(currentFrom); d <= new Date(); d.setDate(d.getDate() + 1)) {
+          const key = d.toISOString().slice(0, 10);
+          daily[key] = { date: key, revenue: 0, count: 0 };
+        }
         for (const o of orders) {
           const date = o.createdAt.toISOString().slice(0, 10);
           if (!daily[date]) daily[date] = { date, revenue: 0, count: 0 };

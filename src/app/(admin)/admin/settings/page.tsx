@@ -39,14 +39,16 @@ type SectionKey =
   | 'display'
   | 'delivery'
   | 'ai'
-  | 'loyalty';
+  | 'loyalty'
+  | 'system';
 
 type FieldDef = {
   key: string;
   label: string;
   hint?: string;
   validate?: (v: string) => string | null;
-  type?: 'text' | 'checkbox';
+  type?: 'text' | 'checkbox' | 'select';
+  options?: { value: string; label: string }[];
 };
 export default function AdminSettingsPage() {
   const t = useTranslations('admin.settingsPage');
@@ -218,6 +220,47 @@ export default function AdminSettingsPage() {
           },
         ],
       },
+      {
+        key: 'system',
+        label: t('sec_system'),
+        fields: [
+          { key: 'watermark_text', label: t('f_watermark_text'), hint: t('h_watermark_text') },
+          {
+            key: 'watermark_enabled',
+            label: t('f_watermark_enabled'),
+            hint: t('h_watermark_enabled'),
+            type: 'checkbox',
+          },
+          {
+            key: 'removebg_api_key',
+            label: t('f_removebg_api_key'),
+            hint: t('h_removebg_api_key'),
+          },
+          {
+            key: 'vapid_email',
+            label: t('f_vapid_email'),
+            hint: t('h_vapid_email'),
+            validate: (v) => (v && !v.startsWith('mailto:') ? t('v_vapid_email') : null),
+          },
+          {
+            key: 'log_level',
+            label: t('f_log_level'),
+            hint: t('h_log_level'),
+            type: 'select',
+            options: [
+              { value: 'debug', label: 'debug' },
+              { value: 'info', label: 'info' },
+              { value: 'warn', label: 'warn' },
+              { value: 'error', label: 'error' },
+            ],
+          },
+          {
+            key: 'admin_allowed_ips',
+            label: t('f_admin_allowed_ips'),
+            hint: t('h_admin_allowed_ips'),
+          },
+        ],
+      },
     ],
     [t],
   );
@@ -233,7 +276,12 @@ export default function AdminSettingsPage() {
     apiClient
       .get<Record<string, string>>('/api/v1/admin/settings')
       .then((res) => {
-        if (res.success && res.data) setSettings(res.data);
+        if (res.success && res.data) {
+          // Seed sane defaults for system keys that may not yet have a DB row,
+          // so the controlled select/checkbox inputs render a real value and a
+          // save never persists an empty string. DB values (res.data) win.
+          setSettings({ log_level: 'info', watermark_enabled: '1', ...res.data });
+        }
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -339,7 +387,29 @@ export default function AdminSettingsPage() {
           </h3>
           <div className="grid gap-4 md:grid-cols-2">
             {SECTIONS.find((s) => s.key === activeSection)?.fields.map((field) =>
-              field.type === 'checkbox' ? (
+              field.type === 'select' ? (
+                <div key={field.key}>
+                  <label className="mb-1 block text-sm font-medium">{field.label}</label>
+                  <select
+                    value={settings[field.key] || ''}
+                    onChange={(e) =>
+                      setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))
+                    }
+                    className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                  >
+                    {field.options?.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  {field.hint && (
+                    <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+                      {field.hint}
+                    </p>
+                  )}
+                </div>
+              ) : field.type === 'checkbox' ? (
                 <div key={field.key} className="md:col-span-2">
                   <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius)] border border-[var(--color-border)]/60 p-3 hover:bg-[var(--color-bg-secondary)]/40">
                     <input
@@ -605,6 +675,8 @@ function AISettings() {
     anthropic_api_key: '',
     gemini_api_key: '',
     gemini_model: DEFAULT_GEMINI_MODEL,
+    // Site-wide AI provider used by every generation feature.
+    ai_provider: 'gemini',
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -622,6 +694,7 @@ function AISettings() {
             anthropic_api_key: res.data.anthropic_api_key || '',
             gemini_api_key: res.data.gemini_api_key || '',
             gemini_model: isValid ? saved : DEFAULT_GEMINI_MODEL,
+            ai_provider: res.data.ai_provider || 'gemini',
           });
         }
       })
@@ -639,6 +712,7 @@ function AISettings() {
           anthropic_api_key: fresh.data.anthropic_api_key || '',
           gemini_api_key: fresh.data.gemini_api_key || '',
           gemini_model: fresh.data.gemini_model || 'gemini-1.5-flash',
+          ai_provider: fresh.data.ai_provider || 'gemini',
         });
       }
       toast.success(t('aiSaved'));
@@ -689,6 +763,26 @@ function AISettings() {
       </div>
 
       <p className="mb-4 text-xs text-[var(--color-text-secondary)]">{t('aiKeysHint')}</p>
+
+      {/* Site-wide provider — used by every generation feature (descriptions,
+          dashboard briefing, review drafts, search intel). Replaces the old
+          per-action dropdowns. */}
+      <div className="mb-5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+        <label className="mb-1 block text-sm font-semibold" htmlFor="ai_provider">
+          {t('aiProviderTitle')}
+        </label>
+        <p className="mb-2 text-xs text-[var(--color-text-secondary)]">{t('aiProviderHint')}</p>
+        <select
+          id="ai_provider"
+          value={form.ai_provider}
+          onChange={(e) => setForm((f) => ({ ...f, ai_provider: e.target.value }))}
+          className="w-full max-w-xs rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
+        >
+          <option value="gemini">{t('aiProviderGemini')}</option>
+          <option value="claude">{t('aiProviderClaude')}</option>
+          <option value="rules">{t('aiProviderRules')}</option>
+        </select>
+      </div>
 
       <div className="space-y-5">
         {/* Claude */}

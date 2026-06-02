@@ -8,6 +8,7 @@ vi.mock('@/lib/prisma', () => {
     findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     count: vi.fn(),
   };
   const order = {
@@ -42,6 +43,10 @@ const mockPrisma = prisma as unknown as MockPrismaClient;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // createReturnRequest now reads prior returns to enforce remaining-qty;
+  // default to "no prior returns" so it's iterable (tests that need prior
+  // returns override this).
+  mockPrisma.returnRequest.findMany.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -147,7 +152,7 @@ describe('createReturnRequest', () => {
 
     await expect(
       createReturnRequest(makeReturnData({ items: [{ orderItemId: 100, quantity: 10 }] })),
-    ).rejects.toThrow('перевищує');
+    ).rejects.toThrow('не більше');
   });
 });
 
@@ -242,16 +247,24 @@ describe('processReturn', () => {
 // ---------------------------------------------------------------------------
 
 describe('markReturnReceived', () => {
-  it('marks return as received', async () => {
+  it('marks an approved return as received', async () => {
     const updated = makeReturnRequest({ status: 'received' });
-    mockPrisma.returnRequest.update.mockResolvedValue(updated);
+    // markReturnReceived now does an atomic guarded claim (approved → received)
+    // via updateMany, then returns the fresh row.
+    mockPrisma.returnRequest.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.returnRequest.findUnique.mockResolvedValue(updated);
 
     const result = await markReturnReceived(1);
     expect(result).toEqual(updated);
-    expect(mockPrisma.returnRequest.update).toHaveBeenCalledWith({
-      where: { id: 1 },
+    expect(mockPrisma.returnRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'approved' },
       data: { status: 'received' },
     });
+  });
+
+  it('rejects when the return is not in approved status', async () => {
+    mockPrisma.returnRequest.updateMany.mockResolvedValue({ count: 0 });
+    await expect(markReturnReceived(1)).rejects.toThrow('схвалений');
   });
 });
 

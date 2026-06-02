@@ -1,5 +1,6 @@
-import { env } from '@/config/env';
 import { assertInstagramQuotaAvailable, consumeInstagramQuota } from './instagram-quota';
+import { GRAPH_API_VERSION } from './meta-graph';
+import { getInstagramCreds } from './channel-config';
 
 export class InstagramError extends Error {
   constructor(
@@ -11,7 +12,7 @@ export class InstagramError extends Error {
   }
 }
 
-const GRAPH_API = 'https://graph.facebook.com/v21.0';
+const GRAPH_API = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
 async function fetchWithRetry(
   url: string,
@@ -61,15 +62,14 @@ interface AccountInsights {
 }
 
 export async function getAccountInsights(): Promise<AccountInsights> {
-  const accountId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
-  const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
+  const { accessToken, businessAccountId: accountId } = await getInstagramCreds();
 
   if (!accountId || !accessToken) {
     throw new InstagramError('Instagram credentials not configured');
   }
 
   const res = await fetchWithRetry(
-    `${GRAPH_API}/${accountId}/insights?metric=impressions,reach,profile_views&period=day&access_token=${accessToken}`,
+    `${GRAPH_API}/${accountId}/insights?metric=reach,views&period=day&access_token=${accessToken}`,
     { method: 'GET' },
   );
 
@@ -100,8 +100,7 @@ export async function getAccountInsights(): Promise<AccountInsights> {
 }
 
 export async function publishImagePost(imageUrl: string, caption: string): Promise<PublishResult> {
-  const accountId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
-  const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
+  const { accessToken, businessAccountId: accountId } = await getInstagramCreds();
 
   if (!accountId || !accessToken) {
     throw new InstagramError('Instagram credentials not configured');
@@ -167,8 +166,7 @@ export async function publishCarouselPost(
   imageUrls: string[],
   caption: string,
 ): Promise<PublishResult> {
-  const accountId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
-  const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
+  const { accessToken, businessAccountId: accountId } = await getInstagramCreds();
 
   if (!accountId || !accessToken) {
     throw new InstagramError('Instagram credentials not configured');
@@ -260,8 +258,7 @@ export async function publishReelsPost(
   caption: string,
   coverUrl?: string,
 ): Promise<PublishResult> {
-  const accountId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
-  const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
+  const { accessToken, businessAccountId: accountId } = await getInstagramCreds();
 
   if (!accountId || !accessToken) {
     throw new InstagramError('Instagram credentials not configured');
@@ -353,7 +350,7 @@ export async function publishReelsPost(
 }
 
 export async function postFirstComment(mediaId: string, comment: string): Promise<string> {
-  const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
+  const { accessToken } = await getInstagramCreds();
 
   if (!accessToken) {
     throw new InstagramError('Instagram access token not configured');
@@ -377,7 +374,7 @@ export async function postFirstComment(mediaId: string, comment: string): Promis
 }
 
 export async function getMediaInsights(mediaId: string) {
-  const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
+  const { accessToken } = await getInstagramCreds();
 
   if (!accessToken) {
     throw new InstagramError('Instagram access token not configured');

@@ -2,7 +2,11 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { createTTNSchema } from '@/validators/nova-poshta';
-import { createInternetDocument, NovaPoshtaError } from '@/services/nova-poshta';
+import {
+  createInternetDocument,
+  deleteInternetDocument,
+  NovaPoshtaError,
+} from '@/services/nova-poshta';
 import { pushTrackingSafe } from '@/services/marketplace-tracking';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { prisma } from '@/lib/prisma';
@@ -89,7 +93,21 @@ export const POST = withRole(
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true, trackingNumber: true, orderNumber: true },
+      select: {
+        id: true,
+        status: true,
+        trackingNumber: true,
+        orderNumber: true,
+        // Derive COD + delivery-type server-side from the order so the form
+        // can't create a TTN that collects no money (COD) or has no address.
+        paymentMethod: true,
+        paymentStatus: true,
+        totalAmount: true,
+        deliveryWarehouseRef: true,
+        deliveryStreetRef: true,
+        deliveryBuilding: true,
+        deliveryFlat: true,
+      },
     });
 
     if (!order) {
@@ -132,9 +150,39 @@ export const POST = withRole(
       return errorResponse(`ТТН вже створено: ${currentTtn}`, 409);
     }
 
+    // Server-authoritative COD + delivery-type. The manual form historically
+    // sent neither codAmount nor street/house, so COD orders got a TTN that
+    // collected nothing and door-delivery orders got an invalid address. We
+    // derive both from the order itself (mirrors the auto-TTN path in
+    // order.ts) so the form's values can't cause money loss or a rejected TTN.
+    const isCOD = order.paymentMethod === 'cod' && order.paymentStatus !== 'paid';
+    const isD2D = !!order.deliveryStreetRef && !!order.deliveryBuilding;
+    const ttnInput = {
+      ...parsed.data,
+      codAmount: isCOD ? Number(order.totalAmount) : undefined,
+      ...(isD2D
+        ? {
+            serviceType: 'WarehouseDoors' as const,
+            recipientStreetRef: order.deliveryStreetRef ?? undefined,
+            recipientBuilding: order.deliveryBuilding ?? undefined,
+            recipientFlat: order.deliveryFlat ?? undefined,
+            recipientWarehouseRef: undefined,
+          }
+        : {
+            // No structured address captured → warehouse pickup. Force it so a
+            // mis-selected "Doors" option can't produce an addressless TTN.
+            serviceType: 'WarehouseWarehouse' as const,
+            recipientWarehouseRef:
+              parsed.data.recipientWarehouseRef || order.deliveryWarehouseRef || undefined,
+            recipientStreetRef: undefined,
+            recipientBuilding: undefined,
+            recipientFlat: undefined,
+          }),
+    };
+
     let result;
     try {
-      result = await createInternetDocument(parsed.data);
+      result = await createInternetDocument(ttnInput);
     } catch (err) {
       // External call failed — release the sentinel so a retry can claim.
       await prisma.order.updateMany({
@@ -144,11 +192,12 @@ export const POST = withRole(
       throw err;
     }
 
-    // Save tracking number to order — only overwrite our own sentinel so
-    // a concurrent admin tool change (rare) doesn't get clobbered.
+    // Save tracking number + Ref to order — only overwrite our own sentinel so
+    // a concurrent admin tool change (rare) doesn't get clobbered. The Ref is
+    // required later for cancel (delete) and ScanSheet (реєстр) operations.
     await prisma.order.updateMany({
       where: { id: orderId, trackingNumber: sentinel },
-      data: { trackingNumber: result.intDocNumber },
+      data: { trackingNumber: result.intDocNumber, trackingRef: result.ref },
     });
 
     await logAudit({
@@ -175,6 +224,67 @@ export const POST = withRole(
       return errorResponse(error.message, error.statusCode);
     }
     logger.error('[admin/orders/[id]/ttn] POST failed', { error });
+    return errorResponse('Внутрішня помилка сервера', 500);
+  }
+});
+
+// Cancel (delete) a TTN created via the NP API. Requires the stored Ref —
+// manually-entered numbers have none and can only be cleared, not cancelled
+// at NP. Clears the tracking fields on success so a new TTN can be created.
+export const DELETE = withRole(
+  'admin',
+  'manager',
+)(async (_request: NextRequest, { params, user }) => {
+  try {
+    const { id } = await params!;
+    const orderId = Number(id);
+    if (!orderId || isNaN(orderId)) {
+      return errorResponse('Невалідний ID замовлення', 400);
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, trackingNumber: true, trackingRef: true },
+    });
+    if (!order) {
+      return errorResponse('Замовлення не знайдено', 404);
+    }
+    if (!order.trackingNumber) {
+      return errorResponse('У замовлення немає ТТН', 400);
+    }
+    if (!order.trackingRef) {
+      return errorResponse(
+        'ТТН введено вручну (немає Ref) — скасуйте його в кабінеті Нової Пошти, потім очистіть номер',
+        400,
+      );
+    }
+
+    await deleteInternetDocument(order.trackingRef);
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { trackingNumber: null, trackingRef: null },
+    });
+
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'order',
+      entityId: orderId,
+      details: {
+        field: 'trackingNumber',
+        before: order.trackingNumber,
+        after: null,
+        source: 'nova_poshta_cancel',
+      },
+    });
+
+    return successResponse({ cancelled: true });
+  } catch (error) {
+    if (error instanceof NovaPoshtaError) {
+      return errorResponse(error.message, error.statusCode);
+    }
+    logger.error('[admin/orders/[id]/ttn] DELETE failed', { error });
     return errorResponse('Внутрішня помилка сервера', 500);
   }
 });

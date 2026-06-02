@@ -1,7 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (h) => h,
+  RateLimitError: class RateLimitError extends Error {
+    statusCode = 429;
+    retryAfter;
+    constructor(m, s, r) {
+      super(m);
+      this.statusCode = s || 429;
+      this.retryAfter = r;
+    }
+  },
+  RATE_LIMITS: new Proxy(
+    {},
+    { get: () => ({ limit: 100, windowSeconds: 60, prefix: 'test', max: 1e9, windowSec: 60 }) },
+  ),
+}));
 import { NextRequest } from 'next/server';
 
 const mockEstimateDeliveryCost = vi.hoisted(() => vi.fn());
+const mockUkrEstimate = vi.hoisted(() => vi.fn());
+const mockGetSettings = vi.hoisted(() => vi.fn());
 
 vi.mock('@/services/nova-poshta', () => {
   class NovaPoshtaError extends Error {
@@ -14,8 +39,23 @@ vi.mock('@/services/nova-poshta', () => {
   return { estimateDeliveryCost: mockEstimateDeliveryCost, NovaPoshtaError };
 });
 
+// Ukrposhta cost API — default returns null so the route falls back to flat tiers.
+vi.mock('@/services/ukrposhta', () => ({
+  estimateDeliveryCost: mockUkrEstimate,
+}));
+
+// Settings provide the free-shipping threshold and fixed-cost overrides.
+vi.mock('@/services/settings', () => ({
+  getSettings: mockGetSettings,
+}));
+
 vi.mock('@/validators/delivery', () => ({
   deliveryEstimateSchema: { safeParse: vi.fn() },
+}));
+
+// Sender city resolves from settings; mock to the Kyiv ref the assertions expect.
+vi.mock('@/services/integration-credentials', () => ({
+  getNovaPoshtaSenderCityRef: vi.fn(async () => '8d5a980d-391c-11dd-90d9-001a92567626'),
 }));
 
 vi.mock('@/lib/redis', () => ({
@@ -38,7 +78,11 @@ const mockRedisGet = redis.get as ReturnType<typeof vi.fn>;
 const mockRedisSetex = redis.setex as ReturnType<typeof vi.fn>;
 
 describe('GET /api/v1/delivery/estimate', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetSettings.mockResolvedValue({ delivery_free_shipping_threshold: '1500' });
+    mockUkrEstimate.mockResolvedValue(null);
+  });
 
   it('returns 400 on validation error', async () => {
     mockSafeParse.mockReturnValue({ success: false });
@@ -52,7 +96,9 @@ describe('GET /api/v1/delivery/estimate', () => {
       success: true,
       data: { method: 'nova_poshta', city: 'ref', total: 2000, weight: 1 },
     });
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=ref&total=2000&weight=1');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=ref&total=2000&weight=1',
+    );
     const res = await GET(req);
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -66,7 +112,9 @@ describe('GET /api/v1/delivery/estimate', () => {
       success: true,
       data: { method: 'ukrposhta', city: null, total: 100, weight: 1 },
     });
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=1');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=1',
+    );
     const res = await GET(req);
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -79,7 +127,9 @@ describe('GET /api/v1/delivery/estimate', () => {
       success: true,
       data: { method: 'ukrposhta', city: null, total: 100, weight: 5 },
     });
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=5');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=5',
+    );
     const res = await GET(req);
     const json = await res.json();
     expect(json.data.cost).toBe(65);
@@ -90,7 +140,9 @@ describe('GET /api/v1/delivery/estimate', () => {
       success: true,
       data: { method: 'ukrposhta', city: null, total: 100, weight: 15 },
     });
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=15');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=15',
+    );
     const res = await GET(req);
     const json = await res.json();
     expect(json.data.cost).toBe(95);
@@ -101,7 +153,9 @@ describe('GET /api/v1/delivery/estimate', () => {
       success: true,
       data: { method: 'nova_poshta', city: null, total: 100, weight: 1 },
     });
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=nova_poshta&total=100&weight=1');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&total=100&weight=1',
+    );
     const res = await GET(req);
     const json = await res.json();
     expect(json.data.cost).toBeNull();
@@ -115,7 +169,9 @@ describe('GET /api/v1/delivery/estimate', () => {
       data: { method: 'nova_poshta', city: 'city-ref', total: 100, weight: 2 },
     });
     mockRedisGet.mockResolvedValue(JSON.stringify({ cost: 55, estimatedDays: '2-3 дні' }));
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2',
+    );
     const res = await GET(req);
     const json = await res.json();
     expect(json.data.cost).toBe(55);
@@ -133,7 +189,9 @@ describe('GET /api/v1/delivery/estimate', () => {
     mockEstimateDeliveryCost.mockResolvedValue({ cost: 70, estimatedDays: '1-2 дні' });
     mockRedisSetex.mockResolvedValue('OK');
 
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2',
+    );
     const res = await GET(req);
     const json = await res.json();
     expect(json.data.cost).toBe(70);
@@ -158,7 +216,9 @@ describe('GET /api/v1/delivery/estimate', () => {
     mockEstimateDeliveryCost.mockResolvedValue({ cost: 70, estimatedDays: '1-2 дні' });
     mockRedisSetex.mockResolvedValue('OK');
 
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2',
+    );
     const res = await GET(req);
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -174,7 +234,9 @@ describe('GET /api/v1/delivery/estimate', () => {
     mockEstimateDeliveryCost.mockResolvedValue({ cost: 70, estimatedDays: '1-2 дні' });
     mockRedisSetex.mockRejectedValue(new Error('Redis write fail'));
 
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2',
+    );
     const res = await GET(req);
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -191,7 +253,9 @@ describe('GET /api/v1/delivery/estimate', () => {
     const { NovaPoshtaError } = await import('@/services/nova-poshta');
     mockEstimateDeliveryCost.mockRejectedValue(new NovaPoshtaError('NP error', 503));
 
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2',
+    );
     const res = await GET(req);
     expect(res.status).toBe(503);
   });
@@ -204,7 +268,9 @@ describe('GET /api/v1/delivery/estimate', () => {
     mockRedisGet.mockResolvedValue(null);
     mockEstimateDeliveryCost.mockRejectedValue(new Error('Unknown'));
 
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=city-ref&total=100&weight=2',
+    );
     const res = await GET(req);
     expect(res.status).toBe(500);
   });
@@ -214,7 +280,9 @@ describe('GET /api/v1/delivery/estimate', () => {
       success: true,
       data: { method: 'nova_poshta', city: 'ref', total: 1500, weight: 1 },
     });
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=ref&total=1500&weight=1');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=ref&total=1500&weight=1',
+    );
     const res = await GET(req);
     const json = await res.json();
     expect(json.data.cost).toBe(0);
@@ -225,7 +293,9 @@ describe('GET /api/v1/delivery/estimate', () => {
       success: true,
       data: { method: 'ukrposhta', city: null, total: 100, weight: 2 },
     });
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=2');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=2',
+    );
     const res = await GET(req);
     const json = await res.json();
     expect(json.data.cost).toBe(45);
@@ -236,9 +306,59 @@ describe('GET /api/v1/delivery/estimate', () => {
       success: true,
       data: { method: 'ukrposhta', city: null, total: 100, weight: 10 },
     });
-    const req = new NextRequest('http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=10');
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=10',
+    );
     const res = await GET(req);
     const json = await res.json();
     expect(json.data.cost).toBe(65);
+  });
+
+  it('uses the real Ukrposhta API cost when available', async () => {
+    mockUkrEstimate.mockResolvedValue(55);
+    mockSafeParse.mockReturnValue({
+      success: true,
+      data: { method: 'ukrposhta', city: null, total: 100, weight: 1 },
+    });
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=100&weight=1',
+    );
+    const res = await GET(req);
+    const json = await res.json();
+    expect(json.data.cost).toBe(55);
+  });
+
+  it('applies a configured fixed-cost override (nova_poshta)', async () => {
+    mockGetSettings.mockResolvedValue({
+      delivery_free_shipping_threshold: '1500',
+      delivery_nova_poshta_fixed_cost: '60',
+    });
+    mockSafeParse.mockReturnValue({
+      success: true,
+      data: { method: 'nova_poshta', city: 'ref', total: 100, weight: 1 },
+    });
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=nova_poshta&city=ref&total=100&weight=1',
+    );
+    const res = await GET(req);
+    const json = await res.json();
+    expect(json.data.cost).toBe(60);
+    expect(mockEstimateDeliveryCost).not.toHaveBeenCalled();
+  });
+
+  it('disables free shipping when threshold is unset (freeFrom null)', async () => {
+    mockGetSettings.mockResolvedValue({});
+    mockUkrEstimate.mockResolvedValue(45);
+    mockSafeParse.mockReturnValue({
+      success: true,
+      data: { method: 'ukrposhta', city: null, total: 5000, weight: 1 },
+    });
+    const req = new NextRequest(
+      'http://localhost/api/v1/delivery/estimate?method=ukrposhta&total=5000&weight=1',
+    );
+    const res = await GET(req);
+    const json = await res.json();
+    expect(json.data.freeFrom).toBeNull();
+    expect(json.data.cost).toBe(45);
   });
 });

@@ -7,7 +7,10 @@ interface HealthCheckResult {
   error?: string;
 }
 
-async function checkService(name: string, checkFn: () => Promise<void>): Promise<HealthCheckResult> {
+async function checkService(
+  name: string,
+  checkFn: () => Promise<void>,
+): Promise<HealthCheckResult> {
   const start = Date.now();
   try {
     await checkFn();
@@ -47,9 +50,11 @@ export async function runHealthChecks(): Promise<{
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     }),
 
-    // LiqPay
+    // LiqPay — credentials come from the admin panel (DB), not env.
     checkService('liqpay', async () => {
-      if (!env.LIQPAY_PUBLIC_KEY) throw new Error('Public key not configured');
+      const { getLiqPayCreds } = await import('@/services/integration-credentials');
+      const { publicKey } = await getLiqPayCreds();
+      if (!publicKey) throw new Error('Public key not configured');
       const res = await fetch('https://www.liqpay.ua/api/request', {
         method: 'HEAD',
         signal: AbortSignal.timeout(5000),

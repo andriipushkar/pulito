@@ -56,6 +56,14 @@ vi.mock('@/services/background-removal', () => ({
   isBackgroundRemovalEnabled: vi.fn(() => false),
 }));
 
+vi.mock('@/services/settings', () => ({
+  getSettings: vi.fn(async () => ({
+    watermark_text: 'pulito.trade',
+    watermark_enabled: '1',
+    removebg_api_key: '',
+  })),
+}));
+
 import { processProductImage } from './image';
 
 beforeEach(() => {

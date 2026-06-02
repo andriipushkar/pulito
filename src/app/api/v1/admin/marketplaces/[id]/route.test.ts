@@ -13,9 +13,14 @@ vi.mock('@/config/env', () => ({
   },
 }));
 vi.mock('@/middleware/auth', () => ({
-  withRole: (..._roles: string[]) => (handler: Function) =>
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
     (req: unknown, ctx?: Record<string, unknown>) =>
-      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+      handler(req, {
+        user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' },
+        ...(ctx || {}),
+      }),
 }));
 vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/marketplaces', () => ({
@@ -35,7 +40,12 @@ vi.mock('@/utils/api-response', () => ({
 }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    publicationChannel: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    publicationChannel: {
+      // DELETE first looks up the row for its idempotency lock; null = no
+      // prior row, so it proceeds straight to the marketplace delete call.
+      findFirst: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
   },
 }));
 

@@ -216,7 +216,54 @@ export default function NovaPoshtaPicker({
       ) : (
         <p className="text-xs text-[var(--color-text-secondary)]">Спочатку оберіть місто</p>
       )}
+
+      {cityRef && (
+        <DeliveryEtaHint
+          cityRef={cityRef}
+          serviceType={deliveryType === 'address' ? 'WarehouseDoors' : 'WarehouseWarehouse'}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Shows the estimated Nova Poshta delivery date for the chosen city, via the
+ * lightweight /delivery/delivery-date endpoint (getDocumentDeliveryDate).
+ */
+function DeliveryEtaHint({
+  cityRef,
+  serviceType,
+}: {
+  cityRef: string;
+  serviceType: 'WarehouseWarehouse' | 'WarehouseDoors';
+}) {
+  const [eta, setEta] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<{ deliveryDate: string | null }>(
+        `/api/v1/delivery/delivery-date?city=${cityRef}&serviceType=${serviceType}`,
+      )
+      .then((res) => {
+        if (cancelled) return;
+        setEta(res.success && res.data?.deliveryDate ? res.data.deliveryDate.split(' ')[0] : null);
+      })
+      .catch(() => {
+        if (!cancelled) setEta(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cityRef, serviceType]);
+
+  if (!eta) return null;
+  return (
+    <p className="rounded-[var(--radius)] bg-[var(--color-primary)]/5 px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+      📅 Орієнтовна дата доставки:{' '}
+      <span className="font-medium text-[var(--color-text)]">{eta}</span>
+    </p>
   );
 }
 

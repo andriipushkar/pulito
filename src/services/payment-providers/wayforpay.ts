@@ -109,9 +109,10 @@ export async function checkTransactionStatus(
   const { merchantAccount, secretKey } = await getWayForPayCreds();
   if (!merchantAccount || !secretKey) return { status: 'processing' };
 
-  const orderDate = Math.floor(Date.now() / 1000);
-  // Signature for CHECK_STATUS: merchantAccount;orderReference;orderDate
-  const signatureData = [merchantAccount, orderReference, String(orderDate)];
+  // CHECK_STATUS signature is ONLY merchantAccount;orderReference — orderDate is
+  // NOT part of it (per WayForPay docs). Including it produces reasonCode 1113
+  // "Invalid signature" and every status poll silently fails.
+  const signatureData = [merchantAccount, orderReference];
   const signature = createSignature(signatureData, secretKey);
 
   const res = await fetch(API_PURCHASE_URL, {
@@ -132,7 +133,8 @@ export async function checkTransactionStatus(
   else if (
     body.transactionStatus === 'Declined' ||
     body.transactionStatus === 'Expired' ||
-    body.transactionStatus === 'Voided'
+    body.transactionStatus === 'Voided' ||
+    body.transactionStatus === 'Refunded'
   )
     status = 'failure';
   return { status, amount: body.amount };

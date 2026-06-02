@@ -42,7 +42,7 @@ export interface CheckoutResult {
 
 export async function checkoutAction(
   _prevState: CheckoutResult,
-  formData: FormData
+  formData: FormData,
 ): Promise<CheckoutResult> {
   // Rate limit: Server Actions bypass middleware, so we check here
   const rateLimitError = await checkActionRateLimit(ACTION_LIMITS.checkout);
@@ -204,9 +204,7 @@ export async function checkoutAction(
           });
         }
         const msg =
-          error instanceof LoyaltyError
-            ? error.message
-            : 'Не вдалося списати бали лояльності';
+          error instanceof LoyaltyError ? error.message : 'Не вдалося списати бали лояльності';
         return { success: false, error: msg };
       }
     }
@@ -222,22 +220,30 @@ export async function checkoutAction(
       await updateIdempotentResponse(idempotencyKey, JSON.stringify(result));
     }
 
-    // Server-side tracking (non-blocking)
-    import('@/services/server-tracking').then((tracking) =>
-      tracking.trackPurchase({
-        userId: user.id,
-        email: parsed.data.contactEmail,
-        phone: parsed.data.contactPhone,
-        orderId: order.orderNumber,
-        totalAmount: Number(order.totalAmount),
-        items: orderItems.map((i) => ({
-          id: String(i.productId),
-          name: i.productName,
-          price: i.price,
-          quantity: i.quantity,
-        })),
-      })
-    ).catch(() => {});
+    // Server-side tracking (non-blocking). Pass IP + User-Agent so Meta CAPI can
+    // de-dupe this server event against the browser Pixel's matching event —
+    // without them match quality drops and Purchase risks being double-counted.
+    const trackIp = headerStore.get('x-forwarded-for')?.split(',')[0].trim() || undefined;
+    const trackUserAgent = headerStore.get('user-agent') || undefined;
+    import('@/services/server-tracking')
+      .then((tracking) =>
+        tracking.trackPurchase({
+          userId: user.id,
+          email: parsed.data.contactEmail,
+          phone: parsed.data.contactPhone,
+          ipAddress: trackIp,
+          userAgent: trackUserAgent,
+          orderId: order.orderNumber,
+          totalAmount: Number(order.totalAmount),
+          items: orderItems.map((i) => ({
+            id: String(i.productId),
+            name: i.productName,
+            price: i.price,
+            quantity: i.quantity,
+          })),
+        }),
+      )
+      .catch(() => {});
 
     return { success: true, ...result };
   } catch (error) {

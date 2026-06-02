@@ -34,6 +34,16 @@ export default function OrderSuccess({ orderNumber, guestContact }: OrderSuccess
 
       {guestContact && <GuestAccountPrompt contact={guestContact} />}
 
+      {/* Referral nudge at the highest-intent moment. The referral program
+          existed but was only reachable deep in the account area — surfacing it
+          right after purchase is a near-free growth loop. */}
+      <Link
+        href="/account/referral"
+        className="mb-6 block w-full max-w-md rounded-[var(--radius)] border border-[var(--color-primary)] bg-[var(--color-primary)]/5 p-4 text-sm font-medium text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)]/10"
+      >
+        🎁 Запросіть друга — і ви обоє отримаєте бонус за його перше замовлення
+      </Link>
+
       <div className="flex gap-3">
         <Link href="/account/orders">
           <Button variant="outline">Мої замовлення</Button>

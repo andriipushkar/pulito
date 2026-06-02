@@ -3,9 +3,12 @@ import { withAuth } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { uploadFile } from '@/lib/storage';
+import sharp from 'sharp';
+import { validateFileType } from '@/utils/file-validation';
 
 const MAX_IMAGES = 5;
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_WIDTH = 1200;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export const POST = withAuth(async (request: NextRequest, { user }) => {
@@ -44,10 +47,22 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1];
-    const fileName = `reviews/${review.id}/${Date.now()}.${ext}`;
 
-    const url = await uploadFile(fileName, buffer, file.type);
+    // Validate magic bytes (client-declared file.type is NOT trusted) and
+    // re-encode through sharp to strip polyglot/EXIF payloads — mirrors
+    // /reviews/upload. Without this, a file declared image/png whose body is
+    // HTML/SVG-with-script would be stored and served with that type (stored-XSS).
+    const { valid } = await validateFileType(buffer, ALLOWED_TYPES);
+    if (!valid) {
+      return errorResponse('Вміст файлу не відповідає заявленому формату', 400);
+    }
+    const processed = await sharp(buffer)
+      .resize(MAX_WIDTH, MAX_WIDTH, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+    const fileName = `reviews/${review.id}/${Date.now()}.webp`;
+
+    const url = await uploadFile(fileName, processed, 'image/webp');
 
     const updatedImages = [...existingImages, url];
     await prisma.review.update({

@@ -16,8 +16,16 @@ vi.mock('@/middleware/auth', () => ({
   withRole:
     (..._roles: string[]) =>
     (handler: any) =>
-      handler,
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
 }));
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     emailTemplate: { findUnique: vi.fn() },
@@ -100,7 +108,7 @@ describe('POST /api/v1/admin/email-templates/[id]/test', () => {
     });
     const res = await POST(req, makeParams('1'));
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 500 on error', async () => {

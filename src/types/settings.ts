@@ -35,6 +35,10 @@ export interface SiteSettings {
   anthropic_api_key: string;
   gemini_api_key: string;
   gemini_model: string;
+  // Site-wide AI provider for all generation features (product/category/blog
+  // descriptions, dashboard briefing, review drafts, search intel). One global
+  // choice instead of a per-action dropdown. 'gemini' | 'claude' | 'rules'.
+  ai_provider: string;
   // Loyalty / referral bonus amounts (in loyalty points; 1 point ≈ 1 ₴).
   // "0" disables the corresponding bonus. Values are stored as strings to
   // match the rest of SiteSettings — services parse with Number().
@@ -42,6 +46,15 @@ export interface SiteSettings {
   referral_referrer_bonus: string; // points credited to referrer when referee makes 1st order
   referral_referee_bonus: string; // points credited to referee on registration if they used a ref code
   loyalty_max_redemption_percent: string; // 0-100. Max % of order (items+delivery) payable with points.
+  // --- Operational / system settings (moved from .env to DB so the owner can
+  // change them from the admin without a redeploy). Empty values fall back to
+  // the matching process.env.* var for a smooth migration. ---
+  watermark_text: string; // text burned into product photos (full/medium variants)
+  watermark_enabled: string; // '1' on, '0' off
+  removebg_api_key: string; // remove.bg API key; empty disables background removal
+  vapid_email: string; // contact mailto for Web Push (VAPID subject)
+  log_level: string; // debug | info | warn | error
+  admin_allowed_ips: string; // comma-separated IP whitelist for /admin; empty = open
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -78,10 +91,17 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   anthropic_api_key: '',
   gemini_api_key: '',
   gemini_model: 'gemini-2.5-flash',
+  ai_provider: 'gemini',
   loyalty_welcome_bonus: '50',
   referral_referrer_bonus: '100',
   referral_referee_bonus: '50',
   loyalty_max_redemption_percent: '50',
+  watermark_text: 'pulito.trade',
+  watermark_enabled: '1',
+  removebg_api_key: '',
+  vapid_email: 'mailto:noreply@pulito.trade',
+  log_level: 'info',
+  admin_allowed_ips: '',
 };
 
 export type SettingsKey = keyof SiteSettings;

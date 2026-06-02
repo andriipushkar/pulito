@@ -78,6 +78,10 @@ model Order {
   palletWeightKg       Decimal?       @map("pallet_weight_kg") @db.Decimal(8, 2)
   palletRegion         String?        @map("pallet_region")
   trackingNumber       String?        @map("tracking_number")
+  // Nova Poshta InternetDocument Ref (UUID). Needed for operations the EN
+  // number can't address: cancelling a TTN and grouping it into a ScanSheet
+  // (реєстр). Stored on TTN creation; null for manually-entered numbers.
+  trackingRef          String?        @map("tracking_ref")
   trackingStatus       String?        @map("tracking_status")
   trackingStatusAt     DateTime?      @map("tracking_status_at")
   paymentMethod        PaymentMethod  @map("payment_method")

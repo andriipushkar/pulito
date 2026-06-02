@@ -60,6 +60,63 @@ export default function CreateTTNForm({
   const setSenderContactRef = (v: string) => setSender((s) => ({ ...s, senderContactRef: v }));
   const setSenderPhone = (v: string) => setSender((s) => ({ ...s, senderPhone: v }));
 
+  // Sender picker sourced from the Nova Poshta cabinet (Counterparty model) —
+  // lets the operator pick the sender + contact + address instead of pasting
+  // UUIDs. The manual inputs below remain as a fallback.
+  const [npSenders, setNpSenders] = useState<{ Ref: string; Description: string }[]>([]);
+  const [npContacts, setNpContacts] = useState<
+    { Ref: string; Description: string; Phones?: string }[]
+  >([]);
+  const [npAddresses, setNpAddresses] = useState<{ Ref: string; Description: string }[]>([]);
+  const [npLoading, setNpLoading] = useState(false);
+
+  const loadNpSenders = async () => {
+    setNpLoading(true);
+    setError('');
+    const res = await apiClient.get<{ Ref: string; Description: string }[]>(
+      '/api/v1/admin/nova-poshta/counterparties?property=Sender',
+    );
+    if (res.success && Array.isArray(res.data)) {
+      setNpSenders(res.data);
+      if (res.data.length === 0) setError(t('npNoData'));
+    } else {
+      setError(res.error || t('npLoadError'));
+    }
+    setNpLoading(false);
+  };
+
+  const selectNpSender = async (ref: string) => {
+    setSenderRef(ref);
+    setNpContacts([]);
+    setNpAddresses([]);
+    setSenderContactRef('');
+    setSenderAddressRef('');
+    if (!ref) return;
+    const [c, a] = await Promise.all([
+      apiClient.get<{ Ref: string; Description: string; Phones?: string }[]>(
+        `/api/v1/admin/nova-poshta/counterparties?ref=${ref}&part=contacts`,
+      ),
+      apiClient.get<{ Ref: string; Description: string }[]>(
+        `/api/v1/admin/nova-poshta/counterparties?ref=${ref}&part=addresses&property=Sender`,
+      ),
+    ]);
+    if (c.success && Array.isArray(c.data)) {
+      setNpContacts(c.data);
+      // Auto-pick when there's exactly one contact/address — the common case.
+      if (c.data.length === 1) {
+        setSenderContactRef(c.data[0].Ref);
+        if (c.data[0].Phones) setSenderPhone(c.data[0].Phones);
+      }
+    }
+    if (a.success && Array.isArray(a.data)) {
+      setNpAddresses(a.data);
+      if (a.data.length === 1) setSenderAddressRef(a.data[0].Ref);
+    }
+  };
+
+  const selectClass =
+    'w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm';
+
   // Recipient
   const [cityQuery, setCityQuery] = useState(recipientCity || '');
   const [cities, setCities] = useState<CityResult[]>([]);
@@ -246,6 +303,65 @@ export default function CreateTTNForm({
         <summary className="cursor-pointer text-sm font-medium text-[var(--color-text-secondary)]">
           {t('senderSummary')}
         </summary>
+
+        {/* Pick sender from the NP cabinet (fills the UUID fields below). */}
+        <div className="mt-3 space-y-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-2">
+          <button
+            type="button"
+            onClick={loadNpSenders}
+            disabled={npLoading}
+            className="text-xs font-medium text-[var(--color-primary)] hover:underline disabled:opacity-50"
+          >
+            {npLoading ? t('npLoading') : t('loadFromNp')}
+          </button>
+          {npSenders.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-3">
+              <select
+                value={senderRef}
+                onChange={(e) => selectNpSender(e.target.value)}
+                className={selectClass}
+              >
+                <option value="">{t('npSender')}</option>
+                {npSenders.map((s) => (
+                  <option key={s.Ref} value={s.Ref}>
+                    {s.Description}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={senderContactRef}
+                onChange={(e) => {
+                  setSenderContactRef(e.target.value);
+                  const c = npContacts.find((x) => x.Ref === e.target.value);
+                  if (c?.Phones) setSenderPhone(c.Phones);
+                }}
+                disabled={npContacts.length === 0}
+                className={selectClass}
+              >
+                <option value="">{t('npContact')}</option>
+                {npContacts.map((c) => (
+                  <option key={c.Ref} value={c.Ref}>
+                    {c.Description}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={senderAddressRef}
+                onChange={(e) => setSenderAddressRef(e.target.value)}
+                disabled={npAddresses.length === 0}
+                className={selectClass}
+              >
+                <option value="">{t('npAddress')}</option>
+                {npAddresses.map((a) => (
+                  <option key={a.Ref} value={a.Ref}>
+                    {a.Description}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
             <label className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">

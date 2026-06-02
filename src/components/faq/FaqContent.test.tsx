@@ -64,6 +64,15 @@ vi.mock('./FaqSearch', () => ({
   ),
 }));
 vi.mock('@/utils/sanitize', () => ({ sanitizeHtml: (html: string) => html }));
+// Contact links render only when social settings are configured; default
+// settings leave telegram/viber empty, so provide them via the hook.
+vi.mock('@/hooks/useSettings', () => ({
+  useSettings: () => ({
+    site_phone: '+380001234567',
+    social_telegram: 'https://t.me/pulito_trade',
+    social_viber: 'viber://pa?chatURI=pulito_trade',
+  }),
+}));
 
 import FaqContent from './FaqContent';
 

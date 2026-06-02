@@ -18,6 +18,14 @@ interface DeliveryProvider {
   enabledKey: string;
   testable?: boolean;
   costKey?: string;
+  /** Carrier cabinet (where keys/tokens are issued). */
+  cabinetUrl?: string;
+  /** Official API documentation. */
+  docsUrl?: string;
+  /** i18n key for the step-by-step setup guide (rendered as pre-line text). */
+  setupKey?: string;
+  /** Optional extra note under the guide (e.g. support email). */
+  setupNoteKey?: string;
   fields: { key: string; label: string; placeholder: string; sensitive?: boolean; hint?: string }[];
 }
 
@@ -39,6 +47,9 @@ export default function DeliverySettingsPage() {
         enabledKey: 'delivery_nova_poshta_enabled',
         testable: true,
         costKey: 'delivery_nova_poshta_fixed_cost',
+        cabinetUrl: 'https://new.novaposhta.ua/',
+        docsUrl: 'https://developers.novaposhta.ua/documentation',
+        setupKey: 'novaPoshtaSetup',
         fields: [
           {
             key: 'delivery_nova_poshta_api_key',
@@ -86,6 +97,10 @@ export default function DeliverySettingsPage() {
         enabledKey: 'delivery_ukrposhta_enabled',
         testable: true,
         costKey: 'delivery_ukrposhta_fixed_cost',
+        cabinetUrl: 'https://www.ukrposhta.ua/ecom/',
+        docsUrl: 'https://dev.ukrposhta.ua/documentation',
+        setupKey: 'ukrposhtaSetup',
+        setupNoteKey: 'ukrposhtaSetupNote',
         fields: [
           {
             key: 'delivery_ukrposhta_bearer_token',
@@ -93,6 +108,13 @@ export default function DeliverySettingsPage() {
             placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
             sensitive: true,
             hint: t('ukrBearerTokenHint'),
+          },
+          {
+            key: 'delivery_ukrposhta_counterparty_token',
+            label: t('ukrCounterpartyToken'),
+            placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+            sensitive: true,
+            hint: t('ukrCounterpartyTokenHint'),
           },
           {
             key: 'delivery_ukrposhta_sender_name',
@@ -103,6 +125,37 @@ export default function DeliverySettingsPage() {
             key: 'delivery_ukrposhta_sender_phone',
             label: t('senderPhone'),
             placeholder: '+380501234567',
+          },
+          {
+            key: 'delivery_ukrposhta_sender_postcode',
+            label: t('ukrSenderPostcode'),
+            placeholder: t('ukrSenderPostcodePh'),
+          },
+          {
+            key: 'delivery_ukrposhta_sender_region',
+            label: t('ukrSenderRegion'),
+            placeholder: '',
+          },
+          {
+            key: 'delivery_ukrposhta_sender_city',
+            label: t('ukrSenderCity'),
+            placeholder: '',
+          },
+          {
+            key: 'delivery_ukrposhta_sender_street',
+            label: t('ukrSenderStreet'),
+            placeholder: '',
+          },
+          {
+            key: 'delivery_ukrposhta_sender_house',
+            label: t('ukrSenderHouse'),
+            placeholder: '',
+          },
+          {
+            key: 'delivery_ukrposhta_sender_client_uuid',
+            label: t('ukrSenderClientUuid'),
+            placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+            hint: t('ukrSenderClientUuidHint'),
           },
           {
             key: 'delivery_ukrposhta_sender_address',
@@ -117,6 +170,7 @@ export default function DeliverySettingsPage() {
         icon: '📍',
         description: t('pickupDesc'),
         enabledKey: 'delivery_pickup_enabled',
+        setupKey: 'pickupSetup',
         fields: [
           {
             key: 'delivery_pickup_address',
@@ -352,6 +406,45 @@ export default function DeliverySettingsPage() {
                     {t('fixedCostHint')}
                   </p>
                 </div>
+              )}
+
+              {/* Setup guide: step-by-step + links to the carrier cabinet & docs */}
+              {provider.setupKey && (
+                <details className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2">
+                  <summary className="cursor-pointer text-xs font-medium text-[var(--color-text-secondary)]">
+                    {t('setupGuideTitle')}
+                  </summary>
+                  <p className="mt-2 whitespace-pre-line text-xs text-[var(--color-text-secondary)]">
+                    {t(provider.setupKey)}
+                  </p>
+                  {provider.setupNoteKey && (
+                    <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+                      {t(provider.setupNoteKey)}
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {provider.cabinetUrl && (
+                      <a
+                        href={provider.cabinetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-[var(--color-primary)] underline"
+                      >
+                        ↗ {t('cabinetLink')}
+                      </a>
+                    )}
+                    {provider.docsUrl && (
+                      <a
+                        href={provider.docsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-[var(--color-primary)] underline"
+                      >
+                        ↗ {t('docsLink')}
+                      </a>
+                    )}
+                  </div>
+                </details>
               )}
 
               {/* Test result */}

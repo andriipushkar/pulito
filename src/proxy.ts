@@ -3,6 +3,7 @@ import createIntlMiddleware from 'next-intl/middleware';
 import { checkApiRateLimit } from '@/middleware/api-rate-limit';
 import { getRouteLimit } from '@/middleware/rate-limit-config';
 import { routing } from '@/i18n/routing';
+import { getSettings } from '@/services/settings';
 
 // next-intl handles locale detection + URL rewrites for [locale] segment.
 // Paths under these prefixes never carry a locale and must skip i18n.
@@ -60,7 +61,16 @@ const REFRESH_COOKIE = 'refresh_token';
 const ACCOUNT_PATH_RE = /^(?:\/uk)?\/account(?:\/|$)/;
 
 // Paths exempt from CSRF checks (webhooks receive external POST, cron uses Bearer auth, metrics uses sendBeacon)
-const CSRF_EXEMPT_PREFIXES = ['/api/webhooks/', '/api/v1/cron/', '/api/v1/metrics'];
+// '/api/v1/events' is exempt because the analytics tracker flushes on page
+// exit via navigator.sendBeacon(), which cannot set the X-Requested-With header
+// CSRF requires → every beacon got a 403. The endpoint only records validated
+// analytics events (withOptionalAuth), so a forged request is harmless.
+const CSRF_EXEMPT_PREFIXES = [
+  '/api/webhooks/',
+  '/api/v1/cron/',
+  '/api/v1/metrics',
+  '/api/v1/events',
+];
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /** Resolve the effective host, preferring X-Forwarded-Host for reverse-proxy setups. */
@@ -146,10 +156,19 @@ function checkCsrf(request: NextRequest): NextResponse | null {
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Admin IP whitelist (optional). Set ADMIN_ALLOWED_IPS="1.2.3.4,5.6.7.8" to
-  // restrict both the admin UI and the admin API. Local IPs (127.0.0.1, ::1)
-  // are always allowed so cron and on-box debugging keep working.
-  const adminAllowedIps = process.env.ADMIN_ALLOWED_IPS;
+  // Operational settings (maintenance flag + admin IP whitelist) now live in
+  // the DB so the owner can flip them from /admin without a redeploy. Next 16
+  // runs proxy.ts on the Node.js runtime, so getSettings() (Prisma + Redis +
+  // 60s in-memory cache) is available here. On DB/Redis failure it returns the
+  // defaults, so the site stays up. The matching process.env.* vars still act
+  // as an override/fallback for emergencies and first-boot before any save.
+  const settings = await getSettings();
+
+  // Admin IP whitelist (optional). Configure in /admin → System, or set
+  // ADMIN_ALLOWED_IPS="1.2.3.4,5.6.7.8". Restricts both the admin UI and the
+  // admin API. Local IPs (127.0.0.1, ::1) are always allowed so cron and
+  // on-box debugging keep working.
+  const adminAllowedIps = settings.admin_allowed_ips || process.env.ADMIN_ALLOWED_IPS;
   const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/api/v1/admin');
   if (adminAllowedIps && isAdminPath) {
     const clientIp =
@@ -179,8 +198,11 @@ export default async function proxy(request: NextRequest) {
     }
   }
 
-  // Maintenance mode check
-  if (process.env.MAINTENANCE_MODE === 'true') {
+  // Maintenance mode check — DB-backed (toggle from /admin → Maintenance),
+  // with the env var as an override. Propagation is bounded by the settings
+  // cache TTL (≤60s) since proxy and the admin route hold separate in-memory
+  // caches but share the same Redis entry.
+  if (settings.maintenance_mode === 'true' || process.env.MAINTENANCE_MODE === 'true') {
     const isAllowed = MAINTENANCE_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
     if (!isAllowed && pathname !== '/maintenance') {
       return NextResponse.redirect(new URL('/maintenance', request.url));
@@ -268,14 +290,24 @@ export default async function proxy(request: NextRequest) {
 
   const cspDirectives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net`,
-    // style-src is split into elem (for <style> blocks → nonce) and attr (for
-    // React's inline style={{...}} → must remain unsafe-inline because CSP3
-    // doesn't support nonces on attribute styles). Tailwind generates real CSS
-    // files in production, so the only inline <style> blocks we emit are the
-    // theme variables in layout.tsx (which carry the nonce) and Next.js font
-    // loader styles (which Next signs with the same nonce automatically).
-    `style-src-elem 'self' 'nonce-${nonce}' https://fonts.googleapis.com`,
+    // 'unsafe-eval' is required by bundled client deps that can't avoid it:
+    // a globalThis shim (`new Function("return this")()`) present in many libs,
+    // plus @firebase/util's env probe (`eval("__FIREBASE_DEFAULTS__")`). CSP
+    // blocking eval threw at module-init and broke the account/cabinet route.
+    // The per-request nonce stays the primary XSS defence (inline-script
+    // injection is still blocked); unsafe-eval only permits eval/Function,
+    // a far narrower vector than unsafe-inline would open.
+    `script-src 'self' 'unsafe-eval' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net`,
+    // Styles use 'unsafe-inline' rather than a nonce. Third-party libs (sonner,
+    // chart/animation libs, Next.js internals) inject <style> elements at
+    // runtime WITHOUT our nonce, and a nonce-only style-src-elem blocked every
+    // one of them — flooding the console with CSP violations and leaving some
+    // UI unstyled. CSP3 ignores 'unsafe-inline' when a nonce is also present,
+    // so the nonce is dropped here. This is a deliberate, low-risk trade-off:
+    // style injection can't execute code, and script-src stays strictly
+    // nonce-gated (the real XSS defence). style-src-attr already needed
+    // 'unsafe-inline' for React's style={{...}} (CSP3 has no attr nonces).
+    "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "style-src-attr 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https:",

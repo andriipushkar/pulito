@@ -155,11 +155,19 @@ export default function QuickOrderPage() {
     setAddedToCart(true);
   };
 
+  // Effective price = wholesale when set, else retail. Products without a
+  // wholesale price were previously priced as 0 and dropped from the sum even
+  // though they get added to the cart.
+  const effectivePrice = (r: {
+    priceWholesale: number | null;
+    priceRetail: number | null;
+  }): number => r.priceWholesale ?? r.priceRetail ?? 0;
+
   const foundCount = results?.filter((r) => r.status === 'found').length || 0;
   const totalSum =
     results
       ?.filter((r) => r.status === 'found')
-      .reduce((s, r) => s + (r.priceWholesale || 0) * r.requestedQuantity, 0) || 0;
+      .reduce((s, r) => s + effectivePrice(r) * r.requestedQuantity, 0) || 0;
 
   return (
     <div>
@@ -257,12 +265,12 @@ export default function QuickOrderPage() {
                     <td className="px-4 py-2 font-mono text-xs">{r.code}</td>
                     <td className="px-4 py-2 text-xs">{r.productName || '—'}</td>
                     <td className="px-4 py-2 text-right text-xs">
-                      {r.priceWholesale ? `${r.priceWholesale.toFixed(2)}` : '—'}
+                      {effectivePrice(r) > 0 ? `${effectivePrice(r).toFixed(2)}` : '—'}
                     </td>
                     <td className="px-4 py-2 text-right text-xs">{r.requestedQuantity}</td>
                     <td className="px-4 py-2 text-right text-xs">
-                      {r.priceWholesale
-                        ? `${(r.priceWholesale * r.requestedQuantity).toFixed(2)}`
+                      {effectivePrice(r) > 0
+                        ? `${(effectivePrice(r) * r.requestedQuantity).toFixed(2)}`
                         : '—'}
                     </td>
                     <td className="px-4 py-2 text-center">

@@ -23,6 +23,20 @@ vi.mock('@/services/account', () => {
   return { deleteAccount: vi.fn(), AccountError };
 });
 
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    user: { findUnique: vi.fn() },
+  },
+}));
+
+vi.mock('@/services/audit', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('bcryptjs', () => ({
+  default: { compare: vi.fn().mockResolvedValue(true) },
+}));
+
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
   withOptionalAuth: (handler: Function) => handler,
@@ -31,12 +45,22 @@ vi.mock('@/middleware/auth', () => ({
 
 import { DELETE } from './route';
 import { deleteAccount, AccountError } from '@/services/account';
+import { prisma } from '@/lib/prisma';
+
+const mockUserFindUnique = prisma.user.findUnique as ReturnType<typeof vi.fn>;
 
 const mockDeleteAccount = deleteAccount as ReturnType<typeof vi.fn>;
 const authCtx = { user: { id: 1, email: 'test@test.com', role: 'admin' } };
 
 describe('DELETE /api/v1/me/account', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUserFindUnique.mockResolvedValue({
+      passwordHash: null,
+      googleId: 'g-123',
+      email: 'test@test.com',
+    });
+  });
 
   it('deletes account successfully', async () => {
     mockDeleteAccount.mockResolvedValue(undefined);

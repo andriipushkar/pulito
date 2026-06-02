@@ -152,13 +152,20 @@ export async function processSubscriptionOrders() {
         });
       }
 
-      // Apply subscription discount
+      // Apply subscription discount. KEEP delivery in the total — createOrder
+      // already added it; recomputing as (itemsTotal − discount) silently
+      // dropped the shipping cost, undercharging every discounted subscription
+      // order by the full delivery fee.
+      const deliveryCost = Number(order.deliveryCost ?? 0);
       if (roundedDiscount > 0) {
         await prisma.order.update({
           where: { id: order.id },
           data: {
             discountAmount: roundedDiscount,
-            totalAmount: Math.max(0, Math.round((itemsTotal - roundedDiscount) * 100) / 100),
+            totalAmount: Math.max(
+              0,
+              Math.round((itemsTotal - roundedDiscount + deliveryCost) * 100) / 100,
+            ),
           },
         });
       }
@@ -190,8 +197,8 @@ export async function processSubscriptionOrders() {
       try {
         const finalTotal =
           roundedDiscount > 0
-            ? Math.max(0, Math.round((itemsTotal - roundedDiscount) * 100) / 100)
-            : itemsTotal;
+            ? Math.max(0, Math.round((itemsTotal - roundedDiscount + deliveryCost) * 100) / 100)
+            : Number(order.totalAmount);
         const firstName = subscription.user.fullName?.split(' ')[0] ?? null;
         await sendEmail({
           to: subscription.user.email,

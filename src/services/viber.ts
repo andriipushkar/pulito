@@ -8,6 +8,11 @@ import crypto from 'crypto';
 const AUTH_TOKEN = process.env.VIBER_AUTH_TOKEN || '';
 const API_URL = 'https://chatapi.viber.com/pa';
 
+// Viber requires a `sender` object (name ≤ 28 chars) on EVERY outbound
+// send_message — without it the API rejects the call, so all notifications
+// would silently fail. Name is configurable; defaults to the shop name.
+const VIBER_SENDER = { name: (process.env.VIBER_SENDER_NAME || 'Pulito').slice(0, 28) };
+
 const LINK_CODE_TTL = 600; // 10 minutes
 
 interface ViberEvent {
@@ -49,6 +54,7 @@ async function handleBotBlocked(viberId: string) {
 async function sendTextMessage(receiverId: string, text: string, keyboard?: unknown) {
   const body: Record<string, unknown> = {
     receiver: receiverId,
+    sender: VIBER_SENDER,
     min_api_version: 7,
     type: 'text',
     text,
@@ -248,6 +254,7 @@ async function sendPictureMessage(receiverId: string, imageUrl: string, text: st
     headers: { 'Content-Type': 'application/json', 'X-Viber-Auth-Token': AUTH_TOKEN },
     body: JSON.stringify({
       receiver: receiverId,
+      sender: VIBER_SENDER,
       min_api_version: 7,
       type: 'picture',
       text,
@@ -374,6 +381,7 @@ async function sendRichMediaCarousel(
     headers: { 'Content-Type': 'application/json', 'X-Viber-Auth-Token': AUTH_TOKEN },
     body: JSON.stringify({
       receiver: receiverId,
+      sender: VIBER_SENDER,
       min_api_version: 7,
       type: 'rich_media',
       rich_media: {

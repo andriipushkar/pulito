@@ -6,7 +6,7 @@ import type { WholesaleGroup } from '@/types/user';
  */
 export function resolveWholesalePrice(
   product: { priceWholesale?: unknown; priceWholesale2?: unknown; priceWholesale3?: unknown },
-  wholesaleGroup: WholesaleGroup | number | null | undefined
+  wholesaleGroup: WholesaleGroup | number | null | undefined,
 ): number | null {
   if (!wholesaleGroup) return null;
   let raw: unknown;
@@ -23,5 +23,9 @@ export function resolveWholesalePrice(
     default:
       return null;
   }
-  return raw != null ? Number(raw) : null;
+  // Treat <= 0 as "no wholesale price for this tier" — a column stored as 0
+  // (unset) must NOT become a free order via the Math.min ceiling at checkout.
+  if (raw == null) return null;
+  const n = Number(raw);
+  return n > 0 ? n : null;
 }

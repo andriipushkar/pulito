@@ -1,7 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: any) => handler }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: any) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/publication', () => ({
   retryChannel: vi.fn(),
   PublicationError: class PublicationError extends Error {
@@ -19,7 +36,9 @@ import { retryChannel, PublicationError } from '@/services/publication';
 const mockRetry = vi.mocked(retryChannel);
 
 describe('POST /api/v1/admin/publications/[id]/retry', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('retries channel publication', async () => {
     const pub = { id: 1, channel: 'olx', status: 'published' };

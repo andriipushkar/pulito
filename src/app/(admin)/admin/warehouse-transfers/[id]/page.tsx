@@ -52,17 +52,18 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const act = async (action: 'ship' | 'receive' | 'cancel') => {
+  const act = async (action: 'ship' | 'receive' | 'cancel' | 'cancel-in-transit') => {
     let reason: string | undefined;
-    if (action === 'cancel') {
-      reason = prompt(t('cancelReasonPrompt')) || '';
-      if (reason === null) return;
+    if (action === 'cancel' || action === 'cancel-in-transit') {
+      const entered = prompt(t('cancelReasonPrompt'));
+      if (entered === null) return; // user dismissed the dialog
+      reason = entered;
     }
     setBusy(true);
     setError(null);
     const res = await apiClient.put<TransferDetail>(`/api/v1/admin/warehouse-transfers/${id}`, {
       action,
-      reason,
+      ...(reason !== undefined ? { reason } : {}),
     });
     if (res.success && res.data) {
       setTransfer(res.data);
@@ -132,9 +133,16 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
             </>
           )}
           {transfer.status === 'in_transit' && (
-            <Button onClick={() => act('receive')} isLoading={busy}>
-              {t('receive')}
-            </Button>
+            <>
+              <Button onClick={() => act('receive')} isLoading={busy}>
+                {t('receive')}
+              </Button>
+              {/* Goods lost/damaged in transit, or paperwork was wrong: release
+                  the reserved units back to the source warehouse. */}
+              <Button variant="danger" onClick={() => act('cancel-in-transit')} disabled={busy}>
+                {t('cancelInTransit')}
+              </Button>
+            </>
           )}
         </div>
       </div>

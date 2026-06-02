@@ -34,8 +34,12 @@ vi.mock('@/middleware/auth', () => {
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     tenantUser: { findFirst: vi.fn() },
+    tenantBilling: { findUnique: vi.fn().mockResolvedValue({ planId: 1, plan: { name: 'Free' } }) },
+    $queryRaw: vi.fn().mockResolvedValue([{ ok: true }]),
   },
 }));
+vi.mock('@/lib/admin-tenant', () => ({ resolveActiveTenantId: vi.fn() }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/billing', () => ({
   changePlan: vi.fn(),
   BillingError: class BillingError extends Error {
@@ -52,8 +56,12 @@ vi.mock('@/utils/api-response', () => ({
 }));
 
 import { POST } from './route';
-import { prisma } from '@/lib/prisma';
 import { changePlan, BillingError } from '@/services/billing';
+import { resolveActiveTenantId } from '@/lib/admin-tenant';
+
+const notFound = () => ({
+  error: Response.json({ error: 'Тенант не знайдено' }, { status: 404 }),
+});
 
 describe('POST /api/v1/admin/billing/change-plan', () => {
   beforeEach(() => {
@@ -61,7 +69,7 @@ describe('POST /api/v1/admin/billing/change-plan', () => {
   });
 
   it('changes plan successfully', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (changePlan as any).mockResolvedValue({ planId: 2, status: 'active' });
 
     const req = new NextRequest('http://localhost', {
@@ -88,7 +96,7 @@ describe('POST /api/v1/admin/billing/change-plan', () => {
   });
 
   it('returns 404 when tenant not found', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
+    (resolveActiveTenantId as any).mockResolvedValue(notFound());
 
     const req = new NextRequest('http://localhost', {
       method: 'POST',
@@ -101,7 +109,7 @@ describe('POST /api/v1/admin/billing/change-plan', () => {
   });
 
   it('returns 500 on error', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (changePlan as any).mockRejectedValue(new Error('fail'));
 
     const req = new NextRequest('http://localhost', {

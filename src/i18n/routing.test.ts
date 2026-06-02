@@ -10,10 +10,8 @@ describe('i18n/routing', () => {
   it('exports routing config with locales and defaultLocale', () => {
     expect(routing).toHaveProperty('locales');
     expect(routing).toHaveProperty('defaultLocale', 'uk');
-    expect((routing as unknown as { locales: string[] }).locales).toContain('uk');
-    expect((routing as unknown as { locales: string[] }).locales).toContain('en');
-    expect((routing as unknown as { locales: string[] }).locales).toContain('pl');
-    expect((routing as unknown as { locales: string[] }).locales).toContain('ro');
+    // Site is uk-only by design (EN/PL/RO infra stays but is not routed).
+    expect((routing as unknown as { locales: string[] }).locales).toEqual(['uk']);
   });
 
   it('uses as-needed locale prefix', () => {

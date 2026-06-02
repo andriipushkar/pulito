@@ -10,7 +10,9 @@ const mockClear = vi.fn();
 const mockAddItem = vi.fn();
 const mockApiGet = vi.fn();
 
-vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
+vi.mock('next/link', () => ({
+  default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
 vi.mock('@/hooks/useComparison', () => ({
   useComparison: () => ({
     ids: [1, 2],
@@ -102,6 +104,8 @@ describe('ComparisonTable', () => {
   });
 
   it('calls clear when "Очистити все" is clicked', async () => {
+    // Clear is now gated behind a confirm() dialog; approve it in the test.
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     mockApiGet.mockResolvedValue({
       success: true,
       data: [makeProduct(1), makeProduct(2)],
@@ -110,6 +114,7 @@ describe('ComparisonTable', () => {
     await waitFor(() => screen.getByText('Очистити все'));
     fireEvent.click(screen.getByText('Очистити все'));
     expect(mockClear).toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 
   it('renders product codes', async () => {

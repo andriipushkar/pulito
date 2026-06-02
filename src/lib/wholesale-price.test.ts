@@ -51,7 +51,9 @@ describe('resolveWholesalePrice', () => {
     expect(resolveWholesalePrice(decimalProduct, 1)).toBe(99.5);
   });
 
-  it('handles zero price correctly (not null)', () => {
-    expect(resolveWholesalePrice({ priceWholesale: 0 }, 1)).toBe(0);
+  it('treats a zero wholesale price as "unset" (null), not a free price', () => {
+    // A 0 column means the tier isn't configured — returning 0 would let the
+    // checkout Math.min ceiling charge a B2B customer nothing.
+    expect(resolveWholesalePrice({ priceWholesale: 0 }, 1)).toBeNull();
   });
 });

@@ -3,22 +3,68 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockGet = vi.fn();
 const mockPost = vi.fn();
 const mockPut = vi.fn();
 const mockDelete = vi.fn();
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { get: (...a: any[]) => mockGet(...a), post: (...a: any[]) => mockPost(...a), put: (...a: any[]) => mockPut(...a), delete: (...a: any[]) => mockDelete(...a) },
+  apiClient: {
+    get: (...a: any[]) => mockGet(...a),
+    post: (...a: any[]) => mockPost(...a),
+    put: (...a: any[]) => mockPut(...a),
+    delete: (...a: any[]) => mockDelete(...a),
+  },
 }));
-vi.mock('@/components/ui/Button', () => ({ default: ({ children, onClick, isLoading, disabled, ...props }: any) => <button onClick={onClick} disabled={disabled || isLoading} {...props}>{isLoading ? 'Loading...' : children}</button> }));
-vi.mock('@/components/ui/Input', () => ({ default: ({ label, ...props }: any) => <label>{label}<input {...props} /></label> }));
-vi.mock('@/components/ui/Select', () => ({ default: ({ options, ...props }: any) => <select {...props}>{options?.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}</select> }));
+vi.mock('@/components/ui/Button', () => ({
+  default: ({ children, onClick, isLoading, disabled, ...props }: any) => (
+    <button onClick={onClick} disabled={disabled || isLoading} {...props}>
+      {isLoading ? 'Loading...' : children}
+    </button>
+  ),
+}));
+vi.mock('@/components/ui/Input', () => ({
+  default: ({ label, ...props }: any) => (
+    <label>
+      {label}
+      <input {...props} />
+    </label>
+  ),
+}));
+vi.mock('@/components/ui/Select', () => ({
+  default: ({ options, ...props }: any) => (
+    <select {...props}>
+      {options?.map((o: any) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  ),
+}));
 
 import AlertsConfig from './AlertsConfig';
 
 describe('AlertsConfig', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
-  afterEach(() => { cleanup(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  afterEach(() => {
+    cleanup();
+  });
 
   it('shows loading text initially', () => {
     mockGet.mockReturnValue(new Promise(() => {}));
@@ -35,7 +81,19 @@ describe('AlertsConfig', () => {
   });
 
   it('renders alerts list with active alert', async () => {
-    mockGet.mockResolvedValue({ success: true, data: [{ id: '1', metric: 'daily_revenue', condition: 'below', threshold: 100, channel: 'telegram', isActive: true }] });
+    mockGet.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: '1',
+          metric: 'daily_revenue',
+          condition: 'below',
+          threshold: 100,
+          channel: 'telegram',
+          isActive: true,
+        },
+      ],
+    });
     const { container } = render(<AlertsConfig />);
     await waitFor(() => {
       expect(container.textContent).toContain('Денна виручка');
@@ -46,7 +104,19 @@ describe('AlertsConfig', () => {
   });
 
   it('renders alert with above condition', async () => {
-    mockGet.mockResolvedValue({ success: true, data: [{ id: '2', metric: 'daily_orders', condition: 'above', threshold: 50, channel: 'email', isActive: false }] });
+    mockGet.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: '2',
+          metric: 'daily_orders',
+          condition: 'above',
+          threshold: 50,
+          channel: 'email',
+          isActive: false,
+        },
+      ],
+    });
     const { container } = render(<AlertsConfig />);
     await waitFor(() => {
       expect(container.textContent).toContain('Кількість замовлень');
@@ -57,7 +127,19 @@ describe('AlertsConfig', () => {
   });
 
   it('renders alert with unknown metric falls back to key', async () => {
-    mockGet.mockResolvedValue({ success: true, data: [{ id: '3', metric: 'unknown_metric', condition: 'below', threshold: 10, channel: 'telegram', isActive: true }] });
+    mockGet.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: '3',
+          metric: 'unknown_metric',
+          condition: 'below',
+          threshold: 10,
+          channel: 'telegram',
+          isActive: true,
+        },
+      ],
+    });
     const { container } = render(<AlertsConfig />);
     await waitFor(() => {
       expect(container.textContent).toContain('unknown_metric');
@@ -65,7 +147,19 @@ describe('AlertsConfig', () => {
   });
 
   it('toggles alert active state', async () => {
-    mockGet.mockResolvedValue({ success: true, data: [{ id: '1', metric: 'daily_revenue', condition: 'below', threshold: 100, channel: 'telegram', isActive: true }] });
+    mockGet.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: '1',
+          metric: 'daily_revenue',
+          condition: 'below',
+          threshold: 100,
+          channel: 'telegram',
+          isActive: true,
+        },
+      ],
+    });
     mockPut.mockResolvedValue({ success: true });
     const { container } = render(<AlertsConfig />);
     await waitFor(() => {
@@ -89,7 +183,19 @@ describe('AlertsConfig', () => {
   });
 
   it('renders inactive alert with different styling', async () => {
-    mockGet.mockResolvedValue({ success: true, data: [{ id: '1', metric: 'daily_revenue', condition: 'below', threshold: 100, channel: 'telegram', isActive: false }] });
+    mockGet.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: '1',
+          metric: 'daily_revenue',
+          condition: 'below',
+          threshold: 100,
+          channel: 'telegram',
+          isActive: false,
+        },
+      ],
+    });
     const { container } = render(<AlertsConfig />);
     await waitFor(() => {
       const toggleBtn = container.querySelector('button.h-4')!;
@@ -98,7 +204,19 @@ describe('AlertsConfig', () => {
   });
 
   it('deletes alert when delete is confirmed (line 81, 134)', async () => {
-    mockGet.mockResolvedValue({ success: true, data: [{ id: '1', metric: 'daily_revenue', condition: 'below', threshold: 100, channel: 'telegram', isActive: true }] });
+    mockGet.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: '1',
+          metric: 'daily_revenue',
+          condition: 'below',
+          threshold: 100,
+          channel: 'telegram',
+          isActive: true,
+        },
+      ],
+    });
     mockDelete.mockResolvedValue({ success: true });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { container } = render(<AlertsConfig />);
@@ -106,7 +224,9 @@ describe('AlertsConfig', () => {
       expect(container.textContent).toContain('Денна виручка');
     });
 
-    const deleteBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Видалити');
+    const deleteBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Видалити',
+    );
     expect(deleteBtn).toBeTruthy();
     fireEvent.click(deleteBtn!);
 
@@ -117,14 +237,28 @@ describe('AlertsConfig', () => {
   });
 
   it('does not delete alert when confirm is cancelled (line 81)', async () => {
-    mockGet.mockResolvedValue({ success: true, data: [{ id: '1', metric: 'daily_revenue', condition: 'below', threshold: 100, channel: 'telegram', isActive: true }] });
+    mockGet.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: '1',
+          metric: 'daily_revenue',
+          condition: 'below',
+          threshold: 100,
+          channel: 'telegram',
+          isActive: true,
+        },
+      ],
+    });
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     const { container } = render(<AlertsConfig />);
     await waitFor(() => {
       expect(container.textContent).toContain('Денна виручка');
     });
 
-    const deleteBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Видалити');
+    const deleteBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Видалити',
+    );
     fireEvent.click(deleteBtn!);
 
     expect(mockDelete).not.toHaveBeenCalled();
@@ -138,7 +272,9 @@ describe('AlertsConfig', () => {
     });
 
     // Click "Додати" button to show form
-    const addBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Додати');
+    const addBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Додати',
+    );
     expect(addBtn).toBeTruthy();
     fireEvent.click(addBtn!);
 
@@ -152,7 +288,9 @@ describe('AlertsConfig', () => {
     });
 
     // Toggle form off
-    const cancelBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Скасувати');
+    const cancelBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Скасувати',
+    );
     fireEvent.click(cancelBtn!);
 
     expect(container.textContent).not.toContain('Метрика');
@@ -167,7 +305,9 @@ describe('AlertsConfig', () => {
     });
 
     // Open form
-    const addBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Додати');
+    const addBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Додати',
+    );
     fireEvent.click(addBtn!);
 
     await waitFor(() => {
@@ -189,7 +329,9 @@ describe('AlertsConfig', () => {
     fireEvent.change(selects[2], { target: { value: 'email' } });
 
     // Click Створити
-    const createBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Створити');
+    const createBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Створити',
+    );
     fireEvent.click(createBtn!);
 
     await waitFor(() => {
@@ -211,7 +353,9 @@ describe('AlertsConfig', () => {
     });
 
     // Open form
-    const addBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Додати');
+    const addBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Додати',
+    );
     fireEvent.click(addBtn!);
 
     // Fill threshold
@@ -219,7 +363,9 @@ describe('AlertsConfig', () => {
     fireEvent.change(thresholdInput, { target: { value: '500' } });
 
     // Click Створити
-    const createBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Створити');
+    const createBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Створити',
+    );
     fireEvent.click(createBtn!);
 
     await waitFor(() => {
@@ -239,10 +385,14 @@ describe('AlertsConfig', () => {
       expect(container.textContent).toContain('Додати');
     });
 
-    const addBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Додати');
+    const addBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Додати',
+    );
     fireEvent.click(addBtn!);
 
-    const createBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Створити');
+    const createBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Створити',
+    );
     expect(createBtn).toBeTruthy();
     expect(createBtn!.hasAttribute('disabled')).toBe(true);
   });

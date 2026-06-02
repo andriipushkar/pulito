@@ -146,6 +146,7 @@ export async function generateProductSeo(productId: number) {
     where: { id: productId },
     include: {
       category: { select: { name: true, id: true } },
+      brand: { select: { name: true } },
       content: { select: { id: true, seoTitle: true, seoDescription: true } },
     },
   });
@@ -163,6 +164,7 @@ export async function generateProductSeo(productId: number) {
     name: product.name,
     code: product.code,
     category: product.category?.name || '',
+    brand: product.brand?.name || '',
     price: Number(product.priceRetail).toFixed(2),
   };
 
@@ -181,7 +183,7 @@ export async function bulkGenerateProductSeo() {
       isActive: true,
       OR: [{ content: null }, { content: { seoTitle: null } }],
     },
-    include: { category: { select: { name: true, id: true } } },
+    include: { category: { select: { name: true, id: true } }, brand: { select: { name: true } } },
     take: BULK_BATCH_LIMIT,
   });
 
@@ -220,6 +222,7 @@ export async function bulkGenerateProductSeo() {
       name: product.name,
       code: product.code,
       category: product.category?.name || '',
+      brand: product.brand?.name || '',
       price: Number(product.priceRetail).toFixed(2),
     };
 
@@ -239,6 +242,74 @@ export async function bulkGenerateProductSeo() {
     updated,
     total: products.length,
     remainingWithoutSeo: Math.max(0, remaining - updated),
+    batchLimit: BULK_BATCH_LIMIT,
+  };
+}
+
+/**
+ * Bulk-fill SEO meta for categories that have none, using the global
+ * `category` SEO template. Mirror of bulkGenerateProductSeo but writes
+ * seoTitle/seoDescription directly on the Category row (categories store SEO
+ * inline, unlike products which use ProductContent).
+ *
+ * Template variables: {name}, {slug}, {parent} (parent category name or ''),
+ * {productCount}. Only touches rows where seoTitle is still null/empty, so a
+ * human-edited category is never overwritten. No-op (no error) when no
+ * `category` template is configured yet.
+ */
+export async function bulkGenerateCategorySeo() {
+  const missingWhere = {
+    deletedAt: null,
+    OR: [{ seoTitle: null }, { seoTitle: '' }],
+  };
+
+  const template = await getSeoTemplateByEntity('category');
+  const remainingBefore = await prisma.category.count({ where: missingWhere });
+
+  if (!template) {
+    return {
+      updated: 0,
+      total: 0,
+      remainingWithoutSeo: remainingBefore,
+      batchLimit: BULK_BATCH_LIMIT,
+    };
+  }
+
+  const categories = await prisma.category.findMany({
+    where: missingWhere,
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      parent: { select: { name: true } },
+      _count: { select: { products: true } },
+    },
+    take: BULK_BATCH_LIMIT,
+  });
+
+  let updated = 0;
+  for (const c of categories) {
+    const vars: Record<string, string> = {
+      name: c.name,
+      slug: c.slug,
+      parent: c.parent?.name || '',
+      productCount: String(c._count.products),
+    };
+
+    await prisma.category.update({
+      where: { id: c.id },
+      data: {
+        seoTitle: applyProductTemplate(template.titleTemplate, vars),
+        seoDescription: applyProductTemplate(template.descriptionTemplate, vars),
+      },
+    });
+    updated++;
+  }
+
+  return {
+    updated,
+    total: categories.length,
+    remainingWithoutSeo: Math.max(0, remainingBefore - updated),
     batchLimit: BULK_BATCH_LIMIT,
   };
 }

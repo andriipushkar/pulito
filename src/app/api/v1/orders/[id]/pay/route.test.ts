@@ -34,7 +34,10 @@ import { prisma } from '@/lib/prisma';
 const mockInitiatePayment = initiatePayment as ReturnType<typeof vi.fn>;
 const mockSafeParse = initiatePaymentSchema.safeParse as ReturnType<typeof vi.fn>;
 const mockFindUnique = prisma.order.findUnique as ReturnType<typeof vi.fn>;
-const authCtx = { user: { id: 1, email: 'test@test.com', role: 'admin' }, params: Promise.resolve({ id: '5' }) };
+const authCtx = {
+  user: { id: 1, email: 'test@test.com', role: 'admin' },
+  params: Promise.resolve({ id: '5' }),
+};
 
 describe('POST /api/v1/orders/[id]/pay', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -69,7 +72,10 @@ describe('POST /api/v1/orders/[id]/pay', () => {
       body: JSON.stringify({}),
       headers: { 'Content-Type': 'application/json' },
     });
-    const ctx = { user: { id: 1, email: 'test@test.com', role: 'admin' }, params: Promise.resolve({ id: 'abc' }) };
+    const ctx = {
+      user: { id: 1, email: 'test@test.com', role: 'admin' },
+      params: Promise.resolve({ id: 'abc' }),
+    };
     const res = await POST(req, ctx as any);
     expect(res.status).toBe(400);
   });
@@ -87,16 +93,19 @@ describe('POST /api/v1/orders/[id]/pay', () => {
     expect(res.status).toBe(500);
   });
 
-  it('returns 400 on validation error', async () => {
+  it('returns 422 on validation error', async () => {
     mockFindUnique.mockResolvedValue({ userId: 1 });
-    mockSafeParse.mockReturnValue({ success: false, error: { issues: [{ message: 'Invalid provider' }] } });
+    mockSafeParse.mockReturnValue({
+      success: false,
+      error: { issues: [{ message: 'Invalid provider' }] },
+    });
     const req = new NextRequest('http://localhost/api/v1/orders/5/pay', {
       method: 'POST',
       body: JSON.stringify({ provider: 'invalid' }),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 404 when order belongs to different user', async () => {

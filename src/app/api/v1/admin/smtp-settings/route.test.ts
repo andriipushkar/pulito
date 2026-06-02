@@ -78,6 +78,7 @@ describe('PUT /api/v1/admin/smtp-settings', () => {
   });
 
   it('saves SMTP settings', async () => {
+    vi.mocked(prisma.siteSetting.findMany).mockResolvedValue([]);
     vi.mocked(prisma.siteSetting.upsert).mockResolvedValue({} as any);
 
     const req = new Request('http://localhost', {

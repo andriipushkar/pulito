@@ -17,6 +17,12 @@ interface PaymentProvider {
   enabledKey: string;
   testable?: boolean;
   webhookPath?: string;
+  /** Provider cabinet (where keys are issued and the method is enabled). */
+  cabinetUrl?: string;
+  /** Official API documentation. */
+  docsUrl?: string;
+  /** i18n key for the step-by-step setup guide (rendered as pre-line text). */
+  setupKey?: string;
   fields: { key: string; label: string; placeholder: string; sensitive?: boolean }[];
 }
 
@@ -38,6 +44,9 @@ export default function PaymentSettingsPage() {
         enabledKey: 'payment_liqpay_enabled',
         testable: true,
         webhookPath: '/api/webhooks/liqpay',
+        cabinetUrl: 'https://www.liqpay.ua/',
+        docsUrl: 'https://www.liqpay.ua/en/documentation/api/home',
+        setupKey: 'liqpaySetup',
         fields: [
           {
             key: 'payment_liqpay_public_key',
@@ -61,6 +70,9 @@ export default function PaymentSettingsPage() {
         enabledKey: 'payment_monobank_enabled',
         testable: true,
         webhookPath: '/api/webhooks/monobank',
+        cabinetUrl: 'https://web.monobank.ua/',
+        docsUrl: 'https://api.monobank.ua/docs/acquiring.html',
+        setupKey: 'monobankSetup',
         fields: [
           {
             key: 'payment_monobank_token',
@@ -78,6 +90,9 @@ export default function PaymentSettingsPage() {
         enabledKey: 'payment_wayforpay_enabled',
         testable: true,
         webhookPath: '/api/webhooks/wayforpay',
+        cabinetUrl: 'https://m.wayforpay.com/',
+        docsUrl: 'https://wiki.wayforpay.com/',
+        setupKey: 'wayforpaySetup',
         fields: [
           {
             key: 'payment_wayforpay_merchant_account',
@@ -209,7 +224,10 @@ export default function PaymentSettingsPage() {
         privateKey: settings['payment_liqpay_private_key'] || '',
       },
       monobank: { token: settings['payment_monobank_token'] || '' },
-      wayforpay: { merchantAccount: settings['payment_wayforpay_merchant_account'] || '' },
+      wayforpay: {
+        merchantAccount: settings['payment_wayforpay_merchant_account'] || '',
+        secretKey: settings['payment_wayforpay_secret_key'] || '',
+      },
     };
 
     const res = await apiClient.post<TestResult>('/api/v1/admin/payment-settings/test', {
@@ -316,6 +334,40 @@ export default function PaymentSettingsPage() {
           </div>
         )}
 
+        {/* Setup guide: step-by-step + links to the provider cabinet & docs */}
+        {provider.setupKey && (
+          <details className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2">
+            <summary className="cursor-pointer text-xs font-medium text-[var(--color-text-secondary)]">
+              {t('setupGuideTitle')}
+            </summary>
+            <p className="mt-2 whitespace-pre-line text-xs text-[var(--color-text-secondary)]">
+              {t(provider.setupKey)}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {provider.cabinetUrl && (
+                <a
+                  href={provider.cabinetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-[var(--color-primary)] underline"
+                >
+                  ↗ {t('cabinetLink')}
+                </a>
+              )}
+              {provider.docsUrl && (
+                <a
+                  href={provider.docsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-[var(--color-primary)] underline"
+                >
+                  ↗ {t('docsLink')}
+                </a>
+              )}
+            </div>
+          </details>
+        )}
+
         {/* Test result */}
         {result && (
           <div
@@ -389,6 +441,27 @@ export default function PaymentSettingsPage() {
             <h3 className="font-semibold">{t('applePayTitle')}</h3>
             <p className="text-xs text-[var(--color-text-secondary)]">{t('applePayDesc')}</p>
           </div>
+        </div>
+        <p className="mb-3 whitespace-pre-line text-xs text-[var(--color-text-secondary)]">
+          {t('walletSetup')}
+        </p>
+        <div className="mb-3 flex flex-wrap gap-3">
+          <a
+            href="https://www.liqpay.ua/en/doc/api/internet_acquiring/apay"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-[var(--color-primary)] underline"
+          >
+            ↗ {t('walletLiqpayDoc')}
+          </a>
+          <a
+            href="https://help.wayforpay.com/uk/apple-pay"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-[var(--color-primary)] underline"
+          >
+            ↗ {t('walletWfpDoc')}
+          </a>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">

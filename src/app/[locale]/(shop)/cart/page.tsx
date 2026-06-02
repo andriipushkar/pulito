@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useCart } from '@/hooks/useCart';
+import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import { Cart as CartIcon } from '@/components/icons';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
@@ -20,7 +21,10 @@ const CartRecommendations = dynamic(() => import('@/components/cart/CartRecommen
 
 export default function CartPage() {
   const { items, itemCount, total, updateQuantity, removeItem, clearCart } = useCart();
-  const cartTotal = total();
+  const { user } = useAuth();
+  // Wholesale customers must see their wholesale prices on the cart page too —
+  // MiniCart already does this; bare total() always returned retail.
+  const cartTotal = total(user?.role, user?.wholesaleGroup);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState<number | null>(null);
 
   useEffect(() => {

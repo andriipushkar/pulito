@@ -1,11 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/faq', () => ({
   updateFaqItem: vi.fn(),
   deleteFaqItem: vi.fn(),
-  FaqError: class FaqError extends Error { statusCode = 400; },
+  FaqError: class FaqError extends Error {
+    statusCode = 400;
+  },
 }));
 
 import { PUT, DELETE } from './route';
@@ -14,7 +33,9 @@ import { updateFaqItem, deleteFaqItem } from '@/services/faq';
 const mockCtx = { params: Promise.resolve({ id: '1' }) };
 
 describe('PUT /api/v1/admin/faq/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates FAQ item on success', async () => {
     vi.mocked(updateFaqItem).mockResolvedValue({ id: 1 } as any);
@@ -72,7 +93,9 @@ describe('PUT /api/v1/admin/faq/[id]', () => {
 });
 
 describe('DELETE /api/v1/admin/faq/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('deletes FAQ item on success', async () => {
     vi.mocked(deleteFaqItem).mockResolvedValue(undefined as any);

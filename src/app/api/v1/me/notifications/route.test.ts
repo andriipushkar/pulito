@@ -1,4 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (h) => h,
+  RateLimitError: class RateLimitError extends Error {
+    statusCode = 429;
+    retryAfter;
+    constructor(m, s, r) {
+      super(m);
+      this.statusCode = s || 429;
+      this.retryAfter = r;
+    }
+  },
+  RATE_LIMITS: new Proxy(
+    {},
+    { get: () => ({ limit: 100, windowSeconds: 60, prefix: 'test', max: 1e9, windowSec: 60 }) },
+  ),
+}));
 import { NextRequest } from 'next/server';
 
 const mockGetUserNotifications = vi.fn();
@@ -19,7 +42,12 @@ vi.mock('@/middleware/auth', () => ({
 }));
 
 vi.mock('@/config/env', () => ({
-  env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '' },
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+  },
 }));
 
 import { GET, PUT } from './route';

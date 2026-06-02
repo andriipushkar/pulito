@@ -7,7 +7,21 @@ vi.mock('@/services/telegram', () => ({
   handleTelegramUpdate: (...args: unknown[]) => mockHandleTelegramUpdate(...args),
 }));
 
+// Dedup uses redis SET NX (→ 'OK' = first-seen) and the rate-limiter uses
+// incr/expire. Mock all of them: a real redis on the box would return a stale
+// dedup key (TTL 24h) from a prior run, masking the update as a duplicate.
+vi.mock('@/lib/redis', () => ({
+  redis: {
+    set: vi.fn().mockResolvedValue('OK'),
+    incr: vi.fn().mockResolvedValue(1),
+    expire: vi.fn().mockResolvedValue(1),
+    get: vi.fn().mockResolvedValue(null),
+    del: vi.fn().mockResolvedValue(1),
+  },
+}));
+
 import { POST } from './route';
+import { logger } from '@/lib/logger';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -64,7 +78,9 @@ describe('POST /api/webhooks/telegram', () => {
   });
 
   it('should handle async processing error gracefully', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Async failures are logged via logger.error (message + structured error),
+    // not console.error; the request still returns 200 (update was accepted).
+    const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
     mockHandleTelegramUpdate.mockRejectedValue(new Error('processing failed'));
 
     const request = new NextRequest('http://localhost/api/webhooks/telegram', {
@@ -77,11 +93,15 @@ describe('POST /api/webhooks/telegram', () => {
     expect(res.status).toBe(200);
     // Wait for async .catch to fire
     await new Promise((r) => setTimeout(r, 50));
-    expect(consoleSpy).toHaveBeenCalledWith('Telegram processing error:', expect.any(Error));
-    consoleSpy.mockRestore();
+    expect(loggerSpy).toHaveBeenCalledWith(
+      'Telegram processing error',
+      expect.objectContaining({ error: 'processing failed' }),
+    );
+    loggerSpy.mockRestore();
   });
 
-  it('should always return 200 even on parse error', async () => {
+  it('returns 500 on parse error (no longer masks failures with a blanket 200)', async () => {
+    const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
     const request = new NextRequest('http://localhost/api/webhooks/telegram', {
       method: 'POST',
       body: 'invalid json',
@@ -89,6 +109,9 @@ describe('POST /api/webhooks/telegram', () => {
     });
 
     const res = await POST(request);
-    expect(res.status).toBe(200);
+    // Bad JSON is a genuine error — surface 500 so Telegram retries (the old
+    // catch-all 200 silently swallowed malformed/failed updates).
+    expect(res.status).toBe(500);
+    loggerSpy.mockRestore();
   });
 });

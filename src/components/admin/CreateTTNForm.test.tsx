@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockApiClient = vi.hoisted(() => ({
   get: vi.fn().mockResolvedValue({ success: true, data: [] }),
   post: vi.fn().mockResolvedValue({ success: true, data: { trackingNumber: '20450000000001' } }),
@@ -87,12 +101,15 @@ describe('CreateTTNForm', () => {
   });
 
   it('loads sender settings from localStorage on mount', () => {
-    localStorage.setItem('np_sender_settings', JSON.stringify({
-      senderRef: 'ref-123',
-      senderAddressRef: 'addr-456',
-      senderContactRef: 'contact-789',
-      senderPhone: '+380991112233',
-    }));
+    localStorage.setItem(
+      'np_sender_settings',
+      JSON.stringify({
+        senderRef: 'ref-123',
+        senderAddressRef: 'addr-456',
+        senderContactRef: 'contact-789',
+        senderPhone: '+380991112233',
+      }),
+    );
     render(<CreateTTNForm {...defaultProps} />);
     expect(screen.getByDisplayValue('ref-123')).toBeInTheDocument();
     expect(screen.getByDisplayValue('+380991112233')).toBeInTheDocument();

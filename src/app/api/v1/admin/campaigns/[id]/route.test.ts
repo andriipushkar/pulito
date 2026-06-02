@@ -16,8 +16,10 @@ vi.mock('@/middleware/auth', () => ({
   withRole:
     (..._roles: string[]) =>
     (handler: any) =>
-      handler,
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     campaignRule: { findUnique: vi.fn() },

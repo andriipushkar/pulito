@@ -34,8 +34,11 @@ vi.mock('@/middleware/auth', () => {
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     tenantUser: { findFirst: vi.fn() },
+    tenant: { findUnique: vi.fn() },
   },
 }));
+vi.mock('@/lib/admin-tenant', () => ({ resolveActiveTenantId: vi.fn() }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/domain', () => ({
   initiateDomainVerification: vi.fn(),
   DomainError: class DomainError extends Error {
@@ -54,6 +57,11 @@ vi.mock('@/utils/api-response', () => ({
 import { GET, POST } from './route';
 import { prisma } from '@/lib/prisma';
 import { initiateDomainVerification } from '@/services/domain';
+import { resolveActiveTenantId } from '@/lib/admin-tenant';
+
+const notFound = () => ({
+  error: Response.json({ error: 'Тенант не знайдено' }, { status: 404 }),
+});
 
 describe('GET /api/v1/admin/domains', () => {
   beforeEach(() => {
@@ -61,13 +69,11 @@ describe('GET /api/v1/admin/domains', () => {
   });
 
   it('returns domain info on success', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({
-      tenant: {
-        id: 1,
-        domain: 'example.com',
-        domainVerified: true,
-        domainVerificationToken: 'tok123',
-      },
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
+    (prisma.tenant.findUnique as any).mockResolvedValue({
+      domain: 'example.com',
+      domainVerified: true,
+      domainVerificationToken: 'tok123',
     });
 
     const req = new NextRequest('http://localhost');
@@ -79,7 +85,7 @@ describe('GET /api/v1/admin/domains', () => {
   });
 
   it('returns 404 when tenant not found', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
+    (resolveActiveTenantId as any).mockResolvedValue(notFound());
 
     const req = new NextRequest('http://localhost');
     const res = await GET(req, { user: { id: 1 } } as any);
@@ -88,7 +94,8 @@ describe('GET /api/v1/admin/domains', () => {
   });
 
   it('returns 500 on error', async () => {
-    (prisma.tenantUser.findFirst as any).mockRejectedValue(new Error('fail'));
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
+    (prisma.tenant.findUnique as any).mockRejectedValue(new Error('fail'));
 
     const req = new NextRequest('http://localhost');
     const res = await GET(req, { user: { id: 1 } } as any);
@@ -103,7 +110,7 @@ describe('POST /api/v1/admin/domains', () => {
   });
 
   it('initiates domain verification on success', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (initiateDomainVerification as any).mockResolvedValue({ token: 'tok123' });
 
     const req = new NextRequest('http://localhost', {
@@ -128,7 +135,7 @@ describe('POST /api/v1/admin/domains', () => {
   });
 
   it('returns 404 when tenant not found', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
+    (resolveActiveTenantId as any).mockResolvedValue(notFound());
 
     const req = new NextRequest('http://localhost', {
       method: 'POST',
@@ -141,7 +148,7 @@ describe('POST /api/v1/admin/domains', () => {
   });
 
   it('returns 500 on error', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (initiateDomainVerification as any).mockRejectedValue(new Error('fail'));
 
     const req = new NextRequest('http://localhost', {

@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockGet = vi.fn();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...a: any[]) => mockGet(...a) } }));
 vi.mock('@/components/ui/Spinner', () => ({ default: () => <div data-testid="spinner" /> }));
@@ -11,13 +25,34 @@ import GeographyAnalytics from './GeographyAnalytics';
 
 const mockData = {
   cities: [
-    { city: 'Kyiv', orders: 50, revenue: 100000, ordersPercent: 50, revenuePercent: 60, avgCheck: 2000 },
-    { city: 'Lviv', orders: 30, revenue: 60000, ordersPercent: 30, revenuePercent: 25, avgCheck: 2000 },
+    {
+      city: 'Kyiv',
+      orders: 50,
+      revenue: 100000,
+      ordersPercent: 50,
+      revenuePercent: 60,
+      avgCheck: 2000,
+    },
+    {
+      city: 'Lviv',
+      orders: 30,
+      revenue: 60000,
+      ordersPercent: 30,
+      revenuePercent: 25,
+      avgCheck: 2000,
+    },
   ],
   totalCities: 10,
   totalOrders: 100,
   totalRevenue: 200000,
-  topCity: { city: 'Kyiv', orders: 50, revenue: 100000, ordersPercent: 50, revenuePercent: 60, avgCheck: 2000 },
+  topCity: {
+    city: 'Kyiv',
+    orders: 50,
+    revenue: 100000,
+    ordersPercent: 50,
+    revenuePercent: 60,
+    avgCheck: 2000,
+  },
   byDeliveryMethod: [
     { method: 'nova_poshta', orders: 80, revenue: 160000 },
     { method: 'self_pickup', orders: 10, revenue: 20000 },
@@ -26,8 +61,12 @@ const mockData = {
 };
 
 describe('GeographyAnalytics', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
-  afterEach(() => { cleanup(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  afterEach(() => {
+    cleanup();
+  });
 
   it('shows spinner while loading', () => {
     mockGet.mockReturnValue(new Promise(() => {}));
@@ -148,8 +187,12 @@ describe('GeographyAnalytics', () => {
 
   it('limits city heatmap to 20 cities', async () => {
     const manyCities = Array.from({ length: 25 }, (_, i) => ({
-      city: `City${i}`, orders: 25 - i, revenue: (25 - i) * 1000,
-      ordersPercent: 4, revenuePercent: 4, avgCheck: 1000,
+      city: `City${i}`,
+      orders: 25 - i,
+      revenue: (25 - i) * 1000,
+      ordersPercent: 4,
+      revenuePercent: 4,
+      avgCheck: 1000,
     }));
     const bigData = {
       ...mockData,

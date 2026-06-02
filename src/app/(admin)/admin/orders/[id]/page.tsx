@@ -20,6 +20,7 @@ import CopyButton from '@/components/admin/CopyButton';
 import SmsTemplates from '@/components/admin/SmsTemplates';
 import OrderItemsEditor from '@/components/admin/OrderItemsEditor';
 import CreateTTNForm from '@/components/admin/CreateTTNForm';
+import TTNActions from '@/components/admin/TTNActions';
 import TagPicker from '@/components/admin/TagPicker';
 import OrderTimeline from '@/components/admin/OrderTimeline';
 import CustomerLtvBadge from '@/components/admin/CustomerLtvBadge';
@@ -544,6 +545,10 @@ export default function AdminOrderDetailPage() {
                   {t('change')}
                 </button>
               </div>
+              {/* Print / cancel actions for an existing TTN (Nova Poshta API). */}
+              {order.deliveryMethod === 'nova_poshta' && (
+                <TTNActions orderId={order.id} onChanged={reloadOrder} />
+              )}
             </div>
           ) : (
             <div className="mt-2">

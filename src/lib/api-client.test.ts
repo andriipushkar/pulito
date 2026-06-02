@@ -1,8 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { apiClient, setAccessToken, getAccessToken } from './api-client';
 
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
+
+// api-client now performs a one-time mount hydration (/auth/refresh) on the
+// first token-less request, to avoid a guaranteed-401 console noise on fresh
+// loads. That module-level once-guard would otherwise consume the first
+// queued mock in whichever test runs first, making per-test fetch counts
+// non-deterministic. Trip it once up front so every test sees a clean slate.
+beforeAll(async () => {
+  mockFetch.mockResolvedValue({
+    status: 200,
+    ok: true,
+    json: () => Promise.resolve({ success: true, data: {} }),
+  });
+  await apiClient.get('/__warmup');
+  mockFetch.mockReset();
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -25,9 +40,9 @@ describe('api-client', () => {
     const result = await apiClient.get('/api/v1/test');
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/v1/test',
-      expect.objectContaining({ method: 'GET' })
+      expect.objectContaining({ method: 'GET' }),
     );
-    expect(result).toEqual({ success: true, data: { id: 1 } });
+    expect(result).toEqual({ success: true, data: { id: 1 }, statusCode: 200 });
   });
 
   it('apiClient.post sends POST request with body', async () => {
@@ -42,7 +57,7 @@ describe('api-client', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ foo: 'bar' }),
-      })
+      }),
     );
   });
 
@@ -69,8 +84,7 @@ describe('api-client', () => {
     mockFetch.mockResolvedValueOnce({
       status: 200,
       ok: true,
-      json: () =>
-        Promise.resolve({ success: true, data: { accessToken: 'new-token' } }),
+      json: () => Promise.resolve({ success: true, data: { accessToken: 'new-token' } }),
     });
     // Retry call succeeds
     mockFetch.mockResolvedValueOnce({
@@ -80,7 +94,7 @@ describe('api-client', () => {
 
     const result = await apiClient.get('/api/v1/protected');
     expect(mockFetch).toHaveBeenCalledTimes(3);
-    expect(result).toEqual({ success: true, data: 'ok' });
+    expect(result).toEqual({ success: true, data: 'ok', statusCode: 200 });
   });
 
   it('apiClient.put sends PUT request', async () => {
@@ -92,7 +106,7 @@ describe('api-client', () => {
     await apiClient.put('/api/v1/test', { name: 'updated' });
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/v1/test',
-      expect.objectContaining({ method: 'PUT' })
+      expect.objectContaining({ method: 'PUT' }),
     );
   });
 
@@ -105,7 +119,7 @@ describe('api-client', () => {
     await apiClient.delete('/api/v1/test');
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/v1/test',
-      expect.objectContaining({ method: 'DELETE' })
+      expect.objectContaining({ method: 'DELETE' }),
     );
   });
 
@@ -124,7 +138,7 @@ describe('api-client', () => {
 
     const result = await apiClient.get('/api/v1/test');
     expect(mockFetch).toHaveBeenCalledTimes(2); // original + refresh attempt
-    expect(result).toEqual({ success: false, error: 'unauthorized' });
+    expect(result).toEqual({ success: false, error: 'unauthorized', statusCode: 401 });
   });
 
   it('does not retry when refresh fails (res not ok)', async () => {
@@ -143,7 +157,7 @@ describe('api-client', () => {
 
     const result = await apiClient.get('/api/v1/protected');
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ success: false });
+    expect(result).toEqual({ success: false, statusCode: 401 });
   });
 
   it('does not retry when refresh returns no token', async () => {
@@ -161,7 +175,7 @@ describe('api-client', () => {
 
     const result = await apiClient.get('/api/v1/protected');
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ success: false });
+    expect(result).toEqual({ success: false, statusCode: 401 });
   });
 
   it('handles refresh fetch error gracefully', async () => {
@@ -175,7 +189,7 @@ describe('api-client', () => {
 
     const result = await apiClient.get('/api/v1/protected');
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ success: false });
+    expect(result).toEqual({ success: false, statusCode: 401 });
   });
 
   it('apiClient.post sends without body when body is undefined', async () => {
@@ -187,7 +201,7 @@ describe('api-client', () => {
     await apiClient.post('/api/v1/test');
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/v1/test',
-      expect.objectContaining({ method: 'POST', body: undefined })
+      expect.objectContaining({ method: 'POST', body: undefined }),
     );
   });
 
@@ -200,7 +214,7 @@ describe('api-client', () => {
     await apiClient.put('/api/v1/test');
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/v1/test',
-      expect.objectContaining({ method: 'PUT', body: undefined })
+      expect.objectContaining({ method: 'PUT', body: undefined }),
     );
   });
 });

@@ -22,6 +22,9 @@ const envSchema = z.object({
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
   SMTP_FROM: z.string().default('noreply@localhost'),
+  // Where new-order notifications are emailed (fallback when Telegram isn't
+  // configured). Empty → falls back to SMTP_FROM (skipped if still the default).
+  MANAGER_NOTIFICATION_EMAIL: z.string().default(''),
 
   UPLOAD_DIR: z.string().default('./uploads'),
   MAX_FILE_SIZE: z.coerce.number().default(10485760),
@@ -48,11 +51,11 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().default(''),
   NOVA_POSHTA_API_KEY: z.string().default(''),
   UKRPOSHTA_BEARER_TOKEN: z.string().default(''),
-  LIQPAY_PUBLIC_KEY: z.string().default(''),
-  LIQPAY_PRIVATE_KEY: z.string().default(''),
-  MONOBANK_TOKEN: z.string().default(''),
-  WAYFORPAY_MERCHANT_ACCOUNT: z.string().default(''),
-  WAYFORPAY_SECRET_KEY: z.string().default(''),
+  UKRPOSHTA_COUNTERPARTY_TOKEN: z.string().default(''),
+  // Payment credentials (LiqPay / Monobank / WayForPay) are intentionally NOT
+  // here: they are configured exclusively through the admin panel
+  // (admin → Налаштування оплати) and stored encrypted in `siteSetting`.
+  // See src/services/integration-credentials.ts.
   REMOVEBG_API_KEY: z.string().default(''),
   TELEGRAM_BOT_TOKEN: z.string().default(''),
   TELEGRAM_CHANNEL_ID: z.string().default(''),

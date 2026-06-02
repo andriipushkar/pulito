@@ -8,6 +8,9 @@ vi.mock('fs', () => ({
   promises: {
     stat: (...args: unknown[]) => mockStat(...args),
     readFile: (...args: unknown[]) => mockReadFile(...args),
+    // Route resolves symlinks before reading (escape protection); echo the
+    // input path back so the within-uploads-dir prefix check passes.
+    realpath: (p: string) => Promise.resolve(p),
   },
 }));
 
@@ -27,10 +30,9 @@ describe('GET /uploads/[...path]', () => {
     mockStat.mockResolvedValue({ mtimeMs: 1234567890, size: buffer.length });
     mockReadFile.mockResolvedValue(buffer);
 
-    const res = await GET(
-      createRequest(['images', 'test.jpg']),
-      { params: Promise.resolve({ path: ['images', 'test.jpg'] }) }
-    );
+    const res = await GET(createRequest(['images', 'test.jpg']), {
+      params: Promise.resolve({ path: ['images', 'test.jpg'] }),
+    });
 
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('image/jpeg');
@@ -42,10 +44,9 @@ describe('GET /uploads/[...path]', () => {
     mockStat.mockResolvedValue({ mtimeMs: 100, size: 10 });
     mockReadFile.mockResolvedValue(Buffer.from('png'));
 
-    const res = await GET(
-      createRequest(['test.png']),
-      { params: Promise.resolve({ path: ['test.png'] }) }
-    );
+    const res = await GET(createRequest(['test.png']), {
+      params: Promise.resolve({ path: ['test.png'] }),
+    });
 
     expect(res.headers.get('Content-Type')).toBe('image/png');
   });
@@ -54,10 +55,9 @@ describe('GET /uploads/[...path]', () => {
     mockStat.mockResolvedValue({ mtimeMs: 100, size: 10 });
     mockReadFile.mockResolvedValue(Buffer.from('webp'));
 
-    const res = await GET(
-      createRequest(['test.webp']),
-      { params: Promise.resolve({ path: ['test.webp'] }) }
-    );
+    const res = await GET(createRequest(['test.webp']), {
+      params: Promise.resolve({ path: ['test.webp'] }),
+    });
 
     expect(res.headers.get('Content-Type')).toBe('image/webp');
   });
@@ -66,10 +66,9 @@ describe('GET /uploads/[...path]', () => {
     mockStat.mockResolvedValue({ mtimeMs: 100, size: 10 });
     mockReadFile.mockResolvedValue(Buffer.from('gif'));
 
-    const res = await GET(
-      createRequest(['test.gif']),
-      { params: Promise.resolve({ path: ['test.gif'] }) }
-    );
+    const res = await GET(createRequest(['test.gif']), {
+      params: Promise.resolve({ path: ['test.gif'] }),
+    });
 
     expect(res.headers.get('Content-Type')).toBe('image/gif');
   });
@@ -78,10 +77,9 @@ describe('GET /uploads/[...path]', () => {
     mockStat.mockResolvedValue({ mtimeMs: 100, size: 10 });
     mockReadFile.mockResolvedValue(Buffer.from('<svg></svg>'));
 
-    const res = await GET(
-      createRequest(['test.svg']),
-      { params: Promise.resolve({ path: ['test.svg'] }) }
-    );
+    const res = await GET(createRequest(['test.svg']), {
+      params: Promise.resolve({ path: ['test.svg'] }),
+    });
 
     // SVG served as octet-stream with attachment to prevent XSS
     expect(res.headers.get('Content-Type')).toBe('application/octet-stream');
@@ -93,10 +91,9 @@ describe('GET /uploads/[...path]', () => {
     mockStat.mockResolvedValue({ mtimeMs: 100, size: 10 });
     mockReadFile.mockResolvedValue(Buffer.from('pdf'));
 
-    const res = await GET(
-      createRequest(['test.pdf']),
-      { params: Promise.resolve({ path: ['test.pdf'] }) }
-    );
+    const res = await GET(createRequest(['test.pdf']), {
+      params: Promise.resolve({ path: ['test.pdf'] }),
+    });
 
     expect(res.headers.get('Content-Type')).toBe('application/pdf');
   });
@@ -105,10 +102,9 @@ describe('GET /uploads/[...path]', () => {
     mockStat.mockResolvedValue({ mtimeMs: 100, size: 10 });
     mockReadFile.mockResolvedValue(Buffer.from('jpeg'));
 
-    const res = await GET(
-      createRequest(['test.jpeg']),
-      { params: Promise.resolve({ path: ['test.jpeg'] }) }
-    );
+    const res = await GET(createRequest(['test.jpeg']), {
+      params: Promise.resolve({ path: ['test.jpeg'] }),
+    });
 
     expect(res.headers.get('Content-Type')).toBe('image/jpeg');
   });
@@ -117,19 +113,17 @@ describe('GET /uploads/[...path]', () => {
     mockStat.mockResolvedValue({ mtimeMs: 100, size: 10 });
     mockReadFile.mockResolvedValue(Buffer.from('data'));
 
-    const res = await GET(
-      createRequest(['file.xyz']),
-      { params: Promise.resolve({ path: ['file.xyz'] }) }
-    );
+    const res = await GET(createRequest(['file.xyz']), {
+      params: Promise.resolve({ path: ['file.xyz'] }),
+    });
 
     expect(res.headers.get('Content-Type')).toBe('application/octet-stream');
   });
 
   it('returns 404 for path traversal attempt', async () => {
-    const res = await GET(
-      createRequest(['..', 'etc', 'passwd']),
-      { params: Promise.resolve({ path: ['..', 'etc', 'passwd'] }) }
-    );
+    const res = await GET(createRequest(['..', 'etc', 'passwd']), {
+      params: Promise.resolve({ path: ['..', 'etc', 'passwd'] }),
+    });
 
     expect(res.status).toBe(404);
   });
@@ -137,10 +131,9 @@ describe('GET /uploads/[...path]', () => {
   it('returns 404 when file does not exist', async () => {
     mockStat.mockRejectedValue(new Error('ENOENT'));
 
-    const res = await GET(
-      createRequest(['nonexistent.jpg']),
-      { params: Promise.resolve({ path: ['nonexistent.jpg'] }) }
-    );
+    const res = await GET(createRequest(['nonexistent.jpg']), {
+      params: Promise.resolve({ path: ['nonexistent.jpg'] }),
+    });
 
     expect(res.status).toBe(404);
   });
@@ -149,10 +142,9 @@ describe('GET /uploads/[...path]', () => {
     mockStat.mockResolvedValue({ mtimeMs: 100, size: 10 });
     mockReadFile.mockResolvedValue(Buffer.from('data'));
 
-    await GET(
-      createRequest(['sub', 'dir', 'file.jpg']),
-      { params: Promise.resolve({ path: ['sub', 'dir', 'file.jpg'] }) }
-    );
+    await GET(createRequest(['sub', 'dir', 'file.jpg']), {
+      params: Promise.resolve({ path: ['sub', 'dir', 'file.jpg'] }),
+    });
 
     expect(mockStat).toHaveBeenCalledWith(expect.stringContaining('sub/dir/file.jpg'));
   });

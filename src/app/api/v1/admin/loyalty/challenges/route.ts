@@ -11,11 +11,17 @@ const createChallengeSchema = z.object({
   type: z.enum(['order_count', 'order_amount', 'review', 'referral', 'streak']),
   target: z.number().int().positive(),
   reward: z.number().int().positive(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  // The form's <input type="date"> sends "YYYY-MM-DD"; `.datetime()` would
+  // reject that and 400 the request. Accept any date-parseable string and
+  // normalise with `new Date()` below. `nullable` covers the page sending null.
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
 });
 
-export const GET = withRole('admin', 'manager')(async () => {
+export const GET = withRole(
+  'admin',
+  'manager',
+)(async () => {
   try {
     const challenges = await prisma.loyaltyChallenge.findMany({
       orderBy: { createdAt: 'desc' },

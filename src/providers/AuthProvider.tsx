@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { setAccessToken, refreshSession } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 
 interface AuthUser {
   id: number;
@@ -38,6 +39,7 @@ interface AuthContextValue {
     phone?: string;
     companyName?: string;
     edrpou?: string;
+    referralCode?: string;
   }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
@@ -113,6 +115,41 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [refreshAuth]);
 
+  // Merge a guest's localStorage wishlist into their account once they become
+  // authenticated (login / register / restored session). Without this, items a
+  // guest "hearts" are silently lost on login — the header even shows a count
+  // that points at an auth-gated page they can't open until now. Fire-and-
+  // forget, best-effort, runs once per authenticated id then clears localStorage.
+  const mergedWishlistFor = useRef<number | null>(null);
+  useEffect(() => {
+    if (!user?.id || mergedWishlistFor.current === user.id) return;
+    mergedWishlistFor.current = user.id;
+    let ids: number[] = [];
+    try {
+      const raw = localStorage.getItem('pulito-wishlist');
+      const parsed = raw ? JSON.parse(raw) : [];
+      ids = Array.isArray(parsed)
+        ? parsed.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0)
+        : [];
+    } catch {
+      ids = [];
+    }
+    if (ids.length === 0) return;
+    (async () => {
+      for (const id of ids) {
+        await apiClient.post(`/api/v1/me/wishlists/default/items/${id}`).catch(() => {}); // already-present / gone product — ignore
+      }
+      try {
+        localStorage.removeItem('pulito-wishlist');
+      } catch {}
+      // Refresh any open wishlist count/badge.
+      try {
+        const { mutate } = await import('swr');
+        mutate('/api/v1/me/wishlists/count');
+      } catch {}
+    })();
+  }, [user?.id]);
+
   const login = useCallback(async (email: string, password: string) => {
     try {
       const res = await fetch('/api/v1/auth/login', {
@@ -164,6 +201,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       phone?: string;
       companyName?: string;
       edrpou?: string;
+      referralCode?: string;
     }) => {
       try {
         const res = await fetch('/api/v1/auth/register', {

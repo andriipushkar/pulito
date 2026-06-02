@@ -231,6 +231,9 @@ export async function verifyTwoFactorLogin(
   if (!user || !user.twoFactorSecret || !user.twoFactorEnabled) {
     throw new AuthError('Користувача не знайдено або 2FA не налаштовано', 401);
   }
+  if (user.isBlocked) {
+    throw new AuthError('Обліковий запис заблоковано', 403);
+  }
 
   const { verifyTOTP, hashBackupCode, decryptStoredSecret } = await import('./totp');
   let totpValid = verifyTOTP(decryptStoredSecret(user.twoFactorSecret), code);
@@ -327,6 +330,12 @@ export async function refreshTokens(
   const user = await prisma.user.findUnique({ where: { id: payload.sub } });
   if (!user) {
     throw new AuthError('Користувача не знайдено', 401);
+  }
+  // A user blocked AFTER login would otherwise keep minting fresh access tokens
+  // via refresh until the refresh token expires (days) — the block is a no-op
+  // for active sessions without this check.
+  if (user.isBlocked) {
+    throw new AuthError('Обліковий запис заблоковано', 403);
   }
 
   const tokens = await createTokenPair(user.id, user.email, user.role, ipAddress, deviceInfo);
@@ -434,6 +443,10 @@ export async function loginWithGoogle(
   referralCode?: string,
   ipAddress?: string,
   deviceInfo?: string,
+  // Whether Google verified the email. Kept LAST with a default so existing
+  // callers stay source-compatible; the real OAuth callback ALWAYS passes the
+  // actual flag explicitly. Gates email-based account linking below.
+  emailVerified: boolean = true,
 ): Promise<LoginResult> {
   let user = await prisma.user.findUnique({ where: { googleId } });
   let isNewUser = false;
@@ -441,6 +454,16 @@ export async function loginWithGoogle(
   if (!user) {
     user = await prisma.user.findUnique({ where: { email } });
     if (user) {
+      // Account takeover guard: only auto-link Google to an existing local
+      // account when Google has VERIFIED the email. Otherwise an attacker with
+      // a Google account bearing an unverified copy of the victim's email could
+      // attach their googleId and log in as the victim.
+      if (!emailVerified) {
+        throw new AuthError(
+          'Google не підтвердив цю електронну адресу. Увійдіть паролем і прив’яжіть Google у налаштуваннях.',
+          403,
+        );
+      }
       user = await prisma.user.update({
         where: { id: user.id },
         data: { googleId, avatarUrl: avatarUrl || user.avatarUrl },

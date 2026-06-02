@@ -19,11 +19,21 @@ vi.mock('@/lib/redis', () => ({
   redis: mockRedis,
 }));
 
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
 // Mock fetch for Typesense health check
 const mockFetch = vi.fn().mockResolvedValue({ ok: true });
 vi.stubGlobal('fetch', mockFetch);
 
+import { NextRequest } from 'next/server';
 import { GET } from './route';
+
+const makeReq = () => new NextRequest('http://localhost/api/v1/health');
 
 describe('GET /api/v1/health', () => {
   beforeEach(() => {
@@ -33,7 +43,7 @@ describe('GET /api/v1/health', () => {
   });
 
   it('should return healthy when all services are ok', async () => {
-    const res = await GET();
+    const res = await GET(makeReq());
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -50,7 +60,7 @@ describe('GET /api/v1/health', () => {
   it('should return degraded when database is down', async () => {
     mockPrisma.$queryRaw.mockRejectedValue(new Error('Connection refused'));
 
-    const res = await GET();
+    const res = await GET(makeReq());
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -64,7 +74,7 @@ describe('GET /api/v1/health', () => {
   it('should return degraded when redis is down', async () => {
     mockRedis.ping.mockRejectedValue(new Error('ECONNREFUSED'));
 
-    const res = await GET();
+    const res = await GET(makeReq());
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -77,7 +87,7 @@ describe('GET /api/v1/health', () => {
     mockPrisma.$queryRaw.mockRejectedValue(new Error('DB down'));
     mockRedis.ping.mockRejectedValue(new Error('Redis down'));
 
-    const res = await GET();
+    const res = await GET(makeReq());
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -87,7 +97,7 @@ describe('GET /api/v1/health', () => {
   });
 
   it('should include ISO timestamp', async () => {
-    const res = await GET();
+    const res = await GET(makeReq());
     const body = await res.json();
 
     expect(() => new Date(body.timestamp)).not.toThrow();

@@ -16,12 +16,15 @@ vi.mock('@/middleware/auth', () => ({
   withRole:
     (..._roles: string[]) =>
     (handler: any) =>
-      handler,
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     emailTemplate: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
     emailTemplateVersion: { create: vi.fn() },
+    campaignRule: { count: vi.fn().mockResolvedValue(0) },
   },
 }));
 vi.mock('@/utils/api-response', () => ({

@@ -21,9 +21,21 @@ const DELIVERY_SETTINGS_KEYS = [
   'delivery_nova_poshta_balance_note',
   'delivery_ukrposhta_enabled',
   'delivery_ukrposhta_bearer_token',
+  // Counterparty/user token — required as ?token= on every eCom call except
+  // /addresses (clients, shipments, groups, printing). Sensitive.
+  'delivery_ukrposhta_counterparty_token',
   'delivery_ukrposhta_sender_name',
   'delivery_ukrposhta_sender_phone',
   'delivery_ukrposhta_sender_address',
+  // Structured sender address for eCom shipment creation (address-classifier
+  // fields). Used to build the shop's sender client when no UUID is cached.
+  'delivery_ukrposhta_sender_postcode',
+  'delivery_ukrposhta_sender_region',
+  'delivery_ukrposhta_sender_city',
+  'delivery_ukrposhta_sender_street',
+  'delivery_ukrposhta_sender_house',
+  // Cached sender client UUID — skips re-creating the sender on each shipment.
+  'delivery_ukrposhta_sender_client_uuid',
   'delivery_pickup_enabled',
   'delivery_pickup_address',
   'delivery_pickup_hours',
@@ -33,7 +45,11 @@ const DELIVERY_SETTINGS_KEYS = [
   'delivery_ukrposhta_fixed_cost',
 ] as const;
 
-const SENSITIVE_KEYS = ['delivery_nova_poshta_api_key', 'delivery_ukrposhta_bearer_token'];
+const SENSITIVE_KEYS = [
+  'delivery_nova_poshta_api_key',
+  'delivery_ukrposhta_bearer_token',
+  'delivery_ukrposhta_counterparty_token',
+];
 
 function maskValue(key: string, rawValue: string, leakyOk: boolean): string {
   if (!SENSITIVE_KEYS.includes(key) || !rawValue) return rawValue;

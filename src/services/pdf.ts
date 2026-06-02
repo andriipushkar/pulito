@@ -164,6 +164,16 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
 
   const subtotal = sumMoney(order.items.map((item) => Number(item.subtotal)));
 
+  // order.discountAmount holds ONLY the loyalty discount; a coupon discount is
+  // recorded in CouponRedemption. Include it so the invoice balances —
+  // otherwise: subtotal − discount + delivery ≠ Всього on coupon orders, which
+  // makes the legal document's arithmetic visibly wrong.
+  const couponAgg = await prisma.couponRedemption.aggregate({
+    where: { orderId: order.id },
+    _sum: { discount: true },
+  });
+  const totalDiscount = Number(order.discountAmount) + Number(couponAgg._sum.discount ?? 0);
+
   doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
   doc.text(`Сума товарів:`, totalsX, doc.y, { width: totalsW - 80 });
   doc.font('Regular').fontSize(9).fillColor(BRAND.text);
@@ -172,13 +182,13 @@ export async function generateInvoicePdf(orderId: number): Promise<string> {
     align: 'right',
   });
 
-  if (Number(order.discountAmount) > 0) {
+  if (totalDiscount > 0) {
     doc.moveDown(0.2);
     doc.font('Regular').fontSize(9).fillColor(BRAND.textSecondary);
     doc.text(`Знижка:`, totalsX, doc.y, { width: totalsW - 80 });
     doc.font('Regular').fontSize(9).fillColor('#F44336');
     doc.text(
-      `-${Number(order.discountAmount).toFixed(2)} грн`,
+      `-${totalDiscount.toFixed(2)} грн`,
       totalsX + totalsW - 80,
       doc.y - doc.currentLineHeight(),
       { width: 80, align: 'right' },

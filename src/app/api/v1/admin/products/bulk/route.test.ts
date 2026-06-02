@@ -13,18 +13,35 @@ vi.mock('@/config/env', () => ({
   },
 }));
 vi.mock('@/middleware/auth', () => ({
-  withRole: (..._roles: string[]) => (handler: Function) =>
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
     (req: unknown, ctx?: Record<string, unknown>) =>
-      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+      handler(req, {
+        user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' },
+        ...(ctx || {}),
+      }),
 }));
 vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+const mockTx = {
+  $queryRaw: vi.fn().mockResolvedValue([]),
+  orderItem: { groupBy: vi.fn().mockResolvedValue([]) },
+  product: {
+    deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+  },
+};
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     product: {
       updateMany: vi.fn(),
       findMany: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
     },
+    orderItem: { groupBy: vi.fn() },
+    $queryRaw: vi.fn().mockResolvedValue([{ ok: true }]),
+    $transaction: vi.fn(async (arg: any) => (typeof arg === 'function' ? arg(mockTx) : undefined)),
   },
 }));
 vi.mock('exceljs', () => {
@@ -95,9 +112,10 @@ describe('POST /api/v1/admin/products/bulk', () => {
   });
 
   it('hard-deletes products when no FK constraints block it', async () => {
-    // Route now tries prisma.product.delete first; only falls back to
-    // updateMany on Prisma P2003 (FK constraint).
-    vi.mocked(prisma.product.delete).mockResolvedValue({} as any);
+    // Route runs inside a $transaction: products NOT referenced by orderItem
+    // are hard-deleted via deleteMany; referenced ones are soft-deleted.
+    // No referencing order items -> all three are hard-deleted.
+    mockTx.orderItem.groupBy.mockResolvedValue([]);
 
     const req = new Request('http://localhost', {
       method: 'POST',
@@ -111,8 +129,8 @@ describe('POST /api/v1/admin/products/bulk', () => {
     expect(json.data.hardDeleted).toBe(3);
     expect(json.data.softDeleted).toBe(0);
     expect(json.data.total).toBe(3);
-    expect(prisma.product.delete).toHaveBeenCalledTimes(3);
-    expect(prisma.product.updateMany).not.toHaveBeenCalled();
+    expect(mockTx.product.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [1, 2, 3] } } });
+    expect(mockTx.product.updateMany).not.toHaveBeenCalled();
   });
 
   it('changes category for products', async () => {

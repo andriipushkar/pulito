@@ -106,8 +106,10 @@ export default function AccountFinancePage() {
   const [downloadingAll, setDownloadingAll] = useState(false);
 
   useEffect(() => {
+    // limit=1000 so lifetime totals/avg-check aren't silently capped at 100
+    // orders (a heavy wholesaler can exceed that).
     apiClient
-      .get<OrderData[]>('/api/v1/orders?page=1&limit=100')
+      .get<OrderData[]>('/api/v1/orders?page=1&limit=1000')
       .then((res) => {
         if (res.success && res.data) {
           const orders = Array.isArray(res.data) ? res.data : [];

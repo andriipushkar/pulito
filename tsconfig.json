@@ -33,6 +33,8 @@
     "node_modules",
     "documents",
     ".next",
+    ".next-staging",
+    ".next-prev",
     "generated",
     "coverage",
     "load-tests",

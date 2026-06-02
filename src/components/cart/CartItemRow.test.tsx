@@ -4,12 +4,16 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 vi.mock('next/image', () => ({ default: (props: any) => <img {...props} /> }));
-vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
+vi.mock('next/link', () => ({
+  default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
 vi.mock('@/components/icons', () => ({ Trash: () => <span data-testid="trash-icon" /> }));
 vi.mock('@/components/product/QuantitySelector', () => ({
   default: ({ value, onChange, max, className }: any) => (
     <div data-testid="qty-selector" data-value={value} data-max={max} className={className}>
-      <button data-testid="qty-change" onClick={() => onChange(value + 1)}>+</button>
+      <button data-testid="qty-change" onClick={() => onChange(value + 1)}>
+        +
+      </button>
     </div>
   ),
 }));
@@ -36,7 +40,7 @@ const mockItemWithImage = {
 describe('CartItemRow', () => {
   it('renders without crashing', () => {
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
     );
     expect(container).toBeTruthy();
   });
@@ -60,28 +64,37 @@ describe('CartItemRow', () => {
 
   it('renders placeholder when imagePath is null', () => {
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
     );
     expect(container.querySelector('svg')).toBeInTheDocument();
   });
 
   it('renders image when imagePath is provided', () => {
-    const { container } = render(<CartItemRow item={mockItemWithImage} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />);
+    const { container } = render(
+      <CartItemRow item={mockItemWithImage} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
+    );
     const img = container.querySelector('img[alt="Test Item"]');
     expect(img).toHaveAttribute('src', '/images/product.jpg');
   });
 
   it('calls onRemove when desktop remove button clicked', () => {
+    // Removal is now gated behind a confirm() dialog; approve it in the test.
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const onRemove = vi.fn();
-    const { container } = render(<CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={onRemove} />);
+    const { container } = render(
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={onRemove} />,
+    );
     const removeButtons = container.querySelectorAll('[aria-label="Видалити"]');
     fireEvent.click(removeButtons[0]);
     expect(onRemove).toHaveBeenCalledWith(1);
+    confirmSpy.mockRestore();
   });
 
   it('calls onUpdateQuantity when QuantitySelector changes', () => {
     const onUpdateQuantity = vi.fn();
-    const { container } = render(<CartItemRow item={mockItem} onUpdateQuantity={onUpdateQuantity} onRemove={vi.fn()} />);
+    const { container } = render(
+      <CartItemRow item={mockItem} onUpdateQuantity={onUpdateQuantity} onRemove={vi.fn()} />,
+    );
     const qtyBtn = container.querySelector('[data-testid="qty-change"]') as HTMLElement;
     fireEvent.click(qtyBtn);
     expect(onUpdateQuantity).toHaveBeenCalledWith(1, 3);
@@ -95,7 +108,7 @@ describe('CartItemRow', () => {
   // Swipe-to-delete tests
   it('handles touch start', () => {
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
     );
     const slideable = container.querySelector('[style]') as HTMLElement;
     fireEvent.touchStart(slideable, { touches: [{ clientX: 300 }] });
@@ -105,7 +118,7 @@ describe('CartItemRow', () => {
 
   it('handles touch move left swipe', () => {
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
     );
     const slideable = container.querySelector('[style]') as HTMLElement;
     fireEvent.touchStart(slideable, { touches: [{ clientX: 300 }] });
@@ -116,7 +129,7 @@ describe('CartItemRow', () => {
 
   it('touch end with small swipe snaps back to 0', () => {
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
     );
     const slideable = container.querySelector('[style]') as HTMLElement;
     fireEvent.touchStart(slideable, { touches: [{ clientX: 300 }] });
@@ -127,7 +140,7 @@ describe('CartItemRow', () => {
 
   it('touch end with medium swipe snaps to reveal delete', () => {
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
     );
     const slideable = container.querySelector('[style]') as HTMLElement;
     fireEvent.touchStart(slideable, { touches: [{ clientX: 300 }] });
@@ -140,7 +153,7 @@ describe('CartItemRow', () => {
     vi.useFakeTimers();
     const onRemove = vi.fn();
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={onRemove} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={onRemove} />,
     );
     const slideable = container.querySelector('[style]') as HTMLElement;
     fireEvent.touchStart(slideable, { touches: [{ clientX: 400 }] });
@@ -154,7 +167,7 @@ describe('CartItemRow', () => {
 
   it('does not move when touch move fired without swiping state', () => {
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
     );
     const slideable = container.querySelector('[style]') as HTMLElement;
     // touchMove without touchStart
@@ -164,7 +177,7 @@ describe('CartItemRow', () => {
 
   it('clamps swipe offset at max value', () => {
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
     );
     const slideable = container.querySelector('[style]') as HTMLElement;
     fireEvent.touchStart(slideable, { touches: [{ clientX: 500 }] });
@@ -174,18 +187,23 @@ describe('CartItemRow', () => {
   });
 
   it('calls onRemove when desktop (second) remove button is clicked', () => {
+    // Removal is now gated behind a confirm() dialog; approve it in the test.
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const onRemove = vi.fn();
-    const { container } = render(<CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={onRemove} />);
+    const { container } = render(
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={onRemove} />,
+    );
     const removeButtons = container.querySelectorAll('[aria-label="Видалити"]');
     // The second remove button is the desktop one (hidden sm:block)
     expect(removeButtons.length).toBe(2);
     fireEvent.click(removeButtons[1]);
     expect(onRemove).toHaveBeenCalledWith(1);
+    confirmSpy.mockRestore();
   });
 
   it('does not allow right swipe (negative offset)', () => {
     const { container } = render(
-      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />
+      <CartItemRow item={mockItem} onUpdateQuantity={vi.fn()} onRemove={vi.fn()} />,
     );
     const slideable = container.querySelector('[style]') as HTMLElement;
     fireEvent.touchStart(slideable, { touches: [{ clientX: 100 }] });

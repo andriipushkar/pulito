@@ -90,6 +90,44 @@ function parseAutoReplyButtons(
   return rows.length > 0 ? rows : null;
 }
 
+// Telegram hard limits (after entity parsing): 4096 chars for message text,
+// 1024 for a photo caption. Over-limit calls are rejected with HTTP 400 and the
+// message is silently lost — so clamp before sending. Names are escaped and HTML
+// tags sit at the start, so trimming the tail keeps valid HTML.
+const TG_TEXT_LIMIT = 4096;
+const TG_CAPTION_LIMIT = 1024;
+
+function clampText(value: string, limit: number): string {
+  return value.length <= limit ? value : value.slice(0, limit - 1) + '…';
+}
+
+/**
+ * POST a Telegram method with one retry that honours `retry_after` on HTTP 429
+ * (flood control). Returns the Response so callers can branch on status.
+ */
+async function tgPost(method: string, body: Record<string, unknown>): Promise<Response> {
+  const send = () =>
+    fetch(`${API_BASE}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  let res = await send();
+  if (res.status === 429) {
+    const data = await res
+      .clone()
+      .json()
+      .catch(() => null);
+    const retryAfter = (data as { parameters?: { retry_after?: number } } | null)?.parameters
+      ?.retry_after;
+    // Respect the back-off but cap it so a request handler never blocks long.
+    await new Promise((r) => setTimeout(r, Math.min((retryAfter ?? 1) * 1000, 5000)));
+    res = await send();
+  }
+  return res;
+}
+
 async function sendMessage(
   chatId: number,
   text: string,
@@ -98,15 +136,11 @@ async function sendMessage(
     reply_markup?: unknown;
   },
 ) {
-  const res = await fetch(`${API_BASE}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: options?.parse_mode || 'HTML',
-      reply_markup: options?.reply_markup,
-    }),
+  const res = await tgPost('sendMessage', {
+    chat_id: chatId,
+    text: clampText(text, TG_TEXT_LIMIT),
+    parse_mode: options?.parse_mode || 'HTML',
+    reply_markup: options?.reply_markup,
   });
 
   if (res.status === 403) {
@@ -123,17 +157,17 @@ async function sendPhoto(
     reply_markup?: unknown;
   },
 ) {
-  await fetch(`${API_BASE}/sendPhoto`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      photo: photoUrl,
-      caption,
-      parse_mode: options?.parse_mode || 'HTML',
-      reply_markup: options?.reply_markup,
-    }),
+  const res = await tgPost('sendPhoto', {
+    chat_id: chatId,
+    photo: photoUrl,
+    caption: clampText(caption, TG_CAPTION_LIMIT),
+    parse_mode: options?.parse_mode || 'HTML',
+    reply_markup: options?.reply_markup,
   });
+
+  if (res.status === 403) {
+    await handleBotBlocked(chatId);
+  }
 }
 
 /**
@@ -278,7 +312,7 @@ async function handleCategoryProducts(chatId: number, categoryId: number, offset
 
   for (const p of products) {
     const badge = p.isPromo ? '🔥 ' : '';
-    const text = `${badge}<b>${p.name}</b>\nКод: ${p.code}\nЦіна: <b>${Number(p.priceRetail).toFixed(2)} ₴</b>`;
+    const text = `${badge}<b>${escapeHtml(p.name)}</b>\nКод: ${escapeHtml(p.code)}\nЦіна: <b>${Number(p.priceRetail).toFixed(2)} ₴</b>`;
     const imageUrl = p.imagePath ? `${appUrl}${p.imagePath}` : null;
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
@@ -355,7 +389,7 @@ async function handlePromo(chatId: number, offset: number = 0) {
 
   for (const p of products) {
     const oldPrice = p.priceRetailOld ? `<s>${Number(p.priceRetailOld).toFixed(2)} ₴</s> → ` : '';
-    const text = `<b>${p.name}</b>\n${oldPrice}<b>${Number(p.priceRetail).toFixed(2)} ₴</b>`;
+    const text = `<b>${escapeHtml(p.name)}</b>\n${oldPrice}<b>${Number(p.priceRetail).toFixed(2)} ₴</b>`;
     const imageUrl = p.imagePath ? `${appUrl}${p.imagePath}` : null;
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
@@ -478,8 +512,8 @@ async function handleBarcodeLookup(chatId: number, rawCode: string) {
   if (product) {
     const stockIcon = product.quantity === 0 ? '❌' : product.quantity <= 5 ? '⚠️' : '✅';
     const text = [
-      `<b>${product.name}</b>`,
-      `Код: <code>${product.code}</code>`,
+      `<b>${escapeHtml(product.name)}</b>`,
+      `Код: <code>${escapeHtml(product.code)}</code>`,
       `Штрихкод: <code>${digits}</code>`,
       `Залишок: ${stockIcon} <b>${product.quantity}</b> шт`,
       `Ціна: <b>${Number(product.priceRetail).toFixed(2)} ₴</b>` +
@@ -514,9 +548,9 @@ async function handleBarcodeLookup(chatId: number, rawCode: string) {
   if (variant) {
     const stockIcon = variant.quantity === 0 ? '❌' : variant.quantity <= 5 ? '⚠️' : '✅';
     const text = [
-      `<b>${variant.product.name}</b>`,
-      `Варіант: <b>${variant.name}</b>`,
-      `SKU: <code>${variant.sku}</code>`,
+      `<b>${escapeHtml(variant.product.name)}</b>`,
+      `Варіант: <b>${escapeHtml(variant.name)}</b>`,
+      `SKU: <code>${escapeHtml(variant.sku)}</code>`,
       `Штрихкод: <code>${digits}</code>`,
       `Залишок: ${stockIcon} <b>${variant.quantity}</b> шт`,
       variant.priceRetail
@@ -560,7 +594,7 @@ async function handleSearch(chatId: number, query: string) {
   if (products.length === 0) {
     await sendMessage(
       chatId,
-      `На жаль, за запитом «${query}» нічого не знайдено.\nСпробуйте інший запит або перегляньте каталог.`,
+      `На жаль, за запитом «${escapeHtml(query)}» нічого не знайдено.\nСпробуйте інший запит або перегляньте каталог.`,
       {
         reply_markup: { inline_keyboard: [[{ text: '🛒 Каталог', callback_data: 'catalog' }]] },
       },
@@ -569,9 +603,9 @@ async function handleSearch(chatId: number, query: string) {
   }
 
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
-  await sendMessage(chatId, `🔍 Результати пошуку «${query}»:`);
+  await sendMessage(chatId, `🔍 Результати пошуку «${escapeHtml(query)}»:`);
   for (const p of products) {
-    const text = `<b>${p.name}</b>\nКод: ${p.code}\nЦіна: ${Number(p.priceRetail).toFixed(2)} ₴`;
+    const text = `<b>${escapeHtml(p.name)}</b>\nКод: ${escapeHtml(p.code)}\nЦіна: ${Number(p.priceRetail).toFixed(2)} ₴`;
     const imageUrl = p.imagePath ? `${appUrl}${p.imagePath}` : null;
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
@@ -608,7 +642,7 @@ async function handleNew(chatId: number) {
   await sendMessage(chatId, '🆕 <b>Новинки:</b>');
   for (const p of products) {
     const date = new Date(p.createdAt).toLocaleDateString('uk-UA');
-    const text = `<b>${p.name}</b>\nКод: ${p.code}\nЦіна: <b>${Number(p.priceRetail).toFixed(2)} ₴</b>\nДодано: ${date}`;
+    const text = `<b>${escapeHtml(p.name)}</b>\nКод: ${escapeHtml(p.code)}\nЦіна: <b>${Number(p.priceRetail).toFixed(2)} ₴</b>\nДодано: ${date}`;
     const imageUrl = p.imagePath ? `${appUrl}${p.imagePath}` : null;
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
@@ -644,7 +678,7 @@ async function handlePopular(chatId: number) {
 
   await sendMessage(chatId, '⭐ <b>Популярні товари:</b>');
   for (const p of products) {
-    const text = `<b>${p.name}</b>\nКод: ${p.code}\nЦіна: <b>${Number(p.priceRetail).toFixed(2)} ₴</b>`;
+    const text = `<b>${escapeHtml(p.name)}</b>\nКод: ${escapeHtml(p.code)}\nЦіна: <b>${Number(p.priceRetail).toFixed(2)} ₴</b>`;
     const imageUrl = p.imagePath ? `${appUrl}${p.imagePath}` : null;
     await sendProductMessage(chatId, text, imageUrl, {
       reply_markup: {
@@ -835,7 +869,7 @@ export async function sendClientNotification(
   if (!BOT_TOKEN) return;
 
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
-  const text = `<b>${title}</b>\n\n${message}`;
+  const text = `<b>${escapeHtml(title)}</b>\n\n${escapeHtml(message)}`;
 
   const replyMarkup = link
     ? { inline_keyboard: [[{ text: '📋 Переглянути', url: `${appUrl}${link}` }]] }
@@ -941,7 +975,10 @@ export async function notifyManagerLowStock(
     '',
     ...products
       .slice(0, 20)
-      .map((p) => `• <b>${p.code}</b> ${p.name.slice(0, 50)} — <b>${p.quantity}</b> шт.`),
+      .map(
+        (p) =>
+          `• <b>${escapeHtml(p.code)}</b> ${escapeHtml(p.name.slice(0, 50))} — <b>${p.quantity}</b> шт.`,
+      ),
   ];
   if (products.length > 20) lines.push(`...та ще ${products.length - 20}`);
   lines.push('', `${process.env.APP_URL || ''}/admin/products?lowStock=1`);
@@ -1030,7 +1067,7 @@ export async function notifyManagerOversoldAlert(args: {
       .slice(0, 10)
       .map(
         (i) =>
-          `• <b>${i.code}</b>${i.name ? ` ${i.name.slice(0, 40)}` : ''} — потрібно ${i.requested}, є ${i.available}`,
+          `• <b>${escapeHtml(i.code)}</b>${i.name ? ` ${escapeHtml(i.name.slice(0, 40))}` : ''} — потрібно ${i.requested}, є ${i.available}`,
       ),
   ];
   if (args.items.length > 10) lines.push(`...та ще ${args.items.length - 10} позицій`);
@@ -1157,11 +1194,11 @@ export async function notifyManagerFeedback(data: {
   const lines = [
     `${icon} <b>${label}</b>`,
     '',
-    `👤 ${data.name}`,
-    data.phone ? `📱 ${data.phone}` : '',
-    data.email ? `📧 ${data.email}` : '',
-    data.subject ? `📋 ${data.subject}` : '',
-    `💬 ${data.message.slice(0, 300)}`,
+    `👤 ${escapeHtml(data.name)}`,
+    data.phone ? `📱 ${escapeHtml(data.phone)}` : '',
+    data.email ? `📧 ${escapeHtml(data.email)}` : '',
+    data.subject ? `📋 ${escapeHtml(data.subject)}` : '',
+    `💬 ${escapeHtml(data.message.slice(0, 300))}`,
   ].filter(Boolean);
 
   try {
@@ -1301,9 +1338,9 @@ async function handleInlineQuery(queryId: string, query: string) {
     id: String(p.id),
     title: p.name,
     description: `${p.code} — ${Number(p.priceRetail).toFixed(2)} ₴`,
-    thumb_url: p.imagePath ? `${appUrl}${p.imagePath}` : undefined,
+    thumbnail_url: p.imagePath ? `${appUrl}${p.imagePath}` : undefined,
     input_message_content: {
-      message_text: `<b>${p.name}</b>\nКод: ${p.code}\nЦіна: ${Number(p.priceRetail).toFixed(2)} ₴\n\n${appUrl}/product/${p.slug}?${botUtm('inline_query')}`,
+      message_text: `<b>${escapeHtml(p.name)}</b>\nКод: ${escapeHtml(p.code)}\nЦіна: ${Number(p.priceRetail).toFixed(2)} ₴\n\n${appUrl}/product/${p.slug}?${botUtm('inline_query')}`,
       parse_mode: 'HTML',
     },
   }));
@@ -1471,7 +1508,7 @@ async function handleWholesalePrices(chatId: number) {
   for (const p of products) {
     const retail = Number(p.priceRetail).toFixed(2);
     const wholesale = p.priceWholesale ? Number(p.priceWholesale).toFixed(2) : retail;
-    text += `<b>${p.name}</b>\nРоздріб: ${retail} ₴ → <b>Опт: ${wholesale} ₴</b>\n\n`;
+    text += `<b>${escapeHtml(p.name)}</b>\nРоздріб: ${retail} ₴ → <b>Опт: ${wholesale} ₴</b>\n\n`;
   }
 
   await sendMessage(chatId, text, {

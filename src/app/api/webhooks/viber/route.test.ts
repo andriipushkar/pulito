@@ -10,6 +10,7 @@ vi.mock('@/services/viber', () => ({
 }));
 
 import { POST } from './route';
+import { logger } from '@/lib/logger';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -67,7 +68,9 @@ describe('POST /api/webhooks/viber', () => {
   });
 
   it('should handle async processing error gracefully', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Async failures are logged via logger.error (message + structured error),
+    // not console.error; the request still returns 200 (event was accepted).
+    const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
     mockHandleViberEvent.mockRejectedValue(new Error('processing failed'));
 
     const request = new NextRequest('http://localhost/api/webhooks/viber', {
@@ -79,11 +82,15 @@ describe('POST /api/webhooks/viber', () => {
     const res = await POST(request);
     expect(res.status).toBe(200);
     await new Promise((r) => setTimeout(r, 50));
-    expect(consoleSpy).toHaveBeenCalledWith('Viber processing error:', expect.any(Error));
-    consoleSpy.mockRestore();
+    expect(loggerSpy).toHaveBeenCalledWith(
+      'Viber processing error',
+      expect.objectContaining({ error: 'processing failed' }),
+    );
+    loggerSpy.mockRestore();
   });
 
-  it('should always return 200 even on parse error', async () => {
+  it('returns 500 on parse error (no longer masks failures with a blanket 200)', async () => {
+    const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
     const request = new NextRequest('http://localhost/api/webhooks/viber', {
       method: 'POST',
       body: 'invalid',
@@ -94,7 +101,9 @@ describe('POST /api/webhooks/viber', () => {
     mockVerifyViberSignature.mockReturnValue(true);
 
     const res = await POST(request);
-    // The route catches errors and returns status 0
-    expect(res.status).toBe(200);
+    // Bad JSON is a genuine error — surface 500 so Viber retries (the old
+    // catch-all 200 silently swallowed malformed/failed deliveries).
+    expect(res.status).toBe(500);
+    loggerSpy.mockRestore();
   });
 });

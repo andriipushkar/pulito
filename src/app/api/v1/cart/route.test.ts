@@ -145,14 +145,14 @@ describe('PUT /api/v1/cart', () => {
     expect(res.status).toBe(200);
   });
 
-  it('returns 400 when items is not array', async () => {
+  it('returns 422 when items is not array', async () => {
     const req = new NextRequest('http://localhost/api/v1/cart', {
       method: 'PUT',
       body: JSON.stringify({ items: 'bad' }),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await PUT(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 500 on error', async () => {

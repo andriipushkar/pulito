@@ -1,4 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
 
 vi.mock('@/middleware/auth', () => {
   const withUser = (_req: unknown, ctx?: Record<string, unknown>) => ({
@@ -41,13 +47,13 @@ describe('GET /api/v1/admin/analytics/segments', () => {
 
   it('returns segments on success', async () => {
     vi.mocked(getCustomerSegmentation).mockResolvedValue({ segments: [] } as any);
-    const res = await (GET as any)();
+    const res = await (GET as any)(new Request('http://localhost/api'));
     expect(res.status).toBe(200);
   });
 
   it('returns 500 on error', async () => {
     vi.mocked(getCustomerSegmentation).mockRejectedValue(new Error('fail'));
-    const res = await (GET as any)();
+    const res = await (GET as any)(new Request('http://localhost/api'));
     expect(res.status).toBe(500);
   });
 });

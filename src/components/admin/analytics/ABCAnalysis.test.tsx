@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockGet = vi.fn();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...args: any[]) => mockGet(...args) } }));
 vi.mock('@/components/ui/Spinner', () => ({ default: () => <div data-testid="spinner" /> }));
@@ -19,13 +33,25 @@ import ABCAnalysis from './ABCAnalysis';
 
 const mockData = {
   products: [
-    { productId: 1, productCode: 'P1', productName: 'Product 1', revenue: 1000, quantity: 10, orders: 5, revenuePercent: 80, cumulativePercent: 80, category: 'A' as const },
+    {
+      productId: 1,
+      productCode: 'P1',
+      productName: 'Product 1',
+      revenue: 1000,
+      quantity: 10,
+      orders: 5,
+      revenuePercent: 80,
+      cumulativePercent: 80,
+      category: 'A' as const,
+    },
   ],
   summary: { A: 5, B: 10, C: 20, totalRevenue: 5000, totalProducts: 35 },
 };
 
 describe('ABCAnalysis', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('shows spinner while loading', () => {
     mockGet.mockReturnValue(new Promise(() => {}));

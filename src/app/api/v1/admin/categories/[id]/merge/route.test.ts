@@ -16,14 +16,25 @@ vi.mock('@/middleware/auth', () => ({
   withRole:
     (..._roles: string[]) =>
     (handler: any) =>
-      handler,
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
 }));
+const mergeTx = {
+  product: { updateMany: vi.fn().mockResolvedValue({ count: 5 }) },
+  category: {
+    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    delete: vi.fn().mockResolvedValue({}),
+  },
+};
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     category: { findUnique: vi.fn(), updateMany: vi.fn(), update: vi.fn(), delete: vi.fn() },
     product: { updateMany: vi.fn() },
+    $queryRaw: vi.fn().mockResolvedValue([{ ok: true }]),
+    $transaction: vi.fn(async (arg: any) => (typeof arg === 'function' ? arg(mergeTx) : undefined)),
   },
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/cache', () => ({
   cacheInvalidate: vi.fn(),
 }));

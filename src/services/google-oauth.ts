@@ -23,6 +23,8 @@ interface GoogleTokenResponse {
 interface GoogleUserProfile {
   id: string;
   email: string;
+  /** Whether Google has verified ownership of this email. */
+  emailVerified: boolean;
   name: string;
   picture?: string;
 }
@@ -74,9 +76,7 @@ export function generateOAuthState(returnUrl?: string): string {
   return `${payload}.${signature}`;
 }
 
-export type OAuthStateVerification =
-  | { valid: true; returnUrl: string | null }
-  | { valid: false };
+export type OAuthStateVerification = { valid: true; returnUrl: string | null } | { valid: false };
 
 /**
  * Verify a signed OAuth state: HMAC integrity + age check.
@@ -184,6 +184,8 @@ export async function getGoogleUserProfile(accessToken: string): Promise<GoogleU
   return {
     id: data.id,
     email: data.email,
+    // userinfo v2 returns `verified_email`; OIDC returns `email_verified`.
+    emailVerified: data.verified_email === true || data.email_verified === true,
     name: data.name,
     picture: data.picture,
   };

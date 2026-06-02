@@ -354,7 +354,17 @@ export default function SearchBar() {
           aria-expanded={isOpen}
           aria-activedescendant={activeIndex >= 0 ? `search-suggestion-${activeIndex}` : undefined}
           aria-autocomplete="list"
-          aria-controls="search-suggestions"
+          // Point aria-controls at whichever dropdown is actually open (results
+          // listbox vs the history/trending suggestions), or omit it when none
+          // is shown — previously it always referenced the results listbox even
+          // when the suggestions dropdown was the visible one.
+          aria-controls={
+            showResultsDropdown
+              ? 'search-suggestions'
+              : showSuggestionsDropdown && hasSuggestionContent
+                ? 'search-suggestions-alt'
+                : undefined
+          }
           onFocus={handleFocus}
         />
         <svg
@@ -399,7 +409,7 @@ export default function SearchBar() {
 
       {/* Розумні підказки: історія + нещодавно переглянуті + популярні */}
       {showSuggestionsDropdown && hasSuggestionContent && (
-        <div className={dropdownCls(mobileFullscreen)}>
+        <div id="search-suggestions-alt" role="listbox" className={dropdownCls(mobileFullscreen)}>
           {/* Історія пошуку */}
           {history.length > 0 && (
             <div className="p-2">

@@ -1216,13 +1216,13 @@ export default function AdminPublicationsPage() {
                               </button>
                             </>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => setPublishConfirmId(p.id)}
-                            >
-                              {t('retry')}
-                            </Button>
+                            // Fully published: re-publishing 409s, so no
+                            // row-level retry button. Per-channel retry of a
+                            // failed channel is available in the publication
+                            // details view.
+                            <span className="text-xs text-[var(--color-text-secondary)]">
+                              {statusLabel(p.status)}
+                            </span>
                           )}
                         </div>
                       </td>

@@ -20,6 +20,7 @@
   --color-bg-overlay: rgba(0, 0, 0, 0.5);
   --color-text: #212121;
   --color-text-secondary: #757575;
+  --color-text-tertiary: #9e9e9e;
   --color-border: #e0e0e0;
   --color-footer-bg: #0f172a;
 
@@ -59,6 +60,18 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scrollbar-gutter: stable;
+    /* iOS Safari інакше «роздуває» шрифт у текстових блоках у портреті
+       (text auto-inflation) — заголовок товару стає більшим і переноситься
+       на зайвий рядок, обрізаючись справа. Прибиваємо до 100% = як задано CSS,
+       щоб рендер був ідентичним на Android/iOS. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Захист від горизонтального overflow на вузьких екранах: жоден елемент
+     не повинен розтягувати сторінку вшир і давати «зсув»/обрізання контенту. */
+  body {
+    overflow-x: clip;
   }
 
   body {
@@ -441,6 +454,7 @@
   --color-bg-overlay: rgba(0, 0, 0, 0.65);
   --color-text: #f1f5f9;
   --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
   --color-border: #334155;
   --color-footer-bg: #050a18;
 
@@ -458,39 +472,11 @@
   --shadow-brand-lg: 0 8px 24px rgba(78, 163, 255, 0.4);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']):not([data-theme='dark']) {
-    --color-primary: #4ea3ff;
-    --color-primary-light: #82c0ff;
-    --color-primary-dark: #1565c0;
-    --color-primary-50: #0d2c4d;
-    --color-primary-100: #133a66;
-    --color-secondary: #ffd54f;
-    --color-accent: #ffb74d;
-    --color-danger: #ef5350;
-    --color-warning: #ffb74d;
-    --color-success: #66bb6a;
-    --color-info: #4ea3ff;
-
-    --color-bg: #0f172a;
-    --color-bg-secondary: #1e293b;
-    --color-bg-overlay: rgba(0, 0, 0, 0.65);
-    --color-text: #f1f5f9;
-    --color-text-secondary: #94a3b8;
-    --color-border: #334155;
-    --color-footer-bg: #050a18;
-
-    --color-discount: #ef5350;
-    --color-in-stock: #66bb6a;
-    --color-out-of-stock: #64748b;
-    --color-cta: #4ea3ff;
-  }
-
-  html:not([data-theme='light']):not([data-theme='dark']) .glass,
-  html:not([data-theme='light']):not([data-theme='dark']) .glass-nav {
-    background: rgba(15, 23, 42, 0.72);
-  }
-}
+/* Auto dark-mode for storefront visitors (prefers-color-scheme) was removed
+ * 2026-06-02 — the storefront palette isn't dark-mode-clean (many components use
+ * fixed Tailwind light shades), so OS-dark users saw a half-broken theme. The
+ * storefront is now always light. Dark stays available ONLY via the explicit
+ * admin ThemeToggle ([data-theme='dark']), which the owner opts into. */
 
 /* Print styles for orders and invoices */
 @media print {

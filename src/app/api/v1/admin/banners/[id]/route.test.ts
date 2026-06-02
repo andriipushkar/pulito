@@ -1,15 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 
 vi.mock('@/middleware/auth', () => ({
-  withRole: () => (handler: Function) =>
-    (req: unknown, ctx?: Record<string, unknown>) =>
-      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+  withRole: () => (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, {
+      user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' },
+      ...(ctx || {}),
+    }),
 }));
 vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    banner: { update: vi.fn(), delete: vi.fn() },
+    banner: {
+      update: vi.fn(),
+      delete: vi.fn(),
+      findUnique: vi.fn().mockResolvedValue(null),
+      count: vi.fn().mockResolvedValue(0),
+    },
   },
 }));
 
@@ -19,7 +36,9 @@ import { prisma } from '@/lib/prisma';
 const mockCtx = { params: Promise.resolve({ id: '1' }) };
 
 describe('PUT /api/v1/admin/banners/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates banner on success', async () => {
     vi.mocked(prisma.banner.update).mockResolvedValue({ id: 1 } as any);
@@ -58,8 +77,14 @@ describe('PUT /api/v1/admin/banners/[id]', () => {
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({
-        title: 'T', subtitle: 'S', imageDesktop: '/d.jpg', imageMobile: '/m.jpg',
-        buttonLink: '/link', buttonText: 'Click', isActive: false, sortOrder: 2,
+        title: 'T',
+        subtitle: 'S',
+        imageDesktop: '/d.jpg',
+        imageMobile: '/m.jpg',
+        buttonLink: '/link',
+        buttonText: 'Click',
+        isActive: false,
+        sortOrder: 2,
       }),
       headers: { 'Content-Type': 'application/json' },
     });
@@ -80,7 +105,9 @@ describe('PUT /api/v1/admin/banners/[id]', () => {
 });
 
 describe('DELETE /api/v1/admin/banners/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('deletes banner on success', async () => {
     vi.mocked(prisma.banner.delete).mockResolvedValue({} as any);

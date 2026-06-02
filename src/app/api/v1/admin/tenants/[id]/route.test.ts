@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/config/env', () => ({
@@ -34,6 +35,17 @@ vi.mock('@/services/tenant', () => ({
   getTenantById: vi.fn(),
   updateTenant: vi.fn(),
   deleteTenant: vi.fn(),
+  TenantError: class TenantError extends Error {
+    statusCode: number;
+    constructor(msg: string, code = 400) {
+      super(msg);
+      this.statusCode = code;
+    }
+  },
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/lib/prisma', () => ({
+  prisma: { tenant: { findUnique: vi.fn().mockResolvedValue({ id: 1, name: 'Old' }) } },
 }));
 vi.mock('@/validators/tenant', () => ({
   updateTenantSchema: {
@@ -121,7 +133,9 @@ describe('PATCH /api/v1/admin/tenants/[id]', () => {
   });
 
   it('returns 409 for unique constraint violation', async () => {
-    vi.mocked(updateTenant).mockRejectedValue(new Error('Unique constraint failed'));
+    vi.mocked(updateTenant).mockRejectedValue(
+      Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }),
+    );
 
     const req = new Request('http://localhost', {
       method: 'PATCH',
@@ -153,9 +167,9 @@ describe('DELETE /api/v1/admin/tenants/[id]', () => {
   });
 
   it('deletes a tenant', async () => {
-    vi.mocked(deleteTenant).mockResolvedValue(undefined as any);
+    vi.mocked(deleteTenant).mockResolvedValue({ deleted: true, userCount: 0 } as any);
 
-    const req = new Request('http://localhost', { method: 'DELETE' });
+    const req = new NextRequest('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req as any, { params: Promise.resolve({ id: '1' }) });
     const json = await res.json();
 

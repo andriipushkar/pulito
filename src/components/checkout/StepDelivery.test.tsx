@@ -3,9 +3,20 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
-}));
+// Passthrough for most namespaces, but resolve real orderLabels copy so the
+// delivery method labels (tl('deliveryMethod.x')) match production.
+vi.mock('next-intl', () => {
+  const orderLabels: Record<string, string> = {
+    'deliveryMethod.nova_poshta': 'Нова Пошта',
+    'deliveryMethod.ukrposhta': 'Укрпошта',
+    'deliveryMethod.pickup': 'Самовивіз',
+    'deliveryMethod.pallet': 'Палетна доставка',
+  };
+  return {
+    useTranslations: (ns?: string) => (key: string) =>
+      ns === 'orderLabels' ? (orderLabels[key] ?? key) : key,
+  };
+});
 vi.mock('@/components/ui/Input', () => ({
   default: ({ label, error, ...props }: any) => (
     <div>
@@ -115,6 +126,9 @@ describe('StepDelivery', () => {
       <StepDelivery data={{ deliveryMethod: 'ukrposhta' as any }} errors={{}} onChange={vi.fn()} />,
     );
     expect(getByText('Місто *')).toBeInTheDocument();
+    // Picker defaults to "відділення" (post office) mode; the courier-address
+    // input appears only after switching to "Кур'єром на адресу".
+    fireEvent.click(getByText(/Кур'єром на адресу/));
     expect(getByText(/Адреса \(вулиця/)).toBeInTheDocument();
   });
 
@@ -141,9 +155,11 @@ describe('StepDelivery', () => {
   });
 
   it('renders ukrposhta address input with placeholder', () => {
-    const { container } = render(
+    const { container, getByText } = render(
       <StepDelivery data={{ deliveryMethod: 'ukrposhta' as any }} errors={{}} onChange={vi.fn()} />,
     );
+    // Courier-address input (with the Хрещатик placeholder) only shows in address mode.
+    fireEvent.click(getByText(/Кур'єром на адресу/));
     const addressInput = container.querySelector('input[placeholder*="Хрещатик"]');
     expect(addressInput).toBeInTheDocument();
   });

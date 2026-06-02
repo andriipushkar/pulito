@@ -1,11 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/lib/prisma', () => ({
+  prisma: { staticPage: { findUnique: vi.fn().mockResolvedValue(null) } },
+}));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/services/static-page', () => ({
   updatePage: vi.fn(),
   deletePage: vi.fn(),
-  StaticPageError: class StaticPageError extends Error { statusCode = 400; },
+  StaticPageError: class StaticPageError extends Error {
+    statusCode = 400;
+  },
 }));
 
 import { PUT, DELETE } from './route';
@@ -14,7 +36,9 @@ import { updatePage, deletePage } from '@/services/static-page';
 const mockCtx = { user: { id: 1 }, params: Promise.resolve({ id: '1' }) };
 
 describe('PUT /api/v1/admin/pages/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates page on success', async () => {
     vi.mocked(updatePage).mockResolvedValue({ id: 1 } as any);
@@ -33,7 +57,10 @@ describe('PUT /api/v1/admin/pages/[id]', () => {
       body: JSON.stringify({ title: 'Updated' }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const res = await PUT(req as any, { user: { id: 1 }, params: Promise.resolve({ id: 'abc' }) } as any);
+    const res = await PUT(
+      req as any,
+      { user: { id: 1 }, params: Promise.resolve({ id: 'abc' }) } as any,
+    );
     expect(res.status).toBe(400);
   });
 
@@ -72,7 +99,9 @@ describe('PUT /api/v1/admin/pages/[id]', () => {
 });
 
 describe('DELETE /api/v1/admin/pages/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('deletes page on success', async () => {
     vi.mocked(deletePage).mockResolvedValue(undefined as any);

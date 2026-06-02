@@ -804,7 +804,9 @@ describe('updateOrderStatus', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           cancelledReason: 'Клієнт передумав',
-          cancelledBy: 'manager',
+          // cancelledBy records WHO cancelled (the changedBy user id, stringified),
+          // falling back to the change-source only when changedBy is null.
+          cancelledBy: '10',
         }),
       }),
     );

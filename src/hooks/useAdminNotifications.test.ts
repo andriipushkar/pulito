@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 
 let mockToken: string | null = 'test-token';
+const mockPost = vi.fn();
 vi.mock('@/lib/api-client', () => ({
   getAccessToken: () => mockToken,
+  // Hook hits /admin/sse-grant first to set the HttpOnly cookie the
+  // EventSource connection relies on; only connects when the grant succeeds.
+  apiClient: { post: (...args: unknown[]) => mockPost(...args) },
 }));
 
 import { useAdminNotifications } from './useAdminNotifications';
@@ -38,11 +42,19 @@ class MockEventSource {
   }
 }
 
+// Mount the hook and wait for the async grant → EventSource connection.
+async function mountConnected() {
+  const hook = renderHook(() => useAdminNotifications());
+  await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
+  return { ...hook, es: MockEventSource.instances[0] };
+}
+
 describe('useAdminNotifications', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     MockEventSource.instances = [];
     mockToken = 'test-token';
+    mockPost.mockResolvedValue({ success: true });
     (global as Record<string, unknown>).EventSource = MockEventSource;
   });
 
@@ -55,22 +67,29 @@ describe('useAdminNotifications', () => {
     expect(result.current.notifications).toEqual([]);
   });
 
-  it('connects to EventSource when token is present', () => {
-    renderHook(() => useAdminNotifications());
-    expect(MockEventSource.instances).toHaveLength(1);
-    expect(MockEventSource.instances[0].url).toContain('/api/v1/admin/notifications/stream');
-    expect(MockEventSource.instances[0].url).toContain('token=test-token');
+  it('connects to EventSource after grant succeeds', async () => {
+    const { es } = await mountConnected();
+    expect(es.url).toContain('/api/v1/admin/notifications/stream');
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/admin/sse-grant', {});
   });
 
   it('does not connect when token is null', () => {
     mockToken = null;
     renderHook(() => useAdminNotifications());
     expect(MockEventSource.instances).toHaveLength(0);
+    expect(mockPost).not.toHaveBeenCalled();
   });
 
-  it('receives new_order notifications', () => {
-    const { result } = renderHook(() => useAdminNotifications());
-    const es = MockEventSource.instances[0];
+  it('does not connect when grant is denied', async () => {
+    mockPost.mockResolvedValue({ success: false });
+    renderHook(() => useAdminNotifications());
+    // Give the async connect() a tick to resolve the (denied) grant.
+    await act(async () => {});
+    expect(MockEventSource.instances).toHaveLength(0);
+  });
+
+  it('receives new_order notifications', async () => {
+    const { result, es } = await mountConnected();
 
     act(() => {
       es.emit('new_order', { latest: { orderNumber: '42', totalAmount: 1500 } });
@@ -82,9 +101,8 @@ describe('useAdminNotifications', () => {
     expect(result.current.notifications[0].message).toContain('1500');
   });
 
-  it('receives new_review notifications', () => {
-    const { result } = renderHook(() => useAdminNotifications());
-    const es = MockEventSource.instances[0];
+  it('receives new_review notifications', async () => {
+    const { result, es } = await mountConnected();
 
     act(() => {
       es.emit('new_review', { count: 5 });
@@ -95,9 +113,8 @@ describe('useAdminNotifications', () => {
     expect(result.current.notifications[0].message).toContain('5');
   });
 
-  it('dismiss removes a specific notification', () => {
-    const { result } = renderHook(() => useAdminNotifications());
-    const es = MockEventSource.instances[0];
+  it('dismiss removes a specific notification', async () => {
+    const { result, es } = await mountConnected();
 
     act(() => {
       es.emit('new_order', { latest: { orderNumber: '1', totalAmount: 100 } });
@@ -112,9 +129,8 @@ describe('useAdminNotifications', () => {
     expect(result.current.notifications).toHaveLength(0);
   });
 
-  it('dismissAll clears all notifications', () => {
-    const { result } = renderHook(() => useAdminNotifications());
-    const es = MockEventSource.instances[0];
+  it('dismissAll clears all notifications', async () => {
+    const { result, es } = await mountConnected();
 
     act(() => {
       es.emit('new_order', { latest: { orderNumber: '1', totalAmount: 100 } });
@@ -130,9 +146,8 @@ describe('useAdminNotifications', () => {
     expect(result.current.notifications).toHaveLength(0);
   });
 
-  it('sets connected state on open event', () => {
-    const { result } = renderHook(() => useAdminNotifications());
-    const es = MockEventSource.instances[0];
+  it('sets connected state on open event', async () => {
+    const { result, es } = await mountConnected();
 
     act(() => {
       es.emit('open');
@@ -141,18 +156,16 @@ describe('useAdminNotifications', () => {
     expect(result.current.connected).toBe(true);
   });
 
-  it('closes EventSource on unmount', () => {
-    const { unmount } = renderHook(() => useAdminNotifications());
-    const es = MockEventSource.instances[0];
+  it('closes EventSource on unmount', async () => {
+    const { unmount, es } = await mountConnected();
 
     unmount();
 
     expect(es.closed).toBe(true);
   });
 
-  it('limits notifications to 20', () => {
-    const { result } = renderHook(() => useAdminNotifications());
-    const es = MockEventSource.instances[0];
+  it('limits notifications to 20', async () => {
+    const { result, es } = await mountConnected();
 
     act(() => {
       for (let i = 0; i < 25; i++) {

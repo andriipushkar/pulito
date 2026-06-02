@@ -243,25 +243,20 @@ async function main() {
   rows.push({
     group: PAY,
     module: 'LiqPay',
-    status:
-      (has('payment_liqpay_public_key') || hasEnv('LIQPAY_PUBLIC_KEY')) &&
-      (has('payment_liqpay_private_key') || hasEnv('LIQPAY_PRIVATE_KEY'))
-        ? 'ok'
-        : 'empty',
+    status: has('payment_liqpay_public_key') && has('payment_liqpay_private_key') ? 'ok' : 'empty',
     details: '/admin/payment-settings → LiqPay keys (картки Visa/MC)',
   });
   rows.push({
     group: PAY,
     module: 'MonoBank',
-    status: has('payment_monobank_token') || hasEnv('MONOBANK_TOKEN') ? 'ok' : 'empty',
+    status: has('payment_monobank_token') ? 'ok' : 'empty',
     details: '/admin/payment-settings → MonoBank token',
   });
   rows.push({
     group: PAY,
     module: 'WayForPay',
     status:
-      (has('payment_wayforpay_merchant_account') || hasEnv('WAYFORPAY_MERCHANT_ACCOUNT')) &&
-      (has('payment_wayforpay_secret_key') || hasEnv('WAYFORPAY_SECRET_KEY'))
+      has('payment_wayforpay_merchant_account') && has('payment_wayforpay_secret_key')
         ? 'ok'
         : 'empty',
     details: '/admin/payment-settings → WayForPay keys (альтернатива LiqPay)',

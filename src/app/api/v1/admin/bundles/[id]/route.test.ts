@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 
 vi.mock('@/config/env', () => ({
   env: {
@@ -16,8 +17,10 @@ vi.mock('@/middleware/auth', () => ({
   withRole:
     (..._roles: string[]) =>
     (handler: any) =>
-      handler,
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     bundle: { findUnique: vi.fn() },

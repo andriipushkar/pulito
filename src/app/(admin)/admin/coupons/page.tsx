@@ -216,6 +216,32 @@ function CouponToggle({ coupon, onToggled }: { coupon: Coupon; onToggled: () => 
   );
 }
 
+function CouponDelete({ coupon, onDeleted }: { coupon: Coupon; onDeleted: () => void }) {
+  const t = useTranslations('admin.couponsPage');
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        if (!window.confirm(t('deleteConfirm', { code: coupon.code }))) return;
+        setBusy(true);
+        const res = await apiClient.delete(`/api/v1/admin/coupons/${coupon.id}`);
+        setBusy(false);
+        if (res.success) {
+          toast.success(t('deletedToast'));
+          onDeleted();
+        } else {
+          toast.error(res.error || t('errorGeneric'));
+        }
+      }}
+      className="text-xs font-medium text-[var(--color-danger)] hover:underline disabled:opacity-50"
+    >
+      {t('deleteBtn')}
+    </button>
+  );
+}
+
 function CouponCreateForm({
   onCancel,
   onCreated,

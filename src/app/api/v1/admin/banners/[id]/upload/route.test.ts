@@ -1,7 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => ({
+  withRole: () => (handler: Function) => (req: unknown, ctx?: Record<string, unknown>) =>
+    handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: { banner: { update: vi.fn() } },
 }));
@@ -13,13 +26,20 @@ import { prisma } from '@/lib/prisma';
 const mockCtx = { params: Promise.resolve({ id: '1' }) };
 
 // Minimal valid JPEG: starts with FF D8 FF E0 magic bytes
-const jpegBytes = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01]);
+const jpegBytes = new Uint8Array([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+]);
 
 describe('POST /api/v1/admin/banners/[id]/upload', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('uploads image on success', async () => {
-    vi.mocked(prisma.banner.update).mockResolvedValue({ id: 1, imageDesktop: '/uploads/banners/test.jpg' } as any);
+    vi.mocked(prisma.banner.update).mockResolvedValue({
+      id: 1,
+      imageDesktop: '/uploads/banners/test.jpg',
+    } as any);
     const file = new File([jpegBytes], 'test.jpg', { type: 'image/jpeg' });
     const formData = new FormData();
     formData.append('image', file);

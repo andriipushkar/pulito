@@ -20,11 +20,15 @@ vi.mock('@/middleware/auth', () => ({
 }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    siteSetting: { findUnique: vi.fn(), upsert: vi.fn() },
+    siteSetting: { findUnique: vi.fn(), findMany: vi.fn(), upsert: vi.fn() },
   },
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/cache', () => ({
   cacheInvalidate: vi.fn(),
+}));
+vi.mock('@/services/settings', () => ({
+  invalidateSettingsCache: vi.fn(),
 }));
 vi.mock('@/utils/api-response', () => ({
   successResponse: (data: any, status = 200) => Response.json(data, { status }),
@@ -40,9 +44,10 @@ describe('GET /api/v1/admin/maintenance', () => {
   });
 
   it('returns maintenance status on success', async () => {
-    (prisma.siteSetting.findUnique as any)
-      .mockResolvedValueOnce({ value: 'true' })
-      .mockResolvedValueOnce({ value: 'We are updating' });
+    (prisma.siteSetting.findMany as any).mockResolvedValue([
+      { key: 'maintenance_mode', value: 'true' },
+      { key: 'maintenance_message', value: 'We are updating' },
+    ]);
 
     const res = await (GET as any)();
     const data = await res.json();
@@ -53,7 +58,7 @@ describe('GET /api/v1/admin/maintenance', () => {
   });
 
   it('returns 500 on error', async () => {
-    (prisma.siteSetting.findUnique as any).mockRejectedValue(new Error('fail'));
+    (prisma.siteSetting.findMany as any).mockRejectedValue(new Error('fail'));
 
     const res = await (GET as any)();
 

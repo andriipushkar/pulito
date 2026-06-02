@@ -20,7 +20,11 @@ export const GET = withRole('admin')(async () => {
         },
       },
     });
-    return successResponse(subscriptions);
+    // The secret is encrypted at rest and revealed in plaintext only once at
+    // creation. Returning it here just exposed AES ciphertext (useless for HMAC
+    // validation, and needless exposure) — strip it from the list payload.
+    const safe = subscriptions.map(({ secret: _secret, ...rest }) => rest);
+    return successResponse(safe);
   } catch (error) {
     console.error('[Webhooks GET]', error);
     return errorResponse('Помилка', 500);

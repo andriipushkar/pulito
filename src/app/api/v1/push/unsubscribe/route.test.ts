@@ -1,10 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (h) => h,
+  RateLimitError: class RateLimitError extends Error {
+    statusCode = 429;
+    retryAfter;
+    constructor(m, s, r) {
+      super(m);
+      this.statusCode = s || 429;
+      this.retryAfter = r;
+    }
+  },
+  RATE_LIMITS: new Proxy(
+    {},
+    { get: () => ({ limit: 100, windowSeconds: 60, prefix: 'test', max: 1e9, windowSec: 60 }) },
+  ),
+}));
 import { NextRequest } from 'next/server';
 
 vi.mock('@/middleware/auth', () => ({
-  withAuth: (handler: Function) => (...args: unknown[]) => handler(...args),
-  withOptionalAuth: (handler: Function) => (...args: unknown[]) => handler(...args),
-  withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args),
+  withAuth:
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
+  withOptionalAuth:
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+    (...args: unknown[]) =>
+      handler(...args),
 }));
 
 vi.mock('@/services/push', () => ({
@@ -36,10 +69,10 @@ describe('POST /api/v1/push/unsubscribe', () => {
     expect(json.data.unsubscribed).toBe(true);
   });
 
-  it('returns 400 when endpoint missing', async () => {
+  it('returns 422 when endpoint missing', async () => {
     const req = makeReq({});
     const res = await POST(req, { user: { id: 1 }, params: Promise.resolve({}) } as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 500 on error', async () => {

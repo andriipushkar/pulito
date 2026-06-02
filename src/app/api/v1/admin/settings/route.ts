@@ -6,7 +6,7 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { invalidateSettingsCache } from '@/services/settings';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
-import { logger } from '@/lib/logger';
+import { logger, setLogLevel } from '@/lib/logger';
 import { DEFAULT_SETTINGS } from '@/types/settings';
 
 // Keys that grant access to third-party services. We mask the tail of the
@@ -25,6 +25,7 @@ const SENSITIVE_SETTING_KEYS = new Set([
   'recaptcha_secret_key',
   'anthropic_api_key',
   'gemini_api_key',
+  'removebg_api_key',
 ]);
 
 // Whitelist of keys this endpoint will accept on PUT. Other key namespaces
@@ -101,6 +102,25 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) =
       'session_timeout_minutes',
     ]);
 
+    // Self-lockout guard: a non-empty admin IP whitelist that omits the
+    // caller's own IP would immediately bounce them out of /admin (proxy.ts).
+    // Reject the save with a clear message unless the caller is on a local IP
+    // (on-box) or already in the list they're submitting.
+    if (typeof body.admin_allowed_ips === 'string' && body.admin_allowed_ips.trim()) {
+      const callerIp = getClientIp(request);
+      const LOCAL_IPS = new Set(['127.0.0.1', '::1', 'localhost', '']);
+      const list = body.admin_allowed_ips
+        .split(',')
+        .map((ip) => ip.trim())
+        .filter(Boolean);
+      if (!LOCAL_IPS.has(callerIp) && !list.includes(callerIp)) {
+        return errorResponse(
+          `Додайте свою поточну IP (${callerIp || 'невідома'}) до списку, інакше втратите доступ до адмінки`,
+          400,
+        );
+      }
+    }
+
     for (const [key, value] of entries) {
       if (!ALLOWED_SETTING_KEYS.has(key)) {
         return errorResponse(`Ключ "${key}" не дозволено в загальних налаштуваннях`, 400);
@@ -125,6 +145,12 @@ export const PUT = withRole2fa('admin')(async (request: NextRequest, { user }) =
     }
 
     await invalidateSettingsCache();
+
+    // Apply log level live so the change takes effect without a restart.
+    if (typeof body.log_level === 'string' && body.log_level) {
+      setLogLevel(body.log_level);
+    }
+
     // Settings feed the storefront layout (TopBar, Header, Footer); without
     // this, ISR keeps serving cached HTML until each route's revalidate window.
     revalidatePath('/', 'layout');

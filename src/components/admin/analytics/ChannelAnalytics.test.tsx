@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockGet = vi.fn();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...a: any[]) => mockGet(...a) } }));
 vi.mock('@/components/ui/Spinner', () => ({ default: () => <div data-testid="spinner" /> }));
@@ -15,7 +29,10 @@ const mockData = {
     { source: 'telegram_bot', orders: 5, revenue: 2000 },
     { source: 'custom_source', orders: 2, revenue: 500 },
   ],
-  byUtmSource: [{ utmSource: 'google', orders: 8, revenue: 4000 }, { utmSource: null, orders: 2, revenue: 500 }],
+  byUtmSource: [
+    { utmSource: 'google', orders: 8, revenue: 4000 },
+    { utmSource: null, orders: 2, revenue: 500 },
+  ],
   byUtmMedium: [{ utmMedium: 'cpc', orders: 6, revenue: 3000 }],
   byUtmCampaign: [{ utmCampaign: null, orders: 3, revenue: 1000 }],
   channelConversionRates: [
@@ -26,8 +43,12 @@ const mockData = {
 };
 
 describe('ChannelAnalytics', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
-  afterEach(() => { cleanup(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  afterEach(() => {
+    cleanup();
+  });
 
   it('shows spinner while loading', () => {
     mockGet.mockReturnValue(new Promise(() => {}));
@@ -84,7 +105,9 @@ describe('ChannelAnalytics', () => {
     });
 
     // Click UTM Source tab
-    const utmSourceBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'UTM Source');
+    const utmSourceBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'UTM Source',
+    );
     fireEvent.click(utmSourceBtn!);
 
     await waitFor(() => {
@@ -104,7 +127,9 @@ describe('ChannelAnalytics', () => {
       expect(container.textContent).toContain('Сайт');
     });
 
-    const utmMediumBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'UTM Medium');
+    const utmMediumBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'UTM Medium',
+    );
     fireEvent.click(utmMediumBtn!);
 
     await waitFor(() => {
@@ -121,7 +146,9 @@ describe('ChannelAnalytics', () => {
       expect(container.textContent).toContain('Сайт');
     });
 
-    const utmCampaignBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'UTM Campaign');
+    const utmCampaignBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'UTM Campaign',
+    );
     fireEvent.click(utmCampaignBtn!);
 
     await waitFor(() => {
@@ -138,7 +165,9 @@ describe('ChannelAnalytics', () => {
       expect(container.textContent).toContain('Сайт');
     });
 
-    const conversionBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Конверсія'));
+    const conversionBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Конверсія'),
+    );
     fireEvent.click(conversionBtn!);
 
     await waitFor(() => {
@@ -165,14 +194,16 @@ describe('ChannelAnalytics', () => {
       expect(container.textContent).toContain('Сайт');
     });
 
-    const conversionBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Конверсія'));
+    const conversionBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Конверсія'),
+    );
     fireEvent.click(conversionBtn!);
 
     await waitFor(() => {
       const spans = container.querySelectorAll('span.rounded');
-      const greenSpan = Array.from(spans).find(s => s.textContent === '5%');
-      const yellowSpan = Array.from(spans).find(s => s.textContent === '1.5%');
-      const redSpan = Array.from(spans).find(s => s.textContent === '0%');
+      const greenSpan = Array.from(spans).find((s) => s.textContent === '5%');
+      const yellowSpan = Array.from(spans).find((s) => s.textContent === '1.5%');
+      const redSpan = Array.from(spans).find((s) => s.textContent === '0%');
       expect(greenSpan?.className).toContain('bg-green-100');
       expect(yellowSpan?.className).toContain('bg-yellow-100');
       expect(redSpan?.className).toContain('bg-red-100');
@@ -186,7 +217,9 @@ describe('ChannelAnalytics', () => {
       expect(container.textContent).toContain('Сайт');
     });
 
-    const utmSourceBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'UTM Source');
+    const utmSourceBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'UTM Source',
+    );
     fireEvent.click(utmSourceBtn!);
 
     await waitFor(() => {
@@ -207,7 +240,9 @@ describe('ChannelAnalytics', () => {
       expect(container.textContent).toContain('Сайт');
     });
 
-    const utmSourceBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'UTM Source');
+    const utmSourceBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'UTM Source',
+    );
     fireEvent.click(utmSourceBtn!);
 
     await waitFor(() => {

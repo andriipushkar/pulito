@@ -63,13 +63,23 @@ export async function runReport(input: ReportInput): Promise<ReportRow[]> {
       .map(([dim, b]) => buildRow(input.metrics, dim, b.count, b.sum));
   }
 
-  const fieldMap: Record<Exclude<Dimension, 'monthYear'>, 'status' | 'clientType' | 'deliveryMethod' | 'paymentMethod'> = {
+  const fieldMap: Record<
+    Exclude<Dimension, 'monthYear'>,
+    'status' | 'clientType' | 'deliveryMethod' | 'paymentMethod'
+  > = {
     status: 'status',
     clientType: 'clientType',
     deliveryMethod: 'deliveryMethod',
     paymentMethod: 'paymentMethod',
   };
   const field = fieldMap[input.dimension];
+
+  // Revenue per group must not count cancelled/returned orders (the
+  // monthYear path already filters them in JS). Skip this only when the
+  // dimension IS status, where a 'cancelled' group is itself meaningful.
+  if (input.dimension !== 'status') {
+    where.status = { notIn: ['cancelled', 'returned'] };
+  }
 
   const grouped = await prisma.order.groupBy({
     by: [field],

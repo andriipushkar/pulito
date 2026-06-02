@@ -263,6 +263,50 @@ function AdminOrdersPageInner() {
     }
   };
 
+  // Bulk-print TTNs for the selected orders into one combined PDF.
+  const [isBulkPrinting, setIsBulkPrinting] = useState(false);
+  const handleBulkPrint = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkPrinting(true);
+    try {
+      const blob = await apiClient.download('/api/v1/admin/orders/print-ttn', {
+        method: 'POST',
+        body: { orderIds: Array.from(selectedIds), type: 'document' },
+      });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('bulkPrintError'));
+    } finally {
+      setIsBulkPrinting(false);
+    }
+  };
+
+  // Group the selected orders' TTNs into a Nova Poshta registry (реєстр).
+  const [isRegistering, setIsRegistering] = useState(false);
+  const handleAddToRegistry = async () => {
+    if (selectedIds.size === 0) return;
+    setIsRegistering(true);
+    const res = await apiClient.post<{ number: string; added: number; skipped: number }>(
+      '/api/v1/admin/scan-sheets',
+      { orderIds: Array.from(selectedIds) },
+    );
+    if (res.success && res.data) {
+      toast.success(
+        t('registryAdded', { number: res.data.number, added: res.data.added }),
+        res.data.skipped
+          ? { description: t('registrySkipped', { skipped: res.data.skipped }) }
+          : undefined,
+      );
+      setSelectedIds(new Set());
+      loadOrders();
+    } else {
+      toast.error(res.error || t('registryError'));
+    }
+    setIsRegistering(false);
+  };
+
   const [confirmStatusChange, setConfirmStatusChange] = useState<{
     orderId: number;
     status: string;
@@ -829,6 +873,28 @@ function AdminOrdersPageInner() {
                 title={t('createTtnNpTitle')}
               >
                 {t('createTtnNp')}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkPrint}
+              isLoading={isBulkPrinting}
+              disabled={isBulkTtnRunning || isBulkStatusRunning}
+              title={t('bulkPrintTitle')}
+            >
+              🖨 {t('bulkPrint')}
+            </Button>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAddToRegistry}
+                isLoading={isRegistering}
+                disabled={isBulkTtnRunning || isBulkStatusRunning}
+                title={t('addToRegistryTitle')}
+              >
+                📋 {t('addToRegistry')}
               </Button>
             )}
             <Button

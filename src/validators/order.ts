@@ -25,6 +25,7 @@ export const checkoutSchema = z.object({
   paymentMethod: z.enum(['cod', 'bank_transfer', 'online', 'card_prepay']),
   comment: z.string().max(500).optional(),
   loyaltyPointsToSpend: z.number().int().min(0).optional(),
+  couponCode: z.string().max(64).optional(),
   paymentProvider: z
     .enum(['liqpay', 'liqpay_paypart', 'monobank', 'wayforpay', 'apple_pay', 'google_pay'])
     .optional(),

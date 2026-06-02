@@ -1,12 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
-vi.mock('@/validators/personal-price', () => ({ updatePersonalPriceSchema: { safeParse: vi.fn() } }));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
+vi.mock('@/validators/personal-price', () => ({
+  updatePersonalPriceSchema: { safeParse: vi.fn() },
+}));
 vi.mock('@/services/personal-price', () => ({
   updatePersonalPrice: vi.fn(),
   deletePersonalPrice: vi.fn(),
-  PersonalPriceError: class PersonalPriceError extends Error { statusCode = 400; },
+  PersonalPriceError: class PersonalPriceError extends Error {
+    statusCode = 400;
+  },
 }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -22,7 +42,9 @@ import { updatePersonalPriceSchema } from '@/validators/personal-price';
 const mockCtx = { params: Promise.resolve({ id: '1' }) };
 
 describe('GET /api/v1/admin/personal-prices/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns personal price on success', async () => {
     vi.mocked(prisma.personalPrice.findUnique).mockResolvedValue({ id: 1 } as any);
@@ -40,10 +62,15 @@ describe('GET /api/v1/admin/personal-prices/[id]', () => {
 });
 
 describe('PUT /api/v1/admin/personal-prices/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('updates personal price on success', async () => {
-    vi.mocked(updatePersonalPriceSchema.safeParse).mockReturnValue({ success: true, data: { price: 60 } } as any);
+    vi.mocked(updatePersonalPriceSchema.safeParse).mockReturnValue({
+      success: true,
+      data: { price: 60 },
+    } as any);
     vi.mocked(updatePersonalPrice).mockResolvedValue({ id: 1 } as any);
     const req = new Request('http://localhost', {
       method: 'PUT',
@@ -55,7 +82,10 @@ describe('PUT /api/v1/admin/personal-prices/[id]', () => {
   });
 
   it('returns 500 on error', async () => {
-    vi.mocked(updatePersonalPriceSchema.safeParse).mockReturnValue({ success: true, data: { price: 60 } } as any);
+    vi.mocked(updatePersonalPriceSchema.safeParse).mockReturnValue({
+      success: true,
+      data: { price: 60 },
+    } as any);
     vi.mocked(updatePersonalPrice).mockRejectedValue(new Error('fail'));
     const req = new Request('http://localhost', {
       method: 'PUT',
@@ -68,7 +98,9 @@ describe('PUT /api/v1/admin/personal-prices/[id]', () => {
 });
 
 describe('DELETE /api/v1/admin/personal-prices/[id]', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('deletes personal price on success', async () => {
     vi.mocked(deletePersonalPrice).mockResolvedValue(undefined as any);
@@ -100,7 +132,9 @@ describe('DELETE /api/v1/admin/personal-prices/[id]', () => {
 });
 
 describe('GET /api/v1/admin/personal-prices/[id] - edge cases', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns 400 for non-numeric id', async () => {
     const req = new Request('http://localhost');
@@ -117,7 +151,9 @@ describe('GET /api/v1/admin/personal-prices/[id] - edge cases', () => {
 });
 
 describe('PUT /api/v1/admin/personal-prices/[id] - edge cases', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns 400 for non-numeric id', async () => {
     const req = new Request('http://localhost', {
@@ -130,7 +166,10 @@ describe('PUT /api/v1/admin/personal-prices/[id] - edge cases', () => {
   });
 
   it('returns 400 on validation failure', async () => {
-    vi.mocked(updatePersonalPriceSchema.safeParse).mockReturnValue({ success: false, error: { issues: [{ message: 'invalid' }] } } as any);
+    vi.mocked(updatePersonalPriceSchema.safeParse).mockReturnValue({
+      success: false,
+      error: { issues: [{ message: 'invalid' }] },
+    } as any);
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ price: -1 }),
@@ -142,7 +181,10 @@ describe('PUT /api/v1/admin/personal-prices/[id] - edge cases', () => {
 
   it('returns PersonalPriceError status on PersonalPriceError', async () => {
     const { PersonalPriceError } = await import('@/services/personal-price');
-    vi.mocked(updatePersonalPriceSchema.safeParse).mockReturnValue({ success: true, data: { price: 60 } } as any);
+    vi.mocked(updatePersonalPriceSchema.safeParse).mockReturnValue({
+      success: true,
+      data: { price: 60 },
+    } as any);
     vi.mocked(updatePersonalPrice).mockRejectedValue(new (PersonalPriceError as any)('conflict'));
     const req = new Request('http://localhost', {
       method: 'PUT',

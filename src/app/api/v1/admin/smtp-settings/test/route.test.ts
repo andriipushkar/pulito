@@ -122,6 +122,8 @@ describe('POST /api/v1/admin/smtp-settings/test', () => {
     const json = await res.json();
 
     expect(json.data.success).toBe(false);
-    expect(json.data.error).toContain('Connection refused');
+    // Raw connection-error strings are not leaked (they expose internal
+    // network detail); route returns a generic message instead.
+    expect(json.data.error).toContain("Не вдалося з'єднатися з SMTP-сервером");
   });
 });

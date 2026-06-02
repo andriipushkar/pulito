@@ -12,7 +12,13 @@ const cdnUrl = process.env.CDN_URL || '';
 // so the Dockerfile opts in and everyone else gets the clean default.
 const standalone = process.env.NEXT_BUILD_STANDALONE === '1';
 
+// Atomic deploys build into a staging dir (NEXT_DIST_DIR=.next-staging) which is
+// then renamed over .next in one mv. `next build` and `next start` both read
+// distDir from here, so the same env var drives both. Defaults to .next.
+const distDir = process.env.NEXT_DIST_DIR || '.next';
+
 const nextConfig: NextConfig = {
+  distDir,
   ...(standalone && { output: 'standalone' as const }),
   ...(cdnUrl && { assetPrefix: cdnUrl }),
   poweredByHeader: false,
@@ -63,6 +69,11 @@ const nextConfig: NextConfig = {
     // (exit 137) that left a half-written .next and took the site down on
     // restart. 2 workers keeps the memory ceiling safe at a small time cost.
     cpus: 2,
+    // Trade a little compile time for a much lower webpack memory ceiling.
+    // The compile phase peaked ~6GB RSS on a 7.6GB box and thrashed swap
+    // (a deploy ran ~40 min); this flag keeps webpack from holding the full
+    // module graph in memory at once. Output is unchanged.
+    webpackMemoryOptimizations: true,
   },
   async headers() {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';

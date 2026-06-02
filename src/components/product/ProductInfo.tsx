@@ -1,14 +1,34 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { toast } from 'sonner';
+import { fbqTrack } from '@/lib/fbpixel';
 import { Link } from '@/i18n/navigation';
 import Badge from '@/components/ui/Badge';
+import { badgeTypeLabel } from '@/utils/badgeLabel';
 import PriceDisplay from './PriceDisplay';
 import QuantitySelector from './QuantitySelector';
 import ShareButtons from './ShareButtons';
-import { Heart, Cart } from '@/components/icons';
+import { Heart, HeartFilled, Cart } from '@/components/icons';
+import { apiClient } from '@/lib/api-client';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
+
+const WISHLIST_STORAGE_KEY = 'pulito-wishlist';
+function readLocalWishlist(): number[] {
+  try {
+    const raw = localStorage.getItem(WISHLIST_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+function writeLocalWishlist(ids: number[]) {
+  try {
+    localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(ids));
+  } catch {}
+}
 import { useSettings } from '@/hooks/useSettings';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
 import SubscribeButton from './SubscribeButton';
@@ -100,6 +120,66 @@ export default function ProductInfo({ product }: ProductInfoProps) {
   const hideQty =
     (product as { hideQuantity?: boolean }).hideQuantity || settings.hide_all_quantity === '1';
 
+  // Meta Pixel ViewContent — completes the browser funnel (PageView was the
+  // only event firing). Feeds retargeting audiences + ad optimization.
+  useEffect(() => {
+    fbqTrack('ViewContent', {
+      content_ids: [product.code ?? String(product.id)],
+      content_type: 'product',
+      value: Number(product.priceRetail),
+      currency: 'UAH',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
+
+  // Wishlist toggle for the PDP — the button existed but did nothing. Mirrors
+  // ProductCard: server-backed for logged-in users, localStorage for guests.
+  const [isWished, setIsWished] = useState(false);
+  const [wishBusy, setWishBusy] = useState(false);
+  useEffect(() => {
+    if (user) {
+      apiClient
+        .get<{ wishlisted: boolean }>(`/api/v1/me/wishlists/default/items/${product.id}`)
+        .then((res) => {
+          if (res.success && res.data) setIsWished(res.data.wishlisted);
+        })
+        .catch(() => {});
+    } else {
+      setIsWished(readLocalWishlist().includes(product.id));
+    }
+  }, [user, product.id]);
+
+  const handleToggleWishlist = async () => {
+    if (wishBusy) return;
+    const next = !isWished;
+    setIsWished(next);
+    if (user) {
+      setWishBusy(true);
+      try {
+        const res = next
+          ? await apiClient.post(`/api/v1/me/wishlists/default/items/${product.id}`)
+          : await apiClient.delete(`/api/v1/me/wishlists/default/items/${product.id}`);
+        if (!res.success) {
+          setIsWished(!next);
+          toast.error(res.error || 'Не вдалося оновити обране');
+        } else {
+          toast.success(next ? 'Додано в обране' : 'Видалено з обраного');
+        }
+      } catch {
+        setIsWished(!next);
+        toast.error('Не вдалося оновити обране');
+      } finally {
+        setWishBusy(false);
+      }
+    } else {
+      const ids = readLocalWishlist();
+      writeLocalWishlist(
+        next ? [...new Set([...ids, product.id])] : ids.filter((id) => id !== product.id),
+      );
+      toast.success(next ? 'Додано в обране' : 'Видалено з обраного');
+    }
+  };
+
   const handleAddToCart = () => {
     if (!inStock) return;
     addItem({
@@ -122,6 +202,13 @@ export default function ProductInfo({ product }: ProductInfoProps) {
       imagePath: mainImage,
       quantity,
       maxQuantity: effectiveQuantity,
+    });
+    toast.success('Додано в кошик');
+    fbqTrack('AddToCart', {
+      value: effectivePriceRetail,
+      currency: 'UAH',
+      content_type: 'product',
+      content_ids: [activeVariant?.sku ?? product.code ?? String(product.id)],
     });
   };
 
@@ -146,7 +233,7 @@ export default function ProductInfo({ product }: ProductInfoProps) {
           )}
           {product.brand && (
             <Link
-              href={`/catalog?brand=${product.brand.slug}`}
+              href={`/brand/${product.brand.slug}`}
               className="text-sm font-medium text-[var(--color-primary)] hover:underline"
             >
               {product.brand.name}
@@ -154,7 +241,7 @@ export default function ProductInfo({ product }: ProductInfoProps) {
           )}
           {product.badges.slice(0, 2).map((badge) => (
             <Badge key={badge.id} color={badge.customColor || undefined}>
-              {badge.customText || badge.badgeType}
+              {badge.customText || badgeTypeLabel(badge.badgeType)}
             </Badge>
           ))}
         </div>
@@ -297,16 +384,41 @@ export default function ProductInfo({ product }: ProductInfoProps) {
       )}
 
       {/* Wishlist + share row */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <ShareButtons url={`/product/${product.slug}`} title={product.name} />
         <button
-          className="flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-danger)] hover:text-[var(--color-danger)]"
-          aria-label="Додати в обране"
+          onClick={handleToggleWishlist}
+          disabled={wishBusy}
+          aria-pressed={isWished}
+          className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition-colors disabled:opacity-60 ${
+            isWished
+              ? 'border-[var(--color-danger)] text-[var(--color-danger)]'
+              : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-danger)] hover:text-[var(--color-danger)]'
+          }`}
+          aria-label={isWished ? 'Видалити з обраного' : 'Додати в обране'}
         >
-          <Heart size={18} />
-          <span className="hidden sm:inline">В обране</span>
+          {isWished ? <HeartFilled size={18} /> : <Heart size={18} />}
+          <span className="hidden sm:inline">{isWished ? 'В обраному' : 'В обране'}</span>
         </button>
       </div>
+
+      {/* Trust row — for a new/unknown brand these reassurances are a real
+          conversion lever; the underlying policies (COD, 14-day return, fast
+          delivery) already exist site-wide. */}
+      <ul className="grid grid-cols-2 gap-3 border-t border-[var(--color-border)] pt-4 text-xs text-[var(--color-text-secondary)] sm:grid-cols-4">
+        <li className="flex flex-col items-center gap-1 text-center">
+          <span className="text-lg">🚚</span>Швидка доставка по Україні
+        </li>
+        <li className="flex flex-col items-center gap-1 text-center">
+          <span className="text-lg">💵</span>Оплата при отриманні
+        </li>
+        <li className="flex flex-col items-center gap-1 text-center">
+          <span className="text-lg">↩️</span>Повернення 14 днів
+        </li>
+        <li className="flex flex-col items-center gap-1 text-center">
+          <span className="text-lg">✅</span>Тільки оригінал
+        </li>
+      </ul>
     </div>
   );
 }

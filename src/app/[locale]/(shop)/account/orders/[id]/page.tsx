@@ -5,7 +5,9 @@ import { useTranslations } from 'next-intl';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { useCart } from '@/hooks/useCart';
 import { ORDER_STATUS_COLORS } from '@/types/order';
 import type { OrderDetail, OrderStatus } from '@/types/order';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
@@ -57,6 +59,75 @@ export default function OrderDetailPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
+  const { addItem } = useCart();
+
+  // "Купити знову" — re-add this order's items to the cart at CURRENT price/stock
+  // (not the stale order snapshot). Skips items that are gone or out of stock.
+  const handleReorder = async () => {
+    if (!order || isReordering) return;
+    setIsReordering(true);
+    try {
+      const orderedQty = new Map(order.items.map((it) => [it.productId, it.quantity]));
+      const ids = order.items.map((it) => it.productId).join(',');
+      const res = await apiClient.get<
+        Array<{
+          id: number;
+          name: string;
+          slug: string;
+          code: string;
+          priceRetail: number;
+          priceWholesale: number | null;
+          priceWholesale2: number | null;
+          priceWholesale3: number | null;
+          imagePath: string | null;
+          quantity: number;
+        }>
+      >(`/api/v1/products/by-ids?ids=${ids}`);
+      if (!res.success || !res.data) {
+        toast.error('Не вдалося завантажити товари');
+        return;
+      }
+      let added = 0;
+      let skipped = 0;
+      for (const p of res.data) {
+        if (p.quantity <= 0) {
+          skipped++;
+          continue;
+        }
+        const want = Math.min(orderedQty.get(p.id) ?? 1, p.quantity);
+        addItem({
+          productId: p.id,
+          name: p.name,
+          slug: p.slug,
+          code: p.code,
+          priceRetail: Number(p.priceRetail),
+          priceWholesale: p.priceWholesale != null ? Number(p.priceWholesale) : null,
+          priceWholesale2: p.priceWholesale2 != null ? Number(p.priceWholesale2) : null,
+          priceWholesale3: p.priceWholesale3 != null ? Number(p.priceWholesale3) : null,
+          imagePath: p.imagePath,
+          quantity: want,
+          maxQuantity: p.quantity,
+        });
+        added++;
+      }
+      // Products no longer returned by the API (deleted/inactive) also count as skipped.
+      skipped += order.items.length - res.data.length;
+      if (added > 0) {
+        toast.success(
+          skipped > 0
+            ? `Додано ${added} товар(ів) у кошик, ${skipped} недоступні`
+            : `Додано ${added} товар(ів) у кошик`,
+        );
+      } else {
+        toast.error('Жоден товар із замовлення зараз недоступний');
+      }
+    } catch {
+      toast.error('Помилка. Спробуйте ще раз.');
+    } finally {
+      setIsReordering(false);
+    }
+  };
 
   useEffect(() => {
     apiClient
@@ -274,7 +345,15 @@ export default function OrderDetailPage() {
               {order.trackingNumber && (
                 <>
                   <p className="mt-2 font-mono text-base font-bold tracking-wide text-[var(--color-primary)]">
-                    ТТН: {order.trackingNumber}
+                    ТТН:{' '}
+                    <a
+                      href={`https://novaposhta.ua/tracking/?cargo_number=${order.trackingNumber}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:opacity-80"
+                    >
+                      {order.trackingNumber}
+                    </a>
                   </p>
                   {order.trackingStatus && (
                     <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
@@ -419,6 +498,13 @@ export default function OrderDetailPage() {
               </div>
             </div>
           ))}
+          {/* Repeat purchase — household chemistry is consumable; re-add the
+              order's items to the cart at current price/stock. */}
+          <div className="border-t border-[var(--color-border)] p-4">
+            <Button variant="outline" onClick={handleReorder} isLoading={isReordering}>
+              🛒 Купити знову
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -29,6 +29,8 @@ vi.mock('@/config/env', () => ({
     CRON_SECRET: 'test-cron-secret',
   },
 }));
+vi.mock('@/lib/redis', () => ({ redis: { set: vi.fn().mockResolvedValue('OK') } }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/validators/loyalty', () => ({ adjustPointsSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/loyalty', () => ({
   adjustPoints: vi.fn(),

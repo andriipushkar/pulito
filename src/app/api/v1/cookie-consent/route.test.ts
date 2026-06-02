@@ -1,4 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (h) => h,
+  RateLimitError: class RateLimitError extends Error {
+    statusCode = 429;
+    retryAfter;
+    constructor(m, s, r) {
+      super(m);
+      this.statusCode = s || 429;
+      this.retryAfter = r;
+    }
+  },
+  RATE_LIMITS: new Proxy(
+    {},
+    { get: () => ({ limit: 100, windowSeconds: 60, prefix: 'test', max: 1e9, windowSec: 60 }) },
+  ),
+}));
 import { NextRequest } from 'next/server';
 
 vi.mock('@/middleware/auth', () => ({
@@ -31,15 +54,17 @@ describe('POST /api/v1/cookie-consent', () => {
 
   it('creates consent on success', async () => {
     mocked.mockResolvedValue({ id: 1, sessionId: 'abc' } as never);
-    const res = await POST(makeReq({ sessionId: 'abc', analyticsAccepted: true, marketingAccepted: false }));
+    const res = await POST(
+      makeReq({ sessionId: 'abc', analyticsAccepted: true, marketingAccepted: false }),
+    );
     const json = await res.json();
     expect(res.status).toBe(201);
     expect(json.success).toBe(true);
   });
 
-  it('returns 400 when sessionId missing', async () => {
+  it('returns 422 when sessionId missing', async () => {
     const res = await POST(makeReq({ analyticsAccepted: true }));
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 500 on error', async () => {

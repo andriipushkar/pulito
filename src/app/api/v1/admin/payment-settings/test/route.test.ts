@@ -41,6 +41,9 @@ vi.mock('@/middleware/auth', () => {
   };
 });
 
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
+
 import { POST } from './route';
 
 describe('POST /api/v1/admin/payment-settings/test', () => {
@@ -100,17 +103,38 @@ describe('POST /api/v1/admin/payment-settings/test', () => {
   });
 
   it('returns success for valid wayforpay config', async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: async () => ({ reasonCode: 1112, reason: 'Transaction not found' }),
+    });
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         provider: 'wayforpay',
-        config: { merchantAccount: 'test_merchant_123' },
+        config: { merchantAccount: 'test_merchant_123', secretKey: 'secret' },
       }),
     });
     const res = await POST(req as any);
     const json = await res.json();
 
     expect(json.data.success).toBe(true);
+  });
+
+  it('fails wayforpay when signature is invalid (bad keys)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: async () => ({ reasonCode: 1113, reason: 'Invalid signature' }),
+    });
+    const req = new Request('http://localhost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'wayforpay',
+        config: { merchantAccount: 'test_merchant_123', secretKey: 'bad' },
+      }),
+    });
+    const res = await POST(req as any);
+    const json = await res.json();
+
+    expect(json.data.success).toBe(false);
   });
 });

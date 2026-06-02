@@ -1,5 +1,6 @@
 import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
+import { getSettings } from '@/services/settings';
 
 /**
  * Background removal abstraction. Currently uses remove.bg API (free tier:
@@ -22,8 +23,14 @@ export class BackgroundRemovalError extends Error {
   }
 }
 
-export function isBackgroundRemovalEnabled(): boolean {
-  return !!env.REMOVEBG_API_KEY;
+/** Resolve the remove.bg key: admin (DB) value wins, env var is the fallback. */
+async function getRemovebgKey(): Promise<string> {
+  const settings = await getSettings();
+  return settings.removebg_api_key || env.REMOVEBG_API_KEY || '';
+}
+
+export async function isBackgroundRemovalEnabled(): Promise<boolean> {
+  return !!(await getRemovebgKey());
 }
 
 /**
@@ -33,7 +40,8 @@ export function isBackgroundRemovalEnabled(): boolean {
  * @returns      PNG with transparent background, or `null` on failure
  */
 export async function removeBackground(input: Buffer, mime: string): Promise<Buffer | null> {
-  if (!isBackgroundRemovalEnabled()) return null;
+  const apiKey = await getRemovebgKey();
+  if (!apiKey) return null;
 
   try {
     const form = new FormData();
@@ -44,7 +52,7 @@ export async function removeBackground(input: Buffer, mime: string): Promise<Buf
 
     const res = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'X-Api-Key': env.REMOVEBG_API_KEY },
+      headers: { 'X-Api-Key': apiKey },
       body: form,
     });
 

@@ -107,7 +107,9 @@ describe('POST /api/v1/admin/tenants', () => {
   });
 
   it('returns 409 for unique constraint violation', async () => {
-    vi.mocked(createTenant).mockRejectedValue(new Error('Unique constraint failed'));
+    vi.mocked(createTenant).mockRejectedValue(
+      Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }),
+    );
 
     const req = new Request('http://localhost', {
       method: 'POST',

@@ -1,4 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (h) => h,
+  RateLimitError: class RateLimitError extends Error {
+    statusCode = 429;
+    retryAfter;
+    constructor(m, s, r) {
+      super(m);
+      this.statusCode = s || 429;
+      this.retryAfter = r;
+    }
+  },
+  RATE_LIMITS: new Proxy(
+    {},
+    { get: () => ({ limit: 100, windowSeconds: 60, prefix: 'test', max: 1e9, windowSec: 60 }) },
+  ),
+}));
 import { NextRequest } from 'next/server';
 
 vi.mock('@/config/env', () => ({
@@ -77,7 +100,7 @@ describe('GET /api/v1/chat', () => {
 describe('POST /api/v1/chat', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns 400 on validation error', async () => {
+  it('returns 422 on validation error', async () => {
     mockSafeParse.mockReturnValue({ success: false, error: { issues: [{ message: 'invalid' }] } });
     const req = new NextRequest('http://localhost', {
       method: 'POST',
@@ -85,7 +108,7 @@ describe('POST /api/v1/chat', () => {
       body: JSON.stringify({}),
     });
     const res = await POST(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('creates chat room on success', async () => {

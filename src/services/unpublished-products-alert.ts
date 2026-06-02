@@ -5,6 +5,12 @@ const DEFAULT_AGE_DAYS = 14;
 const TELEGRAM_LIMIT = 15;
 const APP_URL = process.env.APP_URL || 'https://pulito.trade';
 
+// This alert is sent with parse_mode HTML — escape interpolated product fields
+// so a name/code containing `<`, `>` or `&` doesn't trigger HTTP 400.
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 interface UnpublishedReport {
   scanned: number;
   flagged: number;
@@ -62,7 +68,7 @@ export async function runUnpublishedProductsAlert(
     'Топ за продажами:',
     ...top.map((p) => {
       const price = Number(p.priceRetail).toFixed(0);
-      return `• <a href="${APP_URL}/admin/products/${p.id}">${p.code}</a> — ${p.name.slice(0, 50)} (${price} ₴ × ${p.quantity})`;
+      return `• <a href="${APP_URL}/admin/products/${p.id}">${escapeHtml(p.code)}</a> — ${escapeHtml(p.name.slice(0, 50))} (${price} ₴ × ${p.quantity})`;
     }),
   ];
   if (candidates.length > TELEGRAM_LIMIT) {

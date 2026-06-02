@@ -30,6 +30,18 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/services/totp', () => ({
   generateSecret: vi.fn(),
   generateOtpauthUrl: vi.fn(),
+  encryptSecret: vi.fn((s: string) => `enc:${s}`),
+}));
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  RATE_LIMITS: new Proxy({}, { get: () => ({ limit: 100, windowSeconds: 60 }) }),
+}));
+
+vi.mock('@/services/audit', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('qrcode', () => ({ default: { toDataURL: vi.fn() } }));
@@ -42,6 +54,8 @@ vi.mock('@/utils/api-response', async () => {
   const { NextResponse } = await import('next/server');
   return {
     successResponse: (data: any, status = 200) =>
+      NextResponse.json({ success: true, data }, { status }),
+    privateResponse: (data: any, status = 200) =>
       NextResponse.json({ success: true, data }, { status }),
     errorResponse: (message: string, status = 500) =>
       NextResponse.json({ success: false, error: message }, { status }),

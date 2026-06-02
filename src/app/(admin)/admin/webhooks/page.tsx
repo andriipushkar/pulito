@@ -179,12 +179,9 @@ export default function WebhooksPage() {
                         {last.error && ` — ${last.error}`}
                       </p>
                     )}
-                    <details className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                      <summary className="cursor-pointer">{t('showSecret')}</summary>
-                      <code className="mt-1 block break-all rounded bg-[var(--color-bg-secondary)] px-2 py-1">
-                        {wh.secret}
-                      </code>
-                    </details>
+                    {/* The signing secret is shown once at creation only. The
+                        list no longer returns it (it was encrypted ciphertext),
+                        so the always-stale "show secret" panel is removed. */}
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <Button

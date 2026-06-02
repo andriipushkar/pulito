@@ -34,8 +34,13 @@ vi.mock('@/middleware/auth', () => {
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     tenantUser: { findFirst: vi.fn() },
+    tenant: {
+      findUnique: vi.fn().mockResolvedValue({ domain: 'example.com', domainVerified: true }),
+    },
   },
 }));
+vi.mock('@/lib/admin-tenant', () => ({ resolveActiveTenantId: vi.fn() }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/domain', () => ({
   removeDomain: vi.fn(),
 }));
@@ -47,6 +52,11 @@ vi.mock('@/utils/api-response', () => ({
 import { DELETE } from './route';
 import { prisma } from '@/lib/prisma';
 import { removeDomain } from '@/services/domain';
+import { resolveActiveTenantId } from '@/lib/admin-tenant';
+
+const notFound = () => ({
+  error: Response.json({ error: 'Тенант не знайдено' }, { status: 404 }),
+});
 
 describe('DELETE /api/v1/admin/domains/[domain]', () => {
   beforeEach(() => {
@@ -54,7 +64,7 @@ describe('DELETE /api/v1/admin/domains/[domain]', () => {
   });
 
   it('removes domain on success', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (removeDomain as any).mockResolvedValue(undefined);
 
     const req = new NextRequest('http://localhost', { method: 'DELETE' });
@@ -66,7 +76,7 @@ describe('DELETE /api/v1/admin/domains/[domain]', () => {
   });
 
   it('returns 404 when tenant not found', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
+    (resolveActiveTenantId as any).mockResolvedValue(notFound());
 
     const req = new NextRequest('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req, { user: { id: 1 } } as any);
@@ -75,7 +85,8 @@ describe('DELETE /api/v1/admin/domains/[domain]', () => {
   });
 
   it('returns 500 on error', async () => {
-    (prisma.tenantUser.findFirst as any).mockRejectedValue(new Error('fail'));
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
+    (removeDomain as any).mockRejectedValue(new Error('fail'));
 
     const req = new NextRequest('http://localhost', { method: 'DELETE' });
     const res = await DELETE(req, { user: { id: 1 } } as any);

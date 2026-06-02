@@ -1,12 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
 
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
   withOptionalAuth: (handler: Function) => handler,
-  withRole: (..._roles: string[]) => (handler: Function) => handler,
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+      handler,
 }));
 
 vi.mock('@/services/subscription', () => {
@@ -31,13 +44,21 @@ vi.mock('@/validators/subscription', () => ({
 vi.mock('@/utils/api-response', async () => {
   const { NextResponse } = await import('next/server');
   return {
-    successResponse: (data: any, status = 200) => NextResponse.json({ success: true, data }, { status }),
-    errorResponse: (message: string, status = 500) => NextResponse.json({ success: false, error: message }, { status }),
+    successResponse: (data: any, status = 200) =>
+      NextResponse.json({ success: true, data }, { status }),
+    privateResponse: (data: any, status = 200) =>
+      NextResponse.json({ success: true, data }, { status }),
+    errorResponse: (message: string, status = 500) =>
+      NextResponse.json({ success: false, error: message }, { status }),
   };
 });
 
 import { GET, POST } from './route';
-import { createSubscription, getUserSubscriptions, SubscriptionError } from '@/services/subscription';
+import {
+  createSubscription,
+  getUserSubscriptions,
+  SubscriptionError,
+} from '@/services/subscription';
 import { createSubscriptionSchema } from '@/validators/subscription';
 
 const mockGetSubs = getUserSubscriptions as ReturnType<typeof vi.fn>;

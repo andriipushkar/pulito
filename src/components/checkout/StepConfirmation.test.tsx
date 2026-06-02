@@ -3,9 +3,24 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
-}));
+// Passthrough for most namespaces, but resolve real orderLabels copy so the
+// delivery/payment method labels (tl('deliveryMethod.x')) match production.
+vi.mock('next-intl', () => {
+  const orderLabels: Record<string, string> = {
+    'deliveryMethod.nova_poshta': 'Нова Пошта',
+    'deliveryMethod.ukrposhta': 'Укрпошта',
+    'deliveryMethod.pickup': 'Самовивіз',
+    'deliveryMethod.pallet': 'Палетна доставка',
+    'paymentMethod.cod': 'Накладений платіж',
+    'paymentMethod.bank_transfer': 'На розрахунковий рахунок',
+    'paymentMethod.online': 'Онлайн-оплата',
+    'paymentMethod.card_prepay': 'Передоплата на картку',
+  };
+  return {
+    useTranslations: (ns?: string) => (key: string) =>
+      ns === 'orderLabels' ? (orderLabels[key] ?? key) : key,
+  };
+});
 
 import StepConfirmation from './StepConfirmation';
 
@@ -16,8 +31,28 @@ const baseData = {
 };
 
 const mockItems = [
-  { productId: 1, name: 'Product A', slug: 'a', code: 'A1', priceRetail: 100, priceWholesale: null, imagePath: null, quantity: 2, maxQuantity: 10 },
-  { productId: 2, name: 'Product B', slug: 'b', code: 'B1', priceRetail: 50, priceWholesale: null, imagePath: null, quantity: 1, maxQuantity: 10 },
+  {
+    productId: 1,
+    name: 'Product A',
+    slug: 'a',
+    code: 'A1',
+    priceRetail: 100,
+    priceWholesale: null,
+    imagePath: null,
+    quantity: 2,
+    maxQuantity: 10,
+  },
+  {
+    productId: 2,
+    name: 'Product B',
+    slug: 'b',
+    code: 'B1',
+    priceRetail: 50,
+    priceWholesale: null,
+    imagePath: null,
+    quantity: 1,
+    maxQuantity: 10,
+  },
 ] as any[];
 
 describe('StepConfirmation', () => {
@@ -26,16 +61,13 @@ describe('StepConfirmation', () => {
     expect(screen.getByText('reviewOrder')).toBeInTheDocument();
   });
 
-
-
-
   it('renders delivery method label', () => {
     render(
       <StepConfirmation
         data={{ ...baseData, deliveryMethod: 'nova_poshta' as any }}
         items={[]}
         total={100}
-      />
+      />,
     );
     expect(screen.getByText('Нова Пошта')).toBeInTheDocument();
   });
@@ -43,15 +75,19 @@ describe('StepConfirmation', () => {
   it('renders delivery city and address', () => {
     render(
       <StepConfirmation
-        data={{ ...baseData, deliveryMethod: 'nova_poshta' as any, deliveryCity: 'Kyiv', deliveryAddress: 'Street 1' }}
+        data={{
+          ...baseData,
+          deliveryMethod: 'nova_poshta' as any,
+          deliveryCity: 'Kyiv',
+          deliveryAddress: 'Street 1',
+        }}
         items={[]}
         total={100}
-      />
+      />,
     );
     expect(screen.getByText('Kyiv')).toBeInTheDocument();
     expect(screen.getByText('Street 1')).toBeInTheDocument();
   });
-
 
   it('renders payment method label', () => {
     render(
@@ -59,7 +95,7 @@ describe('StepConfirmation', () => {
         data={{ ...baseData, paymentMethod: 'cod' as any }}
         items={[]}
         total={100}
-      />
+      />,
     );
     expect(screen.getByText('Накладений платіж')).toBeInTheDocument();
   });
@@ -70,14 +106,18 @@ describe('StepConfirmation', () => {
         data={{ ...baseData, paymentMethod: 'cod' as any, comment: 'Please hurry' }}
         items={[]}
         total={100}
-      />
+      />,
     );
     expect(screen.getByText(/Please hurry/)).toBeInTheDocument();
   });
 
   it('does not render comment when not provided', () => {
     render(
-      <StepConfirmation data={{ ...baseData, paymentMethod: 'cod' as any }} items={[]} total={100} />
+      <StepConfirmation
+        data={{ ...baseData, paymentMethod: 'cod' as any }}
+        items={[]}
+        total={100}
+      />,
     );
     expect(screen.queryByText('paymentComment')).not.toBeInTheDocument();
   });
@@ -90,26 +130,24 @@ describe('StepConfirmation', () => {
     expect(screen.getByText('Product B')).toBeInTheDocument();
   });
 
-
-
   // Loyalty points tests
   it('does not show loyalty section when loyaltyPoints is 0', () => {
     render(
-      <StepConfirmation data={baseData} items={[]} total={100} loyaltyPoints={0} onLoyaltyPointsChange={vi.fn()} />
+      <StepConfirmation
+        data={baseData}
+        items={[]}
+        total={100}
+        loyaltyPoints={0}
+        onLoyaltyPointsChange={vi.fn()}
+      />,
     );
     expect(screen.queryByText('loyaltyPoints')).not.toBeInTheDocument();
   });
 
   it('does not show loyalty section when onLoyaltyPointsChange is not provided', () => {
-    render(
-      <StepConfirmation data={baseData} items={[]} total={100} loyaltyPoints={50} />
-    );
+    render(<StepConfirmation data={baseData} items={[]} total={100} loyaltyPoints={50} />);
     expect(screen.queryByText('loyaltyPoints')).not.toBeInTheDocument();
   });
-
-
-
-
 
   it('shows discount text when pointsDiscount > 0', () => {
     render(
@@ -120,7 +158,7 @@ describe('StepConfirmation', () => {
         loyaltyPoints={50}
         loyaltyPointsToSpend={30}
         onLoyaltyPointsChange={vi.fn()}
-      />
+      />,
     );
     // Shows discount in loyalty section and items section
     expect(screen.getAllByText(/-30.00 currency/).length).toBeGreaterThanOrEqual(1);
@@ -135,48 +173,32 @@ describe('StepConfirmation', () => {
         loyaltyPoints={50}
         loyaltyPointsToSpend={30}
         onLoyaltyPointsChange={vi.fn()}
-      />
+      />,
     );
     // finalTotal = 100 - 30 = 70
     expect(screen.getByText('70.00 currency')).toBeInTheDocument();
   });
 
-
-
   it('renders edrpou without company name when only edrpou provided', () => {
     render(
-      <StepConfirmation
-        data={{ ...baseData, companyName: 'TestCo' }}
-        items={[]}
-        total={100}
-      />
+      <StepConfirmation data={{ ...baseData, companyName: 'TestCo' }} items={[]} total={100} />,
     );
     // companyName without edrpou - no (edrpou: ...) suffix
     expect(screen.getByText('TestCo')).toBeInTheDocument();
   });
 
-
-
-
-
-
   it('renders dash when no delivery method set', () => {
-    const { container } = render(
-      <StepConfirmation data={baseData} items={[]} total={0} />
-    );
+    const { container } = render(<StepConfirmation data={baseData} items={[]} total={0} />);
     // deliveryMethod is undefined, should show dash
     const allTexts = container.textContent;
     expect(allTexts).toContain('—');
   });
 
   it('renders dash when no payment method set', () => {
-    const { container } = render(
-      <StepConfirmation data={baseData} items={[]} total={0} />
-    );
+    const { container } = render(<StepConfirmation data={baseData} items={[]} total={0} />);
     const allTexts = container.textContent;
     expect(allTexts).toContain('—');
   });
-
 
   it('shows points discount in items section when spending points', () => {
     render(
@@ -187,7 +209,7 @@ describe('StepConfirmation', () => {
         loyaltyPoints={50}
         loyaltyPointsToSpend={20}
         onLoyaltyPointsChange={vi.fn()}
-      />
+      />,
     );
     // Points discount appears twice: in loyalty section and items section
     const discountTexts = screen.getAllByText(/-20.00 currency/);
@@ -206,7 +228,7 @@ describe('StepConfirmation', () => {
         loyaltyPoints={50}
         loyaltyPointsToSpend={0}
         onLoyaltyPointsChange={handleChange}
-      />
+      />,
     );
     const input = container.querySelector('input[type="number"]')!;
     fireEvent.change(input, { target: { value: '25' } });
@@ -223,7 +245,7 @@ describe('StepConfirmation', () => {
         loyaltyPoints={50}
         loyaltyPointsToSpend={0}
         onLoyaltyPointsChange={handleChange}
-      />
+      />,
     );
     const input = container.querySelector('input[type="number"]')!;
     fireEvent.change(input, { target: { value: '999' } });
@@ -241,7 +263,7 @@ describe('StepConfirmation', () => {
         loyaltyPoints={50}
         loyaltyPointsToSpend={0}
         onLoyaltyPointsChange={handleChange}
-      />
+      />,
     );
     const input = container.querySelector('input[type="number"]')!;
     fireEvent.change(input, { target: { value: '-5' } });
@@ -258,7 +280,7 @@ describe('StepConfirmation', () => {
         loyaltyPoints={50}
         loyaltyPointsToSpend={0}
         onLoyaltyPointsChange={handleChange}
-      />
+      />,
     );
     const maxBtn = container.querySelector('button[type="button"]')!;
     fireEvent.click(maxBtn);
@@ -275,7 +297,7 @@ describe('StepConfirmation', () => {
         loyaltyPoints={50}
         loyaltyPointsToSpend={0}
         onLoyaltyPointsChange={handleChange}
-      />
+      />,
     );
     const input = container.querySelector('input[type="number"]')!;
     fireEvent.change(input, { target: { value: 'abc' } });
@@ -288,7 +310,7 @@ describe('StepConfirmation', () => {
         data={{ ...baseData, companyName: 'TestCo', edrpou: '12345678' }}
         items={[]}
         total={100}
-      />
+      />,
     );
     expect(screen.getByText(/TestCo.*12345678/)).toBeInTheDocument();
   });

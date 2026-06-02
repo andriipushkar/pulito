@@ -33,16 +33,20 @@ export async function POST(request: NextRequest) {
       return errorResponse(firstError, 422);
     }
 
-    // Rate limit by temp token suffix
+    const ipAddress = getClientIp(request);
+
+    // Rate limit by IP + a hash of the full temp token (not a predictable JWT
+    // suffix). Keyed on both so one attacker-IP can't brute TOTP across tokens
+    // and one stolen token can't be hammered from many IPs.
     const { redis } = await import('@/lib/redis');
-    const rateLimitKey = `2fa_verify:${parsed.data.tempToken.slice(-16)}`;
+    const { createHash } = await import('crypto');
+    const tokenHash = createHash('sha256').update(parsed.data.tempToken).digest('hex').slice(0, 32);
+    const rateLimitKey = `2fa_verify:${ipAddress}:${tokenHash}`;
     const attempts = await redis.incr(rateLimitKey);
     if (attempts === 1) await redis.expire(rateLimitKey, 900);
     if (attempts > 5) {
       return errorResponse('Забагато спроб. Спробуйте через 15 хвилин.', 429);
     }
-
-    const ipAddress = getClientIp(request);
     const deviceInfo = getDeviceInfo(request);
 
     let result: Awaited<ReturnType<typeof verifyTwoFactorLogin>>;

@@ -70,7 +70,9 @@ describe('POST /api/webhooks/wayforpay', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 200 on error to prevent retries', async () => {
+  it('returns 401 on signature mismatch (loud, so forgeries are detectable)', async () => {
+    // Was 200-on-everything; a signature failure is now surfaced as 401 so
+    // monitoring sees it and a forger can't tell a forgery from a rejection.
     vi.mocked(verifyCallback).mockImplementation(() => {
       throw new Error('invalid signature');
     });
@@ -90,8 +92,6 @@ describe('POST /api/webhooks/wayforpay', () => {
     });
 
     const res = await POST(req as any);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.status).toBe('accept');
+    expect(res.status).toBe(401);
   });
 });

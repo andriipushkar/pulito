@@ -1,123 +1,68 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const mockGetCreds = vi.fn();
+const mockSave = vi.fn();
+
+vi.mock('@/services/channel-config', () => ({
+  getInstagramCreds: (...a: unknown[]) => mockGetCreds(...a),
+  saveRefreshedInstagramToken: (...a: unknown[]) => mockSave(...a),
+}));
+vi.mock('@/lib/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
-vi.mock('@/config/env', () => ({
-  env: {
-    INSTAGRAM_ACCESS_TOKEN: '',
-  },
-}));
-
-import { env } from '@/config/env';
-import { refreshInstagramToken } from './instagram-token-refresh';
-
-const mockEnv = env as { INSTAGRAM_ACCESS_TOKEN: string };
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  mockEnv.INSTAGRAM_ACCESS_TOKEN = '';
-});
-
 describe('refreshInstagramToken', () => {
-  it('should return error when access token is not configured', async () => {
-    const result = await refreshInstagramToken();
-    expect(result).toEqual({
-      refreshed: false,
-      error: 'Instagram access token not configured',
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCreds.mockResolvedValue({ accessToken: 'old-token', businessAccountId: 'biz-1' });
+    mockSave.mockResolvedValue(undefined);
+  });
+
+  it('refreshes the token and PERSISTS it (the whole point of the fix)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ access_token: 'new-token', token_type: 'bearer', expires_in: 5184000 }),
     });
+    const { refreshInstagramToken } = await import('./instagram-token-refresh');
+    const result = await refreshInstagramToken();
+
+    expect(result.refreshed).toBe(true);
+    expect(result.expiresIn).toBe(5184000);
+    // Calls the refresh endpoint with the CURRENT token...
+    expect(mockFetch.mock.calls[0][0]).toContain('graph.instagram.com/refresh_access_token');
+    expect(mockFetch.mock.calls[0][0]).toContain('old-token');
+    // ...and persists the NEW one (previously this was a no-op).
+    expect(mockSave).toHaveBeenCalledWith('new-token', 5184000);
+    // Never leak the token back to the caller.
+    expect(JSON.stringify(result)).not.toContain('new-token');
+  });
+
+  it('does nothing when no token is configured', async () => {
+    mockGetCreds.mockResolvedValue({ accessToken: '', businessAccountId: '' });
+    const { refreshInstagramToken } = await import('./instagram-token-refresh');
+    const result = await refreshInstagramToken();
+    expect(result.refreshed).toBe(false);
     expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockSave).not.toHaveBeenCalled();
   });
 
-  it('should return error when API returns non-OK response', async () => {
-    mockEnv.INSTAGRAM_ACCESS_TOKEN = 'old-token';
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 401,
-      text: () => Promise.resolve('Unauthorized'),
-    });
-
+  it('does NOT persist when the API returns no token', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ token_type: 'bearer' }) });
+    const { refreshInstagramToken } = await import('./instagram-token-refresh');
     const result = await refreshInstagramToken();
-    expect(result).toEqual({
-      refreshed: false,
-      error: 'Instagram API error: 401 Unauthorized',
-    });
+    expect(result.refreshed).toBe(false);
+    expect(mockSave).not.toHaveBeenCalled();
   });
 
-  it('should refresh token successfully', async () => {
-    mockEnv.INSTAGRAM_ACCESS_TOKEN = 'old-token';
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          access_token: 'new-long-token-value-here',
-          token_type: 'bearer',
-          expires_in: 5184000,
-        }),
-    });
-
+  it('does NOT persist on a non-OK API response', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 400, text: async () => 'bad token' });
+    const { refreshInstagramToken } = await import('./instagram-token-refresh');
     const result = await refreshInstagramToken();
-    expect(result).toEqual({
-      refreshed: true,
-      newToken: 'new-long-t...',
-      expiresIn: 5184000,
-    });
-  });
-
-  it('should truncate token to first 10 chars + ...', async () => {
-    mockEnv.INSTAGRAM_ACCESS_TOKEN = 'old-token';
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          access_token: 'ABCDEFGHIJ_REST_OF_TOKEN',
-          token_type: 'bearer',
-          expires_in: 3600,
-        }),
-    });
-
-    const result = await refreshInstagramToken();
-    expect(result.newToken).toBe('ABCDEFGHIJ...');
-  });
-
-  it('should handle fetch network error', async () => {
-    mockEnv.INSTAGRAM_ACCESS_TOKEN = 'old-token';
-    mockFetch.mockRejectedValue(new Error('Connection refused'));
-
-    const result = await refreshInstagramToken();
-    expect(result).toEqual({
-      refreshed: false,
-      error: 'Connection refused',
-    });
-  });
-
-  it('should handle non-Error throw', async () => {
-    mockEnv.INSTAGRAM_ACCESS_TOKEN = 'old-token';
-    mockFetch.mockRejectedValue(42);
-
-    const result = await refreshInstagramToken();
-    expect(result).toEqual({
-      refreshed: false,
-      error: 'Unknown error',
-    });
-  });
-
-  it('should use correct API URL', async () => {
-    mockEnv.INSTAGRAM_ACCESS_TOKEN = 'my-token';
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          access_token: 'new-token-12345',
-          token_type: 'bearer',
-          expires_in: 5184000,
-        }),
-    });
-
-    await refreshInstagramToken();
-    expect(mockFetch.mock.calls[0][0]).toBe(
-      'https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=my-token'
-    );
-    expect(mockFetch.mock.calls[0][1].signal).toBeDefined();
+    expect(result.refreshed).toBe(false);
+    expect(result.error).toContain('400');
+    expect(mockSave).not.toHaveBeenCalled();
   });
 });

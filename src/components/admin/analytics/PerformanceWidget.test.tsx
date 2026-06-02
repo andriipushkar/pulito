@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockGet = vi.fn();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...a: any[]) => mockGet(...a) } }));
 vi.mock('@/components/ui/Spinner', () => ({ default: () => <div data-testid="spinner" /> }));
@@ -10,7 +24,9 @@ vi.mock('@/components/ui/Spinner', () => ({ default: () => <div data-testid="spi
 import PerformanceWidget from './PerformanceWidget';
 
 describe('PerformanceWidget', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('shows spinner while loading', () => {
     mockGet.mockReturnValue(new Promise(() => {}));
@@ -30,8 +46,24 @@ describe('PerformanceWidget', () => {
     mockGet.mockResolvedValue({
       success: true,
       data: [
-        { date: '2024-01-01', route: '/', metric: 'LCP', p50: 1000, p75: 2000, p90: 3000, sampleCount: 100 },
-        { date: '2024-01-01', route: '/', metric: 'CLS', p50: 0.05, p75: 0.08, p90: 0.12, sampleCount: 50 },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'LCP',
+          p50: 1000,
+          p75: 2000,
+          p90: 3000,
+          sampleCount: 100,
+        },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'CLS',
+          p50: 0.05,
+          p75: 0.08,
+          p90: 0.12,
+          sampleCount: 50,
+        },
       ],
     });
     const { container } = render(<PerformanceWidget days={30} />);
@@ -45,7 +77,15 @@ describe('PerformanceWidget', () => {
     mockGet.mockResolvedValue({
       success: true,
       data: [
-        { date: '2024-01-01', route: '/', metric: 'LCP', p50: 1000, p75: 2000, p90: 2500, sampleCount: 100 },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'LCP',
+          p50: 1000,
+          p75: 2000,
+          p90: 2500,
+          sampleCount: 100,
+        },
       ],
     });
     const { container } = render(<PerformanceWidget />);
@@ -58,7 +98,15 @@ describe('PerformanceWidget', () => {
     mockGet.mockResolvedValue({
       success: true,
       data: [
-        { date: '2024-01-01', route: '/', metric: 'LCP', p50: 2000, p75: 3500, p90: 4500, sampleCount: 100 },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'LCP',
+          p50: 2000,
+          p75: 3500,
+          p90: 4500,
+          sampleCount: 100,
+        },
       ],
     });
     const { container } = render(<PerformanceWidget />);
@@ -71,7 +119,15 @@ describe('PerformanceWidget', () => {
     mockGet.mockResolvedValue({
       success: true,
       data: [
-        { date: '2024-01-01', route: '/', metric: 'LCP', p50: 3000, p75: 5000, p90: 7000, sampleCount: 100 },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'LCP',
+          p50: 3000,
+          p75: 5000,
+          p90: 7000,
+          sampleCount: 100,
+        },
       ],
     });
     const { container } = render(<PerformanceWidget />);
@@ -84,7 +140,15 @@ describe('PerformanceWidget', () => {
     mockGet.mockResolvedValue({
       success: true,
       data: [
-        { date: '2024-01-01', route: '/', metric: 'CLS', p50: 0.05, p75: 0.08, p90: 0.12, sampleCount: 50 },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'CLS',
+          p50: 0.05,
+          p75: 0.08,
+          p90: 0.12,
+          sampleCount: 50,
+        },
       ],
     });
     const { container } = render(<PerformanceWidget />);
@@ -99,7 +163,15 @@ describe('PerformanceWidget', () => {
     mockGet.mockResolvedValue({
       success: true,
       data: [
-        { date: '2024-01-01', route: '/', metric: 'TTFB', p50: 500, p75: 750, p90: 1200, sampleCount: 80 },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'TTFB',
+          p50: 500,
+          p75: 750,
+          p90: 1200,
+          sampleCount: 80,
+        },
       ],
     });
     const { container } = render(<PerformanceWidget />);
@@ -113,8 +185,24 @@ describe('PerformanceWidget', () => {
     mockGet.mockResolvedValue({
       success: true,
       data: [
-        { date: '2024-01-01', route: '/', metric: 'LCP', p50: 1000, p75: 2000, p90: 3000, sampleCount: 50 },
-        { date: '2024-01-15', route: '/', metric: 'LCP', p50: 800, p75: 1500, p90: 2000, sampleCount: 100 },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'LCP',
+          p50: 1000,
+          p75: 2000,
+          p90: 3000,
+          sampleCount: 50,
+        },
+        {
+          date: '2024-01-15',
+          route: '/',
+          metric: 'LCP',
+          p50: 800,
+          p75: 1500,
+          p90: 2000,
+          sampleCount: 100,
+        },
       ],
     });
     const { container } = render(<PerformanceWidget />);
@@ -129,7 +217,15 @@ describe('PerformanceWidget', () => {
     mockGet.mockResolvedValue({
       success: true,
       data: [
-        { date: '2024-01-01', route: '/', metric: 'FCP', p50: 1000, p75: 1500, p90: 2500, sampleCount: 42 },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'FCP',
+          p50: 1000,
+          p75: 1500,
+          p90: 2500,
+          sampleCount: 42,
+        },
       ],
     });
     const { container } = render(<PerformanceWidget />);
@@ -143,7 +239,15 @@ describe('PerformanceWidget', () => {
     mockGet.mockResolvedValue({
       success: true,
       data: [
-        { date: '2024-01-01', route: '/', metric: 'UNKNOWN_METRIC', p50: 100, p75: 200, p90: 300, sampleCount: 10 },
+        {
+          date: '2024-01-01',
+          route: '/',
+          metric: 'UNKNOWN_METRIC',
+          p50: 100,
+          p75: 200,
+          p90: 300,
+          sampleCount: 10,
+        },
       ],
     });
     const { container } = render(<PerformanceWidget />);

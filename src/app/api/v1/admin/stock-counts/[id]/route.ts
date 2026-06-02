@@ -16,7 +16,13 @@ export const GET = withRole(
 )(async (_request: NextRequest, { params }) => {
   try {
     const { id } = await params!;
-    const count = await getStockCount(Number(id));
+    const numId = Number(id);
+    // Match the PUT handler: reject non-positive-integer ids instead of letting
+    // Number("abc")=NaN flow into Prisma.
+    if (!Number.isInteger(numId) || numId <= 0) {
+      return errorResponse('Невалідний ID', 400);
+    }
+    const count = await getStockCount(numId);
     return successResponse(count);
   } catch (error) {
     if (error instanceof StockCountError) {

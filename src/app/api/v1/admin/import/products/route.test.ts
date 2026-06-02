@@ -1,4 +1,7 @@
+import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/services/rate-limit', () => ({
   checkRateLimit: vi
     .fn()
@@ -46,7 +49,7 @@ function createFileFormData(name: string, size: number = 100): Request {
   const file = new File([content], name, { type: 'application/octet-stream' });
   const formData = new FormData();
   formData.append('file', file);
-  return new Request('http://localhost', { method: 'POST', body: formData });
+  return new NextRequest('http://localhost', { method: 'POST', body: formData });
 }
 
 describe('POST /api/v1/admin/import/products', () => {
@@ -84,7 +87,9 @@ describe('POST /api/v1/admin/import/products', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.data.imported).toBe(5);
-    expect(mockImportProducts).toHaveBeenCalledWith(expect.any(Buffer), 'products.xlsx', 1);
+    expect(mockImportProducts).toHaveBeenCalledWith(expect.any(Buffer), 'products.xlsx', 1, {
+      dryRun: false,
+    });
   });
 
   it('handles csv format', async () => {

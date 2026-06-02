@@ -10,6 +10,7 @@ import ProductCarousel from '@/components/product/ProductCarousel';
 import ProductCarouselSkeleton from '@/components/ui/ProductCarouselSkeleton';
 import Skeleton from '@/components/ui/Skeleton';
 import SearchActionJsonLd from '@/components/seo/SearchActionJsonLd';
+import { buildHreflang } from '@/lib/i18n';
 
 const _baseUrl = process.env.APP_URL || 'https://pulito.trade';
 const _heroDescription =
@@ -18,6 +19,10 @@ const _heroDescription =
 export const metadata: Metadata = {
   title: 'Головна',
   description: _heroDescription,
+  alternates: {
+    canonical: _baseUrl,
+    languages: buildHreflang('/'),
+  },
   openGraph: {
     title: 'Pulito Trade — побутова хімія з доставкою',
     description: _heroDescription,

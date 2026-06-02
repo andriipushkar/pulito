@@ -1,12 +1,25 @@
 import webpush from 'web-push';
 import { prisma } from '@/lib/prisma';
+import { getSettings } from '@/services/settings';
 
+// VAPID keys stay in env (cryptographic material). Only the contact subject
+// (vapid_email) is admin-editable, so we configure web-push lazily on first
+// send using the DB value, falling back to env then the brand default.
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
-const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:noreply@pulito.trade';
 
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+let vapidConfigured = false;
+async function ensureVapidConfigured(): Promise<void> {
+  if (vapidConfigured || !VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+  let email = process.env.VAPID_EMAIL || 'mailto:noreply@pulito.trade';
+  try {
+    const settings = await getSettings();
+    if (settings.vapid_email) email = settings.vapid_email;
+  } catch {
+    // fall back to env/default if settings can't be read
+  }
+  webpush.setVapidDetails(email, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  vapidConfigured = true;
 }
 
 interface PushPayload {
@@ -53,6 +66,7 @@ export async function unsubscribePush(endpoint: string) {
  */
 export async function sendPushNotification(userId: number, payload: PushPayload) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+  await ensureVapidConfigured();
 
   const subscriptions = await prisma.pushSubscription.findMany({
     where: { userId },
@@ -84,7 +98,7 @@ export async function sendPushNotification(userId: number, payload: PushPayload)
   results.forEach((result, i) => {
     if (
       result.status === 'rejected' &&
-      (result.reason as { statusCode?: number })?.statusCode === 410
+      [404, 410].includes((result.reason as { statusCode?: number })?.statusCode ?? 0)
     ) {
       expiredEndpoints.push(subscriptions[i].endpoint);
     }
@@ -102,6 +116,7 @@ export async function sendPushNotification(userId: number, payload: PushPayload)
  */
 export async function sendPushToAll(payload: PushPayload) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+  await ensureVapidConfigured();
 
   const subscriptions = await prisma.pushSubscription.findMany();
   if (subscriptions.length === 0) return;
@@ -134,7 +149,7 @@ export async function sendPushToAll(payload: PushPayload) {
     results.forEach((result, j) => {
       if (
         result.status === 'rejected' &&
-        (result.reason as { statusCode?: number })?.statusCode === 410
+        [404, 410].includes((result.reason as { statusCode?: number })?.statusCode ?? 0)
       ) {
         expiredEndpoints.push(batch[j].endpoint);
       }
@@ -159,6 +174,7 @@ export function getVapidPublicKey(): string {
  */
 export async function sendPushToAdmins(payload: PushPayload): Promise<void> {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+  await ensureVapidConfigured();
 
   const adminIds = (
     await prisma.user.findMany({
@@ -190,7 +206,10 @@ export async function sendPushToAdmins(payload: PushPayload): Promise<void> {
     ),
   );
   results.forEach((r, i) => {
-    if (r.status === 'rejected' && (r.reason as { statusCode?: number })?.statusCode === 410) {
+    if (
+      r.status === 'rejected' &&
+      [404, 410].includes((r.reason as { statusCode?: number })?.statusCode ?? 0)
+    ) {
       expiredEndpoints.push(subscriptions[i].endpoint);
     }
   });

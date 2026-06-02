@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 
 vi.mock('@/config/env', () => ({
   env: {
@@ -13,9 +14,14 @@ vi.mock('@/config/env', () => ({
   },
 }));
 vi.mock('@/middleware/auth', () => ({
-  withRole: (..._roles: string[]) => (handler: Function) =>
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
     (req: unknown, ctx?: Record<string, unknown>) =>
-      handler(req, { user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+      handler(req, {
+        user: { id: 'test-admin', email: 'admin@test.com', role: 'admin' },
+        ...(ctx || {}),
+      }),
 }));
 vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
@@ -95,11 +101,12 @@ describe('PATCH /api/v1/admin/blog/[id]', () => {
   });
 
   it('updates post on success', async () => {
+    (prisma.blogPost.findUnique as any).mockResolvedValue({ id: 1, title: 'Old' });
     (updateBlogPostSchema.safeParse as any).mockReturnValue({
       success: true,
       data: { title: 'Updated' },
     });
-    (updatePost as any).mockResolvedValue({ id: 1, title: 'Updated' });
+    (updatePost as any).mockResolvedValue({ id: 1, title: 'Updated', slug: 'updated' });
 
     const req = new NextRequest('http://localhost', {
       method: 'PATCH',

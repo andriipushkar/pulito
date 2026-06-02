@@ -191,7 +191,7 @@ describe('POST /api/v1/admin/moderation/rules', () => {
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await (POST as any)(req, ctx);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 422 for missing config', async () => {

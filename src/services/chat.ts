@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 export class ChatError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'ChatError';
@@ -106,7 +106,9 @@ export async function getAdminRooms(filters?: {
         },
         _count: {
           select: {
-            messages: { where: { isRead: false } },
+            // Badge counts unread CUSTOMER messages only. Counting all unread
+            // also counted the agent's own just-sent messages, inflating it.
+            messages: { where: { isRead: false, senderType: 'customer' } },
           },
         },
       },
@@ -125,7 +127,7 @@ export async function sendMessage(
   senderType: 'customer' | 'agent' | 'system',
   senderId: number | null,
   content: string,
-  attachmentUrl?: string
+  attachmentUrl?: string,
 ) {
   const now = new Date();
 
@@ -170,7 +172,7 @@ export async function sendMessage(
  */
 export async function getMessages(
   roomId: number,
-  pagination: { page?: number; limit?: number } = {}
+  pagination: { page?: number; limit?: number } = {},
 ) {
   const { page = 1, limit = 50 } = pagination;
 

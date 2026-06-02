@@ -62,14 +62,15 @@ export async function getCheckoutConfig(): Promise<CheckoutConfig> {
     settings.delivery_ukrposhta_bearer_token,
     env.UKRPOSHTA_BEARER_TOKEN,
   );
+  // Payment credentials are configured ONLY in the admin panel (no env fallback).
   const liqpayConfigured = present(
-    settings.payment_liqpay_public_key || env.LIQPAY_PUBLIC_KEY,
-    settings.payment_liqpay_private_key || env.LIQPAY_PRIVATE_KEY,
+    settings.payment_liqpay_public_key,
+    settings.payment_liqpay_private_key,
   );
-  const monobankConfigured = any(settings.payment_monobank_token, env.MONOBANK_TOKEN);
+  const monobankConfigured = any(settings.payment_monobank_token);
   const wayforpayConfigured = present(
-    settings.payment_wayforpay_merchant_account || env.WAYFORPAY_MERCHANT_ACCOUNT,
-    settings.payment_wayforpay_secret_key || env.WAYFORPAY_SECRET_KEY,
+    settings.payment_wayforpay_merchant_account,
+    settings.payment_wayforpay_secret_key,
   );
 
   // Each method available = (configured for API methods) AND (admin toggle != 'false')
@@ -122,10 +123,8 @@ export async function getCheckoutConfig(): Promise<CheckoutConfig> {
   const npFixedRaw = parseFloat(settings.delivery_nova_poshta_fixed_cost ?? '');
   const upFixedRaw = parseFloat(settings.delivery_ukrposhta_fixed_cost ?? '');
   const fixedCost = {
-    nova_poshta:
-      Number.isFinite(npFixedRaw) && npFixedRaw > 0 ? npFixedRaw : null,
-    ukrposhta:
-      Number.isFinite(upFixedRaw) && upFixedRaw > 0 ? upFixedRaw : null,
+    nova_poshta: Number.isFinite(npFixedRaw) && npFixedRaw > 0 ? npFixedRaw : null,
+    ukrposhta: Number.isFinite(upFixedRaw) && upFixedRaw > 0 ? upFixedRaw : null,
   };
 
   return {

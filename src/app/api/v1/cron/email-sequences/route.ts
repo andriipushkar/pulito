@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { processWelcomeSeries, processWinBack, processPostPurchaseReviewRequest } from '@/services/email-sequences';
+import { processWelcomeSeries, processPostPurchaseReviewRequest } from '@/services/email-sequences';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { env } from '@/config/env';
 import { timingSafeCompare } from '@/utils/timing-safe';
@@ -13,16 +13,18 @@ export async function POST(request: NextRequest) {
       return errorResponse('Unauthorized', 401);
     }
 
-    const [welcome, winback, reviewRequest] = await Promise.allSettled([
+    // win-back is handled by the standalone /cron/win-back job (stronger
+    // 90-day repeat guard + opt-out filter); intentionally not run here to
+    // avoid double-mailing the same dormant customers.
+    const [welcome, reviewRequest] = await Promise.allSettled([
       processWelcomeSeries(),
-      processWinBack(),
       processPostPurchaseReviewRequest(),
     ]);
 
     return successResponse({
       welcome: welcome.status === 'fulfilled' ? welcome.value : { error: 'failed' },
-      winback: winback.status === 'fulfilled' ? winback.value : { error: 'failed' },
-      reviewRequest: reviewRequest.status === 'fulfilled' ? reviewRequest.value : { error: 'failed' },
+      reviewRequest:
+        reviewRequest.status === 'fulfilled' ? reviewRequest.value : { error: 'failed' },
     });
   } catch {
     return errorResponse('Внутрішня помилка сервера', 500);

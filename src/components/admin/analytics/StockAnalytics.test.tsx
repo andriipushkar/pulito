@@ -7,17 +7,69 @@ const mockGet = vi.fn();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...a: any[]) => mockGet(...a) } }));
 vi.mock('@/components/ui/Spinner', () => ({ default: () => <div data-testid="spinner" /> }));
 
+// Local next-intl mock: resolve real Ukrainian strings (with ICU substitution)
+// for the admin.stockAnalytics namespace so copy assertions match production.
+vi.mock('next-intl', () => {
+  const messages: Record<string, string> = {
+    activeProducts: 'Активних товарів',
+    criticalStock: 'Критичний запас',
+    deadStockCard: 'Dead stock (60+ днів)',
+    avgTurnover: 'Сер. оборотність',
+    tabCritical: 'Критичні залишки',
+    tabDead: 'Dead Stock',
+    tabTurnover: 'Оборотність',
+    colCode: 'Код',
+    colName: 'Назва',
+    colStock: 'Залишок',
+    colSalesPerDay: 'Продаж/день',
+    colDaysToZero: 'Днів до 0',
+    colDaysNoSale: 'Днів без продажу',
+    colSold: 'Продано',
+    colTurnover: 'Оборотність',
+    daysShort: '{days} дн.',
+    never: 'Ніколи',
+  };
+  const t = (key: string, params?: Record<string, unknown>) => {
+    let v = messages[key] ?? key;
+    if (params) for (const [p, val] of Object.entries(params)) v = v.replace(`{${p}}`, String(val));
+    return v;
+  };
+  return {
+    useTranslations: () => t,
+    useLocale: () => 'uk',
+    useFormatter: () => ({
+      number: (n: unknown) => String(n),
+      dateTime: (d: unknown) => String(d),
+    }),
+  };
+});
+
 import StockAnalytics from './StockAnalytics';
 
 const mockData = {
-  criticalStock: [{ id: 1, code: 'P1', name: 'Product', quantity: 2, avgDailySales: 1, daysUntilOut: 2 }],
-  deadStock: [{ id: 2, code: 'P2', name: 'Dead Product', quantity: 100, lastSoldAt: null, daysSinceLastSale: null }],
-  turnoverRates: [{ id: 3, code: 'P3', name: 'Fast Product', quantity: 50, soldLast30: 30, turnoverRate: 0.6 }],
+  criticalStock: [
+    { id: 1, code: 'P1', name: 'Product', quantity: 2, avgDailySales: 1, daysUntilOut: 2 },
+  ],
+  deadStock: [
+    {
+      id: 2,
+      code: 'P2',
+      name: 'Dead Product',
+      quantity: 100,
+      lastSoldAt: null,
+      daysSinceLastSale: null,
+    },
+  ],
+  turnoverRates: [
+    { id: 3, code: 'P3', name: 'Fast Product', quantity: 50, soldLast30: 30, turnoverRate: 0.6 },
+  ],
   summary: { totalProducts: 100, criticalCount: 5, deadStockCount: 10, avgTurnover: 0.8 },
 };
 
 describe('StockAnalytics', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('shows spinner while loading', () => {
     mockGet.mockReturnValue(new Promise(() => {}));
@@ -49,7 +101,9 @@ describe('StockAnalytics', () => {
       expect(container.querySelector('table')).toBeInTheDocument();
     });
 
-    const deadBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Dead Stock')!;
+    const deadBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Dead Stock',
+    )!;
     deadBtn.click();
 
     await waitFor(() => {
@@ -67,7 +121,9 @@ describe('StockAnalytics', () => {
       expect(container.querySelector('table')).toBeInTheDocument();
     });
 
-    const turnoverBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Оборотність')!;
+    const turnoverBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Оборотність',
+    )!;
     turnoverBtn.click();
 
     await waitFor(() => {
@@ -117,7 +173,7 @@ describe('StockAnalytics', () => {
       expect(container.textContent).toContain('2 дн.');
       expect(container.textContent).toContain('5 дн.');
       expect(container.textContent).toContain('10 дн.');
-      expect(container.textContent).toContain('— дн.');
+      expect(container.textContent).toContain('—');
     });
   });
 
@@ -125,7 +181,14 @@ describe('StockAnalytics', () => {
     const dataWithSoldDead = {
       ...mockData,
       deadStock: [
-        { id: 7, code: 'P7', name: 'Old Product', quantity: 50, lastSoldAt: '2023-06-01', daysSinceLastSale: 90 },
+        {
+          id: 7,
+          code: 'P7',
+          name: 'Old Product',
+          quantity: 50,
+          lastSoldAt: '2023-06-01',
+          daysSinceLastSale: 90,
+        },
       ],
     };
     mockGet.mockResolvedValue({ success: true, data: dataWithSoldDead });
@@ -135,7 +198,9 @@ describe('StockAnalytics', () => {
       expect(container.querySelector('table')).toBeInTheDocument();
     });
 
-    const deadBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Dead Stock')!;
+    const deadBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Dead Stock',
+    )!;
     deadBtn.click();
 
     await waitFor(() => {
@@ -148,7 +213,14 @@ describe('StockAnalytics', () => {
     const dataWithHighTurnover = {
       ...mockData,
       turnoverRates: [
-        { id: 8, code: 'P8', name: 'Hot Product', quantity: 10, soldLast30: 100, turnoverRate: 1.5 },
+        {
+          id: 8,
+          code: 'P8',
+          name: 'Hot Product',
+          quantity: 10,
+          soldLast30: 100,
+          turnoverRate: 1.5,
+        },
         { id: 9, code: 'P9', name: 'Slow Product', quantity: 10, soldLast30: 2, turnoverRate: 0.2 },
       ],
     };
@@ -159,7 +231,9 @@ describe('StockAnalytics', () => {
       expect(container.querySelector('table')).toBeInTheDocument();
     });
 
-    const turnoverBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Оборотність')!;
+    const turnoverBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Оборотність',
+    )!;
     turnoverBtn.click();
 
     await waitFor(() => {
@@ -176,10 +250,14 @@ describe('StockAnalytics', () => {
       expect(container.querySelector('table')).toBeInTheDocument();
     });
 
-    const criticalBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Критичні залишки')!;
+    const criticalBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Критичні залишки',
+    )!;
     expect(criticalBtn.className).toContain('bg-[var(--color-primary)]');
 
-    const deadBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Dead Stock')!;
+    const deadBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Dead Stock',
+    )!;
     expect(deadBtn.className).toContain('bg-[var(--color-bg-secondary)]');
   });
 });

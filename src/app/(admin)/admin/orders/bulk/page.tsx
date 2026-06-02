@@ -110,25 +110,35 @@ function AdminOrdersBulkPageInner() {
 
     try {
       if (bulkAction === 'export_csv') {
+        // The export route STREAMS a text/csv body (not JSON {url}); download it
+        // as a Blob and trigger a save, mirroring the orders-list print-ttn flow.
         const ids = Array.from(selected);
-        const res = await apiClient.post<{ url: string }>('/api/v1/admin/orders/export', {
-          orderIds: ids,
-          format: 'csv',
+        const blob = await apiClient.download('/api/v1/admin/orders/export', {
+          method: 'POST',
+          body: { orderIds: ids, format: 'csv' },
         });
-        if (res.success && res.data?.url) {
-          window.open(res.data.url, '_blank');
-          setMessage({ type: 'success', text: t('exportSuccess', { count: ids.length }) });
-        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `orders_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setMessage({ type: 'success', text: t('exportSuccess', { count: ids.length }) });
       } else if (bulkAction === 'print_labels' || bulkAction === 'print_labels_pdf') {
+        // Labels route also streams a binary/HTML body — open it in a new tab.
         const ids = Array.from(selected);
-        const res = await apiClient.post<{ url: string }>('/api/v1/admin/orders/labels', {
-          orderIds: ids,
-          format: bulkAction === 'print_labels_pdf' ? 'pdf' : 'html',
+        const isPdf = bulkAction === 'print_labels_pdf';
+        const blob = await apiClient.download('/api/v1/admin/orders/labels', {
+          method: 'POST',
+          body: { orderIds: ids, format: isPdf ? 'pdf' : 'html' },
         });
-        if (res.success && res.data?.url) {
-          window.open(res.data.url, '_blank');
-          setMessage({ type: 'success', text: t('labelsSuccess', { count: ids.length }) });
-        }
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank', 'noopener');
+        // Revoke after the tab has had time to load the blob.
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        setMessage({ type: 'success', text: t('labelsSuccess', { count: ids.length }) });
       } else {
         // Status update — use the bulk endpoint so all updates run server-side
         // in a tight loop with shared audit/logging, instead of N HTTP round-

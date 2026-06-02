@@ -22,18 +22,19 @@ beforeEach(() => {
 describe('RozetkaClient', () => {
   describe('authenticate', () => {
     it('should get token on successful auth', async () => {
-      mockFetch.mockResolvedValue(
-        jsonResponse({ success: true, content: { token: 'my-token' } }),
-      );
+      mockFetch.mockResolvedValue(jsonResponse({ success: true, content: { token: 'my-token' } }));
 
       const token = await client.authenticate();
 
       expect(token).toBe('my-token');
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://seller-api.rozetka.com.ua/sites',
+        'https://api-seller.rozetka.com.ua/sites',
         expect.objectContaining({
-          method: 'PUT',
-          body: JSON.stringify({ username: 'test-api-key', password: 'test-api-key' }),
+          method: 'POST',
+          body: JSON.stringify({
+            username: 'test-api-key',
+            password: Buffer.from('test-api-key', 'utf-8').toString('base64'),
+          }),
         }),
       );
     });
@@ -50,15 +51,15 @@ describe('RozetkaClient', () => {
   describe('getProducts', () => {
     it('should fetch products with pagination', async () => {
       // First call: authenticate
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ success: true, content: { token: 'tok' } }),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, content: { token: 'tok' } }));
       // Second call: getProducts
       mockFetch.mockResolvedValueOnce(
         jsonResponse({
           success: true,
           content: {
-            items: [{ id: 1, name: 'Prod', price: 100, quantity: 5, status: 'active', article: 'A1' }],
+            items: [
+              { id: 1, name: 'Prod', price: 100, quantity: 5, status: 'active', article: 'A1' },
+            ],
             total: 50,
           },
         }),
@@ -76,12 +77,8 @@ describe('RozetkaClient', () => {
     });
 
     it('should return empty items on error', async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ success: true, content: { token: 'tok' } }),
-      );
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ errors: [{ message: 'Server error' }] }, 500),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, content: { token: 'tok' } }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ errors: [{ message: 'Server error' }] }, 500));
 
       const result = await client.getProducts();
 
@@ -91,12 +88,8 @@ describe('RozetkaClient', () => {
 
   describe('createProduct', () => {
     it('should return externalId on success', async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ success: true, content: { token: 'tok' } }),
-      );
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ content: { id: 999 } }),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, content: { token: 'tok' } }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ content: { id: 999 } }));
 
       const result = await client.createProduct({
         name: 'New Product',
@@ -110,9 +103,7 @@ describe('RozetkaClient', () => {
     });
 
     it('should return error on failure', async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ success: true, content: { token: 'tok' } }),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, content: { token: 'tok' } }));
       mockFetch.mockResolvedValueOnce(
         jsonResponse({ errors: [{ message: 'Validation failed' }] }, 400),
       );
@@ -126,9 +117,7 @@ describe('RozetkaClient', () => {
 
   describe('updateProduct', () => {
     it('should update successfully', async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ success: true, content: { token: 'tok' } }),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, content: { token: 'tok' } }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ success: true }));
 
       const result = await client.updateProduct('ext-1', { name: 'Updated', price: 300 });
@@ -139,12 +128,8 @@ describe('RozetkaClient', () => {
     });
 
     it('should return error on API failure', async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ success: true, content: { token: 'tok' } }),
-      );
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ errors: [{ message: 'Not found' }] }, 404),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, content: { token: 'tok' } }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ errors: [{ message: 'Not found' }] }, 404));
 
       const result = await client.updateProduct('bad-id', { price: 100 });
 
@@ -155,9 +140,7 @@ describe('RozetkaClient', () => {
 
   describe('updateStock', () => {
     it('should update quantity', async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ success: true, content: { token: 'tok' } }),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, content: { token: 'tok' } }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ success: true }));
 
       const result = await client.updateStock('ext-5', 42);
@@ -170,15 +153,19 @@ describe('RozetkaClient', () => {
 
   describe('getOrders', () => {
     it('should fetch orders', async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ success: true, content: { token: 'tok' } }),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, content: { token: 'tok' } }));
       mockFetch.mockResolvedValueOnce(
         jsonResponse({
           success: true,
           content: {
             orders: [
-              { id: 1, status: 'new', amount: 500, buyer: { name: 'Test', phone: '+380' }, items: [] },
+              {
+                id: 1,
+                status: 'new',
+                amount: 500,
+                buyer: { name: 'Test', phone: '+380' },
+                items: [],
+              },
             ],
             total: 1,
           },
@@ -195,9 +182,7 @@ describe('RozetkaClient', () => {
     });
 
     it('should return empty array on error', async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ success: true, content: { token: 'tok' } }),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, content: { token: 'tok' } }));
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const orders = await client.getOrders();

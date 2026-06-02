@@ -136,10 +136,24 @@ export async function deleteWarehouse(id: number) {
 }
 
 export async function getWarehouses() {
-  return prisma.warehouse.findMany({
+  const rows = await prisma.warehouse.findMany({
     include: { _count: { select: { stock: true } } },
     orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
   });
+  // Per-warehouse total on-hand quantity (sum of WarehouseStock.quantity).
+  // The list previously showed `_count.stock` (number of SKU rows), which the
+  // UI read as `stockCount` — so a warehouse with 100 SKUs at 0 qty looked
+  // "stocked". Return BOTH: skuCount (rows) and stockCount (real units).
+  const sums = await prisma.warehouseStock.groupBy({
+    by: ['warehouseId'],
+    _sum: { quantity: true },
+  });
+  const qtyByWh = new Map(sums.map((s) => [s.warehouseId, s._sum.quantity ?? 0]));
+  return rows.map((wh) => ({
+    ...wh,
+    skuCount: wh._count.stock,
+    stockCount: qtyByWh.get(wh.id) ?? 0,
+  }));
 }
 
 export async function getWarehouseById(id: number) {
@@ -151,6 +165,11 @@ export async function getWarehouseById(id: number) {
           product: { select: { id: true, name: true, code: true } },
         },
         orderBy: { updatedAt: 'desc' },
+        // Bound the payload: an unbounded include would load every SKU row
+        // (tens of thousands on a large catalog) into one response. The
+        // dedicated paginated GET /warehouses/[id]/stock endpoint serves the
+        // full, filterable list; this detail view shows the 500 most-recent.
+        take: 500,
       },
     },
   });

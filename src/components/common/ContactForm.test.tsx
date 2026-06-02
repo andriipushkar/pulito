@@ -19,7 +19,9 @@ vi.mock('@/components/ui/PhoneInput', () => ({
 import ContactForm from './ContactForm';
 
 function q(container: HTMLElement, placeholder: string): HTMLInputElement {
-  return container.querySelector(`input[placeholder="${placeholder}"], textarea[placeholder="${placeholder}"]`) as HTMLInputElement;
+  return container.querySelector(
+    `input[placeholder="${placeholder}"], textarea[placeholder="${placeholder}"]`,
+  ) as HTMLInputElement;
 }
 
 function btn(container: HTMLElement): HTMLButtonElement {
@@ -29,7 +31,10 @@ function btn(container: HTMLElement): HTMLButtonElement {
 function fillAndSubmit(container: HTMLElement) {
   fireEvent.change(q(container, "Ваше ім'я *"), { target: { value: 'Тест' } });
   fireEvent.change(q(container, 'Email *'), { target: { value: 'test@test.com' } });
-  fireEvent.change(q(container, 'Повідомлення *'), { target: { value: 'Hello' } });
+  // Message must be >= 10 chars to pass client-side validation.
+  fireEvent.change(q(container, 'Повідомлення *'), {
+    target: { value: 'Hello there, this is a test' },
+  });
   fireEvent.submit(btn(container).closest('form')!);
 }
 
@@ -97,7 +102,7 @@ describe('ContactForm', () => {
 
     await waitFor(() => {
       expect(mockToastSuccess).toHaveBeenCalledWith(
-        "Повідомлення надіслано! Ми зв'яжемося з вами найближчим часом."
+        "Повідомлення надіслано! Ми зв'яжемося з вами найближчим часом.",
       );
     });
     expect(q(container, "Ваше ім'я *").value).toBe('');
@@ -145,24 +150,30 @@ describe('ContactForm', () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockReturnValue(
       new Promise((resolve) => {
         resolvePromise = resolve;
-      })
+      }),
     );
     const { container } = render(<ContactForm />);
     fillAndSubmit(container);
 
-    await waitFor(() => {
-      const submitBtn = btn(container);
-      expect(submitBtn.textContent).toContain('Надсилання');
-      expect(submitBtn).toBeDisabled();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        const submitBtn = btn(container);
+        expect(submitBtn.textContent).toContain('Надсилання');
+        expect(submitBtn).toBeDisabled();
+      },
+      { timeout: 3000 },
+    );
 
     resolvePromise({ ok: true });
 
-    await waitFor(() => {
-      const submitBtn = btn(container);
-      expect(submitBtn.textContent).toContain('Надіслати');
-      expect(submitBtn).not.toBeDisabled();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        const submitBtn = btn(container);
+        expect(submitBtn.textContent).toContain('Надіслати');
+        expect(submitBtn).not.toBeDisabled();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it('formats phone with 380 prefix correctly', () => {
@@ -234,7 +245,8 @@ describe('ContactForm', () => {
     fireEvent.change(q(container, "Ваше ім'я *"), { target: { value: 'Іван' } });
     fireEvent.change(q(container, 'Email *'), { target: { value: 'ivan@test.com' } });
     fireEvent.change(q(container, 'Тема'), { target: { value: 'Питання' } });
-    fireEvent.change(q(container, 'Повідомлення *'), { target: { value: 'Текст' } });
+    // Message must be >= 10 chars to pass client-side validation.
+    fireEvent.change(q(container, 'Повідомлення *'), { target: { value: 'Текст повідомлення' } });
     fireEvent.submit(btn(container).closest('form')!);
 
     await waitFor(() => {
@@ -245,12 +257,10 @@ describe('ContactForm', () => {
       });
     });
 
-    const body = JSON.parse(
-      (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body
-    );
+    const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
     expect(body.name).toBe('Іван');
     expect(body.email).toBe('ivan@test.com');
     expect(body.subject).toBe('Питання');
-    expect(body.message).toBe('Текст');
+    expect(body.message).toBe('Текст повідомлення');
   });
 });

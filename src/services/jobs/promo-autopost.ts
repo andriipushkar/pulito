@@ -3,6 +3,12 @@ import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 import { getChannelConfig } from '@/services/channel-config';
 
+// Telegram parses these posts as HTML — a product name with `<`, `>` or `&`
+// breaks parsing (HTTP 400, post silently dropped). Escape interpolated fields.
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 const ANNOUNCED_KEY_PREFIX = 'promo:announced:';
 const ANNOUNCED_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const DEFAULT_BATCH_SIZE = 5;
@@ -53,7 +59,7 @@ export async function autoPostPromoToTelegram(
     }
 
     const url = `${appUrl}/product/${product.slug}?utm_source=telegram&utm_medium=channel&utm_campaign=promo`;
-    const text = `🔥 <b>Акція!</b>\n\n<b>${product.name}</b>\nКод: ${product.code}\nЦіна: <b>${Number(product.priceRetail).toFixed(2)} ₴</b>\n\n${url}`;
+    const text = `🔥 <b>Акція!</b>\n\n<b>${escapeHtml(product.name)}</b>\nКод: ${escapeHtml(product.code)}\nЦіна: <b>${Number(product.priceRetail).toFixed(2)} ₴</b>\n\n${url}`;
 
     const endpoint = product.imagePath ? 'sendPhoto' : 'sendMessage';
     const body = product.imagePath

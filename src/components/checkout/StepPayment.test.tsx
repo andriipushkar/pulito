@@ -3,9 +3,20 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
-}));
+// Passthrough for most namespaces, but resolve real orderLabels copy so the
+// payment method labels (tl('paymentMethod.x')) match production.
+vi.mock('next-intl', () => {
+  const orderLabels: Record<string, string> = {
+    'paymentMethod.cod': 'Накладений платіж',
+    'paymentMethod.bank_transfer': 'На розрахунковий рахунок',
+    'paymentMethod.online': 'Онлайн-оплата',
+    'paymentMethod.card_prepay': 'Передоплата на картку',
+  };
+  return {
+    useTranslations: (ns?: string) => (key: string) =>
+      ns === 'orderLabels' ? (orderLabels[key] ?? key) : key,
+  };
+});
 
 import StepPayment from './StepPayment';
 

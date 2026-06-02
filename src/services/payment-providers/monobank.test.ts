@@ -150,9 +150,10 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync } = crypto;
       const { publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
-        'base64',
-      );
+      // Monobank returns base64( PEM text ), not base64( DER ) — mirror reality.
+      const pubKeyBase64 = Buffer.from(
+        publicKey.export({ format: 'pem', type: 'spki' }) as string,
+      ).toString('base64');
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -183,9 +184,10 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
-        'base64',
-      );
+      // Monobank returns base64( PEM text ), not base64( DER ) — mirror reality.
+      const pubKeyBase64 = Buffer.from(
+        publicKey.export({ format: 'pem', type: 'spki' }) as string,
+      ).toString('base64');
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -217,9 +219,10 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
-        'base64',
-      );
+      // Monobank returns base64( PEM text ), not base64( DER ) — mirror reality.
+      const pubKeyBase64 = Buffer.from(
+        publicKey.export({ format: 'pem', type: 'spki' }) as string,
+      ).toString('base64');
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -248,9 +251,10 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
-        'base64',
-      );
+      // Monobank returns base64( PEM text ), not base64( DER ) — mirror reality.
+      const pubKeyBase64 = Buffer.from(
+        publicKey.export({ format: 'pem', type: 'spki' }) as string,
+      ).toString('base64');
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -279,9 +283,10 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
-        'base64',
-      );
+      // Monobank returns base64( PEM text ), not base64( DER ) — mirror reality.
+      const pubKeyBase64 = Buffer.from(
+        publicKey.export({ format: 'pem', type: 'spki' }) as string,
+      ).toString('base64');
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -310,9 +315,10 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
-        'base64',
-      );
+      // Monobank returns base64( PEM text ), not base64( DER ) — mirror reality.
+      const pubKeyBase64 = Buffer.from(
+        publicKey.export({ format: 'pem', type: 'spki' }) as string,
+      ).toString('base64');
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({
@@ -342,9 +348,10 @@ describe('Monobank provider', () => {
       const crypto = await import('crypto');
       const { generateKeyPairSync, sign } = crypto;
       const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-      const pubKeyBase64 = Buffer.from(publicKey.export({ format: 'der', type: 'spki' })).toString(
-        'base64',
-      );
+      // Monobank returns base64( PEM text ), not base64( DER ) — mirror reality.
+      const pubKeyBase64 = Buffer.from(
+        publicKey.export({ format: 'pem', type: 'spki' }) as string,
+      ).toString('base64');
 
       vi.resetModules();
       vi.mock('@/config/env', () => ({

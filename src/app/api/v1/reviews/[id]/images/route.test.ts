@@ -1,12 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
 
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
   withOptionalAuth: (handler: Function) => handler,
-  withRole: (..._roles: string[]) => (handler: Function) => handler,
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+      handler,
 }));
 
 vi.mock('@/lib/prisma', () => ({
@@ -19,11 +32,25 @@ vi.mock('@/lib/storage', () => ({
   uploadFile: vi.fn(),
 }));
 
+vi.mock('@/utils/file-validation', () => ({
+  validateFileType: vi.fn().mockResolvedValue({ valid: true, detectedType: 'image/jpeg' }),
+}));
+
+vi.mock('sharp', () => ({
+  default: vi.fn(() => ({
+    resize: vi.fn().mockReturnThis(),
+    webp: vi.fn().mockReturnThis(),
+    toBuffer: vi.fn().mockResolvedValue(Buffer.from('processed')),
+  })),
+}));
+
 vi.mock('@/utils/api-response', async () => {
   const { NextResponse } = await import('next/server');
   return {
-    successResponse: (data: any, status = 200) => NextResponse.json({ success: true, data }, { status }),
-    errorResponse: (message: string, status = 500) => NextResponse.json({ success: false, error: message }, { status }),
+    successResponse: (data: any, status = 200) =>
+      NextResponse.json({ success: true, data }, { status }),
+    errorResponse: (message: string, status = 500) =>
+      NextResponse.json({ success: false, error: message }, { status }),
   };
 });
 
@@ -44,7 +71,10 @@ describe('POST /api/v1/reviews/[id]/images', () => {
     mockFindFirst.mockResolvedValue(null);
     const formData = new FormData();
     formData.append('image', new File(['data'], 'test.jpg', { type: 'image/jpeg' }));
-    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', { method: 'POST', body: formData });
+    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', {
+      method: 'POST',
+      body: formData,
+    });
     const res = await POST(req, authCtx as any);
     expect(res.status).toBe(404);
   });
@@ -53,7 +83,10 @@ describe('POST /api/v1/reviews/[id]/images', () => {
     mockFindFirst.mockResolvedValue({ id: 5, images: ['a', 'b', 'c', 'd', 'e'] });
     const formData = new FormData();
     formData.append('image', new File(['data'], 'test.jpg', { type: 'image/jpeg' }));
-    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', { method: 'POST', body: formData });
+    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', {
+      method: 'POST',
+      body: formData,
+    });
     const res = await POST(req, authCtx as any);
     expect(res.status).toBe(400);
   });
@@ -61,7 +94,10 @@ describe('POST /api/v1/reviews/[id]/images', () => {
   it('returns 400 when no file provided', async () => {
     mockFindFirst.mockResolvedValue({ id: 5, images: [] });
     const formData = new FormData();
-    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', { method: 'POST', body: formData });
+    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', {
+      method: 'POST',
+      body: formData,
+    });
     const res = await POST(req, authCtx as any);
     expect(res.status).toBe(400);
   });
@@ -72,7 +108,10 @@ describe('POST /api/v1/reviews/[id]/images', () => {
     mockUpdate.mockResolvedValue({});
     const formData = new FormData();
     formData.append('image', new File(['data'], 'test.jpg', { type: 'image/jpeg' }));
-    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', { method: 'POST', body: formData });
+    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', {
+      method: 'POST',
+      body: formData,
+    });
     const res = await POST(req, authCtx as any);
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -83,7 +122,10 @@ describe('POST /api/v1/reviews/[id]/images', () => {
     mockFindFirst.mockRejectedValue(new Error('fail'));
     const formData = new FormData();
     formData.append('image', new File(['data'], 'test.jpg', { type: 'image/jpeg' }));
-    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', { method: 'POST', body: formData });
+    const req = new NextRequest('http://localhost/api/v1/reviews/5/images', {
+      method: 'POST',
+      body: formData,
+    });
     const res = await POST(req, authCtx as any);
     expect(res.status).toBe(500);
   });

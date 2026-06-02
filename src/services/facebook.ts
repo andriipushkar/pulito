@@ -1,16 +1,17 @@
 import { env } from '@/config/env';
+import { GRAPH_API_VERSION } from './meta-graph';
 
 export class FacebookError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'FacebookError';
   }
 }
 
-const GRAPH_API = 'https://graph.facebook.com/v21.0';
+const GRAPH_API = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
 async function fbFetch(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   let lastError: unknown;
@@ -61,7 +62,10 @@ export async function publishTextPost(message: string, link?: string): Promise<F
 
   const data = await res.json();
   if (data.error) {
-    throw new FacebookError(`Facebook publish error: ${data.error.message}`, data.error.code || 400);
+    throw new FacebookError(
+      `Facebook publish error: ${data.error.message}`,
+      data.error.code || 400,
+    );
   }
   if (!data.id) {
     throw new FacebookError('Facebook publish failed: no post ID returned');
@@ -74,7 +78,10 @@ export async function publishTextPost(message: string, link?: string): Promise<F
 }
 
 /** Publish a photo post to Facebook Page. */
-export async function publishPhotoPost(imageUrl: string, caption: string): Promise<FbPublishResult> {
+export async function publishPhotoPost(
+  imageUrl: string,
+  caption: string,
+): Promise<FbPublishResult> {
   const pageId = env.FACEBOOK_PAGE_ID;
   const accessToken = env.FACEBOOK_PAGE_ACCESS_TOKEN;
 
@@ -94,7 +101,10 @@ export async function publishPhotoPost(imageUrl: string, caption: string): Promi
 
   const data = await res.json();
   if (data.error) {
-    throw new FacebookError(`Facebook photo publish error: ${data.error.message}`, data.error.code || 400);
+    throw new FacebookError(
+      `Facebook photo publish error: ${data.error.message}`,
+      data.error.code || 400,
+    );
   }
   if (!data.post_id && !data.id) {
     throw new FacebookError('Facebook photo publish failed: no post ID returned');
@@ -107,7 +117,10 @@ export async function publishPhotoPost(imageUrl: string, caption: string): Promi
 }
 
 /** Publish multiple photos as a single post. */
-export async function publishMultiPhotoPost(imageUrls: string[], caption: string): Promise<FbPublishResult> {
+export async function publishMultiPhotoPost(
+  imageUrls: string[],
+  caption: string,
+): Promise<FbPublishResult> {
   const pageId = env.FACEBOOK_PAGE_ID;
   const accessToken = env.FACEBOOK_PAGE_ACCESS_TOKEN;
 

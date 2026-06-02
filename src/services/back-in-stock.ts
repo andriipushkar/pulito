@@ -60,6 +60,11 @@ export async function processBackInStockNotifications(): Promise<ProcessResult> 
           ${sub.product.imagePath ? `<img src="${baseUrl}${sub.product.imagePath}" alt="" style="max-width: 200px; height: auto; border-radius: 8px; margin-bottom: 12px;" />` : ''}
           <h3 style="margin: 0 0 8px; font-size: 18px;">${escapeHtml(sub.product.name)}</h3>
           <p style="margin: 0; font-size: 20px; font-weight: 700; color: #1565c0;">${Number(sub.product.priceRetail).toFixed(0)} ₴</p>
+          ${
+            sub.product.quantity <= 10
+              ? `<p style="margin: 8px 0 0; font-size: 14px; font-weight: 600; color: #d84315;">🔥 Залишилось лише ${sub.product.quantity} шт — встигніть замовити!</p>`
+              : ''
+          }
         </div>
         <p style="margin: 16px 0;">
           <a href="${productUrl}" style="display: inline-block; background: #1565c0; color: white; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: 600;">

@@ -4,24 +4,23 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     product: {
       count: vi.fn().mockResolvedValue(1),
-      findMany: vi.fn().mockResolvedValue([
-        { slug: 'soap-1', updatedAt: new Date('2025-01-01') },
-      ]),
+      findMany: vi.fn().mockResolvedValue([{ slug: 'soap-1', updatedAt: new Date('2025-01-01') }]),
     },
     category: {
-      findMany: vi.fn().mockResolvedValue([
-        { slug: 'cleaning', updatedAt: new Date('2025-01-02') },
-      ]),
+      findMany: vi
+        .fn()
+        .mockResolvedValue([{ slug: 'cleaning', updatedAt: new Date('2025-01-02') }]),
     },
     staticPage: {
-      findMany: vi.fn().mockResolvedValue([
-        { slug: 'about', updatedAt: new Date('2025-01-03') },
-      ]),
+      findMany: vi.fn().mockResolvedValue([{ slug: 'about', updatedAt: new Date('2025-01-03') }]),
     },
     brand: {
       findMany: vi.fn().mockResolvedValue([]),
     },
     blogPost: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    blogCategory: {
       findMany: vi.fn().mockResolvedValue([]),
     },
     bundle: {
@@ -36,8 +35,9 @@ describe('sitemap', () => {
   it('returns an array containing static and dynamic pages', async () => {
     const result = await sitemap();
     expect(Array.isArray(result)).toBe(true);
-    // 6 static + 1 product + 1 category + 1 content + 0 blog + 0 bundles = 9
-    expect(result.length).toBe(9);
+    // 7 static + 1 product + 1 category + 1 content + 0 brand + 0 blog
+    // + 0 blogCategory + 0 bundles = 10
+    expect(result.length).toBe(10);
   });
 
   it('includes product URLs with correct format', async () => {

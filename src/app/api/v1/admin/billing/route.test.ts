@@ -36,6 +36,9 @@ vi.mock('@/lib/prisma', () => ({
     tenantUser: { findFirst: vi.fn() },
   },
 }));
+vi.mock('@/lib/admin-tenant', () => ({
+  resolveActiveTenantId: vi.fn(),
+}));
 vi.mock('@/services/billing', () => ({
   getBilling: vi.fn(),
   checkUsageLimits: vi.fn(),
@@ -53,8 +56,8 @@ vi.mock('@/utils/api-response', () => ({
 }));
 
 import { GET } from './route';
-import { prisma } from '@/lib/prisma';
 import { getBilling, checkUsageLimits } from '@/services/billing';
+import { resolveActiveTenantId } from '@/lib/admin-tenant';
 
 describe('GET /api/v1/admin/billing', () => {
   beforeEach(() => {
@@ -62,7 +65,7 @@ describe('GET /api/v1/admin/billing', () => {
   });
 
   it('returns billing and usage on success', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (getBilling as any).mockResolvedValue({ plan: 'pro' });
     (checkUsageLimits as any).mockResolvedValue({ products: 50 });
 
@@ -75,7 +78,9 @@ describe('GET /api/v1/admin/billing', () => {
   });
 
   it('returns 404 when tenant not found', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
+    (resolveActiveTenantId as any).mockResolvedValue({
+      error: Response.json({ error: 'Тенант не знайдено' }, { status: 404 }),
+    });
 
     const req = new NextRequest('http://localhost');
     const res = await GET(req, { user: { id: 1 } } as any);
@@ -84,7 +89,7 @@ describe('GET /api/v1/admin/billing', () => {
   });
 
   it('returns 500 on error', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (getBilling as any).mockRejectedValue(new Error('fail'));
 
     const req = new NextRequest('http://localhost');

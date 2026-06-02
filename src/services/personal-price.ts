@@ -68,7 +68,7 @@ export async function getPersonalPrices(
 
   const skip = (filters.page - 1) * filters.limit;
 
-  const [items, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     prisma.personalPrice.findMany({
       where,
       select: personalPriceSelect,
@@ -78,6 +78,24 @@ export async function getPersonalPrices(
     }),
     prisma.personalPrice.count({ where }),
   ]);
+
+  // PersonalPrice stores only a scalar categoryId (no relation), so resolve the
+  // category names in one batched query and attach them — the admin list shows
+  // the name instead of a bare id.
+  const categoryIds = [
+    ...new Set(rows.map((r) => r.categoryId).filter((id): id is number => id != null)),
+  ];
+  const categories = categoryIds.length
+    ? await prisma.category.findMany({
+        where: { id: { in: categoryIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
+  const items = rows.map((r) => ({
+    ...r,
+    category: r.categoryId != null ? (categoryById.get(r.categoryId) ?? null) : null,
+  }));
 
   return { items, total };
 }

@@ -7,6 +7,7 @@ import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import { gtagEvent } from '@/lib/gtag';
+import { fbqTrack } from '@/lib/fbpixel';
 import { checkoutSchema, type CheckoutInput } from '@/validators/order';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Button from '@/components/ui/Button';
@@ -46,6 +47,36 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [loyaltyPointsToSpend, setLoyaltyPointsToSpend] = useState(0);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim();
+    if (!code) return;
+    setCouponMsg(null);
+    try {
+      const res = await apiClient.post<{ discount: number }>('/api/v1/coupons/validate', {
+        code,
+        orderAmount: cartTotal,
+        cartProductIds: items.map((i) => i.productId),
+      });
+      if (res.success && res.data) {
+        setCouponDiscount(res.data.discount);
+        setCouponApplied(true);
+        setCouponMsg(`Знижку застосовано: −${res.data.discount.toFixed(2)} ₴`);
+      } else {
+        setCouponDiscount(0);
+        setCouponApplied(false);
+        setCouponMsg(res.error || 'Промокод недійсний');
+      }
+    } catch {
+      setCouponDiscount(0);
+      setCouponApplied(false);
+      setCouponMsg('Помилка перевірки промокоду');
+    }
+  };
   const [config, setConfig] = useState<CheckoutConfig | null>(null);
   const [showAllItems, setShowAllItems] = useState(false);
   const [subscriptions, setSubscriptions] = useState<Record<number, SubscriptionFrequency>>({});
@@ -343,7 +374,7 @@ export default function CheckoutPage() {
         price: Number(i.priceRetail),
         quantity: i.quantity,
       })),
-      cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend,
+      cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend - couponDiscount,
     );
 
     const deliveryManual = !!config?.delivery.manualMode;
@@ -362,6 +393,7 @@ export default function CheckoutPage() {
       paymentProvider: paymentManual ? undefined : formData.paymentProvider,
       comment: mergedComment,
       loyaltyPointsToSpend: loyaltyPointsToSpend > 0 ? loyaltyPointsToSpend : undefined,
+      couponCode: couponApplied && couponCode.trim() ? couponCode.trim() : undefined,
     };
 
     const parsed = checkoutSchema.safeParse(submitData);
@@ -522,7 +554,7 @@ export default function CheckoutPage() {
         // GA4: purchase (fire regardless of payment branch)
         gtagEvent.purchase({
           transaction_id: res.data.orderNumber,
-          value: cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend,
+          value: cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend - couponDiscount,
           shipping: estimatedDeliveryCost,
           items: items.map((i) => ({
             item_id: i.code || String(i.productId),
@@ -531,6 +563,18 @@ export default function CheckoutPage() {
             quantity: i.quantity,
           })),
         });
+        // Meta Pixel Purchase — same eventID as the server CAPI Purchase
+        // (`Purchase-<orderNumber>`) so the two deduplicate.
+        fbqTrack(
+          'Purchase',
+          {
+            value: cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend - couponDiscount,
+            currency: 'UAH',
+            content_type: 'product',
+            content_ids: items.map((i) => i.code || String(i.productId)),
+          },
+          { eventID: `Purchase-${res.data.orderNumber}` },
+        );
       } else {
         setErrors({ submit: res.error || 'Помилка при створенні замовлення' });
       }
@@ -713,6 +757,40 @@ export default function CheckoutPage() {
             />
           </CheckoutSection>
 
+          {/* Promo code — applied & validated server-side on submit. An invalid
+              code surfaces in errors.submit; clear it to order without one. */}
+          <div className="rounded-[var(--radius)] border border-[var(--color-border)] p-4">
+            <label htmlFor="couponCode" className="mb-1 block text-sm font-medium">
+              Промокод
+            </label>
+            <div className="flex gap-2 sm:max-w-md">
+              <input
+                id="couponCode"
+                type="text"
+                value={couponCode}
+                onChange={(e) => {
+                  setCouponCode(e.target.value.toUpperCase());
+                  // Re-validation required after any edit.
+                  setCouponApplied(false);
+                  setCouponDiscount(0);
+                  setCouponMsg(null);
+                }}
+                placeholder="Введіть промокод (за наявності)"
+                className="flex-1 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2"
+              />
+              <Button variant="outline" onClick={applyCoupon} disabled={!couponCode.trim()}>
+                Застосувати
+              </Button>
+            </div>
+            {couponMsg && (
+              <p
+                className={`mt-1 text-sm ${couponApplied ? 'text-green-600' : 'text-[var(--color-danger)]'}`}
+              >
+                {couponMsg}
+              </p>
+            )}
+          </div>
+
           {errors.submit && <p className="text-sm text-[var(--color-danger)]">{errors.submit}</p>}
 
           {/* Sticky submit on mobile, inline on desktop */}
@@ -730,7 +808,13 @@ export default function CheckoutPage() {
                   До оплати:
                 </span>
                 <span className="text-lg font-bold tabular-nums">
-                  {(cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend).toFixed(2)} ₴
+                  {(
+                    cartTotal +
+                    estimatedDeliveryCost -
+                    loyaltyPointsToSpend -
+                    couponDiscount
+                  ).toFixed(2)}{' '}
+                  ₴
                 </span>
                 <Button
                   onClick={handleSubmit}
@@ -933,6 +1017,14 @@ export default function CheckoutPage() {
                     : '—'}
                 </span>
               </div>
+              {couponDiscount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--color-text-secondary)]">Промокод</span>
+                  <span className="tabular-nums text-[var(--color-primary)]">
+                    −{couponDiscount.toFixed(2)} ₴
+                  </span>
+                </div>
+              )}
               {loyaltyPointsToSpend > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--color-text-secondary)]">Бонуси</span>
@@ -944,7 +1036,13 @@ export default function CheckoutPage() {
               <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-2">
                 <span className="text-sm font-semibold">Разом до сплати</span>
                 <span className="text-lg font-bold tabular-nums">
-                  {(cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend).toFixed(2)} ₴
+                  {(
+                    cartTotal +
+                    estimatedDeliveryCost -
+                    loyaltyPointsToSpend -
+                    couponDiscount
+                  ).toFixed(2)}{' '}
+                  ₴
                 </span>
               </div>
             </div>

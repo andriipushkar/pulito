@@ -85,12 +85,41 @@ export const POST = withRole2fa('admin')(async (request: NextRequest, { user }) 
     }
 
     if (provider === 'wayforpay') {
-      if (!config.merchantAccount) {
-        return successResponse({ success: false, error: "Merchant Account обов'язковий" });
+      if (!config.merchantAccount || !config.secretKey) {
+        return successResponse({
+          success: false,
+          error: "Merchant Account та Secret Key обов'язкові",
+        });
       }
-      // WayForPay doesn't have a simple test endpoint, just validate format
-      if (config.merchantAccount.length < 3) {
-        return successResponse({ success: false, error: 'Merchant Account занадто короткий' });
+      // Real probe: CHECK_STATUS for a bogus order, signed with the entered
+      // creds. Valid creds → WayForPay processes the request (e.g. "transaction
+      // not found"); a wrong secret/merchant → reasonCode 1113 "Invalid
+      // signature" (or 1114). This actually validates the secret key — unlike a
+      // length check, which gave false confidence.
+      const cryptoMod = await import('crypto');
+      const orderReference = 'test_connection_check';
+      const signature = cryptoMod
+        .createHmac('md5', config.secretKey)
+        .update([config.merchantAccount, orderReference].join(';'))
+        .digest('hex');
+      const res = await fetch('https://api.wayforpay.com/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transactionType: 'CHECK_STATUS',
+          merchantAccount: config.merchantAccount,
+          orderReference,
+          apiVersion: 1,
+          merchantSignature: signature,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const data = await res.json();
+      if (data.reasonCode === 1113 || data.reasonCode === 1114) {
+        return successResponse({
+          success: false,
+          error: `Невірні ключі (${data.reason || data.reasonCode})`,
+        });
       }
       return successResponse({ success: true, name: `WayForPay: ${config.merchantAccount}` });
     }

@@ -14,8 +14,8 @@ import { prisma } from '@/lib/prisma';
 describe('sitemap-products chunk route', () => {
   it('returns XML with products for valid chunk', async () => {
     (prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { slug: 'product-1', updatedAt: new Date('2025-06-01') },
-      { slug: 'product-2', updatedAt: new Date('2025-06-02') },
+      { slug: 'product-1', name: 'Product 1', updatedAt: new Date('2025-06-01'), images: [] },
+      { slug: 'product-2', name: 'Product 2', updatedAt: new Date('2025-06-02'), images: [] },
     ]);
 
     const response = await GET(new Request('http://localhost:3000/sitemap-products/0'), {
@@ -60,7 +60,7 @@ describe('sitemap-products chunk route', () => {
 
   it('sets cache headers', async () => {
     (prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { slug: 'p', updatedAt: new Date() },
+      { slug: 'p', name: 'P', updatedAt: new Date(), images: [] },
     ]);
 
     const response = await GET(new Request('http://localhost:3000/sitemap-products/0'), {
@@ -72,7 +72,7 @@ describe('sitemap-products chunk route', () => {
 
   it('uses pagination with skip/take', async () => {
     (prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { slug: 'p', updatedAt: new Date() },
+      { slug: 'p', name: 'P', updatedAt: new Date(), images: [] },
     ]);
 
     await GET(new Request('http://localhost:3000/sitemap-products/2'), {

@@ -1,15 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/middleware/auth', () => ({ withRole: (..._roles: string[]) => (handler: Function) => (...args: unknown[]) => handler(...args) }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/middleware/auth', () => ({
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+    (req: unknown, ctx?: Record<string, unknown>) =>
+      handler(req, { user: { id: 1, email: 'admin@test.com', role: 'admin' }, ...(ctx || {}) }),
+}));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/services/marketplace-tracking', () => ({ pushTrackingSafe: vi.fn() }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/validators/nova-poshta', () => ({ createTTNSchema: { safeParse: vi.fn() } }));
 vi.mock('@/services/nova-poshta', () => ({
   createInternetDocument: vi.fn(),
-  NovaPoshtaError: class NovaPoshtaError extends Error { statusCode = 400; },
+  NovaPoshtaError: class NovaPoshtaError extends Error {
+    statusCode = 400;
+  },
 }));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    order: { findUnique: vi.fn(), update: vi.fn() },
+    order: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
   },
 }));
 
@@ -21,12 +44,24 @@ import { createTTNSchema } from '@/validators/nova-poshta';
 const mockCtx = { params: Promise.resolve({ id: '1' }) };
 
 describe('POST /api/v1/admin/orders/[id]/ttn', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('creates TTN on success', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, status: 'processing', trackingNumber: null } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      status: 'processing',
+      trackingNumber: null,
+    } as any);
+    vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 } as any);
     vi.mocked(createTTNSchema.safeParse).mockReturnValue({ success: true, data: {} } as any);
-    vi.mocked(createInternetDocument).mockResolvedValue({ intDocNumber: '123', ref: 'abc', costOnSite: '50' as any, estimatedDeliveryDate: '2025-01-01' });
+    vi.mocked(createInternetDocument).mockResolvedValue({
+      intDocNumber: '123',
+      ref: 'abc',
+      costOnSite: '50' as any,
+      estimatedDeliveryDate: '2025-01-01',
+    });
     vi.mocked(prisma.order.update).mockResolvedValue({} as any);
     const req = new Request('http://localhost', {
       method: 'POST',
@@ -59,7 +94,11 @@ describe('POST /api/v1/admin/orders/[id]/ttn', () => {
   });
 
   it('returns 400 when order already has tracking number', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, status: 'processing', trackingNumber: 'EXISTING-123' } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      status: 'processing',
+      trackingNumber: 'EXISTING-123',
+    } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -72,8 +111,15 @@ describe('POST /api/v1/admin/orders/[id]/ttn', () => {
   });
 
   it('returns 422 on validation error', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, status: 'processing', trackingNumber: null } as any);
-    vi.mocked(createTTNSchema.safeParse).mockReturnValue({ success: false, error: { issues: [{ message: 'bad' }] } } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      status: 'processing',
+      trackingNumber: null,
+    } as any);
+    vi.mocked(createTTNSchema.safeParse).mockReturnValue({
+      success: false,
+      error: { issues: [{ message: 'bad' }] },
+    } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -85,7 +131,11 @@ describe('POST /api/v1/admin/orders/[id]/ttn', () => {
 
   it('handles NovaPoshtaError', async () => {
     const { NovaPoshtaError } = await import('@/services/nova-poshta');
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, status: 'processing', trackingNumber: null } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      status: 'processing',
+      trackingNumber: null,
+    } as any);
     vi.mocked(createTTNSchema.safeParse).mockReturnValue({ success: true, data: {} } as any);
     vi.mocked(createInternetDocument).mockRejectedValue(new NovaPoshtaError('API error'));
     const req = new Request('http://localhost', {

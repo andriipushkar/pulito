@@ -1,4 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (h) => h,
+  RateLimitError: class RateLimitError extends Error {
+    statusCode = 429;
+    retryAfter;
+    constructor(m, s, r) {
+      super(m);
+      this.statusCode = s || 429;
+      this.retryAfter = r;
+    }
+  },
+  RATE_LIMITS: new Proxy(
+    {},
+    { get: () => ({ limit: 100, windowSeconds: 60, prefix: 'test', max: 1e9, windowSec: 60 }) },
+  ),
+}));
 import { NextRequest } from 'next/server';
 
 vi.mock('@/services/search-history', () => ({
@@ -21,7 +44,12 @@ vi.mock('@/middleware/auth', () => ({
 }));
 
 import { GET, POST, DELETE } from './route';
-import { getSearchHistory, saveSearch, clearSearchHistory, getRecentUniqueQueries } from '@/services/search-history';
+import {
+  getSearchHistory,
+  saveSearch,
+  clearSearchHistory,
+  getRecentUniqueQueries,
+} from '@/services/search-history';
 
 const mockGetSearchHistory = getSearchHistory as ReturnType<typeof vi.fn>;
 const mockSaveSearch = saveSearch as ReturnType<typeof vi.fn>;
@@ -68,14 +96,14 @@ describe('POST /api/v1/me/search-history', () => {
     expect(res.status).toBe(201);
   });
 
-  it('returns 400 for missing query', async () => {
+  it('returns 422 for missing query', async () => {
     const req = new NextRequest('http://localhost/api/v1/me/search-history', {
       method: 'POST',
       body: JSON.stringify({}),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await POST(req, authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 500 on error', async () => {
@@ -110,13 +138,17 @@ describe('DELETE /api/v1/me/search-history', () => {
   it('deletes single entry by id', async () => {
     const { deleteSearchEntry } = await import('@/services/search-history');
     vi.mocked(deleteSearchEntry).mockResolvedValue(undefined as any);
-    const req = new NextRequest('http://localhost/api/v1/me/search-history?id=5', { method: 'DELETE' });
+    const req = new NextRequest('http://localhost/api/v1/me/search-history?id=5', {
+      method: 'DELETE',
+    });
     const res = await DELETE(req, authCtx as any);
     expect(res.status).toBe(200);
   });
 
   it('returns 400 for non-numeric id', async () => {
-    const req = new NextRequest('http://localhost/api/v1/me/search-history?id=abc', { method: 'DELETE' });
+    const req = new NextRequest('http://localhost/api/v1/me/search-history?id=abc', {
+      method: 'DELETE',
+    });
     const res = await DELETE(req, authCtx as any);
     expect(res.status).toBe(400);
   });

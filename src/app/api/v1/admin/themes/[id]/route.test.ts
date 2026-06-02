@@ -78,14 +78,14 @@ describe('PUT /api/v1/admin/themes/[id]', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when customSettings is missing', async () => {
+  it('returns 422 when customSettings is missing', async () => {
     const req = new Request('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({ something: 'else' }),
       headers: { 'Content-Type': 'application/json' },
     });
     const res = await PUT(req as any, mockCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns ThemeError status on ThemeError', async () => {

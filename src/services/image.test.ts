@@ -75,6 +75,16 @@ vi.mock('@/services/background-removal', () => ({
   isBackgroundRemovalEnabled: mockIsBgEnabled,
 }));
 
+// processProductImage reads watermark config from site settings; mock it so
+// tests don't touch Redis/DB and keep the watermark on by default.
+vi.mock('@/services/settings', () => ({
+  getSettings: vi.fn(async () => ({
+    watermark_text: 'pulito.trade',
+    watermark_enabled: '1',
+    removebg_api_key: '',
+  })),
+}));
+
 import {
   processProductImage,
   deleteProductImage,

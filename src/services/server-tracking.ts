@@ -1,10 +1,26 @@
 import { createHash } from 'crypto';
 import { env } from '@/config/env';
+import { logger } from '@/lib/logger';
+import { GRAPH_API_VERSION } from '@/services/meta-graph';
 
 /**
  * Server-side event tracking for Facebook Conversion API and GA4 Measurement Protocol.
  * Bypasses ad blockers by sending events directly from the server.
  */
+
+/**
+ * Normalise a Ukrainian phone to E.164 digits (country code + number, no `+`)
+ * before hashing, as Meta requires. `0XXXXXXXXX` → `380XXXXXXXXX`. Without
+ * this, locally-entered numbers hash to values Meta never matches, silently
+ * killing match quality.
+ */
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('380')) return digits;
+  if (digits.startsWith('0')) return `380${digits.slice(1)}`;
+  if (digits.length === 9) return `380${digits}`;
+  return digits;
+}
 
 interface TrackingEvent {
   eventName: string;
@@ -27,20 +43,30 @@ export async function trackFacebookEvent(event: TrackingEvent): Promise<void> {
   if (!pixelId || !accessToken) return;
 
   try {
-    const hashedEmail = event.email ? createHash('sha256').update(event.email.toLowerCase().trim()).digest('hex') : undefined;
-    const hashedPhone = event.phone ? createHash('sha256').update(event.phone.replace(/\D/g, '')).digest('hex') : undefined;
+    const hashedEmail = event.email
+      ? createHash('sha256').update(event.email.toLowerCase().trim()).digest('hex')
+      : undefined;
+    const hashedPhone = event.phone
+      ? createHash('sha256').update(normalizePhone(event.phone)).digest('hex')
+      : undefined;
 
     const fbEvent = {
       event_name: event.eventName,
       event_time: Math.floor(Date.now() / 1000),
       event_source_url: `${env.APP_URL}/checkout`,
       action_source: 'website',
+      // Stable id so this server event de-dupes against the browser Pixel's
+      // matching event (the Pixel must emit the SAME eventID). Without it the
+      // same purchase is counted twice.
+      ...(event.orderId && { event_id: `${event.eventName}-${event.orderId}` }),
       user_data: {
         ...(hashedEmail && { em: [hashedEmail] }),
         ...(hashedPhone && { ph: [hashedPhone] }),
         ...(event.ipAddress && { client_ip_address: event.ipAddress }),
         ...(event.userAgent && { client_user_agent: event.userAgent }),
-        ...(event.userId && { external_id: [createHash('sha256').update(String(event.userId)).digest('hex')] }),
+        ...(event.userId && {
+          external_id: [createHash('sha256').update(String(event.userId)).digest('hex')],
+        }),
       },
       custom_data: {
         ...(event.value && { value: event.value, currency: event.currency || 'UAH' }),
@@ -57,7 +83,7 @@ export async function trackFacebookEvent(event: TrackingEvent): Promise<void> {
       },
     };
 
-    await fetch(`https://graph.facebook.com/v19.0/${pixelId}/events`, {
+    const res = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${pixelId}/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -66,6 +92,15 @@ export async function trackFacebookEvent(event: TrackingEvent): Promise<void> {
       }),
       signal: AbortSignal.timeout(5000),
     });
+    // Log the Graph error envelope — a silent CAPI failure (expired token /
+    // bad version) would otherwise go unnoticed for weeks. Still non-blocking.
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      logger.warn('[server-tracking] Conversions API returned an error', {
+        status: res.status,
+        error: (errBody as { error?: unknown }).error,
+      });
+    }
   } catch {
     // Non-blocking — don't fail the order
   }
@@ -97,16 +132,19 @@ export async function trackGA4Event(event: TrackingEvent): Promise<void> {
       },
     };
 
-    await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: clientId,
-        ...(event.userId && { user_id: String(event.userId) }),
-        events: [ga4Event],
-      }),
-      signal: AbortSignal.timeout(5000),
-    });
+    await fetch(
+      `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId,
+          ...(event.userId && { user_id: String(event.userId) }),
+          events: [ga4Event],
+        }),
+        signal: AbortSignal.timeout(5000),
+      },
+    );
   } catch {
     // Non-blocking
   }

@@ -119,6 +119,12 @@ export const ADMIN_PAGES: AdminPage[] = [
     icon: BarChart3,
     section: 'section_overview',
   },
+  {
+    href: '/admin/tax-report',
+    label: 'page_taxReport',
+    icon: BarChart3,
+    section: 'section_overview',
+  },
 
   // ─── Замовлення ────────────────────────────────────────────
   {
@@ -129,6 +135,12 @@ export const ADMIN_PAGES: AdminPage[] = [
     section: 'section_orders',
   },
   { href: '/admin/pack', label: 'page_pack', icon: ClipboardList, section: 'section_orders' },
+  {
+    href: '/admin/scan-sheets',
+    label: 'page_scanSheets',
+    icon: ClipboardList,
+    section: 'section_orders',
+  },
   {
     href: '/admin/pallet-delivery',
     label: 'page_palletDelivery',

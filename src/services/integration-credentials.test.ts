@@ -19,6 +19,7 @@ vi.mock('@/services/settings', () => ({
 
 import {
   getNovaPoshtaCreds,
+  getNovaPoshtaSenderCityRef,
   getUkrposhtaCreds,
   getLiqPayCreds,
   getMonobankCreds,
@@ -70,17 +71,27 @@ describe('credential resolution — DB > env priority', () => {
     expect(r.bearerToken).toBe('tok');
   });
 
-  it('Mono returns token from env when DB empty', async () => {
+  it('Mono reads token from DB only (no env fallback)', async () => {
     envMock.MONOBANK_TOKEN = 'env-tok';
+    settingsMock.value = { payment_monobank_token: 'db-tok' };
     const r = await getMonobankCreds();
-    expect(r.token).toBe('env-tok');
+    expect(r.token).toBe('db-tok');
   });
 
-  it('WayForPay returns both account and secret', async () => {
+  it('Mono returns empty when DB empty (env is ignored)', async () => {
+    envMock.MONOBANK_TOKEN = 'env-tok';
+    const r = await getMonobankCreds();
+    expect(r.token).toBe('');
+  });
+
+  it('WayForPay reads account and secret from DB only', async () => {
     envMock.WAYFORPAY_MERCHANT_ACCOUNT = 'env-acc';
-    settingsMock.value = { payment_wayforpay_secret_key: 'db-sec' };
+    settingsMock.value = {
+      payment_wayforpay_merchant_account: 'db-acc',
+      payment_wayforpay_secret_key: 'db-sec',
+    };
     const r = await getWayForPayCreds();
-    expect(r.merchantAccount).toBe('env-acc');
+    expect(r.merchantAccount).toBe('db-acc');
     expect(r.secretKey).toBe('db-sec');
   });
 });
@@ -134,5 +145,24 @@ describe('graceful failure when settings unavailable', () => {
     envMock.NOVA_POSHTA_API_KEY = 'env-only';
     const r = await getNovaPoshtaCreds();
     expect(r.apiKey).toBe('env-only');
+  });
+});
+
+describe('getNovaPoshtaSenderCityRef', () => {
+  const KYIV = '8d5a980d-391c-11dd-90d9-001a92567626';
+
+  it('returns the configured sender city ref from settings', async () => {
+    settingsMock.value = { delivery_nova_poshta_sender_city_ref: 'lviv-city-ref' };
+    expect(await getNovaPoshtaSenderCityRef()).toBe('lviv-city-ref');
+  });
+
+  it('falls back to the Kyiv ref when not configured', async () => {
+    settingsMock.value = {};
+    expect(await getNovaPoshtaSenderCityRef()).toBe(KYIV);
+  });
+
+  it('falls back to Kyiv when the value is blank', async () => {
+    settingsMock.value = { delivery_nova_poshta_sender_city_ref: '   ' };
+    expect(await getNovaPoshtaSenderCityRef()).toBe(KYIV);
   });
 });

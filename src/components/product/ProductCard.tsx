@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
 import { toast } from 'sonner';
 import Badge from '@/components/ui/Badge';
+import { badgeTypeLabel } from '@/utils/badgeLabel';
 import PriceDisplay from './PriceDisplay';
 import { Heart, HeartFilled, Cart, Search, Compare } from '@/components/icons';
 
@@ -15,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useComparison } from '@/hooks/useComparison';
 import { apiClient } from '@/lib/api-client';
 import { gtagEvent } from '@/lib/gtag';
+import { fbqTrack } from '@/lib/fbpixel';
 import { useWishlistBulk } from '@/providers/WishlistBulkProvider';
 import { useSettings } from '@/hooks/useSettings';
 import type { ProductListItem } from '@/types/product';
@@ -196,6 +198,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       quantity: 1,
       maxQuantity: product.quantity,
     });
+    toast.success('Додано в кошик');
     gtagEvent.addToCart({
       item_id: product.code || String(product.id),
       item_name: product.name,
@@ -203,6 +206,12 @@ export default function ProductCard({ product }: ProductCardProps) {
       quantity: 1,
       item_category: product.category?.name,
       item_brand: product.brand?.name,
+    });
+    fbqTrack('AddToCart', {
+      value: Number(product.priceRetail),
+      currency: 'UAH',
+      content_type: 'product',
+      content_ids: [product.code || String(product.id)],
     });
   };
 
@@ -284,7 +293,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
             {product.badges.slice(0, 2).map((badge) => (
               <Badge key={badge.id} color={badge.customColor || undefined}>
-                {badge.customText || badge.badgeType}
+                {badge.customText || badgeTypeLabel(badge.badgeType)}
               </Badge>
             ))}
           </div>
@@ -383,7 +392,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {product.brand && (
           <Link
-            href={`/catalog?brand=${product.brand.slug}`}
+            href={`/brand/${product.brand.slug}`}
             className="mb-1 inline-block truncate text-[10px] font-medium text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)] sm:text-[11px]"
           >
             {product.brand.name}

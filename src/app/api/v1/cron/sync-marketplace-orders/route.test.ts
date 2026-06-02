@@ -1,13 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
 vi.mock('@/services/marketplace-sync', () => ({ importOrdersFromMarketplace: vi.fn() }));
+vi.mock('@/services/marketplaces', () => ({ MARKETPLACE_CHANNELS: ['rozetka', 'prom'] }));
+vi.mock('@/services/channel-config', () => ({
+  getChannelConfig: vi.fn().mockResolvedValue({ enabled: true }),
+}));
+vi.mock('@/lib/cron-lock', () => ({
+  withCronLock: vi.fn(async (_name: string, _ttl: number, fn: () => Promise<any>) => ({
+    acquired: true,
+    result: await fn(),
+  })),
+}));
+vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() } }));
 
 import { POST } from './route';
 import { importOrdersFromMarketplace } from '@/services/marketplace-sync';
 
 describe('POST /api/v1/cron/sync-marketplace-orders', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns 401 without valid authorization', async () => {
     const req = new Request('http://localhost', { method: 'POST' });
@@ -16,10 +39,14 @@ describe('POST /api/v1/cron/sync-marketplace-orders', () => {
   });
 
   it('imports orders from all marketplaces', async () => {
-    vi.mocked(importOrdersFromMarketplace).mockResolvedValue({ imported: 5, skipped: 1, failed: 0 });
+    vi.mocked(importOrdersFromMarketplace).mockResolvedValue({
+      imported: 5,
+      skipped: 1,
+      failed: 0,
+    });
     const req = new Request('http://localhost', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer test-app-secret' },
+      headers: { Authorization: 'Bearer test-app-secret' },
     });
     const res = await POST(req as any);
     expect(res.status).toBe(200);
@@ -33,7 +60,7 @@ describe('POST /api/v1/cron/sync-marketplace-orders', () => {
       .mockRejectedValueOnce(new Error('prom error'));
     const req = new Request('http://localhost', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer test-app-secret' },
+      headers: { Authorization: 'Bearer test-app-secret' },
     });
     const res = await POST(req as any);
     expect(res.status).toBe(200);
@@ -46,7 +73,7 @@ describe('POST /api/v1/cron/sync-marketplace-orders', () => {
     vi.mocked(importOrdersFromMarketplace).mockRejectedValue(new Error('sync'));
     const req = new Request('http://localhost', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer test-app-secret' },
+      headers: { Authorization: 'Bearer test-app-secret' },
     });
     const res = await POST(req as any);
     expect(res.status).toBe(200);

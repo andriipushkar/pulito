@@ -11,6 +11,13 @@ vi.mock('@/config/env', () => ({
   env: mockEnv,
 }));
 
+// LiqPay health check now reads its public key from the admin panel (DB) via
+// getLiqPayCreds, not from env.
+const mockLiqpayCreds = vi.hoisted(() => ({ publicKey: 'test-liqpay-key' }));
+vi.mock('@/services/integration-credentials', () => ({
+  getLiqPayCreds: vi.fn(async () => mockLiqpayCreds),
+}));
+
 // Mock fetch globally
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -65,8 +72,8 @@ describe('runHealthChecks', () => {
 
   it('should handle LiqPay 405 as ok', async () => {
     mockFetch
-      .mockResolvedValueOnce({ ok: true, status: 200 })   // Nova Poshta OK
-      .mockResolvedValueOnce({ ok: false, status: 405 });  // LiqPay 405 (Method Not Allowed) — treated as OK
+      .mockResolvedValueOnce({ ok: true, status: 200 }) // Nova Poshta OK
+      .mockResolvedValueOnce({ ok: false, status: 405 }); // LiqPay 405 (Method Not Allowed) — treated as OK
 
     const result = await runHealthChecks();
 
@@ -75,7 +82,9 @@ describe('runHealthChecks', () => {
   });
 
   it('should handle non-Error thrown objects', async () => {
-    mockFetch.mockImplementation(() => { throw 'non-error-string'; });
+    mockFetch.mockImplementation(() => {
+      throw 'non-error-string';
+    });
 
     const result = await runHealthChecks();
 
@@ -98,8 +107,8 @@ describe('runHealthChecks', () => {
   });
 
   it('should report error when LiqPay key is missing', async () => {
-    const original = mockEnv.LIQPAY_PUBLIC_KEY;
-    mockEnv.LIQPAY_PUBLIC_KEY = '';
+    const original = mockLiqpayCreds.publicKey;
+    mockLiqpayCreds.publicKey = '';
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
 
     const result = await runHealthChecks();
@@ -107,7 +116,7 @@ describe('runHealthChecks', () => {
     expect(result.results[1].service).toBe('liqpay');
     expect(result.results[1].status).toBe('error');
     expect(result.results[1].error).toContain('not configured');
-    mockEnv.LIQPAY_PUBLIC_KEY = original;
+    mockLiqpayCreds.publicKey = original;
   });
 
   it('should report error when SMTP is not configured', async () => {
@@ -125,8 +134,8 @@ describe('runHealthChecks', () => {
 
   it('should report error when Nova Poshta returns non-ok response', async () => {
     mockFetch
-      .mockResolvedValueOnce({ ok: false, status: 503 })  // Nova Poshta
-      .mockResolvedValueOnce({ ok: true, status: 200 });   // LiqPay
+      .mockResolvedValueOnce({ ok: false, status: 503 }) // Nova Poshta
+      .mockResolvedValueOnce({ ok: true, status: 200 }); // LiqPay
 
     const result = await runHealthChecks();
 
@@ -136,8 +145,8 @@ describe('runHealthChecks', () => {
 
   it('should report error when LiqPay returns non-ok non-405 response', async () => {
     mockFetch
-      .mockResolvedValueOnce({ ok: true, status: 200 })    // Nova Poshta
-      .mockResolvedValueOnce({ ok: false, status: 500 });   // LiqPay
+      .mockResolvedValueOnce({ ok: true, status: 200 }) // Nova Poshta
+      .mockResolvedValueOnce({ ok: false, status: 500 }); // LiqPay
 
     const result = await runHealthChecks();
 

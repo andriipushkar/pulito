@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockScrollPrev = vi.fn();
 const mockScrollNext = vi.fn();
 const mockScrollTo = vi.fn();
@@ -10,16 +24,23 @@ const mockSelectedScrollSnap = vi.fn().mockReturnValue(0);
 let onSelectCallback: (() => void) | null = null;
 
 vi.mock('embla-carousel-react', () => ({
-  default: () => [vi.fn(), {
-    scrollPrev: mockScrollPrev,
-    scrollNext: mockScrollNext,
-    scrollTo: mockScrollTo,
-    selectedScrollSnap: mockSelectedScrollSnap,
-    on: (event: string, cb: () => void) => { if (event === 'select') onSelectCallback = cb; },
-    off: vi.fn(),
-  }],
+  default: () => [
+    vi.fn(),
+    {
+      scrollPrev: mockScrollPrev,
+      scrollNext: mockScrollNext,
+      scrollTo: mockScrollTo,
+      selectedScrollSnap: mockSelectedScrollSnap,
+      on: (event: string, cb: () => void) => {
+        if (event === 'select') onSelectCallback = cb;
+      },
+      off: vi.fn(),
+    },
+  ],
 }));
-vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }));
+vi.mock('next/link', () => ({
+  default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
 
 const mockBannerData = vi.hoisted(() => ({ current: null as any }));
 vi.mock('swr', () => ({
@@ -49,13 +70,39 @@ describe('BannerSlider', () => {
     expect(container).toBeTruthy();
   });
 
-  it('renders fallback banners initially', () => {
+  it('renders nothing when API returns no data (no hardcoded fallback)', () => {
+    // Component no longer ships hardcoded fallback banners: null/empty → render nothing.
     const { container } = render(<BannerSlider />);
-    const images = container.querySelectorAll('img[src*="banner"]');
-    expect(images.length).toBe(3);
+    expect(container.querySelector('section')).toBeNull();
   });
 
   it('scrolls to slide on indicator click', () => {
+    mockBannerData.current = [
+      {
+        id: 1,
+        title: 'A',
+        subtitle: null,
+        imageDesktop: '/a.jpg',
+        buttonLink: '/a',
+        buttonText: null,
+      },
+      {
+        id: 2,
+        title: 'B',
+        subtitle: null,
+        imageDesktop: '/b.jpg',
+        buttonLink: '/b',
+        buttonText: null,
+      },
+      {
+        id: 3,
+        title: 'C',
+        subtitle: null,
+        imageDesktop: '/c.jpg',
+        buttonLink: '/c',
+        buttonText: null,
+      },
+    ];
     const { getAllByLabelText } = render(<BannerSlider />);
     fireEvent.click(getAllByLabelText(/Слайд/)[1]);
     expect(mockScrollTo).toHaveBeenCalledWith(1);
@@ -70,6 +117,16 @@ describe('BannerSlider', () => {
   });
 
   it('pauses autoplay on mouse enter', () => {
+    mockBannerData.current = [
+      {
+        id: 1,
+        title: 'A',
+        subtitle: null,
+        imageDesktop: '/a.jpg',
+        buttonLink: '/a',
+        buttonText: null,
+      },
+    ];
     const { container } = render(<BannerSlider />);
     const section = container.querySelector('section')!;
     fireEvent.mouseEnter(section);
@@ -81,6 +138,16 @@ describe('BannerSlider', () => {
   });
 
   it('resumes autoplay on mouse leave', () => {
+    mockBannerData.current = [
+      {
+        id: 1,
+        title: 'A',
+        subtitle: null,
+        imageDesktop: '/a.jpg',
+        buttonLink: '/a',
+        buttonText: null,
+      },
+    ];
     const { container } = render(<BannerSlider />);
     const section = container.querySelector('section')!;
     fireEvent.mouseEnter(section);
@@ -93,6 +160,16 @@ describe('BannerSlider', () => {
   });
 
   it('renders links to banner buttonLink', () => {
+    mockBannerData.current = [
+      {
+        id: 1,
+        title: 'A',
+        subtitle: null,
+        imageDesktop: '/a.jpg',
+        buttonLink: '/catalog?promo=true',
+        buttonText: null,
+      },
+    ];
     const { container } = render(<BannerSlider />);
     const links = container.querySelectorAll('a');
     expect(links.length).toBeGreaterThan(0);
@@ -100,12 +177,32 @@ describe('BannerSlider', () => {
   });
 
   it('calls scrollPrev on prev button click', () => {
+    mockBannerData.current = [
+      {
+        id: 1,
+        title: 'A',
+        subtitle: null,
+        imageDesktop: '/a.jpg',
+        buttonLink: '/a',
+        buttonText: null,
+      },
+    ];
     const { getAllByLabelText } = render(<BannerSlider />);
     fireEvent.click(getAllByLabelText('Попередній')[0]);
     expect(mockScrollPrev).toHaveBeenCalled();
   });
 
   it('calls scrollNext on next button click', () => {
+    mockBannerData.current = [
+      {
+        id: 1,
+        title: 'A',
+        subtitle: null,
+        imageDesktop: '/a.jpg',
+        buttonLink: '/a',
+        buttonText: null,
+      },
+    ];
     const { getAllByLabelText } = render(<BannerSlider />);
     fireEvent.click(getAllByLabelText('Наступний')[0]);
     expect(mockScrollNext).toHaveBeenCalled();
@@ -123,7 +220,14 @@ describe('BannerSlider', () => {
   it('filters out banners with generic titles and no image', () => {
     // SWR returns only meaningful banners (filtering happens in bannerFetcher)
     mockBannerData.current = [
-      { id: 11, title: 'Real Banner', subtitle: null, imageDesktop: '/real.jpg', buttonLink: '/real', buttonText: null },
+      {
+        id: 11,
+        title: 'Real Banner',
+        subtitle: null,
+        imageDesktop: '/real.jpg',
+        buttonLink: '/real',
+        buttonText: null,
+      },
     ];
     const { container } = render(<BannerSlider />);
     const imgs = container.querySelectorAll('img[src="/real.jpg"]');
@@ -132,25 +236,30 @@ describe('BannerSlider', () => {
 
   it('renders gradient background when banner has no imageDesktop', () => {
     mockBannerData.current = [
-      { id: 10, title: 'Promo', subtitle: 'Sub', imageDesktop: '', buttonLink: '/promo', buttonText: 'Go' },
+      {
+        id: 10,
+        title: 'Promo',
+        subtitle: 'Sub',
+        imageDesktop: '',
+        buttonLink: '/promo',
+        buttonText: 'Go',
+      },
     ];
     const { container } = render(<BannerSlider />);
     const gradient = container.querySelector('[class*="bg-gradient-to-br"]');
     expect(gradient).toBeInTheDocument();
   });
 
-  it('keeps fallback banners when API fails', () => {
-    mockBannerData.current = null; // null = use fallback
+  it('renders nothing when API fails (null data)', () => {
+    mockBannerData.current = null; // null = API error → no banners
     const { container } = render(<BannerSlider />);
-    const images = container.querySelectorAll('img[src*="banner"]');
-    expect(images.length).toBe(3);
+    expect(container.querySelector('section')).toBeNull();
   });
 
-  it('keeps fallback banners when API returns non-ok', () => {
+  it('renders nothing when API returns non-ok (null data)', () => {
     mockBannerData.current = null;
     const { container } = render(<BannerSlider />);
-    const images = container.querySelectorAll('img[src*="banner"]');
-    expect(images.length).toBe(3);
+    expect(container.querySelector('section')).toBeNull();
   });
 
   it('keeps fallback banners when API returns empty data', () => {
@@ -188,7 +297,14 @@ describe('BannerSlider', () => {
 
   it('highlights numbers and currency in title (highlightGold)', () => {
     mockBannerData.current = [
-      { id: 10, title: 'Знижка -20% на все', subtitle: null, imageDesktop: '/sale.jpg', buttonLink: '/sale', buttonText: null },
+      {
+        id: 10,
+        title: 'Знижка -20% на все',
+        subtitle: null,
+        imageDesktop: '/sale.jpg',
+        buttonLink: '/sale',
+        buttonText: null,
+      },
     ];
     const { container } = render(<BannerSlider />);
     const goldSpan = container.querySelector('[class*="bg-gradient-to-r"]');
@@ -197,7 +313,14 @@ describe('BannerSlider', () => {
 
   it('renders banner without buttonLink as link to /', () => {
     mockBannerData.current = [
-      { id: 10, title: 'No Link', subtitle: null, imageDesktop: '/img.jpg', buttonLink: null, buttonText: null },
+      {
+        id: 10,
+        title: 'No Link',
+        subtitle: null,
+        imageDesktop: '/img.jpg',
+        buttonLink: null,
+        buttonText: null,
+      },
     ];
     const { container } = render(<BannerSlider />);
     const link = container.querySelector('a');
@@ -206,7 +329,14 @@ describe('BannerSlider', () => {
 
   it('loads banners from API and renders title/subtitle/button', () => {
     mockBannerData.current = [
-      { id: 10, title: 'Big Sale', subtitle: 'Hurry up', imageDesktop: '/sale.jpg', buttonLink: '/sale', buttonText: 'Shop now' },
+      {
+        id: 10,
+        title: 'Big Sale',
+        subtitle: 'Hurry up',
+        imageDesktop: '/sale.jpg',
+        buttonLink: '/sale',
+        buttonText: 'Shop now',
+      },
     ];
     const { getByText } = render(<BannerSlider />);
     expect(getByText('Big Sale')).toBeInTheDocument();

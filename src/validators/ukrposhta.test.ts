@@ -1,20 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import { createShipmentSchema } from './ukrposhta';
 
+// Schema is nested (recipient/parcels) with weight in grams; sender is
+// optional (resolved from shop delivery settings when omitted).
 const validShipment = {
-  senderName: 'Pulito',
-  senderPhone: '+380501234567',
-  senderAddress: 'вул. Хрещатик 1, Київ',
-  senderPostcode: '01001',
-  recipientName: 'Тарас Шевченко',
-  recipientPhone: '+380671234567',
-  recipientAddress: 'вул. Степана Бандери 5, Львів',
-  recipientPostcode: '79000',
-  weight: 2.5,
-  length: 30,
-  width: 20,
-  height: 15,
-  declaredValue: 500,
+  recipient: {
+    name: 'Тарас Шевченко',
+    phone: '+380671234567',
+    address: {
+      postcode: '79000',
+      city: 'Львів',
+      street: 'вул. Степана Бандери',
+      houseNumber: '5',
+    },
+  },
+  parcels: [
+    { name: 'Побутова хімія', weight: 2500, length: 30, width: 20, height: 15, declaredPrice: 500 },
+  ],
 };
 
 describe('createShipmentSchema', () => {
@@ -28,8 +30,11 @@ describe('createShipmentSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('should reject weight below 0.01', () => {
-    const result = createShipmentSchema.safeParse({ ...validShipment, weight: 0 });
+  it('should reject parcel weight below 1 gram', () => {
+    const result = createShipmentSchema.safeParse({
+      ...validShipment,
+      parcels: [{ ...validShipment.parcels[0], weight: 0 }],
+    });
     expect(result.success).toBe(false);
   });
 

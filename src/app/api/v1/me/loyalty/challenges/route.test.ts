@@ -1,12 +1,48 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/services/rate-limit', () => ({
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 100, resetAt: Date.now() + 60000 }),
+  checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
+  recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  withRateLimit: () => (h) => h,
+  RateLimitError: class RateLimitError extends Error {
+    statusCode = 429;
+    retryAfter;
+    constructor(m, s, r) {
+      super(m);
+      this.statusCode = s || 429;
+      this.retryAfter = r;
+    }
+  },
+  RATE_LIMITS: new Proxy(
+    {},
+    { get: () => ({ limit: 100, windowSeconds: 60, prefix: 'test', max: 1e9, windowSec: 60 }) },
+  ),
+}));
 import { NextRequest } from 'next/server';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
 
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
   withOptionalAuth: (handler: Function) => handler,
-  withRole: (..._roles: string[]) => (handler: Function) => handler,
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+      handler,
 }));
 
 vi.mock('@/lib/prisma', () => ({
@@ -19,8 +55,10 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/utils/api-response', async () => {
   const { NextResponse } = await import('next/server');
   return {
-    successResponse: (data: any, status = 200) => NextResponse.json({ success: true, data }, { status }),
-    errorResponse: (message: string, status = 500) => NextResponse.json({ success: false, error: message }, { status }),
+    successResponse: (data: any, status = 200) =>
+      NextResponse.json({ success: true, data }, { status }),
+    errorResponse: (message: string, status = 500) =>
+      NextResponse.json({ success: false, error: message }, { status }),
   };
 });
 
@@ -37,7 +75,16 @@ describe('GET /api/v1/me/loyalty/challenges', () => {
 
   it('returns challenges with progress', async () => {
     mockFindChallenges.mockResolvedValue([
-      { id: 1, name: 'Buy 5', description: 'Buy 5 products', type: 'purchase_count', target: 5, reward: 100, endDate: null, createdAt: new Date() },
+      {
+        id: 1,
+        name: 'Buy 5',
+        description: 'Buy 5 products',
+        type: 'purchase_count',
+        target: 5,
+        reward: 100,
+        endDate: null,
+        createdAt: new Date(),
+      },
     ]);
     mockFindProgress.mockResolvedValue([
       { challengeId: 1, currentValue: 3, completedAt: null, rewardedAt: null },

@@ -39,7 +39,16 @@ export interface MarketplaceConfig {
   [key: string]: string | boolean | undefined;
 }
 
-export type ChannelType = 'telegram' | 'viber' | 'facebook' | 'instagram' | 'tiktok' | 'olx' | 'rozetka' | 'prom' | 'epicentrk';
+export type ChannelType =
+  | 'telegram'
+  | 'viber'
+  | 'facebook'
+  | 'instagram'
+  | 'tiktok'
+  | 'olx'
+  | 'rozetka'
+  | 'prom'
+  | 'epicentrk';
 
 type ChannelConfigMap = {
   telegram: TelegramConfig;
@@ -90,7 +99,10 @@ function encryptConfig(config: Record<string, unknown>): Record<string, unknown>
   return transformSensitiveValues(config, (v) => (isEncrypted(v) ? v : encrypt(v)));
 }
 
-function decryptConfig(config: Record<string, unknown>): { value: Record<string, unknown>; hadPlaintext: boolean } {
+function decryptConfig(config: Record<string, unknown>): {
+  value: Record<string, unknown>;
+  hadPlaintext: boolean;
+} {
   let hadPlaintext = false;
   const out = transformSensitiveValues(config, (v) => {
     if (isEncrypted(v)) {
@@ -154,7 +166,7 @@ function getEnvFallback(channel: ChannelType): ChannelConfigMap[typeof channel] 
 }
 
 export async function getChannelConfig<T extends ChannelType>(
-  channel: T
+  channel: T,
 ): Promise<ChannelConfigMap[T] | null> {
   try {
     const key = `${DB_KEY_PREFIX}${channel}`;
@@ -185,8 +197,60 @@ export async function getChannelConfig<T extends ChannelType>(
   return getEnvFallback(channel) as ChannelConfigMap[T] | null;
 }
 
-export async function getAllChannelConfigs(): Promise<Record<ChannelType, ChannelConfigMap[ChannelType] | null>> {
-  const channels: ChannelType[] = ['telegram', 'viber', 'facebook', 'instagram', 'tiktok', 'olx', 'rozetka', 'prom', 'epicentrk'];
+/**
+ * Resolve the live Instagram credentials, DB-first (so a refreshed token is
+ * picked up), falling back to env per-field. All Instagram API calls and the
+ * token-refresh job go through this instead of reading env directly — otherwise
+ * a refreshed long-lived token would never be used and would age out at day 60.
+ */
+export async function getInstagramCreds(): Promise<{
+  accessToken: string;
+  businessAccountId: string;
+  tokenExpiresAt?: string;
+}> {
+  const cfg = (await getChannelConfig('instagram')) as
+    | (InstagramConfig & { tokenExpiresAt?: string })
+    | null;
+  return {
+    accessToken: cfg?.accessToken || env.INSTAGRAM_ACCESS_TOKEN || '',
+    businessAccountId: cfg?.businessAccountId || env.INSTAGRAM_BUSINESS_ACCOUNT_ID || '',
+    tokenExpiresAt: cfg?.tokenExpiresAt,
+  };
+}
+
+/**
+ * Persist a refreshed Instagram long-lived token (merged into the existing
+ * channel_instagram config, so businessAccountId etc. are preserved).
+ */
+export async function saveRefreshedInstagramToken(
+  accessToken: string,
+  expiresInSeconds: number,
+): Promise<void> {
+  const businessAccountId =
+    (await getInstagramCreds()).businessAccountId || env.INSTAGRAM_BUSINESS_ACCOUNT_ID || '';
+  const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+  await saveChannelConfig('instagram', {
+    enabled: true,
+    accessToken,
+    businessAccountId,
+    tokenExpiresAt,
+  });
+}
+
+export async function getAllChannelConfigs(): Promise<
+  Record<ChannelType, ChannelConfigMap[ChannelType] | null>
+> {
+  const channels: ChannelType[] = [
+    'telegram',
+    'viber',
+    'facebook',
+    'instagram',
+    'tiktok',
+    'olx',
+    'rozetka',
+    'prom',
+    'epicentrk',
+  ];
   const result = {} as Record<ChannelType, ChannelConfigMap[ChannelType] | null>;
 
   const settings = await prisma.siteSetting.findMany({
@@ -203,7 +267,9 @@ export async function getAllChannelConfigs(): Promise<Record<ChannelType, Channe
         const { value: decrypted } = decryptConfig(parsed);
         result[channel] = decrypted as ChannelConfigMap[ChannelType];
         continue;
-      } catch { /* fall through */ }
+      } catch {
+        /* fall through */
+      }
     }
     result[channel] = getEnvFallback(channel);
   }
@@ -240,14 +306,19 @@ function maskMarketplaceConfig(config: MarketplaceConfig): Record<string, unknow
 
 export function maskChannelConfig(
   channel: ChannelType,
-  config: ChannelConfigMap[ChannelType] | null
+  config: ChannelConfigMap[ChannelType] | null,
 ): Record<string, unknown> | null {
   if (!config) return null;
 
   switch (channel) {
     case 'telegram': {
       const c = config as TelegramConfig;
-      return { ...c, botToken: maskToken(c.botToken), channelId: c.channelId, managerChatId: c.managerChatId };
+      return {
+        ...c,
+        botToken: maskToken(c.botToken),
+        channelId: c.channelId,
+        managerChatId: c.managerChatId,
+      };
     }
     case 'viber': {
       const c = config as ViberConfig;
@@ -284,7 +355,7 @@ const MARKETPLACE_CHANNELS_SET = new Set<ChannelType>(['olx', 'rozetka', 'prom',
 export async function saveChannelConfig(
   channel: ChannelType,
   config: ChannelConfigMap[ChannelType],
-  userId?: number
+  userId?: number,
 ): Promise<void> {
   const key = `${DB_KEY_PREFIX}${channel}`;
 
@@ -328,13 +399,15 @@ export async function saveChannelConfig(
 
 export async function testChannelConnection(
   channel: ChannelType,
-  config: ChannelConfigMap[ChannelType]
+  config: ChannelConfigMap[ChannelType],
 ): Promise<{ success: boolean; name?: string; error?: string }> {
   try {
     switch (channel) {
       case 'telegram': {
         const c = config as TelegramConfig;
-        const res = await fetch(`https://api.telegram.org/bot${c.botToken}/getMe`, { signal: AbortSignal.timeout(10000) });
+        const res = await fetch(`https://api.telegram.org/bot${c.botToken}/getMe`, {
+          signal: AbortSignal.timeout(10000),
+        });
         const data = await res.json();
         if (!data.ok) return { success: false, error: data.description || 'Невірний токен бота' };
         // Also check channel access
@@ -345,7 +418,11 @@ export async function testChannelConnection(
           signal: AbortSignal.timeout(10000),
         });
         const chatData = await chatRes.json();
-        if (!chatData.ok) return { success: false, error: `Бот: @${data.result.username}. Канал не знайдено: ${chatData.description}` };
+        if (!chatData.ok)
+          return {
+            success: false,
+            error: `Бот: @${data.result.username}. Канал не знайдено: ${chatData.description}`,
+          };
         return { success: true, name: `@${data.result.username} → ${chatData.result.title}` };
       }
       case 'viber': {
@@ -357,14 +434,15 @@ export async function testChannelConnection(
           signal: AbortSignal.timeout(10000),
         });
         const data = await res.json();
-        if (data.status !== 0) return { success: false, error: data.status_message || 'Невірний токен' };
+        if (data.status !== 0)
+          return { success: false, error: data.status_message || 'Невірний токен' };
         return { success: true, name: data.name || 'Viber Bot' };
       }
       case 'facebook': {
         const c = config as FacebookConfig;
         const res = await fetch(
           `https://graph.facebook.com/v21.0/${c.pageId}?fields=name,fan_count&access_token=${c.pageAccessToken}`,
-          { signal: AbortSignal.timeout(10000) }
+          { signal: AbortSignal.timeout(10000) },
         );
         const data = await res.json();
         if (data.error) return { success: false, error: data.error.message };
@@ -374,7 +452,7 @@ export async function testChannelConnection(
         const c = config as InstagramConfig;
         const res = await fetch(
           `https://graph.facebook.com/v21.0/${c.businessAccountId}?fields=username,followers_count&access_token=${c.accessToken}`,
-          { signal: AbortSignal.timeout(10000) }
+          { signal: AbortSignal.timeout(10000) },
         );
         const data = await res.json();
         if (data.error) return { success: false, error: data.error.message };
@@ -382,12 +460,16 @@ export async function testChannelConnection(
       }
       case 'tiktok': {
         const c = config as TikTokConfig;
-        const res = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=display_name,follower_count', {
-          headers: { Authorization: `Bearer ${c.accessToken}` },
-          signal: AbortSignal.timeout(10000),
-        });
+        const res = await fetch(
+          'https://open.tiktokapis.com/v2/user/info/?fields=display_name,follower_count',
+          {
+            headers: { Authorization: `Bearer ${c.accessToken}` },
+            signal: AbortSignal.timeout(10000),
+          },
+        );
         const data = await res.json();
-        if (data.error?.code) return { success: false, error: data.error.message || 'Невірний токен' };
+        if (data.error?.code)
+          return { success: false, error: data.error.message || 'Невірний токен' };
         return { success: true, name: data.data?.user?.display_name || 'TikTok' };
       }
       case 'olx': {
@@ -446,7 +528,10 @@ export async function testChannelConnection(
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          return { success: false, error: data.error?.message || data.message || `HTTP ${res.status}` };
+          return {
+            success: false,
+            error: data.error?.message || data.message || `HTTP ${res.status}`,
+          };
         }
         return { success: true, name: `Epicentr K${c.sellerId ? ` #${c.sellerId}` : ''}` };
       }
@@ -454,6 +539,6 @@ export async function testChannelConnection(
         return { success: false, error: 'Невідомий канал' };
     }
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : 'Помилка з\'єднання' };
+    return { success: false, error: err instanceof Error ? err.message : "Помилка з'єднання" };
   }
 }

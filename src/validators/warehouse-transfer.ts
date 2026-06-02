@@ -28,6 +28,12 @@ export const createTransferSchema = z
   .refine((d) => d.fromWarehouseId !== d.toWarehouseId, {
     message: 'Склад відправлення та одержання не може бути однаковим',
     path: ['toWarehouseId'],
+  })
+  // Reject duplicate productId rows before they hit the @@unique(transferId,
+  // productId) DB constraint — gives a friendly message instead of a raw P2002.
+  .refine((d) => new Set(d.items.map((i) => i.productId)).size === d.items.length, {
+    message: 'Кожен товар можна додати лише один раз',
+    path: ['items'],
   });
 
 export const transferActionSchema = z.object({

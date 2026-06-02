@@ -115,7 +115,7 @@ describe('POST /api/v1/admin/import/images', () => {
   });
 
   it('processes single image successfully', async () => {
-    mockFindUnique.mockResolvedValue({ id: 1 });
+    mockFindFirst.mockResolvedValue({ id: 1 });
     mockFindManyImages.mockResolvedValue([]);
     mockProcessProductImage.mockResolvedValue(undefined);
     mockCacheInvalidate.mockResolvedValue(undefined);
@@ -147,7 +147,7 @@ describe('POST /api/v1/admin/import/images', () => {
   });
 
   it('deletes existing images before uploading new one', async () => {
-    mockFindUnique.mockResolvedValue({ id: 1 });
+    mockFindFirst.mockResolvedValue({ id: 1 });
     mockFindManyImages.mockResolvedValue([{ id: 10 }, { id: 11 }]);
     mockDeleteProductImage.mockResolvedValue(undefined);
     mockProcessProductImage.mockResolvedValue(undefined);
@@ -186,11 +186,12 @@ describe('POST /api/v1/admin/import/images', () => {
     mockGetEntries.mockReturnValue([
       {
         entryName: 'PROD001.jpg',
+        header: { size: 10 },
         isDirectory: false,
         getData: () => Buffer.from('image-data'),
       },
     ]);
-    mockFindUnique.mockResolvedValue({ id: 1 });
+    mockFindFirst.mockResolvedValue({ id: 1 });
     mockFindManyImages.mockResolvedValue([]);
     mockProcessProductImage.mockResolvedValue(undefined);
     mockCacheInvalidate.mockResolvedValue(undefined);
@@ -206,9 +207,24 @@ describe('POST /api/v1/admin/import/images', () => {
 
   it('skips directories, __MACOSX, and hidden files in ZIP', async () => {
     mockGetEntries.mockReturnValue([
-      { entryName: 'images/', isDirectory: true, getData: () => Buffer.from('') },
-      { entryName: '__MACOSX/._test.jpg', isDirectory: false, getData: () => Buffer.from('') },
-      { entryName: '.hidden.jpg', isDirectory: false, getData: () => Buffer.from('') },
+      {
+        entryName: 'images/',
+        isDirectory: true,
+        header: { size: 0 },
+        getData: () => Buffer.from(''),
+      },
+      {
+        entryName: '__MACOSX/._test.jpg',
+        isDirectory: false,
+        header: { size: 10 },
+        getData: () => Buffer.from(''),
+      },
+      {
+        entryName: '.hidden.jpg',
+        isDirectory: false,
+        header: { size: 10 },
+        getData: () => Buffer.from(''),
+      },
     ]);
 
     const req = createFileFormData('images.zip');
@@ -220,7 +236,12 @@ describe('POST /api/v1/admin/import/images', () => {
 
   it('skips non-image entries in ZIP', async () => {
     mockGetEntries.mockReturnValue([
-      { entryName: 'readme.txt', isDirectory: false, getData: () => Buffer.from('') },
+      {
+        entryName: 'readme.txt',
+        isDirectory: false,
+        header: { size: 10 },
+        getData: () => Buffer.from(''),
+      },
     ]);
 
     const req = createFileFormData('images.zip');
@@ -235,6 +256,7 @@ describe('POST /api/v1/admin/import/images', () => {
     mockGetEntries.mockReturnValue([
       {
         entryName: 'UNKNOWN.jpg',
+        header: { size: 10 },
         isDirectory: false,
         getData: () => Buffer.from('image-data'),
       },
@@ -254,6 +276,7 @@ describe('POST /api/v1/admin/import/images', () => {
     mockGetEntries.mockReturnValue([
       {
         entryName: 'PROD001.jpg',
+        header: { size: 10 },
         isDirectory: false,
         getData: () => {
           throw new Error('corrupt entry');
@@ -273,6 +296,7 @@ describe('POST /api/v1/admin/import/images', () => {
     mockGetEntries.mockReturnValue([
       {
         entryName: 'PROD001.jpg',
+        header: { size: 10 },
         isDirectory: false,
         getData: () => {
           throw 'string error';
@@ -298,7 +322,7 @@ describe('POST /api/v1/admin/import/images', () => {
 
   it('handles getMimeType for different extensions', async () => {
     // Test .png mime type
-    mockFindUnique.mockResolvedValue({ id: 1 });
+    mockFindFirst.mockResolvedValue({ id: 1 });
     mockFindManyImages.mockResolvedValue([]);
     mockProcessProductImage.mockResolvedValue(undefined);
     mockCacheInvalidate.mockResolvedValue(undefined);
@@ -316,7 +340,7 @@ describe('POST /api/v1/admin/import/images', () => {
   });
 
   it('handles getMimeType for webp', async () => {
-    mockFindUnique.mockResolvedValue({ id: 1 });
+    mockFindFirst.mockResolvedValue({ id: 1 });
     mockFindManyImages.mockResolvedValue([]);
     mockProcessProductImage.mockResolvedValue(undefined);
     mockCacheInvalidate.mockResolvedValue(undefined);

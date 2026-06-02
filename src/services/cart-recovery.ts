@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/services/email';
+import { getSuppressedEmails } from '@/services/email-suppression';
 import { logger } from '@/lib/logger';
 import { randomBytes } from 'crypto';
 
@@ -85,7 +86,10 @@ function generatePromoCode(level: number): string {
   return `RECOVER${level}-${suffix}`;
 }
 
-async function issueRecoveryCoupon(level: number, discountPercent: number): Promise<{
+async function issueRecoveryCoupon(
+  level: number,
+  discountPercent: number,
+): Promise<{
   id: number;
   code: string;
 }> {
@@ -171,6 +175,9 @@ export async function runAbandonedCartRecovery() {
     });
     const alreadySentIds = new Set(alreadySent.map((e) => e.userId));
 
+    // Honour the global marketing opt-out list — never mail unsubscribed users.
+    const suppressed = await getSuppressedEmails(Array.from(byUser.values()).map((i) => i.email));
+
     let sent = 0;
     let skipped = 0;
     let failed = 0;
@@ -180,6 +187,10 @@ export async function runAbandonedCartRecovery() {
         continue;
       }
       if (!info.email) continue;
+      if (suppressed.has(info.email)) {
+        skipped += 1;
+        continue;
+      }
       const firstName = info.fullName?.split(' ')[0] ?? null;
 
       let couponId: number | null = null;

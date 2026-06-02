@@ -35,9 +35,10 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     tenantUser: { findFirst: vi.fn() },
     tenantBilling: { findUnique: vi.fn() },
-    billingInvoice: { findMany: vi.fn() },
+    billingInvoice: { findMany: vi.fn(), count: vi.fn().mockResolvedValue(1) },
   },
 }));
+vi.mock('@/lib/admin-tenant', () => ({ resolveActiveTenantId: vi.fn() }));
 vi.mock('@/utils/api-response', () => ({
   successResponse: (data: any, status = 200) => Response.json(data, { status }),
   errorResponse: (msg: string, status = 400) => Response.json({ error: msg }, { status }),
@@ -45,6 +46,11 @@ vi.mock('@/utils/api-response', () => ({
 
 import { GET } from './route';
 import { prisma } from '@/lib/prisma';
+import { resolveActiveTenantId } from '@/lib/admin-tenant';
+
+const notFound = () => ({
+  error: Response.json({ error: 'Тенант не знайдено' }, { status: 404 }),
+});
 
 describe('GET /api/v1/admin/billing/invoices', () => {
   beforeEach(() => {
@@ -52,7 +58,7 @@ describe('GET /api/v1/admin/billing/invoices', () => {
   });
 
   it('returns invoices on success', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (prisma.tenantBilling.findUnique as any).mockResolvedValue({ id: 10, tenantId: 1 });
     (prisma.billingInvoice.findMany as any).mockResolvedValue([{ id: 1, amount: 100 }]);
 
@@ -61,11 +67,12 @@ describe('GET /api/v1/admin/billing/invoices', () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual([{ id: 1, amount: 100 }]);
+    expect(data.invoices).toEqual([{ id: 1, amount: 100 }]);
+    expect(data.total).toBe(1);
   });
 
   it('returns 404 when tenant not found', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue(null);
+    (resolveActiveTenantId as any).mockResolvedValue(notFound());
 
     const req = new NextRequest('http://localhost');
     const res = await GET(req, { user: { id: 1 } } as any);
@@ -74,7 +81,7 @@ describe('GET /api/v1/admin/billing/invoices', () => {
   });
 
   it('returns 404 when billing not found', async () => {
-    (prisma.tenantUser.findFirst as any).mockResolvedValue({ tenantId: 1 });
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
     (prisma.tenantBilling.findUnique as any).mockResolvedValue(null);
 
     const req = new NextRequest('http://localhost');
@@ -84,7 +91,8 @@ describe('GET /api/v1/admin/billing/invoices', () => {
   });
 
   it('returns 500 on error', async () => {
-    (prisma.tenantUser.findFirst as any).mockRejectedValue(new Error('DB error'));
+    (resolveActiveTenantId as any).mockResolvedValue({ tenantId: 1 });
+    (prisma.tenantBilling.findUnique as any).mockRejectedValue(new Error('DB error'));
 
     const req = new NextRequest('http://localhost');
     const res = await GET(req, { user: { id: 1 } } as any);

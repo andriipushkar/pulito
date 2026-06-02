@@ -262,7 +262,7 @@ export async function getChannelAnalytics(days: number = 30) {
   // Orders by source (web, telegram_bot, viber_bot)
   const bySource = await prisma.order.groupBy({
     by: ['source'],
-    where: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled'] } },
+    where: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled', 'returned'] } },
     _count: true,
     _sum: { totalAmount: true },
   });
@@ -272,7 +272,7 @@ export async function getChannelAnalytics(days: number = 30) {
     by: ['utmSource'],
     where: {
       createdAt: { gte: dateFrom },
-      status: { notIn: ['cancelled'] },
+      status: { notIn: ['cancelled', 'returned'] },
       utmSource: { not: null },
     },
     _count: true,
@@ -284,7 +284,7 @@ export async function getChannelAnalytics(days: number = 30) {
     by: ['utmMedium'],
     where: {
       createdAt: { gte: dateFrom },
-      status: { notIn: ['cancelled'] },
+      status: { notIn: ['cancelled', 'returned'] },
       utmMedium: { not: null },
     },
     _count: true,
@@ -296,7 +296,7 @@ export async function getChannelAnalytics(days: number = 30) {
     by: ['utmCampaign'],
     where: {
       createdAt: { gte: dateFrom },
-      status: { notIn: ['cancelled'] },
+      status: { notIn: ['cancelled', 'returned'] },
       utmCampaign: { not: null },
     },
     _count: true,
@@ -374,7 +374,7 @@ export async function getGeographyAnalytics(days: number = 30) {
     by: ['deliveryCity'],
     where: {
       createdAt: { gte: dateFrom },
-      status: { notIn: ['cancelled'] },
+      status: { notIn: ['cancelled', 'returned'] },
       deliveryCity: { not: null },
     },
     _count: { _all: true },
@@ -405,7 +405,7 @@ export async function getGeographyAnalytics(days: number = 30) {
   // By delivery method
   const byMethod = await prisma.order.groupBy({
     by: ['deliveryMethod'],
-    where: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled'] } },
+    where: { createdAt: { gte: dateFrom }, status: { notIn: ['cancelled', 'returned'] } },
     _count: { _all: true },
     _sum: { totalAmount: true },
   });

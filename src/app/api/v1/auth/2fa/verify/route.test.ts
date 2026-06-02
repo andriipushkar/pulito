@@ -1,10 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret', APP_SECRET: 'test-app-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+    APP_SECRET: 'test-app-secret',
+  },
+}));
 
 vi.mock('@/middleware/auth', () => ({
   withAuth: (handler: Function) => handler,
-  withRole: (..._roles: string[]) => (handler: Function) => handler,
+  withRole:
+    (..._roles: string[]) =>
+    (handler: Function) =>
+      handler,
 }));
 
 vi.mock('@/lib/prisma', () => ({
@@ -26,6 +39,15 @@ vi.mock('@/services/totp', () => ({
   verifyTOTP: vi.fn(),
   generateBackupCodes: vi.fn(),
   hashBackupCode: vi.fn(),
+  decryptStoredSecret: vi.fn((s: string) => s),
+}));
+
+vi.mock('@/services/audit', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/services/two-factor-notify', () => ({
+  notifyTwoFactorChange: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { POST } from './route';
@@ -71,26 +93,38 @@ describe('POST /api/v1/auth/2fa/verify', () => {
   });
 
   it('returns 400 if 2FA already enabled', async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ twoFactorSecret: 'sec', twoFactorEnabled: true } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      twoFactorSecret: 'sec',
+      twoFactorEnabled: true,
+    } as any);
     const res = await POST(createReq({ code: '123456' }) as any, { user: mockUser } as any);
     expect(res.status).toBe(400);
   });
 
   it('returns 400 if no secret stored', async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ twoFactorSecret: null, twoFactorEnabled: false } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      twoFactorSecret: null,
+      twoFactorEnabled: false,
+    } as any);
     const res = await POST(createReq({ code: '123456' }) as any, { user: mockUser } as any);
     expect(res.status).toBe(400);
   });
 
   it('returns 400 if TOTP code is invalid', async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ twoFactorSecret: 'sec', twoFactorEnabled: false } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      twoFactorSecret: 'sec',
+      twoFactorEnabled: false,
+    } as any);
     vi.mocked(verifyTOTP).mockReturnValue(false);
     const res = await POST(createReq({ code: '123456' }) as any, { user: mockUser } as any);
     expect(res.status).toBe(400);
   });
 
   it('returns backup codes on success', async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ twoFactorSecret: 'sec', twoFactorEnabled: false } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      twoFactorSecret: 'sec',
+      twoFactorEnabled: false,
+    } as any);
     vi.mocked(verifyTOTP).mockReturnValue(true);
     vi.mocked(generateBackupCodes).mockReturnValue(['code1', 'code2']);
     vi.mocked(hashBackupCode).mockReturnValue('hashed');

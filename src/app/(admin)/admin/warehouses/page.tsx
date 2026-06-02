@@ -15,7 +15,8 @@ interface Warehouse {
   name: string;
   code: string;
   city: string;
-  stockCount: number;
+  stockCount: number; // total units on hand (sum of quantity)
+  skuCount: number; // number of distinct SKU rows
   isDefault: boolean;
 }
 
@@ -154,6 +155,9 @@ export default function AdminWarehousesPage() {
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">{wh.city || '—'}</td>
                 <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">
                   {wh.stockCount}
+                  {wh.skuCount > 0 && (
+                    <span className="ml-1 text-xs opacity-60">/ {wh.skuCount} SKU</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">

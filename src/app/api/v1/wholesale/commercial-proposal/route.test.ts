@@ -79,9 +79,9 @@ function makeReq(body: any) {
 describe('POST /api/v1/wholesale/commercial-proposal', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns 400 on invalid data', async () => {
+  it('returns 422 on invalid data', async () => {
     const res = await POST(makeReq({ items: [] }), authCtx as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
   });
 
   it('returns 403 for non-wholesaler users', async () => {

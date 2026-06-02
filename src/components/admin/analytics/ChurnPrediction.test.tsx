@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Local next-intl mock: resolve real Ukrainian copy (with ICU) from messages so
+// translated-text assertions match production, overriding the global passthrough.
+vi.mock('next-intl', async (importActual) => {
+  const actual = await importActual<any>();
+  const uk = (await import('@/messages/uk.json')).default;
+  return {
+    ...actual,
+    useTranslations: (ns?: string) =>
+      actual.createTranslator({ locale: 'uk', messages: uk, namespace: ns }),
+    useLocale: () => 'uk',
+    useFormatter: () => actual.createFormatter({ locale: 'uk' }),
+  };
+});
+
 const mockGet = vi.fn();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...args: any[]) => mockGet(...args) } }));
 vi.mock('@/components/ui/Spinner', () => ({ default: () => <div data-testid="spinner" /> }));
@@ -14,15 +28,24 @@ const mockData = {
   retentionRate: 84.5,
   avgDaysBetweenOrders: 30,
   atRiskCustomers: [
-    { id: 1, email: 'test@test.com', fullName: 'Test User', lastOrderDate: '2024-01-01', daysSinceLastOrder: 90, totalOrders: 5, totalSpent: 5000, churnProbability: 85 },
+    {
+      id: 1,
+      email: 'test@test.com',
+      fullName: 'Test User',
+      lastOrderDate: '2024-01-01',
+      daysSinceLastOrder: 90,
+      totalOrders: 5,
+      totalSpent: 5000,
+      churnProbability: 85,
+    },
   ],
-  churnByMonth: [
-    { month: '2024-01', churned: 5, retained: 95, rate: 5 },
-  ],
+  churnByMonth: [{ month: '2024-01', churned: 5, retained: 95, rate: 5 }],
 };
 
 describe('ChurnPrediction', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('shows spinner while loading', () => {
     mockGet.mockReturnValue(new Promise(() => {}));

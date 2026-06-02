@@ -1,12 +1,20 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useContext } from 'react';
 import AuthProvider, { AuthContext } from './AuthProvider';
+import { refreshSession } from '@/lib/api-client';
+
+const mockRefreshSession = refreshSession as unknown as Mock;
 
 vi.mock('@/lib/api-client', () => ({
   setAccessToken: vi.fn(),
+  // Current AuthProvider also imports refreshSession (mount) and apiClient
+  // (guest-wishlist merge effect). Provide both so the mock matches the real
+  // module surface; refreshSession rejects → mount lands on null user (expected).
+  refreshSession: vi.fn().mockRejectedValue(new Error('no session')),
+  apiClient: { post: vi.fn().mockResolvedValue({ success: true }) },
 }));
 
 const mockUser = {
@@ -25,14 +33,21 @@ function TestConsumer() {
       <div data-testid="role">{user?.role ?? 'none'}</div>
       <button onClick={() => login('user@example.com', 'pass123')}>Login</button>
       <button onClick={() => logout()}>Logout</button>
-      <button onClick={() => register({ email: 'new@example.com', password: 'pass', fullName: 'New' })}>Register</button>
+      <button
+        onClick={() => register({ email: 'new@example.com', password: 'pass', fullName: 'New' })}
+      >
+        Register
+      </button>
     </div>
   );
 }
 
 describe('AuthProvider', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    // Mount-refresh goes through refreshSession (mocked); default = no session.
+    mockRefreshSession.mockResolvedValue({ accessToken: null, user: null });
+    // login/register/logout use raw fetch; default = failure.
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       json: async () => ({ success: false }),
@@ -47,7 +62,7 @@ describe('AuthProvider', () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -58,27 +73,24 @@ describe('AuthProvider', () => {
   });
 
   it('starts with isLoading true', () => {
-    global.fetch = vi.fn().mockReturnValue(new Promise(() => {}));
+    mockRefreshSession.mockReturnValue(new Promise(() => {}));
 
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     expect(screen.getByTestId('loading').textContent).toBe('true');
   });
 
   it('refreshes auth on mount and sets user', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ success: true, data: { accessToken: 'tok123', user: mockUser } }),
-    });
+    mockRefreshSession.mockResolvedValue({ accessToken: 'tok123', user: mockUser });
 
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -91,17 +103,15 @@ describe('AuthProvider', () => {
   it('login sets user on success', async () => {
     const user = userEvent.setup();
 
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: false, json: async () => ({ success: false }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: { accessToken: 'tok', user: mockUser } }),
-      });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { accessToken: 'tok', user: mockUser } }),
+    });
 
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -118,12 +128,10 @@ describe('AuthProvider', () => {
   });
 
   it('login returns error on failure', async () => {
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: false, json: async () => ({ success: false }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: false, error: 'Invalid credentials' }),
-      });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: false, error: 'Invalid credentials' }),
+    });
 
     let loginResult: { success: boolean; error?: string } | undefined;
 
@@ -132,7 +140,13 @@ describe('AuthProvider', () => {
       return (
         <div>
           <div data-testid="loading">{String(isLoading)}</div>
-          <button onClick={async () => { loginResult = await login('bad@email.com', 'wrong'); }}>Login</button>
+          <button
+            onClick={async () => {
+              loginResult = await login('bad@email.com', 'wrong');
+            }}
+          >
+            Login
+          </button>
         </div>
       );
     }
@@ -140,7 +154,7 @@ describe('AuthProvider', () => {
     render(
       <AuthProvider>
         <LoginTestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -157,17 +171,13 @@ describe('AuthProvider', () => {
   it('logout clears user', async () => {
     const user = userEvent.setup();
 
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: { accessToken: 'tok', user: mockUser } }),
-      })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    mockRefreshSession.mockResolvedValue({ accessToken: 'tok', user: mockUser });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
 
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -190,7 +200,7 @@ describe('AuthProvider', () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -203,15 +213,12 @@ describe('AuthProvider', () => {
   it('provides role-based state', async () => {
     const adminUser = { ...mockUser, role: 'admin' };
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ success: true, data: { accessToken: 'tok', user: adminUser } }),
-    });
+    mockRefreshSession.mockResolvedValue({ accessToken: 'tok', user: adminUser });
 
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -222,20 +229,21 @@ describe('AuthProvider', () => {
   it('register sets user on success (auto-login)', async () => {
     const user = userEvent.setup();
 
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: false, json: async () => ({ success: false }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: { accessToken: 'tok', user: { ...mockUser, email: 'new@example.com', fullName: 'New' } },
-        }),
-      });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          accessToken: 'tok',
+          user: { ...mockUser, email: 'new@example.com', fullName: 'New' },
+        },
+      }),
+    });
 
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -250,9 +258,7 @@ describe('AuthProvider', () => {
   });
 
   it('handles network error during login', async () => {
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: false, json: async () => ({ success: false }) })
-      .mockRejectedValueOnce(new Error('Network error'));
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
     let loginResult: { success: boolean; error?: string } | undefined;
 
@@ -261,7 +267,13 @@ describe('AuthProvider', () => {
       return (
         <div>
           <div data-testid="loading">{String(isLoading)}</div>
-          <button onClick={async () => { loginResult = await login('a@b.com', 'x'); }}>Login</button>
+          <button
+            onClick={async () => {
+              loginResult = await login('a@b.com', 'x');
+            }}
+          >
+            Login
+          </button>
         </div>
       );
     }
@@ -269,7 +281,7 @@ describe('AuthProvider', () => {
     render(
       <AuthProvider>
         <NetworkErrorConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -284,12 +296,12 @@ describe('AuthProvider', () => {
   });
 
   it('handles network error during refresh', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network'));
+    mockRefreshSession.mockRejectedValue(new Error('Network'));
 
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await waitFor(() => {

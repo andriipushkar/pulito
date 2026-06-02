@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/navigation';
 import Button from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
@@ -17,6 +17,12 @@ interface AppliedCoupon {
   code: string;
   discount: number;
   description?: string;
+  // Cart goods total the discount was validated against. If the cart total
+  // later differs, the cached discount is stale (and min-order may no longer
+  // hold), so we drop the coupon and ask the user to re-apply — instead of
+  // showing a wrong number. We don't auto-revalidate because /coupons/validate
+  // is rate-limited (3/15min/IP) and the order re-validates authoritatively.
+  appliedTotal: number;
 }
 
 const COUPON_STORAGE_KEY = 'pulito-cart-coupon';
@@ -77,6 +83,7 @@ export default function CartSummary({
           code: res.data.code,
           discount: res.data.discount,
           description: res.data.description,
+          appliedTotal: total,
         };
         setCoupon(c);
         saveCoupon(c);
@@ -97,6 +104,19 @@ export default function CartSummary({
     saveCoupon(null);
     setCouponError(null);
   };
+
+  // Drop a stale coupon when the cart total no longer matches what the discount
+  // was validated against (qty change, item removed, price update). Avoids
+  // showing a wrong discount / a coupon whose min-order no longer holds. The
+  // user re-applies; checkout re-validates regardless.
+  useEffect(() => {
+    if (coupon && coupon.appliedTotal !== total) {
+      setCoupon(null);
+      saveCoupon(null);
+      setCouponError('Кошик змінився — застосуйте промокод знову');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total]);
 
   const finalTotal = Math.max(0, total - (coupon?.discount || 0));
 

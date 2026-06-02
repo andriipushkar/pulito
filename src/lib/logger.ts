@@ -7,9 +7,19 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
   debug: 3,
 };
 
-const configuredLevel: LogLevel =
+// Mutable so the level can be changed at runtime from /admin → System without
+// a redeploy. Seeded from env; instrumentation applies the DB value on boot
+// and the settings route calls setLogLevel() on save. See setLogLevel below.
+let activeLevel: LogLevel =
   (process.env.LOG_LEVEL as LogLevel) ||
   (process.env.NODE_ENV === 'development' ? 'debug' : 'info');
+
+/** Change the active log level at runtime. Ignores unknown values. */
+export function setLogLevel(level: string): void {
+  if (level in LEVEL_PRIORITY) {
+    activeLevel = level as LogLevel;
+  }
+}
 
 // Axiom cloud logging (free tier: 500MB/month, 30 days retention)
 const AXIOM_TOKEN = process.env.AXIOM_TOKEN || '';
@@ -50,7 +60,7 @@ function scheduleFlush() {
 }
 
 function shouldLog(level: LogLevel): boolean {
-  return LEVEL_PRIORITY[level] <= LEVEL_PRIORITY[configuredLevel];
+  return LEVEL_PRIORITY[level] <= LEVEL_PRIORITY[activeLevel];
 }
 
 function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {

@@ -35,6 +35,12 @@ vi.mock('@/services/feature-flag', () => ({
   updateFlag: vi.fn(),
   deleteFlag: vi.fn(),
 }));
+vi.mock('@/services/audit', () => ({ logAudit: vi.fn() }));
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    featureFlag: { findUnique: vi.fn().mockResolvedValue(null) },
+  },
+}));
 vi.mock('@/utils/api-response', () => ({
   successResponse: (data: any, status = 200) => Response.json(data, { status }),
   errorResponse: (msg: string, status = 400) => Response.json({ error: msg }, { status }),

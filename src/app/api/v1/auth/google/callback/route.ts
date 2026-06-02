@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
       undefined,
       ipAddress,
       deviceInfo,
+      profile.emailVerified,
     );
 
     // If 2FA is required, redirect to the login page in 2FA step with the

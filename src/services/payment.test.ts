@@ -318,10 +318,11 @@ describe('handlePaymentCallback', () => {
     expect(mockPrisma.order.update).toHaveBeenCalledWith({
       where: { id: 1 },
       data: {
+        status: 'paid',
         paymentStatus: 'paid',
         statusHistory: {
           create: {
-            oldStatus: null,
+            oldStatus: 'new_order',
             newStatus: 'paid',
             changeSource: 'system',
             comment: 'Оплата підтверджена через liqpay',
@@ -448,10 +449,11 @@ describe('handlePaymentCallback', () => {
     expect(mockPrisma.order.update).toHaveBeenCalledWith({
       where: { id: 1 },
       data: {
+        status: 'paid',
         paymentStatus: 'paid',
         statusHistory: {
           create: {
-            oldStatus: null,
+            oldStatus: 'new_order',
             newStatus: 'paid',
             changeSource: 'system',
             comment: 'Оплата підтверджена через wayforpay',
