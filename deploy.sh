@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Atomic zero-downtime deploy for the pulito Next.js app.
+#
+# Why this exists: `npm run build` overwrites .next/ in place while the live
+# `next start` is still serving. Mid-build, the old server reads a half-written
+# prerender-manifest.json / client-reference-manifest and throws InvariantError
+# + HTTP 500 at real visitors hitting /uk, /uk/contacts, /uk/bundles, etc.
+#
+# Fix: build into a fresh .next-staging, run the same gates we deploy by hand
+# (tsc app-errors == 0, "Compiled successfully", BUILD_ID present, no type
+# failure), then swap it into place with two instant mv renames and reload PM2.
+# The old server keeps its open .next file descriptors valid across the rename
+# (Linux), so in-flight requests never see a missing file.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+STAGING=".next-staging"
+LIVE=".next"
+PREV=".next-prev"
+LOG="/tmp/pulito-deploy.log"
+
+echo "[deploy] cleaning stale staging…"
+rm -rf "$STAGING"
+
+echo "[deploy] building into $STAGING (this takes a few minutes)…"
+rm -f .next/cache/*.lock 2>/dev/null || true
+# `next build` rewrites tsconfig.json (adds distDir-specific include globs).
+# Snapshot it and restore afterwards so the staging dir name never leaks into
+# the committed config. `.next-staging` is already in tsconfig `exclude`, so the
+# route-type validators there are skipped exactly like the normal `.next` build.
+cp tsconfig.json /tmp/pulito-tsconfig.bak 2>/dev/null || true
+NEXT_DIST_DIR="$STAGING" NODE_OPTIONS='--max-old-space-size=3072' \
+  npx next build --webpack > "$LOG" 2>&1 || { echo "[deploy] BUILD CRASHED"; tail -20 "$LOG"; cp /tmp/pulito-tsconfig.bak tsconfig.json 2>/dev/null || true; exit 1; }
+cp /tmp/pulito-tsconfig.bak tsconfig.json 2>/dev/null || true
+
+# Gate: the build must have actually succeeded and produced a usable tree.
+# Accept both "Compiled successfully" and "Compiled with warnings" — Next prints
+# the latter for benign webpack warnings (e.g. the @opentelemetry/Sentry
+# "Critical dependency" notice), which must NOT block a deploy. Real failures
+# still trip the "Failed to compile / Failed to type check" guard + missing BUILD_ID.
+if ! grep -qE "Compiled successfully|Compiled with warnings" "$LOG" \
+   || grep -q "Failed to compile\|Failed to type check" "$LOG" \
+   || [ ! -f "$STAGING/BUILD_ID" ]; then
+  echo "[deploy] BUILD FAILED — not deploying. Tail:"
+  grep -iE "Failed|Type error|error TS" "$LOG" | head -10
+  rm -rf "$STAGING"
+  exit 1
+fi
+echo "[deploy] build OK, BUILD_ID=$(cat "$STAGING/BUILD_ID")"
+
+# Atomic swap: two renames on the same filesystem = milliseconds.
+echo "[deploy] swapping $STAGING -> $LIVE…"
+rm -rf "$PREV"
+[ -d "$LIVE" ] && mv "$LIVE" "$PREV"
+mv "$STAGING" "$LIVE"
+
+echo "[deploy] reloading PM2…"
+pm2 reload pulito --update-env >/dev/null 2>&1 || pm2 restart pulito --update-env >/dev/null 2>&1
+
+# Health gate — roll back if the new build doesn't come up.
+ok=0
+for i in $(seq 1 12); do
+  sleep 3
+  code=$(curl -s -m 8 -o /dev/null -w '%{http_code}' http://localhost:3000/api/v1/health 2>/dev/null || echo 000)
+  echo "[deploy] health attempt $i: $code"
+  if [ "$code" = "200" ]; then ok=1; break; fi
+done
+
+if [ "$ok" != "1" ]; then
+  echo "[deploy] HEALTH CHECK FAILED — rolling back to previous build."
+  if [ -d "$PREV" ]; then
+    rm -rf "$LIVE"
+    mv "$PREV" "$LIVE"
+    pm2 reload pulito --update-env >/dev/null 2>&1 || pm2 restart pulito --update-env >/dev/null 2>&1
+    echo "[deploy] rolled back."
+  fi
+  exit 1
+fi
+
+echo "[deploy] DEPLOYED OK. health=200 BUILD_ID=$(cat "$LIVE/BUILD_ID")"
+echo "[deploy] previous build kept at $PREV (delete when satisfied)."

@@ -18,7 +18,13 @@ export const smtpTestSchema = z.object({
   config: z.object({
     host: z.string().min(1).max(255),
     port: z.coerce.number().int().min(1).max(65535),
-    secure: z.union([z.boolean(), z.literal('true'), z.literal('false')]).optional(),
+    // The UI sends '' when the secure checkbox was never toggled (no stored
+    // value yet). Normalise empty/undefined to 'false' so an untouched
+    // checkbox doesn't fail the union with a generic "Invalid input".
+    secure: z.preprocess(
+      (v) => (v === '' || v === undefined || v === null ? 'false' : v),
+      z.union([z.boolean(), z.literal('true'), z.literal('false')]),
+    ),
     user: z.string().max(255).optional(),
     pass: z.string().max(500).optional(),
     from: z.string().email().max(255).optional(),
