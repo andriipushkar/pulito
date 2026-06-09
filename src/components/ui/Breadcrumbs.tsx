@@ -17,7 +17,11 @@ export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps)
       '@type': 'ListItem',
       position: i + 1,
       name: item.label,
-      ...(item.href ? { item: `${process.env.NEXT_PUBLIC_APP_URL || ''}${item.href}` } : {}),
+      ...(item.href
+        ? {
+            item: `${process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://pulito.trade'}${item.href}`,
+          }
+        : {}),
     })),
   };
 

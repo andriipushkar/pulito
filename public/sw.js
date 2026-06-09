@@ -1,6 +1,13 @@
-const CACHE_NAME = 'clean-shop-v3';
-const DYNAMIC_CACHE = 'clean-shop-dynamic-v2';
-const API_CACHE = 'clean-shop-api-v2';
+// Cache names are scoped per build. The worker is registered as
+// `/sw.js?v=<build-id>` (see ServiceWorkerRegistration.tsx), so a new deploy
+// changes this query string, the browser treats it as a new worker and
+// reinstalls it, and the `activate` handler below deletes every cache whose
+// name doesn't match the current build — purging stale HTML/chunks that would
+// otherwise reference now-deleted asset hashes and throw ChunkLoadError.
+const SW_VERSION = new URL(self.location.href).searchParams.get('v') || 'v3';
+const CACHE_NAME = `clean-shop-${SW_VERSION}`;
+const DYNAMIC_CACHE = `clean-shop-dynamic-${SW_VERSION}`;
+const API_CACHE = `clean-shop-api-${SW_VERSION}`;
 
 const PRECACHE_URLS = ['/', '/offline', '/catalog', '/cart', '/comparison'];
 

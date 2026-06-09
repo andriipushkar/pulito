@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { logAudit } from '@/services/audit';
 import { maskUserEditDetails } from '@/utils/pii';
 import { phoneSearchVariants } from '@/utils/phone';
+import { kyivMidnightUtc, kyivNextDayUtc } from '@/utils/format';
 
 export class UserError extends Error {
   constructor(
@@ -91,11 +92,12 @@ export async function getAllUsers(params: UserListParams = {}) {
       ...phoneVariants.map((v) => ({ phone: { contains: v } })),
     ];
   }
+  // Kyiv day boundaries; `lt` next-day so dateTo's full day is included.
   if (dateFrom) {
-    where.createdAt = { ...(where.createdAt as object), gte: new Date(dateFrom) };
+    where.createdAt = { ...(where.createdAt as object), gte: kyivMidnightUtc(dateFrom) };
   }
   if (dateTo) {
-    where.createdAt = { ...(where.createdAt as object), lte: new Date(dateTo) };
+    where.createdAt = { ...(where.createdAt as object), lt: kyivNextDayUtc(dateTo) };
   }
 
   // Dynamic sorting
@@ -565,7 +567,7 @@ export async function verifyUserEmail(userId: number, adminId: number) {
 export async function sendMessageToUser(
   userId: number,
   message: string,
-  channels: ('email' | 'telegram' | 'viber')[],
+  channels: ('email' | 'telegram')[],
   subject?: string,
 ): Promise<{
   sent: string[];
@@ -573,7 +575,7 @@ export async function sendMessageToUser(
 }> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, fullName: true, telegramChatId: true, viberUserId: true },
+    select: { id: true, email: true, fullName: true, telegramChatId: true },
   });
   if (!user) throw new UserError('Користувача не знайдено', 404);
 
@@ -607,20 +609,6 @@ export async function sendMessageToUser(
           channel: 'telegram',
           reason: err instanceof Error ? err.message : 'unknown',
         });
-      }
-    }
-  }
-
-  if (channels.includes('viber')) {
-    if (!user.viberUserId) {
-      failed.push({ channel: 'viber', reason: 'no viberUserId' });
-    } else {
-      try {
-        const vb = await import('@/services/viber');
-        await vb.sendViberNotification(Number(user.viberUserId), 'Сповіщення', message);
-        sent.push('viber');
-      } catch (err) {
-        failed.push({ channel: 'viber', reason: err instanceof Error ? err.message : 'unknown' });
       }
     }
   }

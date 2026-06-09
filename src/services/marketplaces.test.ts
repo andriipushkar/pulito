@@ -7,6 +7,17 @@ vi.mock('@/services/channel-config', () => ({
   getChannelConfig: mockGetChannelConfig,
 }));
 
+// Rozetka publishing/updating goes through RozetkaClient (which does the /sites
+// token-auth). Mock it so these tests assert the wrapper mapping, not auth.
+const mockRozCreate = vi.hoisted(() => vi.fn());
+const mockRozUpdate = vi.hoisted(() => vi.fn());
+vi.mock('@/services/marketplace-rozetka', () => ({
+  RozetkaClient: class {
+    createProduct = mockRozCreate;
+    updateProduct = mockRozUpdate;
+  },
+}));
+
 vi.stubGlobal('fetch', mockFetch);
 
 import {
@@ -81,7 +92,11 @@ describe('publishToOlx', () => {
   });
 
   it('should truncate title to 70 chars for OLX', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
+    mockGetChannelConfig.mockResolvedValue({
+      clientId: 'c',
+      accessToken: 't',
+      defaultCategoryId: '1',
+    });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: { id: 1 } }),
@@ -94,8 +109,46 @@ describe('publishToOlx', () => {
     expect(body.title.length).toBe(70);
   });
 
+  it('should send price as top-level object in whole UAH (OLX schema)', async () => {
+    mockGetChannelConfig.mockResolvedValue({
+      clientId: 'c',
+      accessToken: 't',
+      defaultCategoryId: '1',
+    });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: { id: 1 } }) });
+
+    await publishToOlx(sampleListing, APP_URL); // price 259.99
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    // Top-level price, whole UAH (not kopecks, not nested in params)
+    expect(body.price).toEqual({ value: 260, currency: 'UAH', negotiable: false });
+    expect(body.params).toBeUndefined();
+    // Custom fields via `attributes` with {code,value}
+    expect(body.attributes).toEqual([{ code: 'state', value: 'new' }]);
+    expect(body.category_id).toBe(1);
+  });
+
+  it('should send product code as external_id and in description', async () => {
+    mockGetChannelConfig.mockResolvedValue({
+      clientId: 'c',
+      accessToken: 't',
+      defaultCategoryId: '1',
+    });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: { id: 1 } }) });
+
+    await publishToOlx(sampleListing, APP_URL); // productCode 'ARI-3'
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.external_id).toBe('ARI-3');
+    expect(body.description).toContain('Код товару: ARI-3');
+  });
+
   it('should prepend appUrl to relative image URLs', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
+    mockGetChannelConfig.mockResolvedValue({
+      clientId: 'c',
+      accessToken: 't',
+      defaultCategoryId: '1',
+    });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: { id: 1 } }),
@@ -109,7 +162,11 @@ describe('publishToOlx', () => {
   });
 
   it('should limit images to 8 for OLX', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
+    mockGetChannelConfig.mockResolvedValue({
+      clientId: 'c',
+      accessToken: 't',
+      defaultCategoryId: '1',
+    });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: { id: 1 } }),
@@ -123,7 +180,11 @@ describe('publishToOlx', () => {
   });
 
   it('should return failed on API error response', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
+    mockGetChannelConfig.mockResolvedValue({
+      clientId: 'c',
+      accessToken: 't',
+      defaultCategoryId: '1',
+    });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 400,
@@ -136,7 +197,11 @@ describe('publishToOlx', () => {
   });
 
   it('should handle fetch network error', async () => {
-    mockGetChannelConfig.mockResolvedValue({ clientId: 'c', accessToken: 't', defaultCategoryId: '1' });
+    mockGetChannelConfig.mockResolvedValue({
+      clientId: 'c',
+      accessToken: 't',
+      defaultCategoryId: '1',
+    });
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
     const result = await publishToOlx(sampleListing, APP_URL);
@@ -158,26 +223,21 @@ describe('publishToRozetka', () => {
   });
 
   it('should publish successfully', async () => {
-    mockGetChannelConfig.mockResolvedValue({ apiKey: 'key', sellerId: 'sid' });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ content: { id: 99 } }),
-    });
+    mockGetChannelConfig.mockResolvedValue({ apiKey: 'login:pass', sellerId: 'sid' });
+    mockRozCreate.mockResolvedValueOnce({ success: true, externalId: '99' });
 
     const result = await publishToRozetka(sampleListing, APP_URL);
 
     expect(result.status).toBe('published');
     expect(result.externalId).toBe('99');
     expect(result.permalink).toContain('rozetka.com.ua');
+    // article (product code) is forwarded to the client
+    expect(mockRozCreate).toHaveBeenCalledWith(expect.objectContaining({ article: 'ARI-3' }));
   });
 
   it('should return failed on API error', async () => {
-    mockGetChannelConfig.mockResolvedValue({ apiKey: 'key', sellerId: 'sid' });
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 422,
-      json: async () => ({ errors: [{ message: 'Validation failed' }] }),
-    });
+    mockGetChannelConfig.mockResolvedValue({ apiKey: 'login:pass', sellerId: 'sid' });
+    mockRozCreate.mockResolvedValueOnce({ success: false, error: 'Validation failed' });
 
     const result = await publishToRozetka(sampleListing, APP_URL);
     expect(result.status).toBe('failed');
@@ -195,56 +255,32 @@ describe('publishToProm', () => {
     expect(result.status).toBe('failed');
   });
 
-  it('should publish successfully', async () => {
+  it('does not create via API — directs to the YML import feed, no fetch', async () => {
     mockGetChannelConfig.mockResolvedValue({ apiToken: 'tok' });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: 777, status: 'ok' }),
-    });
+    mockFetch.mockClear();
 
     const result = await publishToProm(sampleListing, APP_URL);
 
-    expect(result.status).toBe('published');
-    expect(result.externalId).toBe('777');
-    expect(result.permalink).toContain('prom.ua');
-  });
-
-  it('should handle ok status without id', async () => {
-    mockGetChannelConfig.mockResolvedValue({ apiToken: 'tok' });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: 'ok' }),
-    });
-
-    const result = await publishToProm(sampleListing, APP_URL);
-    expect(result.status).toBe('published');
-    expect(result.externalId).toBe('');
+    // Prom has no create API — publishToProm must not hit the network and must
+    // tell the operator to use the feed.
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('/api/v1/feeds/prom.xml');
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 
 // ── Epicentr K ──
 
 describe('publishToEpicentrk', () => {
-  it('should return failed when not configured', async () => {
-    mockGetChannelConfig.mockResolvedValue(null);
-
-    const result = await publishToEpicentrk(sampleListing, APP_URL);
-    expect(result.status).toBe('failed');
-    expect(result.error).toContain('Epicentr K не налаштовано');
-  });
-
-  it('should publish successfully', async () => {
+  it('does not create via API — directs to the YML import feed, no fetch', async () => {
     mockGetChannelConfig.mockResolvedValue({ apiKey: 'key', sellerId: 'sid' });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: 555 }),
-    });
+    mockFetch.mockClear();
 
     const result = await publishToEpicentrk(sampleListing, APP_URL);
 
-    expect(result.status).toBe('published');
-    expect(result.externalId).toBe('555');
-    expect(result.permalink).toContain('epicentrk.ua');
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('/api/v1/feeds/epicentr.xml');
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 
@@ -277,7 +313,8 @@ describe('publishToMarketplace', () => {
     mockGetChannelConfig.mockResolvedValue(null);
 
     const result = await publishToMarketplace('epicentrk', sampleListing, APP_URL);
-    expect(result.error).toContain('Epicentr K');
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('Epicentr');
   });
 
   it('should return error for unknown marketplace', async () => {
@@ -308,8 +345,8 @@ describe('updateMarketplaceListing', () => {
   });
 
   it('should update Rozetka listing', async () => {
-    mockGetChannelConfig.mockResolvedValue({ apiKey: 'key' });
-    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' });
+    mockGetChannelConfig.mockResolvedValue({ apiKey: 'login:pass', sellerId: 'sid' });
+    mockRozUpdate.mockResolvedValueOnce({ success: true });
 
     const result = await updateMarketplaceListing('rozetka', '456', { title: 'Updated' }, APP_URL);
     expect(result.status).toBe('published');
@@ -367,9 +404,10 @@ describe('deleteMarketplaceListing', () => {
 
     await deleteMarketplaceListing('prom', '888');
 
+    // Prom products/edit takes a {products:[{id,...}]} array.
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.status).toBe('deleted');
-    expect(body.id).toBe(888);
+    expect(body.products[0].status).toBe('deleted');
+    expect(body.products[0].id).toBe(888);
   });
 });
 

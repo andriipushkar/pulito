@@ -486,6 +486,20 @@ export function SettingsTab() {
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={() => {
+                      // First-time OAuth: navigate to the start endpoint, which
+                      // (with the admin session cookie) redirects to OLX consent.
+                      window.location.href = '/api/v1/admin/marketplaces/olx/oauth-start';
+                    }}
+                    title={t('connectOauthTitle')}
+                  >
+                    {t('connectOauthBtn')}
+                  </Button>
+                )}
+                {ch === 'olx' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={async () => {
                       const res = await apiClient.post<{ expiresIn?: number }>(
                         '/api/v1/admin/marketplaces/olx/refresh-token',

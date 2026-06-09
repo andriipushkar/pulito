@@ -92,9 +92,13 @@ export async function getAccountInsights(): Promise<AccountInsights> {
   const profileData = await profileRes.json();
 
   return {
-    impressions: getValue('impressions'),
+    // Graph v21 renamed account-level `impressions` → `views`; the request above
+    // asks for `views`, so parse that (parsing `impressions` always returned 0).
+    impressions: getValue('views'),
     reach: getValue('reach'),
-    profileViews: getValue('profile_views'),
+    // `profile_views` is no longer part of this call on v21 (needs a separate
+    // metric_type=total_value request); left at 0 rather than silently mismatched.
+    profileViews: 0,
     followerCount: profileData.followers_count || 0,
   };
 }

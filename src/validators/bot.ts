@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { isSafeUrl } from '@/utils/safe-url';
 
 // Same surface area as publication-template buttons — when fired, the
-// button URL lands on Telegram inline keyboards / Viber rich cards.
+// button URL lands on Telegram inline keyboards.
 // `z.url()` accepts `javascript:`, so we explicitly require http(s).
 const buttonUrlSchema = z
   .string()
@@ -10,7 +10,7 @@ const buttonUrlSchema = z
   .refine((v) => isSafeUrl(v), 'Посилання кнопки має бути http(s):// без приватних IP');
 
 export const updateBotReplySchema = z.object({
-  platform: z.enum(['all', 'telegram', 'viber', 'instagram', 'facebook']).optional(),
+  platform: z.enum(['all', 'telegram', 'instagram', 'facebook']).optional(),
   triggerType: z.enum(['partial', 'exact', 'regex']).optional(),
   // Cap regex pattern length — `(.+)+$` style ReDoS gadgets are short, but
   // capping makes them harder to fit while leaving legitimate patterns

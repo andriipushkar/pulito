@@ -19,7 +19,7 @@ export const POST = withRole(
     // Idempotency guard: only flip the status if it is currently NOT already
     // scheduled/publishing. Two rapid clicks (or duplicate retries) used to
     // both pass through and call publishNow twice, posting the same content
-    // to Telegram/Viber/Instagram twice. updateMany returns count=0 when the
+    // to Telegram/Instagram twice. updateMany returns count=0 when the
     // claim fails, and we refuse to enqueue.
     const claimed = await prisma.publication.updateMany({
       where: { id: numId, status: { in: ['draft', 'failed', 'partial'] } },

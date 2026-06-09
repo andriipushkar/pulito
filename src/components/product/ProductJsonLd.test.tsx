@@ -94,7 +94,12 @@ describe('ProductJsonLd', () => {
     ];
     const { container } = render(<ProductJsonLd product={makeProduct({ images })} />);
     const data = getJsonLd(container);
-    expect(data.image).toEqual(['/full1.jpg', '/full2.jpg']);
+    // Image URLs are absolutized (baseUrl prepended) for Google structured data.
+    expect(data.image).toEqual([
+      expect.stringContaining('/full1.jpg'),
+      expect.stringContaining('/full2.jpg'),
+    ]);
+    data.image.forEach((url: string) => expect(url).toMatch(/^https?:\/\//));
   });
 
   it('uses imagePath as fallback when no images have pathFull', () => {
@@ -102,7 +107,8 @@ describe('ProductJsonLd', () => {
       <ProductJsonLd product={makeProduct({ images: [], imagePath: '/fallback.jpg' })} />,
     );
     const data = getJsonLd(container);
-    expect(data.image).toBe('/fallback.jpg');
+    expect(data.image).toContain('/fallback.jpg');
+    expect(data.image).toMatch(/^https?:\/\//);
   });
 
   it('omits image when no images and no imagePath', () => {
@@ -195,7 +201,7 @@ describe('ProductJsonLd', () => {
     ];
     const { container } = render(<ProductJsonLd product={makeProduct({ images })} />);
     const data = getJsonLd(container);
-    expect(data.image).toEqual(['/full1.jpg']);
+    expect(data.image).toEqual([expect.stringContaining('/full1.jpg')]);
   });
 
   it('includes content shortDescription omitted when null', () => {

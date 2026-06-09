@@ -14,8 +14,6 @@ type ChannelKey =
   | 'email_price_change'
   | 'telegram_orders'
   | 'telegram_promo'
-  | 'viber_orders'
-  | 'viber_promo'
   | 'push_orders'
   | 'push_promo';
 
@@ -27,8 +25,6 @@ const DEFAULT_PREFS: Prefs = {
   email_price_change: true,
   telegram_orders: true,
   telegram_promo: false,
-  viber_orders: true,
-  viber_promo: false,
   push_orders: true,
   push_promo: false,
 };
@@ -54,11 +50,6 @@ const SECTIONS: {
         keys: ['telegram_orders'],
       },
       {
-        label: 'Viber',
-        description: 'Миттєве повідомлення у Viber.',
-        keys: ['viber_orders'],
-      },
-      {
         label: 'Push (браузер/PWA)',
         description: 'Push-сповіщення в браузері або мобільному PWA.',
         keys: ['push_orders'],
@@ -71,7 +62,6 @@ const SECTIONS: {
     rows: [
       { label: 'Email', description: 'Розсилка зі знижками і акціями.', keys: ['email_promo'] },
       { label: 'Telegram', description: 'Анонси акцій у Telegram.', keys: ['telegram_promo'] },
-      { label: 'Viber', description: 'Анонси акцій у Viber.', keys: ['viber_promo'] },
       { label: 'Push', description: 'Push-анонси акцій.', keys: ['push_promo'] },
     ],
   },
@@ -163,8 +153,8 @@ export default function NotificationsPreferencesPage() {
 
       <p className="mb-6 text-sm text-[var(--color-text-secondary)]">
         Оберіть, по яких каналах ви хочете отримувати сповіщення. Сповіщення в кабінеті (на цій
-        сторінці) ви бачите завжди — налаштування нижче керують{' '}
-        <strong>email/Telegram/Viber/Push</strong>. Назад до{' '}
+        сторінці) ви бачите завжди — налаштування нижче керують <strong>email/Telegram/Push</strong>
+        . Назад до{' '}
         <Link href="/account/notifications" className="text-[var(--color-primary)] hover:underline">
           списку сповіщень
         </Link>

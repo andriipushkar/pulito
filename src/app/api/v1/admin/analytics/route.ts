@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { cacheGet, cacheSet } from '@/services/cache';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { parseDays } from '@/utils/analytics-days';
+import { kyivDateIso } from '@/utils/format';
 
 /** Helper: get period comparison dates */
 function getPeriods(days: number) {
@@ -62,11 +63,11 @@ export const GET = withRole(
         // timeline — days with no orders render as 0 instead of being
         // skipped (which previously compressed the X axis).
         for (let d = new Date(currentFrom); d <= new Date(); d.setDate(d.getDate() + 1)) {
-          const key = d.toISOString().slice(0, 10);
+          const key = kyivDateIso(d);
           daily[key] = { date: key, revenue: 0, count: 0 };
         }
         for (const o of orders) {
-          const date = o.createdAt.toISOString().slice(0, 10);
+          const date = kyivDateIso(o.createdAt);
           if (!daily[date]) daily[date] = { date, revenue: 0, count: 0 };
           daily[date].revenue += Number(o.totalAmount);
           daily[date].count++;
@@ -375,7 +376,7 @@ export const GET = withRole(
         });
         const dailyRev: Record<string, number> = {};
         for (const o of last7) {
-          const d = o.createdAt.toISOString().slice(0, 10);
+          const d = kyivDateIso(o.createdAt);
           dailyRev[d] = (dailyRev[d] || 0) + Number(o.totalAmount);
         }
         const vals = Object.values(dailyRev);

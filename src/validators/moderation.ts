@@ -4,7 +4,7 @@ import { z } from 'zod';
 // inline string-array checks before; that drifted (POST didn't cap config
 // size, PUT did). Zod schema below is the contract.
 
-export const MODERATION_PLATFORMS = ['telegram', 'viber'] as const;
+export const MODERATION_PLATFORMS = ['telegram'] as const;
 export const MODERATION_RULE_TYPES = ['stop_words', 'link_block', 'flood_limit'] as const;
 export const MODERATION_ACTIONS = ['delete', 'warn', 'ban'] as const;
 

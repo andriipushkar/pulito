@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { kyivMidnightUtc } from '@/utils/format';
 
 const mockPrisma = vi.hoisted(() => ({
   order: {
@@ -164,8 +165,8 @@ describe('generateReport', () => {
       });
 
       const call = mockPrisma.order.findMany.mock.calls[0][0];
-      expect(call.where.createdAt.gte).toEqual(new Date('2025-01-01'));
-      expect(call.where.createdAt.lte).toBeDefined();
+      expect(call.where.createdAt.gte).toEqual(kyivMidnightUtc('2025-01-01'));
+      expect(call.where.createdAt.lt).toBeDefined();
     });
 
     it('should handle empty data', async () => {

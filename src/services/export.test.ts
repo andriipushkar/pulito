@@ -80,7 +80,7 @@ describe('exportOrders', () => {
         where: expect.objectContaining({
           createdAt: expect.objectContaining({
             gte: expect.any(Date),
-            lte: expect.any(Date),
+            lt: expect.any(Date),
           }),
         }),
       }),
@@ -263,7 +263,7 @@ describe('exportOrders - dateFrom only filter', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           createdAt: expect.objectContaining({
-            lte: expect.any(Date),
+            lt: expect.any(Date),
           }),
         }),
       }),

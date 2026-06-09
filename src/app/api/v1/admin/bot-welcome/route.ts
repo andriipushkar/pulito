@@ -6,7 +6,7 @@ import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 import { isSafeUrl } from '@/utils/safe-url';
 
-const PLATFORMS = ['telegram', 'viber', 'facebook', 'instagram', 'web'] as const;
+const PLATFORMS = ['telegram', 'facebook', 'instagram', 'web'] as const;
 
 // z.url() accepts `javascript:` — explicitly require http(s) so welcome
 // buttons can't host a phishing link to customers in any channel.

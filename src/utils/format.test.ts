@@ -1,5 +1,43 @@
 import { describe, it, expect } from 'vitest';
-import { formatPrice, formatDate, formatDateTime, truncate } from './format';
+import {
+  formatPrice,
+  formatDate,
+  formatDateTime,
+  truncate,
+  kyivMidnightUtc,
+  kyivDateIso,
+} from './format';
+
+describe('kyivDateIso', () => {
+  it('buckets an instant by its Kyiv calendar day, not the UTC day', () => {
+    // 2026-06-02T22:00:00Z is 2026-06-03 01:00 Kyiv (summer, UTC+3).
+    expect(kyivDateIso(new Date('2026-06-02T22:00:00Z'))).toBe('2026-06-03');
+  });
+
+  it('a mid-day UTC instant keeps the same date', () => {
+    expect(kyivDateIso(new Date('2026-06-03T12:00:00Z'))).toBe('2026-06-03');
+  });
+});
+
+describe('kyivMidnightUtc', () => {
+  it('maps a summer date to Kyiv 00:00 = UTC 21:00 the previous day (UTC+3)', () => {
+    // 2026-06-03 is summer (EEST, UTC+3): Kyiv midnight = 2026-06-02T21:00:00Z
+    expect(kyivMidnightUtc('2026-06-03').toISOString()).toBe('2026-06-02T21:00:00.000Z');
+  });
+
+  it('maps a winter date to Kyiv 00:00 = UTC 22:00 the previous day (UTC+2)', () => {
+    // 2026-01-15 is winter (EET, UTC+2): Kyiv midnight = 2026-01-14T22:00:00Z
+    expect(kyivMidnightUtc('2026-01-15').toISOString()).toBe('2026-01-14T22:00:00.000Z');
+  });
+
+  it('an order at Kyiv 01:00 falls on the same Kyiv day (not the previous UTC day)', () => {
+    // 2026-06-03 01:00 Kyiv = 2026-06-02T22:00:00Z. It must be >= the Kyiv-day
+    // start (2026-06-02T21:00Z) and < the next Kyiv day (2026-06-03T21:00Z).
+    const orderUtc = new Date('2026-06-02T22:00:00Z');
+    expect(orderUtc >= kyivMidnightUtc('2026-06-03')).toBe(true);
+    expect(orderUtc < kyivMidnightUtc('2026-06-04')).toBe(true);
+  });
+});
 
 describe('formatPrice', () => {
   it('should format price in UAH currency', () => {

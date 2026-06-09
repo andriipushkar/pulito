@@ -11,13 +11,21 @@ export default function ServiceWorkerRegistration() {
       return;
     }
 
+    // Scope the worker to this build. A new deploy changes NEXT_PUBLIC_SW_VERSION,
+    // which changes the registration URL, so the browser fetches + reinstalls the
+    // worker and its `activate` handler purges the previous build's caches.
+    const swVersion = process.env.NEXT_PUBLIC_SW_VERSION || 'v3';
+
     navigator.serviceWorker
-      .register('/sw.js')
+      .register(`/sw.js?v=${encodeURIComponent(swVersion)}`)
       .then((registration) => {
         // Check for updates every hour
-        setInterval(() => {
-          registration.update();
-        }, 60 * 60 * 1000);
+        setInterval(
+          () => {
+            registration.update();
+          },
+          60 * 60 * 1000,
+        );
 
         // Handle SW update — activate new worker immediately
         registration.addEventListener('updatefound', () => {
@@ -25,10 +33,7 @@ export default function ServiceWorkerRegistration() {
           if (!newWorker) return;
 
           newWorker.addEventListener('statechange', () => {
-            if (
-              newWorker.state === 'installed' &&
-              navigator.serviceWorker.controller
-            ) {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               // New SW ready — tell it to take over
               newWorker.postMessage({ type: 'SKIP_WAITING' });
             }
@@ -51,10 +56,7 @@ export default function ServiceWorkerRegistration() {
 
   // Proactively cache visited product pages
   const cacheCurrentPage = useCallback(() => {
-    if (
-      process.env.NODE_ENV !== 'production' ||
-      !navigator.serviceWorker?.controller
-    ) {
+    if (process.env.NODE_ENV !== 'production' || !navigator.serviceWorker?.controller) {
       return;
     }
 

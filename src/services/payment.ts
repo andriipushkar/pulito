@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
+import { subtractMoney, addMoney, compareMoney } from '@/utils/money';
 import type {
   PaymentProvider,
   PaymentInitResult,
@@ -293,7 +294,13 @@ export async function handlePaymentCallback(
           contactEmail: true,
           contactPhone: true,
           items: {
-            select: { productId: true, productName: true, priceAtOrder: true, quantity: true },
+            select: {
+              productId: true,
+              productCode: true,
+              productName: true,
+              priceAtOrder: true,
+              quantity: true,
+            },
           },
         },
       });
@@ -307,8 +314,9 @@ export async function handlePaymentCallback(
               phone: orderWithItems.contactPhone,
               orderId: orderWithItems.orderNumber,
               totalAmount: Number(orderWithItems.totalAmount),
+              // Key on productCode (SKU) to match the browser pixel's content_ids.
               items: orderWithItems.items.map((i) => ({
-                id: String(i.productId),
+                id: i.productCode || String(i.productId),
                 name: i.productName,
                 price: Number(i.priceAtOrder),
                 quantity: i.quantity,
@@ -352,12 +360,13 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
 
   const paidAmount = Number(payment.amount);
   const alreadyRefunded = Number(payment.refundedAmount);
-  const remaining = paidAmount - alreadyRefunded;
+  const remaining = subtractMoney(paidAmount, alreadyRefunded);
   const refundAmount = amount ?? remaining;
   // Accumulated check: every refund (this + prior partials) must fit inside
   // the paid total. Defends against the case where paymentStatus was manually
-  // flipped back to `paid` after a partial refund.
-  if (refundAmount > remaining + 0.01) {
+  // flipped back to `paid` after a partial refund. Compared in kopecks so a
+  // float tail can't let an over-refund slip through (or block an exact one).
+  if (compareMoney(refundAmount, remaining) > 0) {
     throw new PaymentError(
       `Сума повернення (${refundAmount}) перевищує доступну (${remaining.toFixed(2)} = ` +
         `сплачено ${paidAmount} − вже повернуто ${alreadyRefunded})`,
@@ -367,7 +376,7 @@ export async function refundPayment(orderId: number, amount?: number): Promise<R
   if (refundAmount <= 0) {
     throw new PaymentError('Сума повернення має бути додатною', 400);
   }
-  const isPartial = alreadyRefunded + refundAmount < paidAmount;
+  const isPartial = compareMoney(addMoney(alreadyRefunded, refundAmount), paidAmount) < 0;
   const provider = payment.paymentProvider as PaymentProvider;
 
   // Serialise concurrent refunds for the same order. Without this, two

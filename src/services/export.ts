@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/../generated/prisma';
+import { kyivMidnightUtc, kyivNextDayUtc } from '@/utils/format';
 
 export class ExportError extends Error {
   constructor(
@@ -60,10 +61,7 @@ async function buildBuffer(
 
   const headers = Object.keys(rows[0]);
   ws.columns = headers.map((h) => {
-    const maxDataLen = rows.reduce(
-      (max, row) => Math.max(max, String(row[h] ?? '').length),
-      0,
-    );
+    const maxDataLen = rows.reduce((max, row) => Math.max(max, String(row[h] ?? '').length), 0);
     return {
       header: h,
       key: h,
@@ -103,12 +101,13 @@ export async function exportOrders(params: ExportOrdersParams = {}) {
   if (clientType) where.clientType = clientType as Prisma.EnumClientTypeFilter;
   if (paymentMethod) where.paymentMethod = paymentMethod as Prisma.EnumPaymentMethodFilter;
   if (paymentStatus) where.paymentStatus = paymentStatus as Prisma.EnumPaymentStatusFilter;
-  if (deliveryMethod)
-    where.deliveryMethod = deliveryMethod as Prisma.EnumDeliveryMethodFilter;
+  if (deliveryMethod) where.deliveryMethod = deliveryMethod as Prisma.EnumDeliveryMethodFilter;
   if (assignedManagerId) where.assignedManagerId = assignedManagerId;
+  // Kyiv day boundaries; `lt` next-day so dateTo's full day is included.
   if (dateFrom)
-    where.createdAt = { ...((where.createdAt as object) || {}), gte: new Date(dateFrom) };
-  if (dateTo) where.createdAt = { ...((where.createdAt as object) || {}), lte: new Date(dateTo) };
+    where.createdAt = { ...((where.createdAt as object) || {}), gte: kyivMidnightUtc(dateFrom) };
+  if (dateTo)
+    where.createdAt = { ...((where.createdAt as object) || {}), lt: kyivNextDayUtc(dateTo) };
   if (search && search.trim()) {
     const s = search.trim();
     where.OR = [
@@ -203,8 +202,8 @@ export async function exportClients(params: ExportClientsParams = {}) {
   if (typeof isBlocked === 'boolean') where.isBlocked = isBlocked;
   if (dateFrom || dateTo) {
     where.createdAt = {
-      ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-      ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59`) } : {}),
+      ...(dateFrom ? { gte: kyivMidnightUtc(dateFrom) } : {}),
+      ...(dateTo ? { lt: kyivNextDayUtc(dateTo) } : {}),
     };
   }
   if (search) {

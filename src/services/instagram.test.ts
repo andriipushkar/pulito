@@ -11,7 +11,9 @@ vi.mock('@/config/env', () => ({
 // flow, not the rate-limit logic (covered separately in instagram-quota.test).
 vi.mock('./instagram-quota', () => ({
   INSTAGRAM_DAILY_LIMIT: 25,
-  getInstagramQuota: vi.fn().mockResolvedValue({ used: 0, limit: 25, remaining: 25, exhausted: false }),
+  getInstagramQuota: vi
+    .fn()
+    .mockResolvedValue({ used: 0, limit: 25, remaining: 25, exhausted: false }),
   consumeInstagramQuota: vi.fn().mockResolvedValue(undefined),
   assertInstagramQuotaAvailable: vi.fn().mockResolvedValue(undefined),
 }));
@@ -99,8 +101,9 @@ describe('publishImagePost', () => {
       INSTAGRAM_ACCESS_TOKEN: '',
     });
 
-    await expect(publishImagePost('https://example.com/image.jpg', 'caption'))
-      .rejects.toThrow('Instagram credentials not configured');
+    await expect(publishImagePost('https://example.com/image.jpg', 'caption')).rejects.toThrow(
+      'Instagram credentials not configured',
+    );
 
     Object.assign(env, {
       INSTAGRAM_BUSINESS_ACCOUNT_ID: originalAccountId,
@@ -109,12 +112,11 @@ describe('publishImagePost', () => {
   });
 
   it('should throw InstagramError when container creation fails', async () => {
-    fetchMock.mockResolvedValue(
-      createFetchResponse({ error: { message: 'Invalid image URL' } })
-    );
+    fetchMock.mockResolvedValue(createFetchResponse({ error: { message: 'Invalid image URL' } }));
 
-    await expect(publishImagePost('https://bad-url.com/no-image', 'caption'))
-      .rejects.toThrow('Failed to create media container: Invalid image URL');
+    await expect(publishImagePost('https://bad-url.com/no-image', 'caption')).rejects.toThrow(
+      'Failed to create media container: Invalid image URL',
+    );
   });
 
   it('should throw InstagramError when publishing fails', async () => {
@@ -122,8 +124,9 @@ describe('publishImagePost', () => {
       .mockResolvedValueOnce(createFetchResponse({ id: 'container-123' }))
       .mockResolvedValueOnce(createFetchResponse({ error: { message: 'Publishing failed' } }));
 
-    await expect(publishImagePost('https://example.com/image.jpg', 'caption'))
-      .rejects.toThrow('Failed to publish media: Publishing failed');
+    await expect(publishImagePost('https://example.com/image.jpg', 'caption')).rejects.toThrow(
+      'Failed to publish media: Publishing failed',
+    );
   });
 });
 
@@ -140,7 +143,9 @@ describe('publishCarouselPost', () => {
       // Publish
       .mockResolvedValueOnce(createFetchResponse({ id: 'media-789' }))
       // Get permalink
-      .mockResolvedValueOnce(createFetchResponse({ permalink: 'https://instagram.com/p/carousel123' }));
+      .mockResolvedValueOnce(
+        createFetchResponse({ permalink: 'https://instagram.com/p/carousel123' }),
+      );
 
     const result = await publishCarouselPost(imageUrls, 'Carousel caption');
 
@@ -161,24 +166,27 @@ describe('publishCarouselPost', () => {
   });
 
   it('should throw InstagramError when fewer than 2 images provided', async () => {
-    await expect(publishCarouselPost(['https://example.com/img1.jpg'], 'caption'))
-      .rejects.toThrow('Carousel requires 2-10 images');
+    await expect(publishCarouselPost(['https://example.com/img1.jpg'], 'caption')).rejects.toThrow(
+      'Carousel requires 2-10 images',
+    );
   });
 
   it('should throw InstagramError when more than 10 images provided', async () => {
     const urls = Array.from({ length: 11 }, (_, i) => `https://example.com/img${i}.jpg`);
 
-    await expect(publishCarouselPost(urls, 'caption'))
-      .rejects.toThrow('Carousel requires 2-10 images');
+    await expect(publishCarouselPost(urls, 'caption')).rejects.toThrow(
+      'Carousel requires 2-10 images',
+    );
   });
 
   it('should throw InstagramError when item container creation fails', async () => {
-    fetchMock.mockResolvedValue(
-      createFetchResponse({ error: { message: 'Bad image' } })
-    );
+    fetchMock.mockResolvedValue(createFetchResponse({ error: { message: 'Bad image' } }));
 
     await expect(
-      publishCarouselPost(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'caption')
+      publishCarouselPost(
+        ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+        'caption',
+      ),
     ).rejects.toThrow('Failed to create carousel item');
   });
 });
@@ -194,18 +202,14 @@ describe('getMediaInsights', () => {
     const result = await getMediaInsights('media-123');
 
     expect(result).toEqual(insightsData);
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('media-123/insights'),
-    );
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('media-123/insights'));
   });
 
   it('should throw InstagramError when API returns an error', async () => {
-    fetchMock.mockResolvedValue(
-      createFetchResponse({ error: { message: 'Media not found' } })
-    );
+    fetchMock.mockResolvedValue(createFetchResponse({ error: { message: 'Media not found' } }));
 
     await expect(getMediaInsights('invalid-media')).rejects.toThrow(
-      'Failed to get insights: Media not found'
+      'Failed to get insights: Media not found',
     );
   });
 
@@ -215,7 +219,7 @@ describe('getMediaInsights', () => {
     Object.assign(env, { INSTAGRAM_ACCESS_TOKEN: '' });
 
     await expect(getMediaInsights('media-123')).rejects.toThrow(
-      'Instagram access token not configured'
+      'Instagram access token not configured',
     );
 
     Object.assign(env, { INSTAGRAM_ACCESS_TOKEN: originalToken });
@@ -224,10 +228,11 @@ describe('getMediaInsights', () => {
 
 describe('getAccountInsights', () => {
   it('should return account insights with follower count', async () => {
+    // Graph v21 account insights expose `views` (successor of `impressions`)
+    // and `reach`. profile_views is no longer part of this call.
     const insightsData = [
-      { name: 'impressions', values: [{ value: 5000 }] },
+      { name: 'views', values: [{ value: 5000 }] },
       { name: 'reach', values: [{ value: 3000 }] },
-      { name: 'profile_views', values: [{ value: 200 }] },
     ];
 
     // Insights call
@@ -241,7 +246,7 @@ describe('getAccountInsights', () => {
     expect(result).toEqual({
       impressions: 5000,
       reach: 3000,
-      profileViews: 200,
+      profileViews: 0,
       followerCount: 1500,
     });
   });
@@ -249,7 +254,11 @@ describe('getAccountInsights', () => {
   it('should handle undefined data.data fallback to empty array (line 79)', async () => {
     // data.data is undefined (not null, not array) -> falls back to []
     fetchMock
-      .mockResolvedValueOnce(createFetchResponse({ /* no data field */ }))
+      .mockResolvedValueOnce(
+        createFetchResponse({
+          /* no data field */
+        }),
+      )
       .mockResolvedValueOnce(createFetchResponse({ followers_count: 100 }));
 
     const result = await getAccountInsights();
@@ -278,11 +287,11 @@ describe('getAccountInsights', () => {
   });
 
   it('should throw InstagramError when API returns an error', async () => {
-    fetchMock.mockResolvedValue(
-      createFetchResponse({ error: { message: 'Invalid token' } })
-    );
+    fetchMock.mockResolvedValue(createFetchResponse({ error: { message: 'Invalid token' } }));
 
-    await expect(getAccountInsights()).rejects.toThrow('Failed to get account insights: Invalid token');
+    await expect(getAccountInsights()).rejects.toThrow(
+      'Failed to get account insights: Invalid token',
+    );
   });
 
   it('should throw InstagramError when credentials are missing', async () => {
@@ -408,19 +417,22 @@ describe('publishReelsPost', () => {
       .mockResolvedValueOnce(createFetchResponse({ id: 'reel-media-1' }))
       .mockResolvedValueOnce(createFetchResponse({ permalink: '' }));
 
-    await publishReelsPost('https://example.com/video.mp4', 'Caption', 'https://example.com/cover.jpg');
+    await publishReelsPost(
+      'https://example.com/video.mp4',
+      'Caption',
+      'https://example.com/cover.jpg',
+    );
 
     const containerBody = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(containerBody.cover_url).toBe('https://example.com/cover.jpg');
   });
 
   it('should throw when container creation fails', async () => {
-    fetchMock.mockResolvedValueOnce(
-      createFetchResponse({ error: { message: 'Bad video' } })
-    );
+    fetchMock.mockResolvedValueOnce(createFetchResponse({ error: { message: 'Bad video' } }));
 
-    await expect(publishReelsPost('https://example.com/bad.mp4', 'Caption'))
-      .rejects.toThrow('Failed to create Reels container');
+    await expect(publishReelsPost('https://example.com/bad.mp4', 'Caption')).rejects.toThrow(
+      'Failed to create Reels container',
+    );
   });
 
   it('should throw when video processing fails (ERROR status)', async () => {
@@ -428,21 +440,22 @@ describe('publishReelsPost', () => {
       .mockResolvedValueOnce(createFetchResponse({ id: 'reel-container-1' }))
       .mockResolvedValueOnce(createFetchResponse({ status_code: 'ERROR' }));
 
-    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption'))
-      .rejects.toThrow('Video processing failed');
+    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption')).rejects.toThrow(
+      'Video processing failed',
+    );
   });
 
   it('should throw when video processing times out', async () => {
-    fetchMock
-      .mockResolvedValueOnce(createFetchResponse({ id: 'reel-container-1' }));
+    fetchMock.mockResolvedValueOnce(createFetchResponse({ id: 'reel-container-1' }));
 
     // Return IN_PROGRESS for all 30 poll attempts
     for (let i = 0; i < 30; i++) {
       fetchMock.mockResolvedValueOnce(createFetchResponse({ status_code: 'IN_PROGRESS' }));
     }
 
-    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption'))
-      .rejects.toThrow('Video processing timed out');
+    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption')).rejects.toThrow(
+      'Video processing timed out',
+    );
   }, 180000);
 
   it('should throw when publishing fails', async () => {
@@ -451,8 +464,9 @@ describe('publishReelsPost', () => {
       .mockResolvedValueOnce(createFetchResponse({ status_code: 'FINISHED' }))
       .mockResolvedValueOnce(createFetchResponse({ error: { message: 'Publish failed' } }));
 
-    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption'))
-      .rejects.toThrow('Failed to publish Reels');
+    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption')).rejects.toThrow(
+      'Failed to publish Reels',
+    );
   });
 
   it('should throw when credentials are missing', async () => {
@@ -460,8 +474,9 @@ describe('publishReelsPost', () => {
     const original = { ...env };
     Object.assign(env, { INSTAGRAM_BUSINESS_ACCOUNT_ID: '', INSTAGRAM_ACCESS_TOKEN: '' });
 
-    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption'))
-      .rejects.toThrow('Instagram credentials not configured');
+    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption')).rejects.toThrow(
+      'Instagram credentials not configured',
+    );
 
     Object.assign(env, original);
   });
@@ -482,19 +497,19 @@ describe('postFirstComment', () => {
   });
 
   it('should throw when comment posting fails', async () => {
-    fetchMock.mockResolvedValueOnce(
-      createFetchResponse({ error: { message: 'Cannot comment' } })
-    );
+    fetchMock.mockResolvedValueOnce(createFetchResponse({ error: { message: 'Cannot comment' } }));
 
-    await expect(postFirstComment('media-456', 'Test'))
-      .rejects.toThrow('Failed to post comment: Cannot comment');
+    await expect(postFirstComment('media-456', 'Test')).rejects.toThrow(
+      'Failed to post comment: Cannot comment',
+    );
   });
 
   it('should throw when no error message in response', async () => {
     fetchMock.mockResolvedValueOnce(createFetchResponse({}));
 
-    await expect(postFirstComment('media-456', 'Test'))
-      .rejects.toThrow('Failed to post comment: Unknown error');
+    await expect(postFirstComment('media-456', 'Test')).rejects.toThrow(
+      'Failed to post comment: Unknown error',
+    );
   });
 
   it('should throw when access token is missing', async () => {
@@ -502,8 +517,9 @@ describe('postFirstComment', () => {
     const original = env.INSTAGRAM_ACCESS_TOKEN;
     Object.assign(env, { INSTAGRAM_ACCESS_TOKEN: '' });
 
-    await expect(postFirstComment('media-456', 'Test'))
-      .rejects.toThrow('Instagram access token not configured');
+    await expect(postFirstComment('media-456', 'Test')).rejects.toThrow(
+      'Instagram access token not configured',
+    );
 
     Object.assign(env, { INSTAGRAM_ACCESS_TOKEN: original });
   });
@@ -520,7 +536,10 @@ describe('publishCarouselPost - additional paths', () => {
       .mockResolvedValueOnce(createFetchResponse({ error: { message: 'Container fail' } }));
 
     await expect(
-      publishCarouselPost(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'caption')
+      publishCarouselPost(
+        ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+        'caption',
+      ),
     ).rejects.toThrow('Failed to create carousel container');
   });
 
@@ -532,7 +551,10 @@ describe('publishCarouselPost - additional paths', () => {
       .mockResolvedValueOnce(createFetchResponse({ error: { message: 'Publish fail' } }));
 
     await expect(
-      publishCarouselPost(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'caption')
+      publishCarouselPost(
+        ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+        'caption',
+      ),
     ).rejects.toThrow('Failed to publish carousel');
   });
 
@@ -542,7 +564,10 @@ describe('publishCarouselPost - additional paths', () => {
     Object.assign(env, { INSTAGRAM_BUSINESS_ACCOUNT_ID: '', INSTAGRAM_ACCESS_TOKEN: '' });
 
     await expect(
-      publishCarouselPost(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'caption')
+      publishCarouselPost(
+        ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+        'caption',
+      ),
     ).rejects.toThrow('Instagram credentials not configured');
 
     Object.assign(env, original);
@@ -567,8 +592,9 @@ describe('publishImagePost - empty permalink', () => {
   it('should throw with Unknown error when container has no error message', async () => {
     fetchMock.mockResolvedValueOnce(createFetchResponse({}));
 
-    await expect(publishImagePost('https://example.com/image.jpg', 'caption'))
-      .rejects.toThrow('Failed to create media container: Unknown error');
+    await expect(publishImagePost('https://example.com/image.jpg', 'caption')).rejects.toThrow(
+      'Failed to create media container: Unknown error',
+    );
   });
 
   it('should throw with Unknown error when publish has no error message', async () => {
@@ -576,8 +602,9 @@ describe('publishImagePost - empty permalink', () => {
       .mockResolvedValueOnce(createFetchResponse({ id: 'container-1' }))
       .mockResolvedValueOnce(createFetchResponse({}));
 
-    await expect(publishImagePost('https://example.com/image.jpg', 'caption'))
-      .rejects.toThrow('Failed to publish media: Unknown error');
+    await expect(publishImagePost('https://example.com/image.jpg', 'caption')).rejects.toThrow(
+      'Failed to publish media: Unknown error',
+    );
   });
 });
 
@@ -595,7 +622,7 @@ describe('publishCarouselPost - empty permalink', () => {
 
     const result = await publishCarouselPost(
       ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
-      'caption'
+      'caption',
     );
 
     expect(result.igPermalink).toBe('');
@@ -621,8 +648,9 @@ describe('publishReelsPost - empty permalink', () => {
   it('should throw with Unknown error when Reels container has no error message', async () => {
     fetchMock.mockResolvedValueOnce(createFetchResponse({}));
 
-    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption'))
-      .rejects.toThrow('Failed to create Reels container: Unknown error');
+    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption')).rejects.toThrow(
+      'Failed to create Reels container: Unknown error',
+    );
   });
 
   it('should throw with Unknown error when Reels publish has no error message', async () => {
@@ -631,15 +659,19 @@ describe('publishReelsPost - empty permalink', () => {
       .mockResolvedValueOnce(createFetchResponse({ status_code: 'FINISHED' }))
       .mockResolvedValueOnce(createFetchResponse({}));
 
-    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption'))
-      .rejects.toThrow('Failed to publish Reels: Unknown error');
+    await expect(publishReelsPost('https://example.com/video.mp4', 'Caption')).rejects.toThrow(
+      'Failed to publish Reels: Unknown error',
+    );
   });
 
   it('should throw with Unknown error when carousel item has no error message', async () => {
     fetchMock.mockResolvedValueOnce(createFetchResponse({}));
 
     await expect(
-      publishCarouselPost(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'caption')
+      publishCarouselPost(
+        ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+        'caption',
+      ),
     ).rejects.toThrow('Failed to create carousel item: Unknown error');
   });
 
@@ -650,7 +682,10 @@ describe('publishReelsPost - empty permalink', () => {
       .mockResolvedValueOnce(createFetchResponse({}));
 
     await expect(
-      publishCarouselPost(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'caption')
+      publishCarouselPost(
+        ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+        'caption',
+      ),
     ).rejects.toThrow('Failed to create carousel container: Unknown error');
   });
 
@@ -662,7 +697,10 @@ describe('publishReelsPost - empty permalink', () => {
       .mockResolvedValueOnce(createFetchResponse({}));
 
     await expect(
-      publishCarouselPost(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'caption')
+      publishCarouselPost(
+        ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+        'caption',
+      ),
     ).rejects.toThrow('Failed to publish carousel: Unknown error');
   });
 });

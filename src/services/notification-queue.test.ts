@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockSendEmail = vi.fn().mockResolvedValue(undefined);
 const mockSendClientNotification = vi.fn().mockResolvedValue(undefined);
-const mockSendViberNotification = vi.fn().mockResolvedValue(undefined);
 const mockSendPushNotification = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('./email', () => ({
@@ -11,10 +10,6 @@ vi.mock('./email', () => ({
 
 vi.mock('./telegram', () => ({
   sendClientNotification: (...args: unknown[]) => mockSendClientNotification(...args),
-}));
-
-vi.mock('./viber', () => ({
-  sendViberNotification: (...args: unknown[]) => mockSendViberNotification(...args),
 }));
 
 vi.mock('./push', () => ({
@@ -129,7 +124,17 @@ describe('processNotificationQueue', () => {
   it('retries on email failure with exponential backoff', async () => {
     mockSendEmail.mockRejectedValueOnce(new Error('SMTP error'));
     mockSendPushNotification.mockRejectedValueOnce(new Error('Push error'));
-    mockFindMany.mockResolvedValue([makeNotification({ user: { id: 1, email: 'user@test.com', telegramChatId: null, viberUserId: null, notificationPrefs: {} } })]);
+    mockFindMany.mockResolvedValue([
+      makeNotification({
+        user: {
+          id: 1,
+          email: 'user@test.com',
+          telegramChatId: null,
+          viberUserId: null,
+          notificationPrefs: {},
+        },
+      }),
+    ]);
     const result = await processNotificationQueue();
     expect(result.failed).toBe(1);
     expect(mockUpdate).toHaveBeenCalledWith(
@@ -140,7 +145,7 @@ describe('processNotificationQueue', () => {
           nextRetryAt: expect.any(Date),
           lastError: expect.stringContaining('email'),
         }),
-      })
+      }),
     );
   });
 
@@ -150,7 +155,13 @@ describe('processNotificationQueue', () => {
     mockFindMany.mockResolvedValue([
       makeNotification({
         retryCount: 4,
-        user: { id: 1, email: 'user@test.com', telegramChatId: null, viberUserId: null, notificationPrefs: {} },
+        user: {
+          id: 1,
+          email: 'user@test.com',
+          telegramChatId: null,
+          viberUserId: null,
+          notificationPrefs: {},
+        },
       }),
     ]);
     const result = await processNotificationQueue();
@@ -162,48 +173,14 @@ describe('processNotificationQueue', () => {
           dispatched: true,
           lastError: expect.any(String),
         }),
-      })
-    );
-  });
-
-  it('sends viber for promo type with viberUserId', async () => {
-    mockFindMany.mockResolvedValue([
-      makeNotification({
-        notificationType: 'promo',
-        user: {
-          id: 1,
-          email: null,
-          telegramChatId: null,
-          viberUserId: 'viber-123',
-          notificationPrefs: {},
-        },
       }),
-    ]);
-    await processNotificationQueue();
-    expect(mockSendViberNotification).toHaveBeenCalledTimes(1);
+    );
   });
 
   it('always attempts push notification', async () => {
     mockFindMany.mockResolvedValue([makeNotification()]);
     await processNotificationQueue();
     expect(mockSendPushNotification).toHaveBeenCalledTimes(1);
-  });
-
-  it('skips viber for order_status type (sent inline)', async () => {
-    mockFindMany.mockResolvedValue([
-      makeNotification({
-        notificationType: 'order_status',
-        user: {
-          id: 1,
-          email: null,
-          telegramChatId: null,
-          viberUserId: 'viber-123',
-          notificationPrefs: {},
-        },
-      }),
-    ]);
-    await processNotificationQueue();
-    expect(mockSendViberNotification).not.toHaveBeenCalled();
   });
 
   it('skips telegram when preference is false', async () => {
@@ -223,26 +200,19 @@ describe('processNotificationQueue', () => {
     expect(mockSendClientNotification).not.toHaveBeenCalled();
   });
 
-  it('skips viber when preference is false', async () => {
+  it('handles push notification failure silently', async () => {
+    mockSendPushNotification.mockRejectedValueOnce(new Error('Push error'));
     mockFindMany.mockResolvedValue([
       makeNotification({
-        notificationType: 'promo',
         user: {
           id: 1,
           email: null,
           telegramChatId: null,
-          viberUserId: 'viber-123',
-          notificationPrefs: { viber_promo: false },
+          viberUserId: null,
+          notificationPrefs: {},
         },
       }),
     ]);
-    await processNotificationQueue();
-    expect(mockSendViberNotification).not.toHaveBeenCalled();
-  });
-
-  it('handles push notification failure silently', async () => {
-    mockSendPushNotification.mockRejectedValueOnce(new Error('Push error'));
-    mockFindMany.mockResolvedValue([makeNotification({ user: { id: 1, email: null, telegramChatId: null, viberUserId: null, notificationPrefs: {} } })]);
     const result = await processNotificationQueue();
     expect(result).toBeDefined();
   });

@@ -8,7 +8,6 @@ import { getClientIp } from '@/utils/request';
 
 const VALID_CHANNELS = [
   'telegram',
-  'viber',
   'facebook',
   'instagram',
   'tiktok',

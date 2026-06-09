@@ -149,20 +149,31 @@ export async function publishToOlx(
       });
     }
 
+    // Product code: OLX has no buyer-visible SKU field, so we (a) send it as
+    // `external_id` (OLX-side reference, used for our own mapping/sync) and
+    // (b) append it to the description so buyers can quote the article.
+    const description = data.productCode
+      ? `${data.description}\n\nКод товару: ${data.productCode}`
+      : data.description;
+
+    // OLX Partner API (v2) schema: price is a TOP-LEVEL object with value in
+    // whole UAH (not kopecks); custom fields go in `attributes` as {code,value}
+    // (NOT `params`/{key,value}); `attributes` is a required field.
+    // Ref: https://developer.olx.ua/swagger/v2/partner_api.yaml
     const body = {
       title: data.title.slice(0, 70), // OLX limit
-      description: data.description.slice(0, 9000),
-      category_id: categoryId,
+      description: description.slice(0, 9000),
+      category_id: Number(categoryId),
       advertiser_type: 'business',
+      ...(data.productCode ? { external_id: String(data.productCode) } : {}),
       contact: { name: config.contactName || 'Pulito Trade', phone: config.contactPhone || '' },
-      location: { city_id: config.cityId || '1' },
-      params: [
-        {
-          key: 'price',
-          value: { amount: Math.round(data.price * 100), currency: data.currency || 'UAH' },
-        },
-        { key: 'state', value: 'new' },
-      ],
+      location: { city_id: Number(config.cityId) || 1 },
+      price: {
+        value: Math.round(data.price),
+        currency: data.currency || 'UAH',
+        negotiable: false,
+      },
+      attributes: [{ code: 'state', value: 'new' }],
       images: imageUrls.slice(0, 8).map((url) => ({ url })),
     };
 
@@ -202,45 +213,31 @@ export async function publishToRozetka(
     return { status: 'failed', error: 'Rozetka не налаштовано (потрібен API Key та Seller ID)' };
   }
 
-  recordMarketplaceCall('rozetka');
   try {
-    const body = {
+    // Rozetka auth is a /sites token exchange (login:password → 24h Bearer
+    // token), not a static key — so we go through RozetkaClient, which handles
+    // it. A raw `Bearer apiKey` (as before) is rejected by the API.
+    const { RozetkaClient } = await import('@/services/marketplace-rozetka');
+    const client = new RozetkaClient(String(config.apiKey), String(config.sellerId));
+    const images = data.images.map((img) => (img.startsWith('http') ? img : `${appUrl}${img}`));
+    const result = await client.createProduct({
       name: data.title,
-      name_ua: data.title,
       description: data.description,
-      description_ua: data.description,
       price: data.price,
-      old_price: 0,
-      currency: 'UAH',
-      article: data.productCode || '',
-      ...(data.barcode ? { barcode: data.barcode } : {}),
+      article: data.productCode,
+      barcode: data.barcode,
       quantity: data.quantity ?? 1,
-      status: 'active',
-      ...(data.category ? { category_id: Number(data.category) || data.category } : {}),
-      images: data.images.slice(0, 10).map((img) => ({
-        url: img.startsWith('http') ? img : `${appUrl}${img}`,
-      })),
-    };
-
-    const res = await fetch(`https://api-seller.rozetka.com.ua/items`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(15000),
+      images,
+      categoryId: data.category,
     });
-
-    const result = await res.json();
-    if (res.ok && result.content?.id) {
+    if (result.success && result.externalId) {
       return {
         status: 'published',
-        externalId: String(result.content.id),
-        permalink: `https://rozetka.com.ua/ua/${result.content.id}/p${result.content.id}/`,
+        externalId: result.externalId,
+        permalink: `https://rozetka.com.ua/ua/${result.externalId}/p${result.externalId}/`,
       };
     }
-    return { status: 'failed', error: result.errors?.[0]?.message || `HTTP ${res.status}` };
+    return { status: 'failed', error: result.error || 'Rozetka API error' };
   } catch (err) {
     return { status: 'failed', error: err instanceof Error ? err.message : 'Rozetka API error' };
   }
@@ -249,59 +246,45 @@ export async function publishToRozetka(
 // ── Prom.ua (API) ──
 
 export async function publishToProm(
-  data: MarketplaceListingData,
-  appUrl: string,
+  _data: MarketplaceListingData,
+  _appUrl: string,
 ): Promise<MarketplaceResult> {
-  const config = (await getChannelConfig('prom')) as MarketplaceConfig | null;
-  if (!config?.apiToken) {
-    return { status: 'failed', error: 'Prom.ua не налаштовано (потрібен API Token)' };
-  }
-
-  recordMarketplaceCall('prom');
-  try {
-    const body = {
-      name: data.title,
-      description: data.description,
-      price: data.price,
-      currency: 'UAH',
-      sku: data.productCode || '',
-      ...(data.barcode ? { barcode: data.barcode } : {}),
-      quantity: data.quantity ?? 1,
-      status: 'on_display',
-      ...(data.category ? { group_id: Number(data.category) || data.category } : {}),
-      images: data.images.slice(0, 12).map((img) => ({
-        url: img.startsWith('http') ? img : `${appUrl}${img}`,
-      })),
-    };
-
-    const res = await fetch('https://my.prom.ua/api/v1/products/edit', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.apiToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(15000),
-    });
-
-    const result = await res.json();
-    if (res.ok && (result.id || result.status === 'ok')) {
-      const productId = result.id || '';
-      return {
-        status: 'published',
-        externalId: String(productId),
-        permalink: productId ? `https://prom.ua/p${productId}` : undefined,
-      };
-    }
-    return { status: 'failed', error: result.message || result.error || `HTTP ${res.status}` };
-  } catch (err) {
-    return { status: 'failed', error: err instanceof Error ? err.message : 'Prom.ua API error' };
-  }
+  // Prom.ua has NO product-creation API. New products reach Prom only via the
+  // YML import feed (Prom cabinet → Імпорт → за посиланням), which we serve at
+  // /api/v1/feeds/prom.xml. The API can only edit price/stock of products that
+  // already exist on Prom. So we don't fake an API "create" here.
+  void _data;
+  void _appUrl;
+  return {
+    status: 'failed',
+    error:
+      'Prom.ua не публікує товари через API. Підключіть YML-фід ' +
+      '(/api/v1/feeds/prom.xml) у кабінеті Prom → Імпорт. API синхронізує лише ціну/наявність.',
+  };
 }
 
 // ── Epicentr K (Marketplace API) ──
 
 export async function publishToEpicentrk(
+  _data: MarketplaceListingData,
+  _appUrl: string,
+): Promise<MarketplaceResult> {
+  // Epicentr's merchant API (merchant-api.epicentrm.com.ua, Bearer-JWT) is
+  // closed/onboarding-issued and has no public create-product schema. New
+  // products reach Epicentr via the YML import feed, which we serve at
+  // /api/v1/feeds/epicentr.xml — so we don't fake an API "create" here.
+  void _data;
+  void _appUrl;
+  return {
+    status: 'failed',
+    error:
+      'Epicentr публікується через YML-фід (/api/v1/feeds/epicentr.xml) — підключіть його ' +
+      'у кабінеті Epicentr → Імпорт. API використовується лише для синку.',
+  };
+}
+
+// Kept for reference / future use once Epicentr merchant-API onboarding is done.
+async function _publishToEpicentrkApiUnused(
   data: MarketplaceListingData,
   appUrl: string,
 ): Promise<MarketplaceResult> {
@@ -327,10 +310,13 @@ export async function publishToEpicentrk(
       })),
     };
 
-    const res = await fetch('https://marketplace.epicentrk.ua/api/v1/products', {
+    // Correct host + auth per the official epicentrm/merchant-api samples
+    // (Bearer token, merchant-api.epicentrm.com.ua/v1). The product-create
+    // endpoint/schema still need verification against the merchant docs.
+    const res = await fetch('https://merchant-api.epicentrm.com.ua/v1/products', {
       method: 'POST',
       headers: {
-        'X-Api-Key': String(config.apiKey),
+        Authorization: `Bearer ${String(config.apiKey)}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -612,8 +598,8 @@ export async function getEpicentrkReturns(dateFrom?: string): Promise<Normalized
 
   try {
     recordMarketplaceCall('epicentrk');
-    const res = await fetch(`https://marketplace.epicentrk.ua/api/v1/returns?${params}`, {
-      headers: { 'X-Api-Key': String(config.apiKey) },
+    const res = await fetch(`https://merchant-api.epicentrm.com.ua/v1/returns?${params}`, {
+      headers: { Authorization: `Bearer ${String(config.apiKey)}` },
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
@@ -750,9 +736,7 @@ export async function updateMarketplaceListing(
       if (data.title) body.title = data.title.slice(0, 70);
       if (data.description) body.description = data.description.slice(0, 9000);
       if (data.price)
-        body.params = [
-          { key: 'price', value: { amount: Math.round(data.price * 100), currency: 'UAH' } },
-        ];
+        body.price = { value: Math.round(data.price), currency: 'UAH', negotiable: false };
       if (data.images?.length)
         body.images = data.images
           .slice(0, 8)
@@ -774,36 +758,38 @@ export async function updateMarketplaceListing(
     case 'rozetka': {
       const config = (await getChannelConfig('rozetka')) as MarketplaceConfig | null;
       if (!config?.apiKey) return { status: 'failed', error: 'Rozetka не налаштовано' };
-      const body: Record<string, unknown> = {};
-      if (data.title) body.name = data.title;
-      if (data.description) body.description = data.description;
-      if (data.price) body.price = data.price;
-      if (data.quantity !== undefined) body.quantity = data.quantity;
-      const res = await fetchWithRateLimit(
-        `https://api-seller.rozetka.com.ua/items/${externalId}`,
-        {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(15000),
-        },
+      // Use RozetkaClient for the /sites token auth (raw Bearer apiKey fails).
+      const { RozetkaClient } = await import('@/services/marketplace-rozetka');
+      const client = new RozetkaClient(
+        String(config.apiKey),
+        config.sellerId != null ? String(config.sellerId) : undefined,
       );
-      return res.ok
+      const upd = await client.updateProduct(externalId, {
+        ...(data.title ? { name: data.title } : {}),
+        ...(data.description ? { description: data.description } : {}),
+        ...(data.price ? { price: data.price } : {}),
+        ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
+      });
+      return upd.success
         ? { status: 'published', externalId }
-        : { status: 'failed', error: `HTTP ${res.status}` };
+        : { status: 'failed', error: upd.error || 'Rozetka update error' };
     }
     case 'prom': {
       const config = (await getChannelConfig('prom')) as MarketplaceConfig | null;
       if (!config?.apiToken) return { status: 'failed', error: 'Prom.ua не налаштовано' };
-      const body: Record<string, unknown> = { id: Number(externalId) };
-      if (data.title) body.name = data.title;
-      if (data.description) body.description = data.description;
-      if (data.price) body.price = data.price;
-      if (data.quantity !== undefined) body.quantity = data.quantity;
+      // Prom `products/edit` takes a {products:[{id,...}]} array and only edits
+      // price/presence/quantity/status — name/description/images come from the
+      // YML import feed, not the API. So we sync only the editable fields.
+      const product: Record<string, unknown> = { id: Number(externalId) };
+      if (data.price) product.price = data.price;
+      if (data.quantity !== undefined) {
+        product.quantity_in_stock = data.quantity;
+        product.presence = data.quantity > 0 ? 'available' : 'not_available';
+      }
       const res = await fetchWithRateLimit('https://my.prom.ua/api/v1/products/edit', {
         method: 'POST',
         headers: { Authorization: `Bearer ${config.apiToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ products: [product] }),
         signal: AbortSignal.timeout(15000),
       });
       return res.ok
@@ -819,10 +805,13 @@ export async function updateMarketplaceListing(
       if (data.price) body.price = data.price;
       if (data.quantity !== undefined) body.stock = data.quantity;
       const res = await fetchWithRateLimit(
-        `https://marketplace.epicentrk.ua/api/v1/products/${externalId}`,
+        `https://merchant-api.epicentrm.com.ua/v1/products/${externalId}`,
         {
           method: 'PUT',
-          headers: { 'X-Api-Key': String(config.apiKey), 'Content-Type': 'application/json' },
+          headers: {
+            Authorization: `Bearer ${String(config.apiKey)}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify(body),
           signal: AbortSignal.timeout(15000),
         },
@@ -878,7 +867,7 @@ export async function deleteMarketplaceListing(
       const res = await fetch(`https://my.prom.ua/api/v1/products/edit`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${config.apiToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: Number(externalId), status: 'deleted' }),
+        body: JSON.stringify({ products: [{ id: Number(externalId), status: 'deleted' }] }),
         signal: AbortSignal.timeout(15000),
       });
       // Treat 404 the same as success — the listing is already gone, which is
@@ -890,9 +879,9 @@ export async function deleteMarketplaceListing(
     case 'epicentrk': {
       const config = (await getChannelConfig('epicentrk')) as MarketplaceConfig | null;
       if (!config?.apiKey) return { status: 'failed', error: 'Epicentr K не налаштовано' };
-      const res = await fetch(`https://marketplace.epicentrk.ua/api/v1/products/${externalId}`, {
+      const res = await fetch(`https://merchant-api.epicentrm.com.ua/v1/products/${externalId}`, {
         method: 'DELETE',
-        headers: { 'X-Api-Key': String(config.apiKey) },
+        headers: { Authorization: `Bearer ${String(config.apiKey)}` },
         signal: AbortSignal.timeout(15000),
       });
       return res.ok || res.status === 404
@@ -1241,8 +1230,8 @@ export async function getEpicentrkOrders(dateFrom?: string): Promise<NormalizedO
   if (dateFrom) params.set('date_from', dateFrom);
 
   try {
-    const res = await fetch(`https://marketplace.epicentrk.ua/api/v1/orders?${params}`, {
-      headers: { 'X-Api-Key': String(config.apiKey) },
+    const res = await fetch(`https://merchant-api.epicentrm.com.ua/v1/orders?${params}`, {
+      headers: { Authorization: `Bearer ${String(config.apiKey)}` },
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {

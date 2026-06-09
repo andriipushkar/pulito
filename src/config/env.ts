@@ -49,6 +49,13 @@ const envSchema = z.object({
 
   GOOGLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),
+  // Search Console ownership-verification token (the `content` value of the
+  // google-site-verification meta tag). Rendered in the root layout when set.
+  GOOGLE_SITE_VERIFICATION: z.string().default(''),
+  // IndexNow key — proactively notifies Bing/Yandex/Seznam (NOT Google, which
+  // dropped sitemap-ping + the general Indexing API) when products change.
+  // Public by design: served at /{key}.txt for protocol verification.
+  INDEXNOW_KEY: z.string().default(''),
   NOVA_POSHTA_API_KEY: z.string().default(''),
   UKRPOSHTA_BEARER_TOKEN: z.string().default(''),
   UKRPOSHTA_COUNTERPARTY_TOKEN: z.string().default(''),

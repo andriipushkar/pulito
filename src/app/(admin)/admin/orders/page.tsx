@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import Button from '@/components/ui/Button';
 import { apiClient, getAccessToken } from '@/lib/api-client';
-import { formatPrice, formatDateTime } from '@/utils/format';
+import { formatPrice, formatDateTime, todayKyivIso } from '@/utils/format';
 import {
   ORDER_STATUS_COLORS,
   ORDER_STATUSES,
@@ -518,14 +518,14 @@ function AdminOrdersPageInner() {
 
   const setDatePreset = (preset: 'today' | 'week' | 'month' | 'clear') => {
     if (preset === 'clear') return applyDateRange('', '');
-    const today = new Date();
-    const iso = (d: Date) => d.toISOString().slice(0, 10);
-    if (preset === 'today') return applyDateRange(iso(today), iso(today));
-    const from = new Date(today);
-    if (preset === 'week')
-      from.setDate(today.getDate() - 6); // last 7 days inclusive
-    else from.setDate(today.getDate() - 29); // last 30 days inclusive
-    applyDateRange(iso(from), iso(today));
+    // Anchor on the Kyiv calendar day so presets line up with the server's
+    // Kyiv-based date filter (and the "today" stat card) — not the UTC day.
+    const todayStr = todayKyivIso();
+    if (preset === 'today') return applyDateRange(todayStr, todayStr);
+    // Calendar-date subtraction anchored on UTC midnight to avoid TZ drift.
+    const from = new Date(`${todayStr}T00:00:00Z`);
+    from.setUTCDate(from.getUTCDate() - (preset === 'week' ? 6 : 29)); // 7 / 30 days inclusive
+    applyDateRange(from.toISOString().slice(0, 10), todayStr);
   };
 
   const handleQuickStatusInit = (orderId: number, newStatusVal: string) => {

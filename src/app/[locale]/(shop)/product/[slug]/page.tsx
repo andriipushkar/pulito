@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import ImageGallery from '@/components/product/ImageGallery';
@@ -18,8 +18,6 @@ import FloatingBuyBar from '@/components/product/FloatingBuyBar';
 import ProductCarouselSkeleton from '@/components/ui/ProductCarouselSkeleton';
 import ReviewSectionSkeleton from '@/components/ui/ReviewSectionSkeleton';
 import Skeleton from '@/components/ui/Skeleton';
-import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
-import ReviewAggregateJsonLd from '@/components/seo/ReviewAggregateJsonLd';
 import { getProductBySlug, getProducts } from '@/services/product';
 import { getProductRatingStats } from '@/services/review';
 import { prisma } from '@/lib/prisma';
@@ -104,7 +102,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
     const slugRedirect = await prisma.slugRedirect.findUnique({
       where: { oldSlug: slug },
     });
-    if (slugRedirect) redirect(`/product/${slugRedirect.newSlug}`);
+    // 308 permanent — the product slug moved for good, so search engines should
+    // update their index to the new URL (a 307 would tell them to keep the old).
+    if (slugRedirect) permanentRedirect(`/product/${slugRedirect.newSlug}`);
     notFound();
   }
   const product = applyTranslationsDeep(rawProduct, locale)!;
@@ -140,29 +140,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
     { label: product.name },
   ];
 
-  const baseUrl = process.env.APP_URL || 'http://localhost:3000';
-  const breadcrumbJsonLdItems = breadcrumbs
-    .filter((b) => b.href)
-    .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }));
-
   return (
     <Container className="py-6">
       <ProductJsonLd product={product} ratingStats={ratingStats} />
-      <BreadcrumbJsonLd items={breadcrumbJsonLdItems} />
       <ProductFaqJsonLd fullDescription={product.content?.fullDescription} />
       <ProductOgProperty
         price={Number(product.priceRetail)}
         availability={product.quantity > 0 ? 'in stock' : 'out of stock'}
         retailerItemId={product.code}
       />
-      {ratingStats && ratingStats.totalReviews > 0 && (
-        <ReviewAggregateJsonLd
-          productName={product.name}
-          productUrl={`${baseUrl}/product/${slug}`}
-          ratingValue={ratingStats.averageRating}
-          reviewCount={ratingStats.totalReviews}
-        />
-      )}
+      {/* aggregateRating is already part of <ProductJsonLd> above — a second
+          Product node here would duplicate the entity and risk losing the
+          rich-result, so we don't re-emit it. */}
       <RecentlyViewedTracker productId={product.id} />
       <PageViewTracker eventType="product_view" productId={product.id} />
       <ViewItemTracker

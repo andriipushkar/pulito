@@ -13,8 +13,6 @@ const prefsSchema = z.object({
   telegram_promo: z.boolean().optional(),
   push_orders: z.boolean().optional(),
   push_promo: z.boolean().optional(),
-  viber_orders: z.boolean().optional(),
-  viber_promo: z.boolean().optional(),
 });
 
 export const GET = withAuth(async (_request: NextRequest, { user }) => {
@@ -32,8 +30,6 @@ export const GET = withAuth(async (_request: NextRequest, { user }) => {
       telegram_promo: false,
       push_orders: true,
       push_promo: false,
-      viber_orders: true,
-      viber_promo: false,
     };
 
     return privateResponse({

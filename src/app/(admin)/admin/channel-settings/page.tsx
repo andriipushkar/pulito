@@ -11,7 +11,7 @@ import Input from '@/components/ui/Input';
 
 // Маркетплейси (olx/rozetka/prom/epicentrk) керуються через /admin/marketplaces,
 // тут лише соцмережі та месенджери — щоб не дублювати UI.
-type ChannelKey = 'telegram' | 'viber' | 'facebook' | 'instagram' | 'tiktok';
+type ChannelKey = 'telegram' | 'facebook' | 'instagram' | 'tiktok';
 
 interface ChannelField {
   key: string;
@@ -30,7 +30,7 @@ interface ChannelDef {
   fields: ChannelField[];
 }
 
-const CHANNEL_KEYS: ChannelKey[] = ['telegram', 'viber', 'facebook', 'instagram', 'tiktok'];
+const CHANNEL_KEYS: ChannelKey[] = ['telegram', 'facebook', 'instagram', 'tiktok'];
 
 interface TestResult {
   success: boolean;
@@ -55,27 +55,17 @@ export default function ChannelSettingsPage() {
             placeholder: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
             sensitive: true,
           },
-          { key: 'channelId', label: t('tgChannelId'), placeholder: t('tgChannelIdPh') },
+          {
+            key: 'channelId',
+            label: t('tgChannelId'),
+            placeholder: t('tgChannelIdPh'),
+            optional: true,
+          },
           {
             key: 'managerChatId',
             label: t('tgManagerChat'),
             placeholder: '123456789',
             optional: true,
-          },
-        ],
-      },
-      {
-        key: 'viber',
-        name: 'Viber',
-        icon: '💬',
-        color: '#7360f2',
-        description: t('viberDesc'),
-        fields: [
-          {
-            key: 'authToken',
-            label: t('viberAuthToken'),
-            placeholder: t('viberAuthTokenPh'),
-            sensitive: true,
           },
         ],
       },

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { maskEmail, maskPhone, maskDigits, maskIp } from '@/utils/pii';
 import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 import { errorResponse } from '@/utils/api-response';
+import { kyivMidnightUtc, kyivNextDayUtc } from '@/utils/format';
 
 // Per-export row cap. Previously 10k = ~10MB PII dump per request. Combined
 // with adminExport rate-limit (10/min) that's 100MB/min/admin — enough for
@@ -76,24 +77,20 @@ export const GET = withRole2fa(
   if (dateFrom || dateTo) {
     where.createdAt = {};
     if (dateFrom) {
-      const d = new Date(dateFrom);
       // Invalid Date silently turns into NaN — without this check the filter
       // ends up as `gte: Invalid Date` which Prisma rejects with a 500.
-      if (Number.isNaN(d.getTime())) {
-        // Defer to errorResponse import — keep route shape consistent.
-        const { errorResponse } = await import('@/utils/api-response');
+      if (Number.isNaN(new Date(dateFrom).getTime())) {
         return errorResponse('Невалідна дата dateFrom', 400);
       }
-      (where.createdAt as Record<string, Date>).gte = d;
+      // Calendar-day string → Kyiv 00:00 (DST-aware), not UTC midnight.
+      (where.createdAt as Record<string, Date>).gte = kyivMidnightUtc(dateFrom);
     }
     if (dateTo) {
-      const end = new Date(dateTo);
-      if (Number.isNaN(end.getTime())) {
-        const { errorResponse } = await import('@/utils/api-response');
+      if (Number.isNaN(new Date(dateTo).getTime())) {
         return errorResponse('Невалідна дата dateTo', 400);
       }
-      end.setUTCDate(end.getUTCDate() + 1);
-      (where.createdAt as Record<string, Date>).lt = end;
+      // `lt` Kyiv-start of next day so the whole dateTo Kyiv day is included.
+      (where.createdAt as Record<string, Date>).lt = kyivNextDayUtc(dateTo);
     }
   }
 

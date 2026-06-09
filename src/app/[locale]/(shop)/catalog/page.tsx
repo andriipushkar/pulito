@@ -14,7 +14,6 @@ import ProductCard from '@/components/product/ProductCard';
 import ProductCardSkeleton from '@/components/product/ProductCardSkeleton';
 import ProductGridWishlistWrapper from '@/components/product/ProductGridWishlistWrapper';
 import CatalogClient from './CatalogClient';
-import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import PaginationLinks from '@/components/seo/PaginationLinks';
 import { getProducts, getPopularProducts } from '@/services/product';
 import { getCategories, getCategoryBySlug } from '@/services/category';
@@ -192,10 +191,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
       }
     : null;
 
-  const breadcrumbJsonLdItems = breadcrumbs
-    .filter((b) => b.href)
-    .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }));
-
   return (
     <Container className="py-6">
       {collectionJsonLd && (
@@ -204,7 +199,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
         />
       )}
-      <BreadcrumbJsonLd items={breadcrumbJsonLdItems} />
       <PaginationLinks
         currentPage={page}
         totalPages={totalPages}

@@ -5,6 +5,14 @@ import type { ProductFilterInput } from '@/validators/product';
 import type { ProductListItem } from '@/types/product';
 import { cacheGet, cacheSet, cacheInvalidate, CACHE_TTL } from '@/services/cache';
 
+// Fire-and-forget: notify IndexNow engines that a product page changed. Only
+// active products carry an indexable URL, so skip drafts/hidden ones. Never
+// awaited — a slow/failed ping must not block the admin save.
+function pingIndexNow(slug: string | null | undefined, isActive: boolean): void {
+  if (!slug || !isActive) return;
+  import('@/services/indexnow').then((m) => m.submitProductsToIndexNow([slug])).catch(() => {});
+}
+
 /**
  * Full-text search with three-level ranking:
  * 1. Exact code match (highest priority)
@@ -779,6 +787,7 @@ export async function createProduct(data: {
   }
 
   await cacheInvalidate('products:*');
+  pingIndexNow(created.slug, created.isActive);
   return created;
 }
 
@@ -914,7 +923,7 @@ export async function updateProduct(
   if (clientSentExplicitSlug) {
     resolvedSlug = data.slug!;
   } else if (data.name !== undefined && data.name !== product.name) {
-    const slug = createSlug(data.name);
+    const slug = createSlug(data.name, 60); // headroom for the `-<code>` collision suffix (<=75)
     const slugExists = await prisma.product.findFirst({
       where: { slug, id: { not: id } },
     });
@@ -1044,6 +1053,7 @@ export async function updateProduct(
   }
 
   await cacheInvalidate('products:*');
+  pingIndexNow(updated.slug, updated.isActive);
   return updated;
 }
 

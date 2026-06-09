@@ -79,10 +79,6 @@ vi.mock('@/services/telegram', () => ({
   sendClientNotification: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@/services/viber', () => ({
-  sendViberNotification: vi.fn().mockResolvedValue(undefined),
-}));
-
 import { prisma } from '@/lib/prisma';
 import {
   UserError,
@@ -194,7 +190,7 @@ describe('getAllUsers', () => {
         where: expect.objectContaining({
           createdAt: expect.objectContaining({
             gte: expect.any(Date),
-            lte: expect.any(Date),
+            lt: expect.any(Date),
           }),
         }),
       }),

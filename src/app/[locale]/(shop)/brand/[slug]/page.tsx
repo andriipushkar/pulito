@@ -13,7 +13,6 @@ import Skeleton from '@/components/ui/Skeleton';
 import ProductCard from '@/components/product/ProductCard';
 import ProductCardSkeleton from '@/components/product/ProductCardSkeleton';
 import CatalogClient from '@/app/[locale]/(shop)/catalog/CatalogClient';
-import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import { getProducts } from '@/services/product';
 import { getCategories } from '@/services/category';
 import { getBrandBySlug, getBrandsForCatalog } from '@/services/brand';
@@ -116,9 +115,6 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
   ];
 
   const baseUrl = process.env.APP_URL || 'http://localhost:3000';
-  const breadcrumbJsonLdItems = breadcrumbs
-    .filter((b) => b.href)
-    .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }));
 
   const currentSearchParams: Record<string, string> = {};
   if (sort !== 'popular') currentSearchParams.sort = sort;
@@ -164,7 +160,6 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
           dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
         />
       )}
-      <BreadcrumbJsonLd items={breadcrumbJsonLdItems} />
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       {/* Brand header */}

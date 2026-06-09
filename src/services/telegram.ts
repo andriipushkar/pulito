@@ -4,6 +4,7 @@ import { redis } from '@/lib/redis';
 import { isValidGtin } from '@/utils/gtin';
 import { findAutoReply } from './bot-auto-reply';
 import { pickWelcomeMessage } from './bot-welcome';
+import { getTelegramCreds } from './channel-config';
 
 // Telegram parses our messages with parse_mode: HTML — any `<`, `>`, `&` from
 // user-supplied fields (name, phone, email, order comment) must be escaped or
@@ -14,8 +15,10 @@ function escapeHtml(value: unknown): string {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
+// Credentials are resolved per-call via getTelegramCreds() (DB-first, env
+// fallback) so the admin panel drives the bot. Helper builds the API base for
+// a freshly-resolved token.
+const apiBaseFor = (botToken: string) => `https://api.telegram.org/bot${botToken}`;
 
 // UTM query string for outbound links from the Telegram bot. Campaign names
 // match the bot handler that emitted the link, so /admin/analytics → UTM
@@ -106,8 +109,15 @@ function clampText(value: string, limit: number): string {
  * (flood control). Returns the Response so callers can branch on status.
  */
 async function tgPost(method: string, body: Record<string, unknown>): Promise<Response> {
+  const { botToken } = await getTelegramCreds();
+  // No token configured (neither admin panel nor env) — skip the network call
+  // and return a benign non-2xx so callers branch as "not sent" without firing
+  // a request to https://api.telegram.org/bot/… (which would 404).
+  if (!botToken) return new Response('{"ok":false}', { status: 400 });
+
+  const apiBase = apiBaseFor(botToken);
   const send = () =>
-    fetch(`${API_BASE}/${method}`, {
+    fetch(`${apiBase}/${method}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -190,7 +200,9 @@ async function sendProductMessage(
 }
 
 async function answerCallbackQuery(callbackQueryId: string, text?: string) {
-  await fetch(`${API_BASE}/answerCallbackQuery`, {
+  const { botToken } = await getTelegramCreds();
+  if (!botToken) return;
+  await fetch(`${apiBaseFor(botToken)}/answerCallbackQuery`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
@@ -866,7 +878,8 @@ export async function sendClientNotification(
   message: string,
   link?: string | null,
 ) {
-  if (!BOT_TOKEN) return;
+  const { botToken } = await getTelegramCreds();
+  if (!botToken) return;
 
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   const text = `<b>${escapeHtml(title)}</b>\n\n${escapeHtml(message)}`;
@@ -887,7 +900,8 @@ export async function sendProductPhotoToUser(
   imageUrl: string,
   caption: string,
 ): Promise<boolean> {
-  if (!BOT_TOKEN) return false;
+  const { botToken } = await getTelegramCreds();
+  if (!botToken) return false;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -920,8 +934,8 @@ export async function notifyManagerNewOrder(order: {
   deliveryMethod: string;
   paymentMethod: string;
 }) {
-  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
-  if (!chatId || !BOT_TOKEN) return;
+  const { botToken, managerChatId: chatId } = await getTelegramCreds();
+  if (!chatId || !botToken) return;
 
   const clientLabel = order.clientType === 'wholesale' ? 'Гуртовий' : 'Роздрібний';
   const text = [
@@ -967,8 +981,8 @@ export async function notifyManagerNewOrder(order: {
 export async function notifyManagerLowStock(
   products: { id: number; code: string; name: string; quantity: number }[],
 ) {
-  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
-  if (!chatId || !BOT_TOKEN || products.length === 0) return;
+  const { botToken, managerChatId: chatId } = await getTelegramCreds();
+  if (!chatId || !botToken || products.length === 0) return;
 
   const lines = [
     `📉 <b>Низький залишок (${products.length} ${products.length === 1 ? 'товар' : 'товарів'})</b>`,
@@ -999,8 +1013,8 @@ export async function notifyManagerMarketplaceMessages(args: {
   total: number;
   perPlatform: Record<string, number>;
 }) {
-  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
-  if (!chatId || !BOT_TOKEN || args.total === 0) return;
+  const { botToken, managerChatId: chatId } = await getTelegramCreds();
+  if (!chatId || !botToken || args.total === 0) return;
 
   const platformLabels: Record<string, string> = {
     olx: 'OLX',
@@ -1047,8 +1061,8 @@ export async function notifyManagerOversoldAlert(args: {
   externalOrderId: string;
   items: { code: string; name?: string; requested: number; available: number }[];
 }) {
-  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
-  if (!chatId || !BOT_TOKEN || args.items.length === 0) return;
+  const { botToken, managerChatId: chatId } = await getTelegramCreds();
+  if (!chatId || !botToken || args.items.length === 0) return;
 
   const platformLabels: Record<string, string> = {
     olx: 'OLX',
@@ -1090,8 +1104,8 @@ export async function notifyManagerMarketplaceAlert(args: {
   previousStatus: string;
   newStatus: string;
 }) {
-  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
-  if (!chatId || !BOT_TOKEN) return;
+  const { botToken, managerChatId: chatId } = await getTelegramCreds();
+  if (!chatId || !botToken) return;
 
   const platformLabels: Record<string, string> = {
     olx: 'OLX',
@@ -1127,7 +1141,8 @@ export async function notifyClientStatusChange(
   newStatus: string,
   trackingNumber?: string | null,
 ) {
-  if (!BOT_TOKEN) return;
+  const { botToken } = await getTelegramCreds();
+  if (!botToken) return;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -1185,8 +1200,8 @@ export async function notifyManagerFeedback(data: {
   subject?: string;
   message: string;
 }) {
-  const chatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
-  if (!chatId || !BOT_TOKEN) return;
+  const { botToken, managerChatId: chatId } = await getTelegramCreds();
+  if (!chatId || !botToken) return;
 
   const icon = data.type === 'callback' ? '📞' : '📨';
   const label =
@@ -1311,8 +1326,12 @@ async function handleLink(chatId: number) {
  * Handle Telegram inline query (search products).
  */
 async function handleInlineQuery(queryId: string, query: string) {
+  const { botToken } = await getTelegramCreds();
+  if (!botToken) return;
+  const apiBase = apiBaseFor(botToken);
+
   if (!query || query.length < 2) {
-    await fetch(`${API_BASE}/answerInlineQuery`, {
+    await fetch(`${apiBase}/answerInlineQuery`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ inline_query_id: queryId, results: [], cache_time: 10 }),
@@ -1345,7 +1364,7 @@ async function handleInlineQuery(queryId: string, query: string) {
     },
   }));
 
-  await fetch(`${API_BASE}/answerInlineQuery`, {
+  await fetch(`${apiBase}/answerInlineQuery`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ inline_query_id: queryId, results, cache_time: 30 }),

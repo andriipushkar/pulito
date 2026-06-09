@@ -16,7 +16,9 @@ export async function GET(request: NextRequest) {
     // Try Typesense first (instant, typo-tolerant)
     const tsResults = await typesenseAutocomplete(parsed.data.q);
     if (tsResults && tsResults.length > 0) {
-      return successResponse(tsResults);
+      // Match the { products, categories } contract the UI expects.
+      // Typesense only indexes products, so categories stay empty.
+      return successResponse({ products: tsResults, categories: [] });
     }
 
     // Fallback to DB search

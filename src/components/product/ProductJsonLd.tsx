@@ -9,8 +9,15 @@ export default function ProductJsonLd({ product, ratingStats }: ProductJsonLdPro
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '';
   const price = Number(product.priceRetail);
   const oldPrice = product.priceRetailOld ? Number(product.priceRetailOld) : null;
-  const images = product.images.map((img) => img.pathFull).filter(Boolean);
-  const mainImage = images[0] || product.imagePath;
+  // Google requires ABSOLUTE image URLs in Product structured data — a relative
+  // /uploads/... path makes Google skip the image (and Merchant Center rejects
+  // it). Prepend baseUrl to any non-absolute path.
+  const absolutize = (path: string | null | undefined): string | null =>
+    !path ? null : /^https?:\/\//i.test(path) ? path : `${baseUrl}${path}`;
+  const images = product.images
+    .map((img) => absolutize(img.pathFull))
+    .filter((url): url is string => Boolean(url));
+  const mainImage = images[0] || absolutize(product.imagePath);
 
   const barcode = (product.barcode ?? '').replace(/\D/g, '');
   const gtinFields: Record<string, string> = {};
@@ -58,6 +65,15 @@ export default function ProductJsonLd({ product, ratingStats }: ProductJsonLdPro
       },
       shippingDetails: {
         '@type': 'OfferShippingDetails',
+        // Orientовна вартість доставки Новою Поштою (платить отримувач за
+        // тарифом перевізника). Google вимагає конкретну суму в shippingRate;
+        // ставимо типову. Безкоштовно від 2000 грн — це краще конфігурувати
+        // в Merchant Center, ніж у per-product JSON-LD.
+        shippingRate: {
+          '@type': 'MonetaryAmount',
+          value: '100.00',
+          currency: 'UAH',
+        },
         shippingDestination: {
           '@type': 'DefinedRegion',
           addressCountry: 'UA',

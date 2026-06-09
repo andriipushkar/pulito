@@ -21,7 +21,7 @@ export function safeEqual(a: string, b: string): boolean {
  * Read request body as text with a hard size cap. Stops a malicious client
  * from forcing the parser to allocate hundreds of MB before validation runs.
  * Default 64KB covers every legit payment payload; pass higher for bot
- * webhooks (telegram/viber can include media metadata).
+ * webhooks (telegram can include media metadata).
  */
 export async function readBoundedBody(request: Request, maxBytes: number): Promise<string> {
   const cl = request.headers.get('content-length');

@@ -174,3 +174,65 @@ export function escapeCdata(input: string): string {
 /** Shared cache TTL for product/category feeds (30 min). Was inconsistent
  * across routes (600s / 1800s / 3600s); admin help-text says 30 min. */
 export const FEED_CACHE_MAX_AGE = 1800;
+
+/**
+ * Build a standard YML (yml_catalog) feed string from the feed context.
+ * Used by both Prom.ua and Epicentr (both import catalog via a YML feed by URL;
+ * neither has a product-creation API). Categories get sequential numeric ids
+ * derived from the distinct category names in the feed.
+ */
+export function buildYmlCatalog(ctx: FeedContext): string {
+  const categoryIds = new Map<string, number>();
+  let cid = 1;
+  for (const item of ctx.items) {
+    if (item.category && !categoryIds.has(item.category)) {
+      categoryIds.set(item.category, cid++);
+    }
+  }
+
+  const date = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const lines: string[] = [];
+  lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+  lines.push(`<yml_catalog date="${date}">`);
+  lines.push('  <shop>');
+  lines.push(`    <name>${escapeXml(ctx.siteName)}</name>`);
+  lines.push(`    <company>${escapeXml(ctx.siteName)}</company>`);
+  lines.push(`    <url>${escapeXml(ctx.siteUrl)}</url>`);
+  lines.push('    <currencies>');
+  lines.push('      <currency id="UAH" rate="1"/>');
+  lines.push('    </currencies>');
+  lines.push('    <categories>');
+  for (const [name, id] of categoryIds) {
+    lines.push(`      <category id="${id}">${escapeXml(name)}</category>`);
+  }
+  lines.push('    </categories>');
+  lines.push('    <offers>');
+  for (const item of ctx.items) {
+    // YML requires at least name, price, category and a picture.
+    if (!item.imageUrl || !item.category) continue;
+    const catId = categoryIds.get(item.category);
+    if (!catId) continue;
+
+    lines.push(`      <offer id="${item.id}" available="${item.available ? 'true' : 'false'}">`);
+    lines.push(`        <name>${escapeXml(item.name)}</name>`);
+    lines.push(`        <url>${escapeXml(item.url)}</url>`);
+    lines.push(`        <price>${item.price.toFixed(2)}</price>`);
+    lines.push('        <currencyId>UAH</currencyId>');
+    lines.push(`        <categoryId>${catId}</categoryId>`);
+    lines.push(`        <picture>${escapeXml(item.imageUrl)}</picture>`);
+    for (const pic of item.additionalImages.slice(0, 9)) {
+      lines.push(`        <picture>${escapeXml(pic)}</picture>`);
+    }
+    if (item.brand) lines.push(`        <vendor>${escapeXml(item.brand)}</vendor>`);
+    lines.push(`        <vendorCode>${escapeXml(item.code)}</vendorCode>`);
+    if (item.barcode) lines.push(`        <barcode>${escapeXml(item.barcode)}</barcode>`);
+    const desc = item.description || item.shortDescription || item.name;
+    lines.push(`        <description><![CDATA[${escapeCdata(desc)}]]></description>`);
+    lines.push(`        <quantity_in_stock>${item.quantity}</quantity_in_stock>`);
+    lines.push('      </offer>');
+  }
+  lines.push('    </offers>');
+  lines.push('  </shop>');
+  lines.push('</yml_catalog>');
+  return lines.join('\n');
+}

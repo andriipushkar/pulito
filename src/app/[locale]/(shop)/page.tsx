@@ -9,7 +9,6 @@ import CategoryGrid from '@/components/home/CategoryGrid';
 import ProductCarousel from '@/components/product/ProductCarousel';
 import ProductCarouselSkeleton from '@/components/ui/ProductCarouselSkeleton';
 import Skeleton from '@/components/ui/Skeleton';
-import SearchActionJsonLd from '@/components/seo/SearchActionJsonLd';
 import { buildHreflang } from '@/lib/i18n';
 
 const _baseUrl = process.env.APP_URL || 'https://pulito.trade';
@@ -46,26 +45,6 @@ export const revalidate = 60;
 import { getCategories } from '@/services/category';
 import { getPromoProducts, getNewProducts, getPopularProducts } from '@/services/product';
 import { getHomepageBlocks, getSeoText } from '@/services/homepage';
-
-const organizationJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'Pulito Trade',
-  url: process.env.APP_URL || 'https://pulito.trade',
-  logo: `${process.env.APP_URL || 'https://pulito.trade'}/images/icon-512.png`,
-  description:
-    'Гуртово-роздрібний інтернет-магазин побутової хімії. Широкий асортимент, вигідні ціни, швидка доставка по Україні.',
-  address: {
-    '@type': 'PostalAddress',
-    addressCountry: 'UA',
-  },
-  contactPoint: {
-    '@type': 'ContactPoint',
-    contactType: 'customer service',
-    availableLanguage: 'Ukrainian',
-  },
-  sameAs: [process.env.INSTAGRAM_PROFILE_URL, process.env.TELEGRAM_CHANNEL_URL].filter(Boolean),
-};
 
 export default async function HomePage() {
   const [categories, promoProducts, newProducts, popularProducts, blocks, seoText, t] =
@@ -139,11 +118,9 @@ export default async function HomePage() {
 
   return (
     <Container className="py-4 sm:py-6 lg:py-8">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-      />
-      <SearchActionJsonLd />
+      {/* Organization (LocalBusiness) + WebSite/SearchAction JSON-LD are emitted
+          once site-wide in the root layout. Don't duplicate them here — two
+          WebSite or two Organization nodes on one page weaken rich results. */}
       <div className="space-y-6 sm:space-y-8 lg:space-y-8">
         {enabledBlocks
           .filter((block) => blockComponents[block.key] != null)

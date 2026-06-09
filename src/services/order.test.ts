@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockPrismaClient } from '@/test/prisma-mock';
+import { kyivMidnightUtc } from '@/utils/format';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -1205,10 +1206,11 @@ describe('getAllOrders', () => {
       expect.objectContaining({
         where: {
           createdAt: {
-            gte: new Date('2026-01-01'),
-            // Inclusive end-of-day: filter is `lt` start of next day, so
-            // 2026-01-31 23:59:59 still passes.
-            lt: new Date('2026-02-01'),
+            // Kyiv day boundaries (not UTC): 2026-01-01 00:00 Kyiv.
+            gte: kyivMidnightUtc('2026-01-01'),
+            // Inclusive end-of-day: filter is `lt` Kyiv-start of next day, so
+            // 2026-01-31 23:59:59 Kyiv still passes.
+            lt: kyivMidnightUtc('2026-02-01'),
           },
         },
       }),
@@ -1335,7 +1337,7 @@ describe('getUserOrders - date filters', () => {
     expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          createdAt: expect.objectContaining({ gte: new Date('2026-01-01') }),
+          createdAt: expect.objectContaining({ gte: kyivMidnightUtc('2026-01-01') }),
         }),
       }),
     );
@@ -1350,7 +1352,7 @@ describe('getUserOrders - date filters', () => {
     expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          createdAt: expect.objectContaining({ lt: new Date('2027-01-01') }),
+          createdAt: expect.objectContaining({ lt: kyivMidnightUtc('2027-01-01') }),
         }),
       }),
     );
@@ -1365,7 +1367,7 @@ describe('getUserOrders - date filters', () => {
     expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          createdAt: { gte: new Date('2026-01-01'), lt: new Date('2027-01-01') },
+          createdAt: { gte: kyivMidnightUtc('2026-01-01'), lt: kyivMidnightUtc('2027-01-01') },
         }),
       }),
     );

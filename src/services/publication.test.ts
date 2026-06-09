@@ -59,7 +59,6 @@ vi.mock('@/services/instagram', () => ({
 
 const mockChannelConfigs: Record<string, Record<string, unknown> | null> = {
   telegram: null,
-  viber: null,
   facebook: null,
   instagram: null,
 };
@@ -85,7 +84,6 @@ beforeEach(() => {
   });
   // Reset channel configs
   mockChannelConfigs.telegram = null;
-  mockChannelConfigs.viber = null;
   mockChannelConfigs.facebook = null;
   mockChannelConfigs.instagram = null;
 });
@@ -129,7 +127,7 @@ describe('createPublication', () => {
     const input = {
       title: 'Test',
       content: 'Content',
-      channels: ['telegram', 'viber'],
+      channels: ['telegram', 'facebook'],
       hashtags: '#test',
       imagePath: '/images/test.jpg',
       productId: 5,
@@ -218,27 +216,6 @@ describe('publishNow', () => {
     );
   });
 
-  it('should publish to Viber when configured', async () => {
-    mockChannelConfigs.viber = { enabled: true, authToken: 'test-viber-token' };
-
-    mockPrisma.publication.findUnique.mockResolvedValue({
-      id: 2,
-      title: 'Test',
-      content: 'Content',
-      channels: ['viber'],
-      hashtags: null,
-      buttons: null,
-    } as never);
-    mockPrisma.publication.update.mockResolvedValue({ id: 2, status: 'published' } as never);
-
-    await publishNow(2);
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://chatapi.viber.com/pa/broadcast_message',
-      expect.objectContaining({ method: 'POST' }),
-    );
-  });
-
   it('should update status to published', async () => {
     mockPrisma.publication.findUnique.mockResolvedValue({
       id: 1,
@@ -289,24 +266,6 @@ describe('publishNow', () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
     // Should not throw
-    const result = await publishNow(1);
-    expect(result.status).toBe('published');
-  });
-
-  it('should handle Viber publish error gracefully', async () => {
-    mockChannelConfigs.viber = { enabled: true, authToken: 'test-viber-token' };
-
-    mockPrisma.publication.findUnique.mockResolvedValue({
-      id: 1,
-      title: 'Test',
-      content: 'Content',
-      channels: ['viber'],
-      hashtags: null,
-      buttons: null,
-    } as never);
-    mockPrisma.publication.update.mockResolvedValue({ id: 1, status: 'published' } as never);
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
     const result = await publishNow(1);
     expect(result.status).toBe('published');
   });
@@ -738,13 +697,13 @@ describe('updatePublication', () => {
     mockPrisma.publication.update.mockResolvedValue({ id: 1 } as never);
 
     await updatePublication(1, {
-      channels: ['telegram', 'viber'],
+      channels: ['telegram', 'facebook'],
       hashtags: '#new',
       imagePath: '/new.jpg',
     });
 
     const updateCall = mockPrisma.publication.update.mock.calls[0][0];
-    expect(updateCall.data.channels).toEqual(['telegram', 'viber']);
+    expect(updateCall.data.channels).toEqual(['telegram', 'facebook']);
     expect(updateCall.data.hashtags).toBe('#new');
     expect(updateCall.data.imagePath).toBe('/new.jpg');
   });

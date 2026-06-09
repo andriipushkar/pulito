@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/middleware/auth', () => ({ withRole: () => (handler: Function) => handler }));
-vi.mock('@/config/env', () => ({ env: { JWT_SECRET: 'test-jwt-secret-minimum-16-chars', JWT_ALGORITHM: 'HS256', JWT_PRIVATE_KEY_PATH: '', JWT_PUBLIC_KEY_PATH: '', APP_URL: 'https://test.com', CRON_SECRET: 'test-cron-secret' } }));
+vi.mock('@/config/env', () => ({
+  env: {
+    JWT_SECRET: 'test-jwt-secret-minimum-16-chars',
+    JWT_ALGORITHM: 'HS256',
+    JWT_PRIVATE_KEY_PATH: '',
+    JWT_PUBLIC_KEY_PATH: '',
+    APP_URL: 'https://test.com',
+    CRON_SECRET: 'test-cron-secret',
+  },
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     order: { findUnique: vi.fn(), update: vi.fn() },
@@ -10,23 +19,33 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 vi.mock('@/services/telegram', () => ({ sendProductPhotoToUser: vi.fn() }));
-vi.mock('@/services/viber', () => ({ sendProductPhotoToUser: vi.fn() }));
 
 import { POST } from './route';
 import { prisma } from '@/lib/prisma';
 import { sendProductPhotoToUser as sendTg } from '@/services/telegram';
-import { sendProductPhotoToUser as sendViber } from '@/services/viber';
 
 const mockCtx = { params: Promise.resolve({ id: '1' }), user: { id: 99 } };
 
 describe('POST /api/v1/admin/orders/[id]/send-product-photo', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('sends photo on success', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: 1, status: 'confirmed' } as any);
-    vi.mocked(prisma.product.findUnique).mockResolvedValue({ id: 1, name: 'Test', code: 'T1', imagePath: '/img.jpg', images: [] } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      orderNumber: 'O1',
+      userId: 1,
+      status: 'confirmed',
+    } as any);
+    vi.mocked(prisma.product.findUnique).mockResolvedValue({
+      id: 1,
+      name: 'Test',
+      code: 'T1',
+      imagePath: '/img.jpg',
+      images: [],
+    } as any);
     vi.mocked(sendTg).mockResolvedValue(true);
-    vi.mocked(sendViber).mockResolvedValue(false);
     vi.mocked(prisma.order.update).mockResolvedValue({} as any);
     const req = new Request('http://localhost', {
       method: 'POST',
@@ -81,7 +100,11 @@ describe('POST /api/v1/admin/orders/[id]/send-product-photo', () => {
   });
 
   it('returns 400 when order has no userId', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: null } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      orderNumber: 'O1',
+      userId: null,
+    } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ productId: 1 }),
@@ -92,7 +115,11 @@ describe('POST /api/v1/admin/orders/[id]/send-product-photo', () => {
   });
 
   it('returns 404 when product not found', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: 1 } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      orderNumber: 'O1',
+      userId: 1,
+    } as any);
     vi.mocked(prisma.product.findUnique).mockResolvedValue(null);
     const req = new Request('http://localhost', {
       method: 'POST',
@@ -104,8 +131,18 @@ describe('POST /api/v1/admin/orders/[id]/send-product-photo', () => {
   });
 
   it('returns 400 when product has no image', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: 1 } as any);
-    vi.mocked(prisma.product.findUnique).mockResolvedValue({ id: 1, name: 'Test', code: 'T1', imagePath: null, images: [] } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      orderNumber: 'O1',
+      userId: 1,
+    } as any);
+    vi.mocked(prisma.product.findUnique).mockResolvedValue({
+      id: 1,
+      name: 'Test',
+      code: 'T1',
+      imagePath: null,
+      images: [],
+    } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ productId: 1 }),
@@ -116,10 +153,19 @@ describe('POST /api/v1/admin/orders/[id]/send-product-photo', () => {
   });
 
   it('returns 400 when no messengers linked', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: 1 } as any);
-    vi.mocked(prisma.product.findUnique).mockResolvedValue({ id: 1, name: 'Test', code: 'T1', imagePath: '/img.jpg', images: [] } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      orderNumber: 'O1',
+      userId: 1,
+    } as any);
+    vi.mocked(prisma.product.findUnique).mockResolvedValue({
+      id: 1,
+      name: 'Test',
+      code: 'T1',
+      imagePath: '/img.jpg',
+      images: [],
+    } as any);
     vi.mocked(sendTg).mockResolvedValue(false);
-    vi.mocked(sendViber).mockResolvedValue(false);
     const req = new Request('http://localhost', {
       method: 'POST',
       body: JSON.stringify({ productId: 1 }),
@@ -130,10 +176,20 @@ describe('POST /api/v1/admin/orders/[id]/send-product-photo', () => {
   });
 
   it('sends photo with custom message', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: 1, orderNumber: 'O1', userId: 1, status: 'confirmed' } as any);
-    vi.mocked(prisma.product.findUnique).mockResolvedValue({ id: 1, name: 'Test', code: 'T1', imagePath: null, images: [{ pathFull: '/main.jpg' }] } as any);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue({
+      id: 1,
+      orderNumber: 'O1',
+      userId: 1,
+      status: 'confirmed',
+    } as any);
+    vi.mocked(prisma.product.findUnique).mockResolvedValue({
+      id: 1,
+      name: 'Test',
+      code: 'T1',
+      imagePath: null,
+      images: [{ pathFull: '/main.jpg' }],
+    } as any);
     vi.mocked(sendTg).mockResolvedValue(true);
-    vi.mocked(sendViber).mockResolvedValue(true);
     vi.mocked(prisma.order.update).mockResolvedValue({} as any);
     const req = new Request('http://localhost', {
       method: 'POST',
@@ -144,8 +200,6 @@ describe('POST /api/v1/admin/orders/[id]/send-product-photo', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.data.telegramSent).toBe(true);
-    expect(json.data.viberSent).toBe(true);
     expect(json.data.channels).toContain('Telegram');
-    expect(json.data.channels).toContain('Viber');
   });
 });

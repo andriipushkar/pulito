@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { Home, Phone } from '@/components/icons';
+import { isChunkLoadError, recoverFromChunkError } from '@/lib/chunk-recovery';
+import { reportClientError } from '@/lib/client-error-log';
 
 export default function Error({
   error,
@@ -12,7 +14,12 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
+    // Stale chunk after a deploy — self-heal instead of dead-ending here.
+    if (isChunkLoadError(error) && recoverFromChunkError()) {
+      return;
+    }
     console.error('[Error boundary]', error);
+    reportClientError(error);
     // Sentry: dynamic import to avoid build failure when @sentry/nextjs is not installed
     import('@/lib/sentry').then((m) => m.captureException(error)).catch(() => {});
   }, [error]);

@@ -1369,7 +1369,6 @@ export default function AdminUserDetailPage() {
               {[
                 { key: 'email', label: 'Email' },
                 { key: 'telegram', label: 'Telegram' },
-                { key: 'viber', label: 'Viber' },
               ].map((ch) => (
                 <label key={ch.key} className="flex items-center gap-1.5 text-sm">
                   <input

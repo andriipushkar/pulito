@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { isChunkLoadError, recoverFromChunkError } from '@/lib/chunk-recovery';
+import { reportClientError } from '@/lib/client-error-log';
 
 export default function GlobalError({
   error,
@@ -10,9 +12,31 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    // Stale chunk after a deploy — self-heal by purging the SW/cache and
+    // reloading once instead of showing a dead-end error screen.
+    if (isChunkLoadError(error) && recoverFromChunkError()) {
+      return;
+    }
     console.error('[Global error boundary]', error);
+    reportClientError(error);
     import('@/lib/sentry').then((m) => m.captureException(error)).catch(() => {});
-  }, [error]);
+
+    // Safety net: one automatic retry per session. A hydration/transient error
+    // (the "site loads, then the overlay appears" symptom) usually clears on a
+    // second, client-only render — so the visitor sees the site instead of a
+    // dead end. Guarded via sessionStorage so a genuinely broken render can't
+    // loop; if it errors again the overlay below stays put.
+    try {
+      const KEY = 'pulito:auto-reset-at';
+      const last = Number(sessionStorage.getItem(KEY) || 0);
+      if (!last || Date.now() - last > 15_000) {
+        sessionStorage.setItem(KEY, String(Date.now()));
+        setTimeout(() => reset(), 50);
+      }
+    } catch {
+      // sessionStorage unavailable — skip the auto-retry
+    }
+  }, [error, reset]);
 
   return (
     <html lang="uk">

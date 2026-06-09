@@ -6,6 +6,8 @@ import type { CheckoutInput, OrderFilterInput } from '@/validators/order';
 import { logger } from '@/lib/logger';
 import { phoneSearchVariants } from '@/utils/phone';
 import { env } from '@/config/env';
+import { sumMoney, lineTotal, addMoney, subtractMoney, percentOf } from '@/utils/money';
+import { kyivMidnightUtc, todayKyiv } from '@/utils/format';
 
 const STATS_CACHE_KEY = 'admin:order-stats:v1';
 const STATS_CACHE_TTL = 15; // seconds — collapses concurrent admin tabs onto one query.
@@ -240,8 +242,7 @@ export async function createOrder(
   // Round to kopecks so float drift doesn't accumulate into the total for
   // high-value / many-line orders (matches editOrderItems). An unrounded total
   // can land >0.01 off the provider amount and trip the payment-mismatch guard.
-  const itemsTotal =
-    Math.round(cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
+  const itemsTotal = sumMoney(cartItems.map((item) => lineTotal(item.price, item.quantity)));
   // Pallet method: the storefront has already done the regional-tariff
   // calculation in PalletDeliveryForm and submitted the result with the
   // checkout. Trust that value here (it's the same formula
@@ -307,14 +308,14 @@ export async function createOrder(
     }
   }
 
-  const grossTotal = itemsTotal - couponDiscount + deliveryCost;
+  const grossTotal = addMoney(subtractMoney(itemsTotal, couponDiscount), deliveryCost);
   const settingsMod = await import('@/services/settings');
   const _settings = await settingsMod.getSettings();
   const maxPercent = Math.max(
     0,
     Math.min(100, Number(_settings.loyalty_max_redemption_percent) || 0),
   );
-  const percentCap = maxPercent > 0 ? Math.floor((grossTotal * maxPercent) / 100) : grossTotal;
+  const percentCap = maxPercent > 0 ? Math.floor(percentOf(grossTotal, maxPercent)) : grossTotal;
   // Floor to a whole number: 1 point = 1 UAH and the points balance is an
   // integer column, so the discount (and thus points spent) must be integer —
   // a fractional discount would write a fractional value into the Int points
@@ -322,7 +323,7 @@ export async function createOrder(
   const discountAmount = Math.floor(
     Math.max(0, Math.min(Number(loyaltyPointsToSpend) || 0, grossTotal, percentCap)),
   );
-  const netTotal = Math.round((grossTotal - discountAmount) * 100) / 100;
+  const netTotal = subtractMoney(grossTotal, discountAmount);
   const orderNumber = generateOrderNumber();
 
   const order = await prisma.$transaction(async (tx) => {
@@ -410,7 +411,7 @@ export async function createOrder(
             productName: item.productName,
             priceAtOrder: item.price,
             quantity: item.quantity,
-            subtotal: item.price * item.quantity,
+            subtotal: lineTotal(item.price, item.quantity),
             isPromo: item.isPromo,
           })),
         },
@@ -597,15 +598,19 @@ export async function getUserOrders(userId: number, filters: OrderFilterInput) {
     where.status = filters.status;
   }
   if (filters.dateFrom) {
-    where.createdAt = { ...(where.createdAt as object), gte: new Date(filters.dateFrom) };
+    // "YYYY-MM-DD" is a Kyiv calendar day; anchor the lower bound to Kyiv 00:00
+    // (DST-aware) so the shop's local day is what's filtered, not the UTC day.
+    where.createdAt = { ...(where.createdAt as object), gte: kyivMidnightUtc(filters.dateFrom) };
   }
   if (filters.dateTo) {
-    // Filters arrive as "YYYY-MM-DD" → new Date() parses to 00:00:00 UTC,
-    // which would exclude every order on that day. Bump to the start of
-    // the next day and use `lt` so "до 14 травня" includes all of May 14.
-    const inclusiveEnd = new Date(filters.dateTo);
-    inclusiveEnd.setUTCDate(inclusiveEnd.getUTCDate() + 1);
-    where.createdAt = { ...(where.createdAt as object), lt: inclusiveEnd };
+    // Include all of the Kyiv day: lower bound is Kyiv 00:00 of the *next* day,
+    // matched with `lt` so "до 14 травня" includes every order on May 14.
+    const nextDay = new Date(`${filters.dateTo}T00:00:00Z`);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    where.createdAt = {
+      ...(where.createdAt as object),
+      lt: kyivMidnightUtc(nextDay.toISOString().slice(0, 10)),
+    };
   }
 
   const skip = (filters.page - 1) * filters.limit;
@@ -1397,7 +1402,7 @@ export async function editOrderItems(
       );
     }
 
-    const itemsSubtotal = updatedItems.reduce((sum, i) => sum + Number(i.subtotal), 0);
+    const itemsSubtotal = sumMoney(updatedItems.map((i) => Number(i.subtotal)));
     let newDeliveryCost = Number(order.deliveryCost ?? 0);
     if (order.deliveryMethod && order.deliveryMethod !== 'pallet') {
       try {
@@ -1414,10 +1419,10 @@ export async function editOrderItems(
     // negative. The most-favourable-to-customer behaviour is "keep the
     // existing discount up to the new gross", not "carry forward 50 UAH of
     // discount on a 30 UAH order".
-    const grossTotal = itemsSubtotal + newDeliveryCost;
+    const grossTotal = addMoney(itemsSubtotal, newDeliveryCost);
     const originalDiscount = Number(order.discountAmount ?? 0);
     const cappedDiscount = Math.max(0, Math.min(originalDiscount, grossTotal));
-    const totalAmount = grossTotal - cappedDiscount;
+    const totalAmount = subtractMoney(grossTotal, cappedDiscount);
     const itemsCount = updatedItems.reduce((sum, i) => sum + i.quantity, 0);
 
     // Add status history entry
@@ -1488,15 +1493,19 @@ export async function getAllOrders(filters: OrderFilterInput) {
     ];
   }
   if (filters.dateFrom) {
-    where.createdAt = { ...(where.createdAt as object), gte: new Date(filters.dateFrom) };
+    // "YYYY-MM-DD" is a Kyiv calendar day; anchor the lower bound to Kyiv 00:00
+    // (DST-aware) so the shop's local day is what's filtered, not the UTC day.
+    where.createdAt = { ...(where.createdAt as object), gte: kyivMidnightUtc(filters.dateFrom) };
   }
   if (filters.dateTo) {
-    // Filters arrive as "YYYY-MM-DD" → new Date() parses to 00:00:00 UTC,
-    // which would exclude every order on that day. Bump to the start of
-    // the next day and use `lt` so "до 14 травня" includes all of May 14.
-    const inclusiveEnd = new Date(filters.dateTo);
-    inclusiveEnd.setUTCDate(inclusiveEnd.getUTCDate() + 1);
-    where.createdAt = { ...(where.createdAt as object), lt: inclusiveEnd };
+    // Include all of the Kyiv day: lower bound is Kyiv 00:00 of the *next* day,
+    // matched with `lt` so "до 14 травня" includes every order on May 14.
+    const nextDay = new Date(`${filters.dateTo}T00:00:00Z`);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    where.createdAt = {
+      ...(where.createdAt as object),
+      lt: kyivMidnightUtc(nextDay.toISOString().slice(0, 10)),
+    };
   }
 
   const skip = (filters.page - 1) * filters.limit;
@@ -1608,8 +1617,9 @@ export async function getOrderStats(): Promise<OrderStats> {
     // Redis down — fall through and compute fresh.
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Kyiv midnight, not the server's (UTC) midnight — otherwise "today's orders"
+  // silently drops orders placed between Kyiv 00:00 and 02:00–03:00.
+  const today = todayKyiv();
 
   const [totalNew, totalProcessing, totalToday, revenueToday, totalUnpaid] = await Promise.all([
     prisma.order.count({ where: { status: 'new_order' } }),

@@ -3,7 +3,6 @@ import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import EmptyState from '@/components/ui/EmptyState';
 import BundleCard from '@/components/bundle/BundleCard';
-import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import { getActiveBundles, calculateBundlePrice } from '@/services/bundle';
 import { buildHreflang } from '@/lib/i18n';
 
@@ -42,14 +41,6 @@ export default async function BundlesPage() {
 
   return (
     <Container className="py-6">
-      <BreadcrumbJsonLd
-        items={breadcrumbs
-          .filter((b) => b.href)
-          .map((b) => ({
-            name: b.label,
-            url: `${process.env.APP_URL || 'http://localhost:3000'}${b.href}`,
-          }))}
-      />
       <Breadcrumbs items={breadcrumbs} className="mb-4" />
 
       <h1 className="mb-6 text-2xl font-bold">Комплекти товарів</h1>

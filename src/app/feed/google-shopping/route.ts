@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { escapeXml, FEED_CACHE_MAX_AGE } from '@/services/product-feeds';
 import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+import { isValidGtin } from '@/utils/gtin';
 
 export async function GET(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -12,10 +13,19 @@ export async function GET(request: NextRequest) {
 
   const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
-  // Google product category mapping for household chemicals
+  // Map our store categories to Google's product taxonomy. Google accepts the
+  // full English category PATH (not just the numeric ID), which is less
+  // error-prone, so we send paths. Keyed by category slug (own or parent);
+  // anything unmapped falls back to the generic cleaning-supplies bucket.
+  const GOOGLE_CATEGORY_DEFAULT =
+    'Home & Garden > Household Supplies > Household Cleaning Supplies';
   const googleCategoryMap: Record<string, string> = {
-    // Household cleaning supplies
-    default: '623', // Household Supplies > Household Cleaning Supplies
+    'zasobi-dlya-prannya': 'Home & Garden > Household Supplies > Laundry Supplies',
+    'zasobi-dlya-chishchennya': 'Home & Garden > Household Supplies > Household Cleaning Supplies',
+    'aromati-dlya-domu': 'Home & Garden > Decor > Home Fragrances',
+    'gigiiena-rotovoyi-porozhnini': 'Health & Beauty > Personal Care > Oral Care',
+    'doglyad-za-tilom': 'Health & Beauty > Personal Care > Cosmetics > Bath & Body',
+    'pobutovi-aksesuari': 'Home & Garden > Household Supplies',
   };
 
   const products = await prisma.product.findMany({
@@ -67,8 +77,10 @@ export async function GET(request: NextRequest) {
       const categoryParts = [p.category?.parent?.name, p.category?.name].filter(Boolean);
       const productType = categoryParts.length > 0 ? categoryParts.join(' > ') : 'Побутова хімія';
 
-      const categorySlug = p.category?.slug || p.category?.parent?.slug || '';
-      const googleCategory = googleCategoryMap[categorySlug] || googleCategoryMap['default'];
+      const googleCategory =
+        googleCategoryMap[p.category?.slug || ''] ||
+        googleCategoryMap[p.category?.parent?.slug || ''] ||
+        GOOGLE_CATEGORY_DEFAULT;
 
       // Google semantics: g:price = regular price; g:sale_price = discounted
       // price when on sale. Old code put discounted price into BOTH fields,
@@ -87,14 +99,18 @@ export async function GET(request: NextRequest) {
     ${onSale ? `<g:sale_price>${price.toFixed(2)} UAH</g:sale_price>` : ''}
     <g:condition>new</g:condition>
     <g:mpn>${escapeXml(p.code)}</g:mpn>
-    ${p.barcode ? `<g:gtin>${escapeXml(p.barcode)}</g:gtin>` : '<g:identifier_exists>no</g:identifier_exists>'}
+    ${isValidGtin(p.barcode) ? `<g:gtin>${escapeXml(p.barcode!)}</g:gtin>` : '<g:identifier_exists>no</g:identifier_exists>'}
     <g:product_type>${escapeXml(productType)}</g:product_type>
     <g:brand>${escapeXml(p.brand?.name || 'Pulito Trade')}</g:brand>
     <g:google_product_category>${googleCategory}</g:google_product_category>
     <g:shipping>
       <g:country>UA</g:country>
       <g:service>Нова Пошта</g:service>
-      <g:price>0 UAH</g:price>
+      <!-- Орієнтовний тариф НП (платить отримувач); має збігатися з -->
+      <!-- shippingRate у Product JSON-LD. «Безкоштовно від 2000 грн» -->
+      <!-- і точні тарифи правильно конфігурувати в Merchant Center, -->
+      <!-- account-level shipping — він перекриває це значення з фіду. -->
+      <g:price>100 UAH</g:price>
     </g:shipping>
   </item>`;
     })

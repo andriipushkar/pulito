@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { kyivMidnightUtc, kyivNextDayUtc } from '@/utils/format';
 
 /**
  * Sandboxed report builder. Whitelists dimensions/metrics so the UI can't construct
@@ -25,18 +26,17 @@ export interface ReportRow {
 
 export async function runReport(input: ReportInput): Promise<ReportRow[]> {
   const where: Record<string, unknown> = {};
+  // Kyiv day boundaries; `lt` next-day so dateTo's full Kyiv day is included.
   if (input.dateFrom) {
     (where as Record<string, { gte?: Date; lt?: Date }>).createdAt = {
       ...((where as { createdAt?: { gte?: Date; lt?: Date } }).createdAt || {}),
-      gte: new Date(input.dateFrom),
+      gte: kyivMidnightUtc(input.dateFrom),
     };
   }
   if (input.dateTo) {
-    const end = new Date(input.dateTo);
-    end.setUTCDate(end.getUTCDate() + 1);
     (where as Record<string, { gte?: Date; lt?: Date }>).createdAt = {
       ...((where as { createdAt?: { gte?: Date; lt?: Date } }).createdAt || {}),
-      lt: end,
+      lt: kyivNextDayUtc(input.dateTo),
     };
   }
 

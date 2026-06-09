@@ -1,5 +1,5 @@
-import { env } from '@/config/env';
 import { GRAPH_API_VERSION } from './meta-graph';
+import { getFacebookCreds } from './channel-config';
 
 export class FacebookError extends Error {
   constructor(
@@ -44,8 +44,7 @@ interface FbPublishResult {
 
 /** Publish a text post (with optional link) to Facebook Page feed. */
 export async function publishTextPost(message: string, link?: string): Promise<FbPublishResult> {
-  const pageId = env.FACEBOOK_PAGE_ID;
-  const accessToken = env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  const { pageId, pageAccessToken: accessToken } = await getFacebookCreds();
 
   if (!pageId || !accessToken) {
     throw new FacebookError('Facebook credentials not configured');
@@ -82,8 +81,7 @@ export async function publishPhotoPost(
   imageUrl: string,
   caption: string,
 ): Promise<FbPublishResult> {
-  const pageId = env.FACEBOOK_PAGE_ID;
-  const accessToken = env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  const { pageId, pageAccessToken: accessToken } = await getFacebookCreds();
 
   if (!pageId || !accessToken) {
     throw new FacebookError('Facebook credentials not configured');
@@ -121,8 +119,7 @@ export async function publishMultiPhotoPost(
   imageUrls: string[],
   caption: string,
 ): Promise<FbPublishResult> {
-  const pageId = env.FACEBOOK_PAGE_ID;
-  const accessToken = env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  const { pageId, pageAccessToken: accessToken } = await getFacebookCreds();
 
   if (!pageId || !accessToken) {
     throw new FacebookError('Facebook credentials not configured');

@@ -71,7 +71,6 @@ interface PublicationTemplate {
 
 const ALL_CHANNELS = [
   { key: 'telegram', label: 'Telegram' },
-  { key: 'viber', label: 'Viber' },
   { key: 'facebook', label: 'Facebook' },
   { key: 'instagram', label: 'Instagram' },
   { key: 'tiktok', label: 'TikTok' },
@@ -121,14 +120,14 @@ export default function AdminPublicationsPage() {
         title: t('tpl_new_title'),
         content: t('tpl_new_content'),
         hashtags: '#новинка #pulito_trade #новийтовар',
-        channels: ['telegram', 'viber', 'facebook', 'tiktok', 'site'],
+        channels: ['telegram', 'facebook', 'tiktok', 'site'],
       },
       {
         label: t('tpl_promo_label'),
         title: t('tpl_promo_title'),
         content: t('tpl_promo_content'),
         hashtags: '#акція #знижка #pulito_trade',
-        channels: ['telegram', 'viber', 'facebook', 'tiktok'],
+        channels: ['telegram', 'facebook', 'tiktok'],
       },
       {
         label: t('tpl_news_label'),
@@ -205,7 +204,7 @@ export default function AdminPublicationsPage() {
       setForm({
         title,
         content,
-        channels: ['telegram', 'viber', 'facebook', 'tiktok'],
+        channels: ['telegram', 'facebook', 'tiktok'],
         hashtags: '#pulito_trade',
         scheduledAt: '',
         imagePath: image,
@@ -307,7 +306,7 @@ export default function AdminPublicationsPage() {
     if (bulkSelected.size === 0) return;
     setBulkPublishing(true);
     const selectedProducts = productResults.filter((p) => bulkSelected.has(p.id));
-    const channels = ['telegram', 'viber', 'facebook', 'tiktok'];
+    const channels = ['telegram', 'facebook', 'tiktok'];
 
     for (const p of selectedProducts) {
       const priceText = p.priceRetailOld
@@ -363,8 +362,8 @@ export default function AdminPublicationsPage() {
       ? t('promoContent', { name: p.name, priceText })
       : t('regularContent', { name: p.name, priceText });
     const channels = p.isPromo
-      ? ['telegram', 'viber', 'facebook', 'tiktok']
-      : ['telegram', 'viber', 'facebook', 'tiktok', 'site'];
+      ? ['telegram', 'facebook', 'tiktok']
+      : ['telegram', 'facebook', 'tiktok', 'site'];
     const hashtags = p.isPromo ? t('hashtagsPromo') : t('hashtagsNew');
     const productUrl = `/product/${p.slug}`;
     const discount = p.priceRetailOld

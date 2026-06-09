@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { withRole2fa } from '@/middleware/auth';
 import { successResponse, errorResponse } from '@/utils/api-response';
-import { testChannelConnection, type ChannelType } from '@/services/channel-config';
+import {
+  testChannelConnection,
+  getChannelConfig,
+  type ChannelType,
+} from '@/services/channel-config';
 import { logger } from '@/lib/logger';
 import { logAudit } from '@/services/audit';
 import { getClientIp } from '@/utils/request';
@@ -9,7 +13,6 @@ import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
 
 const CHANNELS = [
   'telegram',
-  'viber',
   'facebook',
   'instagram',
   'tiktok',
@@ -42,10 +45,25 @@ export const POST = withRole2fa('admin')(async (req, { user }) => {
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
 
-    const result = await testChannelConnection(
-      parsed.data.channel as ChannelType,
-      parsed.data.config as never,
-    );
+    // The form sends sensitive fields MASKED (e.g. "123••••••xyz") when the
+    // admin didn't retype them. Sending a masked token to Telegram/Meta yields
+    // a bogus "Not Found"/invalid-token error. Backfill any masked field from
+    // the stored (decrypted) config so "Test" works without re-entering secrets.
+    const config = { ...parsed.data.config } as Record<string, unknown>;
+    if (Object.values(config).some((v) => typeof v === 'string' && v.includes('•'))) {
+      const stored = (await getChannelConfig(parsed.data.channel as ChannelType).catch(
+        () => null,
+      )) as Record<string, unknown> | null;
+      if (stored) {
+        for (const [k, v] of Object.entries(config)) {
+          if (typeof v === 'string' && v.includes('•') && typeof stored[k] === 'string') {
+            config[k] = stored[k];
+          }
+        }
+      }
+    }
+
+    const result = await testChannelConnection(parsed.data.channel as ChannelType, config as never);
 
     // External system probe is auditable — credential validity check is a
     // sensitive forensic event (was admin testing a stolen key?).

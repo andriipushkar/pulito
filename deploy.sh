@@ -25,12 +25,19 @@ rm -rf "$STAGING"
 
 echo "[deploy] building into $STAGING (this takes a few minutes)…"
 rm -f .next/cache/*.lock 2>/dev/null || true
+# Snapshot the slugRedirect table into a static map the Edge/Node middleware
+# imports (src/generated/slug-redirects.ts). Non-fatal: keeps existing file on
+# DB error so a transient blip can't break the build.
+node scripts/gen-slug-redirects.cjs || echo "[deploy] WARN: slug-redirects gen failed, using existing"
 # `next build` rewrites tsconfig.json (adds distDir-specific include globs).
 # Snapshot it and restore afterwards so the staging dir name never leaks into
 # the committed config. `.next-staging` is already in tsconfig `exclude`, so the
 # route-type validators there are skipped exactly like the normal `.next` build.
 cp tsconfig.json /tmp/pulito-tsconfig.bak 2>/dev/null || true
-NEXT_DIST_DIR="$STAGING" NODE_OPTIONS='--max-old-space-size=3072' \
+# BUILD_ID scopes the service-worker caches to this deploy (next.config.ts ->
+# NEXT_PUBLIC_SW_VERSION -> public/sw.js). A fresh value each build makes returning
+# visitors' browsers reinstall the worker and drop the previous build's caches.
+NEXT_DIST_DIR="$STAGING" BUILD_ID="$(date +%s)" NODE_OPTIONS='--max-old-space-size=3072' \
   npx next build --webpack > "$LOG" 2>&1 || { echo "[deploy] BUILD CRASHED"; tail -20 "$LOG"; cp /tmp/pulito-tsconfig.bak tsconfig.json 2>/dev/null || true; exit 1; }
 cp /tmp/pulito-tsconfig.bak tsconfig.json 2>/dev/null || true
 

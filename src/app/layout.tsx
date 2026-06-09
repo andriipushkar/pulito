@@ -223,12 +223,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <AuthProvider>
             <ThemeProvider>{children}</ThemeProvider>
           </AuthProvider>
+          {/* These must stay INSIDE the provider: CookieBanner renders a
+              next-intl <Link> (useLocale), which throws "Error()" with no message
+              when mounted outside NextIntlClientProvider. It only surfaced for
+              visitors without a stored cookie-consent (e.g. a fresh browser),
+              which is why it hit Chrome-on-iOS but not a browser that had already
+              accepted cookies. Keep any future i18n-aware widgets in here too. */}
+          <WebVitalsReporter />
+          <ServiceWorkerRegistration />
+          <InstallPrompt />
+          <Toaster />
+          <CookieBanner />
         </NextIntlClientProvider>
-        <WebVitalsReporter />
-        <ServiceWorkerRegistration />
-        <InstallPrompt />
-        <Toaster />
-        <CookieBanner />
         {/* Analytics scripts loaded after page becomes interactive (lazyOnload).
             This prevents blocking LCP/FID and keeps PageSpeed score high.
             Server-side tracking via CAPI/Measurement Protocol captures conversions

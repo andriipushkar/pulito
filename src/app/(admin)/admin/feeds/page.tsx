@@ -25,6 +25,22 @@ const FEEDS: FeedDef[] = [
     docsUrl: 'https://hotline.ua/dashboard/',
   },
   {
+    key: 'prom',
+    name: 'Prom.ua',
+    description: 'prom_desc',
+    path: '/api/v1/feeds/prom.xml',
+    useCase: 'prom_useCase',
+    docsUrl: 'https://support.prom.ua/hc/uk/articles/360004963538',
+  },
+  {
+    key: 'epicentr',
+    name: 'Epicentr K',
+    description: 'epicentr_desc',
+    path: '/api/v1/feeds/epicentr.xml',
+    useCase: 'epicentr_useCase',
+    docsUrl: 'https://epicentrk.ua/ua/seller/',
+  },
+  {
     key: 'google',
     name: 'Google Merchant Center',
     description: 'google_desc',
@@ -57,7 +73,8 @@ export default function AdminFeedsPage() {
     try {
       const res = await fetch(path, { cache: 'no-store' });
       const text = await res.text();
-      const matches = text.match(/<item/gi) || text.match(/<item>/gi) || [];
+      // RSS/Hotline feeds use <item>, YML feeds (Prom) use <offer>.
+      const matches = text.match(/<item[\s>]/gi) || text.match(/<offer[\s>]/gi) || [];
       setCounts((s) => ({ ...s, [key]: matches.length }));
       toast.success(t('pingSuccess', { key, count: matches.length }));
     } catch {

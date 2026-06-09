@@ -29,7 +29,7 @@ export interface TemplateInput {
   isActive?: boolean;
 }
 
-const ALLOWED_CHANNELS = new Set(['telegram', 'viber', 'instagram', 'facebook', 'tiktok', 'site']);
+const ALLOWED_CHANNELS = new Set(['telegram', 'instagram', 'facebook', 'tiktok', 'site']);
 
 function validateChannels(channels: unknown): string[] {
   if (!Array.isArray(channels) || channels.length === 0) {

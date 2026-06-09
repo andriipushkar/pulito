@@ -17,8 +17,18 @@ const standalone = process.env.NEXT_BUILD_STANDALONE === '1';
 // distDir from here, so the same env var drives both. Defaults to .next.
 const distDir = process.env.NEXT_DIST_DIR || '.next';
 
+// Per-build identifier surfaced to the client so the service worker can scope
+// its caches to this deploy (see public/sw.js + ServiceWorkerRegistration.tsx).
+// deploy.sh sets BUILD_ID; for plain `next build` we fall back to a timestamp.
+// Each build yields a new value, which changes the SW registration URL and
+// forces stale caches/chunks from the previous build to be purged.
+const swVersion = process.env.BUILD_ID || String(Date.now());
+
 const nextConfig: NextConfig = {
   distDir,
+  env: {
+    NEXT_PUBLIC_SW_VERSION: swVersion,
+  },
   ...(standalone && { output: 'standalone' as const }),
   ...(cdnUrl && { assetPrefix: cdnUrl }),
   poweredByHeader: false,

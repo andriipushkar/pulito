@@ -7,7 +7,6 @@ import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import FaqContent from '@/components/faq/FaqContent';
 import FaqJsonLd from '@/components/faq/FaqJsonLd';
-import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import { getPublishedFaq } from '@/services/faq';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { applyTranslationsList, buildHreflang } from '@/lib/i18n';
@@ -40,12 +39,6 @@ export default async function FaqPage() {
   return (
     <Container className="py-6">
       <FaqJsonLd items={allItems} />
-      <BreadcrumbJsonLd
-        items={[
-          { name: 'Головна', url: baseUrl },
-          { name: 'FAQ', url: `${baseUrl}/faq` },
-        ]}
-      />
 
       <Breadcrumbs
         items={[{ label: tBc('home'), href: '/' }, { label: t('title') }]}

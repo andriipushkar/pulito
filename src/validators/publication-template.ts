@@ -1,17 +1,10 @@
 import { z } from 'zod';
 import { isSafeUrl } from '@/utils/safe-url';
 
-export const TEMPLATE_CHANNELS = [
-  'telegram',
-  'viber',
-  'instagram',
-  'facebook',
-  'tiktok',
-  'site',
-] as const;
+export const TEMPLATE_CHANNELS = ['telegram', 'instagram', 'facebook', 'tiktok', 'site'] as const;
 
 // Same surface area as publication buttons — when the template is applied,
-// the buttons land on Telegram inline keyboards / Viber rich cards. A
+// the buttons land on Telegram inline keyboards. A
 // `javascript:` URL would otherwise sneak from template into every
 // publication created from it.
 const buttonSchema = z.object({

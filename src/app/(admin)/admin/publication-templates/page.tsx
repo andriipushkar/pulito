@@ -9,7 +9,7 @@ import Input from '@/components/ui/Input';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 
-const ALL_CHANNELS = ['telegram', 'viber', 'instagram', 'facebook', 'tiktok', 'site'] as const;
+const ALL_CHANNELS = ['telegram', 'instagram', 'facebook', 'tiktok', 'site'] as const;
 type Channel = (typeof ALL_CHANNELS)[number];
 
 interface Template {

@@ -63,9 +63,9 @@
 
 #### Середній пріоритет
 
-- **O3** — Manager scope assignment: будь-який менеджер може забрати замовлення в іншого. Security policy decision: обмежити admin-only або підтверджувати.
-- **O6** — Currency через `Number()` (float-drift на копійках) — мігрувати invoice/delivery-note math на Decimal або копійки×100.
-- **O11** — Date preset boundary off-by-one (`week` vs `month` різні «inclusive»).
+- **O3** — Manager scope assignment: будь-який менеджер може забрати замовлення в іншого. Security policy decision: обмежити admin-only або підтверджувати. ⏸️ Рішення власника — leave as-is (мала довірена команда).
+- ✅ **O6** (2026-06-03) — грошова математика через `src/utils/money.ts` (цілі копійки); order/coupon/payment/return-request переведено. Активного витоку не було (Decimal-колонки округлюють на запису); фікс зробив коректність структурною.
+- ✅ **O11** (2026-06-03) — пресети насправді консистентні (today/7/30 inclusive) + бекенд уже включав весь `dateTo`. Справжній баг — UTC замість києва: уніфіковано стат-картку + фільтри + клієнт-пресети на київські межі дня (`kyivMidnightUtc`/`todayKyiv`). Інакше замовлення 00:00–03:00 за Києвом падали у «вчора».
 
 #### Низький пріоритет
 

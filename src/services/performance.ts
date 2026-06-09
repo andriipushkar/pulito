@@ -19,15 +19,13 @@ export async function recordMetric(entry: MetricEntry): Promise<void> {
   await redis.expire(key, METRIC_TTL);
 }
 
-export async function getAggregatedMetrics(
-  dateFrom: string,
-  dateTo: string,
-  route?: string
-) {
+export async function getAggregatedMetrics(dateFrom: string, dateTo: string, route?: string) {
   const where: {
     date: { gte: Date; lte: Date };
     route?: string;
   } = {
+    // `date` is a @db.Date column (one row per calendar day at midnight), so a
+    // plain date-string bound is correct here — no Kyiv-timezone shift needed.
     date: {
       gte: new Date(dateFrom),
       lte: new Date(dateTo),

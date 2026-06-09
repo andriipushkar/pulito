@@ -14,7 +14,6 @@ import BlogJsonLd from '@/components/blog/BlogJsonLd';
 // Below-the-fold — defer rendering until after the article body paints.
 const RelatedPosts = dynamic(() => import('@/components/blog/RelatedPosts'));
 const BlogComments = dynamic(() => import('@/components/blog/BlogComments'));
-import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import { getPostBySlug, getRelatedPosts } from '@/services/blog';
 import { prisma } from '@/lib/prisma';
 import { getLocale } from 'next-intl/server';
@@ -32,7 +31,8 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
   const raw = await getPostBySlug(slug);
 
   if (!raw) {
-    return { title: 'Статтю не знайдено — Pulito Trade' };
+    // Root layout's title template appends " | Pulito Trade" — don't add the brand again.
+    return { title: 'Статтю не знайдено' };
   }
   const post = applyTranslationsDeep(raw, locale)!;
 
@@ -42,7 +42,8 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
   const url = `${baseUrl}/blog/${slug}`;
 
   return {
-    title: `${title} — Pulito Trade`,
+    // Brand suffix is added by the root layout's title template (" | Pulito Trade").
+    title,
     description,
     alternates: {
       canonical: url,
@@ -122,11 +123,6 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   return (
     <Container className="py-6">
-      <BreadcrumbJsonLd
-        items={breadcrumbs
-          .filter((b) => b.href)
-          .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }))}
-      />
       <BlogJsonLd
         title={post.seoTitle || post.title}
         description={post.seoDescription || post.excerpt || ''}

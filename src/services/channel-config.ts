@@ -9,11 +9,6 @@ export interface TelegramConfig {
   managerChatId?: string;
 }
 
-export interface ViberConfig {
-  enabled: boolean;
-  authToken: string;
-}
-
 export interface FacebookConfig {
   enabled: boolean;
   pageAccessToken: string;
@@ -41,7 +36,6 @@ export interface MarketplaceConfig {
 
 export type ChannelType =
   | 'telegram'
-  | 'viber'
   | 'facebook'
   | 'instagram'
   | 'tiktok'
@@ -52,7 +46,6 @@ export type ChannelType =
 
 type ChannelConfigMap = {
   telegram: TelegramConfig;
-  viber: ViberConfig;
   facebook: FacebookConfig;
   instagram: InstagramConfig;
   tiktok: TikTokConfig;
@@ -131,11 +124,6 @@ function getEnvFallback(channel: ChannelType): ChannelConfigMap[typeof channel] 
         managerChatId: env.TELEGRAM_MANAGER_CHAT_ID || undefined,
       };
     }
-    case 'viber': {
-      const authToken = process.env.VIBER_AUTH_TOKEN;
-      if (!authToken) return null;
-      return { enabled: true, authToken };
-    }
     case 'facebook': {
       const pageAccessToken = env.FACEBOOK_PAGE_ACCESS_TOKEN;
       const pageId = env.FACEBOOK_PAGE_ID;
@@ -198,6 +186,40 @@ export async function getChannelConfig<T extends ChannelType>(
 }
 
 /**
+ * Resolve live Telegram credentials, DB-first (admin panel → `channel_telegram`),
+ * falling back to env per-field. The order-notification bot and the customer-
+ * facing webhook bot both go through this instead of reading `process.env`
+ * directly — otherwise a token set in the admin UI would never be used.
+ *
+ * Unlike `getChannelConfig('telegram')` this does NOT gate on the `enabled`
+ * flag and does NOT require `channelId`: order notifications must work even
+ * when there is no marketing channel and the channel toggle is off.
+ */
+export async function getTelegramCreds(): Promise<{
+  botToken: string;
+  managerChatId: string;
+  channelId: string;
+}> {
+  let cfg: Partial<TelegramConfig> | null = null;
+  try {
+    const setting = await prisma.siteSetting.findUnique({ where: { key: 'channel_telegram' } });
+    if (setting?.value) {
+      const raw = JSON.parse(setting.value) as Record<string, unknown>;
+      cfg = decryptConfig(raw).value as unknown as Partial<TelegramConfig>;
+    }
+  } catch {
+    // DB down or unparseable value — fall back to env per-field below.
+  }
+  // Env fallback reads live process.env (matching the bot's historical
+  // behaviour) so a runtime change is picked up without a parsed-config reload.
+  return {
+    botToken: cfg?.botToken || process.env.TELEGRAM_BOT_TOKEN || '',
+    managerChatId: cfg?.managerChatId || process.env.TELEGRAM_MANAGER_CHAT_ID || '',
+    channelId: cfg?.channelId || process.env.TELEGRAM_CHANNEL_ID || '',
+  };
+}
+
+/**
  * Resolve the live Instagram credentials, DB-first (so a refreshed token is
  * picked up), falling back to env per-field. All Instagram API calls and the
  * token-refresh job go through this instead of reading env directly — otherwise
@@ -215,6 +237,23 @@ export async function getInstagramCreds(): Promise<{
     accessToken: cfg?.accessToken || env.INSTAGRAM_ACCESS_TOKEN || '',
     businessAccountId: cfg?.businessAccountId || env.INSTAGRAM_BUSINESS_ACCOUNT_ID || '',
     tokenExpiresAt: cfg?.tokenExpiresAt,
+  };
+}
+
+/**
+ * Resolve the live Facebook page credentials, DB-first (so a page configured
+ * only via the admin panel works), falling back to env per-field. Facebook
+ * publishing must go through this — reading env directly broke admin-only
+ * setups the same way payments did.
+ */
+export async function getFacebookCreds(): Promise<{
+  pageId: string;
+  pageAccessToken: string;
+}> {
+  const cfg = (await getChannelConfig('facebook')) as FacebookConfig | null;
+  return {
+    pageId: cfg?.pageId || env.FACEBOOK_PAGE_ID || '',
+    pageAccessToken: cfg?.pageAccessToken || env.FACEBOOK_PAGE_ACCESS_TOKEN || '',
   };
 }
 
@@ -242,7 +281,6 @@ export async function getAllChannelConfigs(): Promise<
 > {
   const channels: ChannelType[] = [
     'telegram',
-    'viber',
     'facebook',
     'instagram',
     'tiktok',
@@ -320,10 +358,6 @@ export function maskChannelConfig(
         managerChatId: c.managerChatId,
       };
     }
-    case 'viber': {
-      const c = config as ViberConfig;
-      return { ...c, authToken: maskToken(c.authToken) };
-    }
     case 'facebook': {
       const c = config as FacebookConfig;
       return { ...c, pageAccessToken: maskToken(c.pageAccessToken), pageId: c.pageId };
@@ -350,8 +384,6 @@ export function maskChannelConfig(
   }
 }
 
-const MARKETPLACE_CHANNELS_SET = new Set<ChannelType>(['olx', 'rozetka', 'prom', 'epicentrk']);
-
 export async function saveChannelConfig(
   channel: ChannelType,
   config: ChannelConfigMap[ChannelType],
@@ -359,11 +391,12 @@ export async function saveChannelConfig(
 ): Promise<void> {
   const key = `${DB_KEY_PREFIX}${channel}`;
 
-  // Marketplace configs merge with existing — admin form may omit sensitive fields
-  // (the UI strips masked values, so a fresh save without re-entering would otherwise
-  // wipe the API key). Existing values are decrypted before merge, then the merged
-  // result is encrypted at rest.
-  if (MARKETPLACE_CHANNELS_SET.has(channel)) {
+  // ALL channels merge with existing — the admin form strips masked secret values
+  // (route deletes bullet-masked fields), so a save that changes only a non-secret
+  // field (e.g. Facebook pageId) would otherwise wipe the stored token. This applies
+  // to social channels (telegram/facebook/instagram) as well as marketplaces.
+  // Existing values are decrypted before merge, then re-encrypted at rest.
+  {
     const existing = await prisma.siteSetting.findUnique({ where: { key } });
     if (existing?.value) {
       try {
@@ -410,6 +443,11 @@ export async function testChannelConnection(
         });
         const data = await res.json();
         if (!data.ok) return { success: false, error: data.description || 'Невірний токен бота' };
+        // No marketing channel configured — the store uses the bot only for
+        // manager notifications, so a valid token is the whole success check.
+        if (!c.channelId) {
+          return { success: true, name: `@${data.result.username}` };
+        }
         // Also check channel access
         const chatRes = await fetch(`https://api.telegram.org/bot${c.botToken}/getChat`, {
           method: 'POST',
@@ -424,19 +462,6 @@ export async function testChannelConnection(
             error: `Бот: @${data.result.username}. Канал не знайдено: ${chatData.description}`,
           };
         return { success: true, name: `@${data.result.username} → ${chatData.result.title}` };
-      }
-      case 'viber': {
-        const c = config as ViberConfig;
-        const res = await fetch('https://chatapi.viber.com/pa/get_account_info', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Viber-Auth-Token': c.authToken },
-          body: '{}',
-          signal: AbortSignal.timeout(10000),
-        });
-        const data = await res.json();
-        if (data.status !== 0)
-          return { success: false, error: data.status_message || 'Невірний токен' };
-        return { success: true, name: data.name || 'Viber Bot' };
       }
       case 'facebook': {
         const c = config as FacebookConfig;

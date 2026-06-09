@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { refundPayment } from '@/services/payment';
 import { logger } from '@/lib/logger';
 import { Prisma, type ReturnReason, type ReturnStatus } from '../../generated/prisma';
+import { subtractMoney, sumMoney, minMoney } from '@/utils/money';
 
 export class ReturnError extends Error {
   statusCode: number;
@@ -213,9 +214,9 @@ export async function markReturnRefunded(returnId: number) {
     select: { amount: true, refundedAmount: true },
   });
   const availableNet = pay
-    ? Math.max(0, Number(pay.amount) - Number(pay.refundedAmount))
+    ? Math.max(0, subtractMoney(pay.amount, pay.refundedAmount))
     : Number(returnReq.totalAmount);
-  const refundAmount = Math.min(Number(returnReq.totalAmount), availableNet);
+  const refundAmount = minMoney(Number(returnReq.totalAmount), availableNet);
 
   // Atomic claim: flip 'received' → 'refunded' before calling the payment provider.
   // Without this, two parallel calls both pass the status check and both invoke
@@ -293,7 +294,7 @@ export async function markReturnRefunded(returnId: number) {
       where: { orderId: returnReq.orderId },
       select: { subtotal: true },
     });
-    const orderGoodsTotal = allItems.reduce((s, i) => s + Number(i.subtotal), 0);
+    const orderGoodsTotal = sumMoney(allItems.map((i) => Number(i.subtotal)));
     const returnedGoods = Number(returnReq.totalAmount);
     const proportion = orderGoodsTotal > 0 ? Math.min(1, returnedGoods / orderGoodsTotal) : 0;
 

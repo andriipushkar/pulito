@@ -14,17 +14,18 @@ function getNextRetryAt(retryCount: number): Date {
  * Failed notifications are retried with exponential backoff.
  * After MAX_RETRIES failures, notifications are marked as dead letters.
  */
-export async function processNotificationQueue(): Promise<{ sent: number; failed: number; deadLetters: number }> {
+export async function processNotificationQueue(): Promise<{
+  sent: number;
+  failed: number;
+  deadLetters: number;
+}> {
   const now = new Date();
 
   const notifications = await prisma.userNotification.findMany({
     where: {
       dispatched: false,
       retryCount: { lt: MAX_RETRIES },
-      OR: [
-        { nextRetryAt: null },
-        { nextRetryAt: { lte: now } },
-      ],
+      OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
       createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) }, // last 48h
     },
     include: {
@@ -33,7 +34,6 @@ export async function processNotificationQueue(): Promise<{ sent: number; failed
           id: true,
           email: true,
           telegramChatId: true,
-          viberUserId: true,
           notificationPrefs: true,
         },
       },
@@ -53,9 +53,14 @@ export async function processNotificationQueue(): Promise<{ sent: number; failed
     let lastError: string | undefined;
 
     // Map notification type to preference keys
-    const emailPrefKey = type === 'order_status' ? 'email_orders' : type === 'promo' ? 'email_promo' : 'email_orders';
-    const tgPrefKey = type === 'order_status' ? 'telegram_orders' : type === 'promo' ? 'telegram_promo' : 'telegram_orders';
-    const viberPrefKey = type === 'order_status' ? 'viber_orders' : type === 'promo' ? 'viber_promo' : 'viber_orders';
+    const emailPrefKey =
+      type === 'order_status' ? 'email_orders' : type === 'promo' ? 'email_promo' : 'email_orders';
+    const tgPrefKey =
+      type === 'order_status'
+        ? 'telegram_orders'
+        : type === 'promo'
+          ? 'telegram_promo'
+          : 'telegram_orders';
 
     // Email notification
     const shouldEmail = prefs[emailPrefKey] !== false;
@@ -88,31 +93,12 @@ export async function processNotificationQueue(): Promise<{ sent: number; failed
             Number(notification.user.telegramChatId),
             notification.title,
             notification.message,
-            notification.link
+            notification.link,
           );
         }
         channelSent = true;
       } catch (err) {
         lastError = `telegram: ${err instanceof Error ? err.message : 'unknown'}`;
-      }
-    }
-
-    // Viber notification
-    const shouldViber = prefs[viberPrefKey] !== false;
-    if (shouldViber && notification.user.viberUserId) {
-      try {
-        if (type !== 'order_status') {
-          const { sendViberNotification } = await import('./viber');
-          await sendViberNotification(
-            notification.user.id,
-            notification.title,
-            notification.message,
-            notification.link
-          );
-        }
-        channelSent = true;
-      } catch (err) {
-        lastError = `viber: ${err instanceof Error ? err.message : 'unknown'}`;
       }
     }
 

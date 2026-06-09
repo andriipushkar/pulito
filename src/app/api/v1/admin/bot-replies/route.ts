@@ -13,7 +13,7 @@ const createSchema = z.object({
   // Must match what bot-auto-reply.ts checks. An unknown triggerType means
   // the rule will never fire — but the admin would see it as "active".
   triggerType: z.enum(['partial', 'exact', 'regex']).default('partial'),
-  platform: z.enum(['all', 'telegram', 'viber', 'instagram', 'facebook']).default('all'),
+  platform: z.enum(['all', 'telegram', 'instagram', 'facebook']).default('all'),
   priority: z.number().int().min(0).max(1000).default(0),
   isActive: z.boolean().default(true),
 });

@@ -9,14 +9,11 @@ export function formatPrice(price: number): string {
 }
 
 /**
- * Sum an array of UAH money amounts without binary-float drift. Each value is
- * rounded to integer kopecks before summing, so e.g. 0.1 + 0.2 yields 0.30
- * (not 0.30000000000000004) and long invoice item lists don't accumulate the
- * 1-2 kopeck error that plain `reduce((s, x) => s + x, 0)` produces.
+ * Sum an array of UAH money amounts without binary-float drift. Canonical
+ * implementation lives in {@link module:utils/money}; re-exported here for the
+ * many display/template call sites that import it from `format`.
  */
-export function sumMoney(amounts: number[]): number {
-  return amounts.reduce((kopecks, amount) => kopecks + Math.round(amount * 100), 0) / 100;
-}
+export { sumMoney } from '@/utils/money';
 
 /**
  * Escape a string for safe interpolation into an HTML document (e.g. email
@@ -53,23 +50,32 @@ export function formatDateTime(date: Date | string): string {
 }
 
 /**
+ * Returns the Kyiv calendar date of a given instant as a YYYY-MM-DD string.
+ * Use for bucketing rows into Kyiv days — `date.toISOString().slice(0,10)` is
+ * UTC-based, so an order placed Kyiv 00:00–03:00 buckets into the wrong day.
+ */
+export function kyivDateIso(date: Date): string {
+  return date.toLocaleDateString('sv-SE', { timeZone: KYIV_TZ });
+}
+
+/**
  * Returns today's Kyiv date as a YYYY-MM-DD string. Prefer this over
  * `todayKyiv().toISOString().slice(0,10)` — the ISO form is UTC-based, so
  * between Kyiv 00:00 and Kyiv 02–03:00 it yields yesterday's date.
  */
 export function todayKyivIso(): string {
-  return new Date().toLocaleDateString('sv-SE', { timeZone: KYIV_TZ });
+  return kyivDateIso(new Date());
 }
 
 /**
- * Returns "today midnight" in Kyiv timezone as a UTC Date.
- * Use for analytics/cron date boundaries so "today" always means Kyiv day.
+ * Returns the UTC Date corresponding to Kyiv 00:00 of the given calendar date
+ * ("YYYY-MM-DD"). DST-aware (Kyiv is UTC+2 in winter, UTC+3 in summer).
+ * Use to turn a "YYYY-MM-DD" filter into a Kyiv day boundary instead of a UTC
+ * one — otherwise an order placed 00:00–03:00 Kyiv falls into the wrong day.
  */
-export function todayKyiv(): Date {
-  const now = new Date();
-  const kyivDate = now.toLocaleDateString('sv-SE', { timeZone: KYIV_TZ }); // "YYYY-MM-DD"
-  // Determine Kyiv UTC offset via Intl (handles DST automatically)
-  const noonUtc = new Date(`${kyivDate}T12:00:00Z`);
+export function kyivMidnightUtc(dateStr: string): Date {
+  // Determine Kyiv UTC offset on that date via Intl (handles DST automatically).
+  const noonUtc = new Date(`${dateStr}T12:00:00Z`);
   const kyivHourAtNoonUtc = Number(
     new Intl.DateTimeFormat('en-US', {
       timeZone: KYIV_TZ,
@@ -78,10 +84,29 @@ export function todayKyiv(): Date {
     }).format(noonUtc),
   );
   const offsetHours = kyivHourAtNoonUtc - 12; // +2 (winter) or +3 (summer)
-  // Kyiv midnight in UTC = subtract offset from midnight
-  const midnight = new Date(`${kyivDate}T00:00:00Z`);
+  // Kyiv midnight in UTC = midnight minus the offset.
+  const midnight = new Date(`${dateStr}T00:00:00Z`);
   midnight.setUTCHours(-offsetHours);
   return midnight;
+}
+
+/**
+ * Returns "today midnight" in Kyiv timezone as a UTC Date.
+ * Use for analytics/cron date boundaries so "today" always means Kyiv day.
+ */
+export function todayKyiv(): Date {
+  return kyivMidnightUtc(todayKyivIso());
+}
+
+/**
+ * Exclusive upper bound for an inclusive "to" date ("YYYY-MM-DD"): Kyiv 00:00 of
+ * the day *after* dateStr. Pair with `lt` so a date-range filter includes every
+ * record on dateStr's Kyiv day (and no part of the next one).
+ */
+export function kyivNextDayUtc(dateStr: string): Date {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return kyivMidnightUtc(d.toISOString().slice(0, 10));
 }
 
 /**

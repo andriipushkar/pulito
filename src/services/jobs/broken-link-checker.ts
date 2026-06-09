@@ -60,7 +60,13 @@ export interface SlugIssue {
   name: string;
   slug: string;
   type: 'product' | 'category';
-  reasons: ('uppercase' | 'non_ascii' | 'special_chars' | 'too_long' | 'leading_or_trailing_dash')[];
+  reasons: (
+    | 'uppercase'
+    | 'non_ascii'
+    | 'special_chars'
+    | 'too_long'
+    | 'leading_or_trailing_dash'
+  )[];
 }
 
 export interface BrokenLinkReport {
@@ -96,18 +102,27 @@ export async function checkBrokenLinks(options: CheckOptions = {}): Promise<Brok
   const [allRedirects, products, categories] = await Promise.all([
     prisma.slugRedirect.findMany(),
     prisma.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
       select: {
         id: true,
         name: true,
         slug: true,
         content: {
-          select: { seoTitle: true, seoDescription: true, fullDescription: true, shortDescription: true },
+          select: {
+            seoTitle: true,
+            seoDescription: true,
+            fullDescription: true,
+            shortDescription: true,
+          },
         },
         images: { select: { id: true, altText: true, isMain: true } },
       },
     }),
+    // Only visible, non-deleted categories: hidden/soft-deleted ones aren't
+    // indexed, so flagging their missing SEO is noise (e.g. the deleted
+    // "Цукерки" test category kept showing up).
     prisma.category.findMany({
+      where: { isVisible: true, deletedAt: null },
       select: { id: true, name: true, slug: true, seoTitle: true, seoDescription: true },
     }),
   ]);
@@ -118,7 +133,8 @@ export async function checkBrokenLinks(options: CheckOptions = {}): Promise<Brok
   // ─── Orphaned redirects ────────────────────────────────────────────────
   const orphanedRedirects: OrphanedRedirect[] = [];
   for (const r of allRedirects) {
-    const targetSet = r.type === 'product' ? productSlugs : r.type === 'category' ? categorySlugs : null;
+    const targetSet =
+      r.type === 'product' ? productSlugs : r.type === 'category' ? categorySlugs : null;
     if (!targetSet) continue;
     if (!targetSet.has(r.newSlug)) {
       orphanedRedirects.push({ id: r.id, oldSlug: r.oldSlug, newSlug: r.newSlug, type: r.type });
@@ -164,7 +180,14 @@ export async function checkBrokenLinks(options: CheckOptions = {}): Promise<Brok
     if (gap) allGaps.push(gap);
   }
   for (const c of categories) {
-    const gap = evaluateGap(c.id, c.name, c.slug, 'category', c.seoTitle ?? '', c.seoDescription ?? '');
+    const gap = evaluateGap(
+      c.id,
+      c.name,
+      c.slug,
+      'category',
+      c.seoTitle ?? '',
+      c.seoDescription ?? '',
+    );
     if (gap) allGaps.push(gap);
   }
 
@@ -199,11 +222,23 @@ export async function checkBrokenLinks(options: CheckOptions = {}): Promise<Brok
   const imageGapsAll: ImageGap[] = [];
   for (const p of products) {
     if (p.images.length === 0) {
-      imageGapsAll.push({ id: p.id, name: p.name, slug: p.slug, issue: 'no_images', imagesWithoutAlt: 0 });
+      imageGapsAll.push({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        issue: 'no_images',
+        imagesWithoutAlt: 0,
+      });
       continue;
     }
     if (!p.images.some((img) => img.isMain)) {
-      imageGapsAll.push({ id: p.id, name: p.name, slug: p.slug, issue: 'no_main_image', imagesWithoutAlt: 0 });
+      imageGapsAll.push({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        issue: 'no_main_image',
+        imagesWithoutAlt: 0,
+      });
       continue;
     }
     const noAlt = p.images.filter((img) => !img.altText?.trim()).length;
@@ -242,7 +277,7 @@ export async function checkBrokenLinks(options: CheckOptions = {}): Promise<Brok
   ): SlugIssue | null => {
     const reasons: SlugIssue['reasons'] = [];
     if (/[A-Z]/.test(slug)) reasons.push('uppercase');
-     
+
     if (/[^\x00-\x7f]/.test(slug)) reasons.push('non_ascii');
     if (/[^a-zA-Z0-9-]/.test(slug)) reasons.push('special_chars');
     if (slug.length > SLUG_MAX_LENGTH) reasons.push('too_long');

@@ -35,4 +35,18 @@ describe('createSlug', () => {
     const slug = createSlug('Persil Power Gel гель для прання');
     expect(slug).toBe('persil-power-gel-gel-dlya-prannya');
   });
+
+  it('should cap long slugs at the default max length, on a word boundary', () => {
+    const long =
+      'Еліксир парфумований для ополіскування тканин Coccolino Elixir Campanula Selvatica Bergamotto 342 мл';
+    const slug = createSlug(long);
+    expect(slug.length).toBeLessThanOrEqual(70);
+    expect(slug.endsWith('-')).toBe(false);
+  });
+
+  it('should respect a custom max length', () => {
+    const slug = createSlug('Persil Power Gel гель для прання кольорових тканин', 20);
+    expect(slug.length).toBeLessThanOrEqual(20);
+    expect(slug.startsWith('persil')).toBe(true);
+  });
 });

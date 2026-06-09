@@ -197,7 +197,11 @@ export default function SearchBar() {
       const res = await fetch(`/api/v1/products/search?q=${encodeURIComponent(q)}`);
       const json = await res.json();
       if (json.success) {
-        setResults(json.data);
+        // Normalize shape so a missing field can never white-screen the page.
+        setResults({
+          products: json.data?.products ?? [],
+          categories: json.data?.categories ?? [],
+        });
         setIsOpen(true);
         setShowSuggestions(false);
       }

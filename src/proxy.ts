@@ -4,6 +4,7 @@ import { checkApiRateLimit } from '@/middleware/api-rate-limit';
 import { getRouteLimit } from '@/middleware/rate-limit-config';
 import { routing } from '@/i18n/routing';
 import { getSettings } from '@/services/settings';
+import { PRODUCT_SLUG_REDIRECTS, CATEGORY_SLUG_REDIRECTS } from '@/generated/slug-redirects';
 
 // next-intl handles locale detection + URL rewrites for [locale] segment.
 // Paths under these prefixes never carry a locale and must skip i18n.
@@ -37,6 +38,7 @@ function isI18nPath(pathname: string): boolean {
     pathname === '/sitemap.xml' ||
     pathname === '/robots.txt' ||
     pathname === '/llms.txt' ||
+    pathname === '/indexnow-key.txt' ||
     pathname === '/feed.xml' ||
     pathname === '/manifest.json' ||
     pathname === '/manifest.webmanifest' ||
@@ -70,6 +72,10 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/v1/cron/',
   '/api/v1/metrics',
   '/api/v1/events',
+  // Diagnostic crash reporter — fired from error boundaries via sendBeacon,
+  // which cannot set X-Requested-With. Handler only writes capped strings to the
+  // server log, so a forged request is harmless. (Temporary — see log-client-error.)
+  '/api/v1/log-client-error',
 ];
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -155,6 +161,29 @@ function checkCsrf(request: NextRequest): NextResponse | null {
 
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Old → new slug 308 redirects, handled here (before route caching) so renamed
+  // products/categories don't 404 on old URLs. The maps are snapshotted from the
+  // slugRedirect table at build time (scripts/gen-slug-redirects.cjs, wired into
+  // deploy.sh), keeping this a cheap in-memory lookup with no per-request DB hit.
+  const productSlugMatch = pathname.match(/^(\/(?:uk|en|pl|ro))?\/product\/([^/]+)\/?$/);
+  if (productSlugMatch) {
+    const newSlug = PRODUCT_SLUG_REDIRECTS[decodeURIComponent(productSlugMatch[2])];
+    if (newSlug) {
+      const url = request.nextUrl.clone();
+      url.pathname = `${productSlugMatch[1] || ''}/product/${newSlug}`;
+      return NextResponse.redirect(url, 308);
+    }
+  }
+  if (/^(\/(?:uk|en|pl|ro))?\/catalog\/?$/.test(pathname)) {
+    const cat = request.nextUrl.searchParams.get('category');
+    const newCat = cat ? CATEGORY_SLUG_REDIRECTS[cat] : undefined;
+    if (newCat) {
+      const url = request.nextUrl.clone();
+      url.searchParams.set('category', newCat);
+      return NextResponse.redirect(url, 308);
+    }
+  }
 
   // Operational settings (maintenance flag + admin IP whitelist) now live in
   // the DB so the owner can flip them from /admin without a redeploy. Next 16

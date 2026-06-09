@@ -87,7 +87,11 @@ export class PromClient {
     }
   }
 
-  async createProduct(data: {
+  // Prom.ua has no product-creation API — new products are imported via the YML
+  // feed (/api/v1/feeds/prom.xml) in the Prom cabinet. We accept the same shape
+  // as other clients for call-site compatibility but never hit the API (an
+  // API "create" would silently no-op).
+  async createProduct(_data?: {
     name: string;
     description?: string;
     price: number;
@@ -96,49 +100,33 @@ export class PromClient {
     quantity?: number;
     images?: string[];
   }): Promise<{ success: boolean; externalId?: string; error?: string }> {
-    try {
-      const body = {
-        name: data.name,
-        description: data.description || '',
-        price: data.price,
-        currency: 'UAH',
-        sku: data.sku || '',
-        ...(data.barcode ? { barcode: data.barcode } : {}),
-        quantity_in_stock: data.quantity ?? 1,
-        status: 'on_display',
-        images: (data.images || []).slice(0, 12).map((url) => ({ url })),
-      };
-
-      const result = await this.request<{ id?: number; status?: string }>('products/edit', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-
-      if (result.id || result.status === 'ok') {
-        return { success: true, externalId: result.id ? String(result.id) : undefined };
-      }
-      return { success: false, error: 'Не вдалося створити товар' };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Prom.ua API error';
-      log.error('createProduct error', { error: message });
-      return { success: false, error: message };
-    }
+    void _data;
+    return {
+      success: false,
+      error:
+        'Prom.ua не створює товари через API — підключіть YML-фід (/api/v1/feeds/prom.xml) у кабінеті Prom → Імпорт.',
+    };
   }
 
   async updateProduct(
     externalId: string,
-    data: { name?: string; price?: number; quantity?: number; description?: string },
+    // name/description accepted for call-site compatibility but ignored — Prom's
+    // products/edit cannot change them (they come from the YML import feed).
+    data: { name?: string; description?: string; price?: number; quantity?: number },
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const body: Record<string, unknown> = { id: Number(externalId) };
-      if (data.name) body.name = data.name;
-      if (data.description) body.description = data.description;
-      if (data.price !== undefined) body.price = data.price;
-      if (data.quantity !== undefined) body.quantity_in_stock = data.quantity;
+      // products/edit takes {products:[{id,...}]} and edits only price/presence/
+      // quantity/status. name/description/images come from the import feed.
+      const product: Record<string, unknown> = { id: Number(externalId) };
+      if (data.price !== undefined) product.price = data.price;
+      if (data.quantity !== undefined) {
+        product.quantity_in_stock = data.quantity;
+        product.presence = data.quantity > 0 ? 'available' : 'not_available';
+      }
 
       await this.request('products/edit', {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify({ products: [product] }),
       });
 
       return { success: true };

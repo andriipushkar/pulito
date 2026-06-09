@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { percentOf, minMoney } from '@/utils/money';
 
 export class CouponError extends Error {
   statusCode: number;
@@ -101,12 +102,14 @@ export function calculateDiscount(
     // Defensive clamp: even if a legacy/imported coupon has value > 100,
     // we never produce a discount larger than the order amount itself.
     const pct = Math.min(Math.max(value, 0), 100);
-    const discount = (orderAmount * pct) / 100;
+    const discount = percentOf(orderAmount, pct);
     const max = coupon.maxDiscount ? Number(coupon.maxDiscount) : Infinity;
-    return Math.min(discount, max, orderAmount);
+    // minMoney can't take Infinity (toCents(Infinity) → NaN); fold the optional cap in first.
+    const capped = Number.isFinite(max) ? minMoney(discount, max) : discount;
+    return minMoney(capped, orderAmount);
   }
   if (coupon.type === 'fixed_amount') {
-    return Math.min(value, orderAmount);
+    return minMoney(value, orderAmount);
   }
   // free_delivery handled separately at checkout
   return 0;

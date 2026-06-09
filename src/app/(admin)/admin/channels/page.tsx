@@ -24,7 +24,6 @@ interface RecentPub {
   publishedAt: string;
   igMediaId: string | null;
   tgMessageId: string | null;
-  viberMsgToken: string | null;
 }
 
 export default function AdminChannelsPage() {
@@ -57,7 +56,7 @@ export default function AdminChannelsPage() {
   }
 
   // Show all known platforms + any extras returned by the API
-  const knownPlatforms = ['telegram', 'viber', 'instagram', 'facebook', 'tiktok'];
+  const knownPlatforms = ['telegram', 'instagram', 'facebook', 'tiktok'];
   const platforms = Array.from(new Set([...knownPlatforms, ...stats.map((s) => s.platform)]));
 
   return (

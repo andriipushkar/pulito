@@ -75,7 +75,6 @@ function RulesTab() {
   const PLATFORMS = [
     { value: '', label: t('platformAll') },
     { value: 'telegram', label: 'Telegram' },
-    { value: 'viber', label: 'Viber' },
   ];
   const RULE_TYPES = [
     { value: 'stop_words', label: t('ruleStopWords') },
@@ -226,7 +225,6 @@ function RulesTab() {
             className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
           >
             <option value="telegram">Telegram</option>
-            <option value="viber">Viber</option>
           </select>
         </div>
         <div>
@@ -405,7 +403,6 @@ function LogsTab() {
   const PLATFORMS = [
     { value: '', label: t('platformAll') },
     { value: 'telegram', label: 'Telegram' },
-    { value: 'viber', label: 'Viber' },
   ];
   const RULE_TYPES = [
     { value: 'stop_words', label: t('ruleStopWords') },

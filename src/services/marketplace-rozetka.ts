@@ -177,6 +177,7 @@ export class RozetkaClient {
     barcode?: string;
     quantity?: number;
     images?: string[];
+    categoryId?: number | string;
   }): Promise<{ success: boolean; externalId?: string; error?: string }> {
     try {
       const body = {
@@ -191,6 +192,7 @@ export class RozetkaClient {
         ...(data.barcode ? { barcode: data.barcode } : {}),
         quantity: data.quantity ?? 1,
         status: 'active',
+        ...(data.categoryId ? { category_id: Number(data.categoryId) || data.categoryId } : {}),
         images: (data.images || []).slice(0, 10).map((url) => ({ url })),
       };
 

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { todayKyiv, daysAgoKyiv } from '@/utils/format';
 
 export interface Anomaly {
   metric: string;
@@ -21,11 +22,9 @@ export interface Anomaly {
  * - conversion rate proxy: orders / unique-customers-today
  */
 export async function detectAnomalies(): Promise<Anomaly[]> {
-  const now = new Date();
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const start14 = new Date(startOfToday);
-  start14.setDate(start14.getDate() - 14);
+  // Kyiv day boundaries so "today" matches the dashboard's Kyiv-based stats.
+  const startOfToday = todayKyiv();
+  const start14 = daysAgoKyiv(14);
 
   const [todayAgg, todayCancelled, baseAgg, baseCancelled] = await Promise.all([
     prisma.order.aggregate({

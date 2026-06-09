@@ -7,7 +7,6 @@ import Container from '@/components/ui/Container';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import Pagination from '@/components/ui/Pagination';
 import BlogCard from '@/components/blog/BlogCard';
-import BreadcrumbJsonLd from '@/components/seo/BreadcrumbJsonLd';
 import PaginationLinks from '@/components/seo/PaginationLinks';
 import { getPublishedPosts, getCategories } from '@/services/blog';
 import { getLocale, getTranslations } from 'next-intl/server';
@@ -108,11 +107,6 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
         />
       )}
-      <BreadcrumbJsonLd
-        items={breadcrumbs
-          .filter((b) => b.href)
-          .map((b) => ({ name: b.label, url: `${baseUrl}${b.href}` }))}
-      />
       <PaginationLinks
         currentPage={page}
         totalPages={totalPages}

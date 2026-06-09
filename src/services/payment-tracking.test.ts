@@ -73,7 +73,15 @@ describe('handlePaymentCallback - tracking', () => {
         userId: 1,
         contactEmail: 'user@test.com',
         contactPhone: '+380991234567',
-        items: [{ productId: 1, productName: 'Product A', priceAtOrder: 250, quantity: 2 }],
+        items: [
+          {
+            productId: 1,
+            productCode: 'SKU-A',
+            productName: 'Product A',
+            priceAtOrder: 250,
+            quantity: 2,
+          },
+        ],
       });
     (prisma.payment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
@@ -95,6 +103,9 @@ describe('handlePaymentCallback - tracking', () => {
         orderId: 'ORD-100',
         totalAmount: 500,
         email: 'user@test.com',
+        // CAPI item id must be the product code (SKU), matching the browser
+        // pixel's content_ids — not the numeric productId.
+        items: [expect.objectContaining({ id: 'SKU-A' })],
       }),
     );
   });

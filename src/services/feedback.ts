@@ -4,6 +4,7 @@ import { sendEmail } from '@/services/email';
 import { sanitizeHtml } from '@/utils/sanitize';
 import { logger } from '@/lib/logger';
 import { isSafeUrl } from '@/utils/safe-url';
+import { kyivMidnightUtc, kyivNextDayUtc } from '@/utils/format';
 
 // Cap recipients to avoid a notification storm if many staff users get added
 // over time — 50 covers any realistic team and stops a runaway sendEmail loop.
@@ -137,13 +138,10 @@ export async function getFeedbackList(filters: {
     ];
   }
   if (filters.dateFrom || filters.dateTo) {
+    // Kyiv day boundaries; `lt` next-day so dateTo's full Kyiv day is included.
     where.createdAt = {};
-    if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
-    if (filters.dateTo) {
-      const end = new Date(filters.dateTo);
-      end.setHours(23, 59, 59, 999);
-      where.createdAt.lte = end;
-    }
+    if (filters.dateFrom) where.createdAt.gte = kyivMidnightUtc(filters.dateFrom);
+    if (filters.dateTo) where.createdAt.lt = kyivNextDayUtc(filters.dateTo);
   }
 
   const skip = (filters.page - 1) * filters.limit;

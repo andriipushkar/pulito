@@ -15,7 +15,6 @@ type ChannelConfigInput = Parameters<typeof saveChannelConfig>[1];
 
 const CHANNELS: ChannelType[] = [
   'telegram',
-  'viber',
   'facebook',
   'instagram',
   'tiktok',
@@ -28,13 +27,11 @@ const CHANNELS: ChannelType[] = [
 const telegramSchema = z.object({
   enabled: z.boolean(),
   botToken: z.string().min(1, "Токен бота обов'язковий"),
-  channelId: z.string().min(1, "ID каналу обов'язковий"),
+  // Optional: a store can use the bot purely for order notifications to
+  // managerChatId without a marketing channel. Channel autopost validates
+  // channelId presence separately, so an empty value here is safe.
+  channelId: z.string().optional(),
   managerChatId: z.string().optional(),
-});
-
-const viberSchema = z.object({
-  enabled: z.boolean(),
-  authToken: z.string().min(1, "Auth Token обов'язковий"),
 });
 
 const facebookSchema = z.object({
@@ -77,7 +74,6 @@ const marketplaceSchema = z.object({
 
 const schemas: Record<ChannelType, z.ZodSchema> = {
   telegram: telegramSchema,
-  viber: viberSchema,
   facebook: facebookSchema,
   instagram: instagramSchema,
   tiktok: tiktokSchema,

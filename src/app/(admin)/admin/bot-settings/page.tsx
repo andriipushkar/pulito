@@ -48,14 +48,33 @@ export default function AdminBotSettingsPage() {
   const [isSavingWelcome, setIsSavingWelcome] = useState(false);
   const [deleteWelcomeId, setDeleteWelcomeId] = useState<number | null>(null);
 
+  // Telegram promo autopost schedule (SiteSetting telegram_autopost).
+  interface AutopostConfig {
+    enabled: boolean;
+    hours: number[];
+    batchSize: number;
+    postPromo: boolean;
+    postNew: boolean;
+  }
+  const [autopost, setAutopost] = useState<AutopostConfig>({
+    enabled: false,
+    hours: [11],
+    batchSize: 5,
+    postPromo: true,
+    postNew: false,
+  });
+  const [isSavingAutopost, setIsSavingAutopost] = useState(false);
+
   const loadData = useCallback(async () => {
     try {
-      const [r1, r2] = await Promise.all([
+      const [r1, r2, r3] = await Promise.all([
         apiClient.get<AutoReply[]>('/api/v1/admin/bot-replies'),
         apiClient.get<WelcomeMessage[]>('/api/v1/admin/bot-welcome'),
+        apiClient.get<AutopostConfig>('/api/v1/admin/bot-settings/autopost'),
       ]);
       if (r1.success && r1.data) setReplies(r1.data);
       if (r2.success && r2.data) setWelcomes(r2.data);
+      if (r3.success && r3.data) setAutopost(r3.data);
     } catch {
       toast.error(t('loadError'));
     } finally {
@@ -63,6 +82,22 @@ export default function AdminBotSettingsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const toggleAutopostHour = (h: number) =>
+    setAutopost((a) => ({
+      ...a,
+      hours: a.hours.includes(h)
+        ? a.hours.filter((x) => x !== h)
+        : [...a.hours, h].sort((x, y) => x - y),
+    }));
+
+  const saveAutopost = async () => {
+    setIsSavingAutopost(true);
+    const res = await apiClient.put('/api/v1/admin/bot-settings/autopost', autopost);
+    setIsSavingAutopost(false);
+    if (res.success) toast.success(t('autopostSaved'));
+    else toast.error(res.error || t('errorGeneric'));
+  };
 
   useEffect(() => {
     loadData();
@@ -212,6 +247,97 @@ export default function AdminBotSettingsPage() {
     <div>
       <h2 className="mb-6 text-xl font-bold">{t('title')}</h2>
 
+      {/* Telegram promo autopost schedule */}
+      <div className="mb-8 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-5">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="text-2xl" aria-hidden="true">
+            📣
+          </span>
+          <div>
+            <h3 className="text-lg font-semibold">{t('autopostTitle')}</h3>
+            <p className="text-xs text-[var(--color-text-secondary)]">{t('autopostHint')}</p>
+          </div>
+        </div>
+
+        <label className="mb-4 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={autopost.enabled}
+            onChange={(e) => setAutopost((a) => ({ ...a, enabled: e.target.checked }))}
+            className="accent-[var(--color-primary)]"
+          />
+          {t('autopostEnable')}
+        </label>
+
+        <div className={autopost.enabled ? '' : 'pointer-events-none opacity-50'}>
+          <label className="mb-2 block text-xs font-medium text-[var(--color-text-secondary)]">
+            {t('autopostHours')}
+          </label>
+          <div className="mb-4 grid grid-cols-8 gap-1 sm:grid-cols-12">
+            {Array.from({ length: 24 }, (_, h) => {
+              const active = autopost.hours.includes(h);
+              return (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => toggleAutopostHour(h)}
+                  className={`rounded px-1 py-1 text-xs transition-colors ${
+                    active
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border)]'
+                  }`}
+                >
+                  {String(h).padStart(2, '0')}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mb-4 flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={autopost.postPromo}
+                onChange={(e) => setAutopost((a) => ({ ...a, postPromo: e.target.checked }))}
+                className="accent-[var(--color-primary)]"
+              />
+              {t('autopostPromo')}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={autopost.postNew}
+                onChange={(e) => setAutopost((a) => ({ ...a, postNew: e.target.checked }))}
+                className="accent-[var(--color-primary)]"
+              />
+              {t('autopostNew')}
+            </label>
+          </div>
+
+          <div className="max-w-[200px]">
+            <Input
+              label={t('autopostBatch')}
+              type="number"
+              min={1}
+              max={20}
+              value={autopost.batchSize}
+              onChange={(e) =>
+                setAutopost((a) => ({
+                  ...a,
+                  batchSize: Math.min(20, Math.max(1, Number(e.target.value) || 1)),
+                }))
+              }
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <Button size="sm" onClick={saveAutopost} isLoading={isSavingAutopost}>
+            {t('save')}
+          </Button>
+        </div>
+      </div>
+
       {/* Welcome Messages */}
       <div className="mb-8">
         <div className="mb-4 flex items-center justify-between">
@@ -232,7 +358,6 @@ export default function AdminBotSettingsPage() {
                   className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
                 >
                   <option value="telegram">Telegram</option>
-                  <option value="viber">Viber</option>
                 </select>
               </div>
               <Input
@@ -378,7 +503,6 @@ export default function AdminBotSettingsPage() {
                 >
                   <option value="all">{t('platformAll')}</option>
                   <option value="telegram">Telegram</option>
-                  <option value="viber">Viber</option>
                 </select>
               </div>
             </div>

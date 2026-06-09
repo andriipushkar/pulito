@@ -60,3 +60,8 @@ next-env.d.ts
 
 # Playwright generated storage state
 /e2e/.auth/
+
+# Env backups / dumps — never commit (contain real secrets)
+.env.bak*
+.env.*.bak
+*.env.bak

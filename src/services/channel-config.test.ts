@@ -71,7 +71,6 @@ describe('getAllChannelConfigs', () => {
     mockPrisma.siteSetting.findMany.mockResolvedValue([]);
     const configs = await getAllChannelConfigs();
     expect(configs).toHaveProperty('telegram');
-    expect(configs).toHaveProperty('viber');
     expect(configs).toHaveProperty('olx');
   });
 

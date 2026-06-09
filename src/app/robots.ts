@@ -11,7 +11,8 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           '/api/',
           '/admin/',
-          '/account/',
+          // без trailing slash → закриває і сам /account, і /account/*
+          '/account',
           '/auth/',
           '/checkout/',
           '/cart/',

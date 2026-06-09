@@ -235,8 +235,9 @@ export async function checkoutAction(
           userAgent: trackUserAgent,
           orderId: order.orderNumber,
           totalAmount: Number(order.totalAmount),
+          // Key on productCode (SKU) to match the browser pixel's content_ids.
           items: orderItems.map((i) => ({
-            id: String(i.productId),
+            id: i.productCode || String(i.productId),
             name: i.productName,
             price: i.price,
             quantity: i.quantity,

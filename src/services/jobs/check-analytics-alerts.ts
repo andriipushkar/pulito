@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { todayKyiv } from '@/utils/format';
 
 interface AlertCondition {
   metric: string;
@@ -7,8 +8,8 @@ interface AlertCondition {
 }
 
 async function getMetricValue(metric: string): Promise<number> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Kyiv midnight so "daily_*" alert metrics align with the Kyiv business day.
+  const today = todayKyiv();
 
   switch (metric) {
     case 'daily_revenue': {

@@ -68,23 +68,30 @@ interface SeoCheckResults {
   checkedAt: string;
 }
 
-async function headCheck(url: string, label: string): Promise<HttpIssue | null> {
+// `fetchUrl` is the internal (127.0.0.1) origin so the check bypasses the
+// public CDN/WAF (Cloudflare blocks datacenter IPs with 403, which used to make
+// every page look "broken"). `reportUrl` is the public URL shown in the report.
+async function headCheck(
+  fetchUrl: string,
+  reportUrl: string,
+  label: string,
+): Promise<HttpIssue | null> {
   try {
-    const res = await fetch(url, {
+    const res = await fetch(fetchUrl, {
       method: 'HEAD',
       signal: AbortSignal.timeout(HEAD_TIMEOUT_MS),
     });
     if (res.status >= 400) {
       return {
-        type: url.includes('/catalog?') ? 'broken_category' : 'broken_link',
-        url,
+        type: reportUrl.includes('/catalog?') ? 'broken_category' : 'broken_link',
+        url: reportUrl,
         status: res.status,
         details: label,
       };
     }
     return null;
   } catch {
-    return { type: 'unreachable', url, status: 0, details: label };
+    return { type: 'unreachable', url: reportUrl, status: 0, details: label };
   }
 }
 
@@ -112,20 +119,22 @@ async function runBatched<T, R>(
   return results;
 }
 
-async function canonicalCheck(url: string, expected: string): Promise<CanonicalIssue | null> {
+// Fetch via the internal origin (`fetchUrl`); compare/report against the public
+// `expected` URL (which is also what the rendered page's canonical points at).
+async function canonicalCheck(fetchUrl: string, expected: string): Promise<CanonicalIssue | null> {
   try {
-    const res = await fetch(url, {
+    const res = await fetch(fetchUrl, {
       method: 'GET',
       headers: { Accept: 'text/html' },
       signal: AbortSignal.timeout(HEAD_TIMEOUT_MS),
     });
     if (res.status >= 400) {
-      return { url, problem: 'fetch_failed', expected };
+      return { url: expected, problem: 'fetch_failed', expected };
     }
     // Read just the <head> region. canonical lives there and downloading the
     // full HTML wastes bandwidth on product pages with long galleries.
     const reader = res.body?.getReader();
-    if (!reader) return { url, problem: 'fetch_failed', expected };
+    if (!reader) return { url: expected, problem: 'fetch_failed', expected };
     const decoder = new TextDecoder();
     let html = '';
     while (html.length < 16_384) {
@@ -136,12 +145,12 @@ async function canonicalCheck(url: string, expected: string): Promise<CanonicalI
     }
     reader.cancel().catch(() => {});
     const match = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
-    if (!match) return { url, problem: 'missing', expected };
+    if (!match) return { url: expected, problem: 'missing', expected };
     const found = match[1];
-    if (found !== expected) return { url, problem: 'mismatch', expected, found };
+    if (found !== expected) return { url: expected, problem: 'mismatch', expected, found };
     return null;
   } catch {
-    return { url, problem: 'fetch_failed', expected };
+    return { url: expected, problem: 'fetch_failed', expected };
   }
 }
 
@@ -234,6 +243,12 @@ async function doSeoCheck() {
     } catch (err) {
       throw err instanceof Error ? err : new Error(String(err));
     }
+    // Self-requests go to the local Next server, NOT the public host — the CDN
+    // (Cloudflare) blocks our datacenter IP with 403, which made every page +
+    // the sitemap look broken. This is a fixed loopback target, not user input,
+    // so it's exempt from the public SSRF guard above.
+    const internalBase = `http://127.0.0.1:${env.PORT || 3000}`;
+
     const products = await prisma.product.findMany({
       // Skip soft-deleted products — their /product/{slug} routes 404, which
       // would otherwise dominate the broken-link alert.
@@ -250,13 +265,18 @@ async function doSeoCheck() {
     const productIssues = await runBatched<(typeof products)[number], HttpIssue>(
       products,
       HEAD_CONCURRENCY,
-      (p) => headCheck(`${appUrl}/product/${p.slug}`, p.name),
+      (p) => headCheck(`${internalBase}/product/${p.slug}`, `${appUrl}/product/${p.slug}`, p.name),
       HEAD_THROTTLE_MS,
     );
     const categoryIssues = await runBatched<(typeof categories)[number], HttpIssue>(
       categories,
       HEAD_CONCURRENCY,
-      (c) => headCheck(`${appUrl}/catalog?category=${c.slug}`, c.name),
+      (c) =>
+        headCheck(
+          `${internalBase}/catalog?category=${c.slug}`,
+          `${appUrl}/catalog?category=${c.slug}`,
+          c.name,
+        ),
       HEAD_THROTTLE_MS,
     );
 
@@ -265,15 +285,13 @@ async function doSeoCheck() {
     const canonicalIssues = await runBatched<(typeof canonicalSample)[number], CanonicalIssue>(
       canonicalSample,
       HEAD_CONCURRENCY,
-      (p) => {
-        const url = `${appUrl}/product/${p.slug}`;
-        return canonicalCheck(url, url);
-      },
+      // Fetch via internal origin; compare against the public canonical URL.
+      (p) => canonicalCheck(`${internalBase}/product/${p.slug}`, `${appUrl}/product/${p.slug}`),
       HEAD_THROTTLE_MS,
     );
 
-    // 4. Sitemap audit
-    const sitemap = await auditSitemap(`${appUrl}/sitemap.xml`);
+    // 4. Sitemap audit — fetch via internal origin (CDN 403s our datacenter IP).
+    const sitemap = await auditSitemap(`${internalBase}/sitemap.xml`);
 
     const results: SeoCheckResults = {
       scan,

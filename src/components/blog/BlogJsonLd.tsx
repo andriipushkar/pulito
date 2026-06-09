@@ -40,7 +40,7 @@ export default function BlogJsonLd({
       url: baseUrl,
       logo: {
         '@type': 'ImageObject',
-        url: `${baseUrl}/logo.png`,
+        url: `${baseUrl}/images/icon-512.png`,
       },
     },
     mainEntityOfPage: {

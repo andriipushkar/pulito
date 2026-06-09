@@ -24,7 +24,7 @@ vi.mock('@/services/channel-config', () => ({
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { getChannelConfig } from '@/services/channel-config';
-import { autoPostPromoToTelegram } from './promo-autopost';
+import { autoPostPromoToTelegram, autoPostNewToTelegram } from './promo-autopost';
 
 const mockFindMany = vi.mocked(prisma.product.findMany);
 const mockGet = vi.mocked(redis.get);
@@ -128,5 +128,41 @@ describe('autoPostPromoToTelegram', () => {
 
     const result = await autoPostPromoToTelegram(2);
     expect(result.posted).toBe(2);
+  });
+});
+
+describe('autoPostNewToTelegram', () => {
+  it('returns zero when channel is not configured', async () => {
+    mockGetConfig.mockResolvedValue({ enabled: false } as never);
+    const result = await autoPostNewToTelegram();
+    expect(result).toEqual({ scanned: 0, posted: 0, skipped: 0, errors: 0 });
+    expect(mockFindMany).not.toHaveBeenCalled();
+  });
+
+  it('posts a new arrival under the new:announced key', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: true,
+      botToken: 'tok',
+      channelId: '@chan',
+    } as never);
+    mockFindMany.mockResolvedValue([
+      { id: 7, name: 'Fresh', slug: 'fresh', code: 'NEW7', priceRetail: 150, imagePath: null },
+    ] as never);
+    mockGet.mockResolvedValue(null);
+    fetchMock.mockResolvedValue({ json: async () => ({ ok: true, result: { message_id: 5 } }) });
+
+    const result = await autoPostNewToTelegram(5);
+
+    expect(result.posted).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Separate dedup namespace from promos, so a product can be announced as
+    // "new" and later (on sale) as "promo".
+    expect(mockSetex).toHaveBeenCalledWith('new:announced:7', expect.any(Number), '1');
+    // Query must exclude promo products (they go through the promo path).
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ isActive: true, isPromo: false }),
+      }),
+    );
   });
 });

@@ -103,7 +103,7 @@ const SCHEMA = {
     seoTitle: {
       type: 'string',
       description:
-        'Магнітний SEO Title українською, 55-70 символів. Структура: [Бренд] [Назва] [об\'єм] — [ключова перевага]. Приклад: "Sanit Lux GT Засіб для чищення сантехніки 1л — pH 2, антинакип". Без слів "купити в Pulito Trade" (додаються автоматично).',
+        'Короткий SEO Title українською, МАКСИМУМ 58 символів (суворо рахуй символи!). Структура: [Бренд] [ключова відмінність/лінійка/варіант] [значення обʼєму, напр. "1л" або "750 мл"]. Приклад: "Coccolino Elixir Campanula Selvatica 342 мл". Прибери загальні наповнювачі ("засіб для", "для ополіскування тканин", "ароматизований гель для прання" — скороти до сутнього). ВАЖЛИВО: підставляй РЕАЛЬНЕ значення обʼєму з назви товару (напр. "1350 мл"), НІКОЛИ не пиши літерально слово "обʼєм" і не лишай голу цифру без одиниці. Якщо обʼєму немає в назві — пропусти його. Без слів "купити" та "Pulito Trade" (додаються автоматично).',
     },
     seoDescription: {
       type: 'string',
@@ -582,6 +582,73 @@ function escapeHtml(s: string): string {
 }
 
 // ── Main rule-based generator ─────────────────────────────────────────────
+// Generic filler words — dropped (lowest-value last) ONLY when the title is over
+// the limit. Distinctive tokens (brand lines, foreign words, colours, volume)
+// are not here, so they survive. Keeps no-AI fallback titles clean instead of a
+// blind mid-word slice.
+const TITLE_FILLER = new Set([
+  'еліксир',
+  'парфумований',
+  'парфуманий',
+  'ароматизований',
+  'ароматизовані',
+  'універсальний',
+  'універсальних',
+  'рідкий',
+  'мильний',
+  'делікатного',
+  'делікатних',
+  'для',
+  'ополіскування',
+  'тканин',
+  'тканини',
+  'білизни',
+  'засіб',
+  'гель',
+  'прання',
+  'порошок',
+  'пральний',
+  'кондиціонер',
+  'капсули',
+  'розпилювачем',
+  'з',
+  'у',
+  'та',
+  'і',
+  'технічний',
+  'захист',
+  'від',
+  'неприємного',
+  'запаху',
+  'догляду',
+  'щоденного',
+]);
+
+/** Build a concise (<=58 char) SEO title: [brand] [distinctive] [volume]. */
+export function buildConciseTitle(name: string, brandLabel: string, MAX = 58): string {
+  const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
+  const volM = name.match(/\b\d+(?:[.,]\d+)?\s?(?:мл|л|г|кг)\b/i);
+  const vol = volM ? ` ${clean(volM[0])}` : '';
+  let core = clean(
+    name
+      .replace(/\b\d+(?:[.,]\d+)?\s?(?:мл|л|г|кг)\b/gi, ' ')
+      .replace(/\b\d+\s?(?:прань|ополіскувань|полоскань|опол\.?|прання)\.?/gi, ' '),
+  );
+  if (brandLabel) {
+    const re = new RegExp(brandLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig');
+    core = clean(`${brandLabel} ${clean(core.replace(re, ' '))}`);
+  }
+  let words = core.split(' ').filter(Boolean);
+  const fits = () => (words.join(' ') + vol).length <= MAX;
+  if (!fits()) {
+    for (let i = words.length - 1; i >= 1 && !fits(); i--) {
+      if (TITLE_FILLER.has(words[i].toLowerCase().replace(/[«»",.]/g, ''))) words.splice(i, 1);
+    }
+  }
+  while (words.length > 2 && !fits()) words.pop();
+  return clean(words.join(' ') + vol);
+}
+
 function generateWithRules(input: GenerateInput): GeneratedContent {
   const { name, category, brand, priceRetail } = input;
   const cat = detectCategory(name, category);
@@ -595,18 +662,8 @@ function generateWithRules(input: GenerateInput): GeneratedContent {
   const cycles = estimateCycles(name, cat);
   const copy = CATEGORY_COPY[cat];
 
-  // SEO Title — магнітний з конкретною перевагою
-  const benefit = (() => {
-    if (cycles) return `до ${cycles} прань`;
-    if (volume) return `об'єм ${volume}`;
-    if (brandInfo) return brandInfo.signature.split(' ').slice(0, 4).join(' ');
-    return null;
-  })();
-  let seoTitle = brandLabel
-    ? `${brandLabel} ${name.replace(new RegExp(brandLabel, 'i'), '').trim()}`
-    : name;
-  if (benefit) seoTitle += ` — ${benefit}`;
-  seoTitle = seoTitle.slice(0, 70);
+  // SEO Title — concise: [brand] [distinctive variant] [volume], <=58 chars.
+  const seoTitle = buildConciseTitle(name, brandLabel);
 
   // SEO Description — переваги + цифри + CTA
   const seoBenefits: string[] = [];
@@ -697,7 +754,7 @@ function generateWithRules(input: GenerateInput): GeneratedContent {
   // Detect "test"/placeholder product to avoid making up content
   if (/^(тест|test|qwert|asdf|мав|тестов)/i.test(name) || name.length < 4) {
     return {
-      seoTitle: `${name} — Pulito Trade`.slice(0, 70),
+      seoTitle: name.slice(0, 58),
       seoDescription: `Технічна позиція в каталозі. Опис буде оновлено найближчим часом.`.slice(
         0,
         160,

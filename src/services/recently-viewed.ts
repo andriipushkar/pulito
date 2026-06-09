@@ -42,3 +42,27 @@ export async function getRecentlyViewed(userId: number, limit = 15) {
 export async function clearRecentlyViewed(userId: number) {
   await prisma.recentlyViewed.deleteMany({ where: { userId } });
 }
+
+// Merge a guest's localStorage history into the account on login. Filters to
+// products that still exist (otherwise the FK upsert throws) and caps the batch.
+export async function mergeRecentlyViewed(userId: number, productIds: number[]) {
+  const ids = Array.from(new Set(productIds)).slice(0, 50);
+  if (ids.length === 0) return;
+
+  const existing = await prisma.product.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const validIds = existing.map((p) => p.id);
+  if (validIds.length === 0) return;
+
+  await prisma.$transaction(
+    validIds.map((productId) =>
+      prisma.recentlyViewed.upsert({
+        where: { userId_productId: { userId, productId } },
+        update: { viewedAt: new Date() },
+        create: { userId, productId },
+      }),
+    ),
+  );
+}

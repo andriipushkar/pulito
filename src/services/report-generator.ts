@@ -15,6 +15,7 @@ import {
   drawFooter,
   getCompanyInfo,
 } from '@/lib/pdf-theme';
+import { kyivMidnightUtc, kyivNextDayUtc } from '@/utils/format';
 
 type TemplateKey =
   | 'sales_summary'
@@ -130,18 +131,14 @@ export async function generateReport(
 
 // ── Date helpers ──
 
-function buildDateRange(params: ReportParams): { gte?: Date; lte?: Date } {
-  const range: { gte?: Date; lte?: Date } = {};
-  if (params.dateFrom) {
-    const d = new Date(params.dateFrom);
-    if (!Number.isNaN(d.getTime())) range.gte = d;
+function buildDateRange(params: ReportParams): { gte?: Date; lt?: Date } {
+  // Kyiv day boundaries; `lt` next-day so dateTo's full Kyiv day is included.
+  const range: { gte?: Date; lt?: Date } = {};
+  if (params.dateFrom && !Number.isNaN(new Date(params.dateFrom).getTime())) {
+    range.gte = kyivMidnightUtc(params.dateFrom);
   }
-  if (params.dateTo) {
-    const d = new Date(params.dateTo);
-    if (!Number.isNaN(d.getTime())) {
-      d.setHours(23, 59, 59, 999);
-      range.lte = d;
-    }
+  if (params.dateTo && !Number.isNaN(new Date(params.dateTo).getTime())) {
+    range.lt = kyivNextDayUtc(params.dateTo);
   }
   return range;
 }
@@ -156,7 +153,7 @@ async function fetchSalesSummary(params: ReportParams): Promise<RowData[]> {
   const where: Prisma.OrderWhereInput = {
     status: { notIn: ['cancelled', 'returned'] },
   };
-  if (dateRange.gte || dateRange.lte) {
+  if (dateRange.gte || dateRange.lt) {
     where.createdAt = dateRange;
   }
 
@@ -206,7 +203,7 @@ async function fetchProductsStock(params: ReportParams): Promise<RowData[]> {
       _count: {
         select: {
           orderItems:
-            dateRange.gte || dateRange.lte
+            dateRange.gte || dateRange.lt
               ? {
                   where: {
                     order: { createdAt: dateRange, status: { notIn: ['cancelled', 'returned'] } },
@@ -234,7 +231,7 @@ async function fetchOrdersByStatus(params: ReportParams): Promise<RowData[]> {
   const dateRange = buildDateRange(params);
   const where: Prisma.OrderWhereInput = {};
   if (params.status) where.status = params.status as Prisma.EnumOrderStatusFilter;
-  if (dateRange.gte || dateRange.lte) where.createdAt = dateRange;
+  if (dateRange.gte || dateRange.lt) where.createdAt = dateRange;
 
   const orders = await prisma.order.findMany({
     where,
@@ -272,11 +269,11 @@ async function fetchClientsActivity(params: ReportParams): Promise<RowData[]> {
       createdAt: true,
       _count: {
         select: {
-          orders: dateRange.gte || dateRange.lte ? { where: { createdAt: dateRange } } : true,
+          orders: dateRange.gte || dateRange.lt ? { where: { createdAt: dateRange } } : true,
         },
       },
       orders: {
-        where: dateRange.gte || dateRange.lte ? { createdAt: dateRange } : {},
+        where: dateRange.gte || dateRange.lt ? { createdAt: dateRange } : {},
         select: { totalAmount: true },
       },
     },
@@ -303,7 +300,7 @@ async function fetchWholesaleReport(params: ReportParams): Promise<RowData[]> {
   const where: Prisma.OrderWhereInput = {
     clientType: 'wholesale',
   };
-  if (dateRange.gte || dateRange.lte) where.createdAt = dateRange;
+  if (dateRange.gte || dateRange.lt) where.createdAt = dateRange;
 
   const orders = await prisma.order.findMany({
     where,
@@ -331,7 +328,7 @@ async function fetchWholesaleReport(params: ReportParams): Promise<RowData[]> {
 async function fetchDeliveryReport(params: ReportParams): Promise<RowData[]> {
   const dateRange = buildDateRange(params);
   const where: Prisma.OrderWhereInput = {};
-  if (dateRange.gte || dateRange.lte) where.createdAt = dateRange;
+  if (dateRange.gte || dateRange.lt) where.createdAt = dateRange;
 
   const orders = await prisma.order.findMany({
     where,
@@ -367,7 +364,7 @@ async function fetchDeliveryReport(params: ReportParams): Promise<RowData[]> {
 async function fetchFinancialReport(params: ReportParams): Promise<RowData[]> {
   const dateRange = buildDateRange(params);
   const where: Prisma.OrderWhereInput = { status: { notIn: ['cancelled', 'returned'] } };
-  if (dateRange.gte || dateRange.lte) where.createdAt = dateRange;
+  if (dateRange.gte || dateRange.lt) where.createdAt = dateRange;
 
   const orders = await prisma.order.findMany({
     where,
@@ -403,7 +400,7 @@ async function fetchFinancialReport(params: ReportParams): Promise<RowData[]> {
 async function fetchReturnsCancellations(params: ReportParams): Promise<RowData[]> {
   const dateRange = buildDateRange(params);
   const where: Prisma.OrderWhereInput = { status: { in: ['cancelled', 'returned'] } };
-  if (dateRange.gte || dateRange.lte) where.createdAt = dateRange;
+  if (dateRange.gte || dateRange.lt) where.createdAt = dateRange;
 
   const orders = await prisma.order.findMany({
     where,
@@ -438,7 +435,7 @@ async function fetchWholesaleGroups(params: ReportParams): Promise<RowData[]> {
     status: { notIn: ['cancelled', 'returned'] },
     clientType: 'wholesale',
   };
-  if (dateRange.gte || dateRange.lte) orderWhere.createdAt = dateRange;
+  if (dateRange.gte || dateRange.lt) orderWhere.createdAt = dateRange;
 
   const groupLabels: Record<number, string> = {
     1: 'Дрібний опт',
@@ -460,7 +457,7 @@ async function fetchWholesaleGroups(params: ReportParams): Promise<RowData[]> {
       _count: {
         select: {
           orders:
-            dateRange.gte || dateRange.lte
+            dateRange.gte || dateRange.lt
               ? { where: { ...orderWhere } }
               : {
                   where: { status: { notIn: ['cancelled', 'returned'] }, clientType: 'wholesale' },
@@ -490,7 +487,7 @@ async function fetchProductLeaders(params: ReportParams): Promise<RowData[]> {
   const orderItemWhere: Prisma.OrderItemWhereInput = {
     order: { status: { notIn: ['cancelled', 'returned'] } },
   };
-  if (dateRange.gte || dateRange.lte) {
+  if (dateRange.gte || dateRange.lt) {
     orderItemWhere.order = { ...(orderItemWhere.order as object), createdAt: dateRange };
   }
 
@@ -535,7 +532,7 @@ async function fetchProductLeaders(params: ReportParams): Promise<RowData[]> {
 async function fetchManagerActivity(params: ReportParams): Promise<RowData[]> {
   const dateRange = buildDateRange(params);
   const historyWhere: Prisma.OrderStatusHistoryWhereInput = { changedBy: { not: null } };
-  if (dateRange.gte || dateRange.lte) historyWhere.createdAt = dateRange;
+  if (dateRange.gte || dateRange.lt) historyWhere.createdAt = dateRange;
 
   const statusChanges = await prisma.orderStatusHistory.findMany({
     where: historyWhere,
@@ -581,7 +578,7 @@ async function fetchManagerActivity(params: ReportParams): Promise<RowData[]> {
 async function fetchAcquisitionChannels(params: ReportParams): Promise<RowData[]> {
   const dateRange = buildDateRange(params);
   const where: Prisma.OrderWhereInput = {};
-  if (dateRange.gte || dateRange.lte) where.createdAt = dateRange;
+  if (dateRange.gte || dateRange.lt) where.createdAt = dateRange;
 
   const orders = await prisma.order.findMany({
     where,
@@ -623,7 +620,7 @@ async function fetchAcquisitionChannels(params: ReportParams): Promise<RowData[]
 async function fetchSummaryReport(params: ReportParams): Promise<RowData[]> {
   const dateRange = buildDateRange(params);
   const orderWhere: Prisma.OrderWhereInput = {};
-  if (dateRange.gte || dateRange.lte) orderWhere.createdAt = dateRange;
+  if (dateRange.gte || dateRange.lt) orderWhere.createdAt = dateRange;
 
   const [
     totalOrders,
@@ -652,7 +649,7 @@ async function fetchSummaryReport(params: ReportParams): Promise<RowData[]> {
       where: { ...orderWhere, status: { notIn: ['cancelled', 'returned'] } },
       _sum: { deliveryCost: true },
     }),
-    prisma.user.count({ where: dateRange.gte || dateRange.lte ? { createdAt: dateRange } : {} }),
+    prisma.user.count({ where: dateRange.gte || dateRange.lt ? { createdAt: dateRange } : {} }),
     prisma.user.count({ where: { role: 'wholesaler' } }),
     prisma.product.count({ where: { isActive: true } }),
     prisma.product.count({ where: { isActive: true, quantity: 0 } }),

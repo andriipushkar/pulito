@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { paginatedResponse, errorResponse } from '@/utils/api-response';
 import { filterArrayByRole } from '@/utils/role-filter';
 import { logger } from '@/lib/logger';
+import { kyivMidnightUtc, kyivNextDayUtc } from '@/utils/format';
 
 export const GET = withRole2fa(
   'admin',
@@ -40,22 +41,18 @@ export const GET = withRole2fa(
     if (dateFrom || dateTo) {
       const range: Record<string, Date> = {};
       if (dateFrom) {
-        const from = new Date(dateFrom);
-        if (Number.isNaN(from.getTime())) {
+        if (Number.isNaN(new Date(dateFrom).getTime())) {
           return errorResponse('Невалідне значення dateFrom', 400);
         }
-        range.gte = from;
+        // Calendar-day string → Kyiv 00:00 (DST-aware), not UTC midnight.
+        range.gte = kyivMidnightUtc(dateFrom);
       }
       if (dateTo) {
-        // "date" inputs are calendar-day strings; new Date(str) lands at 00:00
-        // UTC, which would exclude rows from the chosen day. Bump to the next
-        // day and use `lt` so the whole `dateTo` day is included.
-        const end = new Date(dateTo);
-        if (Number.isNaN(end.getTime())) {
+        if (Number.isNaN(new Date(dateTo).getTime())) {
           return errorResponse('Невалідне значення dateTo', 400);
         }
-        end.setUTCDate(end.getUTCDate() + 1);
-        range.lt = end;
+        // `lt` Kyiv-start of next day so the whole dateTo Kyiv day is included.
+        range.lt = kyivNextDayUtc(dateTo);
       }
       where.createdAt = range;
     }

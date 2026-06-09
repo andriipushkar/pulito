@@ -171,7 +171,7 @@ describe('getFeedbackList', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           createdAt: expect.objectContaining({
-            lte: expect.any(Date),
+            lt: expect.any(Date),
           }),
         }),
       }),
@@ -189,7 +189,7 @@ describe('getFeedbackList', () => {
         where: expect.objectContaining({
           createdAt: expect.objectContaining({
             gte: expect.any(Date),
-            lte: expect.any(Date),
+            lt: expect.any(Date),
           }),
         }),
       }),
@@ -215,7 +215,7 @@ describe('getFeedbackList', () => {
     expect(call.where.status).toBe('processed');
     expect(call.where.OR).toBeDefined();
     expect(call.where.createdAt.gte).toBeInstanceOf(Date);
-    expect(call.where.createdAt.lte).toBeInstanceOf(Date);
+    expect(call.where.createdAt.lt).toBeInstanceOf(Date);
   });
 
   it('calculates correct skip for page 3', async () => {

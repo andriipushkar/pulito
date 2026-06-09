@@ -3,7 +3,6 @@ import { isSafeUrl } from '@/utils/safe-url';
 
 export const PUBLICATION_CHANNELS = [
   'telegram',
-  'viber',
   'facebook',
   'instagram',
   'tiktok',
@@ -27,7 +26,7 @@ const imagePathSchema = z
   .optional()
   .nullable();
 
-// Button URLs land on Telegram inline keyboards / Viber rich cards. Anything
+// Button URLs land on Telegram inline keyboards. Anything
 // other than http(s) lets an admin (or compromised admin session) phish their
 // own audience.
 const buttonSchema = z.object({

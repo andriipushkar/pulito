@@ -217,8 +217,14 @@ export const POST = createApiHandler(
               phone: parsed.data.contactPhone,
               orderId: order.orderNumber,
               totalAmount: Number(order.totalAmount),
+              // Forward client IP + UA so Meta CAPI match quality stays high
+              // (the server-action checkout path already does this).
+              ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined,
+              userAgent: request.headers.get('user-agent') || undefined,
+              // Key on productCode (SKU) to match the browser pixel's
+              // content_ids — same fallback to id so both sides stay identical.
               items: orderItems.map((i) => ({
-                id: String(i.productId),
+                id: i.productCode || String(i.productId),
                 name: i.productName,
                 price: i.price,
                 quantity: i.quantity,
