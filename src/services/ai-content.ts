@@ -650,7 +650,7 @@ export function buildConciseTitle(name: string, brandLabel: string, MAX = 58): s
 }
 
 function generateWithRules(input: GenerateInput): GeneratedContent {
-  const { name, category, brand, priceRetail } = input;
+  const { name, category, brand } = input;
   const cat = detectCategory(name, category);
   const fabricType = detectFabricType(name);
   const aroma = detectAroma(name);

@@ -53,6 +53,7 @@ async function call(
   console.log(`\n${method} ${path} → ${res.status}`);
   console.log(JSON.stringify(json, null, 2));
   if (!res.ok) throw new Error(`Запит ${path} провалився: ${res.status}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- одноразовий дебаг-скрипт, відповіді API друкуються як є
   return json as any;
 }
 

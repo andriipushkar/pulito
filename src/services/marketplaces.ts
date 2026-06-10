@@ -1,6 +1,5 @@
 import { getChannelConfig, type MarketplaceConfig } from '@/services/channel-config';
 import { recordMarketplaceCall } from '@/services/marketplace-rate-limit';
-import type { MarketplacePlatform } from '@/services/marketplace-health';
 import {
   withMarketplaceRetry as withRetry,
   fetchMarketplace as fetchWithRateLimit,

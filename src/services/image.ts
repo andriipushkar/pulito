@@ -152,13 +152,11 @@ export async function processProductImage(
   // that has transparent background. Subsequent variants composite the PNG
   // onto PAD_BACKGROUND so the WebP output blends seamlessly with the site.
   let processBuffer = fileBuffer;
-  let processMime = mimeType;
   let bgRemoved = false;
   if (options.removeBg && (await isBackgroundRemovalEnabled())) {
     const cutout = await removeBackground(fileBuffer, mimeType);
     if (cutout) {
       processBuffer = cutout;
-      processMime = 'image/png';
       bgRemoved = true;
     }
   }

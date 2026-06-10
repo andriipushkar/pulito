@@ -31,10 +31,6 @@ interface LoyaltyDashboard {
   nextLevel: { name: string; minSpent: number } | null;
 }
 
-interface OrdersSummary {
-  totalOrders: number;
-}
-
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 12) return 'Доброго ранку';

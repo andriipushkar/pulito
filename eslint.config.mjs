@@ -7,6 +7,9 @@ const eslintConfig = [
   ...nextConfig,
   prettierConfig,
   {
+    // Scope to the same glob eslint-config-next registers its plugins for —
+    // referencing react-hooks rules outside it (e.g. *.cjs) crashes ESLint.
+    files: ['**/*.{js,jsx,mjs,ts,tsx,mts,cts}'],
     plugins: {
       '@typescript-eslint': tseslint.plugin,
     },

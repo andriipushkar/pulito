@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
-import Input from '@/components/ui/Input';
 import PalletDeliveryForm from '@/components/checkout/PalletDeliveryForm';
 import DeliveryCostEstimate from '@/components/checkout/DeliveryCostEstimate';
 import NovaPoshtaPicker from '@/components/checkout/NovaPoshtaPicker';
@@ -35,7 +34,6 @@ export default function StepDelivery({
 }: StepDeliveryProps) {
   const t = useTranslations('checkout');
   const tl = useTranslations('orderLabels');
-  const needsAddress = data.deliveryMethod === 'nova_poshta' || data.deliveryMethod === 'ukrposhta';
   // Form-only state: cityRef is needed to fetch warehouses but not persisted on the order.
   const [npCityRef, setNpCityRef] = useState('');
   const [npDeliveryType, setNpDeliveryType] = useState<'warehouse' | 'address'>('warehouse');

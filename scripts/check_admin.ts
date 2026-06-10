@@ -3,7 +3,7 @@ import { prisma } from '../src/lib/prisma';
 
 (async () => {
   const admins = await prisma.user.findMany({
-    where: { role: 'admin' as any },
+    where: { role: 'admin' },
     select: {
       id: true,
       email: true,
@@ -32,7 +32,7 @@ import { prisma } from '../src/lib/prisma';
 
   console.log('--- recent password_reset audit logs ---');
   const logs = await prisma.auditLog.findMany({
-    where: { actionType: 'password_reset' as any },
+    where: { actionType: 'password_reset' },
     orderBy: { createdAt: 'desc' },
     take: 10,
   });
