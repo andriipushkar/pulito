@@ -77,6 +77,26 @@ export async function getBrandsForCatalog(): Promise<
   return brands.map((b) => ({ slug: b.slug, name: b.name, count: b._count.products }));
 }
 
+/**
+ * Brands for the homepage "brands" block: visible, with at least one active
+ * product, logo/name/slug only. Empty brands are hidden here (unlike the
+ * catalog sidebar) — a homepage tile that leads to an empty listing is noise.
+ */
+export async function getBrandsForHomepage(
+  limit = 12,
+): Promise<Array<{ slug: string; name: string; logoPath: string | null }>> {
+  return prisma.brand.findMany({
+    where: {
+      deletedAt: null,
+      isVisible: true,
+      products: { some: { isActive: true, deletedAt: null } },
+    },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    take: limit,
+    select: { slug: true, name: true, logoPath: true },
+  });
+}
+
 export async function getBrandById(id: number) {
   return prisma.brand.findFirst({ where: { id, deletedAt: null } });
 }

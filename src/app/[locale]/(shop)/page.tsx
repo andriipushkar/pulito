@@ -5,6 +5,7 @@ import { getTranslations } from 'next-intl/server';
 import Container from '@/components/ui/Container';
 import AnimateOnScroll from '@/components/ui/AnimateOnScroll';
 import BannerSlider from '@/components/home/BannerSlider';
+import BrandStrip from '@/components/home/BrandStrip';
 import CategoryGrid from '@/components/home/CategoryGrid';
 import ProductCarousel from '@/components/product/ProductCarousel';
 import ProductCarouselSkeleton from '@/components/ui/ProductCarouselSkeleton';
@@ -44,15 +45,17 @@ const RecentlyViewedSection = dynamic(() => import('@/components/product/Recentl
 export const revalidate = 60;
 import { getCategories } from '@/services/category';
 import { getPromoProducts, getNewProducts, getPopularProducts } from '@/services/product';
+import { getBrandsForHomepage } from '@/services/brand';
 import { getHomepageBlocks, getSeoText } from '@/services/homepage';
 
 export default async function HomePage() {
-  const [categories, promoProducts, newProducts, popularProducts, blocks, seoText, t] =
+  const [categories, promoProducts, newProducts, popularProducts, brands, blocks, seoText, t] =
     await Promise.all([
       getCategories(),
       getPromoProducts(10),
       getNewProducts(10),
       getPopularProducts(10),
+      getBrandsForHomepage(),
       getHomepageBlocks(),
       getSeoText(),
       getTranslations('home'),
@@ -105,6 +108,7 @@ export default async function HomePage() {
           />
         </Suspense>
       ) : null,
+    brands: brands.length > 0 ? <BrandStrip title={t('brandsTitle')} brands={brands} /> : null,
     // Stored as already-sanitized HTML (admin PATCH runs sanitizeHtml before
     // persisting), so rendering it directly is safe. Hidden when empty so an
     // enabled-but-blank block doesn't leave a gap.
