@@ -177,7 +177,10 @@ export default function CouponsAdminPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <CouponToggle coupon={c} onToggled={load} />
+                    <div className="flex items-center justify-end gap-2">
+                      <CouponToggle coupon={c} onToggled={load} />
+                      <CouponDelete coupon={c} onDeleted={load} />
+                    </div>
                   </td>
                 </tr>
               ))}
