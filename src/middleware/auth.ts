@@ -20,11 +20,21 @@ function extractBearerToken(request: NextRequest): string | null {
   return header.slice(7);
 }
 
-export function withAuth(handler: AuthHandler) {
-  // The 2nd arg is typed to match Next's generated RouteContext
-  // ({ params: Promise<...> }) so the app-router route-type validator accepts
-  // these wrapped handlers. At runtime non-dynamic routes may omit it, so we
-  // still read it with optional chaining below.
+// Overload pair instead of one optional param: Next's route-type validator
+// infers the 2nd argument from the LAST call signature and rejects
+// `RouteContext | undefined`, so that signature keeps segmentData required.
+// Unit tests call wrappers through the first signature with the request only.
+// At runtime non-dynamic routes may omit it either way — it's read with
+// optional chaining.
+export type AuthedRouteHandler = {
+  (request: NextRequest): Promise<NextResponse>;
+  (
+    request: NextRequest,
+    segmentData: { params: Promise<Record<string, string>> },
+  ): Promise<NextResponse>;
+};
+
+export function withAuth(handler: AuthHandler): AuthedRouteHandler {
   return async (
     request: NextRequest,
     segmentData?: { params: Promise<Record<string, string>> },
@@ -65,9 +75,8 @@ type OptionalAuthHandler = (
   context: OptionalAuthContext & { params?: Promise<Record<string, string>> },
 ) => Promise<NextResponse>;
 
-export function withOptionalAuth(handler: OptionalAuthHandler) {
-  // See withAuth: 2nd arg shaped like Next's RouteContext for the validator;
-  // still accessed via optional chaining for non-dynamic routes at runtime.
+export function withOptionalAuth(handler: OptionalAuthHandler): AuthedRouteHandler {
+  // See AuthedRouteHandler above for why the overload pair exists.
   return async (
     request: NextRequest,
     segmentData?: { params: Promise<Record<string, string>> },

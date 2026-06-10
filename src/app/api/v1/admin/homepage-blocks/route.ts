@@ -19,7 +19,7 @@ export interface HomepageBlock {
 // Schema version stored alongside blocks so we can migrate the JSON in
 // place when the shape changes. Bump this whenever HomepageBlock gains a
 // new field that needs a fill-in default.
-export const HOMEPAGE_BLOCKS_VERSION = 1;
+const HOMEPAGE_BLOCKS_VERSION = 1;
 
 interface HomepageBlocksDoc {
   version: number;

@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { errorResponse } from '@/utils/api-response';
 import { checkRateLimit, RATE_LIMITS } from '@/services/rate-limit';
+import type { AuthedRouteHandler } from '@/middleware/auth';
 
 export interface ApiKeyContext {
   apiKeyId: number;
@@ -24,7 +25,10 @@ function hashApiKey(key: string): string {
  * validates it against the ApiKey table, checks permissions, and updates lastUsedAt.
  */
 export function withApiKey(permissions?: string[]) {
-  return (handler: ApiKeyHandler) =>
+  // AuthedRouteHandler is an overload pair: Next's route-type validator reads
+  // the last call signature (required segmentData), tests and non-dynamic
+  // routes use the first. See src/middleware/auth.ts.
+  return (handler: ApiKeyHandler): AuthedRouteHandler =>
     async (
       request: NextRequest,
       segmentData?: { params?: Promise<Record<string, string>> },
