@@ -1461,3 +1461,182 @@ export async function generateForCategory(
   if (fromGemini) return fromGemini;
   return generateCategoryWithRules(input);
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// Social-media post generation (for /admin/publications)
+// ══════════════════════════════════════════════════════════════════════════
+
+export interface GenerateSocialInput {
+  productName: string;
+  brand?: string | null;
+  category?: string | null;
+  price?: number | null; // поточна ціна, грн
+  oldPrice?: number | null; // стара ціна — якщо є, пост подається як акція
+  productUrl?: string | null; // абсолютне посилання на товар
+  channels?: string[]; // telegram | facebook | instagram | tiktok — для адаптації тону
+  shortDescription?: string | null;
+  topic?: string | null; // довільна тема, якщо пост не про конкретний товар
+}
+
+export interface GeneratedSocialPost {
+  title: string;
+  content: string;
+  hashtags: string;
+  firstComment: string;
+}
+
+const SOCIAL_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: {
+      type: 'string',
+      description: 'Внутрішня назва публікації для адмінки, 30-60 символів, українською.',
+    },
+    content: {
+      type: 'string',
+      description:
+        'Текст поста українською 350-700 символів. Структура: хук-перший рядок (1 емодзі), ' +
+        '2-4 короткі абзаци або список переваг (можна "•"), заклик до дії з посиланням якщо воно надане. ' +
+        'БЕЗ хаштегів у тексті (вони окремим полем). БЕЗ HTML і markdown — простий текст з переносами рядків та емодзі (2-5 на пост).',
+    },
+    hashtags: {
+      type: 'string',
+      description:
+        'Рядок з 4-8 хаштегів через пробіл, українською/латиницею: бренд, категорія, призначення + #pulitotrade. Приклад: "#пральнийгель #dash #прання #побутовахімія #pulitotrade".',
+    },
+    firstComment: {
+      type: 'string',
+      description:
+        'Перший коментар для Instagram: 1-2 речення з деталлю (ціна/наявність/доставка) + посилання на товар якщо надане. До 200 символів.',
+    },
+  },
+  required: ['title', 'content', 'hashtags', 'firstComment'],
+  additionalProperties: false,
+} as const;
+
+const SOCIAL_GEMINI_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    title: { type: 'STRING', description: SOCIAL_SCHEMA.properties.title.description },
+    content: { type: 'STRING', description: SOCIAL_SCHEMA.properties.content.description },
+    hashtags: { type: 'STRING', description: SOCIAL_SCHEMA.properties.hashtags.description },
+    firstComment: {
+      type: 'STRING',
+      description: SOCIAL_SCHEMA.properties.firstComment.description,
+    },
+  },
+  required: ['title', 'content', 'hashtags', 'firstComment'],
+} as const;
+
+const SOCIAL_SYSTEM_PROMPT = `Ти — SMM-редактор Pulito Trade, українського інтернет-магазину побутової хімії (Львів, доставка по Україні).
+
+ПРИНЦИПИ:
+- Жива природна українська, тон досвідченого продавця-сусіда: корисно, без пафосу й канцеляризмів.
+- Без кліше "відкрийте для себе", "незамінний помічник", "перетворить прибирання на задоволення".
+- Конкретика замість загальних слів: обʼєм, кількість прань, для чого саме засіб.
+- Якщо надано стару ціну — це акція: винеси вигоду в хук (але не вигадуй знижок сам).
+- Не вигадуй фактів, сертифікатів, відсотків. Не знаєш бренду — не фантазуй про нього.
+- Якщо канали містять telegram — текст без markdown/HTML; emoji ок.
+- Якщо назва товару тестова чи беззмістовна — короткий нейтральний пост-заглушка без вигадок.
+
+ФОРМАТ: ТІЛЬКИ JSON у заданій схемі.`;
+
+function buildSocialPrompt(input: GenerateSocialInput): string {
+  return [
+    input.topic
+      ? `Тема поста: "${input.topic}"`
+      : `Згенеруй пост про товар: "${input.productName}"`,
+    input.brand ? `Бренд: ${input.brand}` : null,
+    input.category ? `Категорія: ${input.category}` : null,
+    input.price ? `Ціна: ${input.price} грн` : null,
+    input.oldPrice ? `Стара ціна: ${input.oldPrice} грн (акція)` : null,
+    input.productUrl ? `Посилання на товар: ${input.productUrl}` : null,
+    input.shortDescription ? `Опис товару: "${input.shortDescription}"` : null,
+    input.channels?.length ? `Канали публікації: ${input.channels.join(', ')}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+async function socialWithClaude(input: GenerateSocialInput): Promise<GeneratedSocialPost | null> {
+  const client = await getClient();
+  if (!client) return null;
+  try {
+    const response = await client.messages.parse({
+      model: 'claude-opus-4-8',
+      max_tokens: 2048,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'high', format: { type: 'json_schema', schema: SOCIAL_SCHEMA } },
+      system: SOCIAL_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: buildSocialPrompt(input) }],
+    });
+    return response.parsed_output ? (response.parsed_output as GeneratedSocialPost) : null;
+  } catch (err) {
+    logger.error('[ai-content/social] Claude failed', { error: String(err) });
+    return null;
+  }
+}
+
+async function socialWithGemini(input: GenerateSocialInput): Promise<GeneratedSocialPost | null> {
+  const cfg = await getGeminiConfig();
+  if (!cfg) return null;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:generateContent?key=${encodeURIComponent(cfg.apiKey)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SOCIAL_SYSTEM_PROMPT }] },
+        contents: [{ role: 'user', parts: [{ text: buildSocialPrompt(input) }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: SOCIAL_GEMINI_SCHEMA,
+          temperature: 0.8,
+          maxOutputTokens: 2048,
+        },
+      }),
+    });
+    if (!res.ok) {
+      logger.error('[ai-content/social] Gemini failed', { status: res.status });
+      return null;
+    }
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) return null;
+    return JSON.parse(text) as GeneratedSocialPost;
+  } catch (err) {
+    logger.error('[ai-content/social] Gemini threw', { error: String(err) });
+    return null;
+  }
+}
+
+function socialWithRules(input: GenerateSocialInput): GeneratedSocialPost {
+  const name = input.topic || input.productName;
+  const priceLine = input.price ? `\n\nЦіна: ${input.price} грн.` : '';
+  const linkLine = input.productUrl ? `\nЗамовляйте: ${input.productUrl}` : '';
+  return {
+    title: name.slice(0, 60),
+    content: `🧼 ${name}${priceLine}${linkLine}\n\nДоставка по Україні.`,
+    hashtags: '#побутовахімія #pulitotrade',
+    firstComment: input.productUrl
+      ? `Деталі та замовлення: ${input.productUrl}`
+      : 'Деталі в дірект 📩',
+  };
+}
+
+export async function generateSocialPost(
+  input: GenerateSocialInput,
+  opts?: { provider?: AIProvider },
+): Promise<GeneratedSocialPost> {
+  const provider = await resolveAIProvider(opts?.provider);
+  if (provider === 'rules') return socialWithRules(input);
+  if (provider === 'gemini') return (await socialWithGemini(input)) || socialWithRules(input);
+  if (provider === 'claude') return (await socialWithClaude(input)) || socialWithRules(input);
+  const c = await socialWithClaude(input);
+  if (c) return c;
+  const g = await socialWithGemini(input);
+  if (g) return g;
+  return socialWithRules(input);
+}

@@ -3241,7 +3241,13 @@
       "channelColon": "Channel:",
       "headingLabel": "Title",
       "contentLabel": "Content",
-      "close": "Close"
+      "close": "Close",
+      "aiGenerateBtn": "✨ Generate with AI",
+      "aiGenerating": "Generating…",
+      "aiGenerated": "Post generated — review the text before publishing",
+      "aiGenerateError": "Failed to generate the post",
+      "aiNeedSource": "Pick a product or type a topic into the title field",
+      "aiGenerateHint": "Generate title, text and hashtags with AI (based on the selected product or the title-field topic)"
     },
     "ordersListPage": {
       "allStatuses": "All statuses",

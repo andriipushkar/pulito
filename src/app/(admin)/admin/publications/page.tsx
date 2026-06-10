@@ -163,6 +163,10 @@ export default function AdminPublicationsPage() {
     imagePath: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // AI generation: remembers the product picked via selectProduct so the
+  // "generate" button can ask the API for a product-specific post.
+  const [aiProductId, setAiProductId] = useState<number | null>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [showChannelContents, setShowChannelContents] = useState(false);
   const [channelContents, setChannelContents] = useState<Record<string, ChannelContent>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -398,6 +402,34 @@ export default function AdminPublicationsPage() {
     });
     setShowChannelContents(true);
     setShowProductPicker(false);
+    setAiProductId(p.id);
+  };
+
+  const handleAiGenerate = async () => {
+    const topic = form.title.trim();
+    if (!aiProductId && !topic) {
+      toast.error(t('aiNeedSource'));
+      return;
+    }
+    setAiGenerating(true);
+    const res = await apiClient.post<{
+      title: string;
+      content: string;
+      hashtags: string;
+      firstComment: string;
+    }>('/api/v1/admin/publications/ai-generate', {
+      productId: aiProductId ?? undefined,
+      topic: aiProductId ? undefined : topic,
+      channels: form.channels,
+    });
+    setAiGenerating(false);
+    if (res.success && res.data) {
+      const g = res.data;
+      setForm((f) => ({ ...f, title: g.title, content: g.content, hashtags: g.hashtags }));
+      toast.success(t('aiGenerated'));
+    } else {
+      toast.error(res.error || t('aiGenerateError'));
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -766,7 +798,18 @@ export default function AdminPublicationsPage() {
               placeholder={t('titlePh')}
             />
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium">{t('textLabel')}</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">{t('textLabel')}</label>
+                <button
+                  type="button"
+                  onClick={handleAiGenerate}
+                  disabled={aiGenerating}
+                  className="rounded-lg border border-[var(--color-primary)] px-2.5 py-1 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:opacity-50"
+                  title={t('aiGenerateHint')}
+                >
+                  {aiGenerating ? t('aiGenerating') : t('aiGenerateBtn')}
+                </button>
+              </div>
               <textarea
                 value={form.content}
                 onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}

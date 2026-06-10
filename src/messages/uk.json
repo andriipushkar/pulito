@@ -3241,7 +3241,13 @@
       "channelColon": "Канал:",
       "headingLabel": "Заголовок",
       "contentLabel": "Контент",
-      "close": "Закрити"
+      "close": "Закрити",
+      "aiGenerateBtn": "✨ Згенерувати AI",
+      "aiGenerating": "Генерую…",
+      "aiGenerated": "Пост згенеровано — перевірте текст перед публікацією",
+      "aiGenerateError": "Не вдалося згенерувати пост",
+      "aiNeedSource": "Оберіть товар або введіть тему в полі назви",
+      "aiGenerateHint": "Згенерувати назву, текст і хаштеги за допомогою AI (за обраним товаром або темою з поля назви)"
     },
     "ordersListPage": {
       "allStatuses": "Всі статуси",
