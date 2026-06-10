@@ -25,7 +25,14 @@ describe('PromClient', () => {
       mockFetch.mockResolvedValue(
         jsonResponse({
           products: [
-            { id: 1, name: 'Prod', price: 100, quantity_in_stock: 5, status: 'on_display', sku: 'S1' },
+            {
+              id: 1,
+              name: 'Prod',
+              price: 100,
+              quantity_in_stock: 5,
+              status: 'on_display',
+              sku: 'S1',
+            },
           ],
           _meta: { total: 100 },
         }),
@@ -41,9 +48,7 @@ describe('PromClient', () => {
     });
 
     it('should return empty items on error', async () => {
-      mockFetch.mockResolvedValue(
-        jsonResponse({ message: 'Unauthorized' }, 401),
-      );
+      mockFetch.mockResolvedValue(jsonResponse({ message: 'Unauthorized' }, 401));
 
       const result = await client.getProducts();
 
@@ -52,11 +57,9 @@ describe('PromClient', () => {
   });
 
   describe('createProduct', () => {
-    it('should return success with externalId', async () => {
-      mockFetch.mockResolvedValue(
-        jsonResponse({ id: 555, status: 'ok' }),
-      );
-
+    // Prom.ua has no product-creation API — products are imported via the YML
+    // feed, so createProduct must refuse without calling the network.
+    it('should return explanatory error and not call the API', async () => {
       const result = await client.createProduct({
         name: 'New Prom Product',
         price: 300,
@@ -65,53 +68,30 @@ describe('PromClient', () => {
         images: ['img.jpg'],
       });
 
-      expect(result).toEqual({ success: true, externalId: '555' });
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-      expect(body.name).toBe('New Prom Product');
-      expect(body.price).toBe(300);
-      expect(body.sku).toBe('NP-1');
-    });
-
-    it('should return success without externalId when status ok but no id', async () => {
-      mockFetch.mockResolvedValue(
-        jsonResponse({ status: 'ok' }),
-      );
-
-      const result = await client.createProduct({ name: 'No ID', price: 100 });
-
-      expect(result.success).toBe(true);
-      expect(result.externalId).toBeUndefined();
-    });
-
-    it('should return error on API failure', async () => {
-      mockFetch.mockResolvedValue(
-        jsonResponse({ message: 'Validation error' }, 400),
-      );
-
-      const result = await client.createProduct({ name: 'Bad', price: 0 });
-
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Validation error');
+      expect(result.externalId).toBeUndefined();
+      expect(result.error).toContain('YML');
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 
   describe('updateProduct', () => {
-    it('should update successfully', async () => {
+    it('should send products/edit payload with price only (name is feed-owned)', async () => {
       mockFetch.mockResolvedValue(jsonResponse({ status: 'ok' }));
 
       const result = await client.updateProduct('10', { name: 'Updated', price: 150 });
 
       expect(result).toEqual({ success: true });
       const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-      expect(body.id).toBe(10); // Number(externalId)
-      expect(body.name).toBe('Updated');
-      expect(body.price).toBe(150);
+      expect(body.products).toHaveLength(1);
+      expect(body.products[0].id).toBe(10); // Number(externalId)
+      expect(body.products[0].price).toBe(150);
+      // name/description come from the YML import feed and must not be sent
+      expect(body.products[0].name).toBeUndefined();
     });
 
     it('should return error on failure', async () => {
-      mockFetch.mockResolvedValue(
-        jsonResponse({ error: 'Product not found' }, 404),
-      );
+      mockFetch.mockResolvedValue(jsonResponse({ error: 'Product not found' }, 404));
 
       const result = await client.updateProduct('999', { price: 100 });
 
@@ -124,11 +104,12 @@ describe('PromClient', () => {
     it('should update quantity via updateProduct', async () => {
       mockFetch.mockResolvedValue(jsonResponse({ status: 'ok' }));
 
-      const result = await client.updateStock('ext-20', 99);
+      const result = await client.updateStock('20', 99);
 
       expect(result).toEqual({ success: true });
       const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-      expect(body.quantity_in_stock).toBe(99);
+      expect(body.products[0].quantity_in_stock).toBe(99);
+      expect(body.products[0].presence).toBe('available');
     });
   });
 

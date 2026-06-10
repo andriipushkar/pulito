@@ -38,7 +38,9 @@ describe('ServiceWorkerRegistration', () => {
           writable: true,
           configurable: true,
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   });
 
@@ -101,7 +103,10 @@ describe('ServiceWorkerRegistration', () => {
       await Promise.resolve();
     });
 
-    expect(mockRegister).toHaveBeenCalledWith('/sw.js');
+    // URL carries the build version so a new deploy forces re-install (see component)
+    expect(mockRegister).toHaveBeenCalledWith(
+      `/sw.js?v=${encodeURIComponent(process.env.NEXT_PUBLIC_SW_VERSION || 'v3')}`,
+    );
 
     await act(async () => {
       vi.advanceTimersByTime(60 * 60 * 1000);
