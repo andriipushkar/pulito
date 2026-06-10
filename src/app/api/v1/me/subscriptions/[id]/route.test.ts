@@ -7,11 +7,11 @@ vi.mock('@/services/rate-limit', () => ({
   checkLoginRateLimit: vi.fn().mockResolvedValue(undefined),
   recordFailedLogin: vi.fn().mockResolvedValue(undefined),
   clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
-  withRateLimit: () => (h) => h,
+  withRateLimit: () => (h: unknown) => h,
   RateLimitError: class RateLimitError extends Error {
     statusCode = 429;
     retryAfter;
-    constructor(m, s, r) {
+    constructor(m: string, s?: number, r?: number) {
       super(m);
       this.statusCode = s || 429;
       this.retryAfter = r;

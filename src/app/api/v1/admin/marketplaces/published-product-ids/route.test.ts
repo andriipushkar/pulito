@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextRequest } from 'next/server';
 
 const mockFindMany = vi.fn();
 
@@ -43,7 +44,9 @@ describe('GET /api/v1/admin/marketplaces/published-product-ids', () => {
       { productId: 3, channels: ['prom'] },
     ]);
 
-    const res = await GET();
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/admin/marketplaces/published-product-ids'),
+    );
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -61,7 +64,9 @@ describe('GET /api/v1/admin/marketplaces/published-product-ids', () => {
       { productId: 7, channels: ['olx', 'rozetka'] },
     ]);
 
-    const res = await GET();
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/admin/marketplaces/published-product-ids'),
+    );
     const body = await res.json();
 
     expect(body.data.olx).toEqual([7]);
@@ -74,7 +79,9 @@ describe('GET /api/v1/admin/marketplaces/published-product-ids', () => {
       { productId: 2, channels: ['facebook'] },
     ]);
 
-    const res = await GET();
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/admin/marketplaces/published-product-ids'),
+    );
     const body = await res.json();
 
     expect(body.data.olx).toEqual([1]);
@@ -87,7 +94,9 @@ describe('GET /api/v1/admin/marketplaces/published-product-ids', () => {
       { productId: 5, channels: ['olx'] },
     ]);
 
-    const res = await GET();
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/admin/marketplaces/published-product-ids'),
+    );
     const body = await res.json();
 
     expect(body.data.olx).toEqual([5]);
@@ -100,7 +109,9 @@ describe('GET /api/v1/admin/marketplaces/published-product-ids', () => {
       { productId: 3, channels: ['olx'] },
     ]);
 
-    const res = await GET();
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/admin/marketplaces/published-product-ids'),
+    );
     const body = await res.json();
 
     expect(body.data.olx).toEqual([3]);
@@ -109,7 +120,9 @@ describe('GET /api/v1/admin/marketplaces/published-product-ids', () => {
   it('returns 500 on database error', async () => {
     mockFindMany.mockRejectedValue(new Error('DB down'));
 
-    const res = await GET();
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/admin/marketplaces/published-product-ids'),
+    );
     expect(res.status).toBe(500);
   });
 });

@@ -27,7 +27,7 @@ export function withAuth(handler: AuthHandler) {
   // still read it with optional chaining below.
   return async (
     request: NextRequest,
-    segmentData: { params: Promise<Record<string, string>> },
+    segmentData?: { params: Promise<Record<string, string>> },
   ): Promise<NextResponse> => {
     const token = extractBearerToken(request);
     if (!token) {
@@ -70,7 +70,7 @@ export function withOptionalAuth(handler: OptionalAuthHandler) {
   // still accessed via optional chaining for non-dynamic routes at runtime.
   return async (
     request: NextRequest,
-    segmentData: { params: Promise<Record<string, string>> },
+    segmentData?: { params: Promise<Record<string, string>> },
   ): Promise<NextResponse> => {
     const token = extractBearerToken(request);
     if (!token) {
