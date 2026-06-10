@@ -451,6 +451,8 @@ export default function SettingsPage() {
               <p className="text-sm text-[var(--color-text-secondary)]">
                 Підключіть Google акаунт для швидкого входу.
               </p>
+              {/* OAuth must be a full-page navigation to the API route — <Link> would client-route and break the redirect */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
               <a
                 href="/api/v1/auth/google"
                 className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-md"

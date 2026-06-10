@@ -237,6 +237,8 @@ export default function RegisterPage() {
         <div className="flex-1 border-t border-[var(--color-border)]" />
       </div>
 
+      {/* OAuth must be a full-page navigation to the API route — <Link> would client-route and break the redirect */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a
         href="/api/v1/auth/google"
         className="flex w-full items-center justify-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
