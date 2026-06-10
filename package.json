@@ -9,6 +9,7 @@
     "build": "NODE_OPTIONS='--max-old-space-size=3072' next build --webpack",
     "start": "next start",
     "lint": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

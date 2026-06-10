@@ -23,6 +23,13 @@ LOG="/tmp/pulito-deploy.log"
 echo "[deploy] cleaning stale staging…"
 rm -rf "$STAGING"
 
+# Gate 0: full typecheck (includes tests — `next build` only checks app code).
+echo "[deploy] typecheck (tsc --noEmit)…"
+npx tsc --noEmit > /tmp/pulito-typecheck.log 2>&1 || {
+  echo "[deploy] TYPECHECK FAILED — not deploying. Tail:";
+  tail -20 /tmp/pulito-typecheck.log; exit 1;
+}
+
 echo "[deploy] building into $STAGING (this takes a few minutes)…"
 rm -f .next/cache/*.lock 2>/dev/null || true
 # Snapshot the slugRedirect table into a static map the Edge/Node middleware
