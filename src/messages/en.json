@@ -5395,7 +5395,9 @@
       "deleteReplyMsg": "Delete this auto-reply?",
       "deleteWelcomeTitle": "Delete welcome",
       "deleteWelcomeMsg": "Delete this welcome message?",
-      "deleteWelcomeConfirm": "Yes, delete"
+      "deleteWelcomeConfirm": "Yes, delete",
+      "autopostChannels": "Channels",
+      "autopostChannelsHint": "Where to post. Facebook/Instagram must be connected in Channel settings; Instagram only posts products that have a photo."
     },
     "adminLoyaltyPage": {
       "title": "Loyalty program",

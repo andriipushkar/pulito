@@ -55,13 +55,20 @@ export default function AdminBotSettingsPage() {
     batchSize: number;
     postPromo: boolean;
     postNew: boolean;
+    channels: string[];
   }
+  const AUTOPOST_CHANNELS = [
+    { key: 'telegram', label: 'Telegram' },
+    { key: 'facebook', label: 'Facebook' },
+    { key: 'instagram', label: 'Instagram' },
+  ];
   const [autopost, setAutopost] = useState<AutopostConfig>({
     enabled: false,
     hours: [11],
     batchSize: 5,
     postPromo: true,
     postNew: false,
+    channels: ['telegram'],
   });
   const [isSavingAutopost, setIsSavingAutopost] = useState(false);
 
@@ -312,6 +319,35 @@ export default function AdminBotSettingsPage() {
               />
               {t('autopostNew')}
             </label>
+          </div>
+
+          <div className="mb-4">
+            <p className="mb-1 text-sm font-medium">{t('autopostChannels')}</p>
+            <p className="mb-2 text-xs text-[var(--color-text-secondary)]">
+              {t('autopostChannelsHint')}
+            </p>
+            <div className="flex flex-wrap gap-4">
+              {AUTOPOST_CHANNELS.map((ch) => (
+                <label key={ch.key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={autopost.channels.includes(ch.key)}
+                    onChange={(e) =>
+                      setAutopost((a) => ({
+                        ...a,
+                        channels: e.target.checked
+                          ? [...a.channels, ch.key]
+                          : a.channels.length > 1
+                            ? a.channels.filter((c) => c !== ch.key)
+                            : a.channels, // keep at least one channel selected
+                      }))
+                    }
+                    className="accent-[var(--color-primary)]"
+                  />
+                  {ch.label}
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="max-w-[200px]">

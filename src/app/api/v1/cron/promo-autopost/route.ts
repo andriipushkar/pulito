@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import {
-  autoPostPromoToTelegram,
-  autoPostNewToTelegram,
+  autoPostPromo,
+  autoPostNew,
   getAutopostConfig,
   currentKyivHour,
 } from '@/services/jobs/promo-autopost';
@@ -42,13 +42,11 @@ export async function POST(request: NextRequest) {
         ? Math.min(batchSizeParam, 20)
         : config.batchSize;
 
-    // Post each enabled content type (promo + new arrivals), up to batchSize each.
-    const promo = config.postPromo
-      ? await autoPostPromoToTelegram(batchSize)
-      : { scanned: 0, posted: 0, skipped: 0, errors: 0 };
-    const fresh = config.postNew
-      ? await autoPostNewToTelegram(batchSize)
-      : { scanned: 0, posted: 0, skipped: 0, errors: 0 };
+    // Post each enabled content type (promo + new arrivals), up to batchSize
+    // each, to every channel enabled in the admin config.
+    const empty = { scanned: 0, posted: 0, skipped: 0, errors: 0, byChannel: {} };
+    const promo = config.postPromo ? await autoPostPromo(batchSize, config.channels) : empty;
+    const fresh = config.postNew ? await autoPostNew(batchSize, config.channels) : empty;
 
     return successResponse({
       promo,

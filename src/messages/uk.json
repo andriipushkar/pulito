@@ -5395,7 +5395,9 @@
       "deleteReplyMsg": "Видалити цю авто-відповідь?",
       "deleteWelcomeTitle": "Видалення привітання",
       "deleteWelcomeMsg": "Видалити це привітальне повідомлення?",
-      "deleteWelcomeConfirm": "Так, видалити"
+      "deleteWelcomeConfirm": "Так, видалити",
+      "autopostChannels": "Канали",
+      "autopostChannelsHint": "Куди постити. Facebook/Instagram мають бути підключені в Налаштуваннях каналів; Instagram постить лише товари з фото."
     },
     "adminLoyaltyPage": {
       "title": "Програма лояльності",

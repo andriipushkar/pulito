@@ -21,10 +21,24 @@ vi.mock('@/services/channel-config', () => ({
   getChannelConfig: vi.fn(),
 }));
 
+vi.mock('@/services/facebook', () => ({
+  publishTextPost: vi.fn(),
+  publishPhotoPost: vi.fn(),
+}));
+
+vi.mock('@/services/instagram', () => ({
+  publishImagePost: vi.fn(),
+}));
+
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { getChannelConfig } from '@/services/channel-config';
-import { autoPostPromoToTelegram, autoPostNewToTelegram } from './promo-autopost';
+import { publishPhotoPost } from '@/services/facebook';
+import { publishImagePost } from '@/services/instagram';
+import { autoPostPromo, autoPostPromoToTelegram, autoPostNewToTelegram } from './promo-autopost';
+
+const mockFbPhoto = vi.mocked(publishPhotoPost);
+const mockIgImage = vi.mocked(publishImagePost);
 
 const mockFindMany = vi.mocked(prisma.product.findMany);
 const mockGet = vi.mocked(redis.get);
@@ -43,7 +57,7 @@ describe('autoPostPromoToTelegram', () => {
     mockGetConfig.mockResolvedValue({ enabled: false } as never);
 
     const result = await autoPostPromoToTelegram();
-    expect(result).toEqual({ scanned: 0, posted: 0, skipped: 0, errors: 0 });
+    expect(result).toEqual({ scanned: 0, posted: 0, skipped: 0, errors: 0, byChannel: {} });
     expect(mockFindMany).not.toHaveBeenCalled();
   });
 
@@ -135,7 +149,7 @@ describe('autoPostNewToTelegram', () => {
   it('returns zero when channel is not configured', async () => {
     mockGetConfig.mockResolvedValue({ enabled: false } as never);
     const result = await autoPostNewToTelegram();
-    expect(result).toEqual({ scanned: 0, posted: 0, skipped: 0, errors: 0 });
+    expect(result).toEqual({ scanned: 0, posted: 0, skipped: 0, errors: 0, byChannel: {} });
     expect(mockFindMany).not.toHaveBeenCalled();
   });
 
@@ -164,5 +178,81 @@ describe('autoPostNewToTelegram', () => {
         where: expect.objectContaining({ isActive: true, isPromo: false }),
       }),
     );
+  });
+});
+
+describe('autoPostPromo (multi-channel)', () => {
+  const telegramCfg = { enabled: true, botToken: 'bt', channelId: '@ch' };
+  const facebookCfg = { enabled: true, pageAccessToken: 'fat', pageId: 'pid' };
+  const instagramCfg = { enabled: true, accessToken: 'iat', businessAccountId: 'big' };
+
+  it('posts to telegram and facebook with per-channel dedup keys', async () => {
+    mockGetConfig.mockImplementation(
+      async (ch: string) =>
+        (ch === 'telegram' ? telegramCfg : ch === 'facebook' ? facebookCfg : null) as never,
+    );
+    mockFindMany.mockResolvedValue([
+      { id: 1, name: 'Gel', slug: 'gel', code: 'P1', priceRetail: 100, imagePath: '/img/p1.webp' },
+    ] as never);
+    mockGet.mockResolvedValue(null);
+    fetchMock.mockResolvedValue({ json: async () => ({ ok: true }) });
+    mockFbPhoto.mockResolvedValue({ fbPostId: '1_2', fbPermalink: 'fb' } as never);
+
+    const result = await autoPostPromo(5, ['telegram', 'facebook']);
+
+    expect(result.posted).toBe(1); // one product, counted once across channels
+    expect(result.byChannel).toEqual({
+      telegram: { posted: 1, errors: 0 },
+      facebook: { posted: 1, errors: 0 },
+    });
+    // Telegram keeps the legacy key; facebook gets its own namespace.
+    expect(mockSetex).toHaveBeenCalledWith('promo:announced:1', expect.any(Number), '1');
+    expect(mockSetex).toHaveBeenCalledWith('promo:announced:fb:1', expect.any(Number), '1');
+    expect(mockFbPhoto).toHaveBeenCalledWith(
+      expect.stringContaining('/img/p1.webp'),
+      expect.any(String),
+    );
+  });
+
+  it('skips instagram for products without an image and keeps them retryable', async () => {
+    mockGetConfig.mockImplementation(
+      async (ch: string) => (ch === 'instagram' ? instagramCfg : null) as never,
+    );
+    mockFindMany.mockResolvedValue([
+      { id: 2, name: 'NoPhoto', slug: 'np', code: 'P2', priceRetail: 50, imagePath: null },
+    ] as never);
+    mockGet.mockResolvedValue(null);
+
+    const result = await autoPostPromo(5, ['instagram']);
+
+    expect(mockIgImage).not.toHaveBeenCalled();
+    expect(result.posted).toBe(0);
+    // No dedup key burned — the product can post once a photo is added.
+    expect(mockSetex).not.toHaveBeenCalled();
+  });
+
+  it('counts a channel failure as error but still posts the other channel', async () => {
+    mockGetConfig.mockImplementation(
+      async (ch: string) =>
+        (ch === 'telegram' ? telegramCfg : ch === 'facebook' ? facebookCfg : null) as never,
+    );
+    mockFindMany.mockResolvedValue([
+      { id: 3, name: 'Mix', slug: 'mix', code: 'P3', priceRetail: 70, imagePath: '/img/p3.webp' },
+    ] as never);
+    mockGet.mockResolvedValue(null);
+    fetchMock.mockResolvedValue({ json: async () => ({ ok: true }) });
+    mockFbPhoto.mockRejectedValue(new Error('fb down'));
+
+    const result = await autoPostPromo(5, ['telegram', 'facebook']);
+
+    expect(result.posted).toBe(1);
+    expect(result.errors).toBe(1);
+    expect(result.byChannel).toEqual({
+      telegram: { posted: 1, errors: 0 },
+      facebook: { posted: 0, errors: 1 },
+    });
+    expect(mockSetex).toHaveBeenCalledWith('promo:announced:3', expect.any(Number), '1');
+    // Failed channel keeps no dedup key — retried next run.
+    expect(mockSetex).not.toHaveBeenCalledWith('promo:announced:fb:3', expect.any(Number), '1');
   });
 });

@@ -24,9 +24,22 @@ const autopostSchema = z.object({
   // Content types to publish.
   postPromo: z.boolean().default(true),
   postNew: z.boolean().default(false),
+  // Channels to post to. Telegram-only by default (pre-multichannel configs).
+  channels: z
+    .array(z.enum(['telegram', 'facebook', 'instagram']))
+    .min(1)
+    .transform((c) => Array.from(new Set(c)))
+    .default(['telegram']),
 });
 
-const DEFAULTS = { enabled: false, hours: [11], batchSize: 5, postPromo: true, postNew: false };
+const DEFAULTS = {
+  enabled: false,
+  hours: [11],
+  batchSize: 5,
+  postPromo: true,
+  postNew: false,
+  channels: ['telegram'],
+};
 
 export const GET = withRole(
   'admin',
