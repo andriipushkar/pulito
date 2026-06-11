@@ -3,7 +3,20 @@ import prettierConfig from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
 const eslintConfig = [
-  { ignores: ['generated/**'] },
+  // Build outputs: eslint-config-next only ignores .next; the atomic-deploy
+  // dirs (.next-prev/.next-staging/.next-verify) hold minified bundles that
+  // flood lint with thousands of false findings.
+  {
+    ignores: [
+      'generated/**',
+      '.next/**',
+      '.next-prev/**',
+      '.next-staging/**',
+      '.next-verify/**',
+      'coverage/**',
+      'playwright-report/**',
+    ],
+  },
   ...nextConfig,
   prettierConfig,
   {
