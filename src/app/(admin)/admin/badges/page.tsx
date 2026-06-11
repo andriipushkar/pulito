@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
@@ -88,7 +88,7 @@ export default function AdminBadgesPage() {
     );
   })();
 
-  const loadBadges = () => {
+  const loadBadges = useCallback(() => {
     apiClient
       .get<Badge[]>('/api/v1/admin/badges')
       .then((res) => {
@@ -97,11 +97,11 @@ export default function AdminBadgesPage() {
       })
       .catch(() => toast.error(t('loadError')))
       .finally(() => setIsLoading(false));
-  };
+  }, [t]);
 
   useEffect(() => {
     loadBadges();
-  }, []);
+  }, [loadBadges]);
 
   // Render-time guard below (`productQuery.length >= 2`) means stale results
   // are never shown for short queries, so we can skip the unconditional clear.

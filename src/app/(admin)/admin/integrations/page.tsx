@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
@@ -51,7 +51,7 @@ export default function AdminIntegrationsPage() {
   // sees "(N failed)" but no way to see WHICH items / WHY — silent failure.
   const [errorModal, setErrorModal] = useState<SyncRow | null>(null);
 
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     try {
       const [keysRes, syncsRes] = await Promise.all([
         apiClient.get<ApiKeyRow[]>('/api/v1/admin/integration/api-keys'),
@@ -67,11 +67,11 @@ export default function AdminIntegrationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [t]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   async function handleCreateKey() {
     if (!newKeyName.trim()) return;

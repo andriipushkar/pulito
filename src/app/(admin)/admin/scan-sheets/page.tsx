@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -24,7 +24,7 @@ export default function ScanSheetsPage() {
   const [deleteRef, setDeleteRef] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setIsLoading(true);
     const res = await apiClient.get<ScanSheet[]>('/api/v1/admin/scan-sheets');
     if (res.success && Array.isArray(res.data)) {
@@ -33,11 +33,11 @@ export default function ScanSheetsPage() {
       toast.error(res.error || t('loadError'));
     }
     setIsLoading(false);
-  };
+  }, [t]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const confirmDelete = async () => {
     if (!deleteRef) return;

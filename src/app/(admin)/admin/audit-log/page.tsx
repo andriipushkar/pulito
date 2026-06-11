@@ -264,6 +264,7 @@ export default function AdminAuditLogPage() {
     ipSearch,
     userIdFilter,
     requestKey,
+    t,
   ]);
 
   const resetFilters = () => {

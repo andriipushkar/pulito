@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
@@ -60,7 +60,7 @@ export default function AdminVolumeDiscountsPage() {
   const [bulkText, setBulkText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
 
-  const loadDiscounts = () => {
+  const loadDiscounts = useCallback(() => {
     setIsLoading(true);
     apiClient
       .get<VolumeDiscount[]>('/api/v1/admin/volume-discounts')
@@ -70,11 +70,11 @@ export default function AdminVolumeDiscountsPage() {
       })
       .catch(() => toast.error(t('networkError')))
       .finally(() => setIsLoading(false));
-  };
+  }, [t]);
 
   useEffect(() => {
     loadDiscounts();
-  }, []);
+  }, [loadDiscounts]);
 
   const resetForm = () => {
     setForm(initialForm);

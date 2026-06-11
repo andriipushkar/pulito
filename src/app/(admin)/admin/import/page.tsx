@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { apiClient, getAccessToken } from '@/lib/api-client';
@@ -119,11 +119,7 @@ export default function AdminImportPage() {
 
   const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — server can keep processing
 
-  useEffect(() => {
-    loadLogs();
-  }, []);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await apiClient.get<ImportLog[]>('/api/v1/admin/import/logs');
@@ -137,7 +133,11 @@ export default function AdminImportPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const ACCEPTED_SHEET_EXTS = ['.xlsx', '.xls', '.csv', '.xml', '.yml'];
 

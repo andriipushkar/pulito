@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
@@ -65,7 +65,7 @@ export default function AdminWholesaleRulesPage() {
   });
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const loadRules = () => {
+  const loadRules = useCallback(() => {
     setIsLoading(true);
     apiClient
       .get<WholesaleRule[]>('/api/v1/admin/wholesale-rules')
@@ -75,11 +75,11 @@ export default function AdminWholesaleRulesPage() {
       })
       .catch(() => toast.error(t('networkError')))
       .finally(() => setIsLoading(false));
-  };
+  }, [t]);
 
   useEffect(() => {
     loadRules();
-  }, []);
+  }, [loadRules]);
 
   const resetForm = () => {
     setForm({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
@@ -59,7 +59,7 @@ export default function AdminCampaignsPage() {
     frequency: 'once',
   });
 
-  const loadCampaigns = () => {
+  const loadCampaigns = useCallback(() => {
     apiClient
       .get<CampaignRule[]>('/api/v1/admin/campaigns')
       .then((res) => {
@@ -68,9 +68,9 @@ export default function AdminCampaignsPage() {
       })
       .catch(() => toast.error(t('loadCampaignsError')))
       .finally(() => setIsLoading(false));
-  };
+  }, [t]);
 
-  const loadTemplates = () => {
+  const loadTemplates = useCallback(() => {
     apiClient
       .get<EmailTemplate[]>('/api/v1/admin/email-templates')
       .then((res) => {
@@ -78,12 +78,12 @@ export default function AdminCampaignsPage() {
         else toast.error(res.error || t('loadTemplatesError'));
       })
       .catch(() => toast.error(t('loadTemplatesError')));
-  };
+  }, [t]);
 
   useEffect(() => {
     loadCampaigns();
     loadTemplates();
-  }, []);
+  }, [loadCampaigns, loadTemplates]);
 
   const handleCreate = async () => {
     if (!form.name || !form.emailTemplateId) {

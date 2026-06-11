@@ -83,7 +83,9 @@ export default function ProductInfo({ product }: ProductInfoProps) {
   const [quantity, setQuantity] = useState(1);
   const { addItem } = useCart();
 
-  const variants = product.variants ?? [];
+  // Stable reference — a fresh `?? []` array each render would invalidate every
+  // useMemo below it (react-hooks/exhaustive-deps).
+  const variants = useMemo(() => product.variants ?? [], [product.variants]);
   const hasVariants = variants.length > 0;
 
   // Track current selection per dimension. Pre-select the first variant's

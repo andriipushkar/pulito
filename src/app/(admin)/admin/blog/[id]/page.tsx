@@ -122,7 +122,7 @@ export default function AdminBlogEditPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, isNew]);
+  }, [id, isNew, t]);
 
   /** Generate article body + SEO via AI from the typed title (topic).
    *  Fills only empty fields so a human edit is never overwritten. Same

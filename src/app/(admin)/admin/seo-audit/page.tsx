@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
@@ -139,23 +139,26 @@ export default function AdminSeoAuditPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const load = async (manual = false) => {
-    if (manual) setIsRefreshing(true);
-    else setIsLoading(true);
-    setError('');
-    try {
-      const res = await apiClient.get<AuditResponse>('/api/v1/admin/seo/broken-links');
-      if (res.success && res.data) setReport(res.data);
-      else setError(res.error || t('checkError'));
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+  const load = useCallback(
+    async (manual = false) => {
+      if (manual) setIsRefreshing(true);
+      else setIsLoading(true);
+      setError('');
+      try {
+        const res = await apiClient.get<AuditResponse>('/api/v1/admin/seo/broken-links');
+        if (res.success && res.data) setReport(res.data);
+        else setError(res.error || t('checkError'));
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const live = report?.live;
   const totalIssues = live

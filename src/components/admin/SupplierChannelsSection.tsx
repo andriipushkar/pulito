@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -79,7 +79,7 @@ export default function SupplierChannelsSection() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [syncingId, setSyncingId] = useState<number | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setIsLoading(true);
       const res = await apiClient.get<Channel[]>('/api/v1/admin/supplier-channels');
@@ -89,11 +89,11 @@ export default function SupplierChannelsSection() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const openNew = () => {
     setEditingId('new');
