@@ -24,6 +24,9 @@ interface BlogCategoryPageProps {
 async function getCategoryBySlug(slug: string) {
   return prisma.blogCategory.findUnique({
     where: { slug },
+    include: {
+      _count: { select: { posts: { where: { isPublished: true, deletedAt: null } } } },
+    },
   });
 }
 
@@ -39,10 +42,13 @@ export async function generateMetadata({ params }: BlogCategoryPageProps): Promi
   const description =
     category.seoDescription || `Статті в категорії "${category.name}" — блог Pulito Trade`;
   const url = `${baseUrl}/blog/category/${slug}`;
+  // Thin-content guard (mirrors the sitemap filter): 0-1 posts → noindex,follow.
+  const isThin = category._count.posts < 2;
 
   return {
     title,
     description,
+    ...(isThin ? { robots: { index: false, follow: true } } : {}),
     alternates: {
       canonical: url,
       languages: buildHreflang(`/blog/category/${slug}`),

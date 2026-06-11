@@ -147,16 +147,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Blog categories — listing pages for each topic, indexed separately
   // so users searching "блог про прибирання" land on the right hub.
   const blogCategories = await prisma.blogCategory.findMany({
-    select: { slug: true, updatedAt: true },
+    select: {
+      slug: true,
+      updatedAt: true,
+      _count: { select: { posts: { where: { isPublished: true, deletedAt: null } } } },
+    },
   });
 
-  const blogCategoryPages: MetadataRoute.Sitemap = blogCategories.map((c) => ({
-    url: `${baseUrl}/blog/category/${c.slug}`,
-    lastModified: c.updatedAt,
-    changeFrequency: 'weekly' as const,
-    priority: 0.5,
-    alternates: { languages: buildHreflang(`/blog/category/${c.slug}`) },
-  }));
+  // Thin-content guard: a category with 0-1 posts is a near-duplicate of the
+  // post itself — keep it out of the sitemap (the page also sets noindex).
+  const blogCategoryPages: MetadataRoute.Sitemap = blogCategories
+    .filter((c) => c._count.posts >= 2)
+    .map((c) => ({
+      url: `${baseUrl}/blog/category/${c.slug}`,
+      lastModified: c.updatedAt,
+      changeFrequency: 'weekly' as const,
+      priority: 0.5,
+      alternates: { languages: buildHreflang(`/blog/category/${c.slug}`) },
+    }));
 
   // Bundles
   const bundles = await prisma.bundle.findMany({
