@@ -17,13 +17,6 @@ interface NotFoundLogRow {
   lastSeenAt: string;
 }
 
-interface PaginatedResponse {
-  items: NotFoundLogRow[];
-  total: number;
-  page: number;
-  limit: number;
-}
-
 export default function NotFoundLogPage() {
   const t = useTranslations('admin.notFoundLog');
   const [logs, setLogs] = useState<NotFoundLogRow[]>([]);
@@ -35,12 +28,14 @@ export default function NotFoundLogPage() {
     let cancelled = false;
     setLoading(true);
     apiClient
-      .get<PaginatedResponse>(`/api/v1/admin/not-found-log?limit=200&sort=${sort}`)
+      // paginatedResponse envelope: the rows are res.data itself, total lives
+      // in res.pagination (reading res.data.items here crashed the page).
+      .get<NotFoundLogRow[]>(`/api/v1/admin/not-found-log?limit=200&sort=${sort}`)
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) {
-          setLogs(res.data.items);
-          setTotal(res.data.total);
+          setLogs(res.data);
+          setTotal(res.pagination?.total ?? res.data.length);
         } else {
           toast.error(res.error || t('loadError'));
         }

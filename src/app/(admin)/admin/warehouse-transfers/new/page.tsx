@@ -57,12 +57,14 @@ export default function NewTransferPage() {
     if (!debouncedSearch || debouncedSearch.length < 2) return;
     let cancelled = false;
     apiClient
-      .get<{
-        items: ProductSuggestion[];
-      }>(`/api/v1/admin/products?search=${encodeURIComponent(debouncedSearch)}&limit=10`)
+      // /admin/products uses the paginatedResponse envelope: res.data IS the
+      // array (res.data.items was always undefined — suggestions never showed).
+      .get<ProductSuggestion[]>(
+        `/api/v1/admin/products?search=${encodeURIComponent(debouncedSearch)}&limit=10`,
+      )
       .then((res) => {
         if (cancelled) return;
-        if (res.success && res.data?.items) setSuggestions(res.data.items);
+        if (res.success && res.data) setSuggestions(res.data);
       });
     return () => {
       cancelled = true;
