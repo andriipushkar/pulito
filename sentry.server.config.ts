@@ -24,6 +24,14 @@ if (DSN) {
         return null;
       }
 
+      // Same family: node:_http_server throws a bare `Error: aborted` when the
+      // client closes the connection mid-request (fast navigation, bots, lost
+      // mobile signal). Exact match only — a real error that merely contains
+      // the word "aborted" must still get through.
+      if (message === 'aborted') {
+        return null;
+      }
+
       // Tag payment errors for alerting
       if (
         message.includes('payment') ||

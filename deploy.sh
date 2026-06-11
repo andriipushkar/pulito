@@ -94,3 +94,32 @@ fi
 
 echo "[deploy] DEPLOYED OK. health=200 BUILD_ID=$(cat "$LIVE/BUILD_ID")"
 echo "[deploy] previous build kept at $PREV (delete when satisfied)."
+
+# Post-deploy admin smoke (non-blocking gate): opens all static /admin pages
+# in a real authenticated browser and catches client-runtime crashes that the
+# health check can't see. Site is already live at this point, so a failure
+# does NOT roll back automatically — it prints the broken pages and exits 3
+# so the operator notices. Skip with SKIP_SMOKE=1 (e.g. emergency hotfix).
+if [ "${SKIP_SMOKE:-0}" != "1" ]; then
+  echo "[deploy] admin smoke (~2 min, SKIP_SMOKE=1 to skip)…"
+  SMOKE_CREDS=$(mktemp)
+  chmod 600 "$SMOKE_CREDS"
+  SMOKE_FAILED=0
+  if node scripts/e2e-temp-admin.cjs create > "$SMOKE_CREDS" 2>/dev/null; then
+    set -a; . "$SMOKE_CREDS"; set +a
+    if PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npx playwright test e2e/admin-smoke.spec.ts         --project=chromium --reporter=line > /tmp/pulito-smoke.log 2>&1; then
+      echo "[deploy] SMOKE OK — every admin page renders without client errors."
+    else
+      SMOKE_FAILED=1
+      echo "[deploy] !!! SMOKE FAILED — site is live, but admin pages have client errors:"
+      grep -E '→|failed|Error' /tmp/pulito-smoke.log | head -15 || true
+      echo "[deploy] full log: /tmp/pulito-smoke.log"
+    fi
+    node scripts/e2e-temp-admin.cjs delete >/dev/null 2>&1 || \
+      echo "[deploy] WARN: failed to delete e2e-smoke@internal.local — remove it manually!"
+  else
+    echo "[deploy] WARN: smoke skipped — could not create the temp admin."
+  fi
+  rm -f "$SMOKE_CREDS"
+  if [ "$SMOKE_FAILED" = "1" ]; then exit 3; fi
+fi
