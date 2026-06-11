@@ -70,6 +70,9 @@ export class PromClient {
     return data;
   }
 
+  // Currently unused in production (sync goes through products/edit + YML feed).
+  // Before wiring this into an import flow, verify the token's company scope:
+  // products/list returns everything the token can see, with no owner filter.
   async getProducts(page = 1, limit = 20): Promise<{ items: PromProduct[]; total: number }> {
     try {
       const data = await this.request<{ products: PromProduct[]; _meta?: { total: number } }>(

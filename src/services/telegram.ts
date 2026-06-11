@@ -912,7 +912,9 @@ export async function sendProductPhotoToUser(
 
   const chatId = Number(user.telegramChatId);
   try {
-    await sendPhoto(chatId, imageUrl, caption);
+    // Caption is plain text (product name + admin's free-text message) sent
+    // with parse_mode HTML — escape it or a stray `<`/`&` kills the send.
+    await sendPhoto(chatId, imageUrl, escapeHtml(caption));
     return true;
   } catch {
     return false;
