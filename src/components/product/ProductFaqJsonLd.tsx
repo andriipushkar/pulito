@@ -6,10 +6,10 @@ import FaqJsonLd from '@/components/faq/FaqJsonLd';
  * them as "People Also Ask" rich snippets.
  *
  * Expected source markup (produced by the AI generator's SYSTEM_PROMPT):
- *   <h3>Питання та відповіді</h3>
+ *   <h3>Питання та відповіді</h3>   (any h2/h3 mentioning «питання» or "FAQ")
  *   <p><strong>Question?</strong> Answer text.</p>
  *   <p><strong>Question 2?</strong> Answer 2.</p>
- *   ... up to the next <h3> or end of string.
+ *   ... up to the next <h2>/<h3> or end of string.
  *
  * Falls back silently (renders nothing) if no FAQ block is found — older
  * products without an LLM-generated FAQ shouldn't pay any rendering cost.
@@ -19,7 +19,10 @@ interface ProductFaqJsonLdProps {
   fullDescription: string | null | undefined;
 }
 
-const FAQ_HEADING_RE = /<h3[^>]*>\s*Питання\s+та\s+відповіді\s*<\/h3>/i;
+// Any h2/h3 heading; the FAQ one is recognised by its text, not exact wording —
+// hand-written descriptions use «Часті питання», «Поширені питання», "FAQ" etc.
+const HEADING_RE = /<h([23])[^>]*>([\s\S]*?)<\/h\1>/gi;
+const FAQ_TITLE_RE = /питання|faq/i;
 // Each FAQ entry: <p><strong>Q?</strong> A.</p>. Tolerate <b> as a synonym
 // of <strong> and any leading/trailing whitespace.
 const QA_RE = /<p[^>]*>\s*<(?:strong|b)>([\s\S]*?)<\/(?:strong|b)>\s*([\s\S]*?)<\/p>/gi;
@@ -32,11 +35,16 @@ function stripTags(html: string): string {
 }
 
 export function extractFaqItems(fullDescription: string): { question: string; answer: string }[] {
-  const headingMatch = fullDescription.match(FAQ_HEADING_RE);
-  if (!headingMatch || headingMatch.index === undefined) return [];
+  let start = -1;
+  for (const m of fullDescription.matchAll(HEADING_RE)) {
+    if (FAQ_TITLE_RE.test(stripTags(m[2] || ''))) {
+      start = (m.index ?? 0) + m[0].length;
+      break;
+    }
+  }
+  if (start === -1) return [];
 
   // Bound the FAQ block: from after the heading up to the next <h2>/<h3> or EOF.
-  const start = headingMatch.index + headingMatch[0].length;
   const tail = fullDescription.slice(start);
   const nextHeadingIdx = tail.search(/<h[23][^>]*>/i);
   const block = nextHeadingIdx === -1 ? tail : tail.slice(0, nextHeadingIdx);
