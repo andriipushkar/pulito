@@ -184,6 +184,9 @@ export default function AdminPublicationsPage() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // Calendar drag&drop: id of the publication being dragged + hovered day.
+  const [dragPubId, setDragPubId] = useState<number | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [publishConfirmId, setPublishConfirmId] = useState<number | null>(null);
   const [testPub, setTestPub] = useState<{ id: number; channel: string } | null>(null);
@@ -625,6 +628,49 @@ export default function AdminPublicationsPage() {
     }
     return acc;
   }, {});
+
+  // Drop a dragged publication onto a calendar day → reschedule it there
+  // (keeps the original time of day; defaults to 10:00 for unscheduled drafts).
+  const handleDropOnDay = async (day: number) => {
+    const pubId = dragPubId;
+    setDragPubId(null);
+    setDragOverDay(null);
+    if (!pubId) return;
+    const pub = publications.find((x) => x.id === pubId);
+    if (!pub || pub.status === 'published') return;
+    const prev = pub.scheduledAt ? new Date(pub.scheduledAt) : null;
+    const target = new Date(
+      calendarYear,
+      calendarMonthIdx,
+      day,
+      prev ? prev.getHours() : 10,
+      prev ? prev.getMinutes() : 0,
+    );
+    if (target.getTime() < Date.now()) {
+      toast.error(t('calPastDate'));
+      return;
+    }
+    const res = await apiClient.put(`/api/v1/admin/publications/${pubId}`, {
+      scheduledAt: target.toISOString(),
+      status: 'scheduled',
+    });
+    if (res.success) {
+      toast.success(t('calRescheduled'));
+      loadPublications();
+    } else {
+      toast.error(res.error || t('calRescheduleError'));
+    }
+  };
+
+  // "+ create on this day" from the calendar: open the form with the date set.
+  const createOnDay = (day: number) => {
+    const d = new Date(calendarYear, calendarMonthIdx, day, 10, 0);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    setForm((f) => ({ ...f, scheduledAt: local }));
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const prevMonth = () => setCalendarMonth(new Date(calendarYear, calendarMonthIdx - 1, 1));
   const nextMonth = () => setCalendarMonth(new Date(calendarYear, calendarMonthIdx + 1, 1));
@@ -1352,7 +1398,16 @@ export default function AdminPublicationsPage() {
                 <div
                   key={day}
                   onClick={() => setSelectedDay(isSelected ? null : dayKey)}
-                  className={`min-h-[80px] cursor-pointer border-b border-r border-[var(--color-border)] p-1 transition-colors hover:bg-[var(--color-bg-secondary)] ${isSelected ? 'bg-[var(--color-primary)]/5 ring-1 ring-inset ring-[var(--color-primary)]' : ''}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (dragOverDay !== dayKey) setDragOverDay(dayKey);
+                  }}
+                  onDragLeave={() => setDragOverDay((d) => (d === dayKey ? null : d))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleDropOnDay(day);
+                  }}
+                  className={`min-h-[80px] cursor-pointer border-b border-r border-[var(--color-border)] p-1 transition-colors hover:bg-[var(--color-bg-secondary)] ${isSelected ? 'bg-[var(--color-primary)]/5 ring-1 ring-inset ring-[var(--color-primary)]' : ''} ${dragOverDay === dayKey && dragPubId ? 'bg-[var(--color-primary)]/10 ring-2 ring-inset ring-[var(--color-primary)]' : ''}`}
                 >
                   <div
                     className={`mb-0.5 text-xs font-medium ${isToday ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-secondary)]'}`}
@@ -1362,8 +1417,21 @@ export default function AdminPublicationsPage() {
                   {dayPubs.slice(0, 3).map((pub) => (
                     <div
                       key={pub.id}
-                      className={`mb-0.5 truncate rounded px-1 text-[10px] leading-tight ${statusColor(pub.status)}`}
-                      title={pub.title}
+                      draggable={pub.status !== 'published'}
+                      onDragStart={(e) => {
+                        setDragPubId(pub.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragEnd={() => {
+                        setDragPubId(null);
+                        setDragOverDay(null);
+                      }}
+                      className={`mb-0.5 truncate rounded px-1 text-[10px] leading-tight ${statusColor(pub.status)} ${pub.status !== 'published' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      title={
+                        pub.status !== 'published'
+                          ? t('calDragHint', { title: pub.title })
+                          : pub.title
+                      }
                     >
                       {pub.title}
                     </div>
@@ -1381,10 +1449,19 @@ export default function AdminPublicationsPage() {
           {/* Selected day detail panel */}
           {selectedDay && (
             <div className="border-t border-[var(--color-border)] p-4">
-              <h3 className="mb-2 text-sm font-semibold">
-                {Number(selectedDay)} {calendarMonth.toLocaleString('uk-UA', { month: 'long' })}{' '}
-                {calendarYear}
-              </h3>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">
+                  {Number(selectedDay)} {calendarMonth.toLocaleString('uk-UA', { month: 'long' })}{' '}
+                  {calendarYear}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => createOnDay(Number(selectedDay))}
+                  className="rounded-lg border border-[var(--color-primary)] px-2.5 py-1 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
+                >
+                  {t('calCreateOnDay')}
+                </button>
+              </div>
               {(pubsByDay[selectedDay] || []).length === 0 ? (
                 <p className="text-sm text-[var(--color-text-secondary)]">{t('noPubsThisDay')}</p>
               ) : (

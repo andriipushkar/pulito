@@ -3247,7 +3247,12 @@
       "aiGenerated": "Post generated — review the text before publishing",
       "aiGenerateError": "Failed to generate the post",
       "aiNeedSource": "Pick a product or type a topic into the title field",
-      "aiGenerateHint": "Generate title, text and hashtags with AI (based on the selected product or the title-field topic)"
+      "aiGenerateHint": "Generate title, text and hashtags with AI (based on the selected product or the title-field topic)",
+      "calRescheduled": "Publication rescheduled",
+      "calRescheduleError": "Failed to reschedule the publication",
+      "calPastDate": "Cannot schedule into the past",
+      "calCreateOnDay": "+ Create on this day",
+      "calDragHint": "{title} — drag to another day to reschedule"
     },
     "ordersListPage": {
       "allStatuses": "All statuses",
