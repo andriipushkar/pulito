@@ -14,12 +14,24 @@ import { getHomepageBlocks } from './homepage';
 
 const mockPrisma = prisma as unknown as MockPrismaClient;
 
+const ALL_DEFAULT_KEYS = [
+  'banner_slider',
+  'local_lviv',
+  'categories',
+  'promo_products',
+  'new_products',
+  'popular_products',
+  'recently_viewed',
+  'brands',
+  'seo_text',
+];
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe('getHomepageBlocks', () => {
-  it('should return saved blocks when setting exists', async () => {
+  it('should return saved blocks merged with newer default blocks', async () => {
     const savedBlocks = [
       { key: 'categories', label: 'Каталог категорій', enabled: true },
       { key: 'banner_slider', label: 'Банер-слайдер', enabled: false },
@@ -38,9 +50,11 @@ describe('getHomepageBlocks', () => {
     expect(mockPrisma.siteSetting.findUnique).toHaveBeenCalledWith({
       where: { key: 'homepage_blocks' },
     });
-    expect(result).toEqual(savedBlocks);
-    expect(result[0].key).toBe('categories');
-    expect(result[1].enabled).toBe(false);
+    // Saved entries keep their state…
+    const banner = result.find((b) => b.key === 'banner_slider');
+    expect(banner?.enabled).toBe(false);
+    // …and defaults the stored list predates are merged in (e.g. local_lviv).
+    expect(result.map((b) => b.key).sort()).toEqual([...ALL_DEFAULT_KEYS].sort());
   });
 
   it('should return default blocks when no setting exists', async () => {
@@ -48,7 +62,7 @@ describe('getHomepageBlocks', () => {
 
     const result = await getHomepageBlocks();
 
-    expect(result).toHaveLength(8);
+    expect(result).toHaveLength(ALL_DEFAULT_KEYS.length);
     expect(result[0].key).toBe('banner_slider');
     expect(result.every((b) => b.enabled)).toBe(true);
   });
@@ -58,7 +72,7 @@ describe('getHomepageBlocks', () => {
 
     const result = await getHomepageBlocks();
 
-    expect(result).toHaveLength(8);
+    expect(result).toHaveLength(ALL_DEFAULT_KEYS.length);
     expect(result[0].key).toBe('banner_slider');
   });
 
@@ -67,17 +81,7 @@ describe('getHomepageBlocks', () => {
 
     const result = await getHomepageBlocks();
 
-    const keys = result.map((b) => b.key);
-    expect(keys).toEqual([
-      'banner_slider',
-      'categories',
-      'promo_products',
-      'new_products',
-      'popular_products',
-      'recently_viewed',
-      'brands',
-      'seo_text',
-    ]);
+    expect(result.map((b) => b.key)).toEqual(ALL_DEFAULT_KEYS);
   });
 
   it('should filter out legacy usp block from stored settings', async () => {
@@ -97,15 +101,16 @@ describe('getHomepageBlocks', () => {
 
     const result = await getHomepageBlocks();
 
-    expect(result.map((b) => b.key)).toEqual(['banner_slider', 'categories']);
+    expect(result.map((b) => b.key)).not.toContain('usp');
+    expect(result.map((b) => b.key)).toContain('banner_slider');
+    expect(result.map((b) => b.key)).toContain('categories');
   });
 
   it('should preserve custom block order from saved settings', async () => {
-    const customOrder = [
-      { key: 'seo_text', label: 'SEO-текстовий блок', enabled: true },
-      { key: 'brands', label: 'Бренди / Торгові марки', enabled: true },
-      { key: 'banner_slider', label: 'Банер-слайдер', enabled: true },
-    ];
+    // Full stored list (no missing defaults) — merge must not reorder it.
+    const customOrder = ALL_DEFAULT_KEYS.slice()
+      .reverse()
+      .map((key) => ({ key, label: key, enabled: true }));
 
     mockPrisma.siteSetting.findUnique.mockResolvedValue({
       id: 1,
@@ -117,8 +122,6 @@ describe('getHomepageBlocks', () => {
 
     const result = await getHomepageBlocks();
 
-    expect(result[0].key).toBe('seo_text');
-    expect(result[1].key).toBe('brands');
-    expect(result[2].key).toBe('banner_slider');
+    expect(result.map((b) => b.key)).toEqual(ALL_DEFAULT_KEYS.slice().reverse());
   });
 });

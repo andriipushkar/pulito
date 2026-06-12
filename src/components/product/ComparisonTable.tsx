@@ -9,6 +9,7 @@ import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import { resolveWholesalePrice } from '@/lib/wholesale-price';
+import { sanitizeHtml } from '@/utils/sanitize';
 import { Cart, Trash, Compare } from '@/components/icons';
 import PriceDisplay from './PriceDisplay';
 import type { ProductListItem } from '@/types/product';
@@ -313,6 +314,33 @@ export default function ComparisonTable() {
                 </td>
               ))}
             </tr>
+
+            {/* Specifications row — hidden entirely when no compared product
+                has specs, so the table doesn't grow an all-dash row */}
+            {products.some((p) => p.content?.specifications) && (
+              <tr>
+                <td className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                  Характеристики
+                </td>
+                {products.map((product) => (
+                  <td
+                    key={product.id}
+                    className="border-b border-[var(--color-border)] p-3 text-left align-top text-sm text-[var(--color-text)]"
+                  >
+                    {product.content?.specifications ? (
+                      <div
+                        className="prose prose-sm max-w-none [&_table]:w-full [&_td]:border [&_td]:border-[var(--color-border)] [&_td]:p-1.5 [&_th]:border [&_th]:border-[var(--color-border)] [&_th]:p-1.5"
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizeHtml(product.content.specifications),
+                        }}
+                      />
+                    ) : (
+                      <span className="text-[var(--color-text-secondary)]">—</span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            )}
 
             {/* Code row */}
             <tr>

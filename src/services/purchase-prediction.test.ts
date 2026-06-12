@@ -19,6 +19,16 @@ vi.mock('@/services/push', () => ({
   sendPushNotification: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockSendEmail = vi.fn();
+vi.mock('@/services/email', () => ({
+  sendEmail: (...args: unknown[]) => mockSendEmail(...args),
+}));
+
+const mockGetSuppressedEmails = vi.fn();
+vi.mock('@/services/email-suppression', () => ({
+  getSuppressedEmails: (...args: unknown[]) => mockGetSuppressedEmails(...args),
+}));
+
 import { prisma } from '@/lib/prisma';
 import { createNotification } from '@/services/notification';
 import { buildPredictions, processReminders } from './purchase-prediction';
@@ -35,6 +45,11 @@ const mockCreateNotification = createNotification as unknown as ReturnType<typeo
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // buildPredictions bulk-loads existing predictions to decide re-arming;
+  // default: none exist. processReminders' own findMany overrides per-test.
+  mockPrisma.purchasePrediction.findMany.mockResolvedValue([]);
+  mockSendEmail.mockResolvedValue({ success: true });
+  mockGetSuppressedEmails.mockResolvedValue(new Set());
 });
 
 describe('buildPredictions', () => {
@@ -241,5 +256,120 @@ describe('processReminders', () => {
       where: { id: 2 },
       data: { notificationSent: true },
     });
+  });
+});
+
+describe('buildPredictions — reminder re-arming', () => {
+  const twoOrders = [
+    { productId: 1, order: { userId: 10, createdAt: new Date('2025-01-01') } },
+    { productId: 1, order: { userId: 10, createdAt: new Date('2025-01-31') } },
+  ];
+  // Jan 31 + 30 днів середнього інтервалу
+  const expectedNextDate = new Date(new Date('2025-01-31').getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  it('does NOT reset notificationSent when the predicted date is unchanged (no daily spam)', async () => {
+    mockPrisma.orderItem.findMany.mockResolvedValue(twoOrders);
+    mockPrisma.purchasePrediction.findMany.mockResolvedValue([
+      { userId: 10, productId: 1, predictedNextDate: expectedNextDate },
+    ]);
+    mockPrisma.purchasePrediction.upsert.mockResolvedValue({});
+
+    await buildPredictions();
+
+    const upsertCall = mockPrisma.purchasePrediction.upsert.mock.calls[0][0];
+    expect('notificationSent' in upsertCall.update).toBe(false);
+  });
+
+  it('resets notificationSent when the predicted date shifted by more than a day', async () => {
+    mockPrisma.orderItem.findMany.mockResolvedValue(twoOrders);
+    mockPrisma.purchasePrediction.findMany.mockResolvedValue([
+      {
+        userId: 10,
+        productId: 1,
+        predictedNextDate: new Date(expectedNextDate.getTime() - 10 * 24 * 60 * 60 * 1000),
+      },
+    ]);
+    mockPrisma.purchasePrediction.upsert.mockResolvedValue({});
+
+    await buildPredictions();
+
+    const upsertCall = mockPrisma.purchasePrediction.upsert.mock.calls[0][0];
+    expect(upsertCall.update.notificationSent).toBe(false);
+  });
+
+  it('resets notificationSent for a brand-new prediction pair', async () => {
+    mockPrisma.orderItem.findMany.mockResolvedValue(twoOrders);
+    mockPrisma.purchasePrediction.findMany.mockResolvedValue([]);
+    mockPrisma.purchasePrediction.upsert.mockResolvedValue({});
+
+    await buildPredictions();
+
+    const upsertCall = mockPrisma.purchasePrediction.upsert.mock.calls[0][0];
+    expect(upsertCall.update.notificationSent).toBe(false);
+  });
+});
+
+describe('processReminders — email channel', () => {
+  const tomorrow = () => new Date(Date.now() + 1 * 24 * 60 * 60 * 1000);
+  const makePrediction = (overrides?: Record<string, unknown>) => ({
+    id: 1,
+    userId: 10,
+    productId: 1,
+    predictedNextDate: tomorrow(),
+    notificationSent: false,
+    product: { id: 1, name: 'Порошок Sole', slug: 'sole-poroshok', imagePath: null },
+    user: { id: 10, fullName: 'Тест Юзер', email: 'user@example.com' },
+    ...overrides,
+  });
+
+  it('sends a restock email alongside in-app and push', async () => {
+    mockPrisma.purchasePrediction.findMany.mockResolvedValue([makePrediction()]);
+    mockPrisma.purchasePrediction.update.mockResolvedValue({});
+
+    const result = await processReminders(3);
+
+    expect(result).toBe(1);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const emailArgs = mockSendEmail.mock.calls[0][0];
+    expect(emailArgs.to).toBe('user@example.com');
+    expect(emailArgs.html).toContain('sole-poroshok');
+  });
+
+  it('skips the email for suppressed addresses but still sends in-app', async () => {
+    mockPrisma.purchasePrediction.findMany.mockResolvedValue([makePrediction()]);
+    mockPrisma.purchasePrediction.update.mockResolvedValue({});
+    mockGetSuppressedEmails.mockResolvedValue(new Set(['user@example.com']));
+
+    const result = await processReminders(3);
+
+    expect(result).toBe(1);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fail the reminder when the email send throws', async () => {
+    mockPrisma.purchasePrediction.findMany.mockResolvedValue([makePrediction()]);
+    mockPrisma.purchasePrediction.update.mockResolvedValue({});
+    mockSendEmail.mockRejectedValue(new Error('SMTP down'));
+
+    const result = await processReminders(3);
+
+    expect(result).toBe(1);
+    expect(mockPrisma.purchasePrediction.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { notificationSent: true },
+    });
+  });
+
+  it('handles users without an email gracefully', async () => {
+    mockPrisma.purchasePrediction.findMany.mockResolvedValue([
+      makePrediction({ user: { id: 10, fullName: 'Тест', email: null } }),
+    ]);
+    mockPrisma.purchasePrediction.update.mockResolvedValue({});
+
+    const result = await processReminders(3);
+
+    expect(result).toBe(1);
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 });

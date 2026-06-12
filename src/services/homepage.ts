@@ -8,6 +8,7 @@ export interface HomepageBlock {
 
 const DEFAULT_BLOCKS: HomepageBlock[] = [
   { key: 'banner_slider', label: 'Банер-слайдер', enabled: true },
+  { key: 'local_lviv', label: 'Локальні переваги (Львів)', enabled: true },
   { key: 'categories', label: 'Каталог категорій', enabled: true },
   { key: 'promo_products', label: 'Акційні товари', enabled: true },
   { key: 'new_products', label: 'Новинки', enabled: true },
@@ -25,7 +26,18 @@ export async function getHomepageBlocks(): Promise<HomepageBlock[]> {
 
     if (setting) {
       const stored: HomepageBlock[] = JSON.parse(setting.value);
-      return stored.filter((b) => b.key !== 'usp');
+      const cleaned = stored.filter((b) => b.key !== 'usp');
+      // A stored list predates blocks added later in DEFAULT_BLOCKS — merge
+      // the missing ones in (at their default position) so new blocks show up
+      // without the admin having to re-save the homepage config.
+      const storedKeys = new Set(cleaned.map((b) => b.key));
+      for (const def of DEFAULT_BLOCKS) {
+        if (!storedKeys.has(def.key)) {
+          const defIndex = DEFAULT_BLOCKS.indexOf(def);
+          cleaned.splice(Math.min(defIndex, cleaned.length), 0, { ...def });
+        }
+      }
+      return cleaned;
     }
   } catch {
     // fall through to default

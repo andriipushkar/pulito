@@ -47,19 +47,36 @@ import { getCategories } from '@/services/category';
 import { getPromoProducts, getNewProducts, getPopularProducts } from '@/services/product';
 import { getBrandsForHomepage } from '@/services/brand';
 import { getHomepageBlocks, getSeoText } from '@/services/homepage';
+import { getSettings } from '@/services/settings';
+import { getCheckoutConfig } from '@/services/checkout-config';
+import LocalAdvantage from '@/components/home/LocalAdvantage';
 
 export default async function HomePage() {
-  const [categories, promoProducts, newProducts, popularProducts, brands, blocks, seoText, t] =
-    await Promise.all([
-      getCategories(),
-      getPromoProducts(10),
-      getNewProducts(10),
-      getPopularProducts(10),
-      getBrandsForHomepage(),
-      getHomepageBlocks(),
-      getSeoText(),
-      getTranslations('home'),
-    ]);
+  const [
+    categories,
+    promoProducts,
+    newProducts,
+    popularProducts,
+    brands,
+    blocks,
+    seoText,
+    settings,
+    checkoutConfig,
+    t,
+  ] = await Promise.all([
+    getCategories(),
+    getPromoProducts(10),
+    getNewProducts(10),
+    getPopularProducts(10),
+    getBrandsForHomepage(),
+    getHomepageBlocks(),
+    getSeoText(),
+    getSettings(),
+    // Free-shipping threshold from the same source the checkout enforces,
+    // so the homepage never advertises a number the cart won't honor.
+    getCheckoutConfig(),
+    getTranslations('home'),
+  ]);
 
   const enabledBlocks = blocks.filter((b) => b.enabled);
 
@@ -68,6 +85,12 @@ export default async function HomePage() {
       <Suspense fallback={<Skeleton className="aspect-[5/2] w-full rounded-3xl" />}>
         <BannerSlider />
       </Suspense>
+    ),
+    local_lviv: (
+      <LocalAdvantage
+        address={settings.site_address || undefined}
+        freeShippingThreshold={checkoutConfig.delivery.freeShippingThreshold}
+      />
     ),
     categories:
       categories.length > 0 ? (
