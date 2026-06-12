@@ -12,6 +12,7 @@ import { kyivMidnightUtc, todayKyiv } from '@/utils/format';
 const STATS_CACHE_KEY = 'admin:order-stats:v1';
 const STATS_CACHE_TTL = 15; // seconds — collapses concurrent admin tabs onto one query.
 import { calculateDeliveryCost, type DeliveryMethod } from '@/services/delivery-cost';
+import { detectBundleDiscounts } from '@/services/bundle';
 
 export class OrderError extends Error {
   constructor(
@@ -243,6 +244,30 @@ export async function createOrder(
   // high-value / many-line orders (matches editOrderItems). An unrounded total
   // can land >0.01 off the provider amount and trip the payment-mismatch guard.
   const itemsTotal = sumMoney(cartItems.map((item) => lineTotal(item.price, item.quantity)));
+
+  // Bundle auto-discount: server-side detection of complete bundle sets in the
+  // cart (the storefront bundle price is otherwise display-only — items land in
+  // the cart at their normal prices). Detected here, not trusted from the
+  // client. Applied to the goods subtotal BEFORE the coupon, so a percent
+  // coupon computes from the already-discounted goods total.
+  let bundleDiscount = 0;
+  let bundleNote: string | null = null;
+  const detected = await detectBundleDiscounts(
+    cartItems.map((i) => ({ productId: i.productId, price: i.price, quantity: i.quantity })),
+  );
+  if (detected.totalDiscount > 0) {
+    bundleDiscount = Math.min(detected.totalDiscount, itemsTotal);
+    // Trace for the admin: like the coupon, the bundle discount has no own
+    // column — totalAmount is just lower. Without this note the order total
+    // looks inexplicably short of sum(items).
+    bundleNote = detected.applied
+      .map(
+        (a) =>
+          `Комплект «${a.name}»${a.sets > 1 ? ` ×${a.sets}` : ''}: знижка ${a.discount.toFixed(2)} ₴`,
+      )
+      .join('; ');
+  }
+  const goodsTotal = subtractMoney(itemsTotal, bundleDiscount);
   // Pallet method: the storefront has already done the regional-tariff
   // calculation in PalletDeliveryForm and submitted the result with the
   // checkout. Trust that value here (it's the same formula
@@ -298,17 +323,17 @@ export async function createOrder(
       const coupon = await validateCoupon(
         couponCode,
         userId ?? undefined,
-        itemsTotal,
+        goodsTotal,
         cartItems.map((i) => i.productId),
       );
       couponId = coupon.id;
-      couponDiscount = Math.min(calculateDiscount(coupon, itemsTotal), itemsTotal);
+      couponDiscount = Math.min(calculateDiscount(coupon, goodsTotal), goodsTotal);
     } catch (e) {
       throw new OrderError(e instanceof CouponError ? e.message : 'Невалідний промокод', 400);
     }
   }
 
-  const grossTotal = addMoney(subtractMoney(itemsTotal, couponDiscount), deliveryCost);
+  const grossTotal = addMoney(subtractMoney(goodsTotal, couponDiscount), deliveryCost);
   const settingsMod = await import('@/services/settings');
   const _settings = await settingsMod.getSettings();
   const maxPercent = Math.max(
@@ -399,6 +424,7 @@ export async function createOrder(
         paymentMethod: checkout.paymentMethod,
         paymentStatus: 'pending',
         comment: checkout.comment,
+        ...(bundleNote ? { managerComment: bundleNote } : {}),
         source: 'web',
         utmSource: checkout.utmSource ?? null,
         utmMedium: checkout.utmMedium ?? null,

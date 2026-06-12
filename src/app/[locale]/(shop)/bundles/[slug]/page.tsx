@@ -172,7 +172,24 @@ export default async function BundleDetailPage({ params }: BundleDetailPageProps
             appliedRule={(pricing as { appliedRule?: 'bundle' | 'promo' }).appliedRule}
             className="mb-4"
           />
-          <AddBundleToCartButton slug={bundle.slug} />
+          <AddBundleToCartButton
+            items={bundle.items.map((item) => ({
+              productId: item.product.id,
+              name: item.product.name,
+              slug: item.product.slug,
+              code: item.product.code ?? '',
+              priceRetail: Number(item.product.priceRetail),
+              priceWholesale:
+                item.product.priceWholesale != null ? Number(item.product.priceWholesale) : null,
+              priceWholesale2:
+                item.product.priceWholesale2 != null ? Number(item.product.priceWholesale2) : null,
+              priceWholesale3:
+                item.product.priceWholesale3 != null ? Number(item.product.priceWholesale3) : null,
+              imagePath: item.product.imagePath,
+              quantity: item.quantity,
+              maxQuantity: item.product.quantity,
+            }))}
+          />
         </div>
       </div>
     </Container>
