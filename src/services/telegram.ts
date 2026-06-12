@@ -1134,6 +1134,40 @@ export async function notifyManagerMarketplaceAlert(args: {
 }
 
 /**
+ * Notify manager about external-service health transitions (hourly cron).
+ * Called only with state CHANGES (down/recovered), never steady-state — the
+ * dedup lives in the health-check job, so this stays spam-free by contract.
+ */
+export async function notifyManagerHealthAlert(
+  changes: { service: string; status: 'ok' | 'error'; error?: string }[],
+) {
+  const { botToken, managerChatId: chatId } = await getTelegramCreds();
+  if (!chatId || !botToken || changes.length === 0) return;
+
+  const serviceLabels: Record<string, string> = {
+    nova_poshta: 'Нова Пошта',
+    liqpay: 'LiqPay',
+    smtp: 'Email (SMTP)',
+  };
+
+  const lines = changes.map((c) => {
+    const name = serviceLabels[c.service] || c.service;
+    return c.status === 'error'
+      ? `❌ <b>${name}</b> — недоступний${c.error ? `: <code>${escapeHtml(c.error.slice(0, 200))}</code>` : ''}`
+      : `✅ <b>${name}</b> — відновився`;
+  });
+
+  try {
+    await sendMessage(
+      Number(chatId),
+      ['🩺 <b>Стан сервісів змінився</b>', '', ...lines].join('\n'),
+    );
+  } catch {
+    // Best-effort
+  }
+}
+
+/**
  * Notify client about order status change via Telegram.
  */
 export async function notifyClientStatusChange(

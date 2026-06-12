@@ -75,7 +75,50 @@ export async function confirmSubscription(token: string) {
     },
   });
 
+  // The signup forms promise «−10% на перше замовлення» — deliver it.
+  // Best-effort: a coupon/email hiccup must not fail the confirmation.
+  await sendWelcomeCoupon(subscriber.email).catch(() => undefined);
+
   return { message: 'Підписку підтверджено' };
+}
+
+// Shared subscriber-welcome coupon: 10% off, once per user, created on first
+// use so no migration/seed is needed. Code is stable so repeat sends are fine.
+const WELCOME_COUPON_CODE = 'WELCOME10';
+
+async function sendWelcomeCoupon(email: string): Promise<void> {
+  let coupon = await prisma.coupon.findUnique({ where: { code: WELCOME_COUPON_CODE } });
+  if (!coupon) {
+    coupon = await prisma.coupon
+      .create({
+        data: {
+          code: WELCOME_COUPON_CODE,
+          description: 'Знижка за підписку на розсилку',
+          type: 'percent',
+          value: 10,
+          usageLimitPerUser: 1,
+          isActive: true,
+        },
+      })
+      // Parallel confirmations can race on the unique code — fall back to read.
+      .catch(() => prisma.coupon.findUnique({ where: { code: WELCOME_COUPON_CODE } }));
+  }
+  if (!coupon || !coupon.isActive) return;
+
+  const appUrl = env.APP_URL || '';
+  await sendEmail({
+    to: email,
+    subject: '🎁 Ваш промокод на −10% всередині',
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#2563eb">Дякуємо за підписку!</h2>
+        <p>Як і обіцяли — ваш промокод на <strong>знижку 10%</strong> на перше замовлення:</p>
+        <p style="text-align:center;margin:24px 0"><span style="display:inline-block;background:#eff6ff;border:2px dashed #2563eb;border-radius:8px;padding:12px 32px;font-size:24px;font-weight:bold;letter-spacing:2px;color:#2563eb">${WELCOME_COUPON_CODE}</span></p>
+        <p>Введіть його в полі «Промокод» при оформленні замовлення.</p>
+        <a href="${appUrl}/catalog?utm_source=email&utm_campaign=welcome_coupon" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">До каталогу</a>
+      </div>
+    `,
+  });
 }
 
 export async function unsubscribe(token: string) {

@@ -13,6 +13,8 @@ import { getSettings } from '@/services/settings';
 
 // Chat widget loaded client-side only — no SSR cost, no impact on LCP.
 const ChatWidget = dynamic(() => import('@/components/chatbot/ChatWidget'));
+// Exit-intent newsletter capture — client-only for the same reason.
+const ExitIntentModal = dynamic(() => import('@/components/layout/ExitIntentModal'));
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
   const [categories, settings] = await Promise.all([getCategories(), getSettings()]);
@@ -33,6 +35,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
         <PageViewTracker />
         <UtmTracker />
         <ChatWidget />
+        <ExitIntentModal />
       </SettingsProvider>
     </CartProvider>
   );

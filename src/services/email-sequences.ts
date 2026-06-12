@@ -235,3 +235,169 @@ export async function processPostPurchaseReviewRequest(): Promise<{ sent: number
 
   return { sent };
 }
+
+// Ukrainian display names for the default loyalty tiers; unknown custom tier
+// names fall through as-is.
+const TIER_LABELS: Record<string, string> = {
+  bronze: 'Бронзовий',
+  silver: 'Срібний',
+  gold: 'Золотий',
+  platinum: 'Платиновий',
+};
+
+/**
+ * Warn customers ~14 days before loyalty points expire, using the same
+ * mixed-sign net math as the expiry job (jobs/expire-loyalty-points.ts) but
+ * with the cutoff shifted WARN_AHEAD_DAYS into the future. Dedup: at most one
+ * warning per 30 days per user (NotificationType has no dedicated value and
+ * the enum can't be extended without a prod migration — so we match
+ * system_notification + title).
+ */
+export async function processLoyaltyExpiryWarnings(): Promise<{ sent: number }> {
+  const appUrl = process.env.APP_URL || '';
+  const WARN_AHEAD_DAYS = 14;
+  const WARN_TITLE = 'Бали скоро згорять';
+
+  const levels = await prisma.loyaltyLevel.findMany({
+    where: { pointsExpiryMonths: { not: null } },
+    select: { name: true, pointsExpiryMonths: true },
+  });
+  if (levels.length === 0) return { sent: 0 };
+  const levelMap = new Map(levels.map((l) => [l.name, l.pointsExpiryMonths!]));
+
+  const accounts = await prisma.loyaltyAccount.findMany({
+    where: { level: { in: Array.from(levelMap.keys()) }, points: { gt: 0 } },
+    select: {
+      userId: true,
+      points: true,
+      level: true,
+      user: { select: { email: true, fullName: true } },
+    },
+    take: 500,
+  });
+
+  const expiresAtLabel = new Date(
+    Date.now() + WARN_AHEAD_DAYS * 24 * 60 * 60 * 1000,
+  ).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+
+  let sent = 0;
+  for (const acc of accounts) {
+    if (!acc.user?.email) continue;
+    const months = levelMap.get(acc.level);
+    if (!months) continue;
+
+    // Transactions old enough that they'll cross the expiry cutoff within the
+    // warning window.
+    const warnCutoff = new Date();
+    warnCutoff.setMonth(warnCutoff.getMonth() - months);
+    warnCutoff.setDate(warnCutoff.getDate() + WARN_AHEAD_DAYS);
+
+    const oldTxns = await prisma.loyaltyTransaction.findMany({
+      where: { userId: acc.userId, createdAt: { lt: warnCutoff } },
+      select: { type: true, points: true },
+    });
+    let net = 0;
+    for (const t of oldTxns) {
+      if (t.type === 'earn' || t.type === 'manual_add') net += Math.abs(t.points);
+      else net -= Math.abs(t.points);
+    }
+    const expiring = Math.min(Math.max(net, 0), acc.points);
+    if (expiring === 0) continue;
+
+    const recentWarning = await prisma.userNotification.findFirst({
+      where: {
+        userId: acc.userId,
+        notificationType: 'system_notification',
+        title: WARN_TITLE,
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      },
+    });
+    if (recentWarning) continue;
+
+    try {
+      await sendEmail({
+        to: acc.user.email,
+        subject: `⏳ ${expiring} бонусних балів згорять ${expiresAtLabel}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
+            <h2 style="color:#2563eb">${acc.user.fullName}, не втратьте свої бали!</h2>
+            <p>На вашому рахунку <strong>${acc.points}</strong> бонусних балів, з них <strong>${expiring}</strong> згорять приблизно <strong>${expiresAtLabel}</strong>.</p>
+            <p>Встигніть використати їх зі знижкою на наступне замовлення.</p>
+            <a href="${appUrl}/catalog?utm_source=email&utm_campaign=loyalty_expiry" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Перейти до каталогу</a>
+          </div>
+        `,
+      });
+
+      await prisma.userNotification.create({
+        data: {
+          userId: acc.userId,
+          notificationType: 'system_notification',
+          title: WARN_TITLE,
+          message: `${expiring} балів згорять ${expiresAtLabel}`,
+          link: '/account/loyalty',
+          dispatched: true,
+        },
+      });
+      sent++;
+    } catch (err) {
+      logger.error(`[loyalty-expiry-warn] Failed for user ${acc.userId}`, { error: String(err) });
+    }
+  }
+
+  return { sent };
+}
+
+/**
+ * Congratulate a customer on reaching a higher loyalty tier. Called
+ * fire-and-forget from loyalty.ts AFTER the tier-change transaction commits —
+ * never inside it (an SMTP hiccup must not roll back the points credit).
+ */
+export async function notifyLoyaltyTierUp(
+  userId: number,
+  // discountPercent arrives as a Prisma Decimal from loyalty.ts — typed
+  // loosely and normalised via Number() below.
+  newLevel: { name: string; discountPercent?: unknown; pointsMultiplier?: number },
+): Promise<void> {
+  const appUrl = process.env.APP_URL || '';
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, fullName: true },
+  });
+  if (!user?.email) return;
+
+  const tierLabel = TIER_LABELS[newLevel.name] || newLevel.name;
+  const discount = Number(newLevel.discountPercent || 0);
+  const multiplier = Number(newLevel.pointsMultiplier || 1);
+  const perks = [
+    discount > 0 ? `знижка ${discount}% на всі замовлення` : null,
+    multiplier > 1 ? `бали ×${multiplier} за кожну покупку` : null,
+  ].filter(Boolean);
+
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: `🎉 Вітаємо — ви досягли рівня «${tierLabel}»!`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
+          <h2 style="color:#2563eb">${user.fullName}, ваш новий рівень — «${tierLabel}»!</h2>
+          <p>Дякуємо, що обираєте нас. Ваші покупки підняли вас на новий рівень програми лояльності.</p>
+          ${perks.length ? `<p>Тепер вам доступно: <strong>${perks.join(', ')}</strong>.</p>` : ''}
+          <a href="${appUrl}/account/loyalty?utm_source=email&utm_campaign=tier_up" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Мої бонуси</a>
+        </div>
+      `,
+    });
+
+    await prisma.userNotification.create({
+      data: {
+        userId,
+        notificationType: 'system_notification',
+        title: 'Новий рівень лояльності',
+        message: `Вітаємо з рівнем «${tierLabel}»!`,
+        link: '/account/loyalty',
+        dispatched: true,
+      },
+    });
+  } catch (err) {
+    logger.error(`[tier-up] Failed for user ${userId}`, { error: String(err) });
+  }
+}

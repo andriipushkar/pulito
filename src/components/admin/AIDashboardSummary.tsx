@@ -36,24 +36,31 @@ export default function AIDashboardSummary() {
   const [isLoading, setIsLoading] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(null);
 
-  const generate = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // Provider is chosen globally in Settings; no per-action override.
-      const res = await apiClient.post<SummaryResponse>('/api/v1/admin/dashboard/ai-summary', {});
-      if (res.success && res.data) {
-        setText(res.data.text);
-        setUsedProvider(res.data.provider);
-        setLastGeneratedAt(new Date());
-      } else {
-        toast.error(res.error || t('generateFailed'));
+  const generate = useCallback(
+    async (force = false) => {
+      setIsLoading(true);
+      try {
+        // Provider is chosen globally in Settings; no per-action override.
+        // Mount loads accept the server's 30-min cache; the refresh button
+        // forces a fresh LLM generation.
+        const res = await apiClient.post<SummaryResponse>('/api/v1/admin/dashboard/ai-summary', {
+          force,
+        });
+        if (res.success && res.data) {
+          setText(res.data.text);
+          setUsedProvider(res.data.provider);
+          setLastGeneratedAt(new Date());
+        } else {
+          toast.error(res.error || t('generateFailed'));
+        }
+      } catch {
+        toast.error(t('networkError'));
+      } finally {
+        setIsLoading(false);
       }
-    } catch {
-      toast.error(t('networkError'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t]);
+    },
+    [t],
+  );
 
   // Auto-generate on mount once. User refresh via button.
   useEffect(() => {
@@ -88,7 +95,7 @@ export default function AIDashboardSummary() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={generate}
+            onClick={() => generate(true)}
             disabled={isLoading}
             className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
           >

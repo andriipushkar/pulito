@@ -1,4 +1,8 @@
+import { promises as dns } from 'dns';
 import { env } from '@/config/env';
+import { getNovaPoshtaCreds, getLiqPayCreds } from '@/services/integration-credentials';
+import { prisma } from '@/lib/prisma';
+import { notifyManagerHealthAlert } from '@/services/telegram';
 
 interface HealthCheckResult {
   service: string;
@@ -33,14 +37,16 @@ export async function runHealthChecks(): Promise<{
   allHealthy: boolean;
 }> {
   const results = await Promise.all([
-    // Nova Poshta API
+    // Nova Poshta — credentials come from the admin panel (DB), env fallback,
+    // same resolution the delivery code uses (getNovaPoshtaCreds).
     checkService('nova_poshta', async () => {
-      if (!env.NOVA_POSHTA_API_KEY) throw new Error('API key not configured');
+      const { apiKey } = await getNovaPoshtaCreds();
+      if (!apiKey) throw new Error('API key not configured');
       const res = await fetch('https://api.novaposhta.ua/v2.0/json/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiKey: env.NOVA_POSHTA_API_KEY,
+          apiKey,
           modelName: 'Common',
           calledMethod: 'getTimeIntervals',
           methodProperties: {},
@@ -52,7 +58,6 @@ export async function runHealthChecks(): Promise<{
 
     // LiqPay — credentials come from the admin panel (DB), not env.
     checkService('liqpay', async () => {
-      const { getLiqPayCreds } = await import('@/services/integration-credentials');
       const { publicKey } = await getLiqPayCreds();
       if (!publicKey) throw new Error('Public key not configured');
       const res = await fetch('https://www.liqpay.ua/api/request', {
@@ -66,13 +71,50 @@ export async function runHealthChecks(): Promise<{
     checkService('smtp', async () => {
       if (!env.SMTP_HOST || !env.SMTP_USER) throw new Error('SMTP not configured');
       // DNS resolution check for SMTP host
-      const { promises: dns } = await import('dns');
       await dns.resolve(env.SMTP_HOST);
     }),
   ]);
+
+  // Alert the manager in Telegram, but ONLY on state transitions (down /
+  // recovered) — the cron fires hourly and a permanently-down service must
+  // not spam a message every hour. Last known state lives in site_settings.
+  await notifyOnTransitions(results).catch(() => undefined);
 
   return {
     results,
     allHealthy: results.every((r) => r.status === 'ok'),
   };
+}
+
+const STATE_KEY = 'health_check_last_state';
+
+async function notifyOnTransitions(results: HealthCheckResult[]): Promise<void> {
+  let prev: Record<string, 'ok' | 'error'> = {};
+  try {
+    const row = await prisma.siteSetting.findUnique({ where: { key: STATE_KEY } });
+    if (row?.value) prev = JSON.parse(row.value) as Record<string, 'ok' | 'error'>;
+  } catch {
+    // No previous state — treat this run as the baseline.
+  }
+
+  const next: Record<string, 'ok' | 'error'> = {};
+  const changes: { service: string; status: 'ok' | 'error'; error?: string }[] = [];
+  for (const r of results) {
+    next[r.service] = r.status;
+    // Unknown previous state: record silently, don't alert — otherwise the
+    // very first run after deploy fires "recovered" for every healthy service.
+    if (prev[r.service] && prev[r.service] !== r.status) {
+      changes.push({ service: r.service, status: r.status, error: r.error });
+    }
+  }
+
+  await prisma.siteSetting.upsert({
+    where: { key: STATE_KEY },
+    update: { value: JSON.stringify(next) },
+    create: { key: STATE_KEY, value: JSON.stringify(next) },
+  });
+
+  if (changes.length > 0) {
+    await notifyManagerHealthAlert(changes);
+  }
 }

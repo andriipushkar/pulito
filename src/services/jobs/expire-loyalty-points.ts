@@ -51,10 +51,14 @@ export async function expireLoyaltyPoints() {
     });
     // Net positive in the "old" window = points to expire (cap at current
     // account balance — we can't subtract more than they have).
+    // Math.abs both ways: stored signs are MIXED (spend rows are negative via
+    // loyalty.ts `points: -points`; expire/manual_deduct are positive). Raw
+    // `net -= t.points` ADDED spends back, inflating the expirable net and
+    // burning recently-earned points that should have survived.
     let net = 0;
     for (const t of oldTxns) {
-      if (t.type === 'earn' || t.type === 'manual_add') net += t.points;
-      else net -= t.points; // spend, expire, manual_deduct
+      if (t.type === 'earn' || t.type === 'manual_add') net += Math.abs(t.points);
+      else net -= Math.abs(t.points); // spend, expire, manual_deduct
     }
     const toExpire = Math.min(Math.max(net, 0), acc.points);
     if (toExpire === 0) continue;

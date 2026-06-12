@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { todayKyiv, daysAgoKyiv } from '@/utils/format';
+import { todayKyiv, daysAgoKyiv, kyivDateIso } from '@/utils/format';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -107,10 +107,13 @@ export async function getDashboardStats() {
   const weeklyBuckets = new Map<string, { revenue: number; count: number }>();
   for (let i = 6; i >= 0; i--) {
     const day = daysAgoKyiv(i);
-    weeklyBuckets.set(day.toISOString().slice(0, 10), { revenue: 0, count: 0 });
+    // kyivDateIso, NOT toISOString(): `day` is the UTC instant of Kyiv
+    // midnight, so its ISO/UTC date is the *previous* calendar day — labels
+    // shifted back a day and today's post-03:00 orders missed the map entirely.
+    weeklyBuckets.set(kyivDateIso(day), { revenue: 0, count: 0 });
   }
   for (const o of weeklyOrdersRaw) {
-    const key = o.createdAt.toISOString().slice(0, 10);
+    const key = kyivDateIso(o.createdAt);
     const bucket = weeklyBuckets.get(key);
     if (bucket) {
       bucket.revenue += Number(o.totalAmount);

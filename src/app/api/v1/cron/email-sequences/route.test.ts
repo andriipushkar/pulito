@@ -15,10 +15,15 @@ vi.mock('@/services/email-sequences', () => ({
   processWelcomeSeries: vi.fn(),
   processWinBack: vi.fn(),
   processPostPurchaseReviewRequest: vi.fn(),
+  processLoyaltyExpiryWarnings: vi.fn(),
 }));
 
 import { POST } from './route';
-import { processWelcomeSeries, processPostPurchaseReviewRequest } from '@/services/email-sequences';
+import {
+  processWelcomeSeries,
+  processPostPurchaseReviewRequest,
+  processLoyaltyExpiryWarnings,
+} from '@/services/email-sequences';
 
 describe('POST /api/v1/cron/email-sequences', () => {
   beforeEach(() => {
@@ -34,6 +39,7 @@ describe('POST /api/v1/cron/email-sequences', () => {
   it('processes all email sequences on success', async () => {
     vi.mocked(processWelcomeSeries).mockResolvedValue({ sent: 3 } as any);
     vi.mocked(processPostPurchaseReviewRequest).mockResolvedValue({ sent: 1 } as any);
+    vi.mocked(processLoyaltyExpiryWarnings).mockResolvedValue({ sent: 2 } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { Authorization: 'Bearer test-app-secret' },
@@ -43,11 +49,13 @@ describe('POST /api/v1/cron/email-sequences', () => {
     const data = await res.json();
     expect(data.data.welcome).toEqual({ sent: 3 });
     expect(data.data.reviewRequest).toEqual({ sent: 1 });
+    expect(data.data.loyaltyExpiry).toEqual({ sent: 2 });
   });
 
   it('handles partial failures with Promise.allSettled', async () => {
     vi.mocked(processWelcomeSeries).mockResolvedValue({ sent: 3 } as any);
     vi.mocked(processPostPurchaseReviewRequest).mockRejectedValue(new Error('fail'));
+    vi.mocked(processLoyaltyExpiryWarnings).mockResolvedValue({ sent: 0 } as any);
     const req = new Request('http://localhost', {
       method: 'POST',
       headers: { Authorization: 'Bearer test-app-secret' },

@@ -37,6 +37,7 @@ export async function earnPoints(userId: number, orderId: number, orderAmount: n
 
   // Recalculate inside the same transaction so a crash between the points
   // credit and the level update can't leave the account on a stale tier.
+  let tierUp: (typeof levels)[number] | null = null;
   await prisma.$transaction(async (tx) => {
     const updated = await tx.loyaltyAccount.update({
       where: { userId },
@@ -71,9 +72,19 @@ export async function earnPoints(userId: number, orderId: number, orderAmount: n
           where: { userId },
           data: { level: newLevel.name },
         });
+        tierUp = newLevel;
       }
     }
   });
+
+  // Congratulate AFTER the commit, fire-and-forget: an email/SMTP failure
+  // must never roll back or delay the points credit.
+  if (tierUp) {
+    const reached = tierUp;
+    void import('./email-sequences')
+      .then(({ notifyLoyaltyTierUp }) => notifyLoyaltyTierUp(userId, reached))
+      .catch(() => undefined);
+  }
 }
 
 export async function spendPoints(userId: number, points: number, orderId: number) {
@@ -165,6 +176,16 @@ export async function recalculateLevel(userId: number) {
       where: { userId },
       data: { level: newLevel.name },
     });
+
+    // Congratulate only on an UPGRADE (recalculate can also downgrade, e.g.
+    // after an admin edits levels) — fire-and-forget, see earnPoints.
+    const oldLevel = levels.find((l) => l.name === account.level);
+    if (!oldLevel || Number(newLevel.minSpent) > Number(oldLevel.minSpent)) {
+      const reached = newLevel;
+      void import('./email-sequences')
+        .then(({ notifyLoyaltyTierUp }) => notifyLoyaltyTierUp(userId, reached))
+        .catch(() => undefined);
+    }
   }
 }
 

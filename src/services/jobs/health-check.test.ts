@@ -11,11 +11,27 @@ vi.mock('@/config/env', () => ({
   env: mockEnv,
 }));
 
-// LiqPay health check now reads its public key from the admin panel (DB) via
-// getLiqPayCreds, not from env.
+// LiqPay and Nova Poshta health checks read their keys from the admin panel
+// (DB) via integration-credentials, not from env.
 const mockLiqpayCreds = vi.hoisted(() => ({ publicKey: 'test-liqpay-key' }));
+const mockNpCreds = vi.hoisted(() => ({ apiKey: 'test-np-key' }));
 vi.mock('@/services/integration-credentials', () => ({
   getLiqPayCreds: vi.fn(async () => mockLiqpayCreds),
+  getNovaPoshtaCreds: vi.fn(async () => mockNpCreds),
+}));
+
+// Transition-alerting reads/writes last state via prisma and telegram —
+// neutralise both so unit tests stay network/DB-free.
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    siteSetting: {
+      findUnique: vi.fn(async () => null),
+      upsert: vi.fn(async () => ({})),
+    },
+  },
+}));
+vi.mock('@/services/telegram', () => ({
+  notifyManagerHealthAlert: vi.fn(async () => undefined),
 }));
 
 // Mock fetch globally
@@ -94,8 +110,8 @@ describe('runHealthChecks', () => {
   });
 
   it('should report error when Nova Poshta API key is missing', async () => {
-    const original = mockEnv.NOVA_POSHTA_API_KEY;
-    mockEnv.NOVA_POSHTA_API_KEY = '';
+    const original = mockNpCreds.apiKey;
+    mockNpCreds.apiKey = '';
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
 
     const result = await runHealthChecks();
@@ -103,7 +119,7 @@ describe('runHealthChecks', () => {
     expect(result.results[0].service).toBe('nova_poshta');
     expect(result.results[0].status).toBe('error');
     expect(result.results[0].error).toContain('not configured');
-    mockEnv.NOVA_POSHTA_API_KEY = original;
+    mockNpCreds.apiKey = original;
   });
 
   it('should report error when LiqPay key is missing', async () => {
