@@ -133,9 +133,15 @@ export const GET = withRole(
     const topByPlatform: Record<string, TopProduct[]> = {};
     for (const p of perPlatform) topByPlatform[p.stats.platform] = p.top;
 
-    // Daily revenue series (last `days` days, all platforms combined)
-    const dailyRaw = await prisma.$queryRaw<Array<{ day: Date; revenue: number; orders: bigint }>>`
-      SELECT DATE_TRUNC('day', "created_at") as day,
+    // Daily revenue series (last `days` days, all platforms combined).
+    // Bucket by the KYIV calendar day, not the UTC one — created_at is a
+    // naive UTC timestamp, so plain DATE_TRUNC put 00:00–03:00 Kyiv orders on
+    // the previous day. Double AT TIME ZONE: tag naive value as UTC, then
+    // shift to Kyiv wall time; to_char avoids driver DATE-parsing ambiguity.
+    const dailyRaw = await prisma.$queryRaw<
+      Array<{ day: string; revenue: number; orders: bigint }>
+    >`
+      SELECT to_char(("created_at" AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Kyiv', 'YYYY-MM-DD') as day,
              COALESCE(SUM("total_amount"), 0)::float as revenue,
              COUNT(*)::bigint as orders
       FROM orders
@@ -146,7 +152,7 @@ export const GET = withRole(
       ORDER BY 1 ASC;
     `;
     const daily = dailyRaw.map((r) => ({
-      day: r.day.toISOString().slice(0, 10),
+      day: r.day,
       revenue: r.revenue,
       orders: Number(r.orders),
     }));
