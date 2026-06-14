@@ -1,30 +1,12 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
-import { isSafeOutboundUrl } from '@/utils/safe-url';
 import { encrypt } from '@/lib/encryption';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
-
-const updateSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  feedUrl: z
-    .string()
-    .url()
-    .max(2000)
-    .refine((u) => isSafeOutboundUrl(u, { protocols: ['http:', 'https:'] }), {
-      message: 'URL вказує на приватну/локальну адресу — заборонено',
-    })
-    .optional(),
-  format: z.enum(['xlsx', 'csv', 'yml', 'xml_1c']).optional(),
-  authType: z.enum(['none', 'basic', 'bearer']).optional(),
-  authUsername: z.string().max(255).optional().nullable(),
-  authPassword: z.string().max(255).optional().nullable(),
-  authToken: z.string().max(500).optional().nullable(),
-  isActive: z.boolean().optional(),
-  scheduleCron: z.string().max(100).optional().nullable(),
-});
+import { supplierChannelUpdateSchema } from '@/validators/supplier-channel';
 
 export const GET = withRole(
   'manager',
@@ -43,13 +25,13 @@ export const GET = withRole(
   }
 });
 
-export const PUT = withRole('admin')(async (request: NextRequest, { params }) => {
+export const PUT = withRole('admin')(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
     const body = await request.json();
-    const parsed = updateSchema.safeParse(body);
+    const parsed = supplierChannelUpdateSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
@@ -61,6 +43,14 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params }) =>
     if (data.authToken === '***') delete data.authToken;
     else if (data.authToken) data.authToken = encrypt(data.authToken);
     const channel = await prisma.supplierChannel.update({ where: { id: numId }, data });
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_update',
+      entityType: 'supplier_channel',
+      entityId: numId,
+      details: { fields: Object.keys(data) },
+      ipAddress: getClientIp(request),
+    });
     return successResponse({
       ...channel,
       authPassword: channel.authPassword ? '***' : null,
@@ -72,12 +62,19 @@ export const PUT = withRole('admin')(async (request: NextRequest, { params }) =>
   }
 });
 
-export const DELETE = withRole('admin')(async (_request: NextRequest, { params }) => {
+export const DELETE = withRole('admin')(async (request: NextRequest, { params, user }) => {
   try {
     const { id } = await params!;
     const numId = Number(id);
     if (isNaN(numId)) return errorResponse('Невалідний ID', 400);
     await prisma.supplierChannel.delete({ where: { id: numId } });
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_delete',
+      entityType: 'supplier_channel',
+      entityId: numId,
+      ipAddress: getClientIp(request),
+    });
     return successResponse({ deleted: true });
   } catch (err) {
     logger.error('[admin/supplier-channels/[id]] DELETE failed', { error: err });

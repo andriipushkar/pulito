@@ -2075,7 +2075,7 @@
       "tsOversell": "Zamówienie przeszło na marketplace, ale lokalnie produktu już nie było. Spójrz na zamówienie (wiadomość Telegram zawiera link) i zdecyduj: domów, anuluj lub zaproponuj klientowi alternatywę.",
       "tsCredsGone": "<b>Naprawiono 2026-05-17:</b> pola z tokenem są teraz chronione — aby zmienić token, trzeba kliknąć <i>Zmień</i>. Pusta wartość nie nadpisuje tokenu.",
       "tsCronNoImport": "Sprawdź <code>/api/v1/cron/sync-marketplace-orders</code> — endpoint zwraca JSON z wynikami dla każdego marketplace. Jeśli <code>failed: -1</code> — jest błąd połączenia.",
-      "footerNote": "<b>Więcej dokumentacji:</b> referencja techniczna w pliku <code>MARKETPLACES.md</code> w katalogu głównym repo."
+      "footerNote": "<b>Więcej dokumentacji:</b> referencja techniczna w <code>docs/12-маркетплейси.md</code>."
     },
     "orderTimeline": {
       "created": "Zamówienie utworzone",
@@ -5858,7 +5858,7 @@
       "noCategory": "Bez kategorii",
       "tagsLabel": "Tagi (oddzielone przecinkami)",
       "tagsPh": "tag1, tag2, tag3",
-      "coverLabel": "URL okladki",
+      "coverLabel": "Okładka",
       "coverPh": "https://...",
       "published": "Opublikowane",
       "excerptSection": "Krotki opis",
@@ -6524,6 +6524,19 @@
       "invoiceSent": "Wyslana",
       "invoicePaid": "Oplacona",
       "invoiceOverdue": "Zaleglosci"
+    },
+    "coverImagePicker": {
+      "uploadTab": "Prześlij zdjęcie",
+      "productTab": "Wybierz produkt",
+      "searchPh": "Szukaj produktu po nazwie lub kodzie…",
+      "searching": "Szukam…",
+      "uploading": "Przesyłanie…",
+      "uploadHint": "JPG, PNG, WebP do 5 MB",
+      "remove": "Usuń okładkę",
+      "noResults": "Nic nie znaleziono",
+      "noPhoto": "Produkt nie ma zdjęcia",
+      "uploadError": "Błąd przesyłania pliku",
+      "searchError": "Błąd wyszukiwania"
     }
   },
   "blog": {

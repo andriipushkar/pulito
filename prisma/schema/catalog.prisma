@@ -2,29 +2,29 @@
 // 23.30 Categories (Категорії)
 // ─────────────────────────────────────
 model Category {
-  id             Int        @id @default(autoincrement())
-  name           String
-  slug           String     @unique
-  iconPath       String?    @map("icon_path")
-  coverImage     String?    @map("cover_image")
-  description    String?
-  seoTitle       String?    @map("seo_title")
-  seoDescription String?    @map("seo_description")
+  id               Int        @id @default(autoincrement())
+  name             String
+  slug             String     @unique
+  iconPath         String?    @map("icon_path")
+  coverImage       String?    @map("cover_image")
+  description      String?
+  seoTitle         String?    @map("seo_title")
+  seoDescription   String?    @map("seo_description")
   // EN translations — slug stays uk for URL identity.
-  nameEn         String?    @map("name_en")
-  descriptionEn  String?    @map("description_en")
-  seoTitleEn     String?    @map("seo_title_en")
-  seoDescriptionEn String?  @map("seo_description_en")
-  sortOrder      Int        @default(0) @map("sort_order")
-  isVisible      Boolean    @default(true) @map("is_visible")
-  deletedAt      DateTime?  @map("deleted_at")
-  parentId       Int?       @map("parent_id")
-  parent         Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children       Category[] @relation("CategoryTree")
-  mergedFrom     Json?      @map("merged_from")
-  version        Int        @default(0)
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
+  nameEn           String?    @map("name_en")
+  descriptionEn    String?    @map("description_en")
+  seoTitleEn       String?    @map("seo_title_en")
+  seoDescriptionEn String?    @map("seo_description_en")
+  sortOrder        Int        @default(0) @map("sort_order")
+  isVisible        Boolean    @default(true) @map("is_visible")
+  deletedAt        DateTime?  @map("deleted_at")
+  parentId         Int?       @map("parent_id")
+  parent           Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children         Category[] @relation("CategoryTree")
+  mergedFrom       Json?      @map("merged_from")
+  version          Int        @default(0)
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
   products        Product[]
   publications    Publication[]    @relation("PublicationCategory")
@@ -37,15 +37,15 @@ model Category {
 // 23.29 Banners
 // ─────────────────────────────────────
 model Banner {
-  id           Int      @id @default(autoincrement())
-  title        String?
-  subtitle     String?
-  imageDesktop String   @map("image_desktop")
-  imageMobile  String?  @map("image_mobile")
-  buttonText   String?  @map("button_text")
-  buttonLink   String?  @map("button_link")
-  sortOrder    Int      @default(0) @map("sort_order")
-  isActive     Boolean  @default(true) @map("is_active")
+  id            Int      @id @default(autoincrement())
+  title         String?
+  subtitle      String?
+  imageDesktop  String   @map("image_desktop")
+  imageMobile   String?  @map("image_mobile")
+  buttonText    String?  @map("button_text")
+  buttonLink    String?  @map("button_link")
+  sortOrder     Int      @default(0) @map("sort_order")
+  isActive      Boolean  @default(true) @map("is_active")
   // A/B testing — banners with the same `variantGroup` are eligible to be
   // shown to the same visitor (one randomly, weighted by `variantWeight`).
   // Null group → standalone banner, always shown if active.
@@ -54,9 +54,9 @@ model Banner {
   // Engagement counters incremented by /api/v1/banners/{id}/impression and /click.
   impressions   Int      @default(0)
   clicks        Int      @default(0)
-  createdBy    Int?     @map("created_by")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdBy     Int?     @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@index([variantGroup, isActive])
   @@map("banners")
@@ -66,27 +66,27 @@ model Banner {
 // 23.11 Static_Pages
 // ─────────────────────────────────────
 model StaticPage {
-  id             Int          @id @default(autoincrement())
-  slug           String       @unique
-  title          String
-  content        String
-  seoTitle       String?      @map("seo_title")
-  seoDescription String?      @map("seo_description")
+  id               Int          @id @default(autoincrement())
+  slug             String       @unique
+  title            String
+  content          String
+  seoTitle         String?      @map("seo_title")
+  seoDescription   String?      @map("seo_description")
   // EN translations — fallback to uk when null.
-  titleEn        String?      @map("title_en")
-  contentEn      String?      @map("content_en")
-  seoTitleEn     String?      @map("seo_title_en")
-  seoDescriptionEn String?    @map("seo_description_en")
-  isPublished    Boolean      @default(true) @map("is_published")
-  sortOrder      Int          @default(0) @map("sort_order")
+  titleEn          String?      @map("title_en")
+  contentEn        String?      @map("content_en")
+  seoTitleEn       String?      @map("seo_title_en")
+  seoDescriptionEn String?      @map("seo_description_en")
+  isPublished      Boolean      @default(true) @map("is_published")
+  sortOrder        Int          @default(0) @map("sort_order")
   // Hierarchy — pages can nest one level deep (e.g. "About" → "Team", "About"
   // → "Mission"). Used for the footer menu builder.
-  parentId       Int?         @map("parent_id")
-  parent         StaticPage?  @relation("StaticPageTree", fields: [parentId], references: [id])
-  children       StaticPage[] @relation("StaticPageTree")
-  updatedBy      Int?         @map("updated_by")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  parentId         Int?         @map("parent_id")
+  parent           StaticPage?  @relation("StaticPageTree", fields: [parentId], references: [id])
+  children         StaticPage[] @relation("StaticPageTree")
+  updatedBy        Int?         @map("updated_by")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
 
   @@index([parentId])
   @@map("static_pages")
@@ -96,39 +96,39 @@ model StaticPage {
 // 23.12 FAQ_Items + FAQ_Categories
 // ─────────────────────────────────────
 model FaqCategory {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  slug        String    @unique
-  description String?
-  nameEn      String?   @map("name_en")
-  descriptionEn String? @map("description_en")
-  iconPath    String?   @map("icon_path")
-  sortOrder   Int       @default(0) @map("sort_order")
-  isPublished Boolean   @default(true) @map("is_published")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id            Int      @id @default(autoincrement())
+  name          String   @unique
+  slug          String   @unique
+  description   String?
+  nameEn        String?  @map("name_en")
+  descriptionEn String?  @map("description_en")
+  iconPath      String?  @map("icon_path")
+  sortOrder     Int      @default(0) @map("sort_order")
+  isPublished   Boolean  @default(true) @map("is_published")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  items       FaqItem[]
+  items FaqItem[]
 
   @@map("faq_categories")
 }
 
 model FaqItem {
-  id           Int          @id @default(autoincrement())
+  id            Int          @id @default(autoincrement())
   // Legacy free-text category — kept for the migration window. New writes
   // populate categoryRefId; old data is backfilled by the migration.
-  category     String
+  category      String
   categoryRefId Int?         @map("category_ref_id")
   categoryRef   FaqCategory? @relation(fields: [categoryRefId], references: [id])
-  question     String
-  answer       String
-  questionEn   String?      @map("question_en")
-  answerEn     String?      @map("answer_en")
-  sortOrder    Int          @default(0) @map("sort_order")
-  isPublished  Boolean      @default(true) @map("is_published")
-  clickCount   Int          @default(0) @map("click_count")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  question      String
+  answer        String
+  questionEn    String?      @map("question_en")
+  answerEn      String?      @map("answer_en")
+  sortOrder     Int          @default(0) @map("sort_order")
+  isPublished   Boolean      @default(true) @map("is_published")
+  clickCount    Int          @default(0) @map("click_count")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
 
   @@index([category, sortOrder])
   @@index([categoryRefId, sortOrder])
@@ -316,13 +316,13 @@ model Subscriber {
 // surface lost-revenue queries the catalog should answer.
 // ─────────────────────────────────────
 model SearchQuery {
-  id            Int      @id @default(autoincrement())
-  term          String   @db.VarChar(255)
-  termNormalized String  @map("term_normalized") @db.VarChar(255) // lowercase, trimmed
-  resultsCount  Int      @default(0) @map("results_count")
-  count         Int      @default(1)
+  id             Int      @id @default(autoincrement())
+  term           String   @db.VarChar(255)
+  termNormalized String   @map("term_normalized") @db.VarChar(255) // lowercase, trimmed
+  resultsCount   Int      @default(0) @map("results_count")
+  count          Int      @default(1)
   lastSearchedAt DateTime @default(now()) @map("last_searched_at")
-  createdAt     DateTime @default(now()) @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   @@unique([termNormalized])
   @@index([resultsCount])
@@ -330,4 +330,3 @@ model SearchQuery {
   @@index([count])
   @@map("search_queries")
 }
-

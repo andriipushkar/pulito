@@ -351,7 +351,31 @@ export async function createOrder(
   const netTotal = subtractMoney(grossTotal, discountAmount);
   const orderNumber = generateOrderNumber();
 
+  // Per-product snapshot captured inside the transaction but read afterwards
+  // (dropship notification). Holds the barcode + supplier link + purchase cost
+  // at sale time so reconciliation stays correct if the product later changes.
+  const productMeta = new Map<
+    number,
+    {
+      barcode: string | null;
+      supplierId: number | null;
+      supplierSku: string | null;
+      cost: Prisma.Decimal | null;
+    }
+  >();
+
   const order = await prisma.$transaction(async (tx) => {
+    // Backorder ("під замовлення") products may be ordered past their on-hand
+    // stock — the supplier fulfils them — so they skip the availability guard.
+    const backorderIds = new Set(
+      (
+        await tx.product.findMany({
+          where: { id: { in: cartItems.map((i) => i.productId) }, allowBackorder: true },
+          select: { id: true },
+        })
+      ).map((p) => p.id),
+    );
+
     // Verify stock availability and decrement quantities
     for (const item of cartItems) {
       const updated = await tx.product.updateMany({
@@ -365,7 +389,19 @@ export async function createOrder(
       });
 
       if (updated.count === 0) {
-        throw new OrderError(`Товар "${item.productName}" недоступний у потрібній кількості`, 400);
+        if (backorderIds.has(item.productId)) {
+          // Decrement anyway (stock may go negative); the next supplier sync
+          // overwrites it with the supplier's authoritative count.
+          await tx.product.updateMany({
+            where: { id: item.productId },
+            data: { quantity: { decrement: item.quantity } },
+          });
+        } else {
+          throw new OrderError(
+            `Товар "${item.productName}" недоступний у потрібній кількості`,
+            400,
+          );
+        }
       }
     }
 
@@ -377,17 +413,23 @@ export async function createOrder(
       1,
     );
 
-    // Snapshot barcodes alongside productCode/productName so a later rename or
-    // barcode change on the product doesn't rewrite history. One bulk query
-    // instead of N + 1.
-    const productBarcodes = new Map<number, string | null>();
+    // Snapshot barcode + supplier link + cost alongside productCode/productName
+    // so a later rename / barcode change / supplier reassignment doesn't rewrite
+    // history. One bulk query instead of N + 1.
     const ids = cartItems.map((i) => i.productId);
     if (ids.length > 0) {
       const rows = await tx.product.findMany({
         where: { id: { in: ids } },
-        select: { id: true, barcode: true },
+        select: { id: true, barcode: true, supplierId: true, supplierSku: true, cost: true },
       });
-      for (const row of rows) productBarcodes.set(row.id, row.barcode);
+      for (const row of rows) {
+        productMeta.set(row.id, {
+          barcode: row.barcode,
+          supplierId: row.supplierId,
+          supplierSku: row.supplierSku,
+          cost: row.cost,
+        });
+      }
     }
 
     // Create the order
@@ -430,16 +472,23 @@ export async function createOrder(
         utmMedium: checkout.utmMedium ?? null,
         utmCampaign: checkout.utmCampaign ?? null,
         items: {
-          create: cartItems.map((item) => ({
-            productId: item.productId,
-            productCode: item.productCode,
-            productBarcode: productBarcodes.get(item.productId) ?? null,
-            productName: item.productName,
-            priceAtOrder: item.price,
-            quantity: item.quantity,
-            subtotal: lineTotal(item.price, item.quantity),
-            isPromo: item.isPromo,
-          })),
+          create: cartItems.map((item) => {
+            const meta = productMeta.get(item.productId);
+            return {
+              productId: item.productId,
+              productCode: item.productCode,
+              productBarcode: meta?.barcode ?? null,
+              productName: item.productName,
+              priceAtOrder: item.price,
+              quantity: item.quantity,
+              subtotal: lineTotal(item.price, item.quantity),
+              isPromo: item.isPromo,
+              // Reconciliation snapshot: which supplier owns this line and what
+              // it cost us at sale time (null for the shop's own goods).
+              supplierId: meta?.supplierId ?? null,
+              supplierCostAtSale: meta?.cost ?? null,
+            };
+          }),
         },
         statusHistory: {
           create: {
@@ -492,6 +541,22 @@ export async function createOrder(
         error: String(err),
       });
     });
+
+  // Notify dropship suppliers to ship their lines directly. For cash-on-delivery
+  // we tell them now; for prepaid (online/card/transfer) we must NOT — a supplier
+  // could ship an unpaid order — so that fires later, on payment confirmation
+  // (handlePaymentCallback / updateOrderStatus → paid). The notifier is
+  // idempotent on Order.dropshipNotifiedAt, so the two triggers never double-send.
+  if (checkout.paymentMethod === 'cod') {
+    import('@/services/suppliers/dropship-notify')
+      .then((mod) => mod.notifyDropshipForOrder(order.id))
+      .catch((err) => {
+        logger.error('Dropship supplier notification failed', {
+          orderNumber: order.orderNumber,
+          error: String(err),
+        });
+      });
+  }
 
   // Email fallback to the manager — Telegram is primary but may be unset in
   // prod (then the owner would never learn of a new order). Recipient is the
@@ -855,6 +920,17 @@ export async function updateOrderStatus(
       )
       .catch(() => {
         /* silent */
+      });
+  }
+
+  // Manual "mark paid" (e.g. bank transfer received) — release dropship orders
+  // to suppliers now that money is in. Idempotent on Order.dropshipNotifiedAt, so
+  // this never double-sends with the COD-on-create or online-callback triggers.
+  if (newStatus === 'paid') {
+    import('@/services/suppliers/dropship-notify')
+      .then((mod) => mod.notifyDropshipForOrder(updated.id))
+      .catch(() => {
+        /* best-effort */
       });
   }
 
@@ -1370,6 +1446,8 @@ export async function editOrderItems(
             priceWholesale2: true,
             priceWholesale3: true,
             quantity: true,
+            supplierId: true,
+            cost: true,
           },
         });
 
@@ -1407,6 +1485,9 @@ export async function editOrderItems(
             quantity: change.quantity,
             subtotal: Math.round(unitPrice * change.quantity * 100) / 100,
             isPromo: false,
+            // Reconciliation snapshot for supplier-owned goods added manually.
+            supplierId: product.supplierId,
+            supplierCostAtSale: product.cost,
           },
         });
       }

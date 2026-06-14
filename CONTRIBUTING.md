@@ -18,7 +18,7 @@
    npm run dev
    ```
 
-3. Full setup guide: [documents/setup/01-local-development.md](documents/setup/01-local-development.md)
+3. Full setup guide: [docs/04-встановлення.md](docs/04-встановлення.md)
 
 ## Code style
 
@@ -54,12 +54,12 @@
 
 ## Testing
 
-| Type             | Command                 | Location           |
-| ---------------- | ----------------------- | ------------------ |
-| Unit/Integration | `npm test`              | `src/**/*.test.ts` |
-| E2E              | `npm run test:e2e`      | `e2e/*.spec.ts`    |
-| Coverage         | `npm run test:coverage` | —                  |
-| Load             | `k6 run k6/*.js`        | `k6/`              |
+| Type             | Command                 | Location              |
+| ---------------- | ----------------------- | --------------------- |
+| Unit/Integration | `npm test`              | `src/**/*.test.ts`    |
+| E2E              | `npm run test:e2e`      | `tests/e2e/*.spec.ts` |
+| Coverage         | `npm run test:coverage` | —                     |
+| Load             | `k6 run k6/*.js`        | `k6/`                 |
 
 - All services, API routes, components, and cron jobs must have tests
 - Use `.env.test` for CI/test environment variables

@@ -84,6 +84,40 @@ describe('getHomepageBlocks', () => {
     expect(result.map((b) => b.key)).toEqual(ALL_DEFAULT_KEYS);
   });
 
+  it('should read the versioned-doc shape the admin route persists', async () => {
+    // Regression: admin PUT writes `{ version, blocks }`. The old parser only
+    // handled a bare array, so it threw → defaults → disabled blocks (e.g.
+    // local_lviv) reappeared on the storefront.
+    const doc = {
+      version: 1,
+      blocks: [
+        { key: 'banner_slider', label: 'Банер-слайдер', enabled: true },
+        { key: 'local_lviv', label: 'Локальні переваги (Львів)', enabled: false },
+        { key: 'categories', label: 'Каталог категорій', enabled: true },
+        { key: 'promo_products', label: 'Акційні товари', enabled: true },
+        { key: 'new_products', label: 'Новинки', enabled: true },
+        { key: 'popular_products', label: 'Хіти продажів', enabled: true },
+        { key: 'recently_viewed', label: 'Нещодавно переглянуті', enabled: true },
+        { key: 'brands', label: 'Бренди / Торгові марки', enabled: true },
+        { key: 'seo_text', label: 'SEO-текстовий блок', enabled: true },
+      ],
+    };
+
+    mockPrisma.siteSetting.findUnique.mockResolvedValue({
+      id: 1,
+      key: 'homepage_blocks',
+      value: JSON.stringify(doc),
+      updatedBy: null,
+      updatedAt: new Date(),
+    } as never);
+
+    const result = await getHomepageBlocks();
+
+    // The admin's disabled state is honoured, not overwritten by defaults.
+    expect(result.find((b) => b.key === 'local_lviv')?.enabled).toBe(false);
+    expect(result.map((b) => b.key).sort()).toEqual([...ALL_DEFAULT_KEYS].sort());
+  });
+
   it('should filter out legacy usp block from stored settings', async () => {
     const withLegacy = [
       { key: 'banner_slider', label: 'Банер-слайдер', enabled: true },

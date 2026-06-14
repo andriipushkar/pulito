@@ -1,29 +1,12 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
 import { withRole } from '@/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
-import { isSafeOutboundUrl } from '@/utils/safe-url';
 import { encrypt } from '@/lib/encryption';
+import { logAudit } from '@/services/audit';
+import { getClientIp } from '@/utils/request';
 import { logger } from '@/lib/logger';
-
-const createSchema = z.object({
-  name: z.string().min(1).max(255),
-  feedUrl: z
-    .string()
-    .url()
-    .max(2000)
-    .refine((u) => isSafeOutboundUrl(u, { protocols: ['http:', 'https:'] }), {
-      message: 'URL вказує на приватну/локальну адресу — заборонено',
-    }),
-  format: z.enum(['xlsx', 'csv', 'yml', 'xml_1c']),
-  authType: z.enum(['none', 'basic', 'bearer']).default('none'),
-  authUsername: z.string().max(255).optional().nullable(),
-  authPassword: z.string().max(255).optional().nullable(),
-  authToken: z.string().max(500).optional().nullable(),
-  isActive: z.boolean().default(true),
-  scheduleCron: z.string().max(100).optional().nullable(),
-});
+import { supplierChannelCreateSchema } from '@/validators/supplier-channel';
 
 export const GET = withRole(
   'manager',
@@ -46,10 +29,10 @@ export const GET = withRole(
   }
 });
 
-export const POST = withRole('admin')(async (request: NextRequest) => {
+export const POST = withRole('admin')(async (request: NextRequest, { user }) => {
   try {
     const body = await request.json();
-    const parsed = createSchema.safeParse(body);
+    const parsed = supplierChannelCreateSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(parsed.error.issues[0]?.message || 'Невалідні дані', 422);
     }
@@ -59,6 +42,19 @@ export const POST = withRole('admin')(async (request: NextRequest) => {
     if (data.authPassword) data.authPassword = encrypt(data.authPassword);
     if (data.authToken) data.authToken = encrypt(data.authToken);
     const channel = await prisma.supplierChannel.create({ data });
+    await logAudit({
+      userId: user.id,
+      actionType: 'data_create',
+      entityType: 'supplier_channel',
+      entityId: channel.id,
+      details: {
+        name: channel.name,
+        format: channel.format,
+        syncMode: channel.syncMode,
+        fulfillment: channel.fulfillment,
+      },
+      ipAddress: getClientIp(request),
+    });
     return successResponse(
       {
         ...channel,

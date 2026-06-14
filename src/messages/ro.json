@@ -2075,7 +2075,7 @@
       "tsOversell": "Comanda a trecut pe marketplace, dar local produsul nu mai era pe stoc. Uită-te la comandă (mesajul Telegram conține un link) și decide: recomandă, anulează sau oferă-i clientului o alternativă.",
       "tsCredsGone": "<b>Remediat la 2026-05-17:</b> câmpurile cu token sunt acum protejate — pentru a schimba un token trebuie să apeși <i>Schimbă</i>. O valoare goală nu suprascrie tokenul.",
       "tsCronNoImport": "Verifică <code>/api/v1/cron/sync-marketplace-orders</code> — endpointul returnează JSON cu rezultate pe fiecare marketplace. Dacă <code>failed: -1</code> — există o eroare de conexiune.",
-      "footerNote": "<b>Mai multă documentație:</b> referința tehnică este în fișierul <code>MARKETPLACES.md</code> din rădăcina repo-ului."
+      "footerNote": "<b>Mai multă documentație:</b> referința tehnică este în <code>docs/12-маркетплейси.md</code>."
     },
     "orderTimeline": {
       "created": "Comandă creată",
@@ -5858,7 +5858,7 @@
       "noCategory": "Fara categorie",
       "tagsLabel": "Etichete (separate prin virgule)",
       "tagsPh": "tag1, tag2, tag3",
-      "coverLabel": "URL coperta",
+      "coverLabel": "Copertă",
       "coverPh": "https://...",
       "published": "Publicat",
       "excerptSection": "Extras",
@@ -6524,6 +6524,19 @@
       "invoiceSent": "Trimisa",
       "invoicePaid": "Platita",
       "invoiceOverdue": "Restant"
+    },
+    "coverImagePicker": {
+      "uploadTab": "Încarcă foto",
+      "productTab": "Alege produs",
+      "searchPh": "Caută produs după nume sau cod…",
+      "searching": "Se caută…",
+      "uploading": "Se încarcă…",
+      "uploadHint": "JPG, PNG, WebP până la 5 MB",
+      "remove": "Elimină coperta",
+      "noResults": "Nimic găsit",
+      "noPhoto": "Produsul nu are foto",
+      "uploadError": "Eroare la încărcarea fișierului",
+      "searchError": "Eroare la căutare"
     }
   },
   "blog": {

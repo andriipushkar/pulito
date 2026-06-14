@@ -211,6 +211,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         priceWholesale3={product.priceWholesale3 ? Number(product.priceWholesale3) : null}
         imagePath={product.images[0]?.pathMedium || product.imagePath}
         quantity={product.quantity}
+        allowBackorder={product.allowBackorder}
       />
     </Container>
   );

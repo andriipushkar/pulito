@@ -297,13 +297,13 @@ async function fetchOrdersForPlatform(
               code: 'id' in it ? String(it.id) : undefined,
             }))
           : 'products' in order
-          ? order.products.map((it) => ({
-              name: it.name,
-              quantity: safeQty(it.quantity),
-              price: Number(it.price),
-              code: 'id' in it ? String(it.id) : undefined,
-            }))
-          : [];
+            ? order.products.map((it) => ({
+                name: it.name,
+                quantity: safeQty(it.quantity),
+                price: Number(it.price),
+                code: 'id' in it ? String(it.id) : undefined,
+              }))
+            : [];
 
       const buyerName =
         'buyer' in order
@@ -315,8 +315,8 @@ async function fetchOrdersForPlatform(
         'buyer' in order
           ? order.buyer.email
           : 'email' in order
-          ? (order as { email?: string }).email
-          : undefined;
+            ? (order as { email?: string }).email
+            : undefined;
 
       return {
         id: String(order.id),
@@ -324,7 +324,12 @@ async function fetchOrdersForPlatform(
         buyerPhone,
         buyerEmail,
         items,
-        createdAt: 'created' in order ? order.created : 'date_created' in order ? order.date_created : undefined,
+        createdAt:
+          'created' in order
+            ? order.created
+            : 'date_created' in order
+              ? order.date_created
+              : undefined,
       };
     });
   }
@@ -385,6 +390,21 @@ export async function importOrdersFromMarketplace(
           return sum + price * qty;
         }, 0);
 
+        // Resolve supplier link by product code so marketplace sales of
+        // supplier-owned goods show up in the reconciliation report (same
+        // snapshot the web checkout captures). Codes with no local product, or
+        // products with no supplier, simply stay null.
+        const codes = order.items.map((i) => i.code).filter((c): c is string => !!c);
+        const codeToSnap = new Map<string, { supplierId: number | null; cost: unknown }>();
+        if (codes.length > 0) {
+          const linked = await tx.product.findMany({
+            where: { code: { in: codes }, supplierId: { not: null } },
+            select: { code: true, supplierId: true, cost: true },
+          });
+          for (const p of linked)
+            codeToSnap.set(p.code, { supplierId: p.supplierId, cost: p.cost });
+        }
+
         await tx.order.create({
           data: {
             orderNumber: `${platform.toUpperCase()}-${externalOrderId}`,
@@ -400,13 +420,18 @@ export async function importOrdersFromMarketplace(
             deliveryMethod: 'nova_poshta',
             paymentMethod: 'cod',
             items: {
-              create: order.items.map((item) => ({
-                productCode: item.code || 'UNKNOWN',
-                productName: item.name,
-                quantity: item.quantity,
-                priceAtOrder: Number(item.price),
-                subtotal: Number(item.price) * item.quantity,
-              })),
+              create: order.items.map((item) => {
+                const snap = item.code ? codeToSnap.get(item.code) : undefined;
+                return {
+                  productCode: item.code || 'UNKNOWN',
+                  productName: item.name,
+                  quantity: item.quantity,
+                  priceAtOrder: Number(item.price),
+                  subtotal: Number(item.price) * item.quantity,
+                  supplierId: snap?.supplierId ?? null,
+                  supplierCostAtSale: (snap?.cost ?? null) as never,
+                };
+              }),
             },
           },
         });
@@ -418,7 +443,8 @@ export async function importOrdersFromMarketplace(
         // log the discrepancy for manual reconciliation.
         // FBO orders skip this entirely — the marketplace owns the inventory.
         const affected: number[] = [];
-        const oversold: { code: string; name?: string; requested: number; available: number }[] = [];
+        const oversold: { code: string; name?: string; requested: number; available: number }[] =
+          [];
         if (fulfilmentMode === 'fbo') {
           return { kind: 'imported' as const, affected, oversold };
         }
@@ -482,7 +508,9 @@ export async function importOrdersFromMarketplace(
   // race window between "OLX sold one" and "Rozetka still says available" shrinks.
   if (touchedProductIds.size > 0) {
     void syncProductsStockToMarketplaces([...touchedProductIds]).catch((err) => {
-      log.error('Failed to propagate stock after import', { error: err instanceof Error ? err.message : String(err) });
+      log.error('Failed to propagate stock after import', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
   }
 
@@ -572,7 +600,9 @@ export async function syncProductsPriceToMarketplaces(productIds: number[]): Pro
       }
     }
   } catch (err) {
-    log.error('syncProductsPriceToMarketplaces fatal', { error: err instanceof Error ? err.message : String(err) });
+    log.error('syncProductsPriceToMarketplaces fatal', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -589,10 +619,7 @@ export async function syncProductsPriceToMarketplaces(productIds: number[]): Pro
  * Returns null when the marketplace doesn't expect us to push this transition
  * (e.g. status that the marketplace owns itself).
  */
-function mapLocalToMarketplaceStatus(
-  platform: Platform,
-  localStatus: string,
-): string | null {
+function mapLocalToMarketplaceStatus(platform: Platform, localStatus: string): string | null {
   // We only push statuses that mean "we did something" (shipped) or "we're
   // closing it" (completed/cancelled). The marketplace owns its own "new/processing".
   const common: Record<string, Record<string, string>> = {
@@ -640,7 +667,10 @@ export async function pushOrderStatusToMarketplace(
       } else if (source === 'prom' && config.apiToken) {
         await fetch('https://my.prom.ua/api/v1/orders/set_status', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${config.apiToken}`, 'Content-Type': 'application/json' },
+          headers: {
+            Authorization: `Bearer ${config.apiToken}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ status: mappedStatus, ids: [Number(externalId)] }),
           signal: AbortSignal.timeout(15000),
         });
@@ -671,7 +701,9 @@ export async function pushOrderStatusToMarketplace(
       });
     }
   } catch (err) {
-    log.error('pushOrderStatusToMarketplace fatal', { error: err instanceof Error ? err.message : String(err) });
+    log.error('pushOrderStatusToMarketplace fatal', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -736,7 +768,9 @@ export async function syncProductsStockToMarketplaces(productIds: number[]): Pro
       }
     }
   } catch (err) {
-    log.error('syncProductsStockToMarketplaces fatal', { error: err instanceof Error ? err.message : String(err) });
+    log.error('syncProductsStockToMarketplaces fatal', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -799,22 +833,27 @@ async function fetchReturnsForPlatform(
   if (hasClientBackedSync(platform)) {
     const client = getClient(platform, config);
     const raw = await client.getReturns(dateFrom);
-    return raw.map((r): NormalizedReturn => ({
-      id: String(r.id),
-      orderId: 'order_id' in r && r.order_id ? String(r.order_id) : undefined,
-      status: r.status,
-      reason: r.reason || undefined,
-      quantity: r.quantity || 1,
-      refundAmount: r.refund_amount || undefined,
-      createdAt: 'created' in r && typeof r.created === 'string' ? r.created : undefined,
-    }));
+    return raw.map(
+      (r): NormalizedReturn => ({
+        id: String(r.id),
+        orderId: 'order_id' in r && r.order_id ? String(r.order_id) : undefined,
+        status: r.status,
+        reason: r.reason || undefined,
+        quantity: r.quantity || 1,
+        refundAmount: r.refund_amount || undefined,
+        createdAt: 'created' in r && typeof r.created === 'string' ? r.created : undefined,
+      }),
+    );
   }
   if (platform === 'olx') return getOlxReturns(dateFrom);
   if (platform === 'epicentrk') return getEpicentrkReturns(dateFrom);
   return [];
 }
 
-export async function syncReturns(): Promise<{ synced: number; perPlatform: Record<string, number> }> {
+export async function syncReturns(): Promise<{
+  synced: number;
+  perPlatform: Record<string, number>;
+}> {
   let synced = 0;
   const perPlatform: Record<string, number> = {};
 

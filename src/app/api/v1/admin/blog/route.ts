@@ -49,7 +49,22 @@ export const GET = withRole(
       prisma.blogPost.count({ where }),
     ]);
 
-    return paginatedResponse(posts, total, page, limit);
+    // Flatten to the shape the admin list expects. Returning the raw Prisma
+    // row leaked `category` as an object ({id,name,slug}) — React then tried to
+    // render it directly (error #31) — and exposed isPublished/viewsCount under
+    // the wrong names, leaving the Status/Views columns blank.
+    const rows = posts.map((p) => ({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      category: p.category?.name ?? null,
+      status: p.isPublished ? 'published' : 'draft',
+      views: p.viewsCount,
+      createdAt: p.createdAt,
+      deletedAt: p.deletedAt,
+    }));
+
+    return paginatedResponse(rows, total, page, limit);
   } catch (err) {
     logger.error('[admin/blog] GET failed', { error: err });
     return errorResponse('Внутрішня помилка сервера', 500);

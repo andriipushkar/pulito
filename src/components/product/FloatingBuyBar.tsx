@@ -17,6 +17,7 @@ interface FloatingBuyBarProps {
   priceWholesale3?: number | null;
   imagePath: string | null;
   quantity: number;
+  allowBackorder?: boolean;
 }
 
 export default function FloatingBuyBar({
@@ -30,11 +31,12 @@ export default function FloatingBuyBar({
   priceWholesale3,
   imagePath,
   quantity,
+  allowBackorder,
 }: FloatingBuyBarProps) {
   const { addItem } = useCart();
   const { user } = useAuth();
   const [visible, setVisible] = useState(false);
-  const inStock = quantity > 0;
+  const inStock = quantity > 0 || !!allowBackorder;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -60,7 +62,11 @@ export default function FloatingBuyBar({
       slug,
       code,
       priceRetail,
-      priceWholesale: resolveWholesalePrice({ priceWholesale, priceWholesale2, priceWholesale3 }, user?.wholesaleGroup) ?? priceWholesale,
+      priceWholesale:
+        resolveWholesalePrice(
+          { priceWholesale, priceWholesale2, priceWholesale3 },
+          user?.wholesaleGroup,
+        ) ?? priceWholesale,
       imagePath,
       quantity: 1,
       maxQuantity: quantity,
@@ -77,14 +83,15 @@ export default function FloatingBuyBar({
       <div className="glass-nav mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-white/30 px-4 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.1)]">
         <div className="min-w-0">
           <p className="truncate text-xs text-[var(--color-text-secondary)]">{name}</p>
-          <span className="text-base font-bold text-[var(--color-text)]">{priceRetail.toFixed(2)} ₴</span>
+          <span className="text-base font-bold text-[var(--color-text)]">
+            {priceRetail.toFixed(2)} ₴
+          </span>
         </div>
         <button
           onClick={handleAdd}
           className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] px-5 py-2.5 text-sm font-semibold text-white shadow-[var(--shadow-brand)] transition-all active:scale-95"
         >
-          <Cart size={16} />
-          В кошик
+          <Cart size={16} />В кошик
         </button>
       </div>
     </div>

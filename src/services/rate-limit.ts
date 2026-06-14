@@ -185,6 +185,14 @@ export const RATE_LIMITS = {
    * UI button or stolen session from looping the endpoint.
    */
   adminImport: { prefix: 'rl:import:', max: 5, windowSec: 3600 } satisfies RateLimitConfig,
+
+  /**
+   * Supplier feed sync / preview. Each call triggers an OUTBOUND fetch of the
+   * supplier URL (up to 50MB / 60s) + parse, so it's heavier than a file upload
+   * and could be abused to hammer a supplier or pin a worker. 20/hour per admin
+   * covers manual "sync now" + iterating on a feed mapping during setup.
+   */
+  adminSupplierSync: { prefix: 'rl:supsync:', max: 20, windowSec: 3600 } satisfies RateLimitConfig,
 };
 
 export interface RateLimitResult {

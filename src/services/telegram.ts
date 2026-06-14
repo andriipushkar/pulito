@@ -892,6 +892,76 @@ export async function sendClientNotification(
 }
 
 /**
+ * Notify a dropship supplier that an order containing their product was placed,
+ * so they can ship it straight to the customer. Sent via the shop bot to the
+ * supplier's own chat (SupplierChannel.notifyTelegramChatId). No-op if the bot
+ * is unconfigured or the chat id isn't numeric.
+ */
+export async function notifySupplierDropshipOrder(params: {
+  chatId: string | number;
+  supplierName: string;
+  order: {
+    orderNumber: string;
+    contactName: string;
+    contactPhone: string;
+    deliveryMethod: string;
+    deliveryCity?: string | null;
+    deliveryAddress?: string | null;
+    deliveryWarehouseRef?: string | null;
+  };
+  items: { productName: string; supplierSku: string | null; quantity: number }[];
+}): Promise<void> {
+  const { botToken } = await getTelegramCreds();
+  if (!botToken) return;
+  const chatId = Number(params.chatId);
+  if (!Number.isFinite(chatId)) return;
+
+  const { order, items } = params;
+  const address = [order.deliveryCity, order.deliveryAddress, order.deliveryWarehouseRef]
+    .filter(Boolean)
+    .map((p) => escapeHtml(String(p)))
+    .join(', ');
+
+  const text = [
+    `📦 <b>Нове дропшип-замовлення #${escapeHtml(order.orderNumber)}</b>`,
+    `Постачальник: ${escapeHtml(params.supplierName)}`,
+    '',
+    '<b>До відправки:</b>',
+    ...items.map(
+      (i) =>
+        `• ${escapeHtml(i.productName)}${i.supplierSku ? ` (${escapeHtml(i.supplierSku)})` : ''} — ${i.quantity} шт.`,
+    ),
+    '',
+    `👤 Отримувач: ${escapeHtml(order.contactName)}`,
+    `📱 ${escapeHtml(order.contactPhone)}`,
+    `🚚 ${escapeHtml(order.deliveryMethod)}${address ? `: ${address}` : ''}`,
+  ].join('\n');
+
+  await sendMessage(chatId, text);
+}
+
+/**
+ * Alert the manager that a scheduled supplier feed sync failed. The sync's
+ * fail-safe keeps stock/prices intact, but the operator must know the feed
+ * stopped updating — otherwise it silently goes stale. Sent to the manager chat.
+ */
+export async function notifyManagerSupplierFailed(
+  channelName: string,
+  errorMessage: string,
+): Promise<void> {
+  const { botToken, managerChatId } = await getTelegramCreds();
+  if (!botToken || !managerChatId) return;
+  const text = [
+    `⚠️ <b>Синхронізація постачальника не вдалася</b>`,
+    `Канал: ${escapeHtml(channelName)}`,
+    `Помилка: ${escapeHtml(errorMessage)}`,
+    '',
+    'Залишки й ціни лишились без змін (fail-safe). Перевір фід.',
+  ].join('\n');
+  await sendMessage(Number(managerChatId), text);
+}
+
+/**
  * Send a product photo to a user via Telegram.
  * Looks up the user's telegramChatId and sends the image with caption.
  */

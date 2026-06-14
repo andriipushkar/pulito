@@ -48,9 +48,9 @@ const eslintConfig = [
     files: [
       '**/*.test.ts',
       '**/*.test.tsx',
-      'e2e/**/*.ts',
-      'e2e/**/*.tsx',
-      'documents/testing/**/*.ts',
+      'tests/e2e/**/*.ts',
+      'tests/e2e/**/*.tsx',
+      'tests/integration/**/*.ts',
     ],
     rules: {
       '@next/next/no-img-element': 'off',
@@ -63,7 +63,7 @@ const eslintConfig = [
   // k6 load tests require `export default function () { ... }` as the scenario
   // entry point; the anonymous default is part of the k6 API contract.
   {
-    files: ['load-tests/**/*.js'],
+    files: ['tests/load/**/*.js'],
     rules: {
       'import/no-anonymous-default-export': 'off',
     },

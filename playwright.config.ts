@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './e2e',
+  testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
@@ -9,12 +9,12 @@ export default defineConfig({
   // 2 workers is a solid balance between speed and server capacity.
   workers: process.env.CI ? 1 : 2,
   reporter: process.env.CI ? 'github' : 'html',
-  globalSetup: require.resolve('./e2e/global-setup'),
+  globalSetup: require.resolve('./tests/e2e/global-setup'),
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    storageState: './e2e/.auth/storage.json',
+    storageState: './tests/e2e/.auth/storage.json',
   },
   projects: [
     {

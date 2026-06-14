@@ -2,21 +2,21 @@
 // Blog (Блог з SEO)
 // ─────────────────────────────────────
 model BlogCategory {
-  id             Int      @id @default(autoincrement())
-  name           String
-  slug           String   @unique
-  description    String?
-  seoTitle       String?  @map("seo_title")
-  seoDescription String?  @map("seo_description")
+  id               Int      @id @default(autoincrement())
+  name             String
+  slug             String   @unique
+  description      String?
+  seoTitle         String?  @map("seo_title")
+  seoDescription   String?  @map("seo_description")
   // EN translations — nullable, code falls back to the uk-language column
   // when these are empty. Slug stays uk-only (URL identity).
-  nameEn         String?  @map("name_en")
-  descriptionEn  String?  @map("description_en")
-  seoTitleEn     String?  @map("seo_title_en")
-  seoDescriptionEn String? @map("seo_description_en")
-  sortOrder      Int      @default(0) @map("sort_order")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  nameEn           String?  @map("name_en")
+  descriptionEn    String?  @map("description_en")
+  seoTitleEn       String?  @map("seo_title_en")
+  seoDescriptionEn String?  @map("seo_description_en")
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   posts BlogPost[]
 
@@ -24,34 +24,34 @@ model BlogCategory {
 }
 
 model BlogPost {
-  id             Int           @id @default(autoincrement())
-  title          String
-  slug           String        @unique
-  excerpt        String?       @db.VarChar(500)
-  content        String
-  coverImage     String?       @map("cover_image")
-  categoryId     Int?          @map("category_id")
-  category       BlogCategory? @relation(fields: [categoryId], references: [id])
-  tags           String[]      @default([])
-  seoTitle       String?       @map("seo_title")
-  seoDescription String?       @map("seo_description")
+  id               Int           @id @default(autoincrement())
+  title            String
+  slug             String        @unique
+  excerpt          String?       @db.VarChar(500)
+  content          String
+  coverImage       String?       @map("cover_image")
+  categoryId       Int?          @map("category_id")
+  category         BlogCategory? @relation(fields: [categoryId], references: [id])
+  tags             String[]      @default([])
+  seoTitle         String?       @map("seo_title")
+  seoDescription   String?       @map("seo_description")
   // EN translations — nullable, fallback to uk fields when empty.
-  titleEn        String?       @map("title_en")
-  excerptEn      String?       @map("excerpt_en") @db.VarChar(500)
-  contentEn      String?       @map("content_en")
-  seoTitleEn     String?       @map("seo_title_en")
-  seoDescriptionEn String?     @map("seo_description_en")
-  isPublished    Boolean       @default(false) @map("is_published")
-  publishedAt    DateTime?     @map("published_at")
-  viewsCount     Int           @default(0) @map("views_count")
-  authorId       Int           @map("author_id")
+  titleEn          String?       @map("title_en")
+  excerptEn        String?       @map("excerpt_en") @db.VarChar(500)
+  contentEn        String?       @map("content_en")
+  seoTitleEn       String?       @map("seo_title_en")
+  seoDescriptionEn String?       @map("seo_description_en")
+  isPublished      Boolean       @default(false) @map("is_published")
+  publishedAt      DateTime?     @map("published_at")
+  viewsCount       Int           @default(0) @map("views_count")
+  authorId         Int           @map("author_id")
   // Soft-delete so an accidental delete can be undone without restoring from
   // backup. The blog list / RSS / sitemap all filter `deletedAt: null`.
-  deletedAt      DateTime?     @map("deleted_at")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt        DateTime?     @map("deleted_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
 
-  comments       BlogComment[]
+  comments BlogComment[]
 
   @@index([slug])
   @@index([isPublished, publishedAt(sort: Desc)])
@@ -68,21 +68,21 @@ enum BlogCommentStatus {
 }
 
 model BlogComment {
-  id            Int               @id @default(autoincrement())
-  postId        Int               @map("post_id")
-  post          BlogPost          @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorName    String            @map("author_name")
-  authorEmail   String?           @map("author_email")
-  authorUserId  Int?              @map("author_user_id")
-  content       String            @db.VarChar(2000)
-  status        BlogCommentStatus @default(pending)
-  ipAddress     String?           @map("ip_address")
-  parentId      Int?              @map("parent_id")
-  parent        BlogComment?      @relation("CommentTree", fields: [parentId], references: [id])
-  replies       BlogComment[]     @relation("CommentTree")
-  createdAt     DateTime          @default(now()) @map("created_at")
-  approvedAt    DateTime?         @map("approved_at")
-  approvedBy    Int?              @map("approved_by")
+  id           Int               @id @default(autoincrement())
+  postId       Int               @map("post_id")
+  post         BlogPost          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorName   String            @map("author_name")
+  authorEmail  String?           @map("author_email")
+  authorUserId Int?              @map("author_user_id")
+  content      String            @db.VarChar(2000)
+  status       BlogCommentStatus @default(pending)
+  ipAddress    String?           @map("ip_address")
+  parentId     Int?              @map("parent_id")
+  parent       BlogComment?      @relation("CommentTree", fields: [parentId], references: [id])
+  replies      BlogComment[]     @relation("CommentTree")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  approvedAt   DateTime?         @map("approved_at")
+  approvedBy   Int?              @map("approved_by")
 
   @@index([postId, status])
   @@index([status, createdAt(sort: Desc)])

@@ -35,6 +35,8 @@ export interface ProductListItem {
   priceWholesaleOld: Price | null;
   quantity: number;
   hideQuantity?: boolean;
+  // True for supplier "під замовлення" products — sellable at quantity 0.
+  allowBackorder?: boolean;
   isPromo: boolean;
   isActive: boolean;
   imagePath: string | null;

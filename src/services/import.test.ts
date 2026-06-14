@@ -5,6 +5,7 @@ import {
   getImportLogs,
   getImportLogById,
   parsePreview,
+  rollbackImport,
 } from './import';
 import { makeXlsxBuffer } from '@/test/excel-buffer';
 
@@ -18,9 +19,17 @@ vi.mock('@/lib/prisma', () => ({
       findUnique: vi.fn(),
     },
     category: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
-    product: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    product: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
     productContent: { create: vi.fn(), upsert: vi.fn() },
-    priceHistory: { create: vi.fn() },
+    priceHistory: { create: vi.fn(), findMany: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -160,9 +169,7 @@ describe('importProducts', () => {
   });
 
   it('should use supplier format when missing code column but has name and price', async () => {
-    const fileBuffer = await makeXlsxBuffer([
-      { Назва: 'Товар 1', 'Ціна роздріб': '100' },
-    ] as never);
+    const fileBuffer = await makeXlsxBuffer([{ Назва: 'Товар 1', 'Ціна роздріб': '100' }] as never);
 
     mockPrisma.product.findUnique.mockResolvedValue(null);
     mockPrisma.product.findFirst.mockResolvedValue(null);
@@ -793,9 +800,7 @@ describe('parsePreview', () => {
   });
 
   it('should detect supplier format', async () => {
-    const fileBuffer = await makeXlsxBuffer([
-      { Назва: 'Test', 'Ціна роздріб': '100' },
-    ] as never);
+    const fileBuffer = await makeXlsxBuffer([{ Назва: 'Test', 'Ціна роздріб': '100' }] as never);
 
     const result = await parsePreview(fileBuffer);
 
@@ -1215,5 +1220,60 @@ describe('importProducts — content fields (round-trip)', () => {
 
     // All content fields are empty, so no ProductContent should be created
     expect(mockPrisma.productContent.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('rollbackImport', () => {
+  const baseLog = {
+    id: 5,
+    status: 'completed_import',
+    rollbackedAt: null,
+    createdProductIds: [] as number[],
+  };
+
+  beforeEach(() => {
+    // $transaction(array) → resolve each op (mocks already return values).
+    mockPrisma.$transaction.mockImplementation(((arg: unknown) =>
+      Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(prisma)) as never);
+  });
+
+  it('reverts all four price tiers in a single transaction', async () => {
+    mockPrisma.importLog.findUnique.mockResolvedValue(baseLog as never);
+    mockPrisma.priceHistory.findMany.mockResolvedValue([
+      {
+        productId: 1,
+        priceRetailOld: 100,
+        priceWholesaleOld: 90,
+        priceWholesale2Old: 80,
+        priceWholesale3Old: 70,
+      },
+    ] as never);
+    mockPrisma.product.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.importLog.update.mockResolvedValue({} as never);
+
+    const result = await rollbackImport(5, 99);
+
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(result.pricesRevertedCount).toBe(1);
+    // The revert carries all four old prices (incl. wholesale2/3, previously lost).
+    expect(mockPrisma.product.updateMany).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        priceRetail: 100,
+        priceWholesale: 90,
+        priceWholesale2: 80,
+        priceWholesale3: 70,
+      },
+    });
+  });
+
+  it('refuses to roll back an already-rolled-back import', async () => {
+    mockPrisma.importLog.findUnique.mockResolvedValue({
+      ...baseLog,
+      rollbackedAt: new Date(),
+    } as never);
+
+    await expect(rollbackImport(5, 99)).rejects.toThrow(ImportError);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 });

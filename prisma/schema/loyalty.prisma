@@ -29,16 +29,16 @@ model LoyaltyTransaction {
 }
 
 model LoyaltyLevel {
-  id               Int     @id @default(autoincrement())
-  name             String  @unique
-  minSpent         Decimal @map("min_spent") @db.Decimal(12, 2)
-  pointsMultiplier Float   @default(1.0) @map("points_multiplier")
-  discountPercent  Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
-  benefits         Json?
-  sortOrder        Int     @default(0) @map("sort_order")
+  id                 Int     @id @default(autoincrement())
+  name               String  @unique
+  minSpent           Decimal @map("min_spent") @db.Decimal(12, 2)
+  pointsMultiplier   Float   @default(1.0) @map("points_multiplier")
+  discountPercent    Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  benefits           Json?
+  sortOrder          Int     @default(0) @map("sort_order")
   // Default points TTL (months) — null = never expire. Used by an expiry
   // cron to zero out stale points and encourage repeat purchases.
-  pointsExpiryMonths Int? @map("points_expiry_months")
+  pointsExpiryMonths Int?    @map("points_expiry_months")
 
   @@map("loyalty_levels")
 }

@@ -40,14 +40,14 @@ model UserNotification {
 // when an out-of-stock product becomes available again.
 // ─────────────────────────────────────
 model BackInStockSubscription {
-  id          Int       @id @default(autoincrement())
-  productId   Int       @map("product_id")
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  userId      Int?      @map("user_id")
-  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  email       String
-  notifiedAt  DateTime? @map("notified_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id         Int       @id @default(autoincrement())
+  productId  Int       @map("product_id")
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId     Int?      @map("user_id")
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email      String
+  notifiedAt DateTime? @map("notified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   @@unique([productId, email])
   @@index([productId, notifiedAt])

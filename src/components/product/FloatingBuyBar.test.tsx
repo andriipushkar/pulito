@@ -40,6 +40,12 @@ describe('FloatingBuyBar', () => {
     expect(container.innerHTML).toBe('');
   });
 
+  it('stays orderable at quantity 0 when allowBackorder ("під замовлення")', () => {
+    const { container } = render(<FloatingBuyBar {...baseProps} quantity={0} allowBackorder />);
+    expect(container.innerHTML).not.toBe('');
+    expect(container.textContent).toContain('В кошик');
+  });
+
   it('displays product name and price', () => {
     const { getByText } = render(<FloatingBuyBar {...baseProps} />);
     expect(getByText('Test Product')).toBeInTheDocument();
@@ -47,7 +53,9 @@ describe('FloatingBuyBar', () => {
   });
 
   it('calls addItem when buy button is clicked', () => {
-    const { getByText } = render(<FloatingBuyBar {...baseProps} priceWholesale={80} imagePath="/img.jpg" />);
+    const { getByText } = render(
+      <FloatingBuyBar {...baseProps} priceWholesale={80} imagePath="/img.jpg" />,
+    );
     fireEvent.click(getByText('В кошик'));
     expect(mockAddItem).toHaveBeenCalledWith({
       productId: 1,

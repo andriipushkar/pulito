@@ -8,18 +8,18 @@ enum WholesaleRuleType {
 }
 
 model WholesaleRule {
-  id        Int               @id @default(autoincrement())
-  ruleType  WholesaleRuleType @map("rule_type")
-  productId Int?              @map("product_id")
-  product   Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
-  value     Decimal           @db.Decimal(10, 2)
-  isActive  Boolean           @default(true) @map("is_active")
+  id         Int               @id @default(autoincrement())
+  ruleType   WholesaleRuleType @map("rule_type")
+  productId  Int?              @map("product_id")
+  product    Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  value      Decimal           @db.Decimal(10, 2)
+  isActive   Boolean           @default(true) @map("is_active")
   // Optional scheduling window. NULL = open-ended on that side. A rule only
   // applies when now() is within [validFrom, validUntil] (and isActive).
-  validFrom  DateTime? @map("valid_from")
-  validUntil DateTime? @map("valid_until")
-  createdAt DateTime          @default(now()) @map("created_at")
-  updatedAt DateTime          @updatedAt @map("updated_at")
+  validFrom  DateTime?         @map("valid_from")
+  validUntil DateTime?         @map("valid_until")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
 
   @@map("wholesale_rules")
 }

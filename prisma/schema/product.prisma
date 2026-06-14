@@ -2,57 +2,72 @@
 // 23.2 Products (Товари)
 // ─────────────────────────────────────
 model Product {
-  id                 Int                      @id @default(autoincrement())
-  code               String                   @unique
-  name               String                   @db.VarChar(255)
+  id                   Int                      @id @default(autoincrement())
+  code                 String                   @unique
+  name                 String                   @db.VarChar(255)
   // EN translation of product name. Nullable — code falls back to uk `name`.
-  nameEn             String?                  @map("name_en") @db.VarChar(255)
-  slug               String                   @unique @db.VarChar(255)
-  categoryId         Int?                     @map("category_id")
-  category           Category?                @relation(fields: [categoryId], references: [id])
-  brandId            Int?                     @map("brand_id")
-  brand              Brand?                   @relation(fields: [brandId], references: [id], onDelete: SetNull)
-  priceRetail        Decimal                  @map("price_retail") @db.Decimal(10, 2)
-  priceWholesale     Decimal?                 @map("price_wholesale") @db.Decimal(10, 2)
-  priceWholesale2    Decimal?                 @map("price_wholesale_2") @db.Decimal(10, 2)
-  priceWholesale3    Decimal?                 @map("price_wholesale_3") @db.Decimal(10, 2)
-  priceRetailOld     Decimal?                 @map("price_retail_old") @db.Decimal(10, 2)
-  priceWholesaleOld  Decimal?                 @map("price_wholesale_old") @db.Decimal(10, 2)
-  priceWholesaleOld2 Decimal?                 @map("price_wholesale_old_2") @db.Decimal(10, 2)
-  priceWholesaleOld3 Decimal?                 @map("price_wholesale_old_3") @db.Decimal(10, 2)
-  quantity           Int                      @default(0)
+  nameEn               String?                  @map("name_en") @db.VarChar(255)
+  slug                 String                   @unique @db.VarChar(255)
+  categoryId           Int?                     @map("category_id")
+  category             Category?                @relation(fields: [categoryId], references: [id])
+  brandId              Int?                     @map("brand_id")
+  brand                Brand?                   @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  priceRetail          Decimal                  @map("price_retail") @db.Decimal(10, 2)
+  priceWholesale       Decimal?                 @map("price_wholesale") @db.Decimal(10, 2)
+  priceWholesale2      Decimal?                 @map("price_wholesale_2") @db.Decimal(10, 2)
+  priceWholesale3      Decimal?                 @map("price_wholesale_3") @db.Decimal(10, 2)
+  priceRetailOld       Decimal?                 @map("price_retail_old") @db.Decimal(10, 2)
+  priceWholesaleOld    Decimal?                 @map("price_wholesale_old") @db.Decimal(10, 2)
+  priceWholesaleOld2   Decimal?                 @map("price_wholesale_old_2") @db.Decimal(10, 2)
+  priceWholesaleOld3   Decimal?                 @map("price_wholesale_old_3") @db.Decimal(10, 2)
+  quantity             Int                      @default(0)
   // Hide the exact quantity from the storefront: customer sees only
   // "В наявності"/"Немає" without the number. A global toggle in
   // SiteSetting (hide_all_quantity) acts as an override for the whole shop.
-  hideQuantity       Boolean                  @default(false) @map("hide_quantity")
-  isPromo            Boolean                  @default(false) @map("is_promo")
-  promoStartDate     DateTime?                @map("promo_start_date")
-  promoEndDate       DateTime?                @map("promo_end_date")
-  isActive           Boolean                  @default(true) @map("is_active")
-  deletedAt          DateTime?                @map("deleted_at")
-  imagePath          String?                  @map("image_path")
-  barcode            String?                  @unique @db.VarChar(20)
-  sortOrder          Int                      @default(0) @map("sort_order")
-  viewsCount         Int                      @default(0) @map("views_count")
-  ordersCount        Int                      @default(0) @map("orders_count")
-  excludedMarketplaces Json?                  @map("excluded_marketplaces") // string[] of platform keys to exclude this product from
+  hideQuantity         Boolean                  @default(false) @map("hide_quantity")
+  isPromo              Boolean                  @default(false) @map("is_promo")
+  promoStartDate       DateTime?                @map("promo_start_date")
+  promoEndDate         DateTime?                @map("promo_end_date")
+  isActive             Boolean                  @default(true) @map("is_active")
+  deletedAt            DateTime?                @map("deleted_at")
+  imagePath            String?                  @map("image_path")
+  barcode              String?                  @unique @db.VarChar(20)
+  sortOrder            Int                      @default(0) @map("sort_order")
+  viewsCount           Int                      @default(0) @map("views_count")
+  ordersCount          Int                      @default(0) @map("orders_count")
+  excludedMarketplaces Json?                    @map("excluded_marketplaces") // string[] of platform keys to exclude this product from
   // Physical dimensions for shipping calculations (Nova Poshta needs weight
   // and cubic volume to price each TTN).
-  weightGrams        Int?                     @map("weight_grams")
-  lengthMm           Int?                     @map("length_mm")
-  widthMm            Int?                     @map("width_mm")
-  heightMm           Int?                     @map("height_mm")
+  weightGrams          Int?                     @map("weight_grams")
+  lengthMm             Int?                     @map("length_mm")
+  widthMm              Int?                     @map("width_mm")
+  heightMm             Int?                     @map("height_mm")
   // Optional cost-of-goods for margin calculations on the order details page.
   // Stays in the same DB row as priceRetail because both update together
   // during supplier-price imports.
-  cost               Decimal?                 @db.Decimal(10, 2)
+  cost                 Decimal?                 @db.Decimal(10, 2)
+  // ── Supplier link (consignment / dropship) ──
+  // When set, this product's price & stock are driven by a SupplierChannel
+  // feed. `cost` above holds the supplier's purchase price; priceRetail is
+  // recomputed as cost + markup on every sync (override beats supplier default).
+  supplierId           Int?                     @map("supplier_id")
+  supplier             SupplierChannel?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  // The supplier's own SKU — the matching key between their feed and this row.
+  // Confirmed manually on first import, then used for automatic sync.
+  supplierSku          String?                  @map("supplier_sku") @db.VarChar(255)
+  // Per-product markup override; null falls back to the supplier's base markup.
+  markupOverrideType   SupplierMarkupType?      @map("markup_override_type")
+  markupOverrideValue  Decimal?                 @map("markup_override_value") @db.Decimal(10, 2)
+  // Backorder ("під замовлення"): keep the product sellable at quantity 0. Set
+  // by the supplier sync/link when the channel's stockPolicy = backorder.
+  allowBackorder       Boolean                  @default(false) @map("allow_backorder")
   // Optimistic concurrency: incremented on every update. Clients must send the
   // version they read; PUT rejects with 409 if it does not match — guards
   // against two admins editing the same product and clobbering each other.
-  version            Int                      @default(0)
-  createdAt          DateTime                 @default(now()) @map("created_at")
-  updatedAt          DateTime                 @updatedAt @map("updated_at")
-  searchVector       Unsupported("tsvector")? @map("search_vector")
+  version              Int                      @default(0)
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+  searchVector         Unsupported("tsvector")? @map("search_vector")
 
   content             ProductContent?
   images              ProductImage[]
@@ -64,10 +79,10 @@ model Product {
   priceHistory        PriceHistory[]
   productNotes        ProductNote[]
   searchClicks        SearchHistory[]
-  recommendations     ProductRecommendation[] @relation("RecommendedFrom")
-  recommendedBy       ProductRecommendation[] @relation("RecommendedTo")
+  recommendations     ProductRecommendation[]   @relation("RecommendedFrom")
+  recommendedBy       ProductRecommendation[]   @relation("RecommendedTo")
   personalPrices      PersonalPrice[]
-  publications        Publication[]           @relation("PublicationProduct")
+  publications        Publication[]             @relation("PublicationProduct")
   wholesaleRules      WholesaleRule[]
   clientEvents        ClientEvent[]
   reviews             Review[]
@@ -83,6 +98,10 @@ model Product {
   purchasePredictions PurchasePrediction[]
   variants            ProductVariant[]
 
+  // Matching key for supplier sync: look up a product by (supplier, their SKU).
+  // SKUs are only unique within a supplier, so the constraint is composite.
+  // Postgres treats NULLs as distinct, so unlinked products don't collide.
+  @@unique([supplierId, supplierSku])
   @@index([categoryId])
   @@index([isActive, isPromo])
   @@index([priceRetail])
@@ -98,30 +117,30 @@ model Product {
 // and price until the cart/storefront integration ships separately. Admins can
 // already manage variants from /admin/products/[id]/variants.
 model ProductVariant {
-  id              Int      @id @default(autoincrement())
-  productId       Int      @map("product_id")
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku             String   @unique @db.VarChar(255)
-  barcode         String?  @unique @db.VarChar(20)
-  name            String   @db.VarChar(255)
-  priceRetail     Decimal? @map("price_retail") @db.Decimal(10, 2)
-  priceWholesale  Decimal? @map("price_wholesale") @db.Decimal(10, 2)
-  quantity        Int      @default(0)
+  id             Int      @id @default(autoincrement())
+  productId      Int      @map("product_id")
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku            String   @unique @db.VarChar(255)
+  barcode        String?  @unique @db.VarChar(20)
+  name           String   @db.VarChar(255)
+  priceRetail    Decimal? @map("price_retail") @db.Decimal(10, 2)
+  priceWholesale Decimal? @map("price_wholesale") @db.Decimal(10, 2)
+  quantity       Int      @default(0)
   /// JSON object of free-form attribute → value pairs, e.g. {"color": "red", "size": "M"}
-  options         Json?
-  imagePath       String?  @map("image_path")
-  isActive        Boolean  @default(true) @map("is_active")
-  sortOrder       Int      @default(0) @map("sort_order")
+  options        Json?
+  imagePath      String?  @map("image_path")
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int      @default(0) @map("sort_order")
   // Per-variant physical params override the parent product's defaults. Used
   // when one SKU is "150g jar" and another is "500g bottle" — different TTN
   // size / margin even though they share a product page.
-  weightGrams     Int?     @map("weight_grams")
-  lengthMm        Int?     @map("length_mm")
-  widthMm         Int?     @map("width_mm")
-  heightMm        Int?     @map("height_mm")
-  cost            Decimal? @db.Decimal(10, 2)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  weightGrams    Int?     @map("weight_grams")
+  lengthMm       Int?     @map("length_mm")
+  widthMm        Int?     @map("width_mm")
+  heightMm       Int?     @map("height_mm")
+  cost           Decimal? @db.Decimal(10, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@index([productId])
   @@map("product_variants")
@@ -131,27 +150,27 @@ model ProductVariant {
 // 23.3 Product_Content (Контент товарів)
 // ─────────────────────────────────────
 model ProductContent {
-  id                Int      @id @default(autoincrement())
-  productId         Int      @unique @map("product_id")
-  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  shortDescription  String?  @map("short_description") @db.VarChar(200)
-  fullDescription   String?  @map("full_description")
-  specifications    String?
-  usageInstructions String?  @map("usage_instructions")
-  videoUrl          String?  @map("video_url")
-  seoTitle          String?  @map("seo_title")
-  seoDescription    String?  @map("seo_description")
+  id                  Int      @id @default(autoincrement())
+  productId           Int      @unique @map("product_id")
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  shortDescription    String?  @map("short_description") @db.VarChar(200)
+  fullDescription     String?  @map("full_description")
+  specifications      String?
+  usageInstructions   String?  @map("usage_instructions")
+  videoUrl            String?  @map("video_url")
+  seoTitle            String?  @map("seo_title")
+  seoDescription      String?  @map("seo_description")
   // EN translations — nullable, fall back to uk fields when empty.
-  shortDescriptionEn  String? @map("short_description_en") @db.VarChar(200)
-  fullDescriptionEn   String? @map("full_description_en")
-  specificationsEn    String? @map("specifications_en")
-  usageInstructionsEn String? @map("usage_instructions_en")
-  seoTitleEn          String? @map("seo_title_en")
-  seoDescriptionEn    String? @map("seo_description_en")
-  isFilled          Boolean  @default(false) @map("is_filled")
-  filledBy          Int?     @map("filled_by")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  shortDescriptionEn  String?  @map("short_description_en") @db.VarChar(200)
+  fullDescriptionEn   String?  @map("full_description_en")
+  specificationsEn    String?  @map("specifications_en")
+  usageInstructionsEn String?  @map("usage_instructions_en")
+  seoTitleEn          String?  @map("seo_title_en")
+  seoDescriptionEn    String?  @map("seo_description_en")
+  isFilled            Boolean  @default(false) @map("is_filled")
+  filledBy            Int?     @map("filled_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("product_content")
 }
@@ -301,29 +320,29 @@ model BundleItem {
 // Brand / Manufacturer
 // ─────────────────────────────────────
 model Brand {
-  id             Int       @id @default(autoincrement())
-  name           String    @unique @db.VarChar(255)
-  slug           String    @unique @db.VarChar(255)
-  description    String?
-  logoPath       String?   @map("logo_path")
-  website        String?
-  country        String?
-  seoTitle       String?   @map("seo_title")
-  seoDescription String?   @map("seo_description")
+  id               Int       @id @default(autoincrement())
+  name             String    @unique @db.VarChar(255)
+  slug             String    @unique @db.VarChar(255)
+  description      String?
+  logoPath         String?   @map("logo_path")
+  website          String?
+  country          String?
+  seoTitle         String?   @map("seo_title")
+  seoDescription   String?   @map("seo_description")
   // EN translations — brand name often stays the same across locales, but we
   // store it explicitly so admins can override (e.g. "Чисто" → "Chysto").
-  nameEn         String?   @map("name_en") @db.VarChar(255)
-  descriptionEn  String?   @map("description_en")
-  seoTitleEn     String?   @map("seo_title_en")
-  seoDescriptionEn String? @map("seo_description_en")
-  isVisible      Boolean   @default(true) @map("is_visible")
-  sortOrder      Int       @default(0) @map("sort_order")
-  version        Int       @default(0)
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  deletedAt      DateTime? @map("deleted_at")
+  nameEn           String?   @map("name_en") @db.VarChar(255)
+  descriptionEn    String?   @map("description_en")
+  seoTitleEn       String?   @map("seo_title_en")
+  seoDescriptionEn String?   @map("seo_description_en")
+  isVisible        Boolean   @default(true) @map("is_visible")
+  sortOrder        Int       @default(0) @map("sort_order")
+  version          Int       @default(0)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
 
-  products    Product[]
+  products Product[]
 
   @@map("brands")
 }
