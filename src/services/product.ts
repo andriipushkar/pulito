@@ -249,6 +249,7 @@ const productListSelect = {
   priceWholesaleOld: true,
   quantity: true,
   hideQuantity: true,
+  allowBackorder: true,
   isPromo: true,
   isActive: true,
   imagePath: true,

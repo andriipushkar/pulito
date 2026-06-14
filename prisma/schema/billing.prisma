@@ -8,8 +8,8 @@ model Plan {
   // Decimal(10,2) instead of Float — money MUST be exact. Float silently
   // turns `10.005` into `10.00` or `10.01` depending on the IEEE 754 dance,
   // which surfaces later as audit discrepancies and customer complaints.
-  priceMonthly Decimal         @default(0) @db.Decimal(10, 2) @map("price_monthly")
-  priceYearly  Decimal         @default(0) @db.Decimal(10, 2) @map("price_yearly")
+  priceMonthly Decimal         @default(0) @map("price_monthly") @db.Decimal(10, 2)
+  priceYearly  Decimal         @default(0) @map("price_yearly") @db.Decimal(10, 2)
   features     Json // { maxProducts: 100, maxOrders: 500, ... }
   maxProducts  Int             @default(100) @map("max_products")
   maxOrders    Int             @default(500) @map("max_orders")
@@ -43,7 +43,7 @@ model TenantBilling {
   // the OLD plan. Deducted from the next invoice and reset to 0. Without
   // this field, mid-cycle upgrades double-charge the user for overlapping
   // days they already paid for under the old plan.
-  proratedCredit     Decimal          @default(0) @db.Decimal(10, 2) @map("prorated_credit")
+  proratedCredit     Decimal          @default(0) @map("prorated_credit") @db.Decimal(10, 2)
   // Per-tenant invoice counter — used to assign gap-free sequential
   // invoiceNumber values. Increments on every successful createInvoice().
   // Ukrainian "Закон про бухоблік" requires invoice numbers be sequential
@@ -65,25 +65,25 @@ enum InvoiceStatus {
 }
 
 model BillingInvoice {
-  id            Int           @id @default(autoincrement())
-  billingId     Int           @map("billing_id")
-  billing       TenantBilling @relation(fields: [billingId], references: [id])
+  id             Int           @id @default(autoincrement())
+  billingId      Int           @map("billing_id")
+  billing        TenantBilling @relation(fields: [billingId], references: [id])
   // Sequential per-tenant invoice number ("INV-00042"). Required by UA
   // accounting law (gap-free). Stored as a string so future tenants can
   // adopt a custom prefix without a migration.
-  invoiceNumber String?       @unique @map("invoice_number")
-  amount        Decimal       @default(0) @db.Decimal(10, 2)
+  invoiceNumber  String?       @unique @map("invoice_number")
+  amount         Decimal       @default(0) @db.Decimal(10, 2)
   // Proration credit applied to this invoice (positive number). Audit
   // breadcrumb so finance can reconcile "why is this invoice 87.50 UAH
   // when the plan is 299 UAH" — answer: 211.50 credit from upgrade.
-  proratedCredit Decimal      @default(0) @db.Decimal(10, 2) @map("prorated_credit")
-  currency      String        @default("UAH")
-  status        InvoiceStatus @default(draft)
-  periodStart   DateTime      @map("period_start")
-  periodEnd     DateTime      @map("period_end")
-  paidAt        DateTime?     @map("paid_at")
-  pdfUrl        String?       @map("pdf_url")
-  createdAt     DateTime      @default(now()) @map("created_at")
+  proratedCredit Decimal       @default(0) @map("prorated_credit") @db.Decimal(10, 2)
+  currency       String        @default("UAH")
+  status         InvoiceStatus @default(draft)
+  periodStart    DateTime      @map("period_start")
+  periodEnd      DateTime      @map("period_end")
+  paidAt         DateTime?     @map("paid_at")
+  pdfUrl         String?       @map("pdf_url")
+  createdAt      DateTime      @default(now()) @map("created_at")
 
   @@index([billingId, invoiceNumber])
   @@map("billing_invoices")

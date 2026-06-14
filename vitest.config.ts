@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: ['src/test/setup.ts'],
-    exclude: ['node_modules', 'e2e', '.next', 'documents/testing/integration/**'],
+    exclude: ['node_modules', '.next', 'tests/e2e/**', 'tests/integration/**', 'tests/load/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

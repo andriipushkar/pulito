@@ -37,39 +37,12 @@ export default async function ContactsPage() {
   const settings = await getSettings();
   const point = settings.site_address ? await geocodeAddress(settings.site_address) : null;
 
-  const localBusinessJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
-    name: settings.site_name,
-    description: settings.company_description,
-    '@id': `${baseUrl}/#business`,
-    url: baseUrl,
-    telephone: settings.site_phone,
-    email: settings.site_email,
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: settings.site_address,
-      addressLocality: 'Львів',
-      addressRegion: 'Львівська область',
-      postalCode: '79036',
-      addressCountry: 'UA',
-    },
-    openingHoursSpecification: [
-      {
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-        opens: '10:00',
-        closes: '20:00',
-      },
-    ],
-  };
+  // The site-wide LocalBusiness JSON-LD is emitted once in the root layout
+  // (#organization) — it already covers this page. A second LocalBusiness node
+  // here only created a duplicate entity with conflicting opening hours.
 
   return (
     <Container className="py-6">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
-      />
       <Breadcrumbs
         items={[{ label: 'Головна', href: '/' }, { label: 'Контакти' }]}
         className="mb-6"

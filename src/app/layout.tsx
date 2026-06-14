@@ -14,6 +14,7 @@ import Toaster from '@/components/common/Toaster';
 import { getSettings } from '@/services/settings';
 import { getActiveTheme } from '@/services/theme';
 import { headers } from 'next/headers';
+import { parseUaPostalAddress } from '@/utils/address';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'cyrillic-ext'],
@@ -123,9 +124,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     },
   };
 
-  // Split "м. Львів, вул. Сихівська, 1" → locality "м. Львів", street "вул. Сихівська, 1".
-  const [addressLocality, ...streetParts] = (settings.site_address || '').split(',');
-  const streetAddress = streetParts.join(',').trim();
+  // Parse "проспект Червоної Калини, 40, Львів, Львівська область, 79036" into
+  // proper schema.org PostalAddress parts (street/city/region/index).
+  const postalAddress = parseUaPostalAddress(settings.site_address);
 
   const organizationJsonLd = {
     '@context': 'https://schema.org',
@@ -149,15 +150,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     address: {
       '@type': 'PostalAddress',
       addressCountry: 'UA',
-      addressLocality: (addressLocality || settings.site_address || '').trim(),
-      ...(streetAddress && { streetAddress }),
+      ...postalAddress,
     },
     openingHoursSpecification: [
       {
         '@type': 'OpeningHoursSpecification',
         dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-        opens: '09:00',
-        closes: '18:00',
+        opens: '10:00',
+        closes: '20:00',
       },
       {
         '@type': 'OpeningHoursSpecification',

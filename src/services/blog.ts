@@ -478,7 +478,9 @@ export async function updateCategory(
 export async function deleteCategory(id: number) {
   const category = await prisma.blogCategory.findUnique({
     where: { id },
-    include: { _count: { select: { posts: true } } },
+    // Count only active posts — soft-deleted ones (deletedAt set) must not
+    // forever block category deletion, consistent with the rest of this file.
+    include: { _count: { select: { posts: { where: { deletedAt: null } } } } },
   });
 
   if (!category) throw new BlogError('Категорію не знайдено', 404);

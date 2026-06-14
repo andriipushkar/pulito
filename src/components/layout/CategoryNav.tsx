@@ -127,6 +127,29 @@ export default function CategoryNav({ categories, shrink }: CategoryNavProps) {
             </li>
           )}
 
+          {/* Static "Комплекти" link — bundle sets with a discount */}
+          <li>
+            <Link
+              href="/bundles"
+              className="group inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-white/90 transition-all hover:bg-white/10 hover:text-white"
+            >
+              <svg
+                className="h-4 w-4 text-[var(--color-gold-light)] transition-colors group-hover:text-white"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M20 12v8H4v-8m16-4H4v4h16V8zm-8 12V8m0 0H8.5a2 2 0 110-4c1.5 0 2.5 1 3.5 4zm0 0h3.5a2 2 0 100-4c-1.5 0-2.5 1-3.5 4z"
+                />
+              </svg>
+              Комплекти
+            </Link>
+          </li>
+
           {visibleParents.map((cat) => {
             const hasChildren = cat.children.length > 0;
             const isOpen = openId === cat.id;

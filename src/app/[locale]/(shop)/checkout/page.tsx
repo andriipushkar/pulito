@@ -51,6 +51,8 @@ export default function CheckoutPage() {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponApplied, setCouponApplied] = useState(false);
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [bundleDiscount, setBundleDiscount] = useState(0);
+  const [bundleNames, setBundleNames] = useState<string[]>([]);
 
   const applyCoupon = async () => {
     const code = couponCode.trim();
@@ -59,7 +61,9 @@ export default function CheckoutPage() {
     try {
       const res = await apiClient.post<{ discount: number }>('/api/v1/coupons/validate', {
         code,
-        orderAmount: cartTotal,
+        // Сервер у createOrder валідує купон від суми ВЖЕ після бандл-знижки —
+        // прев'ю має рахувати так само, інакше відсотковий купон розійдеться.
+        orderAmount: cartTotal - bundleDiscount,
         cartProductIds: items.map((i) => i.productId),
       });
       if (res.success && res.data) {
@@ -195,6 +199,52 @@ export default function CheckoutPage() {
     if (method === 'ukrposhta') return config.delivery.fixedCost.ukrposhta ?? 0;
     return 0;
   }, [config, formData.deliveryMethod, cartTotal]);
+
+  // Бандл-знижка: якщо кошик містить повний комплект (бандл), сервер дає
+  // знижку автоматично в createOrder. Тут — лише прев'ю тим самим детектором
+  // (/api/v1/bundles/detect), щоб «Разом до сплати» збігся з фактичним
+  // totalAmount замовлення.
+  useEffect(() => {
+    if (items.length === 0) {
+      setBundleDiscount(0);
+      setBundleNames([]);
+      return;
+    }
+    const groupRaw = user?.wholesaleGroup;
+    const group = typeof groupRaw === 'number' ? groupRaw : null;
+    const payload = items.map((i) => {
+      // Та сама цінова резолюція, що в total()/serverCartTotal: оптовик платить
+      // свій tier, тож і знижка рахується від нього (зазвичай виходить 0).
+      let price = Number(i.priceRetail);
+      if (user?.role === 'wholesaler' && group) {
+        const tier =
+          group === 1
+            ? i.priceWholesale
+            : group === 2
+              ? i.priceWholesale2
+              : group === 3
+                ? i.priceWholesale3
+                : null;
+        if (tier != null) price = Number(tier);
+      }
+      return { productId: i.productId, price, quantity: i.quantity };
+    });
+    apiClient
+      .post<{
+        totalDiscount: number;
+        applied: { name: string }[];
+      }>('/api/v1/bundles/detect', { items: payload })
+      .then((res) => {
+        if (res.success && res.data) {
+          setBundleDiscount(res.data.totalDiscount);
+          setBundleNames(res.data.applied.map((a) => a.name));
+        }
+      })
+      .catch(() => {});
+  }, [items, user?.role, user?.wholesaleGroup]);
+
+  const payableTotal =
+    cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend - couponDiscount - bundleDiscount;
 
   useEffect(() => {
     apiClient
@@ -374,7 +424,7 @@ export default function CheckoutPage() {
         price: Number(i.priceRetail),
         quantity: i.quantity,
       })),
-      cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend - couponDiscount,
+      payableTotal,
     );
 
     const deliveryManual = !!config?.delivery.manualMode;
@@ -554,7 +604,7 @@ export default function CheckoutPage() {
         // GA4: purchase (fire regardless of payment branch)
         gtagEvent.purchase({
           transaction_id: res.data.orderNumber,
-          value: cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend - couponDiscount,
+          value: payableTotal,
           shipping: estimatedDeliveryCost,
           items: items.map((i) => ({
             item_id: i.code || String(i.productId),
@@ -568,7 +618,7 @@ export default function CheckoutPage() {
         fbqTrack(
           'Purchase',
           {
-            value: cartTotal + estimatedDeliveryCost - loyaltyPointsToSpend - couponDiscount,
+            value: payableTotal,
             currency: 'UAH',
             content_type: 'product',
             content_ids: items.map((i) => i.code || String(i.productId)),
@@ -807,15 +857,7 @@ export default function CheckoutPage() {
                 <span className="hidden text-sm text-[var(--color-text-secondary)] sm:inline">
                   До оплати:
                 </span>
-                <span className="text-lg font-bold tabular-nums">
-                  {(
-                    cartTotal +
-                    estimatedDeliveryCost -
-                    loyaltyPointsToSpend -
-                    couponDiscount
-                  ).toFixed(2)}{' '}
-                  ₴
-                </span>
+                <span className="text-lg font-bold tabular-nums">{payableTotal.toFixed(2)} ₴</span>
                 <Button
                   onClick={handleSubmit}
                   isLoading={isSubmitting}
@@ -1017,6 +1059,17 @@ export default function CheckoutPage() {
                     : '—'}
                 </span>
               </div>
+              {bundleDiscount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--color-text-secondary)]">
+                    Знижка за комплект
+                    {bundleNames.length > 0 ? ` (${bundleNames.join(', ')})` : ''}
+                  </span>
+                  <span className="tabular-nums text-[var(--color-primary)]">
+                    −{bundleDiscount.toFixed(2)} ₴
+                  </span>
+                </div>
+              )}
               {couponDiscount > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--color-text-secondary)]">Промокод</span>
@@ -1035,15 +1088,7 @@ export default function CheckoutPage() {
               )}
               <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-2">
                 <span className="text-sm font-semibold">Разом до сплати</span>
-                <span className="text-lg font-bold tabular-nums">
-                  {(
-                    cartTotal +
-                    estimatedDeliveryCost -
-                    loyaltyPointsToSpend -
-                    couponDiscount
-                  ).toFixed(2)}{' '}
-                  ₴
-                </span>
+                <span className="text-lg font-bold tabular-nums">{payableTotal.toFixed(2)} ₴</span>
               </div>
             </div>
           </div>

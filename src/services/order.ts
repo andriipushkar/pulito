@@ -12,6 +12,7 @@ import { kyivMidnightUtc, todayKyiv } from '@/utils/format';
 const STATS_CACHE_KEY = 'admin:order-stats:v1';
 const STATS_CACHE_TTL = 15; // seconds — collapses concurrent admin tabs onto one query.
 import { calculateDeliveryCost, type DeliveryMethod } from '@/services/delivery-cost';
+import { detectBundleDiscounts } from '@/services/bundle';
 
 export class OrderError extends Error {
   constructor(
@@ -243,6 +244,30 @@ export async function createOrder(
   // high-value / many-line orders (matches editOrderItems). An unrounded total
   // can land >0.01 off the provider amount and trip the payment-mismatch guard.
   const itemsTotal = sumMoney(cartItems.map((item) => lineTotal(item.price, item.quantity)));
+
+  // Bundle auto-discount: server-side detection of complete bundle sets in the
+  // cart (the storefront bundle price is otherwise display-only — items land in
+  // the cart at their normal prices). Detected here, not trusted from the
+  // client. Applied to the goods subtotal BEFORE the coupon, so a percent
+  // coupon computes from the already-discounted goods total.
+  let bundleDiscount = 0;
+  let bundleNote: string | null = null;
+  const detected = await detectBundleDiscounts(
+    cartItems.map((i) => ({ productId: i.productId, price: i.price, quantity: i.quantity })),
+  );
+  if (detected.totalDiscount > 0) {
+    bundleDiscount = Math.min(detected.totalDiscount, itemsTotal);
+    // Trace for the admin: like the coupon, the bundle discount has no own
+    // column — totalAmount is just lower. Without this note the order total
+    // looks inexplicably short of sum(items).
+    bundleNote = detected.applied
+      .map(
+        (a) =>
+          `Комплект «${a.name}»${a.sets > 1 ? ` ×${a.sets}` : ''}: знижка ${a.discount.toFixed(2)} ₴`,
+      )
+      .join('; ');
+  }
+  const goodsTotal = subtractMoney(itemsTotal, bundleDiscount);
   // Pallet method: the storefront has already done the regional-tariff
   // calculation in PalletDeliveryForm and submitted the result with the
   // checkout. Trust that value here (it's the same formula
@@ -298,17 +323,17 @@ export async function createOrder(
       const coupon = await validateCoupon(
         couponCode,
         userId ?? undefined,
-        itemsTotal,
+        goodsTotal,
         cartItems.map((i) => i.productId),
       );
       couponId = coupon.id;
-      couponDiscount = Math.min(calculateDiscount(coupon, itemsTotal), itemsTotal);
+      couponDiscount = Math.min(calculateDiscount(coupon, goodsTotal), goodsTotal);
     } catch (e) {
       throw new OrderError(e instanceof CouponError ? e.message : 'Невалідний промокод', 400);
     }
   }
 
-  const grossTotal = addMoney(subtractMoney(itemsTotal, couponDiscount), deliveryCost);
+  const grossTotal = addMoney(subtractMoney(goodsTotal, couponDiscount), deliveryCost);
   const settingsMod = await import('@/services/settings');
   const _settings = await settingsMod.getSettings();
   const maxPercent = Math.max(
@@ -326,7 +351,31 @@ export async function createOrder(
   const netTotal = subtractMoney(grossTotal, discountAmount);
   const orderNumber = generateOrderNumber();
 
+  // Per-product snapshot captured inside the transaction but read afterwards
+  // (dropship notification). Holds the barcode + supplier link + purchase cost
+  // at sale time so reconciliation stays correct if the product later changes.
+  const productMeta = new Map<
+    number,
+    {
+      barcode: string | null;
+      supplierId: number | null;
+      supplierSku: string | null;
+      cost: Prisma.Decimal | null;
+    }
+  >();
+
   const order = await prisma.$transaction(async (tx) => {
+    // Backorder ("під замовлення") products may be ordered past their on-hand
+    // stock — the supplier fulfils them — so they skip the availability guard.
+    const backorderIds = new Set(
+      (
+        await tx.product.findMany({
+          where: { id: { in: cartItems.map((i) => i.productId) }, allowBackorder: true },
+          select: { id: true },
+        })
+      ).map((p) => p.id),
+    );
+
     // Verify stock availability and decrement quantities
     for (const item of cartItems) {
       const updated = await tx.product.updateMany({
@@ -340,7 +389,19 @@ export async function createOrder(
       });
 
       if (updated.count === 0) {
-        throw new OrderError(`Товар "${item.productName}" недоступний у потрібній кількості`, 400);
+        if (backorderIds.has(item.productId)) {
+          // Decrement anyway (stock may go negative); the next supplier sync
+          // overwrites it with the supplier's authoritative count.
+          await tx.product.updateMany({
+            where: { id: item.productId },
+            data: { quantity: { decrement: item.quantity } },
+          });
+        } else {
+          throw new OrderError(
+            `Товар "${item.productName}" недоступний у потрібній кількості`,
+            400,
+          );
+        }
       }
     }
 
@@ -352,17 +413,23 @@ export async function createOrder(
       1,
     );
 
-    // Snapshot barcodes alongside productCode/productName so a later rename or
-    // barcode change on the product doesn't rewrite history. One bulk query
-    // instead of N + 1.
-    const productBarcodes = new Map<number, string | null>();
+    // Snapshot barcode + supplier link + cost alongside productCode/productName
+    // so a later rename / barcode change / supplier reassignment doesn't rewrite
+    // history. One bulk query instead of N + 1.
     const ids = cartItems.map((i) => i.productId);
     if (ids.length > 0) {
       const rows = await tx.product.findMany({
         where: { id: { in: ids } },
-        select: { id: true, barcode: true },
+        select: { id: true, barcode: true, supplierId: true, supplierSku: true, cost: true },
       });
-      for (const row of rows) productBarcodes.set(row.id, row.barcode);
+      for (const row of rows) {
+        productMeta.set(row.id, {
+          barcode: row.barcode,
+          supplierId: row.supplierId,
+          supplierSku: row.supplierSku,
+          cost: row.cost,
+        });
+      }
     }
 
     // Create the order
@@ -399,21 +466,29 @@ export async function createOrder(
         paymentMethod: checkout.paymentMethod,
         paymentStatus: 'pending',
         comment: checkout.comment,
+        ...(bundleNote ? { managerComment: bundleNote } : {}),
         source: 'web',
         utmSource: checkout.utmSource ?? null,
         utmMedium: checkout.utmMedium ?? null,
         utmCampaign: checkout.utmCampaign ?? null,
         items: {
-          create: cartItems.map((item) => ({
-            productId: item.productId,
-            productCode: item.productCode,
-            productBarcode: productBarcodes.get(item.productId) ?? null,
-            productName: item.productName,
-            priceAtOrder: item.price,
-            quantity: item.quantity,
-            subtotal: lineTotal(item.price, item.quantity),
-            isPromo: item.isPromo,
-          })),
+          create: cartItems.map((item) => {
+            const meta = productMeta.get(item.productId);
+            return {
+              productId: item.productId,
+              productCode: item.productCode,
+              productBarcode: meta?.barcode ?? null,
+              productName: item.productName,
+              priceAtOrder: item.price,
+              quantity: item.quantity,
+              subtotal: lineTotal(item.price, item.quantity),
+              isPromo: item.isPromo,
+              // Reconciliation snapshot: which supplier owns this line and what
+              // it cost us at sale time (null for the shop's own goods).
+              supplierId: meta?.supplierId ?? null,
+              supplierCostAtSale: meta?.cost ?? null,
+            };
+          }),
         },
         statusHistory: {
           create: {
@@ -466,6 +541,22 @@ export async function createOrder(
         error: String(err),
       });
     });
+
+  // Notify dropship suppliers to ship their lines directly. For cash-on-delivery
+  // we tell them now; for prepaid (online/card/transfer) we must NOT — a supplier
+  // could ship an unpaid order — so that fires later, on payment confirmation
+  // (handlePaymentCallback / updateOrderStatus → paid). The notifier is
+  // idempotent on Order.dropshipNotifiedAt, so the two triggers never double-send.
+  if (checkout.paymentMethod === 'cod') {
+    import('@/services/suppliers/dropship-notify')
+      .then((mod) => mod.notifyDropshipForOrder(order.id))
+      .catch((err) => {
+        logger.error('Dropship supplier notification failed', {
+          orderNumber: order.orderNumber,
+          error: String(err),
+        });
+      });
+  }
 
   // Email fallback to the manager — Telegram is primary but may be unset in
   // prod (then the owner would never learn of a new order). Recipient is the
@@ -829,6 +920,17 @@ export async function updateOrderStatus(
       )
       .catch(() => {
         /* silent */
+      });
+  }
+
+  // Manual "mark paid" (e.g. bank transfer received) — release dropship orders
+  // to suppliers now that money is in. Idempotent on Order.dropshipNotifiedAt, so
+  // this never double-sends with the COD-on-create or online-callback triggers.
+  if (newStatus === 'paid') {
+    import('@/services/suppliers/dropship-notify')
+      .then((mod) => mod.notifyDropshipForOrder(updated.id))
+      .catch(() => {
+        /* best-effort */
       });
   }
 
@@ -1344,6 +1446,8 @@ export async function editOrderItems(
             priceWholesale2: true,
             priceWholesale3: true,
             quantity: true,
+            supplierId: true,
+            cost: true,
           },
         });
 
@@ -1381,6 +1485,9 @@ export async function editOrderItems(
             quantity: change.quantity,
             subtotal: Math.round(unitPrice * change.quantity * 100) / 100,
             isPromo: false,
+            // Reconciliation snapshot for supplier-owned goods added manually.
+            supplierId: product.supplierId,
+            supplierCostAtSale: product.cost,
           },
         });
       }

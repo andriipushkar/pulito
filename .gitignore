@@ -59,9 +59,12 @@ next-env.d.ts
 /generated/prisma
 
 # Playwright generated storage state
-/e2e/.auth/
+/tests/e2e/.auth/
 
 # Env backups / dumps — never commit (contain real secrets)
 .env.bak*
 .env.*.bak
 *.env.bak
+
+# Claude Code agent state (memory/session) — not project code
+.claude/projects/

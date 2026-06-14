@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import WysiwygEditor from '@/components/admin/WysiwygEditor';
+import CoverImagePicker from '@/components/admin/CoverImagePicker';
 
 interface BlogPost {
   id: number;
@@ -294,11 +295,10 @@ export default function AdminBlogEditPage() {
             />
           </div>
           <div className="mt-4">
-            <Input
+            <CoverImagePicker
               label={t('coverLabel')}
               value={form.coverImage}
-              onChange={(e) => setForm({ ...form, coverImage: e.target.value })}
-              placeholder={t('coverPh')}
+              onChange={(path) => setForm({ ...form, coverImage: path })}
             />
           </div>
           <div className="mt-4">

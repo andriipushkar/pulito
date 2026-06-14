@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
+import { todayKyivIso } from '@/utils/format';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
@@ -33,11 +34,14 @@ const ACTION_BADGE: Record<string, string> = {
   logout: 'bg-slate-100 text-slate-600',
 };
 
+// Anchor presets on the Kyiv calendar day so they line up with the server's
+// Kyiv-based date filter — plain toISOString() is the UTC day, which is still
+// "yesterday" between midnight and 03:00 Kyiv.
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayKyivIso();
 }
 function isoDaysAgo(days: number): string {
-  const d = new Date();
+  const d = new Date(`${todayKyivIso()}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 }

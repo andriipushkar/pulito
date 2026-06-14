@@ -1,26 +1,17 @@
 import { prisma } from '@/lib/prisma';
 import { importProducts, ImportResult } from '@/services/import';
 import { logger } from '@/lib/logger';
-import { decrypt, isEncrypted } from '@/lib/encryption';
-import { isSafeOutboundUrl } from '@/utils/safe-url';
+import { fetchSupplierFeedBuffer, SupplierChannelError } from '@/services/suppliers/feed-source';
 
-export class SupplierChannelError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number,
-  ) {
-    super(message);
-    this.name = 'SupplierChannelError';
-  }
-}
-
-const FETCH_TIMEOUT_MS = 60_000; // 60 seconds — supplier feeds can be large
-const MAX_FEED_SIZE = 50 * 1024 * 1024; // 50 MB
+// Re-exported so existing importers (`@/services/supplier-channel`) keep working
+// after the error class + feed fetch moved into the shared suppliers module.
+export { SupplierChannelError };
 
 /**
- * Pull a feed from a supplier URL and pipe it through importProducts.
- * Honours the channel's auth settings (basic / bearer). Streams up to
- * MAX_FEED_SIZE so a runaway supplier endpoint doesn't OOM the worker.
+ * Pull a feed from a supplier URL and pipe it through importProducts. This is
+ * the legacy CATALOG import path: it creates/updates products from the feed at
+ * the feed's own price. The consignment price/stock sync (markup, supplier
+ * link, dropship) lives separately in services/suppliers/.
  *
  * Caller is expected to be admin/manager — channels live in the integrations
  * area, not on the storefront.
@@ -34,65 +25,7 @@ export async function syncSupplierChannel(
   if (!channel) throw new SupplierChannelError('Канал постачальника не знайдено', 404);
   if (!channel.isActive) throw new SupplierChannelError('Канал вимкнено', 400);
 
-  // SSRF guard: even though POST/PATCH validate feedUrl, a record might predate
-  // the validator. Refuse to fetch private/loopback addresses.
-  if (!isSafeOutboundUrl(channel.feedUrl, { protocols: ['http:', 'https:'] })) {
-    throw new SupplierChannelError('URL фіду вказує на приватну/локальну адресу — заборонено', 400);
-  }
-
-  const headers: Record<string, string> = {
-    'User-Agent': 'PulitoTrade-Importer/1.0',
-  };
-  if (channel.authType === 'basic' && channel.authUsername && channel.authPassword) {
-    const pwd = isEncrypted(channel.authPassword)
-      ? decrypt(channel.authPassword)
-      : channel.authPassword;
-    const token = Buffer.from(`${channel.authUsername}:${pwd}`).toString('base64');
-    headers['Authorization'] = `Basic ${token}`;
-  } else if (channel.authType === 'bearer' && channel.authToken) {
-    const tok = isEncrypted(channel.authToken) ? decrypt(channel.authToken) : channel.authToken;
-    headers['Authorization'] = `Bearer ${tok}`;
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-  let response: Response;
-  try {
-    response = await fetch(channel.feedUrl, {
-      headers,
-      signal: controller.signal,
-      redirect: 'error', // refuse redirect-based SSRF to internal targets
-    });
-  } catch (err) {
-    clearTimeout(timeout);
-    throw new SupplierChannelError(
-      `Не вдалося завантажити фід: ${err instanceof Error ? err.message : 'fetch error'}`,
-      502,
-    );
-  }
-  clearTimeout(timeout);
-
-  if (!response.ok) {
-    throw new SupplierChannelError(
-      `Постачальник повернув ${response.status} ${response.statusText}`,
-      502,
-    );
-  }
-
-  const contentLength = Number(response.headers.get('content-length') ?? 0);
-  if (contentLength > MAX_FEED_SIZE) {
-    throw new SupplierChannelError(
-      `Фід занадто великий: ${Math.round(contentLength / 1024 / 1024)} MB (макс. 50)`,
-      413,
-    );
-  }
-
-  const arrayBuf = await response.arrayBuffer();
-  if (arrayBuf.byteLength > MAX_FEED_SIZE) {
-    throw new SupplierChannelError('Фід занадто великий (макс. 50 MB)', 413);
-  }
-  const buffer = Buffer.from(arrayBuf);
+  const buffer = await fetchSupplierFeedBuffer(channel);
 
   const filename = `supplier-${channel.id}-${channel.format}-${Date.now()}`;
   const result = await importProducts(buffer, filename, triggeredBy, options);

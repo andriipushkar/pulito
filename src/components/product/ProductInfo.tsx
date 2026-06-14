@@ -116,7 +116,11 @@ export default function ProductInfo({ product }: ProductInfoProps) {
       ? Number(activeVariant.priceRetail)
       : Number(product.priceRetail);
   const effectiveQuantity = activeVariant ? activeVariant.quantity : product.quantity;
-  const inStock = effectiveQuantity > 0;
+  // Backorder ("під замовлення") is a product-level supplier flag; it keeps the
+  // product orderable at 0 on-hand. It does not apply when a specific variant
+  // (with its own real stock) is selected.
+  const backorder = !!(product as { allowBackorder?: boolean }).allowBackorder && !activeVariant;
+  const inStock = effectiveQuantity > 0 || backorder;
   const mainImage = activeVariant?.imagePath || product.images[0]?.pathMedium || product.imagePath;
   const settings = useSettings();
   const hideQty =
@@ -312,15 +316,18 @@ export default function ProductInfo({ product }: ProductInfoProps) {
           //   • ≤ 5 items        → orange urgency "Поспішайте, мало"
           //   • ≥ 6              → calm green "В наявності"
           // Skipped entirely when admin hides quantities globally.
-          const lowStock = inStock && !hideQty && effectiveQuantity <= 5;
+          const backorderOnly = backorder && effectiveQuantity <= 0;
+          const lowStock = inStock && !hideQty && effectiveQuantity > 0 && effectiveQuantity <= 5;
           const lastOne = inStock && !hideQty && effectiveQuantity === 1;
           const tone = !inStock
             ? 'text-[var(--color-out-of-stock)]'
-            : lastOne
-              ? 'text-red-600'
-              : lowStock
-                ? 'text-amber-600'
-                : 'text-[var(--color-in-stock)]';
+            : backorderOnly
+              ? 'text-[var(--color-in-stock)]'
+              : lastOne
+                ? 'text-red-600'
+                : lowStock
+                  ? 'text-amber-600'
+                  : 'text-[var(--color-in-stock)]';
           return (
             <div className={`mt-2 flex items-center gap-1.5 text-sm font-medium ${tone}`}>
               {inStock && (
@@ -335,9 +342,14 @@ export default function ProductInfo({ product }: ProductInfoProps) {
                 </svg>
               )}
               {!inStock && 'Немає в наявності'}
-              {lastOne && '⚠️ Останній товар!'}
-              {!lastOne && lowStock && `🔥 Поспішайте — залишилось ${effectiveQuantity} шт.`}
-              {inStock &&
+              {backorderOnly && 'Під замовлення'}
+              {!backorderOnly && lastOne && '⚠️ Останній товар!'}
+              {!backorderOnly &&
+                !lastOne &&
+                lowStock &&
+                `🔥 Поспішайте — залишилось ${effectiveQuantity} шт.`}
+              {!backorderOnly &&
+                inStock &&
                 !lowStock &&
                 (hideQty ? 'В наявності' : `В наявності (${effectiveQuantity} шт.)`)}
             </div>

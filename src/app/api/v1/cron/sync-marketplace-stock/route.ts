@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { syncStockToMarketplace } from '@/services/marketplace-sync';
+import { getChannelConfig, type MarketplaceConfig } from '@/services/channel-config';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { env } from '@/config/env';
 import { timingSafeCompare } from '@/utils/timing-safe';
@@ -15,8 +16,13 @@ export async function POST(request: NextRequest) {
     }
 
     const locked = await withCronLock('marketplace-sync', 1800, async () => {
-      const results: Record<string, { updated: number; failed: number }> = {};
+      const results: Record<string, { updated: number; failed: number; skipped?: boolean }> = {};
       for (const platform of ['rozetka', 'prom'] as const) {
+        const config = (await getChannelConfig(platform)) as MarketplaceConfig | null;
+        if (!config?.enabled) {
+          results[platform] = { updated: 0, failed: 0, skipped: true };
+          continue;
+        }
         try {
           results[platform] = await syncStockToMarketplace(platform);
         } catch (error) {

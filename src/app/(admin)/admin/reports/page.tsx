@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
+import { todayKyivIso } from '@/utils/format';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -311,15 +312,18 @@ export default function AdminReportsPage() {
 
   const applyDatePreset = useCallback(
     (preset: 'today' | 'week' | 'month' | 'year', target: 'template' | 'custom') => {
-      const today = new Date();
+      // Anchor on the Kyiv calendar day (matches the server's Kyiv date
+      // filters) — plain toISOString() is the UTC day, still "yesterday"
+      // between midnight and 03:00 Kyiv. Arithmetic on UTC midnight of that
+      // date string is pure calendar math, immune to local TZ/DST.
+      const to = todayKyivIso();
       const iso = (d: Date) => d.toISOString().slice(0, 10);
-      const to = iso(today);
-      const from = new Date(today);
+      const from = new Date(`${to}T00:00:00Z`);
       if (preset === 'today') {
         // from = today
-      } else if (preset === 'week') from.setDate(today.getDate() - 6);
-      else if (preset === 'month') from.setDate(today.getDate() - 29);
-      else if (preset === 'year') from.setFullYear(today.getFullYear() - 1);
+      } else if (preset === 'week') from.setUTCDate(from.getUTCDate() - 6);
+      else if (preset === 'month') from.setUTCDate(from.getUTCDate() - 29);
+      else if (preset === 'year') from.setUTCFullYear(from.getUTCFullYear() - 1);
 
       const fromIso = iso(from);
       if (target === 'template') {

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { kyivDateIso, kyivMidnightUtc, kyivNextDayUtc, todayKyivIso } from '@/utils/format';
 
 interface AggregateResult {
   date: string;
@@ -47,22 +48,19 @@ function trafficSourceFromMetadata(metadata: unknown): string {
   return 'direct';
 }
 
-function startOfDayUtc(d: Date): Date {
-  const out = new Date(d);
-  out.setUTCHours(0, 0, 0, 0);
-  return out;
-}
-
 /**
- * Aggregate ClientEvent rows for a given UTC day into DailyFunnelStats,
- * grouped by (deviceType, trafficSource).
+ * Aggregate ClientEvent rows for a given Kyiv calendar day into DailyFunnelStats,
+ * grouped by (deviceType, trafficSource). Events are selected by Kyiv day
+ * boundaries (DST-aware); the `date` column is @db.Date, so it stores the Kyiv
+ * calendar date itself (UTC-midnight Date object, not the shifted boundary).
  *
  * Idempotent: existing rows for the same (date, deviceType, trafficSource) are deleted first.
  */
 export async function aggregateFunnelStats(targetDate: Date): Promise<AggregateResult> {
-  const dayStart = startOfDayUtc(targetDate);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+  const dayIso = kyivDateIso(targetDate);
+  const dayStart = kyivMidnightUtc(dayIso);
+  const dayEnd = kyivNextDayUtc(dayIso);
+  const dateCol = new Date(`${dayIso}T00:00:00Z`);
 
   const events = await prisma.clientEvent.findMany({
     where: { createdAt: { gte: dayStart, lt: dayEnd } },
@@ -75,8 +73,8 @@ export async function aggregateFunnelStats(targetDate: Date): Promise<AggregateR
   });
 
   if (events.length === 0) {
-    await prisma.dailyFunnelStats.deleteMany({ where: { date: dayStart } });
-    return { date: dayStart.toISOString().slice(0, 10), rowsWritten: 0, totalEvents: 0 };
+    await prisma.dailyFunnelStats.deleteMany({ where: { date: dateCol } });
+    return { date: dayIso, rowsWritten: 0, totalEvents: 0 };
   }
 
   const buckets = new Map<string, DeviceBucket>();
@@ -126,12 +124,12 @@ export async function aggregateFunnelStats(targetDate: Date): Promise<AggregateR
     }
   }
 
-  await prisma.dailyFunnelStats.deleteMany({ where: { date: dayStart } });
+  await prisma.dailyFunnelStats.deleteMany({ where: { date: dateCol } });
 
   const rows = Array.from(buckets.entries()).map(([key, bucket]) => {
     const [deviceType, trafficSource] = key.split('|');
     return {
-      date: dayStart,
+      date: dateCol,
       deviceType,
       trafficSource,
       pageViews: bucket.pageViews,
@@ -150,7 +148,7 @@ export async function aggregateFunnelStats(targetDate: Date): Promise<AggregateR
   }
 
   return {
-    date: dayStart.toISOString().slice(0, 10),
+    date: dayIso,
     rowsWritten: rows.length,
     totalEvents: events.length,
   };
@@ -160,7 +158,9 @@ export async function aggregateFunnelStats(targetDate: Date): Promise<AggregateR
  * Aggregate yesterday's events. Intended for daily cron.
  */
 export async function aggregateYesterday(): Promise<AggregateResult> {
-  const yesterday = new Date();
+  // Kyiv "yesterday", not UTC: anchor on today's Kyiv calendar date so a run
+  // between 00:00 and 03:00 Kyiv still aggregates the correct day.
+  const yesterday = new Date(`${todayKyivIso()}T00:00:00Z`);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   return aggregateFunnelStats(yesterday);
 }

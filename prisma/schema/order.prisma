@@ -98,6 +98,10 @@ model Order {
   ipAddress            String?        @map("ip_address")
   userAgent            String?        @map("user_agent")
   externalId           String?        @map("external_id")
+  // Set once when dropship suppliers have been told to ship this order — makes
+  // the notification idempotent across the COD-on-create and prepaid-on-paid
+  // trigger points.
+  dropshipNotifiedAt   DateTime?      @map("dropship_notified_at")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
   deletedAt            DateTime?      @map("deleted_at")
@@ -126,22 +130,30 @@ model Order {
 // 23.5 Order_Items
 // ─────────────────────────────────────
 model OrderItem {
-  id           Int      @id @default(autoincrement())
-  orderId      Int      @map("order_id")
-  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId    Int?     @map("product_id")
-  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-  productCode  String   @map("product_code")
-  productBarcode String? @map("product_barcode") @db.VarChar(20)
-  productName  String   @map("product_name")
-  priceAtOrder Decimal  @map("price_at_order") @db.Decimal(10, 2)
-  quantity     Int
-  subtotal     Decimal  @db.Decimal(10, 2)
-  isPromo      Boolean  @default(false) @map("is_promo")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id                 Int              @id @default(autoincrement())
+  orderId            Int              @map("order_id")
+  order              Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId          Int?             @map("product_id")
+  product            Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productCode        String           @map("product_code")
+  productBarcode     String?          @map("product_barcode") @db.VarChar(20)
+  productName        String           @map("product_name")
+  priceAtOrder       Decimal          @map("price_at_order") @db.Decimal(10, 2)
+  quantity           Int
+  subtotal           Decimal          @db.Decimal(10, 2)
+  isPromo            Boolean          @default(false) @map("is_promo")
+  // ── Supplier reconciliation snapshot ──
+  // Captured at sale time so payouts stay correct even if the product later
+  // changes supplier or the purchase price moves. supplierId is denormalised
+  // (not derived via product) because product may be SetNull on deletion.
+  supplierId         Int?             @map("supplier_id")
+  supplier           SupplierChannel? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  supplierCostAtSale Decimal?         @map("supplier_cost_at_sale") @db.Decimal(10, 2)
+  createdAt          DateTime         @default(now()) @map("created_at")
 
   @@index([orderId])
   @@index([productId])
+  @@index([supplierId])
   @@map("order_items")
 }
 
@@ -186,7 +198,7 @@ model Payment {
   // increments it. Prevents over-refunding even if paymentStatus is manually
   // flipped back to `paid` by an admin tool (which would otherwise re-open
   // the refund window).
-  refundedAmount  Decimal       @default(0) @db.Decimal(10, 2) @map("refunded_amount")
+  refundedAmount  Decimal       @default(0) @map("refunded_amount") @db.Decimal(10, 2)
   paidAt          DateTime?     @map("paid_at")
   confirmedBy     Int?          @map("confirmed_by")
   confirmer       User?         @relation("PaymentConfirmer", fields: [confirmedBy], references: [id])
@@ -259,15 +271,15 @@ model CartItem {
 
 // 23.44 Win_Back_Events — dormant-customer re-engagement tracking
 model WinBackEvent {
-  id               Int       @id @default(autoincrement())
-  userId           Int       @map("user_id")
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  daysSinceLastOrder Int     @map("days_since_last_order")
-  couponId         Int?      @map("coupon_id")
-  coupon           Coupon?   @relation("WinBackEventCoupon", fields: [couponId], references: [id], onDelete: SetNull)
-  sentAt           DateTime  @default(now()) @map("sent_at")
-  openedAt         DateTime? @map("opened_at")
-  recoveredOrderId Int?      @map("recovered_order_id")
+  id                 Int       @id @default(autoincrement())
+  userId             Int       @map("user_id")
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  daysSinceLastOrder Int       @map("days_since_last_order")
+  couponId           Int?      @map("coupon_id")
+  coupon             Coupon?   @relation("WinBackEventCoupon", fields: [couponId], references: [id], onDelete: SetNull)
+  sentAt             DateTime  @default(now()) @map("sent_at")
+  openedAt           DateTime? @map("opened_at")
+  recoveredOrderId   Int?      @map("recovered_order_id")
 
   @@index([userId, sentAt])
   @@index([sentAt])
@@ -329,29 +341,29 @@ enum CouponType {
 }
 
 model Coupon {
-  id                Int        @id @default(autoincrement())
-  code              String     @unique
-  description       String?
-  type              CouponType
-  value             Decimal    @db.Decimal(10, 2) // percent value or fixed amount
-  minOrderAmount    Decimal?   @map("min_order_amount") @db.Decimal(10, 2)
-  maxDiscount       Decimal?   @map("max_discount") @db.Decimal(10, 2) // cap for percent coupons
-  usageLimit        Int?       @map("usage_limit") // total uses allowed
-  usageLimitPerUser Int?       @map("usage_limit_per_user")
-  usedCount         Int        @default(0) @map("used_count")
-  validFrom         DateTime?  @map("valid_from")
-  validUntil        DateTime?  @map("valid_until")
+  id                    Int        @id @default(autoincrement())
+  code                  String     @unique
+  description           String?
+  type                  CouponType
+  value                 Decimal    @db.Decimal(10, 2) // percent value or fixed amount
+  minOrderAmount        Decimal?   @map("min_order_amount") @db.Decimal(10, 2)
+  maxDiscount           Decimal?   @map("max_discount") @db.Decimal(10, 2) // cap for percent coupons
+  usageLimit            Int?       @map("usage_limit") // total uses allowed
+  usageLimitPerUser     Int?       @map("usage_limit_per_user")
+  usedCount             Int        @default(0) @map("used_count")
+  validFrom             DateTime?  @map("valid_from")
+  validUntil            DateTime?  @map("valid_until")
   // Apply restrictions: empty arrays mean "no restriction".
   // - applicableCategoryIds: coupon valid only on these categories
   // - excludedProductIds: products opted out (overrides categories)
-  applicableCategoryIds Int[]  @default([]) @map("applicable_category_ids")
-  excludedProductIds    Int[]  @default([]) @map("excluded_product_ids")
+  applicableCategoryIds Int[]      @default([]) @map("applicable_category_ids")
+  excludedProductIds    Int[]      @default([]) @map("excluded_product_ids")
   // Stacking — same semantics as VolumeDiscount.stackableWith.
-  stackableWith         String[] @default([]) @map("stackable_with")
-  isActive          Boolean    @default(true) @map("is_active")
-  createdBy         Int?       @map("created_by")
-  createdAt         DateTime   @default(now()) @map("created_at")
-  updatedAt         DateTime   @updatedAt @map("updated_at")
+  stackableWith         String[]   @default([]) @map("stackable_with")
+  isActive              Boolean    @default(true) @map("is_active")
+  createdBy             Int?       @map("created_by")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
 
   redemptions        CouponRedemption[]
   cartRecoveryEvents CartRecoveryEvent[]
@@ -422,29 +434,29 @@ model ReturnRequest {
 // One Pallet has many PalletOrders (the n:m through table).
 // ─────────────────────────────────────
 enum PalletStatus {
-  forming     // collecting orders
-  in_transit  // handed to carrier
+  forming // collecting orders
+  in_transit // handed to carrier
   delivered
   cancelled
 }
 
 model Pallet {
-  id            Int          @id @default(autoincrement())
-  name          String       @db.VarChar(255) // human label e.g. "Львів-Київ #14"
-  status        PalletStatus @default(forming)
-  region        String?      // multiplier key from pallet-delivery config
-  carrier       String?      // "delivery", "intime", "mist", "nightexp"
-  trackingNumber String?     @map("tracking_number")
-  weightKg      Decimal?     @map("weight_kg") @db.Decimal(8, 2)
-  deliveryCost  Decimal?     @map("delivery_cost") @db.Decimal(10, 2)
-  notes         String?
-  createdBy     Int?         @map("created_by")
-  shippedAt     DateTime?    @map("shipped_at")
-  deliveredAt   DateTime?    @map("delivered_at")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
+  id             Int          @id @default(autoincrement())
+  name           String       @db.VarChar(255) // human label e.g. "Львів-Київ #14"
+  status         PalletStatus @default(forming)
+  region         String? // multiplier key from pallet-delivery config
+  carrier        String? // "delivery", "intime", "mist", "nightexp"
+  trackingNumber String?      @map("tracking_number")
+  weightKg       Decimal?     @map("weight_kg") @db.Decimal(8, 2)
+  deliveryCost   Decimal?     @map("delivery_cost") @db.Decimal(10, 2)
+  notes          String?
+  createdBy      Int?         @map("created_by")
+  shippedAt      DateTime?    @map("shipped_at")
+  deliveredAt    DateTime?    @map("delivered_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  orders        PalletOrder[]
+  orders PalletOrder[]
 
   @@index([status])
   @@index([createdAt(sort: Desc)])

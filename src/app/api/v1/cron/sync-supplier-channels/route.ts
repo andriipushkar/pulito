@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { CronExpressionParser } from 'cron-parser';
 import { prisma } from '@/lib/prisma';
-import { syncSupplierChannel, SupplierChannelError } from '@/services/supplier-channel';
+import { SupplierChannelError } from '@/services/supplier-channel';
+import { runSupplierSync } from '@/services/suppliers/dispatch';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { env } from '@/config/env';
 import { timingSafeCompare } from '@/utils/timing-safe';
@@ -20,7 +21,11 @@ import { logger } from '@/lib/logger';
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    const expectedToken = `Bearer ${env.APP_SECRET}`;
+    // Prefer dedicated CRON_SECRET; fall back to APP_SECRET for backwards
+    // compatibility — matches every other cron route and cron-run.sh, so this
+    // job doesn't silently 401 (and stop syncing) once CRON_SECRET is set.
+    const cronSecret = env.CRON_SECRET || env.APP_SECRET;
+    const expectedToken = `Bearer ${cronSecret}`;
     if (!authHeader || !timingSafeCompare(authHeader, expectedToken)) {
       return errorResponse('Unauthorized', 401);
     }
@@ -73,24 +78,35 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const { result } = await syncSupplierChannel(channel.id, systemAdmin.id);
+        const run = await runSupplierSync(channel.id, systemAdmin.id);
         ran.push({
           id: channel.id,
           result: {
-            created: result.created,
-            updated: result.updated,
-            skipped: result.skipped,
+            created: run.created,
+            updated: run.updated,
+            skipped: run.skipped,
           },
         });
         logger.info(`[cron/sync-supplier-channels] #${channel.id} (${channel.name}) ok`, {
-          created: result.created,
-          updated: result.updated,
+          mode: run.mode,
+          created: run.created,
+          updated: run.updated,
         });
       } catch (err) {
         const msg =
-          err instanceof SupplierChannelError ? err.message : err instanceof Error ? err.message : 'unknown';
+          err instanceof SupplierChannelError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'unknown';
         failed.push({ id: channel.id, error: msg });
         logger.error(`[cron/sync-supplier-channels] #${channel.id} failed: ${msg}`);
+        // Alert the manager — a silently stale feed is the main risk of auto-sync.
+        import('@/services/telegram')
+          .then((mod) => mod.notifyManagerSupplierFailed(channel.name, msg))
+          .catch(() => {
+            /* best-effort */
+          });
       }
     }
 

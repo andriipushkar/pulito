@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -9,6 +10,10 @@ import Input from '@/components/ui/Input';
 
 type Format = 'xlsx' | 'csv' | 'yml' | 'xml_1c';
 type AuthType = 'none' | 'basic' | 'bearer';
+type SyncMode = 'catalog_import' | 'price_stock';
+type MarkupType = 'percent' | 'fixed';
+type Fulfillment = 'own_stock' | 'dropship';
+type StockPolicy = 'hide' | 'backorder';
 
 interface Channel {
   id: number;
@@ -23,6 +28,17 @@ interface Channel {
   scheduleCron: string | null;
   lastSyncAt: string | null;
   lastImportLogId: number | null;
+  syncMode: SyncMode;
+  markupType: MarkupType;
+  markupValue: number | string;
+  fulfillment: Fulfillment;
+  stockPolicy: StockPolicy;
+  minPrice: number | string | null;
+  notifyTelegramChatId: string | null;
+  notifyEmail: string | null;
+  feedCurrencyRate: number | string;
+  reserveAware: boolean;
+  zeroMissing: boolean;
 }
 
 interface SyncResult {
@@ -32,6 +48,11 @@ interface SyncResult {
   variantsCreated?: number;
   variantsUpdated?: number;
   importLogId?: number;
+  // price_stock mode extras
+  mode?: SyncMode;
+  matched?: number;
+  unmatched?: number;
+  priceChanged?: number;
 }
 
 interface FormState {
@@ -44,6 +65,17 @@ interface FormState {
   authToken: string;
   isActive: boolean;
   scheduleCron: string;
+  syncMode: SyncMode;
+  markupType: MarkupType;
+  markupValue: string;
+  fulfillment: Fulfillment;
+  stockPolicy: StockPolicy;
+  minPrice: string;
+  notifyTelegramChatId: string;
+  notifyEmail: string;
+  feedCurrencyRate: string;
+  reserveAware: boolean;
+  zeroMissing: boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -56,6 +88,17 @@ const EMPTY_FORM: FormState = {
   authToken: '',
   isActive: true,
   scheduleCron: '',
+  syncMode: 'catalog_import',
+  markupType: 'percent',
+  markupValue: '0',
+  fulfillment: 'own_stock',
+  stockPolicy: 'hide',
+  minPrice: '',
+  notifyTelegramChatId: '',
+  notifyEmail: '',
+  feedCurrencyRate: '1',
+  reserveAware: false,
+  zeroMissing: false,
 };
 
 export default function SupplierChannelsSection() {
@@ -112,6 +155,17 @@ export default function SupplierChannelsSection() {
       authToken: c.authToken ?? '',
       isActive: c.isActive,
       scheduleCron: c.scheduleCron ?? '',
+      syncMode: c.syncMode ?? 'catalog_import',
+      markupType: c.markupType ?? 'percent',
+      markupValue: c.markupValue != null ? String(c.markupValue) : '0',
+      fulfillment: c.fulfillment ?? 'own_stock',
+      stockPolicy: c.stockPolicy ?? 'hide',
+      minPrice: c.minPrice != null ? String(c.minPrice) : '',
+      notifyTelegramChatId: c.notifyTelegramChatId ?? '',
+      notifyEmail: c.notifyEmail ?? '',
+      feedCurrencyRate: c.feedCurrencyRate != null ? String(c.feedCurrencyRate) : '1',
+      reserveAware: c.reserveAware ?? false,
+      zeroMissing: c.zeroMissing ?? false,
     });
   };
 
@@ -119,6 +173,18 @@ export default function SupplierChannelsSection() {
     if (!form.name.trim() || !form.feedUrl.trim()) {
       toast.error(t('nameUrlRequired'));
       return;
+    }
+    const markupNum = Number(form.markupValue);
+    const minPriceNum = form.minPrice.trim() === '' ? null : Number(form.minPrice);
+    if (form.syncMode === 'price_stock') {
+      if (!Number.isFinite(markupNum) || markupNum < 0) {
+        toast.error('Націнка має бути числом ≥ 0');
+        return;
+      }
+      if (minPriceNum != null && (!Number.isFinite(minPriceNum) || minPriceNum <= 0)) {
+        toast.error('Мін. ціна має бути додатнім числом');
+        return;
+      }
     }
     const payload = {
       name: form.name.trim(),
@@ -130,6 +196,17 @@ export default function SupplierChannelsSection() {
       authToken: form.authToken || null,
       isActive: form.isActive,
       scheduleCron: form.scheduleCron.trim() || null,
+      syncMode: form.syncMode,
+      markupType: form.markupType,
+      markupValue: Number.isFinite(markupNum) && markupNum >= 0 ? markupNum : 0,
+      fulfillment: form.fulfillment,
+      stockPolicy: form.stockPolicy,
+      minPrice: minPriceNum,
+      notifyTelegramChatId: form.notifyTelegramChatId.trim() || null,
+      notifyEmail: form.notifyEmail.trim() || null,
+      feedCurrencyRate: Number(form.feedCurrencyRate) > 0 ? Number(form.feedCurrencyRate) : 1,
+      reserveAware: form.reserveAware,
+      zeroMissing: form.zeroMissing,
     };
     try {
       const res =
@@ -171,17 +248,24 @@ export default function SupplierChannelsSection() {
       );
       if (res.success && res.data) {
         const prefix = dryRun ? t('simPrefix') : t('syncedPrefix');
-        const variantCount = (res.data.variantsCreated ?? 0) + (res.data.variantsUpdated ?? 0);
-        const variants = variantCount > 0 ? t('variantsSuffix', { count: variantCount }) : '';
-        toast.success(
-          t('syncResult', {
-            prefix,
-            created: res.data.created,
-            updated: res.data.updated,
-            skipped: res.data.skipped,
-            variants,
-          }),
-        );
+        if (res.data.mode === 'price_stock') {
+          // Consignment sync — report matched/updated/unmatched, not create/variants.
+          toast.success(
+            `${prefix}: оновлено ${res.data.updated}, ціна змінилась у ${res.data.priceChanged ?? 0}, без пари ${res.data.unmatched ?? 0}`,
+          );
+        } else {
+          const variantCount = (res.data.variantsCreated ?? 0) + (res.data.variantsUpdated ?? 0);
+          const variants = variantCount > 0 ? t('variantsSuffix', { count: variantCount }) : '';
+          toast.success(
+            t('syncResult', {
+              prefix,
+              created: res.data.created,
+              updated: res.data.updated,
+              skipped: res.data.skipped,
+              variants,
+            }),
+          );
+        }
         if (!dryRun) load();
       } else {
         toast.error(res.error || t('syncFailed'));
@@ -200,9 +284,17 @@ export default function SupplierChannelsSection() {
           <h3 className="text-sm font-semibold">{t('title')}</h3>
           <p className="text-xs text-[var(--color-text-secondary)]">{t('subtitle')}</p>
         </div>
-        <Button size="sm" onClick={openNew}>
-          {t('addChannel')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/supplier-channels/reconciliation"
+            className="text-xs text-[var(--color-primary)] underline"
+          >
+            Звіт розрахунків
+          </Link>
+          <Button size="sm" onClick={openNew}>
+            {t('addChannel')}
+          </Button>
+        </div>
       </div>
 
       {isLoading && (
@@ -258,6 +350,13 @@ export default function SupplierChannelsSection() {
                       >
                         {syncingId === c.id ? '…' : t('sync')}
                       </Button>
+                      <Link
+                        href={`/admin/supplier-channels/${c.id}/logs`}
+                        className="inline-flex h-8 items-center rounded-[var(--radius)] border border-[var(--color-border)] px-2 text-xs"
+                        title="Історія синхронізацій"
+                      >
+                        Лог
+                      </Link>
                       <Button size="sm" variant="outline" onClick={() => openEdit(c)}>
                         ✏️
                       </Button>
@@ -384,6 +483,141 @@ export default function SupplierChannelsSection() {
                 {t.rich('cronHint', { code: (chunks) => <code>{chunks}</code> })}
               </p>
             </div>
+
+            {/* Режим роботи каналу */}
+            <div className="sm:col-span-2 border-t border-[var(--color-border)] pt-3">
+              <label className="mb-1 block text-sm font-medium">Режим роботи</label>
+              <select
+                value={form.syncMode}
+                onChange={(e) => setForm({ ...form, syncMode: e.target.value as SyncMode })}
+                className="h-10 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm sm:w-auto"
+              >
+                <option value="catalog_import">
+                  Імпорт каталогу (створює/оновлює товари за ціною фіда)
+                </option>
+                <option value="price_stock">
+                  Консигнація / дропшип (ціна+залишок прив’язаних товарів)
+                </option>
+              </select>
+              <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                {form.syncMode === 'price_stock'
+                  ? 'Фід керує закупівельною ціною (+націнка) та залишком лише прив’язаних товарів. Прив’яжи товари кнопкою «Прив’язати товари».'
+                  : 'Фід створює/оновлює товари за ціною з фіда напряму, без націнки.'}
+              </p>
+            </div>
+
+            {form.syncMode === 'price_stock' && (
+              <>
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Тип націнки</label>
+                  <select
+                    value={form.markupType}
+                    onChange={(e) => setForm({ ...form, markupType: e.target.value as MarkupType })}
+                    className="h-10 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
+                  >
+                    <option value="percent">Відсоток (%)</option>
+                    <option value="fixed">Фіксована сума (₴)</option>
+                  </select>
+                </div>
+                <Input
+                  label={form.markupType === 'percent' ? 'Націнка, %' : 'Націнка, ₴'}
+                  type="number"
+                  value={form.markupValue}
+                  onChange={(e) => setForm({ ...form, markupValue: e.target.value })}
+                  placeholder="30"
+                />
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Відвантаження</label>
+                  <select
+                    value={form.fulfillment}
+                    onChange={(e) =>
+                      setForm({ ...form, fulfillment: e.target.value as Fulfillment })
+                    }
+                    className="h-10 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
+                  >
+                    <option value="own_stock">Зі свого складу (консигнація)</option>
+                    <option value="dropship">Дропшип (відправляє постачальник)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Залишок 0</label>
+                  <select
+                    value={form.stockPolicy}
+                    onChange={(e) =>
+                      setForm({ ...form, stockPolicy: e.target.value as StockPolicy })
+                    }
+                    className="h-10 w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
+                  >
+                    <option value="hide">Ховати товар</option>
+                    <option value="backorder">Лишати «під замовлення»</option>
+                  </select>
+                </div>
+                <Input
+                  label="Мін. ціна, ₴ (необов’язково)"
+                  type="number"
+                  value={form.minPrice}
+                  onChange={(e) => setForm({ ...form, minPrice: e.target.value })}
+                  placeholder="—"
+                />
+                <Input
+                  label="Курс валюти фіда → ₴ (1 = фід у грн)"
+                  type="number"
+                  value={form.feedCurrencyRate}
+                  onChange={(e) => setForm({ ...form, feedCurrencyRate: e.target.value })}
+                  placeholder="1"
+                />
+                <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.reserveAware}
+                    onChange={(e) => setForm({ ...form, reserveAware: e.target.checked })}
+                    className="accent-[var(--color-primary)]"
+                  />
+                  Фід НЕ зменшує залишок на наші замовлення (резервувати)
+                </label>
+                <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.zeroMissing}
+                    onChange={(e) => setForm({ ...form, zeroMissing: e.target.checked })}
+                    className="accent-[var(--color-primary)]"
+                  />
+                  Обнуляти залишок товарів, відсутніх у фіді
+                </label>
+                {form.fulfillment === 'dropship' && (
+                  <>
+                    <Input
+                      label="Telegram chat ID постачальника"
+                      value={form.notifyTelegramChatId}
+                      onChange={(e) => setForm({ ...form, notifyTelegramChatId: e.target.value })}
+                      placeholder="напр. 123456789"
+                    />
+                    <Input
+                      label="Email постачальника (запасний канал)"
+                      value={form.notifyEmail}
+                      onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })}
+                      placeholder="supplier@example.com"
+                    />
+                  </>
+                )}
+                {editingId !== 'new' && (
+                  <div className="flex flex-wrap gap-4 sm:col-span-2">
+                    <Link
+                      href={`/admin/supplier-channels/${editingId}/import`}
+                      className="text-sm text-[var(--color-primary)] underline"
+                    >
+                      → Прив’язати товари (перший імпорт)
+                    </Link>
+                    <Link
+                      href={`/admin/supplier-channels/${editingId}/products`}
+                      className="text-sm text-[var(--color-primary)] underline"
+                    >
+                      → Прив’язані товари / націнка
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <div className="mt-3 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>

@@ -59,23 +59,116 @@ enum SupplierAuthType {
   bearer // Bearer token
 }
 
+// How a supplier's purchase price is marked up to become our retail price.
+enum SupplierMarkupType {
+  percent // markupValue is a percent, e.g. 30 → cost × 1.30
+  fixed // markupValue is a flat UAH amount added to cost
+}
+
+// Who physically ships the goods to the customer.
+enum SupplierFulfillment {
+  own_stock // consignment — goods are in our warehouse, we pack & ship
+  dropship // supplier ships directly; we never hold stock
+}
+
+// What the storefront does when the supplier reports zero stock.
+enum SupplierStockPolicy {
+  hide // hide the product (quantity → 0, normal out-of-stock gate)
+  backorder // keep visible as "під замовлення" even at zero
+}
+
+// Which engine processes this channel's feed.
+enum SupplierSyncMode {
+  catalog_import // legacy: feed creates/updates products at the feed's own price
+  price_stock // consignment/dropship: feed drives cost+markup & stock of LINKED products only
+}
+
 model SupplierChannel {
-  id            Int              @id @default(autoincrement())
-  name          String           @db.VarChar(255)
-  feedUrl       String           @map("feed_url")
-  format        SupplierFormat
-  authType      SupplierAuthType @default(none) @map("auth_type")
-  authUsername  String?          @map("auth_username")
-  authPassword  String?          @map("auth_password") // stored as-is; secure column
-  authToken     String?          @map("auth_token")
-  isActive      Boolean          @default(true) @map("is_active")
-  scheduleCron  String?          @map("schedule_cron") // null = manual only
-  lastSyncAt    DateTime?        @map("last_sync_at")
-  lastImportLogId Int?           @map("last_import_log_id")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @updatedAt @map("updated_at")
+  id                   Int                 @id @default(autoincrement())
+  name                 String              @db.VarChar(255)
+  feedUrl              String              @map("feed_url")
+  format               SupplierFormat
+  authType             SupplierAuthType    @default(none) @map("auth_type")
+  authUsername         String?             @map("auth_username")
+  authPassword         String?             @map("auth_password") // stored as-is; secure column
+  authToken            String?             @map("auth_token")
+  isActive             Boolean             @default(true) @map("is_active")
+  scheduleCron         String?             @map("schedule_cron") // null = manual only
+  lastSyncAt           DateTime?           @map("last_sync_at")
+  lastImportLogId      Int?                @map("last_import_log_id")
+  // Which engine runs for this channel. Existing channels default to the legacy
+  // catalog importer; consignment/dropship suppliers use price_stock.
+  syncMode             SupplierSyncMode    @default(catalog_import) @map("sync_mode")
+  // ── Pricing & fulfilment business rules (per-supplier defaults) ──
+  markupType           SupplierMarkupType  @default(percent) @map("markup_type")
+  // Base markup applied to every product from this supplier unless the product
+  // overrides it (Product.markupOverrideType/Value). Decimal so a 27.5% or a
+  // 12.50 UAH markup both fit; interpreted per markupType.
+  markupValue          Decimal             @default(0) @map("markup_value") @db.Decimal(10, 2)
+  fulfillment          SupplierFulfillment @default(own_stock)
+  stockPolicy          SupplierStockPolicy @default(hide) @map("stock_policy")
+  // Computed retail price is never allowed below this floor (optional).
+  minPrice             Decimal?            @map("min_price") @db.Decimal(10, 2)
+  // Feed price → UAH multiplier (1 = feed already in UAH; e.g. 45 for a EUR feed).
+  feedCurrencyRate     Decimal             @default(1) @map("feed_currency_rate") @db.Decimal(12, 4)
+  // When the supplier feed does NOT drop stock for orders we place, subtract our
+  // open (unshipped) reserved units when writing stock so a sync can't oversell.
+  reserveAware         Boolean             @default(false) @map("reserve_aware")
+  // Zero the stock of linked products absent from the latest feed (guarded
+  // against a truncated feed). Off by default — a partial feed otherwise blanks
+  // the catalog.
+  zeroMissing          Boolean             @default(false) @map("zero_missing")
+  // Where dropship order alerts go. Telegram chat id reuses the bot in
+  // telegram.ts; email is a fallback. Null → no automatic supplier notice.
+  notifyTelegramChatId String?             @map("notify_telegram_chat_id")
+  notifyEmail          String?             @map("notify_email")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  products   Product[]
+  orderItems OrderItem[]
+  syncLogs   SupplierSyncLog[]
+  payouts    SupplierPayout[]
 
   @@map("supplier_channels")
+}
+
+// A recorded settlement to a supplier — the ledger side of the reconciliation
+// report ("owed" comes from OrderItem.supplierCostAtSale; "paid" comes from here).
+model SupplierPayout {
+  id         Int             @id @default(autoincrement())
+  supplierId Int             @map("supplier_id")
+  supplier   SupplierChannel @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  amount     Decimal         @db.Decimal(12, 2)
+  // Optional period this payout covers (for the operator's own bookkeeping).
+  periodFrom DateTime?       @map("period_from")
+  periodTo   DateTime?       @map("period_to")
+  note       String?
+  createdBy  Int?            @map("created_by")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  @@index([supplierId, createdAt(sort: Desc)])
+  @@map("supplier_payouts")
+}
+
+// One row per sync run — visibility into when a feed last updated, how many
+// products matched, and why a run failed (e.g. feed URL unreachable). The sync
+// engine writes this so the admin "last sync" status and alerts have a source.
+model SupplierSyncLog {
+  id             Int             @id @default(autoincrement())
+  supplierId     Int             @map("supplier_id")
+  supplier       SupplierChannel @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  status         SyncStatus      @default(pending)
+  itemsTotal     Int             @default(0) @map("items_total") // rows seen in the feed
+  itemsUpdated   Int             @default(0) @map("items_updated") // matched & price/stock written
+  itemsUnmatched Int             @default(0) @map("items_unmatched") // feed SKUs with no linked product
+  errorLog       Json?           @map("error_log")
+  startedAt      DateTime?       @map("started_at")
+  completedAt    DateTime?       @map("completed_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  @@index([supplierId, createdAt(sort: Desc)])
+  @@map("supplier_sync_logs")
 }
 
 model ApiKey {

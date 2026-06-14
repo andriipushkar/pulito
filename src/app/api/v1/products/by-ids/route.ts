@@ -40,7 +40,8 @@ const productListSelect = {
     orderBy: [{ isMain: 'desc' as const }, { sortOrder: 'asc' as const }],
   },
   content: {
-    select: { shortDescription: true },
+    // specifications живлять рядок «Характеристики» на сторінці порівняння.
+    select: { shortDescription: true, specifications: true },
   },
 };
 
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
   try {
     const idsParam = request.nextUrl.searchParams.get('ids');
     if (!idsParam) {
-      return errorResponse('Параметр ids обов\'язковий', 422);
+      return errorResponse("Параметр ids обов'язковий", 422);
     }
 
     const ids = idsParam

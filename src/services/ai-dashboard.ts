@@ -132,6 +132,11 @@ async function summarizeWithClaude(input: DashboardSummaryInput): Promise<string
   }
 }
 
+// 429/500/503 are transient (quota spikes, "high demand") — worth a short retry
+// before falling back to Claude/rules.
+const GEMINI_RETRYABLE = new Set([429, 500, 503]);
+const GEMINI_MAX_ATTEMPTS = 3;
+
 async function summarizeWithGemini(input: DashboardSummaryInput): Promise<string | null> {
   const cfg = await getGeminiConfig();
   if (!cfg) return null;
@@ -140,28 +145,39 @@ async function summarizeWithGemini(input: DashboardSummaryInput): Promise<string
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       model,
     )}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: 'user', parts: [{ text: buildPrompt(input) }] }],
-        generationConfig: { temperature: 0.5, maxOutputTokens: 600 },
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      logger.error('[ai-dashboard] Gemini failed', {
-        status: res.status,
-        body: body.slice(0, 300),
+    for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt++) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{ role: 'user', parts: [{ text: buildPrompt(input) }] }],
+          generationConfig: { temperature: 0.5, maxOutputTokens: 600 },
+        }),
       });
-      return null;
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        if (GEMINI_RETRYABLE.has(res.status) && attempt < GEMINI_MAX_ATTEMPTS) {
+          logger.warn('[ai-dashboard] Gemini transient error, retrying', {
+            status: res.status,
+            attempt,
+          });
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          continue;
+        }
+        logger.error('[ai-dashboard] Gemini failed', {
+          status: res.status,
+          body: body.slice(0, 300),
+        });
+        return null;
+      }
+      const data = (await res.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const txt = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      return txt || null;
     }
-    const data = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const txt = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    return txt || null;
+    return null;
   } catch (err) {
     logger.error('[ai-dashboard] Gemini threw', { error: String(err) });
     return null;

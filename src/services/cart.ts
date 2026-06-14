@@ -27,7 +27,7 @@ const cartItemInclude = {
 export class CartError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = 'CartError';
@@ -86,12 +86,14 @@ export async function getCartWithPersonalPrices(userId: number) {
         personalPrice = effective.fixedPrice;
         personalStackable = effective.stackableWith ?? [];
       } else if (effective?.discountPercent !== null && effective?.discountPercent !== undefined) {
-        personalPrice = Math.round(Number(product.priceRetail) * (1 - effective.discountPercent / 100) * 100) / 100;
+        personalPrice =
+          Math.round(Number(product.priceRetail) * (1 - effective.discountPercent / 100) * 100) /
+          100;
         personalStackable = effective.stackableWith ?? [];
       }
 
       return { ...item, personalPrice, personalStackable, categoryId };
-    })
+    }),
   );
 
   // Apply volume discounts — but only on items whose personal price allows
@@ -115,8 +117,7 @@ export async function getCartWithPersonalPrices(userId: number) {
     // 'volume', drop the volume discount silently. Same in reverse via
     // applyVolumeDiscounts return (vd.stackableWith).
     const hasPersonal = item.personalPrice !== null;
-    const personalAllowsVolume =
-      !hasPersonal || (item.personalStackable ?? []).includes('volume');
+    const personalAllowsVolume = !hasPersonal || (item.personalStackable ?? []).includes('volume');
     const volumeAllowsPersonal =
       !hasPersonal || (vd.stackableWith ?? []).includes('personal_price');
     const stacks = personalAllowsVolume && volumeAllowsPersonal;
@@ -147,14 +148,16 @@ export async function getCartWithPersonalPrices(userId: number) {
 export async function addToCart(userId: number, productId: number, quantity: number) {
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { id: true, isActive: true, quantity: true, deletedAt: true },
+    select: { id: true, isActive: true, quantity: true, deletedAt: true, allowBackorder: true },
   });
 
   if (!product || !product.isActive || product.deletedAt) {
     throw new CartError('Товар не знайдено або недоступний', 404);
   }
 
-  if (product.quantity < quantity) {
+  // Backorder products ("під замовлення") are sellable past their stock — the
+  // supplier fulfils them — so skip the on-hand check for those.
+  if (!product.allowBackorder && product.quantity < quantity) {
     throw new CartError(`Недостатньо товару. Доступно: ${product.quantity} шт.`, 400);
   }
 
@@ -164,7 +167,7 @@ export async function addToCart(userId: number, productId: number, quantity: num
 
   if (existing) {
     const newQuantity = existing.quantity + quantity;
-    if (newQuantity > product.quantity) {
+    if (!product.allowBackorder && newQuantity > product.quantity) {
       throw new CartError(`Недостатньо товару. Доступно: ${product.quantity} шт.`, 400);
     }
     return prisma.cartItem.update({
@@ -198,10 +201,10 @@ export async function updateCartItem(userId: number, productId: number, quantity
 
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { quantity: true },
+    select: { quantity: true, allowBackorder: true },
   });
 
-  if (product && quantity > product.quantity) {
+  if (product && !product.allowBackorder && quantity > product.quantity) {
     throw new CartError(`Недостатньо товару. Доступно: ${product.quantity} шт.`, 400);
   }
 
@@ -247,7 +250,7 @@ export async function clearCart(userId: number) {
  */
 export async function mergeCart(
   userId: number,
-  localItems: { productId: number; quantity: number }[]
+  localItems: { productId: number; quantity: number }[],
 ) {
   // Batch-fetch existing rows + product state in one shot, then write inside
   // a single $transaction. The previous serial findUnique/create-per-item
@@ -263,20 +266,30 @@ export async function mergeCart(
       select: { productId: true },
     }),
     prisma.product.findMany({
-      where: { id: { in: productIds }, isActive: true, deletedAt: null, quantity: { gt: 0 } },
-      select: { id: true, quantity: true },
+      // Backorder products are valid cart entries even at 0 on-hand.
+      where: {
+        id: { in: productIds },
+        isActive: true,
+        deletedAt: null,
+        OR: [{ quantity: { gt: 0 } }, { allowBackorder: true }],
+      },
+      select: { id: true, quantity: true, allowBackorder: true },
     }),
   ]);
   const existingSet = new Set(existing.map((e) => e.productId));
-  const productMap = new Map(products.map((p) => [p.id, p.quantity]));
+  const productMap = new Map(products.map((p) => [p.id, p]));
 
   const inserts = localItems
     .filter((item) => !existingSet.has(item.productId) && productMap.has(item.productId))
-    .map((item) => ({
-      userId,
-      productId: item.productId,
-      quantity: Math.min(item.quantity, productMap.get(item.productId) ?? 0),
-    }))
+    .map((item) => {
+      const p = productMap.get(item.productId)!;
+      // Don't clamp backorder items to on-hand stock — they sell past it.
+      return {
+        userId,
+        productId: item.productId,
+        quantity: p.allowBackorder ? item.quantity : Math.min(item.quantity, p.quantity),
+      };
+    })
     .filter((row) => row.quantity > 0);
 
   if (inserts.length > 0) {
@@ -302,7 +315,7 @@ export async function mergeCart(
  */
 export async function replaceCart(
   userId: number,
-  desiredItems: { productId: number; quantity: number }[]
+  desiredItems: { productId: number; quantity: number }[],
 ) {
   await prisma.$transaction(async (tx) => {
     await tx.cartItem.deleteMany({ where: { userId } });

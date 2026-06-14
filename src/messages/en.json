@@ -2075,7 +2075,7 @@
       "tsOversell": "The order went through on the marketplace, but locally the product was already out of stock. Look at the order (the Telegram message contains a link) and decide: reorder, cancel, or offer the customer an alternative.",
       "tsCredsGone": "<b>Fixed 2026-05-17:</b> token fields are now protected — to change a token you must click <i>Change</i>. An empty value does not overwrite the token.",
       "tsCronNoImport": "Check <code>/api/v1/cron/sync-marketplace-orders</code> — the endpoint returns JSON with results per marketplace. If <code>failed: -1</code> — there is a connection error.",
-      "footerNote": "<b>More documentation:</b> the technical reference is in the <code>MARKETPLACES.md</code> file at the repo root."
+      "footerNote": "<b>More documentation:</b> the technical reference is in <code>docs/12-маркетплейси.md</code>."
     },
     "orderTimeline": {
       "created": "Order created",
@@ -5871,7 +5871,7 @@
       "noCategory": "No category",
       "tagsLabel": "Tags (comma-separated)",
       "tagsPh": "tag1, tag2, tag3",
-      "coverLabel": "Cover URL",
+      "coverLabel": "Cover image",
       "coverPh": "https://...",
       "published": "Published",
       "excerptSection": "Excerpt",
@@ -6537,6 +6537,19 @@
       "invoiceSent": "Sent",
       "invoicePaid": "Paid",
       "invoiceOverdue": "Overdue"
+    },
+    "coverImagePicker": {
+      "uploadTab": "Upload photo",
+      "productTab": "Pick a product",
+      "searchPh": "Search product by name or code…",
+      "searching": "Searching…",
+      "uploading": "Uploading…",
+      "uploadHint": "JPG, PNG, WebP up to 5 MB",
+      "remove": "Remove cover",
+      "noResults": "Nothing found",
+      "noPhoto": "Product has no photo",
+      "uploadError": "File upload failed",
+      "searchError": "Search failed"
     }
   },
   "blog": {

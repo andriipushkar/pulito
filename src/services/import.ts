@@ -1,9 +1,11 @@
 import ExcelJS from 'exceljs';
 import { XMLParser } from 'fast-xml-parser';
 import { revalidatePath } from 'next/cache';
+import { Prisma } from '@/../generated/prisma';
 import { prisma } from '@/lib/prisma';
 import { createSlug } from '@/utils/slug';
 import { cacheInvalidate } from '@/services/cache';
+import { decodeFeedBuffer, parseFeedPrice, parseFeedQuantity } from '@/utils/feed-parse';
 
 export class ImportError extends Error {
   constructor(
@@ -294,16 +296,12 @@ function normalizeColumnName(name: string): string | null {
   return COLUMN_MAP[lower] ?? null;
 }
 
-function parsePrice(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null;
-  const str = String(value).replace(',', '.').replace(/\s/g, '');
-  const num = parseFloat(str);
-  // Reject zero too — a price column of 0 means the importer mis-mapped or
-  // the supplier sent garbage. Free products via import are never the
-  // intent and silently propagate to checkout.
-  if (isNaN(num) || num <= 0) return null;
-  return Math.round(num * 100) / 100;
-}
+// Locale-aware price/quantity parsing lives in the shared feed-parse util so
+// the catalog importer and the supplier sync can't drift apart. parsePrice
+// rejects zero/garbage (a 0 price means a mis-map and would silently ship a
+// free product to checkout); parseQuantity strips grouped-thousands spaces.
+const parsePrice = parseFeedPrice;
+const parseQuantity = parseFeedQuantity;
 
 /** Excel/LibreOffice/Sheets evaluate any string that starts with =, @, +, - as
  * a formula when the cell is opened. A row imported here may eventually be
@@ -332,13 +330,6 @@ function defangCsvCell(s: string): string {
 const MAX_CONTENT_FIELD_LENGTH = 50_000;
 function capFreeText(s: string): string {
   return s.length > MAX_CONTENT_FIELD_LENGTH ? s.slice(0, MAX_CONTENT_FIELD_LENGTH) : s;
-}
-
-function parseQuantity(value: unknown): number {
-  if (value === null || value === undefined || value === '') return 0;
-  const num = parseInt(String(value), 10);
-  if (isNaN(num) || num < 0) return 0;
-  return num;
 }
 
 function parsePromo(value: unknown): boolean {
@@ -423,7 +414,9 @@ function normalizeCellValue(v: unknown): unknown {
  * as XML; ExcelJS handles the rest.
  */
 function isXmlBuffer(buffer: Buffer): boolean {
-  const head = buffer.slice(0, 200).toString('utf8').trimStart();
+  // Decode charset-aware so a windows-1251 1С export (whose root tag bytes are
+  // cp1251) is still recognised as XML rather than mis-routed to ExcelJS.
+  const head = decodeFeedBuffer(buffer.subarray(0, 200)).trimStart();
   return (
     head.startsWith('<?xml') ||
     head.startsWith('<yml_catalog') ||
@@ -454,7 +447,7 @@ async function parseYmlBuffer(buffer: Buffer): Promise<{ rawRows: ExcelRow[] }> 
 
   let doc: unknown;
   try {
-    doc = parser.parse(buffer.toString('utf8'));
+    doc = parser.parse(decodeFeedBuffer(buffer));
   } catch (err) {
     throw new ImportError(
       `Невалідний XML: ${err instanceof Error ? err.message : 'parse error'}`,
@@ -1092,6 +1085,10 @@ async function runPriceOnlyImport(opts: {
           priceRetailNew: retailChanged ? newRetail! : Number(product.priceRetail),
           priceWholesaleOld: product.priceWholesale,
           priceWholesaleNew: newWholesale ?? product.priceWholesale,
+          priceWholesale2Old: product.priceWholesale2,
+          priceWholesale2New: newWholesale2 ?? product.priceWholesale2,
+          priceWholesale3Old: product.priceWholesale3,
+          priceWholesale3New: newWholesale3 ?? product.priceWholesale3,
           importId: importLogId,
         },
       });
@@ -1425,25 +1422,40 @@ export async function importProducts(
             updateData.barcode = barcode;
           }
 
-          // Track price changes. A PriceHistory row must be written when EITHER
-          // retail OR wholesale changes — rollback reverts via PriceHistory, so
-          // a wholesale-only change with no row was previously unrecoverable.
+          // Track price changes. A PriceHistory row must be written when ANY
+          // tracked price (retail / wholesale / wholesale2 / wholesale3) changes
+          // — rollback reverts via PriceHistory, so a change with no row (e.g. a
+          // wholesale2-only update) was previously unrecoverable.
           const retailChanged =
             priceRetail !== null && Number(existingProduct.priceRetail) !== priceRetail;
           const wholesaleChanged =
             priceWholesale !== null && Number(existingProduct.priceWholesale) !== priceWholesale;
+          const wholesale2Changed =
+            priceWholesale2 !== null && Number(existingProduct.priceWholesale2) !== priceWholesale2;
+          const wholesale3Changed =
+            priceWholesale3 !== null && Number(existingProduct.priceWholesale3) !== priceWholesale3;
 
           if (priceRetail !== null) {
             if (retailChanged) updateData.priceRetailOld = existingProduct.priceRetail;
             updateData.priceRetail = priceRetail;
           }
-
           if (priceWholesale !== null) {
             if (wholesaleChanged) updateData.priceWholesaleOld = existingProduct.priceWholesale;
             updateData.priceWholesale = priceWholesale;
           }
+          if (priceWholesale2 !== null) {
+            if (wholesale2Changed) updateData.priceWholesaleOld2 = existingProduct.priceWholesale2;
+            updateData.priceWholesale2 = priceWholesale2;
+          }
+          if (priceWholesale3 !== null) {
+            if (wholesale3Changed) updateData.priceWholesaleOld3 = existingProduct.priceWholesale3;
+            updateData.priceWholesale3 = priceWholesale3;
+          }
 
-          if ((retailChanged || wholesaleChanged) && !dryRun) {
+          if (
+            (retailChanged || wholesaleChanged || wholesale2Changed || wholesale3Changed) &&
+            !dryRun
+          ) {
             await prisma.priceHistory.create({
               data: {
                 productId: existingProduct.id,
@@ -1451,23 +1463,13 @@ export async function importProducts(
                 priceRetailNew: priceRetail ?? existingProduct.priceRetail,
                 priceWholesaleOld: existingProduct.priceWholesale,
                 priceWholesaleNew: priceWholesale ?? existingProduct.priceWholesale,
+                priceWholesale2Old: existingProduct.priceWholesale2,
+                priceWholesale2New: priceWholesale2 ?? existingProduct.priceWholesale2,
+                priceWholesale3Old: existingProduct.priceWholesale3,
+                priceWholesale3New: priceWholesale3 ?? existingProduct.priceWholesale3,
                 importId: importLog.id,
               },
             });
-          }
-
-          if (priceWholesale2 !== null) {
-            if (Number(existingProduct.priceWholesale2) !== priceWholesale2) {
-              updateData.priceWholesaleOld2 = existingProduct.priceWholesale2;
-            }
-            updateData.priceWholesale2 = priceWholesale2;
-          }
-
-          if (priceWholesale3 !== null) {
-            if (Number(existingProduct.priceWholesale3) !== priceWholesale3) {
-              updateData.priceWholesaleOld3 = existingProduct.priceWholesale3;
-            }
-            updateData.priceWholesale3 = priceWholesale3;
           }
 
           // Update slug if name changed
@@ -1701,62 +1703,69 @@ export async function rollbackImport(
   // 1. Soft-delete newly-created products. Skip ones a human may have edited
   // since import: if the product already has orderItems or cartItems, don't
   // touch it — operator can clean up manually.
-  let softDeletedCount = 0;
-  if (log.createdProductIds.length > 0) {
-    const safeToDelete = await prisma.product.findMany({
-      where: {
-        id: { in: log.createdProductIds },
-        deletedAt: null,
-        orderItems: { none: {} },
-        cartItems: { none: {} },
-      },
-      select: { id: true },
-    });
-    if (safeToDelete.length > 0) {
-      await prisma.product.updateMany({
-        where: { id: { in: safeToDelete.map((p) => p.id) } },
-        data: { isActive: false, deletedAt: new Date() },
-      });
-      softDeletedCount = safeToDelete.length;
-    }
-  }
+  const safeToDelete =
+    log.createdProductIds.length > 0
+      ? await prisma.product.findMany({
+          where: {
+            id: { in: log.createdProductIds },
+            deletedAt: null,
+            orderItems: { none: {} },
+            cartItems: { none: {} },
+          },
+          select: { id: true },
+        })
+      : [];
 
-  // 2. Revert prices for updated products. PriceHistory carries importId,
-  // so we reverse each change.
+  // 2. Revert prices for updated products. PriceHistory carries importId, so we
+  // reverse each change. updateMany (not update) is used so a since-deleted
+  // product yields count 0 instead of throwing — letting every revert + the
+  // soft-delete + the log stamp run inside ONE transaction (all-or-nothing).
   const priceChanges = await prisma.priceHistory.findMany({
     where: { importId: importLogId },
     orderBy: { id: 'asc' },
   });
+  const reverts = priceChanges
+    .map((change) => {
+      const data: Record<string, unknown> = {};
+      if (change.priceRetailOld != null) data.priceRetail = change.priceRetailOld;
+      if (change.priceWholesaleOld != null) data.priceWholesale = change.priceWholesaleOld;
+      if (change.priceWholesale2Old != null) data.priceWholesale2 = change.priceWholesale2Old;
+      if (change.priceWholesale3Old != null) data.priceWholesale3 = change.priceWholesale3Old;
+      return { productId: change.productId, data };
+    })
+    .filter((r) => Object.keys(r.data).length > 0);
 
-  let pricesRevertedCount = 0;
-  for (const change of priceChanges) {
-    const updateData: Record<string, unknown> = {};
-    if (change.priceRetailOld != null) updateData.priceRetail = change.priceRetailOld;
-    if (change.priceWholesaleOld != null) updateData.priceWholesale = change.priceWholesaleOld;
-    if (change.priceWholesale2Old != null) updateData.priceWholesale2 = change.priceWholesale2Old;
-    if (change.priceWholesale3Old != null) updateData.priceWholesale3 = change.priceWholesale3Old;
-
-    if (Object.keys(updateData).length > 0) {
-      try {
-        await prisma.product.update({
-          where: { id: change.productId },
-          data: updateData,
-        });
-        pricesRevertedCount++;
-      } catch {
-        // Product may have been deleted — skip silently.
-      }
-    }
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
+  if (safeToDelete.length > 0) {
+    ops.push(
+      prisma.product.updateMany({
+        where: { id: { in: safeToDelete.map((p) => p.id) } },
+        data: { isActive: false, deletedAt: new Date() },
+      }),
+    );
   }
+  for (const r of reverts) {
+    ops.push(prisma.product.updateMany({ where: { id: r.productId }, data: r.data }));
+  }
+  ops.push(
+    prisma.importLog.update({
+      where: { id: importLogId },
+      data: { rollbackedAt: new Date(), rollbackedBy },
+    }),
+  );
 
-  await prisma.importLog.update({
-    where: { id: importLogId },
-    data: { rollbackedAt: new Date(), rollbackedBy },
-  });
+  const results = await prisma.$transaction(ops);
+  // Revert results sit between the optional soft-delete op and the final log op.
+  const revertStart = safeToDelete.length > 0 ? 1 : 0;
+  const pricesRevertedCount = (
+    results.slice(revertStart, revertStart + reverts.length) as {
+      count: number;
+    }[]
+  ).reduce((sum, r) => sum + (r?.count ?? 0), 0);
 
   await cacheInvalidate('products:*');
   revalidatePath('/catalog', 'layout');
   revalidatePath('/', 'layout');
 
-  return { softDeletedCount, pricesRevertedCount };
+  return { softDeletedCount: safeToDelete.length, pricesRevertedCount };
 }

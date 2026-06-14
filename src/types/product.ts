@@ -35,6 +35,8 @@ export interface ProductListItem {
   priceWholesaleOld: Price | null;
   quantity: number;
   hideQuantity?: boolean;
+  // True for supplier "під замовлення" products — sellable at quantity 0.
+  allowBackorder?: boolean;
   isPromo: boolean;
   isActive: boolean;
   imagePath: string | null;
@@ -49,7 +51,7 @@ export interface ProductListItem {
     ProductImage,
     'id' | 'pathFull' | 'pathMedium' | 'pathThumbnail' | 'pathBlur' | 'isMain'
   >[];
-  content: { shortDescription: string | null } | null;
+  content: { shortDescription: string | null; specifications?: string | null } | null;
   // Optional aggregate rating (only present when the service includes it)
   avgRating?: number | null;
   reviewCount?: number;

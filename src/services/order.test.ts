@@ -81,6 +81,11 @@ vi.mock('@/lib/redis', () => ({
   },
 }));
 
+const mockDetectBundleDiscounts = vi.fn();
+vi.mock('@/services/bundle', () => ({
+  detectBundleDiscounts: (...args: unknown[]) => mockDetectBundleDiscounts(...args),
+}));
+
 vi.mock('@/services/loyalty', () => ({
   earnPoints: vi.fn().mockResolvedValue(undefined),
   adjustPoints: vi.fn().mockResolvedValue(undefined),
@@ -118,6 +123,8 @@ const mockPrisma = prisma as unknown as MockPrismaClient;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: no bundle sets detected — individual tests override per-case.
+  mockDetectBundleDiscounts.mockResolvedValue({ totalDiscount: 0, applied: [] });
 });
 
 // ---------------------------------------------------------------------------
@@ -257,6 +264,54 @@ describe('createOrder', () => {
     expect(mockPrisma.order.create).toHaveBeenCalledTimes(1);
     // Cart cleared for authenticated user
     expect(mockPrisma.cartItem.deleteMany).toHaveBeenCalledWith({ where: { userId: 1 } });
+  });
+
+  it('should apply detected bundle discount to total and trace it in managerComment', async () => {
+    const checkout = makeCheckout({ deliveryMethod: 'pickup' });
+    const cartItems = makeCartItems(); // 100×2 + 50×3 = 350
+
+    mockDetectBundleDiscounts.mockResolvedValue({
+      totalDiscount: 50,
+      applied: [{ bundleId: 7, name: 'Набір для кухні', sets: 1, discount: 50 }],
+    });
+
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.product.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.create.mockResolvedValue(makeOrderDetail() as never);
+    mockPrisma.cartItem.deleteMany.mockResolvedValue({ count: 2 } as never);
+
+    await createOrder(1, checkout, cartItems, 'retail');
+
+    expect(mockDetectBundleDiscounts).toHaveBeenCalledWith([
+      { productId: 1, price: 100, quantity: 2 },
+      { productId: 2, price: 50, quantity: 3 },
+    ]);
+    expect(mockPrisma.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          totalAmount: 300, // 350 goods − 50 bundle, pickup delivery = 0
+          managerComment: expect.stringContaining('Набір для кухні'),
+        }),
+      }),
+    );
+  });
+
+  it('should not set managerComment when no bundle sets are detected', async () => {
+    const checkout = makeCheckout({ deliveryMethod: 'pickup' });
+    const cartItems = makeCartItems();
+
+    mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma as never));
+    mockPrisma.product.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockPrisma.order.create.mockResolvedValue(makeOrderDetail() as never);
+    mockPrisma.cartItem.deleteMany.mockResolvedValue({ count: 2 } as never);
+
+    await createOrder(1, checkout, cartItems, 'retail');
+
+    const createArgs = mockPrisma.order.create.mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+    expect(createArgs.data.totalAmount).toBe(350);
+    expect('managerComment' in createArgs.data).toBe(false);
   });
 
   it('should throw 400 when cart is empty', async () => {

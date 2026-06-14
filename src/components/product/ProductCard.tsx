@@ -84,7 +84,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isTogglingWish, setIsTogglingWish] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const inStock = product.quantity > 0;
+  const backorder = !!product.allowBackorder;
+  const inStock = product.quantity > 0 || backorder;
+  const backorderOnly = backorder && product.quantity <= 0;
   const mainImage = product.images[0]?.pathMedium || product.imagePath;
   // Якщо ховаємо кількість — не показуємо "Закінчується" badge, бо він
   // непрямо розкриває залишок ≤3.
@@ -283,12 +285,14 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
 
-        {(product.badges.length > 0 || isNew || (inStock && product.quantity <= 3 && !hideQty)) && (
+        {(product.badges.length > 0 ||
+          isNew ||
+          (inStock && product.quantity > 0 && product.quantity <= 3 && !hideQty)) && (
           <div className="absolute left-1 top-1 flex flex-col gap-0.5 sm:left-2 sm:top-2 sm:gap-1">
             {isNew && !product.badges.some((b) => /new|новин/i.test(b.badgeType)) && (
               <Badge color="#1976D2">Новинка</Badge>
             )}
-            {inStock && product.quantity <= 3 && !hideQty && (
+            {inStock && product.quantity > 0 && product.quantity <= 3 && !hideQty && (
               <Badge color="#F4511E">Закінчується</Badge>
             )}
             {product.badges.slice(0, 2).map((badge) => (
@@ -432,7 +436,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             <span
               className={`min-w-0 truncate text-[10px] font-medium sm:text-xs ${inStock ? 'text-[var(--color-in-stock)]' : 'text-[var(--color-out-of-stock)]'}`}
             >
-              {inStock ? 'В наявності' : 'Немає'}
+              {backorderOnly ? 'Під замовлення' : inStock ? 'В наявності' : 'Немає'}
             </span>
             <button
               onClick={handleAddToCart}

@@ -19,6 +19,7 @@ const { mockClient, MockClientClass, mockTxOrder, mockTxProduct } = vi.hoisted((
   };
   const mockTxProduct = {
     findUnique: vi.fn(),
+    findMany: vi.fn(),
     updateMany: vi.fn(),
     update: vi.fn(),
   };
@@ -76,6 +77,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockTxOrder.findFirst.mockResolvedValue(null);
   mockTxOrder.create.mockResolvedValue({ id: 1 });
+  mockTxProduct.findMany.mockResolvedValue([]); // supplier-snapshot lookup, default none
 });
 
 describe('syncProductsToMarketplace', () => {

@@ -282,6 +282,17 @@ export async function handlePaymentCallback(
     }
   });
 
+  // Prepaid orders: now that payment is confirmed, tell dropship suppliers to
+  // ship. Idempotent on Order.dropshipNotifiedAt — a COD order already notified
+  // at creation is skipped. Non-blocking.
+  if (effectiveStatus === 'success') {
+    import('@/services/suppliers/dropship-notify')
+      .then((mod) => mod.notifyDropshipForOrder(orderId))
+      .catch((err) =>
+        logger.error('Dropship notify on payment failed', { orderId, error: String(err) }),
+      );
+  }
+
   // Server-side conversion tracking on confirmed payment (non-blocking, outside transaction).
   if (effectiveStatus === 'success') {
     if (order) {

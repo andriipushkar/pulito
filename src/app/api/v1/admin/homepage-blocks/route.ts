@@ -5,6 +5,9 @@ import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/utils/api-response';
 import { logger } from '@/lib/logger';
 import { logAudit } from '@/services/audit';
+// Single source of truth — shared with the storefront so the admin always
+// exposes exactly the blocks the homepage can render (incl. local_lviv, brands).
+import { DEFAULT_BLOCKS } from '@/services/homepage';
 
 export interface HomepageBlock {
   key: string;
@@ -25,16 +28,6 @@ interface HomepageBlocksDoc {
   version: number;
   blocks: HomepageBlock[];
 }
-
-const DEFAULT_BLOCKS: HomepageBlock[] = [
-  { key: 'banner_slider', label: 'Банер-слайдер', enabled: true, visibility: 'all' },
-  { key: 'categories', label: 'Каталог категорій', enabled: true, visibility: 'all' },
-  { key: 'promo_products', label: 'Акційні товари', enabled: true, visibility: 'all' },
-  { key: 'new_products', label: 'Новинки', enabled: true, visibility: 'all' },
-  { key: 'popular_products', label: 'Хіти продажів', enabled: true, visibility: 'all' },
-  { key: 'recently_viewed', label: 'Нещодавно переглянуті', enabled: true, visibility: 'all' },
-  { key: 'seo_text', label: 'SEO-текстовий блок', enabled: true, visibility: 'all' },
-];
 
 const SETTING_KEY = 'homepage_blocks';
 

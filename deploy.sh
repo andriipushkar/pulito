@@ -107,7 +107,7 @@ if [ "${SKIP_SMOKE:-0}" != "1" ]; then
   SMOKE_FAILED=0
   if node scripts/e2e-temp-admin.cjs create > "$SMOKE_CREDS" 2>/dev/null; then
     set -a; . "$SMOKE_CREDS"; set +a
-    if PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npx playwright test e2e/admin-smoke.spec.ts         --project=chromium --reporter=line > /tmp/pulito-smoke.log 2>&1; then
+    if PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npx playwright test tests/e2e/admin-smoke.spec.ts         --project=chromium --reporter=line > /tmp/pulito-smoke.log 2>&1; then
       echo "[deploy] SMOKE OK — every admin page renders without client errors."
     else
       SMOKE_FAILED=1

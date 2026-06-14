@@ -65,7 +65,7 @@ model PublicationChannel {
   engagement    Float? // Engagement rate (likes+comments+shares / views)
   publishedAt   DateTime?   @map("published_at")
   createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @default(now()) @map("updated_at")
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at")
 
   @@unique([publicationId, channel])
   @@index([publicationId])
@@ -94,22 +94,22 @@ model PublicationImage {
 // Publication Templates (reusable blueprints for posts)
 // ─────────────────────────────────────
 model PublicationTemplate {
-  id              Int      @id @default(autoincrement())
-  name            String   @unique
-  description     String?
+  id               Int      @id @default(autoincrement())
+  name             String   @unique
+  description      String?
   // Allowed channels list, e.g. ["telegram","instagram"]
-  channels        Json
-  titleTemplate   String?  @map("title_template")
-  contentTemplate String   @map("content_template")
-  hashtagsTemplate String? @map("hashtags_template")
+  channels         Json
+  titleTemplate    String?  @map("title_template")
+  contentTemplate  String   @map("content_template")
+  hashtagsTemplate String?  @map("hashtags_template")
   // Channel-specific overrides: { telegram: {title,content,hashtags}, ... }
-  channelContents Json?    @map("channel_contents")
-  buttons         Json?
-  firstComment    String?  @map("first_comment")
-  isActive        Boolean  @default(true) @map("is_active")
-  createdBy       Int?     @map("created_by")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  channelContents  Json?    @map("channel_contents")
+  buttons          Json?
+  firstComment     String?  @map("first_comment")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdBy        Int?     @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@index([isActive])
   @@map("publication_templates")
@@ -140,21 +140,21 @@ model MarketplaceConnection {
 // Marketplace Messages (Повідомлення покупців з маркетплейсів)
 // ─────────────────────────────────────
 model MarketplaceMessage {
-  id                 Int       @id @default(autoincrement())
-  platform           String // olx, rozetka, prom, epicentrk
-  externalThreadId   String    @map("external_thread_id")
-  externalListingId  String?   @map("external_listing_id")
-  listingTitle       String?   @map("listing_title")
-  buyerName          String    @map("buyer_name")
-  text               String    @db.Text
-  isFromBuyer        Boolean   @default(true) @map("is_from_buyer")
-  isRead             Boolean   @default(false) @map("is_read")
-  receivedAt         DateTime  @map("received_at")
-  firstRespondedAt   DateTime? @map("first_responded_at")
-  assignedTo         Int?      @map("assigned_to")
-  assignee           User?     @relation("MarketplaceMessageAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id                Int       @id @default(autoincrement())
+  platform          String // olx, rozetka, prom, epicentrk
+  externalThreadId  String    @map("external_thread_id")
+  externalListingId String?   @map("external_listing_id")
+  listingTitle      String?   @map("listing_title")
+  buyerName         String    @map("buyer_name")
+  text              String    @db.Text
+  isFromBuyer       Boolean   @default(true) @map("is_from_buyer")
+  isRead            Boolean   @default(false) @map("is_read")
+  receivedAt        DateTime  @map("received_at")
+  firstRespondedAt  DateTime? @map("first_responded_at")
+  assignedTo        Int?      @map("assigned_to")
+  assignee          User?     @relation("MarketplaceMessageAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   @@unique([platform, externalThreadId])
   @@index([platform, isRead])

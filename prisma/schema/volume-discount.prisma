@@ -17,7 +17,7 @@ model VolumeDiscount {
   // Decimal(5,2) so percent values stay exact (12.5% → 12.50, not
   // 12.49999… in Float-land). Matches billing.prisma and orders — every
   // money-touching number stays in Decimal.
-  discountPercent Decimal      @default(0) @db.Decimal(5, 2) @map("discount_percent")
+  discountPercent Decimal      @default(0) @map("discount_percent") @db.Decimal(5, 2)
   discountType    DiscountType @default(percentage) @map("discount_type")
   isActive        Boolean      @default(true) @map("is_active")
   priority        Int          @default(0)

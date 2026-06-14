@@ -1,6 +1,15 @@
 import { prisma } from '@/lib/prisma';
 import { createSlug } from '@/utils/slug';
 import { addToCart } from '@/services/cart';
+import {
+  addMoney,
+  subtractMoney,
+  lineTotal,
+  percentOf,
+  minMoney,
+  maxMoney,
+  round2,
+} from '@/utils/money';
 
 export class BundleError extends Error {
   constructor(
@@ -22,6 +31,9 @@ const bundleItemsInclude = {
           slug: true,
           code: true,
           priceRetail: true,
+          priceWholesale: true,
+          priceWholesale2: true,
+          priceWholesale3: true,
           imagePath: true,
           isActive: true,
           quantity: true,
@@ -284,4 +296,133 @@ export async function addBundleToCart(userId: number, bundleId: number) {
   }
 
   return results;
+}
+
+export interface BundleDiscountCartItem {
+  productId: number;
+  /** Ціна, яку клієнт реально платить за одиницю (tier/personal/promo вже враховано). */
+  price: number;
+  quantity: number;
+}
+
+export interface AppliedBundleDiscount {
+  bundleId: number;
+  name: string;
+  /** Скільки повних комплектів знайдено в кошику. */
+  sets: number;
+  /** Сумарна знижка за всі комплекти цього бандла. */
+  discount: number;
+}
+
+/**
+ * Авто-детект комплектів у кошику: якщо кошик містить усі позиції активного
+ * бандла в потрібних кількостях — клієнт отримує бандл-знижку, навіть якщо
+ * зібрав набір вручну з каталогу. Це і робить вітринну ціну набору правдою:
+ * createOrder викликає цю функцію і зменшує суму товарів на totalDiscount.
+ *
+ * Знижка за один комплект = (що клієнт платить за ці позиції зараз) −
+ * (фінальна ціна бандла за best-deal-wins з calculateBundlePrice), клампнута
+ * в ≥0 — тож оптовик із цінами нижче бандлових просто не отримує нічого
+ * зверху, без подвійних знижок.
+ *
+ * Бандли, що перетинаються товарами, не стакаються по тих самих одиницях:
+ * жадібно застосовуємо найвигідніший, споживаючи кількості з кошика.
+ */
+export async function detectBundleDiscounts(
+  cartItems: BundleDiscountCartItem[],
+): Promise<{ totalDiscount: number; applied: AppliedBundleDiscount[] }> {
+  if (cartItems.length === 0) return { totalDiscount: 0, applied: [] };
+
+  const bundles = await prisma.bundle.findMany({
+    where: { isActive: true },
+    include: {
+      items: {
+        include: {
+          product: { select: { priceRetail: true, priceRetailOld: true, isPromo: true } },
+        },
+      },
+    },
+  });
+  if (bundles.length === 0) return { totalDiscount: 0, applied: [] };
+
+  // Залишки кошика: id → {qty, price}; дублікати productId зливаємо.
+  const remaining = new Map<number, { quantity: number; price: number }>();
+  for (const item of cartItems) {
+    const prev = remaining.get(item.productId);
+    if (prev) prev.quantity += item.quantity;
+    else remaining.set(item.productId, { quantity: item.quantity, price: item.price });
+  }
+
+  const candidates = bundles
+    .map((bundle) => {
+      if (bundle.items.length === 0) return null;
+
+      // Та сама цінова логіка, що в calculateBundlePrice (originalPrice →
+      // fixedPrice/discountPercent → best-deal-wins проти суми поточних промо).
+      let originalPrice = 0;
+      let effectivePromoPrice = 0;
+      for (const item of bundle.items) {
+        const base =
+          item.product.isPromo && item.product.priceRetailOld
+            ? Number(item.product.priceRetailOld)
+            : Number(item.product.priceRetail);
+        originalPrice = addMoney(originalPrice, lineTotal(base, item.quantity));
+        effectivePromoPrice = addMoney(
+          effectivePromoPrice,
+          lineTotal(Number(item.product.priceRetail), item.quantity),
+        );
+      }
+      const nominal = bundle.fixedPrice
+        ? Number(bundle.fixedPrice)
+        : subtractMoney(originalPrice, percentOf(originalPrice, Number(bundle.discountPercent)));
+      const bundleFinalPrice = minMoney(nominal, effectivePromoPrice);
+
+      return { bundle, bundleFinalPrice };
+    })
+    .filter((c): c is NonNullable<typeof c> => c !== null);
+
+  const applied: AppliedBundleDiscount[] = [];
+  let totalDiscount = 0;
+
+  // Жадібний порядок: спершу рахуємо потенційну знижку за один комплект із
+  // ПОВНОГО кошика, сортуємо за нею і застосовуємо, споживаючи залишки.
+  const discountPerSetOf = (c: (typeof candidates)[number]): number => {
+    let cartCost = 0;
+    for (const item of c.bundle.items) {
+      const inCart = remaining.get(item.productId);
+      if (!inCart || inCart.quantity < item.quantity) return 0;
+      cartCost = addMoney(cartCost, lineTotal(inCart.price, item.quantity));
+    }
+    return maxMoney(0, subtractMoney(cartCost, c.bundleFinalPrice));
+  };
+
+  candidates.sort((a, b) => discountPerSetOf(b) - discountPerSetOf(a));
+
+  for (const candidate of candidates) {
+    const perSet = discountPerSetOf(candidate);
+    if (perSet <= 0) continue;
+
+    let sets = Infinity;
+    for (const item of candidate.bundle.items) {
+      const inCart = remaining.get(item.productId);
+      sets = Math.min(sets, inCart ? Math.floor(inCart.quantity / item.quantity) : 0);
+    }
+    if (sets <= 0 || !Number.isFinite(sets)) continue;
+
+    for (const item of candidate.bundle.items) {
+      const inCart = remaining.get(item.productId)!;
+      inCart.quantity -= item.quantity * sets;
+    }
+
+    const discount = round2(perSet * sets);
+    applied.push({
+      bundleId: candidate.bundle.id,
+      name: candidate.bundle.name,
+      sets,
+      discount,
+    });
+    totalDiscount = addMoney(totalDiscount, discount);
+  }
+
+  return { totalDiscount, applied };
 }

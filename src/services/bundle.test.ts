@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockBundleFindUnique = vi.fn();
 const mockBundleCreate = vi.fn();
+const mockBundleFindMany = vi.fn();
 const mockProductFindMany = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
@@ -9,6 +10,7 @@ vi.mock('@/lib/prisma', () => ({
     bundle: {
       findUnique: (...args: unknown[]) => mockBundleFindUnique(...args),
       create: (...args: unknown[]) => mockBundleCreate(...args),
+      findMany: (...args: unknown[]) => mockBundleFindMany(...args),
     },
     product: {
       findMany: (...args: unknown[]) => mockProductFindMany(...args),
@@ -24,7 +26,12 @@ vi.mock('@/services/cart', () => ({
   addToCart: vi.fn(),
 }));
 
-import { createBundle, calculateBundlePrice, getBundleBySlug } from './bundle';
+import {
+  createBundle,
+  calculateBundlePrice,
+  getBundleBySlug,
+  detectBundleDiscounts,
+} from './bundle';
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -44,7 +51,7 @@ describe('createBundle', () => {
           { productId: 2, quantity: 1 },
         ],
       },
-      1
+      1,
     );
 
     expect(result).toEqual(created);
@@ -55,7 +62,7 @@ describe('createBundle', () => {
           slug: 'starter-kit',
           createdBy: 1,
         }),
-      })
+      }),
     );
   });
 
@@ -63,7 +70,10 @@ describe('createBundle', () => {
     mockBundleFindUnique.mockResolvedValue({ id: 99 });
 
     await expect(
-      createBundle({ name: 'Kit', bundleType: 'curated', items: [{ productId: 1, quantity: 1 }] }, 1)
+      createBundle(
+        { name: 'Kit', bundleType: 'curated', items: [{ productId: 1, quantity: 1 }] },
+        1,
+      ),
     ).rejects.toThrow();
   });
 
@@ -73,9 +83,16 @@ describe('createBundle', () => {
 
     await expect(
       createBundle(
-        { name: 'Kit', bundleType: 'curated', items: [{ productId: 1, quantity: 1 }, { productId: 2, quantity: 1 }] },
-        1
-      )
+        {
+          name: 'Kit',
+          bundleType: 'curated',
+          items: [
+            { productId: 1, quantity: 1 },
+            { productId: 2, quantity: 1 },
+          ],
+        },
+        1,
+      ),
     ).rejects.toThrow();
   });
 });
@@ -139,7 +156,7 @@ describe('getBundleBySlug', () => {
     expect(mockBundleFindUnique).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { slug: 'starter', isActive: true },
-      })
+      }),
     );
   });
 
@@ -149,5 +166,116 @@ describe('getBundleBySlug', () => {
     const result = await getBundleBySlug('nope');
 
     expect(result).toBeNull();
+  });
+});
+
+describe('detectBundleDiscounts', () => {
+  // Бандл: 1×A (роздріб 100) + 2×B (роздріб 50), знижка 10% → original 200,
+  // фінальна ціна комплекту 180.
+  const makeBundle = (overrides?: Record<string, unknown>) => ({
+    id: 7,
+    name: 'Набір для кухні',
+    isActive: true,
+    discountPercent: 10,
+    fixedPrice: null,
+    items: [
+      {
+        productId: 1,
+        quantity: 1,
+        product: { priceRetail: 100, priceRetailOld: null, isPromo: false },
+      },
+      {
+        productId: 2,
+        quantity: 2,
+        product: { priceRetail: 50, priceRetailOld: null, isPromo: false },
+      },
+    ],
+    ...overrides,
+  });
+
+  it('returns zero for an empty cart without touching the DB', async () => {
+    const result = await detectBundleDiscounts([]);
+
+    expect(result).toEqual({ totalDiscount: 0, applied: [] });
+    expect(mockBundleFindMany).not.toHaveBeenCalled();
+  });
+
+  it('applies the discount when the cart contains a complete set', async () => {
+    mockBundleFindMany.mockResolvedValue([makeBundle()]);
+
+    const result = await detectBundleDiscounts([
+      { productId: 1, price: 100, quantity: 1 },
+      { productId: 2, price: 50, quantity: 2 },
+    ]);
+
+    // cart cost 200 − bundle price 180 = 20
+    expect(result.totalDiscount).toBe(20);
+    expect(result.applied).toEqual([
+      { bundleId: 7, name: 'Набір для кухні', sets: 1, discount: 20 },
+    ]);
+  });
+
+  it('gives no discount for an incomplete set', async () => {
+    mockBundleFindMany.mockResolvedValue([makeBundle()]);
+
+    const result = await detectBundleDiscounts([
+      { productId: 1, price: 100, quantity: 1 },
+      { productId: 2, price: 50, quantity: 1 }, // потрібно 2
+    ]);
+
+    expect(result).toEqual({ totalDiscount: 0, applied: [] });
+  });
+
+  it('multiplies the discount for multiple complete sets', async () => {
+    mockBundleFindMany.mockResolvedValue([makeBundle()]);
+
+    const result = await detectBundleDiscounts([
+      { productId: 1, price: 100, quantity: 2 },
+      { productId: 2, price: 50, quantity: 4 },
+    ]);
+
+    expect(result.totalDiscount).toBe(40);
+    expect(result.applied[0]).toMatchObject({ sets: 2, discount: 40 });
+  });
+
+  it('clamps to zero when cart prices are already below the bundle price (wholesale)', async () => {
+    mockBundleFindMany.mockResolvedValue([makeBundle()]);
+
+    const result = await detectBundleDiscounts([
+      { productId: 1, price: 80, quantity: 1 },
+      { productId: 2, price: 40, quantity: 2 },
+    ]);
+
+    // оптова вартість 160 < ціна комплекту 180 → без знижки, без подвійних знижок
+    expect(result).toEqual({ totalDiscount: 0, applied: [] });
+  });
+
+  it('uses fixedPrice when set', async () => {
+    mockBundleFindMany.mockResolvedValue([makeBundle({ fixedPrice: 150 })]);
+
+    const result = await detectBundleDiscounts([
+      { productId: 1, price: 100, quantity: 1 },
+      { productId: 2, price: 50, quantity: 2 },
+    ]);
+
+    expect(result.totalDiscount).toBe(50);
+  });
+
+  it('does not reuse the same cart units across overlapping bundles', async () => {
+    const overlapping = makeBundle({
+      id: 8,
+      name: 'Дубль-набір',
+      discountPercent: 5, // менш вигідний — програє жадібному вибору
+    });
+    mockBundleFindMany.mockResolvedValue([overlapping, makeBundle()]);
+
+    const result = await detectBundleDiscounts([
+      { productId: 1, price: 100, quantity: 1 },
+      { productId: 2, price: 50, quantity: 2 },
+    ]);
+
+    // Одиниць вистачає лише на один комплект — застосовується вигідніший (10%).
+    expect(result.applied).toHaveLength(1);
+    expect(result.applied[0]).toMatchObject({ bundleId: 7, discount: 20 });
   });
 });

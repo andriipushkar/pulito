@@ -13,7 +13,7 @@ interface BlogPost {
   id: number;
   title: string;
   slug: string;
-  category: string;
+  category: string | null;
   status: 'published' | 'draft';
   views: number;
   createdAt: string;

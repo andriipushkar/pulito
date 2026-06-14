@@ -22,32 +22,32 @@ enum SubscriptionCancelReason {
 }
 
 model Subscription {
-  id              Int                   @id @default(autoincrement())
-  userId          Int                   @map("user_id")
-  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  frequency       SubscriptionFrequency
-  status          SubscriptionStatus    @default(active)
-  nextDeliveryAt  DateTime              @map("next_delivery_at")
-  discountPercent Decimal               @default(5) @map("discount_percent") @db.Decimal(5, 2)
-  lastOrderId     Int?                  @map("last_order_id")
-  pausedAt        DateTime?             @map("paused_at")
-  pausedReason    String?               @map("paused_reason")
-  cancelledAt     DateTime?             @map("cancelled_at")
-  cancelReason    SubscriptionCancelReason? @map("cancel_reason")
+  id                  Int                       @id @default(autoincrement())
+  userId              Int                       @map("user_id")
+  user                User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frequency           SubscriptionFrequency
+  status              SubscriptionStatus        @default(active)
+  nextDeliveryAt      DateTime                  @map("next_delivery_at")
+  discountPercent     Decimal                   @default(5) @map("discount_percent") @db.Decimal(5, 2)
+  lastOrderId         Int?                      @map("last_order_id")
+  pausedAt            DateTime?                 @map("paused_at")
+  pausedReason        String?                   @map("paused_reason")
+  cancelledAt         DateTime?                 @map("cancelled_at")
+  cancelReason        SubscriptionCancelReason? @map("cancel_reason")
   // Failed-payment retry state. Cron retries up to 2 times before auto-pausing
   // with reason='payment_failed'. Reset on successful payment.
-  paymentRetryCount   Int       @default(0) @map("payment_retry_count")
-  lastFailedPaymentAt DateTime? @map("last_failed_payment_at")
+  paymentRetryCount   Int                       @default(0) @map("payment_retry_count")
+  lastFailedPaymentAt DateTime?                 @map("last_failed_payment_at")
   // When set, the reminder cron should send a pre-delivery email/SMS
   // (defaults to nextDeliveryAt - 24h on subscription update).
-  remindAt        DateTime?             @map("remind_at")
-  reminderSentAt  DateTime?             @map("reminder_sent_at")
-  deliveryMethod  String?               @map("delivery_method")
-  deliveryCity    String?               @map("delivery_city")
-  deliveryAddress String?               @map("delivery_address")
-  paymentMethod   String?               @map("payment_method")
-  createdAt       DateTime              @default(now()) @map("created_at")
-  updatedAt       DateTime              @updatedAt @map("updated_at")
+  remindAt            DateTime?                 @map("remind_at")
+  reminderSentAt      DateTime?                 @map("reminder_sent_at")
+  deliveryMethod      String?                   @map("delivery_method")
+  deliveryCity        String?                   @map("delivery_city")
+  deliveryAddress     String?                   @map("delivery_address")
+  paymentMethod       String?                   @map("payment_method")
+  createdAt           DateTime                  @default(now()) @map("created_at")
+  updatedAt           DateTime                  @updatedAt @map("updated_at")
 
   items SubscriptionItem[]
 

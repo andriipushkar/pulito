@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
@@ -260,6 +261,12 @@ export default function AdminAnalyticsPage() {
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold">{t('title')}</h2>
         <div className="flex items-center gap-3">
+          <Link
+            href="/admin/analytics/profit"
+            className="inline-flex h-8 items-center rounded-[var(--radius)] border border-[var(--color-border)] px-3 text-sm font-medium"
+          >
+            💰 Прибуток
+          </Link>
           {canExportCsv && (
             <Button size="sm" variant="outline" onClick={exportCsv}>
               {t('csv')}
